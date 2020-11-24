@@ -17,7 +17,6 @@
 
 package org.apache.ignite.testmodule;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class FakeTest {
@@ -28,10 +27,10 @@ public class FakeTest {
         System.out.println("Success!");
     }
 
-    @Test
-    public void failure() throws InterruptedException {
-        Thread.sleep(10_000);
-
-        Assertions.fail("Failure!");
-    }
+//    @Test
+//    public void failure() throws InterruptedException {
+//        Thread.sleep(10_000);
+//
+//        Assertions.fail("Failure!");
+//    }
 }
