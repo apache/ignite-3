@@ -1,6 +1,8 @@
-package org.apache.ignite.commons.schema;
+package org.apache.ignite.internal.schema;
 
-public class IndexColumnConfigurationBuilder {
+import org.apache.ignite.schema.SchemaIndexColumnBuilder;
+
+public class IndexColumnConfigurationBuilder implements SchemaIndexColumnBuilder {
     private final IndexConfigurationBuilder indexBuilder;
 
     private String name;
@@ -10,20 +12,19 @@ public class IndexColumnConfigurationBuilder {
         this.indexBuilder = indexBuilder;
     }
 
-
-    public IndexColumnConfigurationBuilder desc() {
+    @Override public IndexColumnConfigurationBuilder desc() {
         desc = true;
 
         return this;
     }
 
-    public IndexColumnConfigurationBuilder asc() {
+    @Override public IndexColumnConfigurationBuilder asc() {
         desc = false;
 
         return this;
     }
 
-    IndexColumnConfigurationBuilder withName(String name) {
+    @Override public IndexColumnConfigurationBuilder withName(String name) {
         this.name = name;
 
         return this;
@@ -33,7 +34,7 @@ public class IndexColumnConfigurationBuilder {
         return name;
     }
 
-    public IndexConfigurationBuilder done() {
+    @Override public IndexConfigurationBuilder done() {
         indexBuilder.addIndexColumn(this);
 
         return indexBuilder;

@@ -1,28 +1,30 @@
-package org.apache.ignite.commons.schema;
+package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.ignite.schema.SchemaIndexBuilder;
 
-public class IndexConfigurationBuilder {
+public class IndexConfigurationBuilder implements SchemaIndexBuilder {
     private final SchemaConfigurationBuilder schemaBuilder;
 
     private final Map<String, IndexColumnConfigurationBuilder> cols = new HashMap<>();
 
     protected String name;
+
     private int inlineSize;
 
     public IndexConfigurationBuilder(SchemaConfigurationBuilder schemaBuilder) {
         this.schemaBuilder = schemaBuilder;
     }
 
-    public IndexConfigurationBuilder withName(String name) {
+    @Override public IndexConfigurationBuilder withName(String name) {
         this.name = name;
 
         return this;
     }
 
-    public IndexConfigurationBuilder inlineSize(int inlineSize) {
+    @Override public IndexConfigurationBuilder inlineSize(int inlineSize) {
         this.inlineSize = inlineSize;
 
         return this;
@@ -32,7 +34,7 @@ public class IndexConfigurationBuilder {
         return name;
     }
 
-    public IndexColumnConfigurationBuilder addIndexColumn(String name) {
+    @Override public IndexColumnConfigurationBuilder addIndexColumn(String name) {
         return new IndexColumnConfigurationBuilder(this).withName(name);
     }
 
@@ -45,7 +47,7 @@ public class IndexConfigurationBuilder {
         return cols.values();
     }
 
-    public SchemaConfigurationBuilder done() {
+    @Override public SchemaConfigurationBuilder done() {
         schemaBuilder.addIndex(this);
 
         return schemaBuilder;
