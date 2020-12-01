@@ -190,22 +190,11 @@
                         <phase>package</phase>
                         <configuration>
                             <target>
-                                <echo file="${project.build.directory}/ignite.sh">
-                                    #!/bin/sh
-                                    MYSELF=`which "$0" 2>/dev/null`
-                                    [ $? -gt 0 -a -f "$0" ] &amp;&amp; MYSELF="./$0"
-                                    java=java
-                                    if test -n "$JAVA_HOME"; then
-                                    java="$JAVA_HOME/bin/java"
-                                    fi
-                                    exec "$java" $java_args -jar $MYSELF "$@"
-                                    exit 1
-                                </echo>
-                                <concat destfile="${project.build.directory}/ignite" binary="true">
+                                <concat destfile="${project.build.directory}/ignitectl" binary="true">
                                     <filelist dir="${project.build.directory}/"
-                                              files="ignite.sh,ignitectl.jar"/>
+                                        files="../ignitectl.sh,ignitectl.jar"/>
                                 </concat>
-                                <chmod file="${project.build.directory}/ignite" perm="+x"/>
+                                <chmod file="${project.build.directory}/ignitectl" perm="+x"/>
                             </target>
                         </configuration>
                         <goals>
