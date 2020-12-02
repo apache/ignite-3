@@ -42,5 +42,6 @@
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/config-sample</module>
+        <module>modules/simplistic-ignite</module>
     </modules>
 </project>
