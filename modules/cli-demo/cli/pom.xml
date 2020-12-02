@@ -190,11 +190,11 @@
                         <phase>package</phase>
                         <configuration>
                             <target>
-                                <concat destfile="${project.build.directory}/ignitectl" binary="true">
+                                <concat destfile="${project.build.directory}/ignite" binary="true">
                                     <filelist dir="${project.build.directory}/"
                                         files="../ignitectl.sh,ignitectl.jar"/>
                                 </concat>
-                                <chmod file="${project.build.directory}/ignitectl" perm="+x"/>
+                                <chmod file="${project.build.directory}/ignite" perm="+x"/>
                             </target>
                         </configuration>
                         <goals>
