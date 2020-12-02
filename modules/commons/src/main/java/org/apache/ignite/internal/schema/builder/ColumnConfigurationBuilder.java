@@ -1,7 +1,7 @@
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.builder;
 
 import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.schema.SchemaColumnBuilder;
+import org.apache.ignite.schema.builder.SchemaColumnBuilder;
 
 public abstract class ColumnConfigurationBuilder<T extends SchemaColumnBuilder<T>> implements SchemaColumnBuilder<T> {
     private String colName;

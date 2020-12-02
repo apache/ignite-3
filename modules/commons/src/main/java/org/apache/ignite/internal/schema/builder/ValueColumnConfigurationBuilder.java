@@ -1,6 +1,6 @@
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.schema.SchemaValueColumnBuilder;
+import org.apache.ignite.schema.builder.SchemaValueColumnBuilder;
 
 public class ValueColumnConfigurationBuilder extends ColumnConfigurationBuilder<SchemaValueColumnBuilder> implements SchemaValueColumnBuilder {
     private final ValueColumnCollectionBuilder parent;

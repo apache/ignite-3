@@ -1,9 +1,9 @@
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.builder;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.schema.SchemaBuilder;
-import org.apache.ignite.schema.SchemaKeyBuilder;
+import org.apache.ignite.schema.builder.SchemaBuilder;
+import org.apache.ignite.schema.builder.SchemaKeyBuilder;
 
 public class KeyColumnCollectionBuilder implements SchemaKeyBuilder {
     private final SchemaConfigurationBuilder schemaBuilder;

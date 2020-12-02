@@ -1,8 +1,9 @@
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.builder;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.schema.SchemaBuilder;
+import org.apache.ignite.schema.TableSchema;
+import org.apache.ignite.schema.builder.SchemaBuilder;
 
 public class SchemaConfigurationBuilder implements SchemaBuilder {
     public static SchemaBuilder create() {
@@ -55,7 +56,7 @@ public class SchemaConfigurationBuilder implements SchemaBuilder {
         return this;
     }
 
-    @Override public void build() {
+    @Override public TableSchema build() {
         assert tableName != null : "Table name was not specified.";
         assert columns.size() >= 2 : "Key or/and value columns was not defined.";
 
@@ -64,6 +65,8 @@ public class SchemaConfigurationBuilder implements SchemaBuilder {
 
         assert aliasMap.keySet().stream().noneMatch(columns::containsKey) : "Alias hides existed column.";
         assert aliasMap.values().stream().allMatch(columns::containsKey) : "Alias for unknown column.";
+
+        return null; // TODO: implement.
     }
 
     public void addIndex(IndexConfigurationBuilder bld) {

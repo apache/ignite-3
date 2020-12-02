@@ -1,4 +1,4 @@
-package org.apache.ignite.schema;
+package org.apache.ignite.schema.builder;
 
 public interface SchemaIndexColumnBuilder {
     SchemaIndexColumnBuilder desc();

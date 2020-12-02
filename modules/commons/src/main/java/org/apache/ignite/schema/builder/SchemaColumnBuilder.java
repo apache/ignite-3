@@ -1,4 +1,6 @@
-package org.apache.ignite.schema;
+package org.apache.ignite.schema.builder;
+
+import org.apache.ignite.schema.ColumnType;
 
 public interface SchemaColumnBuilder<T extends SchemaColumnBuilder<T>> {
     T withType(ColumnType columnType);

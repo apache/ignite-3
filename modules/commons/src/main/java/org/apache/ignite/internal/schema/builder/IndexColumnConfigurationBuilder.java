@@ -1,6 +1,6 @@
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.schema.SchemaIndexColumnBuilder;
+import org.apache.ignite.schema.builder.SchemaIndexColumnBuilder;
 
 public class IndexColumnConfigurationBuilder implements SchemaIndexColumnBuilder {
     private final IndexConfigurationBuilder indexBuilder;

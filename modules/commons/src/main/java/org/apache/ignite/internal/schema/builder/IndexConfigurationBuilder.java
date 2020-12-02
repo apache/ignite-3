@@ -1,9 +1,9 @@
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.builder;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.schema.SchemaIndexBuilder;
+import org.apache.ignite.schema.builder.SchemaIndexBuilder;
 
 public class IndexConfigurationBuilder implements SchemaIndexBuilder {
     private final SchemaConfigurationBuilder schemaBuilder;

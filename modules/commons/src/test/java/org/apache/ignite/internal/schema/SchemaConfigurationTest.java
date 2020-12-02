@@ -1,7 +1,8 @@
 package org.apache.ignite.internal.schema;
 
+import org.apache.ignite.internal.schema.builder.SchemaConfigurationBuilder;
 import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.schema.SchemaBuilder;
+import org.apache.ignite.schema.builder.SchemaBuilder;
 import org.junit.jupiter.api.Test;
 
 public class SchemaConfigurationTest {

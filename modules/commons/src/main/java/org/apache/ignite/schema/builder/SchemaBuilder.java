@@ -1,4 +1,6 @@
-package org.apache.ignite.schema;
+package org.apache.ignite.schema.builder;
+
+import org.apache.ignite.schema.TableSchema;
 
 public interface SchemaBuilder {
     SchemaBuilder withName(String tableName);
@@ -11,5 +13,5 @@ public interface SchemaBuilder {
 
     SchemaBuilder addAlias(String alias, String columnName);
 
-    void build();
+    TableSchema build();
 }
