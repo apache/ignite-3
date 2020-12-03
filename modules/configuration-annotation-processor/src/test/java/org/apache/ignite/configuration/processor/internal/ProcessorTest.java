@@ -52,49 +52,51 @@ public class ProcessorTest extends AbstractProcessorTest {
         MatcherAssert.assertThat(
             classSet.getViewClass(),
             hasFields(
-                "value1", "java.lang.String",
-                "primitiveLong", "java.lang.Long",
-                "boxedLong", "java.lang.Long",
-                "primitiveInt", "java.lang.Integer",
-                "boxedInt", "java.lang.Integer"
+                "value1", Types.STRING,
+                "primitiveLong", Types.LONG,
+                "boxedLong", Types.LONG,
+                "primitiveInt", Types.INT,
+                "boxedInt", Types.INT
             )
         );
 
         MatcherAssert.assertThat(
             classSet.getViewClass(),
             hasMethods(
-                "value1()", "java.lang.String",
-                "primitiveLong()", "java.lang.Long",
-                "boxedLong()", "java.lang.Long",
-                "primitiveInt()", "java.lang.Integer",
-                "boxedInt()", "java.lang.Integer"
+                "value1()", Types.STRING,
+                "primitiveLong()", Types.LONG,
+                "boxedLong()", Types.LONG,
+                "primitiveInt()", Types.INT,
+                "boxedInt()", Types.INT
             )
         );
 
         MatcherAssert.assertThat(
             classSet.getInitClass(),
             hasFields(
-                "value1", "java.lang.String",
-                "primitiveLong", "java.lang.Long",
-                "boxedLong", "java.lang.Long",
-                "primitiveInt", "java.lang.Integer",
-                "boxedInt", "java.lang.Integer"
+                "value1", Types.STRING,
+                "primitiveLong", Types.LONG,
+                "boxedLong", Types.LONG,
+                "primitiveInt", Types.INT,
+                "boxedInt", Types.INT
             )
         );
 
+        String viewTypeName = Types.typeName(packageName, "InitTest");
+        
         MatcherAssert.assertThat(
             classSet.getInitClass(),
             hasMethods(
-                "value1()", "java.lang.String",
-                "primitiveLong()", "java.lang.Long",
-                "boxedLong()", "java.lang.Long",
-                "primitiveInt()", "java.lang.Integer",
-                "boxedInt()", "java.lang.Integer",
-                "withValue1(java.lang.String)", "org.apache.ignite.configuration.processor.internal.InitTest",
-                "withPrimitiveLong(java.lang.Long)", "org.apache.ignite.configuration.processor.internal.InitTest",
-                "withBoxedLong(java.lang.Long)", "org.apache.ignite.configuration.processor.internal.InitTest",
-                "withPrimitiveInt(java.lang.Integer)", "org.apache.ignite.configuration.processor.internal.InitTest",
-                "withBoxedInt(java.lang.Integer)", "org.apache.ignite.configuration.processor.internal.InitTest"
+                "value1()", Types.STRING,
+                "primitiveLong()", Types.LONG,
+                "boxedLong()", Types.LONG,
+                "primitiveInt()", Types.INT,
+                "boxedInt()", Types.INT,
+                "withValue1(java.lang.String)", viewTypeName,
+                "withPrimitiveLong(java.lang.Long)", viewTypeName,
+                "withBoxedLong(java.lang.Long)", viewTypeName,
+                "withPrimitiveInt(java.lang.Integer)", viewTypeName,
+                "withBoxedInt(java.lang.Integer)", viewTypeName
             )
         );
     }
