@@ -35,7 +35,7 @@ public class ConfigCommandSpec implements Runnable {
         spec.commandLine().usage(spec.commandLine().getOut());
     }
 
-    @CommandLine.Command(name = "get", mixinStandardHelpOptions = true,
+    @CommandLine.Command(name = "get",
         description = "Get current cluster configs")
     public static class GetConfigCommandSpec implements Runnable {
 
@@ -43,13 +43,18 @@ public class ConfigCommandSpec implements Runnable {
 
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
 
+        @CommandLine.Option(names = {"--subtree"},
+            description = "any text representation of hocon for querying considered subtree of config " +
+                "(example: local.baseline)")
+        private String subtree;
+
         @Override public void run() {
             spec.commandLine().getOut().println(
-                new ConfigurationClient().get(cfgHostnameOptions.host(), cfgHostnameOptions.port()));
+                new ConfigurationClient().get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), subtree));
         }
     }
 
-    @CommandLine.Command(name = "set", mixinStandardHelpOptions = true,
+    @CommandLine.Command(name = "set",
         description = "Set current cluster configs. Config is expected as any valid Hocon")
     public static class SetConfigCommandSpec implements Runnable {
 

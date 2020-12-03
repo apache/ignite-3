@@ -23,16 +23,18 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import org.apache.ignite.cli.IgniteCLIException;
+import org.jetbrains.annotations.Nullable;
 
 public class ConfigurationClient {
 
-    private final String GET_URL = "/management/v1/configuration";
-    private final String SET_URL = "/management/v1/configuration";
+    private final String GET_URL = "/management/v1/configuration/";
+    private final String SET_URL = "/management/v1/configuration/";
 
     private final HttpClient httpClient;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -44,17 +46,27 @@ public class ConfigurationClient {
             .build();
     }
 
-    public String get(String host, int port) {
+    public String get(String host, int port,
+        @Nullable String rawHoconPath) {
         var request = HttpRequest
             .newBuilder()
-            .GET()
-            .header("Content-type", "application/json")
-            .uri(URI.create("http://" + host + ":" + port + GET_URL))
-            .build();
+            .header("Content-type", "application/json");
+
+        if (rawHoconPath == null)
+            request.uri(URI.create("http://" + host + ":" + port + GET_URL));
+        else
+            request.uri(URI.create("http://" + host + ":" + port + GET_URL +
+                rawHoconPath));
+
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            return mapper.writerWithDefaultPrettyPrinter()
-                .writeValueAsString(mapper.readValue(response.body(), JsonNode.class));
+            HttpResponse<String> response =
+                httpClient.send(request.build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == HttpURLConnection.HTTP_OK)
+                return mapper.writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(mapper.readValue(response.body(), JsonNode.class));
+            else
+                throw error("Can't get configuration", response);
         }
         catch (IOException | InterruptedException e) {
             throw new IgniteCLIException("Connection issues while trying to send http request");
@@ -62,11 +74,9 @@ public class ConfigurationClient {
     }
 
     public String set(String host, int port, String rawHoconData) {
-        var config = ConfigFactory.parseString(rawHoconData);
-        var jsonConfig = config.root().render(ConfigRenderOptions.concise());
         var request = HttpRequest
             .newBuilder()
-            .POST(HttpRequest.BodyPublishers.ofString(jsonConfig))
+            .POST(HttpRequest.BodyPublishers.ofString(renderJsonFromHocon(rawHoconData)))
             .header("Content-Type", "application/json")
             .uri(URI.create("http://" + host + ":" + port + SET_URL))
             .build();
@@ -76,11 +86,23 @@ public class ConfigurationClient {
             if (response.statusCode() == HttpURLConnection.HTTP_OK)
                 return "";
             else
-                return "Http error code: " + response.statusCode() + "\n" +
-                    "Error message: " + response.body();
+                throw error("Fail to set configuration", response);
         }
         catch (IOException | InterruptedException e) {
             throw new IgniteCLIException("Connection issues while trying to send http request");
         }
     }
+
+    private IgniteCLIException error(String message, HttpResponse<String> response) throws JsonProcessingException {
+        var errorMessage = mapper.writerWithDefaultPrettyPrinter()
+            .writeValueAsString(mapper.readValue(response.body(), JsonNode.class));
+        return new IgniteCLIException(message + "\n\n" + errorMessage);
+    }
+
+    private static String renderJsonFromHocon(String rawHoconData) {
+        return ConfigFactory.parseString(rawHoconData)
+            .root().render(ConfigRenderOptions.concise());
+    }
+
+
 }
