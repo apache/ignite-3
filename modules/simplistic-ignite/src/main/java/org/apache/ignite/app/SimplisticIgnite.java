@@ -33,9 +33,6 @@ public class SimplisticIgnite {
     private static final String CONF_PARAM_NAME = "--config";
 
     /** */
-    private static final String PORT_PARAM_NAME = "--port";
-
-    /** */
     private static final String DFLT_CONF_FILE_NAME = "bootstrap-config.json";
 
     /**
@@ -47,24 +44,13 @@ public class SimplisticIgnite {
 
         Reader confReader = null;
 
-        int port = 8080;
-
         try {
             if (args != null) {
                 for (int i = 0; i < args.length; i++) {
                     if (CONF_PARAM_NAME.equals(args[i]) && i + 1 < args.length) {
                         confReader = new FileReader(args[i + 1]);
 
-                        continue;
-                    }
-
-                    if (PORT_PARAM_NAME.equals(args[i]) && i + 1 < args.length) {
-                        try {
-                            port = Integer.parseInt(args[i + 1]);
-                        }
-                        catch (NumberFormatException ignored) {
-                            // No-op.
-                        }
+                        break;
                     }
                 }
             }
@@ -83,6 +69,6 @@ public class SimplisticIgnite {
 
         RestModule rest = new RestModule(confModule);
 
-        rest.start(port);
+        rest.start();
     }
 }

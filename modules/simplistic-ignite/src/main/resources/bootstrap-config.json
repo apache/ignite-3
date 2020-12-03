@@ -1,1 +1,1 @@
-{"local":{"baseline":{"autoAdjust":{"timeout":10000,"enabled":true}},"dataStorage": {"pageSize":4096,"storagePath":"db/data","walPath":"db/wal"}}}
+{"local":{"rest":{"port":8080},"baseline":{"autoAdjust":{"timeout":10000,"enabled":true}},"dataStorage": {"pageSize":4096,"storagePath":"db/data","walPath":"db/wal"}}}
