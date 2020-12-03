@@ -53,18 +53,15 @@ public class NodeCommandSpec implements Runnable {
         @CommandLine.Parameters(paramLabel = "consistent-id", description = "ConsistentId for new node")
         public String consistentId;
 
-        @CommandLine.Option(names = {"--cfg-port"}, required = true,
-            description = "set port for configuration rest endpoint")
-        public int port;
-
-        @CommandLine.Option(names = {"--config"}, description = "path to configuration file")
+        @CommandLine.Option(names = {"--config"}, required = true,
+            description = "path to configuration file")
         public Path configPath;
 
         @Override public void run() {
             StartNodeCommand startNodeCommand = applicationContext.createBean(StartNodeCommand.class);
 
             startNodeCommand.setOut(spec.commandLine().getOut());
-            startNodeCommand.start(consistentId, port, configPath);
+            startNodeCommand.start(consistentId, configPath);
         }
     }
 

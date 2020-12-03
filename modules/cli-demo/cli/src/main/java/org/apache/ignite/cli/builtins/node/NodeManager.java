@@ -58,8 +58,7 @@ public class NodeManager {
     }
 
     public RunningNode start(String consistentId,
-        Path workDir, Path pidsDir, @Nullable Path serverConfig,
-        int port) {
+        Path workDir, Path pidsDir, Path serverConfig) {
 
         if (getRunningNodes(workDir, pidsDir).stream().anyMatch(n -> n.consistentId.equals(consistentId)))
             throw new IgniteCLIException("Node with consistentId " + consistentId + " is already exist");
@@ -70,13 +69,10 @@ public class NodeManager {
 
             Files.createFile(logFile);
 
-            var commandArgs = new ArrayList<String>();
-            commandArgs.addAll(Arrays.asList(
+            var commandArgs = Arrays.asList(
                 "java", "-cp", classpath(), MAIN_CLASS,
-                "--port", String.valueOf(port)
-            ));
-            if (serverConfig != null)
-                commandArgs.addAll(Arrays.asList("--config", serverConfig.toAbsolutePath().toString()));
+                "--config", serverConfig.toAbsolutePath().toString()
+            );
 
             ProcessBuilder pb = new ProcessBuilder(
                 commandArgs
