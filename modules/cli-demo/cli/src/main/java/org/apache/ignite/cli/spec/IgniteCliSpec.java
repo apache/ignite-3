@@ -20,26 +20,46 @@ package org.apache.ignite.cli.spec;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.ServiceLoader;
 import io.micronaut.context.ApplicationContext;
-import org.apache.ignite.cli.common.IgniteCommand;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CommandFactory;
 import org.apache.ignite.cli.ErrorHandler;
 import org.apache.ignite.cli.VersionProvider;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
+import org.apache.ignite.cli.common.IgniteCommand;
 import org.jline.reader.LineReader;
 import org.jline.reader.impl.LineReaderImpl;
 import picocli.CommandLine;
+import picocli.CommandLine.Help.Ansi;
+import picocli.CommandLine.Help.ColorScheme;
+import picocli.CommandLine.Model.UsageMessageSpec;
 
 /**
  *
  */
-@CommandLine.Command(name = "ignite", mixinStandardHelpOptions = true,
+@CommandLine.Command(
+    name = "ignite",
+    header = {
+        "                        ___                         __",
+        "                       /   |   ____   ____ _ _____ / /_   ___",
+        "   @|red,bold       ⣠⣶⣿|@          / /| |  / __ \\ / __ `// ___// __ \\ / _ \\",
+        "   @|red,bold      ⣿⣿⣿⣿|@         / ___ | / /_/ // /_/ // /__ / / / //  __/",
+        "   @|red,bold  ⢠⣿⡏⠈⣿⣿⣿⣿⣷|@       /_/  |_|/ .___/ \\__,_/ \\___//_/ /_/ \\___/",
+        "   @|red,bold ⢰⣿⣿⣿⣧⠈⢿⣿⣿⣿⣿⣦|@            /_/",
+        "   @|red,bold ⠘⣿⣿⣿⣿⣿⣦⠈⠛⢿⣿⣿⣿⡄|@       ____               _  __           _____",
+        "   @|red,bold  ⠈⠛⣿⣿⣿⣿⣿⣿⣦⠉⢿⣿⡟|@      /  _/____ _ ____   (_)/ /_ ___     |__  /",
+        "   @|red,bold ⢰⣿⣶⣀⠈⠙⠿⣿⣿⣿⣿ ⠟⠁|@      / / / __ `// __ \\ / // __// _ \\     /_ <",
+        "   @|red,bold ⠈⠻⣿⣿⣿⣿⣷⣤⠙⢿⡟|@       _/ / / /_/ // / / // // /_ /  __/   ___/ /",
+        "   @|red,bold       ⠉⠉⠛⠏⠉|@      /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
+        "                         /____/\n",
+    },
     footer = "\n2020 Copyright(C) Apache Software Foundation",
-    headerHeading = "Control utility ignite is used to execute admin commands on cluster or run new local nodes.\n\n",
-    commandListHeading = "\n\nCommands has the following syntax:\n",
     versionProvider = VersionProvider.class,
+    synopsisHeading = "@|bold USAGE|@\n",
+    synopsisSubcommandLabel = "[COMMAND] [PARAMETERS]\n",
+    commandListHeading = "@|bold COMMANDS|@\n",
     subcommands = {
         NodeCommandSpec.class,
         ModuleCommandSpec.class,
@@ -49,8 +69,10 @@ import picocli.CommandLine;
     }
 )
 public class IgniteCliSpec implements Runnable {
-    public LineReaderImpl reader;
-    public @CommandLine.Spec CommandLine.Model.CommandSpec spec;
+    private LineReaderImpl reader;
+
+    @CommandLine.Spec
+    private CommandLine.Model.CommandSpec spec;
 
     public static void main(String... args) {
         ApplicationContext applicationContext = ApplicationContext.run();
@@ -58,6 +80,24 @@ public class IgniteCliSpec implements Runnable {
         CommandLine cli = new CommandLine(IgniteCliSpec.class, factory)
             .setExecutionExceptionHandler(new ErrorHandler())
             .addSubcommand(applicationContext.createBean(ShellCommandSpec.class));
+
+        cli.setColorScheme(new ColorScheme.Builder().commands(Ansi.Style.fg_green).build());
+
+        cli.setHelpSectionKeys(Arrays.asList(
+            UsageMessageSpec.SECTION_KEY_HEADER,
+            UsageMessageSpec.SECTION_KEY_SYNOPSIS_HEADING,
+            UsageMessageSpec.SECTION_KEY_SYNOPSIS,
+            UsageMessageSpec.SECTION_KEY_COMMAND_LIST_HEADING,
+            UsageMessageSpec.SECTION_KEY_COMMAND_LIST,
+            UsageMessageSpec.SECTION_KEY_FOOTER
+        ));
+
+        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_SYNOPSIS_HEADING,
+            help -> Ansi.AUTO.string("Apache Ignite CLI ver. " +
+                cli.getCommandSpec().version()[0] + "\n\n" + help.synopsisHeading()));
+
+        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_SYNOPSIS,
+            help -> Ansi.AUTO.string("  " + help.synopsis(help.synopsisHeadingLength())));
 
         applicationContext.createBean(CliPathsConfigLoader.class)
             .loadIgnitePathsConfig()
@@ -78,13 +118,13 @@ public class IgniteCliSpec implements Runnable {
     }
 
     public static void loadSubcommands(CommandLine commandLine, Path cliLibsDir) {
-            URL[] urls = SystemPathResolver.list(cliLibsDir);
-            ClassLoader classLoader = new URLClassLoader(urls,
-                IgniteCliSpec.class.getClassLoader());
-            ServiceLoader<IgniteCommand> loader = ServiceLoader.load(IgniteCommand.class, classLoader);
-            loader.reload();
-            for (IgniteCommand igniteCommand: loader) {
-                commandLine.addSubcommand(igniteCommand);
-            }
+        URL[] urls = SystemPathResolver.list(cliLibsDir);
+        ClassLoader classLoader = new URLClassLoader(urls,
+            IgniteCliSpec.class.getClassLoader());
+        ServiceLoader<IgniteCommand> loader = ServiceLoader.load(IgniteCommand.class, classLoader);
+        loader.reload();
+        for (IgniteCommand igniteCommand: loader) {
+            commandLine.addSubcommand(igniteCommand);
+        }
     }
 }
