@@ -17,11 +17,13 @@
 
 package org.apache.ignite.cli.builtins.node;
 
+import java.nio.file.Path;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.AbstractCliCommand;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.IgnitePaths;
+import org.jetbrains.annotations.Nullable;
 
 @Singleton
 public class StartNodeCommand extends AbstractCliCommand {
@@ -37,10 +39,11 @@ public class StartNodeCommand extends AbstractCliCommand {
         this.nodeManager = nodeManager;
     }
 
-    public void start(String consistentId) {
+    public void start(String consistentId, int port, @Nullable Path configPath) {
         IgnitePaths ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
         NodeManager.RunningNode node = nodeManager.start(consistentId, ignitePaths.workDir,
-            ignitePaths.cliPidsDir(), ignitePaths.serverDefaultConfigFile());
+            ignitePaths.cliPidsDir(),
+            configPath, port);
 
         out.println("Started ignite node.\nPID: " + node.pid +
             "\nConsistent Id: " + node.consistentId + "\nLog file: " + node.logFile);

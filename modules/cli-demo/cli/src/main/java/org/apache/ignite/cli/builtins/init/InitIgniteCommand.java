@@ -108,6 +108,7 @@ public class InitIgniteCommand extends AbstractCliCommand {
     }
 
     private void installIgnite(IgnitePaths ignitePaths) {
+        System.out.println("hey");
         moduleManager.addModule("_server", ignitePaths, false);
     }
 

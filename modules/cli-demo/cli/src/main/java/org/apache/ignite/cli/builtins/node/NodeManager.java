@@ -19,22 +19,36 @@ package org.apache.ignite.cli.builtins.node;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchService;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.builtins.module.ModuleStorage;
 import org.apache.ignite.cli.IgniteCLIException;
+import org.jetbrains.annotations.Nullable;
 
 @Singleton
 public class NodeManager {
 
-    public static final String MAIN_CLASS = "org.apache.ignite.startup.cmdline.CommandLineStartup";
+    private static final String MAIN_CLASS = "org.apache.ignite.app.SimplisticIgnite";
+    private static final Duration NODE_START_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration LOG_FILE_POLL_INTERVAL = Duration.ofMillis(50);
 
     private final ModuleStorage moduleStorage;
 
@@ -43,7 +57,12 @@ public class NodeManager {
         this.moduleStorage = moduleStorage;
     }
 
-    public RunningNode start(String consistentId, Path workDir, Path pidsDir, Path serverConfig) {
+    public RunningNode start(String consistentId,
+        Path workDir, Path pidsDir, @Nullable Path serverConfig,
+        int port) {
+
+        if (getRunningNodes(workDir, pidsDir).stream().anyMatch(n -> n.consistentId.equals(consistentId)))
+            throw new IgniteCLIException("Node with consistentId " + consistentId + " is already exist");
         try {
             Path logFile = logFile(workDir, consistentId);
             if (Files.exists(logFile))
@@ -51,21 +70,61 @@ public class NodeManager {
 
             Files.createFile(logFile);
 
+            var commandArgs = new ArrayList<String>();
+            commandArgs.addAll(Arrays.asList(
+                "java", "-cp", classpath(), MAIN_CLASS,
+                "--port", String.valueOf(port)
+            ));
+            if (serverConfig != null)
+                commandArgs.addAll(Arrays.asList("--config", serverConfig.toAbsolutePath().toString()));
+
             ProcessBuilder pb = new ProcessBuilder(
-                "java","-DIGNITE_HOME=" + workDir,
-                "-DIGNITE_OVERRIDE_CONSISTENT_ID=" + consistentId,
-                "-cp", classpath(),
-                MAIN_CLASS, serverConfig.toAbsolutePath().toString()
+                commandArgs
             )
                 .redirectError(logFile.toFile())
                 .redirectOutput(logFile.toFile());
             Process p = pb.start();
+            try {
+                if (!waitForStart("Javalin started", logFile, NODE_START_TIMEOUT)) {
+                    p.destroyForcibly();
+                    throw new IgniteCLIException("Node wasn't started during timeout period "
+                        + NODE_START_TIMEOUT.toMillis() + "ms");
+                }
+            }
+            catch (InterruptedException|IOException e) {
+                throw new IgniteCLIException("Waiting for node start was failed", e);
+            }
             createPidFile(consistentId, p.pid(), pidsDir);
             return new RunningNode(p.pid(), consistentId, logFile);
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can't load classpath", e);
         }
+    }
+
+    // TODO: We need more robust way of checking if node successfully run
+    private static boolean waitForStart(String started, Path file, Duration timeout) throws IOException, InterruptedException {
+       try(WatchService watchService = FileSystems.getDefault().newWatchService()) {
+           file.getParent().register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
+           var beginTime = System.currentTimeMillis();
+           while ((System.currentTimeMillis() - beginTime) < timeout.toMillis()) {
+               var key = watchService.poll(LOG_FILE_POLL_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
+               if (key != null) {
+                   for (WatchEvent<?> event : key.pollEvents()) {
+                       if (event.kind().equals(StandardWatchEventKinds.ENTRY_MODIFY) &&
+                           (((WatchEvent<Path>)event).context().getFileName()).equals(file.getFileName())) {
+                           var content = Files.readString(file);
+                           if (content.contains(started))
+                               return true;
+                           else if (content.contains("Exception"))
+                               throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
+                       }
+                   }
+                   key.reset();
+               }
+           }
+           return false;
+       }
     }
 
     public String classpath() throws IOException {
@@ -99,6 +158,8 @@ public class NodeManager {
                             long pid = 0;
                             try {
                                 pid = Long.parseLong(Files.readAllLines(f).get(0));
+                                if (!ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
+                                    return Optional.<RunningNode>empty();
                             }
                             catch (IOException e) {
                                 throw new IgniteCLIException("Can't parse pid file " + f);

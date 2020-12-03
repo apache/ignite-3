@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.spec;
 
+import java.nio.file.Path;
 import java.util.List;
 import javax.inject.Inject;
 import io.micronaut.context.ApplicationContext;
@@ -49,15 +50,21 @@ public class NodeCommandSpec implements Runnable {
         @Inject
         ApplicationContext applicationContext;
 
-
         @CommandLine.Parameters(paramLabel = "consistent-id", description = "ConsistentId for new node")
         public String consistentId;
+
+        @CommandLine.Option(names = {"--cfg-port"}, required = true,
+            description = "set port for configuration rest endpoint")
+        public int port;
+
+        @CommandLine.Option(names = {"--config"}, description = "path to configuration file")
+        public Path configPath;
 
         @Override public void run() {
             StartNodeCommand startNodeCommand = applicationContext.createBean(StartNodeCommand.class);
 
             startNodeCommand.setOut(spec.commandLine().getOut());
-            startNodeCommand.start(consistentId);
+            startNodeCommand.start(consistentId, port, configPath);
         }
     }
 

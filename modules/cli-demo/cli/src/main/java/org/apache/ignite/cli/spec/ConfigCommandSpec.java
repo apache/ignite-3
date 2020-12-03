@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.spec;
 
+import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.builtins.config.ConfigurationClient;
 import picocli.CommandLine;
 
@@ -40,8 +41,11 @@ public class ConfigCommandSpec implements Runnable {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
+        @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
+
         @Override public void run() {
-            spec.commandLine().getOut().println(new ConfigurationClient().get());
+            spec.commandLine().getOut().println(
+                new ConfigurationClient().get(cfgHostnameOptions.host(), cfgHostnameOptions.port()));
         }
     }
 
@@ -54,8 +58,44 @@ public class ConfigCommandSpec implements Runnable {
         @CommandLine.Parameters(paramLabel = "hocon-string", description = "any text representation of hocon config")
         private String config;
 
+        @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
+
         @Override public void run() {
-            spec.commandLine().getOut().println(new ConfigurationClient().set(config));
+            spec.commandLine().getOut().println(
+                new ConfigurationClient().set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), config));
         }
+    }
+
+    private static class CfgHostnameOptions {
+
+        @CommandLine.Option(names = "--node-endpoint", required = true,
+            description = "host:port of node for configuration")
+        String cfgHostPort;
+
+
+        int port() {
+            var hostPort = parse();
+
+            try {
+                return Integer.parseInt(hostPort[1]);
+            } catch (NumberFormatException ex) {
+                throw new IgniteCLIException("Can't parse port from " + hostPort[1] + " value");
+            }
+        }
+
+        String host() {
+            return parse()[0];
+        }
+
+        private String[] parse() {
+            var hostPort = cfgHostPort.split(":");
+            if (hostPort.length != 2)
+                throw new IgniteCLIException("Incorrect host:port pair provided " +
+                    "(example of valid value 'localhost:8080')");
+           return hostPort;
+        }
+
+
+
     }
 }

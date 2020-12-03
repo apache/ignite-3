@@ -34,29 +34,22 @@ public class ConfigurationClient {
     private final String GET_URL = "/management/v1/configuration";
     private final String SET_URL = "/management/v1/configuration";
 
-    private final String baseUrl;
     private final HttpClient httpClient;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public ConfigurationClient(String baseUrl) {
-        this.baseUrl = baseUrl;
+    public ConfigurationClient() {
         httpClient = HttpClient
             .newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
             .build();
     }
 
-    public ConfigurationClient() {
-        // TODO: url must be configurable
-        this("http://localhost:8080");
-    }
-
-    public String get() {
+    public String get(String host, int port) {
         var request = HttpRequest
             .newBuilder()
             .GET()
             .header("Content-type", "application/json")
-            .uri(URI.create(baseUrl + GET_URL))
+            .uri(URI.create("http://" + host + ":" + port + GET_URL))
             .build();
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -68,14 +61,14 @@ public class ConfigurationClient {
         }
     }
 
-    public String set(String rawHoconData) {
+    public String set(String host, int port, String rawHoconData) {
         var config = ConfigFactory.parseString(rawHoconData);
         var jsonConfig = config.root().render(ConfigRenderOptions.concise());
         var request = HttpRequest
             .newBuilder()
             .POST(HttpRequest.BodyPublishers.ofString(jsonConfig))
             .header("Content-Type", "application/json")
-            .uri(URI.create(baseUrl + SET_URL))
+            .uri(URI.create("http://" + host + ":" + port + SET_URL))
             .build();
 
         try {
