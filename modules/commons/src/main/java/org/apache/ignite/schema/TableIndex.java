@@ -1,16 +1,15 @@
 package org.apache.ignite.schema;
 
-import java.util.Collection;
-
 public interface TableIndex {
+    /**
+     * @return Index name.
+     */
     String name();
 
-    int inlineSize();
-
-    Collection<IndexColumn> columns();
-
-    // TODO: MUST contains all affinity columns.
-    default boolean unique() {
-        return false;
-    }
+    /**
+     * Schema name + Index name
+     *
+     * @return Canonical index name.
+     */
+    String canonicalName();
 }

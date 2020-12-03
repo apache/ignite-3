@@ -1,14 +1,12 @@
 package org.apache.ignite.schema.builder;
 
 public interface SchemaModificationBuilder {
-//    SchemaKeyBuilder keyColumns(); // Is this forbidden?
-    SchemaValueBuilder valueColumns();
+    Void addColumn();
+    Void dropColumn();
+    Void alterColumn();
 
-    SchemaIndexBuilder addIndex(String name);
-    SchemaIndexBuilder dropIndex(String name);
-
-    SchemaBuilder addAlias(String alias, String columnName);
-    SchemaBuilder dropAlias(String alias);
+    SortedIndexBuilder addIndex(String name);
+    SortedIndexBuilder dropIndex(String name);
 
     /*
      * Collect schema modification commands and pass them to manager to create schema upgrade script.
