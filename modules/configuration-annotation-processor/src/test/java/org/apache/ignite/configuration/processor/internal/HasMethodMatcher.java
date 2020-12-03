@@ -17,15 +17,11 @@
 package org.apache.ignite.configuration.processor.internal;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import spoon.reflect.declaration.CtMethod;
-import spoon.reflect.declaration.CtParameter;
-import spoon.reflect.reference.CtFieldReference;
 
 /**
  * Hamcrest matcher that tests class for method existence.
