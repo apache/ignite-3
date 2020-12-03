@@ -90,9 +90,16 @@ public class Processor extends AbstractProcessor {
     /** Class file writer. */
     private Filer filer;
 
+    /**
+     * Constructor.
+     */
+    public Processor() {
+    }
+
     /** {@inheritDoc} */
     @Override public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
+
         filer = processingEnv.getFiler();
         viewClassGenerator = new ViewClassGenerator(processingEnv);
         initClassGenerator = new InitClassGenerator(processingEnv);
@@ -115,18 +122,17 @@ public class Processor extends AbstractProcessor {
             return false;
 
         for (Element element : annotatedConfigs) {
-            if (element.getKind() != ElementKind.CLASS) {
+            if (element.getKind() != ElementKind.CLASS)
                 continue;
-            }
+
             TypeElement clazz = (TypeElement) element;
 
             final PackageElement elementPackage = elementUtils.getPackageOf(clazz);
             final String packageName = elementPackage.getQualifiedName().toString();
 
-            final List<VariableElement> fields
-                = clazz.getEnclosedElements().stream()
+            final List<VariableElement> fields = clazz.getEnclosedElements().stream()
                 .filter(el -> el.getKind() == ElementKind.FIELD)
-                .map(el -> (VariableElement) el)
+                .map(VariableElement.class::cast)
                 .collect(Collectors.toList());
 
             final Config clazzConfigAnnotation = clazz.getAnnotation(Config.class);
@@ -369,16 +375,16 @@ public class Processor extends AbstractProcessor {
         selectorsStaticBlockBuilder
             .beginControlFlow("try");
 
-        flattenConfig.forEach(configNode -> {
+        for (ConfigurationNode configNode : flattenConfig) {
             String regex = "([a-z])([A-Z]+)";
             String replacement = "$1_$2";
 
-            final String varName = configNode.name
+            final String varName = configNode.getName()
                 .replaceAll(regex, replacement)
                 .toUpperCase()
                 .replace(".", "_");
 
-            TypeName t = configNode.type;
+            TypeName t = configNode.getType();
 
             if (Utils.isNamedConfiguration(t))
                 t = Utils.unwrapNamedListConfigurationClass(t);
@@ -391,7 +397,7 @@ public class Processor extends AbstractProcessor {
 
             while (current != null) {
                 boolean isNamed = false;
-                if (Utils.isNamedConfiguration(current.type)) {
+                if (Utils.isNamedConfiguration(current.getType())) {
                     namedCount++;
                     isNamed = true;
                 }
@@ -403,14 +409,13 @@ public class Processor extends AbstractProcessor {
                         newMethodCall += ".get(name" + (namedCount - 1) + ")";
 
                     methodCall.insert(0, newMethodCall);
-                }
-                else
+                } else
                     root = current;
 
                 current = current.getParent();
             }
 
-            TypeName selectorRec = Utils.getParameterized(ClassName.get(Selector.class), root.type, t, configNode.view, configNode.init, configNode.change);
+            TypeName selectorRec = Utils.getParameterized(ClassName.get(Selector.class), root.getType(), t, configNode.getView(), configNode.getInit(), configNode.getChange());
 
             if (namedCount > 0) {
                 final MethodSpec.Builder builder = MethodSpec.methodBuilder(varName);
@@ -441,17 +446,18 @@ public class Processor extends AbstractProcessor {
 
                 selectorsStaticBlockBuilder.addStatement("$T $L = publicLookup.findStatic($T.class, $S, $T.methodType($T.class, " + collect + "))", params.toArray());
 
-                selectorsStaticBlockBuilder.addStatement("put($S, $L)", configNode.name, varName);
-            } else {
+                selectorsStaticBlockBuilder.addStatement("put($S, $L)", configNode.getName(), varName);
+            }
+            else {
                 selectorsClass.addField(
                     FieldSpec.builder(selectorRec, varName)
                         .addModifiers(PUBLIC, STATIC, FINAL)
                         .initializer("(root) -> root$L", methodCall.toString())
                         .build()
                 );
-                selectorsStaticBlockBuilder.addStatement("put($S, $L)", configNode.name, varName);
+                selectorsStaticBlockBuilder.addStatement("put($S, $L)", configNode.getName(), varName);
             }
-        });
+        }
 
         selectorsStaticBlockBuilder
             .nextControlFlow("catch ($T e)", Exception.class)
@@ -477,15 +483,15 @@ public class Processor extends AbstractProcessor {
     private void createKeysClass(String packageForUtil, List<ConfigurationNode> flattenConfig) {
         final TypeSpec.Builder keysClass = TypeSpec.classBuilder("Keys").addModifiers(PUBLIC, FINAL);
 
-        flattenConfig.forEach(s -> {
-            final String varName = s.name.toUpperCase().replace(".", "_");
+        for (ConfigurationNode node : flattenConfig) {
+            final String varName = node.getName().toUpperCase().replace(".", "_");
             keysClass.addField(
                 FieldSpec.builder(String.class, varName)
                     .addModifiers(PUBLIC, STATIC, FINAL)
-                    .initializer("$S", s.name)
+                    .initializer("$S", node.getName())
                     .build()
             );
-        });
+        }
 
         JavaFile keysClassFile = JavaFile.builder(packageForUtil, keysClass.build()).build();
         try {
@@ -550,49 +556,49 @@ public class Processor extends AbstractProcessor {
         Set<ConfigurationNode> res = new HashSet<>();
         Deque<ConfigurationNode> propsStack = new LinkedList<>();
 
-        ConfigurationNode rootNode = new ConfigurationNode(root.type, root.name, root.name, root.view, root.init, root.change, null);
+        ConfigurationNode rootNode = new ConfigurationNode(root.getType(), root.getName(), root.getName(), root.getView(), root.getInit(), root.getChange(), null);
 
         propsStack.addFirst(rootNode);
 
         while (!propsStack.isEmpty()) {
             final ConfigurationNode current = propsStack.pollFirst();
 
-            TypeName type = current.type;
+            TypeName type = current.getType();
 
             if (Utils.isNamedConfiguration(type))
-                type = Utils.unwrapNamedListConfigurationClass(current.type);
+                type = Utils.unwrapNamedListConfigurationClass(current.getType());
 
             final ConfigurationDescription configDesc = props.get(type);
             final List<ConfigurationElement> propertiesList = configDesc.getFields();
 
-            if (current.name != null && !current.name.isEmpty())
+            if (current.getName() != null && !current.getName().isEmpty())
                 res.add(current);
 
             for (ConfigurationElement property : propertiesList) {
-                String qualifiedName = property.name;
+                String qualifiedName = property.getName();
 
-                if (current.name != null && !current.name.isEmpty())
-                    qualifiedName = current.name + "." + qualifiedName;
+                if (current.getName() != null && !current.getName().isEmpty())
+                    qualifiedName = current.getName() + "." + qualifiedName;
 
                 final ConfigurationNode newChainElement = new ConfigurationNode(
-                    property.type,
+                    property.getType(),
                     qualifiedName,
-                    property.name,
-                    property.view,
-                    property.init,
-                    property.change,
+                    property.getName(),
+                    property.getView(),
+                    property.getInit(),
+                    property.getChange(),
                     current
                 );
 
                 boolean isNamedConfig = false;
-                if (property.type instanceof ParameterizedTypeName) {
-                    final ParameterizedTypeName parameterized = (ParameterizedTypeName) property.type;
+                if (property.getType() instanceof ParameterizedTypeName) {
+                    final ParameterizedTypeName parameterized = (ParameterizedTypeName) property.getType();
 
                     if (parameterized.rawType.equals(ClassName.get(NamedListConfiguration.class)))
                         isNamedConfig = true;
                 }
 
-                if (props.containsKey(property.type) || isNamedConfig)
+                if (props.containsKey(property.getType()) || isNamedConfig)
                     propsStack.add(newChainElement);
                 else
                     res.add(newChainElement);
@@ -636,12 +642,12 @@ public class Processor extends AbstractProcessor {
     public MethodSpec createInitMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
 
-        variables.forEach(variable -> {
+        for (VariableElement variable : variables) {
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (initial.$L() != null)", name);
             builder.addStatement("$L.initWithoutValidation(initial.$L())", name, name);
             builder.endControlFlow();
-        });
+        }
 
         return MethodSpec.methodBuilder("initWithoutValidation")
             .addModifiers(PUBLIC)
@@ -661,16 +667,16 @@ public class Processor extends AbstractProcessor {
     public MethodSpec createChangeMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
 
-        variables.forEach(variable -> {
+        for (VariableElement variable : variables) {
             final Value valueAnnotation = variable.getAnnotation(Value.class);
             if (valueAnnotation != null && valueAnnotation.immutable())
-                return;
+                continue;
 
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (changes.$L() != null)", name);
             builder.addStatement("$L.changeWithoutValidation(changes.$L())", name, name);
             builder.endControlFlow();
-        });
+        }
 
         return MethodSpec.methodBuilder("changeWithoutValidation")
             .addModifiers(PUBLIC)

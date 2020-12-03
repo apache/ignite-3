@@ -14,14 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.configuration.processor.internal;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -29,6 +22,11 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
 
@@ -48,10 +46,12 @@ public class Utils {
      */
     public static MethodSpec createConstructor(List<FieldSpec> fieldSpecs) {
         final MethodSpec.Builder builder = MethodSpec.constructorBuilder();
-        fieldSpecs.forEach(field -> {
+
+        for (FieldSpec field : fieldSpecs) {
             builder.addParameter(field.type, field.name);
             builder.addStatement("this.$L = $L", field.name, field.name);
-        });
+        }
+
         return builder.build();
     }
 
@@ -64,10 +64,10 @@ public class Utils {
     public static List<MethodSpec> createGetters(List<FieldSpec> fieldSpecs) {
         return fieldSpecs.stream().map(field ->
             MethodSpec.methodBuilder(field.name)
-             .returns(field.type)
-             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-             .addStatement("return $L", field.name)
-             .build()).collect(Collectors.toList()
+                .returns(field.type)
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                .addStatement("return $L", field.name)
+                .build()).collect(Collectors.toList()
         );
     }
 
@@ -198,7 +198,7 @@ public class Utils {
                 return parameterizedTypeName.typeArguments.get(1);
         }
 
-        throw new RuntimeException(type + " is not a NamedListConfiguration class");
+        throw new ProcessorException(type + " is not a NamedListConfiguration class");
     }
 
 }

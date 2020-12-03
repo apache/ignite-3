@@ -20,9 +20,9 @@ package org.apache.ignite.configuration.internal.property;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 /**
- * Interface for configuration nodes and leafs.
+ * Interface for configuration nodes and leaves.
  */
-public interface Modifier<T, INIT, CHANGE> {
+public interface Modifier<VIEW, INIT, CHANGE> {
 
     /**
      * Get key of this node.
@@ -34,7 +34,7 @@ public interface Modifier<T, INIT, CHANGE> {
      * Get VIEW object of this node.
      * @return VIEW object.
      */
-    T toView();
+    VIEW toView();
 
     /**
      * Change this configuration node value.

@@ -38,10 +38,8 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  * If you need multiple custom validations:
  * <pre name="code" class="java">
  * public class ConfSchema {
- *     {@literal @}Validate.List({
- *         {@literal @}Validate(SomeCustomValidator.class),
- *         {@literal @}Validate(SomeOtherCustomValidator.class)
- *     })
+ *     {@literal @}Validate(SomeCustomValidator.class),
+ *     {@literal @}Validate(SomeOtherCustomValidator.class)
  *     private String value;
  * }
  * </pre>

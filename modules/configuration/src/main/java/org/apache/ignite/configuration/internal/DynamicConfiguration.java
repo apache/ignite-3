@@ -29,7 +29,7 @@ import org.apache.ignite.configuration.internal.validation.FieldValidator;
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<T, INIT, CHANGE> {
+public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifier<VIEW, INIT, CHANGE> {
     /** Fully qualified name of the configuration. */
     protected final String qualifiedName;
 
@@ -39,7 +39,7 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
     /** Configuration prefix. */
     protected final String prefix;
 
-    /** Configuration members (leafs and nodes). */
+    /** Configuration members (leaves and nodes). */
     protected final Map<String, Modifier<?, ?, ?>> members = new HashMap<>();
 
     /** Root configuration node. */
@@ -128,20 +128,21 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
      * @param root New configuration root.
      * @return Copy of this configuration.
      */
-    protected abstract DynamicConfiguration<T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root);
+    protected abstract DynamicConfiguration<VIEW, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root);
 
     /**
      * Create a deep copy of this DynamicConfiguration, making it root configuration (so this method must be called
      * only on root configuration object).
      * @return Copy of this configuration.
      */
-    protected final DynamicConfiguration<T, INIT, CHANGE> copy() {
+    protected final DynamicConfiguration<VIEW, INIT, CHANGE> copy() {
         return copy(null);
     }
 
     /** {@inheritDoc} */
     @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) {
-        members.values().forEach(member -> member.validate(oldRoot));
+        for (Modifier<?, ?, ?> member : members.values())
+            member.validate(oldRoot);
     }
 
 }

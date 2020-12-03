@@ -19,13 +19,16 @@ package org.apache.ignite.configuration.internal;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValue;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.Serializable;
 import java.io.StringReader;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
 
 public class CLIExample {
 
@@ -89,13 +92,15 @@ public class CLIExample {
     }
 
     public static void applyConfig(Configurator<LocalConfiguration> configurator, Config config) {
-        config.entrySet().forEach(entry -> {
+        for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
             final String key = entry.getKey();
             final Object value = entry.getValue().unwrapped();
+
             final Selector selector = Selectors.find(key);
+
             if (selector != null)
                 configurator.set(selector, value);
-        });
+        }
     }
 
 }

@@ -21,9 +21,10 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.property.NamedList;
+import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class UsageTest {
 
@@ -75,7 +76,7 @@ public class UsageTest {
 
         try {
             configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED, false);
-            Assert.fail();
+            Assertions.fail();
         } catch (ConfigurationValidationException e) {}
         configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST, new ChangeAutoAdjust().withEnabled(false).withTimeout(0L));
         configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(false);
@@ -84,7 +85,7 @@ public class UsageTest {
 
         try{
             configurator.getRoot().baseline().autoAdjust().enabled(false);
-            Assert.fail();
+            Assertions.fail();
         } catch (ConfigurationValidationException e) {}
     }
 

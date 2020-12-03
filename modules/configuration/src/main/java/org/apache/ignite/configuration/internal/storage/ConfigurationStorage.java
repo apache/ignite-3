@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.internal.storage;
 
 import java.io.Serializable;
 import java.util.function.Consumer;
@@ -30,8 +29,9 @@ public interface ConfigurationStorage {
      * @param propertyName Fully qualified name of the property.
      * @param object Object, that represents the value of the property.
      * @param <T> Type of the property.
+     * @throws StorageException If failed to save object.
      */
-    <T extends Serializable> void save(String propertyName, T object);
+    <T extends Serializable> void save(String propertyName, T object) throws StorageException;
 
     /**
      * Get property value from storage.
@@ -39,8 +39,9 @@ public interface ConfigurationStorage {
      * @param propertyName Fully qualified name of the property.
      * @param <T> Type of the property.
      * @return Object, that represents the value of the property.
+     * @throws StorageException If failed to retrieve object frm configuration storage.
      */
-    <T extends Serializable> T get(String propertyName);
+    <T extends Serializable> T get(String propertyName) throws StorageException;
 
     /**
      * Listen for the property change in the storage.
@@ -48,7 +49,8 @@ public interface ConfigurationStorage {
      * @param key Key to listen on.
      * @param listener Listener function.
      * @param <T> Type of the property.
+     * @throws StorageException If failed to attach listener to configuration storage.
      */
-    <T extends Serializable> void listen(String key, Consumer<T> listener);
+    <T extends Serializable> void listen(String key, Consumer<T> listener) throws StorageException;
 
 }

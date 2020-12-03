@@ -17,30 +17,29 @@
 package org.apache.ignite.configuration.processor.internal;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
+import spoon.reflect.declaration.CtMethod;
+import spoon.reflect.declaration.CtParameter;
 import spoon.reflect.reference.CtFieldReference;
 
 /**
- * Hamcrest matcher that tests class for field existence.
+ * Hamcrest matcher that tests class for method existence.
  */
-public class HasFieldMatcher extends BaseMatcher<ParsedClass> {
+public class HasMethodMatcher extends BaseMatcher<ParsedClass> {
     /** Name of the expected field. */
-    private String fieldName;
+    private String methodName;
 
     /** Type of the expected field. */
-    private String fieldType;
+    private String methodReturnType;
 
-    /**
-     * Constructor.
-     * @param fieldName Name of the expected field.
-     * @param fieldType Type of the expected field.
-     */
-    private HasFieldMatcher(String fieldName, String fieldType) {
-        this.fieldName = fieldName;
-        this.fieldType = fieldType;
+    public HasMethodMatcher(String methodName, String methodReturnType) {
+        this.methodName = methodName;
+        this.methodReturnType = methodReturnType;
     }
 
     /**
@@ -48,14 +47,14 @@ public class HasFieldMatcher extends BaseMatcher<ParsedClass> {
      * @param arguments Array of field names and field types, paired.
      * @return Matcher.
      */
-    public static BaseMatcher<ParsedClass> hasFields(String... arguments) {
+    public static BaseMatcher<ParsedClass> hasMethods(String... arguments) {
         if (arguments.length % 2 != 0)
-            throw new RuntimeException("Number of field names should be equal to number of field types");
+            throw new RuntimeException("Number of method names should be equal to number of method return types");
 
-        List<HasFieldMatcher> matcherList = new ArrayList<>();
+        List<HasMethodMatcher> matcherList = new ArrayList<>();
 
         for (int i = 0; i < arguments.length; i+=2)
-            matcherList.add(new HasFieldMatcher(arguments[i], arguments[i + 1]));
+            matcherList.add(new HasMethodMatcher(arguments[i], arguments[i + 1]));
 
         return new BaseMatcher<ParsedClass>() {
             /** Currently used matcher. */
@@ -91,18 +90,18 @@ public class HasFieldMatcher extends BaseMatcher<ParsedClass> {
 
         ParsedClass cls = (ParsedClass) o;
 
-        final Map<String, CtFieldReference<?>> fields = cls.getFields();
-        final CtFieldReference<?> field = fields.get(fieldName);
+        final Map<String, CtMethod<?>> methods = cls.getMethods();
+        final CtMethod<?> method = methods.get(methodName);
 
-        if (field == null)
+        if (method == null)
             return false;
 
-        return field.getType().getQualifiedName().equals(fieldType);
+        return method.getType().getQualifiedName().equals(methodReturnType);
     }
 
     /** {@inheritDoc} */
     @Override public void describeTo(Description description) {
-        description.appendText(String.format("has field \"%s\" with type \"%s\"", fieldName, fieldType));
+        description.appendText(String.format("has method \"%s\" with return type \"%s\"", methodName, methodReturnType));
     }
 
     /** {@inheritDoc} */
@@ -114,16 +113,17 @@ public class HasFieldMatcher extends BaseMatcher<ParsedClass> {
 
         ParsedClass cls = (ParsedClass) item;
 
-        final Map<String, CtFieldReference<?>> fields = cls.getFields();
-        final CtFieldReference<?> field = fields.get(fieldName);
+        final Map<String, CtMethod<?>> methods = cls.getMethods();
+        final CtMethod<?> method = methods.get(methodName);
 
-        if (field == null) {
-            description.appendText("doesn't have field \"" + fieldName + "\"");
+        if (method == null) {
+            description.appendText("doesn't have method \"" + methodName + "\"");
             return;
         }
 
-        final String actualFieldType = field.getType().getQualifiedName();
-        if (!actualFieldType.equals(fieldType))
-            description.appendText(String.format("\"%s\" has incorrect type \"%s\"", fieldName, actualFieldType));
+        final String actualMethodReturnType = method.getType().getQualifiedName();
+
+        if (!actualMethodReturnType.equals(methodReturnType))
+            description.appendText(String.format("\"%s\" has incorrect return type \"%s\"", methodName, actualMethodReturnType));
     }
 }

@@ -159,9 +159,10 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     /** {@inheritDoc} */
     @Override public void changeWithoutValidation(T object) {
         this.val = object;
-        updateListeners.forEach(listener -> {
+
+        for (PropertyListener<T, T, T> listener : updateListeners) {
             listener.update(object, this);
-        });
+        }
     }
 
     /** {@inheritDoc} */
@@ -172,7 +173,9 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     /** {@inheritDoc} */
     @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) {
         final List<FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>> validators = configurator.validators(memberKey);
-        validators.forEach(v -> ((FieldValidator) v).validate(val, root, oldRoot));
+
+        for (FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>> v : validators)
+            ((FieldValidator) v).validate(val, root, oldRoot);
     }
 
     /** {@inheritDoc} */
@@ -190,9 +193,10 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
 
     public void setSilently(T serializable) {
         val = serializable;
-        updateListeners.forEach(listener -> {
+
+        for (PropertyListener<T, T, T> listener : updateListeners) {
             listener.update(val, this);
-        });
+        }
     }
 
     /**

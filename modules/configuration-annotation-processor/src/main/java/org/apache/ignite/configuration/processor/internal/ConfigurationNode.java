@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.processor.internal;
 import com.squareup.javapoet.TypeName;
 
 /**
- * Configuration element with a reference to it's parent and with an original name.
+ * Configuration element with a reference to its parent and with an original name.
  */
 public class ConfigurationNode extends ConfigurationElement {
     /** Configuration parent. */

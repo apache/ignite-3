@@ -21,13 +21,16 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.function.Function;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.Modifier;
 import org.apache.ignite.configuration.internal.property.PropertyListener;
 import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.internal.validation.FieldValidator;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 
@@ -46,11 +49,25 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     }
 
     private void init() {
-        List<DynamicProperty> props = new ArrayList<>();
+        List<DynamicProperty<?>> props = new ArrayList<>();
 
-        props.forEach(property -> {
+        Queue<DynamicConfiguration<?, ?, ?>> confs = new LinkedList<>();
+        confs.add(root);
+        while (!confs.isEmpty()) {
+            final DynamicConfiguration<?, ?, ?> conf = confs.poll();
+            for (Object modifier : conf.members.values()) {
+                if (modifier instanceof DynamicConfiguration) {
+                    confs.add((DynamicConfiguration<?, ?, ?>) modifier);
+                } else {
+                    props.add((DynamicProperty<?>) modifier);
+                }
+            }
+        }
+
+        for (DynamicProperty property : props) {
             final String key = property.key();
             property.addListener(new PropertyListener() {
+                /** {@inheritDoc} */
                 @Override public void update(Serializable newValue, Modifier modifier) {
                     storage.save(key, newValue);
                 }
@@ -58,7 +75,7 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
             storage.listen(key, serializable -> {
                 property.setSilently(serializable);
             });
-        });
+        }
     }
 
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> VIEW getPublic(Selector<T, TARGET, VIEW, INIT, CHANGE> selector) {

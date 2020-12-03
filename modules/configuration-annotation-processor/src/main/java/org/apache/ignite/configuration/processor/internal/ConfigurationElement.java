@@ -24,19 +24,19 @@ import com.squareup.javapoet.TypeName;
  */
 public class ConfigurationElement {
     /** Name of configuration element. */
-    public final String name;
+    private final String name;
 
     /** Configuration type. */
-    public final TypeName type;
+    private final TypeName type;
 
     /** Configuration VIEW type. */
-    public final TypeName view;
+    private final TypeName view;
 
     /** Configuration INIT type. */
-    public final TypeName init;
+    private final TypeName init;
 
     /** Configuration CHANGE type. */
-    public final TypeName change;
+    private final TypeName change;
 
     /** Constructor. */
     public ConfigurationElement(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
@@ -45,5 +45,25 @@ public class ConfigurationElement {
         this.view = view;
         this.init = init;
         this.change = change;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public TypeName getType() {
+        return type;
+    }
+
+    public TypeName getView() {
+        return view;
+    }
+
+    public TypeName getInit() {
+        return init;
+    }
+
+    public TypeName getChange() {
+        return change;
     }
 }

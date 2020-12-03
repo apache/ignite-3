@@ -27,7 +27,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
  * This annotation, if applied to a class, marks it as a configuration schema.
- * Annotation processor generates a couple of classes for each configuration schema:
+ * Annotation processor generates several classes for each configuration schema:
  * <ul>
  * <li>Config - Represents configuration itself, provides API to init, change and view it. Extends {@link DynamicConfiguration}</li>
  * <li>Init - initializes config tree</li>

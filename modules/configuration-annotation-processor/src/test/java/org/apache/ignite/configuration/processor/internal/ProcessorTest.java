@@ -16,78 +16,87 @@
  */
 package org.apache.ignite.configuration.processor.internal;
 
-import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableList;
-import com.google.testing.compile.Compilation;
 import com.google.testing.compile.CompilationSubject;
-import com.google.testing.compile.JavaFileObjects;
 import com.squareup.javapoet.ClassName;
-import java.util.Map;
-import java.util.stream.Collectors;
-import javax.tools.JavaFileObject;
 import org.hamcrest.MatcherAssert;
 import org.junit.Test;
 
-import static com.google.testing.compile.Compiler.javac;
 import static org.apache.ignite.configuration.processor.internal.HasFieldMatcher.hasFields;
+import static org.apache.ignite.configuration.processor.internal.HasMethodMatcher.hasMethods;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ProcessorTest {
-
+/**
+ * Test for basic code generation scenarios.
+ */
+public class ProcessorTest extends AbstractProcessorTest {
+    /**
+     * The simplest test for code generation.
+     */
     @Test
-    public void test() throws Exception {
-        final String fileName = "org/apache/ignite/configuration/processor/internal/TestConfigurationSchema.java";
+    public void test() {
+        final String packageName = "org.apache.ignite.configuration.processor.internal";
 
-        final ClassName clazz = fromFilePath(fileName);
+        final ClassName testConfigurationSchema = ClassName.get(packageName, "TestConfigurationSchema");
 
-        final Compilation compilation = javac()
-            .withProcessors(new Processor())
-            .compile(JavaFileObjects.forResource(fileName));
+        final BatchCompilation batch = batchCompile(testConfigurationSchema);
 
-        CompilationSubject.assertThat(compilation).succeeded();
+        CompilationSubject.assertThat(batch.getCompilationStatus()).succeeded();
 
-        final ImmutableList<JavaFileObject> generatedSources = compilation.generatedSourceFiles();
+        assertEquals(6, batch.generated().size());
 
-        assertEquals(6, generatedSources.size());
-
-        final Map<ClassName, JavaFileObject> generatedClasses = generatedSources.stream()
-            .collect(Collectors.toMap(object -> fromGeneratedFilePath(object.getName()), Functions.identity()));
-
-        final ConfigSet classSet = getConfigSet(clazz, generatedClasses);
+        final ConfigSet classSet = batch.getBySchema(testConfigurationSchema);
 
         assertTrue(classSet.allGenerated());
 
-        MatcherAssert.assertThat(classSet.getViewClass(), hasFields("value1", "java.lang.String"));
-    }
+        MatcherAssert.assertThat(
+            classSet.getViewClass(),
+            hasFields(
+                "value1", "java.lang.String",
+                "primitiveLong", "java.lang.Long",
+                "boxedLong", "java.lang.Long",
+                "primitiveInt", "java.lang.Integer",
+                "boxedInt", "java.lang.Integer"
+            )
+        );
 
-    public ConfigSet getConfigSet(ClassName clazz, final Map<ClassName, JavaFileObject> generatedClasses) {
-        final ClassName configurationName = Utils.getConfigurationName(clazz);
-        final ClassName viewName = Utils.getViewName(clazz);
-        final ClassName initName = Utils.getInitName(clazz);
-        final ClassName changeName = Utils.getChangeName(clazz);
+        MatcherAssert.assertThat(
+            classSet.getViewClass(),
+            hasMethods(
+                "value1()", "java.lang.String",
+                "primitiveLong()", "java.lang.Long",
+                "boxedLong()", "java.lang.Long",
+                "primitiveInt()", "java.lang.Integer",
+                "boxedInt()", "java.lang.Integer"
+            )
+        );
 
-        final JavaFileObject configurationFileObject = generatedClasses.get(configurationName);
-        final JavaFileObject viewClass = generatedClasses.get(viewName);
-        final JavaFileObject initClass = generatedClasses.get(initName);
-        final JavaFileObject changeClass = generatedClasses.get(changeName);
+        MatcherAssert.assertThat(
+            classSet.getInitClass(),
+            hasFields(
+                "value1", "java.lang.String",
+                "primitiveLong", "java.lang.Long",
+                "boxedLong", "java.lang.Long",
+                "primitiveInt", "java.lang.Integer",
+                "boxedInt", "java.lang.Integer"
+            )
+        );
 
-        return new ConfigSet(configurationFileObject, viewClass, initClass, changeClass);
-    }
-
-    ClassName fromGeneratedFilePath(String fileName) {
-        return fromFilePath(fileName.replace("/SOURCE_OUTPUT/", ""));
-    }
-
-    ClassName fromFilePath(String fileName) {
-        int slashIdx = fileName.lastIndexOf("/");
-        int dotJavaIdx = fileName.lastIndexOf(".java");
-
-        String packageName = fileName.substring(0, slashIdx).replaceAll("/", ".");
-
-        final String className = fileName.substring(slashIdx + 1, dotJavaIdx);
-
-        return ClassName.get(packageName, className);
+        MatcherAssert.assertThat(
+            classSet.getInitClass(),
+            hasMethods(
+                "value1()", "java.lang.String",
+                "primitiveLong()", "java.lang.Long",
+                "boxedLong()", "java.lang.Long",
+                "primitiveInt()", "java.lang.Integer",
+                "boxedInt()", "java.lang.Integer",
+                "withValue1(java.lang.String)", "org.apache.ignite.configuration.processor.internal.InitTest",
+                "withPrimitiveLong(java.lang.Long)", "org.apache.ignite.configuration.processor.internal.InitTest",
+                "withBoxedLong(java.lang.Long)", "org.apache.ignite.configuration.processor.internal.InitTest",
+                "withPrimitiveInt(java.lang.Integer)", "org.apache.ignite.configuration.processor.internal.InitTest",
+                "withBoxedInt(java.lang.Integer)", "org.apache.ignite.configuration.processor.internal.InitTest"
+            )
+        );
     }
 
 }

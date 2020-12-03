@@ -41,11 +41,4 @@ public class NamedList<T> {
     public Map<String, T> getValues() {
         return values;
     }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return "NamedList{" +
-            "values=" + values +
-            '}';
-    }
 }

@@ -45,38 +45,49 @@ public class BaseSelectors {
      * @param name Selector name.
      * @return Selector.
      */
-    public static <A extends DynamicConfiguration<?, ?, ?>, B extends Modifier<C, D, E>, C, D, E> Selector<A, B, C, D, E> find(String name) {
-        String[] splitten = name.split("\\.");
+    public static <ROOT extends DynamicConfiguration<?, ?, ?>, TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> Selector<ROOT, TARGET, VIEW, INIT, CHANGE> find(String name) {
+        String[] nameParts = name.split("\\.");
+
         List<String> arguments = new ArrayList<>();
         StringBuilder keyBuilder = new StringBuilder();
-        for (int i = 0; i < splitten.length; i++) {
-            String part = splitten[i];
+
+        for (int i = 0; i < nameParts.length; i++) {
+            String part = nameParts[i];
+
             int start = part.indexOf('[');
+
             String methodArg = null;
+
             if (start != -1) {
                 int end = part.indexOf(']');
+
                 if (end != -1) {
                     methodArg = part.substring(start + 1, end);
                     part = part.substring(0, start);
                 }
             }
+
             if (methodArg != null)
                 arguments.add(methodArg);
 
             keyBuilder.append(part);
 
-            if (i != splitten.length - 1)
+            if (i != nameParts.length - 1)
                 keyBuilder.append('.');
         }
+
         final String key = keyBuilder.toString();
 
         final SelectorHolder selector = selectors.get(key);
 
         if (selector == null) {
             final int lastDot = key.lastIndexOf('.');
+
             if (lastDot != -1) {
                 String partialKey = key.substring(0, lastDot);
+
                 final SelectorHolder partialSelector = selectors.get(partialKey);
+
                 if (partialSelector != null) {
                     final String availableOptions = selectors.keySet().stream().filter(s -> s.startsWith(partialKey)).collect(Collectors.joining(", "));
                     throw new SelectorNotFoundException("Selector " + key + " was not found, available options are: " + availableOptions);
@@ -85,7 +96,7 @@ public class BaseSelectors {
         }
 
         try {
-            return (Selector<A, B, C, D, E>) selector.get(arguments);
+            return (Selector<ROOT, TARGET, VIEW, INIT, CHANGE>) selector.get(arguments);
         } catch (Throwable throwable) {
             throw new SelectorNotFoundException("Failed to get selector: " + throwable.getMessage(), throwable);
         }

@@ -30,12 +30,13 @@ import org.apache.ignite.configuration.internal.property.NamedList;
  * @author @java.author
  * @version @java.version
  */
-public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT, CHANGE> extends DynamicConfiguration<NamedList<U>, NamedList<INIT>, NamedList<CHANGE>> {
+public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>, INIT, CHANGE>
+    extends DynamicConfiguration<NamedList<VIEW>, NamedList<INIT>, NamedList<CHANGE>> {
     /** Creator of named configuration. */
     private final BiFunction<String, String, T> creator;
 
     /** Named configurations. */
-    Map<String, T> values = new HashMap<>();
+    private final Map<String, T> values = new HashMap<>();
 
     /**
      * Constructor.
@@ -63,7 +64,7 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
      * @param root
      */
     private NamedListConfiguration(
-        NamedListConfiguration<U, T, INIT, CHANGE> base,
+        NamedListConfiguration<VIEW, T, INIT, CHANGE> base,
         Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
         DynamicConfiguration<?, ?, ?> root
     ) {
@@ -71,11 +72,15 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
 
         this.creator = base.creator;
 
-        base.values.forEach((key, value) -> {
-            final T copy = (T) ((DynamicConfiguration<U, INIT, CHANGE>) value).copy(root);
+        for (Map.Entry<String, T> entry : base.values.entrySet()) {
+            String k = entry.getKey();
+            T value = entry.getValue();
+
+            final T copy = (T) ((DynamicConfiguration<VIEW, INIT, CHANGE>) value).copy(root);
             add(copy);
-            this.values.put(key, copy);
-        });
+
+            this.values.put(k, copy);
+        }
     }
 
     /** {@inheritDoc} */
@@ -101,7 +106,7 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     }
 
     /** {@inheritDoc} */
-    @Override public NamedList<U> toView() {
+    @Override public NamedList<VIEW> toView() {
         return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it -> it.getValue().toView())));
     }
 
@@ -119,7 +124,7 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     }
 
     /** {@inheritDoc} */
-    @Override protected NamedListConfiguration<U, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
+    @Override protected NamedListConfiguration<VIEW, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
         return new NamedListConfiguration<>(this, configurator, root);
     }
 }

@@ -34,8 +34,8 @@ import org.apache.ignite.configuration.internal.validation.AutoAdjustValidator2;
 public class AutoAdjustConfigurationSchema {
     @Value
     @Min(value = 0, message = "Minimal is 0")
-    @Validate(AutoAdjustValidator.class)
-    @Validate(AutoAdjustValidator2.class)
+    @Validate(value = AutoAdjustValidator.class, message = "a")
+    @Validate(value = AutoAdjustValidator2.class, message = "b")
     private long timeout;
 
     @Value
