@@ -35,6 +35,9 @@ import org.apache.ignite.configuration.presentation.json.JsonConverter;
 /** */
 public class RestModule {
     /** */
+    private static final int DFLT_PORT = 8080;
+
+    /** */
     private static final String CONF_URL = "/management/v1/configuration/";
 
     /** */
@@ -49,10 +52,12 @@ public class RestModule {
     }
 
     /** */
-    public void start(int port) {
+    public void start() {
         Configurator<LocalConfiguration> configurator = confModule.localConfigurator();
 
-        Javalin app = Javalin.create().start(port);
+        Integer port = configurator.getPublic(Selectors.LOCAL_REST_PORT);
+
+        Javalin app = Javalin.create().start(port != null ? port : DFLT_PORT);
 
         FormatConverter converter = new JsonConverter();
 

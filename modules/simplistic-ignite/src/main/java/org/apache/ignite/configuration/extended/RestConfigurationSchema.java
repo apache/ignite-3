@@ -18,22 +18,12 @@
 package org.apache.ignite.configuration.extended;
 
 import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.ConfigValue;
+import org.apache.ignite.configuration.internal.annotation.Value;
 
-/**
- *
- */
-@Config(value = "local", root = true)
-public class LocalConfigurationSchema {
+/** */
+@Config
+public class RestConfigurationSchema {
     /** */
-    @ConfigValue
-    private RestConfigurationSchema rest;
-
-    /** */
-    @ConfigValue
-    private BaselineConfigurationSchema baseline;
-
-    /** */
-    @ConfigValue
-    private DataStorageConfigurationSchema dataStorage;
+    @Value
+    private int port;
 }
