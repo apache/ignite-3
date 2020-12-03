@@ -40,7 +40,8 @@ public abstract class FieldValidator<T extends Serializable, C extends DynamicCo
      * @param value New value.
      * @param newRoot New configuration root.
      * @param oldRoot Old configuration root.
+     * @throws ConfigurationValidationException If validation failed.
      */
-    public abstract void validate(T value, C newRoot, C oldRoot);
+    public abstract void validate(T value, C newRoot, C oldRoot) throws ConfigurationValidationException;
 
 }

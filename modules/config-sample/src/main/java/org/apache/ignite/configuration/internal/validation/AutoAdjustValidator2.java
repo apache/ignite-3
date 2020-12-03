@@ -26,7 +26,7 @@ public class AutoAdjustValidator2 extends FieldValidator<Number, LocalConfigurat
         super(message);
     }
 
-    @Override public void validate(Number value, LocalConfiguration newRoot, LocalConfiguration oldRoot) {
+    @Override public void validate(Number value, LocalConfiguration newRoot, LocalConfiguration oldRoot) throws ConfigurationValidationException {
         final Boolean isEnabled = Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED.select(newRoot).toView();
 
         if (value.longValue() > 0 && !isEnabled)

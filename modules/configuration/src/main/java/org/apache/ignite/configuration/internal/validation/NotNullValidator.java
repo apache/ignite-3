@@ -32,7 +32,7 @@ public class NotNullValidator<C extends DynamicConfiguration<?, ?, ?>> extends F
     }
 
     /** {@inheritDoc} */
-    @Override public void validate(Serializable value, C newRoot, C oldRoot) {
+    @Override public void validate(Serializable value, C newRoot, C oldRoot) throws ConfigurationValidationException {
         if (value == null)
             throw new ConfigurationValidationException("");
     }

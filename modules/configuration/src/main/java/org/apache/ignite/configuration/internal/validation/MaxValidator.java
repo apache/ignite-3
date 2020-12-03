@@ -35,7 +35,7 @@ public class MaxValidator<C extends DynamicConfiguration<?, ?, ?>> extends Field
     }
 
     /** {@inheritDoc} */
-    @Override public void validate(Number value, C newRoot, C oldRoot) {
+    @Override public void validate(Number value, C newRoot, C oldRoot) throws ConfigurationValidationException {
         if (value.longValue() > maxValue)
             throw new ConfigurationValidationException(message);
     }

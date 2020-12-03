@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.internal.validation.FieldValidator;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 
@@ -147,12 +148,12 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     /** {@inheritDoc} */
-    @Override public void change(T object) {
+    @Override public void change(T object) throws ConfigurationValidationException {
         configurator.set(BaseSelectors.find(qualifiedName), object);
     }
 
     /** {@inheritDoc} */
-    @Override public void init(T object) {
+    @Override public void init(T object) throws ConfigurationValidationException {
         configurator.init(BaseSelectors.find(qualifiedName), object);
     }
 
@@ -171,11 +172,11 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     /** {@inheritDoc} */
-    @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) {
-        final List<FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>> validators = configurator.validators(memberKey);
+    @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) throws ConfigurationValidationException {
+        final List<? extends FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>> validators = configurator.validators(memberKey);
 
-        for (FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>> v : validators)
-            ((FieldValidator) v).validate(val, root, oldRoot);
+        for (FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>> validator : validators)
+            ((FieldValidator<T, DynamicConfiguration<?, ?, ?>>) validator).validate(val, root, oldRoot);
     }
 
     /** {@inheritDoc} */

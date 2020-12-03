@@ -31,23 +31,39 @@ import org.apache.ignite.configuration.internal.property.Modifier;
 import org.apache.ignite.configuration.internal.property.PropertyListener;
 import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.internal.validation.FieldValidator;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 
+/**
+ * Convenient wrapper for configuration root. Provides access to configuration tree, stores validators, performs actions
+ * on configuration such as initialized, change and view.
+ * @param <T> Type of configuration root.
+ */
 public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
-
+    /** Storage for the configuration tree. */
     private final ConfigurationStorage storage;
 
+    /** Root of the configuration tree. */
     private final T root;
 
-    private final Map<MemberKey, List<FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>>> fieldValidators = new HashMap<>();
+    /** Configuration property validators. */
+    private final Map<MemberKey, List<FieldValidator<? extends Serializable, T>>> fieldValidators = new HashMap<>();
 
+    /**
+     * Constructor.
+     * @param storage Configuration storage.
+     * @param rootBuilder Function, that creates configuration root.
+     */
     public Configurator(ConfigurationStorage storage, Function<Configurator<T>, T> rootBuilder) {
         this.storage = storage;
         this.root = rootBuilder.apply(this);
         this.init();
     }
 
+    /**
+     * Initialize.
+     */
     private void init() {
         List<DynamicProperty<?>> props = new ArrayList<>();
 
@@ -78,11 +94,30 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         }
     }
 
+    /**
+     *
+     * @param selector
+     * @param <TARGET>
+     * @param <VIEW>
+     * @param <INIT>
+     * @param <CHANGE>
+     * @return
+     */
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> VIEW getPublic(Selector<T, TARGET, VIEW, INIT, CHANGE> selector) {
         return selector.select(root).toView();
     }
 
-    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void set(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, CHANGE newValue) {
+    /**
+     *
+     * @param selector
+     * @param newValue
+     * @param <TARGET>
+     * @param <VIEW>
+     * @param <INIT>
+     * @param <CHANGE>
+     * @throws ConfigurationValidationException
+     */
+    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void set(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, CHANGE newValue) throws ConfigurationValidationException {
         // TODO: atomic change start
         final T copy = (T) root.copy();
 
@@ -93,16 +128,42 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         // TODO: atomic change end
     }
 
-    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void init(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, INIT initValue) {
+    /**
+     *
+     * @param selector
+     * @param initValue
+     * @param <TARGET>
+     * @param <VIEW>
+     * @param <INIT>
+     * @param <CHANGE>
+     * @throws ConfigurationValidationException
+     */
+    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void init(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, INIT initValue) throws ConfigurationValidationException {
         final TARGET select = selector.select(root);
         select.initWithoutValidation(initValue);
         root.validate(root);
     }
 
+    /**
+     *
+     * @param selector
+     * @param <TARGET>
+     * @param <VIEW>
+     * @param <INIT>
+     * @param <CHANGE>
+     * @return
+     */
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> TARGET getInternal(Selector<T, TARGET, VIEW, INIT, CHANGE> selector) {
         return selector.select(root);
     }
 
+    /**
+     *
+     * @param aClass
+     * @param key
+     * @param validators
+     * @param <PROP>
+     */
     public <PROP extends Serializable> void addValidations(
         Class<? extends DynamicConfiguration<?, ?, ?>> aClass,
         String key,
@@ -111,10 +172,19 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         fieldValidators.put(new MemberKey(aClass, key), (List) validators);
     }
 
-    public List<FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>> validators(MemberKey key) {
+    /**
+     * Get all validators for given member key (class + field).
+     * @param key Member key.
+     * @return Validators.
+     */
+    public List<FieldValidator<? extends Serializable, T>> validators(MemberKey key) {
         return fieldValidators.getOrDefault(key, Collections.emptyList());
     }
 
+    /**
+     * Get configuration root.
+     * @return Configuration root.
+     */
     public T getRoot() {
         return root;
     }

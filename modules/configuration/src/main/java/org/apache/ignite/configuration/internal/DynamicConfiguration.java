@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.Modifier;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.internal.validation.FieldValidator;
 
 /**
@@ -109,12 +110,12 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
     }
 
     /** {@inheritDoc} */
-    @Override public void init(INIT init) {
+    @Override public void init(INIT init) throws ConfigurationValidationException {
         configurator.init(BaseSelectors.find(qualifiedName), init);
     }
 
     /** {@inheritDoc} */
-    @Override public void change(CHANGE change) {
+    @Override public void change(CHANGE change) throws ConfigurationValidationException {
         configurator.set(BaseSelectors.find(qualifiedName), change);
     }
 
@@ -140,7 +141,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
     }
 
     /** {@inheritDoc} */
-    @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) {
+    @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) throws ConfigurationValidationException {
         for (Modifier<?, ?, ?> member : members.values())
             member.validate(oldRoot);
     }

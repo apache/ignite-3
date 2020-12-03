@@ -29,7 +29,7 @@ public class NodeValidator extends FieldValidator<Boolean, LocalConfiguration> {
         super(message);
     }
 
-    @Override public void validate(Boolean value, LocalConfiguration newRoot, LocalConfiguration oldRoot) {
+    @Override public void validate(Boolean value, LocalConfiguration newRoot, LocalConfiguration oldRoot) throws ConfigurationValidationException {
         if (value != null && value) {
             if (!newRoot.baseline().autoAdjust().enabled().value()) {
                 throw new ConfigurationValidationException("");
