@@ -50,8 +50,10 @@ import static org.apache.ignite.cli.spec.IgniteCliSpec.loadSubcommands;
  * Top-level commands available in REPL.
  */
 @CommandLine.Command(
-    name = "shell",
-    description = {"Run interactive shell"})
+    name = "-i",
+    description = {"Run interactive shell"},
+    hidden = true
+)
 public class ShellCommandSpec implements Runnable {
 
     @Inject

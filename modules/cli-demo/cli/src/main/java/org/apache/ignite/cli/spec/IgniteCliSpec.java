@@ -58,8 +58,7 @@ import picocli.CommandLine.Model.UsageMessageSpec;
     },
     footer = "\n2020 Copyright(C) Apache Software Foundation\n",
     versionProvider = VersionProvider.class,
-    synopsisHeading = "@|bold USAGE|@\n  ",
-    synopsisSubcommandLabel = "[COMMAND] [PARAMETERS]\n",
+    synopsisHeading = "@|bold USAGE|@\n",
     commandListHeading = "@|bold COMMANDS|@\n",
     subcommands = {
         InitIgniteCommandSpec.class,
@@ -106,6 +105,11 @@ public class IgniteCliSpec implements Runnable {
         ));
 
         cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_HEADER, help -> help.header(spec.version()[0]));
+
+        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_SYNOPSIS,
+            help ->
+                Ansi.AUTO.string("  @|green " + spec.name() + "|@ @|yellow [COMMAND] [PARAMETERS]|@\n" +
+                    "  Or type @|green ignite|@ @|yellow -i|@ to enter interactive mode.\n\n"));
 
         cli.usage(cli.getOut());
     }
