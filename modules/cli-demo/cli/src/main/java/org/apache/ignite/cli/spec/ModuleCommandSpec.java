@@ -26,7 +26,7 @@ import org.apache.ignite.cli.builtins.module.RemoveModuleCommand;
 import picocli.CommandLine;
 
 @CommandLine.Command(name = "module",
-    description = "Manage Ignite modules",
+    description = "Add or remove Ignite modules and external artifacts.",
     subcommands = {
         ModuleCommandSpec.AddModuleCommandSpec.class,
         ModuleCommandSpec.RemoveModuleCommandSpec.class,

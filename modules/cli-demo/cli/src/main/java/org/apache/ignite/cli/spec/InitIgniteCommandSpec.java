@@ -24,7 +24,7 @@ import org.apache.ignite.cli.builtins.init.InitIgniteCommand;
 import picocli.CommandLine;
 
 @CommandLine.Command(name = "init",
-    description = "Install Apache Ignite at the current directory")
+    description = "Install Apache Ignite core modules locally.")
 public class InitIgniteCommandSpec implements Runnable, IgniteCommand {
 
     @CommandLine.Spec CommandLine.Model.CommandSpec spec;

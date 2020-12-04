@@ -54,18 +54,18 @@ import picocli.CommandLine.Model.UsageMessageSpec;
         "   @|red,bold ⠈⠻⣿⣿⣿⣿⣷⣤⠙⢿⡟|@       _/ / / /_/ // / / // // /_ /  __/   ___/ /",
         "   @|red,bold       ⠉⠉⠛⠏⠉|@      /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
         "                         /____/\n",
+        "Apache Ignite CLI ver. %s\n"
     },
-    footer = "\n2020 Copyright(C) Apache Software Foundation",
+    footer = "\n2020 Copyright(C) Apache Software Foundation\n",
     versionProvider = VersionProvider.class,
-    synopsisHeading = "@|bold USAGE|@\n",
+    synopsisHeading = "@|bold USAGE|@\n  ",
     synopsisSubcommandLabel = "[COMMAND] [PARAMETERS]\n",
     commandListHeading = "@|bold COMMANDS|@\n",
     subcommands = {
-        NodeCommandSpec.class,
-        ModuleCommandSpec.class,
         InitIgniteCommandSpec.class,
+        ModuleCommandSpec.class,
+        NodeCommandSpec.class,
         ConfigCommandSpec.class,
-        BaselineCommandSpec.class,
     }
 )
 public class IgniteCliSpec implements Runnable {
@@ -81,24 +81,6 @@ public class IgniteCliSpec implements Runnable {
             .setExecutionExceptionHandler(new ErrorHandler())
             .addSubcommand(applicationContext.createBean(ShellCommandSpec.class));
 
-        cli.setColorScheme(new ColorScheme.Builder().commands(Ansi.Style.fg_green).build());
-
-        cli.setHelpSectionKeys(Arrays.asList(
-            UsageMessageSpec.SECTION_KEY_HEADER,
-            UsageMessageSpec.SECTION_KEY_SYNOPSIS_HEADING,
-            UsageMessageSpec.SECTION_KEY_SYNOPSIS,
-            UsageMessageSpec.SECTION_KEY_COMMAND_LIST_HEADING,
-            UsageMessageSpec.SECTION_KEY_COMMAND_LIST,
-            UsageMessageSpec.SECTION_KEY_FOOTER
-        ));
-
-        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_SYNOPSIS_HEADING,
-            help -> Ansi.AUTO.string("Apache Ignite CLI ver. " +
-                cli.getCommandSpec().version()[0] + "\n\n" + help.synopsisHeading()));
-
-        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_SYNOPSIS,
-            help -> Ansi.AUTO.string("  " + help.synopsis(help.synopsisHeadingLength())));
-
         applicationContext.createBean(CliPathsConfigLoader.class)
             .loadIgnitePathsConfig()
             .ifPresent(ignitePaths -> loadSubcommands(
@@ -110,7 +92,22 @@ public class IgniteCliSpec implements Runnable {
     }
 
     @Override public void run() {
-        spec.commandLine().usage(spec.commandLine().getOut());
+        CommandLine cli = spec.commandLine();
+
+        cli.setColorScheme(new ColorScheme.Builder().commands(Ansi.Style.fg_green).build());
+
+        cli.setHelpSectionKeys(Arrays.asList(
+            UsageMessageSpec.SECTION_KEY_HEADER,
+            UsageMessageSpec.SECTION_KEY_SYNOPSIS_HEADING,
+            UsageMessageSpec.SECTION_KEY_SYNOPSIS,
+            UsageMessageSpec.SECTION_KEY_COMMAND_LIST_HEADING,
+            UsageMessageSpec.SECTION_KEY_COMMAND_LIST,
+            UsageMessageSpec.SECTION_KEY_FOOTER
+        ));
+
+        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_HEADER, help -> help.header(spec.version()[0]));
+
+        cli.usage(cli.getOut());
     }
 
     public void setReader(LineReader reader){

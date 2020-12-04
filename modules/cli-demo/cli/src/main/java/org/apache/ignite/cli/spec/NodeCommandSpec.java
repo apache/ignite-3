@@ -27,7 +27,7 @@ import org.apache.ignite.cli.builtins.node.StartNodeCommand;
 import picocli.CommandLine;
 
 @CommandLine.Command(name = "node",
-    description = "start|stop|list local nodes", subcommands = {
+    description = "Start, stop and manage locally running Ignite nodes.", subcommands = {
         NodeCommandSpec.StartNodeCommandSpec.class,
         NodeCommandSpec.StopNodeCommandSpec.class,
         NodeCommandSpec.NodesClasspathCommandSpec.class,
