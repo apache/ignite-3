@@ -23,9 +23,8 @@ import org.apache.ignite.cli.common.IgniteCommand;
 import org.apache.ignite.cli.builtins.init.InitIgniteCommand;
 import picocli.CommandLine;
 
-@CommandLine.Command(name = "init",
-    description = "Install Apache Ignite core modules locally.")
-public class InitIgniteCommandSpec implements Runnable, IgniteCommand {
+@CommandLine.Command(name = "init", description = "Install Ignite core modules locally.")
+public class InitIgniteCommandSpec extends AbstractCommandSpec implements IgniteCommand {
 
     @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
@@ -36,7 +35,7 @@ public class InitIgniteCommandSpec implements Runnable, IgniteCommand {
         this.applicationContext = applicationContext;
     }
 
-    @Override public void run() {
+    @Override protected void doRun() {
         InitIgniteCommand command = applicationContext.createBean(InitIgniteCommand.class);
         command.setOut(spec.commandLine().getOut());
         command.run();

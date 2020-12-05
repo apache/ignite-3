@@ -25,23 +25,25 @@ import org.apache.ignite.cli.builtins.module.ListModuleCommand;
 import org.apache.ignite.cli.builtins.module.RemoveModuleCommand;
 import picocli.CommandLine;
 
-@CommandLine.Command(name = "module",
-    description = "Add or remove Ignite modules and external artifacts.",
+@CommandLine.Command(
+    name = "module",
+    description = "Add or remove optional Ignite modules and external artifacts.",
     subcommands = {
         ModuleCommandSpec.AddModuleCommandSpec.class,
         ModuleCommandSpec.RemoveModuleCommandSpec.class,
-        ModuleCommandSpec.ListModuleCommandSpec.class})
-public class ModuleCommandSpec implements IgniteCommand, Runnable {
+        ModuleCommandSpec.ListModuleCommandSpec.class
+    }
+)
+public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteCommand {
 
     @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
-    @Override public void run() {
+    @Override protected void doRun() {
         spec.commandLine().usage(spec.commandLine().getOut());
     }
 
-    @CommandLine.Command(name = "add",
-        description = "Add module to Ignite or cli tool")
-    public static class AddModuleCommandSpec implements Runnable {
+    @CommandLine.Command(name = "add", description = "Add an optional Ignite module or an external artifact.")
+    public static class AddModuleCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
@@ -58,7 +60,7 @@ public class ModuleCommandSpec implements IgniteCommand, Runnable {
         ApplicationContext applicationContext;
 
 
-        @Override public void run() {
+        @Override protected void doRun() {
             AddModuleCommand addModuleCommand = applicationContext.createBean(AddModuleCommand.class);
             addModuleCommand.setOut(spec.commandLine().getOut());
 
@@ -66,9 +68,8 @@ public class ModuleCommandSpec implements IgniteCommand, Runnable {
         }
     }
 
-    @CommandLine.Command(name = "remove",
-        description = "Remove Ignite or cli module by name")
-    public static class RemoveModuleCommandSpec implements Runnable {
+    @CommandLine.Command(name = "remove", description = "Add an optional Ignite module or an external artifact.")
+    public static class RemoveModuleCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
@@ -80,7 +81,7 @@ public class ModuleCommandSpec implements IgniteCommand, Runnable {
         ApplicationContext applicationContext;
 
 
-        @Override public void run() {
+        @Override protected void doRun() {
             RemoveModuleCommand removeModuleCommand = applicationContext.createBean(RemoveModuleCommand.class);
             removeModuleCommand.setOut(spec.commandLine().getOut());
 
@@ -88,16 +89,15 @@ public class ModuleCommandSpec implements IgniteCommand, Runnable {
         }
     }
 
-    @CommandLine.Command(name = "list",
-        description = "List available builtin Apache Ignite modules")
-    public static class ListModuleCommandSpec implements Runnable {
+    @CommandLine.Command(name = "list", description = "Show the list of available optional Ignite modules.")
+    public static class ListModuleCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
         @Inject
         ApplicationContext applicationContext;
 
-        @Override public void run() {
+        @Override protected void doRun() {
             ListModuleCommand listModuleCommand = applicationContext.createBean(ListModuleCommand.class);
             listModuleCommand.setOut(spec.commandLine().getOut());
 

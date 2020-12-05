@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.spec;
 
+import java.io.PrintWriter;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
@@ -26,14 +27,12 @@ import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CommandFactory;
 import org.apache.ignite.cli.ErrorHandler;
-import org.apache.ignite.cli.VersionProvider;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ignite.cli.common.IgniteCommand;
 import org.jline.reader.LineReader;
 import org.jline.reader.impl.LineReaderImpl;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
-import picocli.CommandLine.Help.ColorScheme;
 import picocli.CommandLine.Model.UsageMessageSpec;
 
 /**
@@ -41,25 +40,6 @@ import picocli.CommandLine.Model.UsageMessageSpec;
  */
 @CommandLine.Command(
     name = "ignite",
-    header = {
-        "                        ___                         __",
-        "                       /   |   ____   ____ _ _____ / /_   ___",
-        "   @|red,bold       ⣠⣶⣿|@          / /| |  / __ \\ / __ `// ___// __ \\ / _ \\",
-        "   @|red,bold      ⣿⣿⣿⣿|@         / ___ | / /_/ // /_/ // /__ / / / //  __/",
-        "   @|red,bold  ⢠⣿⡏⠈⣿⣿⣿⣿⣷|@       /_/  |_|/ .___/ \\__,_/ \\___//_/ /_/ \\___/",
-        "   @|red,bold ⢰⣿⣿⣿⣧⠈⢿⣿⣿⣿⣿⣦|@            /_/",
-        "   @|red,bold ⠘⣿⣿⣿⣿⣿⣦⠈⠛⢿⣿⣿⣿⡄|@       ____               _  __           _____",
-        "   @|red,bold  ⠈⠛⣿⣿⣿⣿⣿⣿⣦⠉⢿⣿⡟|@      /  _/____ _ ____   (_)/ /_ ___     |__  /",
-        "   @|red,bold ⢰⣿⣶⣀⠈⠙⠿⣿⣿⣿⣿ ⠟⠁|@      / / / __ `// __ \\ / // __// _ \\     /_ <",
-        "   @|red,bold ⠈⠻⣿⣿⣿⣿⣷⣤⠙⢿⡟|@       _/ / / /_/ // / / // // /_ /  __/   ___/ /",
-        "   @|red,bold       ⠉⠉⠛⠏⠉|@      /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
-        "                         /____/\n",
-        "Apache Ignite CLI ver. %s\n"
-    },
-    footer = "\n2020 Copyright(C) Apache Software Foundation\n",
-    versionProvider = VersionProvider.class,
-    synopsisHeading = "@|bold USAGE|@\n",
-    commandListHeading = "@|bold COMMANDS|@\n",
     subcommands = {
         InitIgniteCommandSpec.class,
         ModuleCommandSpec.class,
@@ -67,17 +47,30 @@ import picocli.CommandLine.Model.UsageMessageSpec;
         ConfigCommandSpec.class,
     }
 )
-public class IgniteCliSpec implements Runnable {
-    private LineReaderImpl reader;
+public class IgniteCliSpec extends AbstractCommandSpec {
+    public static final String[] BANNER = new String[] {
+        "                       ___                         __",
+        "                      /   |   ____   ____ _ _____ / /_   ___",
+        "  @|red,bold       ⣠⣶⣿|@          / /| |  / __ \\ / __ `// ___// __ \\ / _ \\",
+        "  @|red,bold      ⣿⣿⣿⣿|@         / ___ | / /_/ // /_/ // /__ / / / //  __/",
+        "  @|red,bold  ⢠⣿⡏⠈⣿⣿⣿⣿⣷|@       /_/  |_|/ .___/ \\__,_/ \\___//_/ /_/ \\___/",
+        "  @|red,bold ⢰⣿⣿⣿⣧⠈⢿⣿⣿⣿⣿⣦|@            /_/",
+        "  @|red,bold ⠘⣿⣿⣿⣿⣿⣦⠈⠛⢿⣿⣿⣿⡄|@       ____               _  __           _____",
+        "  @|red,bold  ⠈⠛⣿⣿⣿⣿⣿⣿⣦⠉⢿⣿⡟|@      /  _/____ _ ____   (_)/ /_ ___     |__  /",
+        "  @|red,bold ⢰⣿⣶⣀⠈⠙⠿⣿⣿⣿⣿ ⠟⠁|@      / / / __ `// __ \\ / // __// _ \\     /_ <",
+        "  @|red,bold ⠈⠻⣿⣿⣿⣿⣷⣤⠙⢿⡟|@       _/ / / /_/ // / / // // /_ /  __/   ___/ /",
+        "  @|red,bold       ⠉⠉⠛⠏⠉|@      /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
+        "                        /____/\n"};
 
-    @CommandLine.Spec
-    private CommandLine.Model.CommandSpec spec;
+    private LineReaderImpl reader;
 
     public static void main(String... args) {
         ApplicationContext applicationContext = ApplicationContext.run();
         CommandLine.IFactory factory = applicationContext.createBean(CommandFactory.class);
+        ErrorHandler errorHandler = new ErrorHandler();
         CommandLine cli = new CommandLine(IgniteCliSpec.class, factory)
-            .setExecutionExceptionHandler(new ErrorHandler())
+            .setExecutionExceptionHandler(errorHandler)
+            .setParameterExceptionHandler(errorHandler)
             .addSubcommand(applicationContext.createBean(ShellCommandSpec.class));
 
         applicationContext.createBean(CliPathsConfigLoader.class)
@@ -87,29 +80,23 @@ public class IgniteCliSpec implements Runnable {
                 ignitePaths.cliLibsDir()
             ));
 
+        PrintWriter out = cli.getOut();
+
+        Arrays.stream(BANNER).map(Ansi.AUTO::string).forEach(out::println);
+
+        out.println(String.format("Apache Ignite CLI ver. %s\n",
+            ((AbstractCommandSpec)cli.getCommand()).getVersion()[0]));
+
         System.exit(cli.execute(args));
     }
 
-    @Override public void run() {
+    @Override protected void doRun() {
         CommandLine cli = spec.commandLine();
 
-        cli.setColorScheme(new ColorScheme.Builder().commands(Ansi.Style.fg_green).build());
-
-        cli.setHelpSectionKeys(Arrays.asList(
-            UsageMessageSpec.SECTION_KEY_HEADER,
-            UsageMessageSpec.SECTION_KEY_SYNOPSIS_HEADING,
-            UsageMessageSpec.SECTION_KEY_SYNOPSIS,
-            UsageMessageSpec.SECTION_KEY_COMMAND_LIST_HEADING,
-            UsageMessageSpec.SECTION_KEY_COMMAND_LIST,
-            UsageMessageSpec.SECTION_KEY_FOOTER
-        ));
-
-        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_HEADER, help -> help.header(spec.version()[0]));
-
-        cli.getHelpSectionMap().put(UsageMessageSpec.SECTION_KEY_SYNOPSIS,
-            help ->
-                Ansi.AUTO.string("  @|green " + spec.name() + "|@ @|yellow [COMMAND] [PARAMETERS]|@\n" +
-                    "  Or type @|green ignite|@ @|yellow -i|@ to enter interactive mode.\n\n"));
+        cli.getHelpSectionMap().compute(UsageMessageSpec.SECTION_KEY_SYNOPSIS, (key, renderer) ->
+            help -> renderer.render(help).stripTrailing() +
+                    "\n  Or type " + help.colorScheme().commandText(spec.qualifiedName()) +
+                    ' ' + help.colorScheme().parameterText("-i") + " to enter interactive mode.\n\n");
 
         cli.usage(cli.getOut());
     }

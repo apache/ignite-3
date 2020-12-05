@@ -17,16 +17,25 @@
 
 package org.apache.ignite.cli.spec;
 
-import org.apache.ignite.cli.common.IgniteCommand;
+import org.apache.ignite.cli.CliHelper;
+import org.apache.ignite.cli.CliVersionInfo;
 import picocli.CommandLine;
+import picocli.CommandLine.IVersionProvider;
+import picocli.CommandLine.Model.CommandSpec;
 
-@CommandLine.Command(name = "baseline", mixinStandardHelpOptions = true,
-    description = "Print baseline information")
-public class BaselineCommandSpec implements Runnable {
+public abstract class AbstractCommandSpec implements Runnable, IVersionProvider {
+    @CommandLine.Spec
+    protected CommandSpec spec;
 
-    @CommandLine.Spec CommandLine.Model.CommandSpec spec;
+    @Override public final void run() {
+        CliHelper.initCli(spec.commandLine());
 
-    @Override public void run() {
-        this.spec.commandLine().getOut().println("Here will be information about current baseline nodes");
+        doRun();
+    }
+
+    protected abstract void doRun();
+
+    @Override public String[] getVersion() {
+        return new String[] { new CliVersionInfo().version };
     }
 }

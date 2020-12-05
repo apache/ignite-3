@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
-public class ErrorHandler implements CommandLine.IExecutionExceptionHandler {
+public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, CommandLine.IParameterExceptionHandler {
     Logger logger = LoggerFactory.getLogger(ErrorHandler.class);
 
     @Override public int handleExecutionException(Exception ex, CommandLine cmd,
@@ -34,5 +34,17 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler {
         return cmd.getExitCodeExceptionMapper() != null
             ? cmd.getExitCodeExceptionMapper().getExitCode(ex)
             : cmd.getCommandSpec().exitCodeOnExecutionException();
+    }
+
+    @Override public int handleParseException(CommandLine.ParameterException ex, String[] args) {
+        CommandLine cli = ex.getCommandLine();
+
+        CliHelper.initCli(cli);
+
+        cli.getErr().println(cli.getColorScheme().errorText("ERROR: ") + ex.getMessage() + '\n');
+
+        cli.usage(cli.getOut());
+
+        return cli.getCommandSpec().exitCodeOnInvalidInput();
     }
 }

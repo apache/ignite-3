@@ -27,23 +27,27 @@ import org.apache.ignite.cli.builtins.node.NodesClasspathCommand;
 import org.apache.ignite.cli.builtins.node.StartNodeCommand;
 import picocli.CommandLine;
 
-@CommandLine.Command(name = "node",
-    description = "Start, stop and manage locally running Ignite nodes.", subcommands = {
+@CommandLine.Command(
+    name = "node",
+    description = "Start, stop and manage locally running Ignite nodes.",
+    subcommands = {
         NodeCommandSpec.StartNodeCommandSpec.class,
         NodeCommandSpec.StopNodeCommandSpec.class,
         NodeCommandSpec.NodesClasspathCommandSpec.class,
-        NodeCommandSpec.ListNodesCommandSpec.class})
-public class NodeCommandSpec implements Runnable {
+        NodeCommandSpec.ListNodesCommandSpec.class
+    }
+)
+public class NodeCommandSpec extends AbstractCommandSpec {
 
     public @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
 
-    @Override public void run() {
+    @Override protected void doRun() {
         spec.commandLine().usage(spec.commandLine().getOut());
     }
 
-    @CommandLine.Command(name = "start", description = "Start Ignite node")
-    public static class StartNodeCommandSpec implements Runnable {
+    @CommandLine.Command(name = "start", description = "Start an Ignite node locally.")
+    public static class StartNodeCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
@@ -57,7 +61,7 @@ public class NodeCommandSpec implements Runnable {
             description = "path to configuration file")
         public Path configPath;
 
-        @Override public void run() {
+        @Override protected void doRun() {
             StartNodeCommand startNodeCommand = applicationContext.createBean(StartNodeCommand.class);
 
             startNodeCommand.setOut(spec.commandLine().getOut());
@@ -65,8 +69,8 @@ public class NodeCommandSpec implements Runnable {
         }
     }
 
-    @CommandLine.Command(name = "stop", description = "Stop Ignite node by consistentId")
-    public static class StopNodeCommandSpec implements Runnable {
+    @CommandLine.Command(name = "stop", description = "Stop a locally running Ignite node.")
+    public static class StopNodeCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
@@ -77,7 +81,7 @@ public class NodeCommandSpec implements Runnable {
             description = "consistent ids of nodes to start")
         public List<String> pids;
 
-        @Override public void run() {
+        @Override protected void doRun() {
             StopNodeCommand stopNodeCommand = applicationContext.createBean(StopNodeCommand.class);
             stopNodeCommand.setOut(spec.commandLine().getOut());
             stopNodeCommand.run(pids);
@@ -85,15 +89,15 @@ public class NodeCommandSpec implements Runnable {
         }
     }
 
-    @CommandLine.Command(name = "list", description = "List current ignite nodes")
-    public static class ListNodesCommandSpec implements Runnable {
+    @CommandLine.Command(name = "list", description = "Show the list of currently running local Ignite nodes.")
+    public static class ListNodesCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
         @Inject
         private ApplicationContext applicationContext;
 
-        @Override public void run() {
+        @Override protected void doRun() {
             ListNodesCommand listNodesCommand = applicationContext.createBean(ListNodesCommand.class);
 
             listNodesCommand.setOut(spec.commandLine().getOut());
@@ -102,15 +106,15 @@ public class NodeCommandSpec implements Runnable {
         }
     }
 
-    @CommandLine.Command(name = "classpath", description = "Show current classpath for new nodes")
-    public static class NodesClasspathCommandSpec implements Runnable {
+    @CommandLine.Command(name = "classpath", description = "Show the current classpath used by the Ignite nodes.")
+    public static class NodesClasspathCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
         @Inject
         private ApplicationContext applicationContext;
 
-        @Override public void run() {
+        @Override protected void doRun() {
             NodesClasspathCommand classpathCommand = applicationContext.createBean(NodesClasspathCommand.class);
 
             classpathCommand.setOut(spec.commandLine().getOut());

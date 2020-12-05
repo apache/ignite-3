@@ -69,7 +69,11 @@ public class ShellCommandSpec implements Runnable {
             throw new IgniteCLIException("Can't initialize ignite cli in interactive mode", e);
         }
         CommandLine cmd = new CommandLine(commands, factory);
-        cmd.setExecutionExceptionHandler(new ErrorHandler());
+
+        ErrorHandler errorHandler = new ErrorHandler();
+
+        cmd.setExecutionExceptionHandler(errorHandler);
+        cmd.setParameterExceptionHandler(errorHandler);
 
         applicationContext.createBean(CliPathsConfigLoader.class)
             .loadIgnitePathsConfig()

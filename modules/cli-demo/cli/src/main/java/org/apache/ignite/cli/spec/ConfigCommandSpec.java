@@ -21,23 +21,24 @@ import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.builtins.config.ConfigurationClient;
 import picocli.CommandLine;
 
-@CommandLine.Command(name = "config", mixinStandardHelpOptions = true,
+@CommandLine.Command(
+    name = "config",
     description = "Inspect and update Ignite cluster configuration.",
     subcommands = {
         ConfigCommandSpec.GetConfigCommandSpec.class,
         ConfigCommandSpec.SetConfigCommandSpec.class
-    })
-public class ConfigCommandSpec implements Runnable {
+    }
+)
+public class ConfigCommandSpec extends AbstractCommandSpec {
 
     @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
-    @Override public void run() {
+    @Override protected void doRun() {
         spec.commandLine().usage(spec.commandLine().getOut());
     }
 
-    @CommandLine.Command(name = "get",
-        description = "Get current cluster configs")
-    public static class GetConfigCommandSpec implements Runnable {
+    @CommandLine.Command(name = "get", description = "Get current Ignite cluster configuration values.")
+    public static class GetConfigCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
@@ -48,15 +49,17 @@ public class ConfigCommandSpec implements Runnable {
                 "(example: local.baseline)")
         private String subtree;
 
-        @Override public void run() {
+        @Override protected void doRun() {
             spec.commandLine().getOut().println(
                 new ConfigurationClient().get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), subtree));
         }
     }
 
-    @CommandLine.Command(name = "set",
-        description = "Set current cluster configs. Config is expected as any valid Hocon")
-    public static class SetConfigCommandSpec implements Runnable {
+    @CommandLine.Command(
+        name = "set",
+        description = "Update Ignite cluster configuration values."
+    )
+    public static class SetConfigCommandSpec extends AbstractCommandSpec {
 
         @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
@@ -65,7 +68,7 @@ public class ConfigCommandSpec implements Runnable {
 
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
 
-        @Override public void run() {
+        @Override protected void doRun() {
             spec.commandLine().getOut().println(
                 new ConfigurationClient().set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), config));
         }
