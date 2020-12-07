@@ -39,8 +39,8 @@
     </dependencies>
 
     <modules>
-        <module>modules/config-sample</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
+        <module>modules/config-sample</module>
     </modules>
 </project>
