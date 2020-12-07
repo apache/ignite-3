@@ -19,6 +19,7 @@ package org.apache.ignite.cli.builtins.module;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,12 +68,8 @@ public class ModuleManager {
         mavenArtifactResolver.setOut(out);
     }
 
-    public void addModule(String name, IgnitePaths ignitePaths, boolean cli) {
-        Path installPath;
-        if (cli)
-            installPath = ignitePaths.cliLibsDir();
-        else
-            installPath = ignitePaths.libsDir();
+    public void addModule(String name, IgnitePaths ignitePaths, List<URL> repositories) {
+        Path installPath = ignitePaths.libsDir();
         if (name.startsWith("mvn:")) {
             MavenCoordinates mavenCoordinates = MavenCoordinates.of(name);
 
@@ -81,7 +78,8 @@ public class ModuleManager {
                     installPath,
                     mavenCoordinates.groupId,
                     mavenCoordinates.artifactId,
-                    mavenCoordinates.version
+                    mavenCoordinates.version,
+                    repositories
                 );
                 moduleStorage.saveModule(new ModuleStorage.ModuleDefinition(
                     name,
@@ -111,7 +109,8 @@ public class ModuleManager {
                         ignitePaths.libsDir(),
                         mavenCoordinates.groupId,
                         mavenCoordinates.artifactId,
-                        mavenCoordinates.version
+                        mavenCoordinates.version,
+                        repositories
                     ));
                 }
                 catch (IOException e) {
@@ -127,7 +126,8 @@ public class ModuleManager {
                         ignitePaths.cliLibsDir(),
                         mavenCoordinates.groupId,
                         mavenCoordinates.artifactId,
-                        mavenCoordinates.version
+                        mavenCoordinates.version,
+                        repositories
                     ));
                 }
                 catch (IOException e) {

@@ -20,8 +20,11 @@ package org.apache.ignite.cli.builtins.init;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
 import javax.inject.Inject;
@@ -108,7 +111,7 @@ public class InitIgniteCommand extends AbstractCliCommand {
     }
 
     private void installIgnite(IgnitePaths ignitePaths) {
-        moduleManager.addModule("_server", ignitePaths, false);
+        moduleManager.addModule("_server", ignitePaths, Collections.emptyList());
     }
 
     private File initConfigFile() {

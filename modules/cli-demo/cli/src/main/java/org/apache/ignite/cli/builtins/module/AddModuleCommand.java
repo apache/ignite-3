@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.builtins.module;
 
+import java.net.URL;
+import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.AbstractCliCommand;
@@ -37,8 +39,10 @@ public class AddModuleCommand extends AbstractCliCommand {
     }
 
 
-    public void addModule(String moduleName, boolean cli) {
+    public void addModule(String moduleName, List<URL> customMavenRepositories) {
         moduleManager.setOut(out);
-        moduleManager.addModule(moduleName, cliPathsConfigLoader.loadIgnitePathsOrThrowError(), cli);
+        moduleManager.addModule(moduleName,
+            cliPathsConfigLoader.loadIgnitePathsOrThrowError(),
+            customMavenRepositories);
     }
 }

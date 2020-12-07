@@ -20,9 +20,11 @@ package org.apache.ignite.cli.builtins.module;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.ParseException;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -40,6 +42,7 @@ import org.apache.ivy.core.resolve.ResolveOptions;
 import org.apache.ivy.core.retrieve.RetrieveOptions;
 import org.apache.ivy.core.retrieve.RetrieveReport;
 import org.apache.ivy.core.settings.IvySettings;
+import org.apache.ivy.plugins.repository.url.URLRepository;
 import org.apache.ivy.plugins.resolver.ChainResolver;
 import org.apache.ivy.plugins.resolver.IBiblioResolver;
 import org.apache.ivy.util.AbstractMessageLogger;
@@ -54,7 +57,6 @@ import org.slf4j.LoggerFactory;
 public class MavenArtifactResolver {
 
     private final SystemPathResolver pathResolver;
-    private Ivy _ivy;
     private PrintWriter out;
 
     @Inject
@@ -66,19 +68,14 @@ public class MavenArtifactResolver {
         this.out = out;
     }
 
-    private Ivy ivy() {
-        if (_ivy == null)
-            _ivy = ivyInstance();
-        return _ivy;
-    }
-
     public ResolveResult resolve(
         Path mavenRoot,
         String grpId,
         String artifactId,
-        String version
+        String version,
+        List<URL> customRepositories
     ) throws IOException {
-        ivy(); // needed for init right output logger before any operations
+        Ivy ivy = ivyInstance(customRepositories); // needed for init right output logger before any operations
         out.print("Resolve artifact " + grpId + ":" +
             artifactId + ":" + version);
         ModuleDescriptor md = rootModuleDescriptor(grpId, artifactId, version);
@@ -95,7 +92,7 @@ public class MavenArtifactResolver {
 
         try {
             // now resolve
-            ResolveReport rr = ivy().resolve(md,ro);
+            ResolveReport rr = ivy.resolve(md,ro);
 
             if (rr.hasError())
                 throw new IgniteCLIException(rr.getAllProblemMessages().toString());
@@ -103,7 +100,7 @@ public class MavenArtifactResolver {
             // Step 2: retrieve
             ModuleDescriptor m = rr.getModuleDescriptor();
 
-            RetrieveReport retrieveReport = ivy().retrieve(
+            RetrieveReport retrieveReport = ivy.retrieve(
                 m.getModuleRevisionId(),
                 new RetrieveOptions()
                     // this is from the envelop module
@@ -125,7 +122,7 @@ public class MavenArtifactResolver {
         }
     }
 
-    private Ivy ivyInstance() {
+    private Ivy ivyInstance(List<URL> repositories) {
         File tmpDir = null;
         try {
             tmpDir = Files.createTempDirectory("ignite-installer-cache").toFile();
@@ -148,6 +145,16 @@ public class MavenArtifactResolver {
         ChainResolver chainResolver = new ChainResolver();
         chainResolver.setName("chainResolver");
         chainResolver.setEventManager(eventManager);
+
+        for (URL repoUrl: repositories) {
+            IBiblioResolver br = new IBiblioResolver();
+            br.setEventManager(eventManager);
+            br.setM2compatible(true);
+            br.setUsepoms(true);
+            br.setRoot(repoUrl.toString());
+            br.setName(repoUrl.getPath());
+            chainResolver.add(br);
+        }
         // use the biblio resolver, if you consider resolving
         // POM declared dependencies
         IBiblioResolver br = new IBiblioResolver();

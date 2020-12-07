@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.spec;
 
+import java.net.URL;
+import java.util.Arrays;
 import javax.inject.Inject;
 import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.builtins.module.AddModuleCommand;
@@ -52,6 +54,10 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
 //            description = "set if you want to install cli module")
 //        public boolean cli;
 
+        @CommandLine.Option(names = "--repo",
+            description = "Url to custom maven repo")
+        public URL[] urls;
+
         @CommandLine.Parameters(paramLabel = "module",
             description = "can be a 'builtin module name (see module list)'|'mvn:groupId:artifactId:version'")
         public String moduleName;
@@ -64,7 +70,7 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
             AddModuleCommand addModuleCommand = applicationContext.createBean(AddModuleCommand.class);
             addModuleCommand.setOut(spec.commandLine().getOut());
 
-            addModuleCommand.addModule(moduleName, false);
+            addModuleCommand.addModule(moduleName, Arrays.asList(urls));
         }
     }
 
