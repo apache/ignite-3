@@ -29,11 +29,11 @@ import picocli.CommandLine;
 
 @CommandLine.Command(
     name = "module",
-    description = "Add or remove optional Ignite modules and external artifacts.",
+    description = "Manage optional Ignite modules and external artifacts.",
     subcommands = {
+        ModuleCommandSpec.ListModuleCommandSpec.class,
         ModuleCommandSpec.AddModuleCommandSpec.class,
-        ModuleCommandSpec.RemoveModuleCommandSpec.class,
-        ModuleCommandSpec.ListModuleCommandSpec.class
+        ModuleCommandSpec.RemoveModuleCommandSpec.class
     }
 )
 public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteCommand {

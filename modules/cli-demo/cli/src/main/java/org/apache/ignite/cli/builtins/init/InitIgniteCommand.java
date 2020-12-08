@@ -20,21 +20,19 @@ package org.apache.ignite.cli.builtins.init;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
 import javax.inject.Inject;
 import org.apache.ignite.cli.AbstractCliCommand;
-import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CliVersionInfo;
-import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
+import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.jetbrains.annotations.NotNull;
 
 public class InitIgniteCommand extends AbstractCliCommand {
@@ -56,7 +54,7 @@ public class InitIgniteCommand extends AbstractCliCommand {
     public void run() {
         moduleManager.setOut(out);
         Optional<IgnitePaths> ignitePathsOpt = cliPathsConfigLoader.loadIgnitePathsConfig();
-        if (!ignitePathsOpt.isPresent()) {
+        if (ignitePathsOpt.isEmpty()) {
             out.println("Init ignite directories...");
             IgnitePaths ignitePaths = initDirectories();
             out.println("Download and install current ignite version...");
@@ -102,7 +100,7 @@ public class InitIgniteCommand extends AbstractCliCommand {
         File igniteBinCli = cfg.cliLibsDir().toFile();
         if (!(igniteBinCli.exists() || igniteBinCli.mkdirs()))
             throw new IgniteCLIException("Can't create a directory for cli modules: " + cfg.cliLibsDir());
-        
+
         File serverConfig = cfg.serverConfigDir().toFile();
         if (!(serverConfig.exists() || serverConfig.mkdirs()))
             throw new IgniteCLIException("Can't create a directory for server configs: " + cfg.serverConfigDir());

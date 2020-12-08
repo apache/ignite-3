@@ -33,8 +33,8 @@ public class ListModuleCommand extends AbstractCliCommand {
             .stream()
             .filter(m -> !m.name.startsWith(ModuleManager.INTERNAL_MODULE_PREFIX));
         String table = AsciiTable.getTable(builtinModules.collect(Collectors.toList()), Arrays.asList(
-            new Column().header("name").dataAlign(HorizontalAlign.LEFT).with(m -> m.name),
-            new Column().header("description").dataAlign(HorizontalAlign.LEFT).with(m -> m.description)
+            new Column().header("Name").dataAlign(HorizontalAlign.LEFT).with(m -> m.name),
+            new Column().header("Description").dataAlign(HorizontalAlign.LEFT).with(m -> m.description)
         ));
         out.println(table);
     }

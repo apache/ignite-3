@@ -41,7 +41,7 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
 
         CliHelper.initCli(cli);
 
-        cli.getErr().println(cli.getColorScheme().errorText("ERROR: ") + ex.getMessage() + '\n');
+//        cli.getErr().println(cli.getColorScheme().errorText("ERROR: ") + ex.getMessage() + '\n');
 
         cli.usage(cli.getOut());
 

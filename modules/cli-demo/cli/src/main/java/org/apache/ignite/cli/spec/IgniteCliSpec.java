@@ -40,6 +40,7 @@ import picocli.CommandLine.Model.UsageMessageSpec;
  */
 @CommandLine.Command(
     name = "ignite",
+    description = "Entry point.",
     subcommands = {
         InitIgniteCommandSpec.class,
         ModuleCommandSpec.class,
