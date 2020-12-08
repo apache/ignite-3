@@ -25,12 +25,17 @@ import com.google.gson.annotations.SerializedName;
 import org.apache.ignite.configuration.extended.InitLocal;
 import org.apache.ignite.configuration.extended.LocalConfiguration;
 import org.apache.ignite.configuration.extended.Selectors;
-import org.apache.ignite.configuration.internal.ConfigurationStorage;
 import org.apache.ignite.configuration.internal.Configurator;
+import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.presentation.FormatConverter;
 import org.apache.ignite.configuration.presentation.json.JsonConverter;
 
-/** */
+/**
+ * Module is responsible for preparing configuration when module is started.
+ *
+ * Preparing configuration includes reading it from configuration file, parsing it and initializing
+ * {@link Configurator} object.
+ */
 public class ConfigurationModule {
     static {
         try {

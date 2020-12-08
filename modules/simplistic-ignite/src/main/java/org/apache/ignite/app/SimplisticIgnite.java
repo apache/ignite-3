@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.rest.RestModule;
 
 /**
- *
+ * Sample application integrating new configuration module and providing standard REST API to access and modify it.
  */
 public class SimplisticIgnite {
     /** */
@@ -36,8 +36,11 @@ public class SimplisticIgnite {
     private static final String DFLT_CONF_FILE_NAME = "bootstrap-config.json";
 
     /**
+     * It is possible to start application with a custom configuration in form of json file other than that in resources.
      *
-     * @param args
+     * To make application pick up custom configuration file its full path should be passed to arguments after key "--config".
+     *
+     * @param args Empty or providing path to custom configuration file after marker parameter "--config".
      */
     public static void main(String[] args) throws IOException {
         ConfigurationModule confModule = new ConfigurationModule();

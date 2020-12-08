@@ -17,8 +17,6 @@
 
 package org.apache.ignite.rest;
 
-import java.util.Arrays;
-
 import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -32,7 +30,12 @@ import org.apache.ignite.configuration.internal.validation.ConfigurationValidati
 import org.apache.ignite.configuration.presentation.FormatConverter;
 import org.apache.ignite.configuration.presentation.json.JsonConverter;
 
-/** */
+/**
+ * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
+ *
+ * It is started on port 8080 by default but it is possible to change this in configuration itself.
+ * Refer to default config file in resources for the example.
+ */
 public class RestModule {
     /** */
     private static final int DFLT_PORT = 8080;
