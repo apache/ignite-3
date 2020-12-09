@@ -124,7 +124,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>org.apache.ignite.cli.spec.IgniteCliSpec</mainClass>
+                            <mainClass>org.apache.ignite.cli.IgniteCliApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

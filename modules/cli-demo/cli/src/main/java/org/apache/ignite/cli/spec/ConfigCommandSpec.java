@@ -31,16 +31,12 @@ import picocli.CommandLine;
 )
 public class ConfigCommandSpec extends AbstractCommandSpec {
 
-    @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
-    @Override protected void doRun() {
+    @Override public void run() {
         spec.commandLine().usage(spec.commandLine().getOut());
     }
 
     @CommandLine.Command(name = "get", description = "Get current Ignite cluster configuration values.")
     public static class GetConfigCommandSpec extends AbstractCommandSpec {
-
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
 
@@ -49,7 +45,7 @@ public class ConfigCommandSpec extends AbstractCommandSpec {
                 "(example: local.baseline)")
         private String subtree;
 
-        @Override protected void doRun() {
+        @Override public void run() {
             spec.commandLine().getOut().println(
                 new ConfigurationClient().get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), subtree));
         }
@@ -61,14 +57,12 @@ public class ConfigCommandSpec extends AbstractCommandSpec {
     )
     public static class SetConfigCommandSpec extends AbstractCommandSpec {
 
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
         @CommandLine.Parameters(paramLabel = "hocon-string", description = "any text representation of hocon config")
         private String config;
 
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
 
-        @Override protected void doRun() {
+        @Override public void run() {
             spec.commandLine().getOut().println(
                 new ConfigurationClient().set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), config));
         }
@@ -102,8 +96,5 @@ public class ConfigCommandSpec extends AbstractCommandSpec {
                     "(example of valid value 'localhost:8080')");
            return hostPort;
         }
-
-
-
     }
 }

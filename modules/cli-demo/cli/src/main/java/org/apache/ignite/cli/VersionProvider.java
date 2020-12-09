@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.spec;
+package org.apache.ignite.cli;
 
 import javax.inject.Inject;
-import io.micronaut.context.ApplicationContext;
-import org.apache.ignite.cli.VersionProvider;
+import javax.inject.Singleton;
+import io.micronaut.core.annotation.Introspected;
 import picocli.CommandLine;
-import picocli.CommandLine.Model.CommandSpec;
 
-@CommandLine.Command(versionProvider = VersionProvider.class)
-public abstract class AbstractCommandSpec implements Runnable {
-    @CommandLine.Spec
-    protected CommandSpec spec;
+@Singleton
+@Introspected
+public class VersionProvider implements CommandLine.IVersionProvider {
+
+    private final CliVersionInfo cliVersionInfo;
 
     @Inject
-    protected ApplicationContext applicationContext;
+    public VersionProvider(CliVersionInfo cliVersionInfo) {
+        this.cliVersionInfo = cliVersionInfo;
+    }
+
+    @Override public String[] getVersion() throws Exception {
+        return new String[] { "Apache Ignite CLI ver. " + cliVersionInfo.version};
+    }
 }

@@ -46,42 +46,9 @@ import picocli.shell.jline3.PicocliCommands;
 
 import static org.apache.ignite.cli.spec.IgniteCliSpec.loadSubcommands;
 
-/**
- * Top-level commands available in REPL.
- */
-@CommandLine.Command(
-    name = "-i",
-    description = {"Run interactive shell"},
-    hidden = true
-)
-public class ShellCommandSpec implements Runnable {
+public class InteractiveWrapper {
 
-    @Inject
-    private ApplicationContext applicationContext;
-
-    @Override public void run() {
-        CommandLine.IFactory factory = applicationContext.createBean(CommandFactory.class);
-        IgniteCliSpec commands;
-        try {
-            commands = factory.create(IgniteCliSpec.class);
-        }
-        catch (Exception e) {
-            throw new IgniteCLIException("Can't initialize ignite cli in interactive mode", e);
-        }
-        CommandLine cmd = new CommandLine(commands, factory);
-
-        ErrorHandler errorHandler = new ErrorHandler();
-
-        cmd.setExecutionExceptionHandler(errorHandler);
-        cmd.setParameterExceptionHandler(errorHandler);
-
-        applicationContext.createBean(CliPathsConfigLoader.class)
-            .loadIgnitePathsConfig()
-            .ifPresent(ignitePaths -> loadSubcommands(
-                cmd,
-                ignitePaths.cliLibsDir()
-            ));
-
+    public void run(CommandLine cmd) {
         PicocliCommands picocliCommands = new PicocliCommands(workDir(), cmd) {
             @Override public Object invoke(CommandSession ses, String cmd, Object... args) throws Exception {
                 return execute(ses, cmd, (String[])args);
@@ -90,7 +57,7 @@ public class ShellCommandSpec implements Runnable {
 
         Parser parser = new DefaultParser();
         try (Terminal terminal = TerminalBuilder.builder().build()) {
-            SystemRegistry systemRegistry = new SystemRegistryImpl(parser, terminal, ShellCommandSpec::workDir, null);
+            SystemRegistry systemRegistry = new SystemRegistryImpl(parser, terminal, InteractiveWrapper::workDir, null);
             systemRegistry.setCommandRegistries(picocliCommands);
 
             LineReader reader = LineReaderBuilder.builder()
@@ -99,7 +66,6 @@ public class ShellCommandSpec implements Runnable {
                 .parser(parser)
                 .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
                 .build();
-            commands.setReader(reader);
 
             TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
             widgets.enable();

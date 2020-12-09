@@ -27,13 +27,14 @@ import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CommandFactory;
 import org.apache.ignite.cli.ErrorHandler;
+import org.apache.ignite.cli.VersionProvider;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ignite.cli.common.IgniteCommand;
 import org.jline.reader.LineReader;
 import org.jline.reader.impl.LineReaderImpl;
 import picocli.CommandLine;
-import picocli.CommandLine.Help.Ansi;
-import picocli.CommandLine.Model.UsageMessageSpec;
+
+import static org.apache.ignite.cli.spec.HelpFactoryImpl.SECTION_KEY_SYNOPSIS_EXTENSION;
 
 /**
  *
@@ -49,30 +50,38 @@ import picocli.CommandLine.Model.UsageMessageSpec;
     }
 )
 public class IgniteCliSpec extends AbstractCommandSpec {
-    public static final String[] BANNER = new String[] {
-        "                       ___                         __",
-        "                      /   |   ____   ____ _ _____ / /_   ___",
-        "  @|red,bold       ⣠⣶⣿|@          / /| |  / __ \\ / __ `// ___// __ \\ / _ \\",
-        "  @|red,bold      ⣿⣿⣿⣿|@         / ___ | / /_/ // /_/ // /__ / / / //  __/",
-        "  @|red,bold  ⢠⣿⡏⠈⣿⣿⣿⣿⣷|@       /_/  |_|/ .___/ \\__,_/ \\___//_/ /_/ \\___/",
-        "  @|red,bold ⢰⣿⣿⣿⣧⠈⢿⣿⣿⣿⣿⣦|@            /_/",
-        "  @|red,bold ⠘⣿⣿⣿⣿⣿⣦⠈⠛⢿⣿⣿⣿⡄|@       ____               _  __           _____",
-        "  @|red,bold  ⠈⠛⣿⣿⣿⣿⣿⣿⣦⠉⢿⣿⡟|@      /  _/____ _ ____   (_)/ /_ ___     |__  /",
-        "  @|red,bold ⢰⣿⣶⣀⠈⠙⠿⣿⣿⣿⣿ ⠟⠁|@      / / / __ `// __ \\ / // __// _ \\     /_ <",
-        "  @|red,bold ⠈⠻⣿⣿⣿⣿⣷⣤⠙⢿⡟|@       _/ / / /_/ // / / // // /_ /  __/   ___/ /",
-        "  @|red,bold       ⠉⠉⠛⠏⠉|@      /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
-        "                        /____/\n"};
 
-    private LineReaderImpl reader;
+    @CommandLine.Option(names = "-i", hidden = true, required = false)
+    boolean interactive;
 
-    public static void main(String... args) {
-        ApplicationContext applicationContext = ApplicationContext.run();
+    @Override public void run() {
+        spec.usageMessage().sectionMap().put(SECTION_KEY_SYNOPSIS_EXTENSION,
+            help -> " Or type " + help.colorScheme().commandText(spec.qualifiedName()) +
+                    ' ' + help.colorScheme().parameterText("-i") + " to enter interactive mode.\n\n");
+
+        CommandLine cli = spec.commandLine();
+
+        if (interactive)
+            new InteractiveWrapper().run(cli);
+        else
+            cli.usage(cli.getOut());
+    }
+
+    public static CommandLine initCli(ApplicationContext applicationContext) {
         CommandLine.IFactory factory = applicationContext.createBean(CommandFactory.class);
         ErrorHandler errorHandler = new ErrorHandler();
         CommandLine cli = new CommandLine(IgniteCliSpec.class, factory)
             .setExecutionExceptionHandler(errorHandler)
-            .setParameterExceptionHandler(errorHandler)
-            .addSubcommand(applicationContext.createBean(ShellCommandSpec.class));
+            .setParameterExceptionHandler(errorHandler);
+
+        cli.setHelpFactory(new HelpFactoryImpl());
+
+        cli.setColorScheme(new CommandLine.Help.ColorScheme.Builder()
+            .commands(CommandLine.Help.Ansi.Style.fg_green)
+            .options(CommandLine.Help.Ansi.Style.fg_yellow)
+            .parameters(CommandLine.Help.Ansi.Style.fg_cyan)
+            .errors(CommandLine.Help.Ansi.Style.fg_red, CommandLine.Help.Ansi.Style.bold)
+            .build());
 
         applicationContext.createBean(CliPathsConfigLoader.class)
             .loadIgnitePathsConfig()
@@ -80,30 +89,7 @@ public class IgniteCliSpec extends AbstractCommandSpec {
                 cli,
                 ignitePaths.cliLibsDir()
             ));
-
-        PrintWriter out = cli.getOut();
-
-        Arrays.stream(BANNER).map(Ansi.AUTO::string).forEach(out::println);
-
-        out.println(String.format("Apache Ignite CLI ver. %s\n",
-            ((AbstractCommandSpec)cli.getCommand()).getVersion()[0]));
-
-        System.exit(cli.execute(args));
-    }
-
-    @Override protected void doRun() {
-        CommandLine cli = spec.commandLine();
-
-        cli.getHelpSectionMap().compute(UsageMessageSpec.SECTION_KEY_SYNOPSIS, (key, renderer) ->
-            help -> renderer.render(help).stripTrailing() +
-                    "\n  Or type " + help.colorScheme().commandText(spec.qualifiedName()) +
-                    ' ' + help.colorScheme().parameterText("-i") + " to enter interactive mode.\n\n");
-
-        cli.usage(cli.getOut());
-    }
-
-    public void setReader(LineReader reader){
-        this.reader = (LineReaderImpl) reader;
+        return cli;
     }
 
     public static void loadSubcommands(CommandLine commandLine, Path cliLibsDir) {

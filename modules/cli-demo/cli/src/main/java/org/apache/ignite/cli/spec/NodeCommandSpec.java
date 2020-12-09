@@ -39,17 +39,12 @@ import picocli.CommandLine;
 )
 public class NodeCommandSpec extends AbstractCommandSpec {
 
-    public @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
-
-    @Override protected void doRun() {
+    @Override public void run() {
         spec.commandLine().usage(spec.commandLine().getOut());
     }
 
     @CommandLine.Command(name = "start", description = "Start an Ignite node locally.")
     public static class StartNodeCommandSpec extends AbstractCommandSpec {
-
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
 
         @Inject
         ApplicationContext applicationContext;
@@ -61,7 +56,7 @@ public class NodeCommandSpec extends AbstractCommandSpec {
             description = "path to configuration file")
         public Path configPath;
 
-        @Override protected void doRun() {
+        @Override public void run() {
             StartNodeCommand startNodeCommand = applicationContext.createBean(StartNodeCommand.class);
 
             startNodeCommand.setOut(spec.commandLine().getOut());
@@ -72,8 +67,6 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     @CommandLine.Command(name = "stop", description = "Stop a locally running Ignite node.")
     public static class StopNodeCommandSpec extends AbstractCommandSpec {
 
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
         @Inject
         private ApplicationContext applicationContext;
 
@@ -81,45 +74,32 @@ public class NodeCommandSpec extends AbstractCommandSpec {
             description = "consistent ids of nodes to start")
         public List<String> pids;
 
-        @Override protected void doRun() {
+        @Override public void run() {
             StopNodeCommand stopNodeCommand = applicationContext.createBean(StopNodeCommand.class);
             stopNodeCommand.setOut(spec.commandLine().getOut());
             stopNodeCommand.run(pids);
-
         }
     }
 
     @CommandLine.Command(name = "list", description = "Show the list of currently running local Ignite nodes.")
     public static class ListNodesCommandSpec extends AbstractCommandSpec {
 
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
-        @Inject
-        private ApplicationContext applicationContext;
-
-        @Override protected void doRun() {
+        @Override public void run() {
             ListNodesCommand listNodesCommand = applicationContext.createBean(ListNodesCommand.class);
 
             listNodesCommand.setOut(spec.commandLine().getOut());
             listNodesCommand.run();
-
         }
     }
 
     @CommandLine.Command(name = "classpath", description = "Show the current classpath used by the Ignite nodes.")
     public static class NodesClasspathCommandSpec extends AbstractCommandSpec {
 
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
-        @Inject
-        private ApplicationContext applicationContext;
-
-        @Override protected void doRun() {
+        @Override public void run() {
             NodesClasspathCommand classpathCommand = applicationContext.createBean(NodesClasspathCommand.class);
 
             classpathCommand.setOut(spec.commandLine().getOut());
             classpathCommand.run();
-
         }
     }
 

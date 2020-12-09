@@ -38,9 +38,7 @@ import picocli.CommandLine;
 )
 public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteCommand {
 
-    @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
-    @Override protected void doRun() {
+    @Override public void run() {
         spec.commandLine().usage(spec.commandLine().getOut());
     }
 
@@ -62,11 +60,7 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
             description = "can be a 'builtin module name (see module list)'|'mvn:groupId:artifactId:version'")
         public String moduleName;
 
-        @Inject
-        ApplicationContext applicationContext;
-
-
-        @Override protected void doRun() {
+        @Override public void run() {
             AddModuleCommand addModuleCommand = applicationContext.createBean(AddModuleCommand.class);
             addModuleCommand.setOut(spec.commandLine().getOut());
 
@@ -77,17 +71,11 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     @CommandLine.Command(name = "remove", description = "Add an optional Ignite module or an external artifact.")
     public static class RemoveModuleCommandSpec extends AbstractCommandSpec {
 
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
         @CommandLine.Parameters(paramLabel = "module",
             description = "can be a 'builtin module name (see module list)'|'mvn:groupId:artifactId:version'")
         public String moduleName;
 
-        @Inject
-        ApplicationContext applicationContext;
-
-
-        @Override protected void doRun() {
+        @Override public void run() {
             RemoveModuleCommand removeModuleCommand = applicationContext.createBean(RemoveModuleCommand.class);
             removeModuleCommand.setOut(spec.commandLine().getOut());
 
@@ -98,12 +86,7 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     @CommandLine.Command(name = "list", description = "Show the list of available optional Ignite modules.")
     public static class ListModuleCommandSpec extends AbstractCommandSpec {
 
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
-
-        @Inject
-        ApplicationContext applicationContext;
-
-        @Override protected void doRun() {
+        @Override public void run() {
             ListModuleCommand listModuleCommand = applicationContext.createBean(ListModuleCommand.class);
             listModuleCommand.setOut(spec.commandLine().getOut());
 
