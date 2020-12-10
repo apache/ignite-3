@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.nio.BufferUnderflowException;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
-import java.nio.charset.CoderResult;
 import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
 import java.util.UUID;

@@ -191,69 +191,7 @@ public class TupleTest {
      *
      */
     private Object generateRandomValue(NativeType type) {
-        switch (type.spec()) {
-            case BYTE:
-                return (byte)rnd.nextInt(255);
-
-            case SHORT:
-                return (short)rnd.nextInt(65535);
-
-            case INTEGER:
-                return rnd.nextInt();
-
-            case LONG:
-                return rnd.nextLong();
-
-            case FLOAT:
-                return rnd.nextFloat();
-
-            case DOUBLE:
-                return rnd.nextDouble();
-
-            case UUID:
-                return new java.util.UUID(rnd.nextLong(), rnd.nextLong());
-
-            case STRING: {
-                int size = rnd.nextInt(255);
-
-                StringBuilder sb = new StringBuilder();
-
-                while (sb.length() < size) {
-                    char pt = (char)rnd.nextInt(Character.MAX_VALUE + 1);
-
-                    if (Character.isDefined(pt) &&
-                        Character.getType(pt) != Character.PRIVATE_USE &&
-                        !Character.isSurrogate(pt))
-                        sb.append(pt);
-                }
-
-                return sb.toString();
-            }
-
-            case BYTES: {
-                int size = rnd.nextInt(255);
-                byte[] data = new byte[size];
-                rnd.nextBytes(data);
-
-                return data;
-            }
-
-            case BITMASK: {
-                Bitmask maskType = (Bitmask)type;
-
-                BitSet set = new BitSet();
-
-                for (int i = 0; i < maskType.bits(); i++) {
-                    if (rnd.nextBoolean())
-                        set.set(i);
-                }
-
-                return set;
-            }
-
-            default:
-                throw new IllegalStateException("Unsupported type: " + type);
-        }
+        return TestUtils.generateRandomValue(rnd, type);
     }
 
     /**

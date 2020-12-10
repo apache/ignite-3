@@ -48,12 +48,17 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <!-- Dependencies versions. -->
+        <janino.version>3.0.11</janino.version>
+        <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
+        <jmh.framework.verion>1.9.3</jmh.framework.verion>
         <junit.jupiter.version>5.7.0</junit.jupiter.version>
+        <mockito.version>1.10.19</mockito.version>
 
+        <!-- Maven plugins -->
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M4</maven.surefire.plugin.version>
-
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
     </properties>
 
