@@ -44,6 +44,7 @@ public class ModuleStorage {
         return cliPathsConfigLoader.loadIgnitePathsOrThrowError().installedModulesFile();
     }
 
+    //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public void saveModule(ModuleDefinition moduleDefinition) throws IOException {
         ModuleDefinitionsRegistry moduleDefinitionsRegistry = listInstalled();
         moduleDefinitionsRegistry.modules.add(moduleDefinition);
@@ -51,6 +52,7 @@ public class ModuleStorage {
         objectMapper.writeValue(moduleFile().toFile(), moduleDefinitionsRegistry);
     }
 
+    //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public boolean removeModule(String name) throws IOException {
         ModuleDefinitionsRegistry moduleDefinitionsRegistry = listInstalled();
         boolean removed = moduleDefinitionsRegistry.modules.removeIf(m -> m.name.equals(name));

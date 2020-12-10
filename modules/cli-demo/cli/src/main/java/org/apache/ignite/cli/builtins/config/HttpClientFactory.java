@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli;
+package org.apache.ignite.cli.builtins.config;
 
-import java.io.PrintWriter;
+import java.net.http.HttpClient;
+import javax.inject.Singleton;
+import io.micronaut.context.annotation.Factory;
 
-public abstract class AbstractCliCommand {
-    protected PrintWriter out;
+@Factory
+public class HttpClientFactory {
 
-    public void setOut(PrintWriter out) {
-        this.out = out;
+    @Singleton
+    HttpClient httpClient() {
+        return HttpClient
+            .newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .build();
     }
 }

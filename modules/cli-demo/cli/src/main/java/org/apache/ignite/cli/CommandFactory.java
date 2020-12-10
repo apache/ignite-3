@@ -24,13 +24,10 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.core.annotation.Introspected;
 import picocli.CommandLine;
 
-@Singleton
-@Introspected
 public class CommandFactory implements CommandLine.IFactory {
 
     private final ApplicationContext applicationContext;
 
-    @Inject
     public CommandFactory(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }

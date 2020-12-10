@@ -17,14 +17,19 @@
 
 package org.apache.ignite.cli.spec;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import javax.inject.Inject;
+import com.github.freva.asciitable.AsciiTable;
+import com.github.freva.asciitable.Column;
+import com.github.freva.asciitable.HorizontalAlign;
 import io.micronaut.context.ApplicationContext;
-import org.apache.ignite.cli.builtins.node.StopNodeCommand;
-import org.apache.ignite.cli.builtins.node.ListNodesCommand;
-import org.apache.ignite.cli.builtins.node.NodesClasspathCommand;
-import org.apache.ignite.cli.builtins.node.StartNodeCommand;
+import org.apache.ignite.cli.CliPathsConfigLoader;
+import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgnitePaths;
+import org.apache.ignite.cli.builtins.node.NodeManager;
 import picocli.CommandLine;
 
 @CommandLine.Command(
@@ -47,7 +52,7 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     public static class StartNodeCommandSpec extends AbstractCommandSpec {
 
         @Inject
-        ApplicationContext applicationContext;
+        ApplicationContext ctx;
 
         @CommandLine.Parameters(paramLabel = "consistent-id", description = "ConsistentId for new node")
         public String consistentId;
@@ -57,10 +62,16 @@ public class NodeCommandSpec extends AbstractCommandSpec {
         public Path configPath;
 
         @Override public void run() {
-            StartNodeCommand startNodeCommand = applicationContext.createBean(StartNodeCommand.class);
+            var cliPathsConfigLoader= ctx.createBean(CliPathsConfigLoader.class);
+            IgnitePaths ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
 
-            startNodeCommand.setOut(spec.commandLine().getOut());
-            startNodeCommand.start(consistentId, configPath);
+            var nodeManager = ctx.createBean(NodeManager.class);
+            NodeManager.RunningNode node = nodeManager.start(consistentId, ignitePaths.workDir,
+                ignitePaths.cliPidsDir(),
+                configPath);
+
+            spec.commandLine().getOut().println("Started ignite node.\nPID: " + node.pid +
+                "\nConsistent Id: " + node.consistentId + "\nLog file: " + node.logFile);
         }
     }
 
@@ -68,16 +79,23 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     public static class StopNodeCommandSpec extends AbstractCommandSpec {
 
         @Inject
-        private ApplicationContext applicationContext;
+        private ApplicationContext ctx;
 
         @CommandLine.Parameters(arity = "1..*", paramLabel = "consistent-ids",
             description = "consistent ids of nodes to start")
-        public List<String> pids;
+        public List<String> consistentIds;
 
         @Override public void run() {
-            StopNodeCommand stopNodeCommand = applicationContext.createBean(StopNodeCommand.class);
-            stopNodeCommand.setOut(spec.commandLine().getOut());
-            stopNodeCommand.run(pids);
+            var cliPathsConfigLoader = ctx.createBean(CliPathsConfigLoader.class);
+            IgnitePaths ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
+
+            var nodeManager = ctx.createBean(NodeManager.class);
+            consistentIds.forEach(p -> {
+                if (nodeManager.stopWait(p, ignitePaths.cliPidsDir()))
+                    spec.commandLine().getOut().println("Node with consistent id " + p + " was stopped");
+                else
+                    spec.commandLine().getOut().println("Stop of node " + p + " was failed");
+            });
         }
     }
 
@@ -85,13 +103,27 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     public static class ListNodesCommandSpec extends AbstractCommandSpec {
 
         @Inject
-        private ApplicationContext applicationContext;
+        private ApplicationContext ctx;
 
         @Override public void run() {
-            ListNodesCommand listNodesCommand = applicationContext.createBean(ListNodesCommand.class);
+            var cliPathsConfigLoader = ctx.createBean(CliPathsConfigLoader.class);
+            IgnitePaths paths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
 
-            listNodesCommand.setOut(spec.commandLine().getOut());
-            listNodesCommand.run();
+            var nodeManager = ctx.createBean(NodeManager.class);
+            List<NodeManager.RunningNode> nodes = nodeManager
+                .getRunningNodes(paths.workDir, paths.cliPidsDir());
+
+            if (nodes.isEmpty())
+                spec.commandLine().getOut().println("No running nodes");
+            else {
+                String table = AsciiTable.getTable(nodes, Arrays.asList(
+                    new Column().header("PID").dataAlign(HorizontalAlign.LEFT).with(n -> String.valueOf(n.pid)),
+                    new Column().header("Consistent Id").dataAlign(HorizontalAlign.LEFT).with(n -> n.consistentId),
+                    new Column().header("Log").maxColumnWidth(Integer.MAX_VALUE).dataAlign(HorizontalAlign.LEFT)
+                        .with(n -> n.logFile.toString())
+                ));
+                spec.commandLine().getOut().println(table);
+            }
         }
     }
 
@@ -99,13 +131,16 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     public static class NodesClasspathCommandSpec extends AbstractCommandSpec {
 
         @Inject
-        private ApplicationContext applicationContext;
+        private ApplicationContext ctx;
 
         @Override public void run() {
-            NodesClasspathCommand classpathCommand = applicationContext.createBean(NodesClasspathCommand.class);
-
-            classpathCommand.setOut(spec.commandLine().getOut());
-            classpathCommand.run();
+            var nodeManager = ctx.createBean(NodeManager.class);
+            try {
+                spec.commandLine().getOut().println(nodeManager.classpath());
+            }
+            catch (IOException e) {
+                throw new IgniteCLIException("Can't get current classpath", e);
+            }
         }
     }
 

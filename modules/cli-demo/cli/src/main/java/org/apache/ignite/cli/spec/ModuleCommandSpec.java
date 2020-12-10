@@ -20,12 +20,15 @@ package org.apache.ignite.cli.spec;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
+import com.github.freva.asciitable.AsciiTable;
+import com.github.freva.asciitable.Column;
+import com.github.freva.asciitable.HorizontalAlign;
 import io.micronaut.context.ApplicationContext;
-import org.apache.ignite.cli.builtins.module.AddModuleCommand;
+import org.apache.ignite.cli.CliPathsConfigLoader;
+import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.apache.ignite.cli.common.IgniteCommand;
-import org.apache.ignite.cli.builtins.module.ListModuleCommand;
-import org.apache.ignite.cli.builtins.module.RemoveModuleCommand;
 import picocli.CommandLine;
 
 @CommandLine.Command(
@@ -47,7 +50,7 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     public static class AddModuleCommandSpec extends AbstractCommandSpec {
 
         @Inject
-        private ApplicationContext applicationContext;
+        private ApplicationContext ctx;
 
         // TODO: we need to think about the 3d party modules with cli commands
 //        @CommandLine.Option(names = {"--cli"},
@@ -63,10 +66,12 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
         public String moduleName;
 
         @Override public void run() {
-            AddModuleCommand addModuleCommand = applicationContext.createBean(AddModuleCommand.class);
-            addModuleCommand.setOut(spec.commandLine().getOut());
-
-            addModuleCommand.addModule(moduleName, (urls == null)? Collections.emptyList() : Arrays.asList(urls));
+            var moduleManager = ctx.createBean(ModuleManager.class);
+            var ignitePaths = ctx.createBean(CliPathsConfigLoader.class).loadIgnitePathsOrThrowError();
+            moduleManager.setOut(spec.commandLine().getOut());
+            moduleManager.addModule(moduleName,
+                ignitePaths,
+                (urls == null)? Collections.emptyList() : Arrays.asList(urls));
         }
     }
 
@@ -74,17 +79,18 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     public static class RemoveModuleCommandSpec extends AbstractCommandSpec {
 
         @Inject
-        private ApplicationContext applicationContext;
+        private ApplicationContext ctx;
 
         @CommandLine.Parameters(paramLabel = "module",
             description = "can be a 'builtin module name (see module list)'|'mvn:groupId:artifactId:version'")
         public String moduleName;
 
         @Override public void run() {
-            RemoveModuleCommand removeModuleCommand = applicationContext.createBean(RemoveModuleCommand.class);
-            removeModuleCommand.setOut(spec.commandLine().getOut());
-
-            removeModuleCommand.removeModule(moduleName);
+            boolean removed = ctx.createBean(ModuleManager.class).removeModule(moduleName);
+            if (removed)
+                spec.commandLine().getOut().println("Module " + moduleName + " was removed successfully");
+            else
+                spec.commandLine().getOut().println("Module " + moduleName + " is not found");
         }
     }
 
@@ -92,13 +98,17 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     public static class ListModuleCommandSpec extends AbstractCommandSpec {
 
         @Inject
-        private ApplicationContext applicationContext;
+        private ApplicationContext ctx;
 
         @Override public void run() {
-            ListModuleCommand listModuleCommand = applicationContext.createBean(ListModuleCommand.class);
-            listModuleCommand.setOut(spec.commandLine().getOut());
-
-            listModuleCommand.list();
+            var builtinModules = ModuleManager.readBuiltinModules()
+                .stream()
+                .filter(m -> !m.name.startsWith(ModuleManager.INTERNAL_MODULE_PREFIX));
+            String table = AsciiTable.getTable(builtinModules.collect(Collectors.toList()), Arrays.asList(
+                new Column().header("Name").dataAlign(HorizontalAlign.LEFT).with(m -> m.name),
+                new Column().header("Description").dataAlign(HorizontalAlign.LEFT).with(m -> m.description)
+            ));
+            spec.commandLine().getOut().println(table);
         }
     }
 

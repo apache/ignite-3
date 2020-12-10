@@ -20,13 +20,13 @@ package org.apache.ignite.cli.builtins.init;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
 import javax.inject.Inject;
-import org.apache.ignite.cli.AbstractCliCommand;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CliVersionInfo;
 import org.apache.ignite.cli.IgniteCLIException;
@@ -35,7 +35,7 @@ import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.jetbrains.annotations.NotNull;
 
-public class InitIgniteCommand extends AbstractCliCommand {
+public class InitIgniteCommand {
 
     private final SystemPathResolver pathResolver;
     private final CliVersionInfo cliVersionInfo;
@@ -51,12 +51,12 @@ public class InitIgniteCommand extends AbstractCliCommand {
         this.cliPathsConfigLoader = cliPathsConfigLoader;
     }
 
-    public void run() {
+    public void init(PrintWriter out) {
         moduleManager.setOut(out);
         Optional<IgnitePaths> ignitePathsOpt = cliPathsConfigLoader.loadIgnitePathsConfig();
         if (ignitePathsOpt.isEmpty()) {
             out.println("Init ignite directories...");
-            IgnitePaths ignitePaths = initDirectories();
+            IgnitePaths ignitePaths = initDirectories(out);
             out.println("Download and install current ignite version...");
             installIgnite(ignitePaths);
             out.println("Init default Ignite configs");
@@ -82,7 +82,7 @@ public class InitIgniteCommand extends AbstractCliCommand {
         }
     }
 
-    private IgnitePaths initDirectories() {
+    private IgnitePaths initDirectories(PrintWriter out) {
         File cfgFile = initConfigFile();
         out.println("Configuration file initialized: " + cfgFile);
         IgnitePaths cfg = cliPathsConfigLoader.loadIgnitePathsOrThrowError();

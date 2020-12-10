@@ -21,11 +21,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Properties;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import org.apache.ignite.cli.builtins.PathHelpers;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 
 @Singleton
@@ -69,8 +69,8 @@ public class CliPathsConfigLoader {
             if ((properties.getProperty("bin") == null) || (properties.getProperty("work") == null))
                 throw new IgniteCLIException("Config file has wrong format. " +
                     "It must contain correct paths to bin and work dirs");
-            return new IgnitePaths(PathHelpers.pathOf(properties.getProperty("bin")),
-                PathHelpers.pathOf(properties.getProperty("work")), version);
+            return new IgnitePaths(Path.of(properties.getProperty("bin")),
+                Path.of(properties.getProperty("work")), version);
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can't read config file");

@@ -29,12 +29,14 @@ import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CommandFactory;
 import org.apache.ignite.cli.ErrorHandler;
+import org.apache.ignite.cli.HelpFactoryImpl;
 import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.InteractiveWrapper;
 import org.apache.ignite.cli.builtins.module.ModuleStorage;
 import org.apache.ignite.cli.common.IgniteCommand;
 import picocli.CommandLine;
 
-import static org.apache.ignite.cli.spec.HelpFactoryImpl.SECTION_KEY_SYNOPSIS_EXTENSION;
+import static org.apache.ignite.cli.HelpFactoryImpl.SECTION_KEY_SYNOPSIS_EXTENSION;
 
 /**
  *
@@ -68,8 +70,8 @@ public class IgniteCliSpec extends AbstractCommandSpec {
     }
 
     public static CommandLine initCli(ApplicationContext applicationContext) {
-        CommandLine.IFactory factory = applicationContext.createBean(CommandFactory.class);
-        ErrorHandler errorHandler = new ErrorHandler();
+        CommandLine.IFactory factory = new CommandFactory(applicationContext);
+        ErrorHandler errorHandler = applicationContext.createBean(ErrorHandler.class);
         CommandLine cli = new CommandLine(IgniteCliSpec.class, factory)
             .setExecutionExceptionHandler(errorHandler)
             .setParameterExceptionHandler(errorHandler);

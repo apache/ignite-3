@@ -1,4 +1,4 @@
-package org.apache.ignite.cli.spec;
+package org.apache.ignite.cli;
 
 import java.util.Arrays;
 import java.util.Collection;

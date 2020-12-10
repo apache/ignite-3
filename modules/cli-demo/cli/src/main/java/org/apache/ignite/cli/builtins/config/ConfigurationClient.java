@@ -23,6 +23,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,19 +33,19 @@ import com.typesafe.config.ConfigRenderOptions;
 import org.apache.ignite.cli.IgniteCLIException;
 import org.jetbrains.annotations.Nullable;
 
+@Singleton
 public class ConfigurationClient {
 
     private final String GET_URL = "/management/v1/configuration/";
     private final String SET_URL = "/management/v1/configuration/";
 
     private final HttpClient httpClient;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
 
-    public ConfigurationClient() {
-        httpClient = HttpClient
-            .newBuilder()
-            .version(HttpClient.Version.HTTP_1_1)
-            .build();
+    @Inject
+    public ConfigurationClient(HttpClient httpClient) {
+        this.httpClient = httpClient;
+        mapper = new ObjectMapper();
     }
 
     public String get(String host, int port,

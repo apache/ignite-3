@@ -15,17 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.spec;
+package org.apache.ignite.cli;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import javax.inject.Inject;
-import io.micronaut.context.ApplicationContext;
-import org.apache.ignite.cli.CliPathsConfigLoader;
-import org.apache.ignite.cli.CommandFactory;
-import org.apache.ignite.cli.ErrorHandler;
-import org.apache.ignite.cli.IgniteCLIException;
 import org.jline.console.SystemRegistry;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.keymap.KeyMap;

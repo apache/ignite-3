@@ -17,12 +17,18 @@
 
 package org.apache.ignite.cli;
 
+import javax.inject.Inject;
+import io.micronaut.context.ApplicationContext;
+import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
 public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, CommandLine.IParameterExceptionHandler {
     Logger logger = LoggerFactory.getLogger(ErrorHandler.class);
+
+    @Inject
+    private ApplicationContext applicationContext;
 
     @Override public int handleExecutionException(Exception ex, CommandLine cmd,
         CommandLine.ParseResult parseResult) throws Exception {
@@ -37,13 +43,7 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
     }
 
     @Override public int handleParseException(CommandLine.ParameterException ex, String[] args) {
-        CommandLine cli = ex.getCommandLine();
-
-        CliHelper.initCli(cli);
-
-//        cli.getErr().println(cli.getColorScheme().errorText("ERROR: ") + ex.getMessage() + '\n');
-
-        cli.usage(cli.getOut());
+        CommandLine cli = IgniteCliSpec.initCli(applicationContext);
 
         return cli.getCommandSpec().exitCodeOnInvalidInput();
     }
