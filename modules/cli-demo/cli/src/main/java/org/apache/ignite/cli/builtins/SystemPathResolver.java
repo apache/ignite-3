@@ -17,43 +17,16 @@
 
 package org.apache.ignite.cli.builtins;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.inject.Singleton;
 import io.micronaut.core.annotation.Introspected;
-import net.harawata.appdirs.AppDirs;
-import net.harawata.appdirs.AppDirsFactory;
-import org.apache.ignite.cli.IgniteCLIException;
 
 public interface SystemPathResolver {
-
-    /**
-     * @return
-     */
-    Path osgGlobalConfigPath();
 
     Path osHomeDirectoryPath();
 
     Path osCurrentDirPath();
 
-    static URL[] list(Path path) {
-        try {
-            return Files.list(path)
-                .map(p -> {
-                    try {
-                        return p.toUri().toURL();
-                    }
-                    catch (MalformedURLException e) {
-                        throw new RuntimeException(e);
-                    }
-                }).toArray(URL[]::new);
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      *
@@ -61,24 +34,6 @@ public interface SystemPathResolver {
     @Singleton
     @Introspected
     class DefaultPathResolver implements SystemPathResolver {
-
-        private static final String APP_NAME = "ignite";
-
-        private final AppDirs appsDir = AppDirsFactory.getInstance();
-
-        @Override public Path osgGlobalConfigPath() {
-
-            String osName = System.getProperty("os.name").toLowerCase();
-
-            // TODO: check if appdirs is suitable for all cases (xdg integration and mac os path should be checked)
-            if (osName.contains("unix"))
-                return PathHelpers.pathOf("/etc/").resolve(APP_NAME);
-            else if (osName.startsWith("windows"))
-                return PathHelpers.pathOf(appsDir.getSiteConfigDir(APP_NAME, null, null));
-            else if (osName.startsWith("mac os"))
-                return PathHelpers.pathOf("/Library/App \\Support/").resolve(APP_NAME);
-            else throw new IgniteCLIException("Unknown OS. Can't detect the appropriate config path");
-        }
 
         @Override public Path osHomeDirectoryPath() {
             return PathHelpers.pathOf(System.getProperty("user.home"));

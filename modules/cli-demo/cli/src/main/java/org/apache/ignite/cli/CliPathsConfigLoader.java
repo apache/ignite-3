@@ -59,10 +59,6 @@ public class CliPathsConfigLoader {
         if (homeDirCfg.exists())
             return Optional.of(homeDirCfg);
 
-        File globalDirCfg = pathResolver.osgGlobalConfigPath().resolve("ignite").resolve("ignitecfg").toFile();
-        if (globalDirCfg.exists())
-            return Optional.of(globalDirCfg);
-
         return Optional.empty();
     }
 

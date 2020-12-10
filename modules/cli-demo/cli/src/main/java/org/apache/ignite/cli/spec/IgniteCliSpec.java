@@ -17,21 +17,21 @@
 
 package org.apache.ignite.cli.spec;
 
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.List;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CommandFactory;
 import org.apache.ignite.cli.ErrorHandler;
-import org.apache.ignite.cli.VersionProvider;
-import org.apache.ignite.cli.builtins.SystemPathResolver;
+import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.builtins.module.ModuleStorage;
 import org.apache.ignite.cli.common.IgniteCommand;
-import org.jline.reader.LineReader;
-import org.jline.reader.impl.LineReaderImpl;
 import picocli.CommandLine;
 
 import static org.apache.ignite.cli.spec.HelpFactoryImpl.SECTION_KEY_SYNOPSIS_EXTENSION;
@@ -85,15 +85,36 @@ public class IgniteCliSpec extends AbstractCommandSpec {
 
         applicationContext.createBean(CliPathsConfigLoader.class)
             .loadIgnitePathsConfig()
-            .ifPresent(ignitePaths -> loadSubcommands(
-                cli,
-                ignitePaths.cliLibsDir()
-            ));
+            .ifPresent(ignitePaths ->
+                {
+                    try {
+                        loadSubcommands(
+                            cli,
+                            applicationContext.createBean(ModuleStorage.class)
+                                .listInstalled()
+                                .modules
+                                .stream()
+                                .flatMap(m -> m.cliArtifacts.stream())
+                                .collect(Collectors.toList()));
+                    }
+                    catch (IOException e) {
+                        throw new IgniteCLIException("Can't load cli modules due to IO error");
+                    }
+                }
+            );
         return cli;
     }
 
-    public static void loadSubcommands(CommandLine commandLine, Path cliLibsDir) {
-        URL[] urls = SystemPathResolver.list(cliLibsDir);
+    public static void loadSubcommands(CommandLine commandLine, List<Path> cliLibs) {
+        URL[] urls = cliLibs.stream()
+            .map(p -> {
+                try {
+                    return p.toUri().toURL();
+                }
+                catch (MalformedURLException e) {
+                    throw new IgniteCLIException("Can't convert cli module path to URL for loading by classloader");
+                }
+            }).toArray(URL[]::new);
         ClassLoader classLoader = new URLClassLoader(urls,
             IgniteCliSpec.class.getClassLoader());
         ServiceLoader<IgniteCommand> loader = ServiceLoader.load(IgniteCommand.class, classLoader);

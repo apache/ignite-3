@@ -44,8 +44,6 @@ import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.shell.jline3.PicocliCommands;
 
-import static org.apache.ignite.cli.spec.IgniteCliSpec.loadSubcommands;
-
 public class InteractiveWrapper {
 
     public void run(CommandLine cmd) {
