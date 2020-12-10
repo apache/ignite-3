@@ -19,6 +19,7 @@ package org.apache.ignite.cli.spec;
 
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import javax.inject.Inject;
 import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.builtins.module.AddModuleCommand;
@@ -45,7 +46,8 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     @CommandLine.Command(name = "add", description = "Add an optional Ignite module or an external artifact.")
     public static class AddModuleCommandSpec extends AbstractCommandSpec {
 
-        @CommandLine.Spec CommandLine.Model.CommandSpec spec;
+        @Inject
+        private ApplicationContext applicationContext;
 
         // TODO: we need to think about the 3d party modules with cli commands
 //        @CommandLine.Option(names = {"--cli"},
@@ -64,12 +66,15 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
             AddModuleCommand addModuleCommand = applicationContext.createBean(AddModuleCommand.class);
             addModuleCommand.setOut(spec.commandLine().getOut());
 
-            addModuleCommand.addModule(moduleName, Arrays.asList(urls));
+            addModuleCommand.addModule(moduleName, (urls == null)? Collections.emptyList() : Arrays.asList(urls));
         }
     }
 
     @CommandLine.Command(name = "remove", description = "Add an optional Ignite module or an external artifact.")
     public static class RemoveModuleCommandSpec extends AbstractCommandSpec {
+
+        @Inject
+        private ApplicationContext applicationContext;
 
         @CommandLine.Parameters(paramLabel = "module",
             description = "can be a 'builtin module name (see module list)'|'mvn:groupId:artifactId:version'")
@@ -85,6 +90,9 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
 
     @CommandLine.Command(name = "list", description = "Show the list of available optional Ignite modules.")
     public static class ListModuleCommandSpec extends AbstractCommandSpec {
+
+        @Inject
+        private ApplicationContext applicationContext;
 
         @Override public void run() {
             ListModuleCommand listModuleCommand = applicationContext.createBean(ListModuleCommand.class);

@@ -84,6 +84,9 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     @CommandLine.Command(name = "list", description = "Show the list of currently running local Ignite nodes.")
     public static class ListNodesCommandSpec extends AbstractCommandSpec {
 
+        @Inject
+        private ApplicationContext applicationContext;
+
         @Override public void run() {
             ListNodesCommand listNodesCommand = applicationContext.createBean(ListNodesCommand.class);
 
@@ -94,6 +97,9 @@ public class NodeCommandSpec extends AbstractCommandSpec {
 
     @CommandLine.Command(name = "classpath", description = "Show the current classpath used by the Ignite nodes.")
     public static class NodesClasspathCommandSpec extends AbstractCommandSpec {
+
+        @Inject
+        private ApplicationContext applicationContext;
 
         @Override public void run() {
             NodesClasspathCommand classpathCommand = applicationContext.createBean(NodesClasspathCommand.class);

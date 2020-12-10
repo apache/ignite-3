@@ -17,8 +17,6 @@
 
 package org.apache.ignite.cli.spec;
 
-import javax.inject.Inject;
-import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.VersionProvider;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
@@ -27,7 +25,4 @@ import picocli.CommandLine.Model.CommandSpec;
 public abstract class AbstractCommandSpec implements Runnable {
     @CommandLine.Spec
     protected CommandSpec spec;
-
-    @Inject
-    protected ApplicationContext applicationContext;
 }
