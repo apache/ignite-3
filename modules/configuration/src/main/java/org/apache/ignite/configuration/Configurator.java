@@ -47,6 +47,16 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     /** Configuration property validators. */
     private final Map<MemberKey, List<FieldValidator<? extends Serializable, T>>> fieldValidators = new HashMap<>();
 
+    /**
+     *
+     * @param storage
+     * @param rootBuilder
+     * @param <VIEW>
+     * @param <INIT>
+     * @param <CHANGE>
+     * @param <CONF>
+     * @return
+     */
     public static <VIEW, INIT, CHANGE, CONF extends DynamicConfiguration<VIEW, INIT, CHANGE>> Configurator<CONF> create(
         ConfigurationStorage storage,
         Function<Configurator<CONF>, CONF> rootBuilder
@@ -54,6 +64,17 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         return new Configurator<>(storage, rootBuilder, null);
     }
 
+    /**
+     *
+     * @param storage
+     * @param rootBuilder
+     * @param init
+     * @param <VIEW>
+     * @param <INIT>
+     * @param <CHANGE>
+     * @param <CONF>
+     * @return
+     */
     public static <VIEW, INIT, CHANGE, CONF extends DynamicConfiguration<VIEW, INIT, CHANGE>> Configurator<CONF> create(
         ConfigurationStorage storage,
         Function<Configurator<CONF>, CONF> rootBuilder,
@@ -168,6 +189,11 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         return root;
     }
 
+    /**
+     * Execute on property attached to configurator.
+     * @param property Property.
+     * @param <PROP> Type of the property.
+     */
     public <PROP extends Serializable> void onAttached(DynamicProperty<PROP> property) {
         final String key = property.key();
         property.addListener(new PropertyListener<PROP, PROP>() {
@@ -178,5 +204,4 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         });
         storage.listen(key, property::setSilently);
     }
-
 }

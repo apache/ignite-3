@@ -2,6 +2,11 @@ package org.apache.ignite.configuration;
 
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
+/**
+ * Base interface for configuration.
+ * @param <VALUE> Type of the value.
+ * @param <CHANGE> Type of the object that changes the value of configuration.
+ */
 public interface ConfigurationProperty<VALUE, CHANGE> {
     /**
      * Get key of this node.
