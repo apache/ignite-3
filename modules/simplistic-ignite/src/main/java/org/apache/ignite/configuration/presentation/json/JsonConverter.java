@@ -20,6 +20,7 @@ package org.apache.ignite.configuration.presentation.json;
 import java.io.Reader;
 
 import com.google.gson.Gson;
+import java.util.Map;
 import org.apache.ignite.configuration.presentation.FormatConverter;
 
 public class JsonConverter implements FormatConverter {
@@ -31,12 +32,20 @@ public class JsonConverter implements FormatConverter {
     }
 
     @Override
-    public <T> T convertFrom(String source, Class<T> clazz) {
-        return gson.fromJson(source, clazz);
+    public <T> T convertFrom(String source, String rootName, Class<T> clazz) {
+        Map map = gson.fromJson(source, Map.class);
+
+        String root = gson.toJson(map.get(rootName));
+
+        return gson.fromJson(root, clazz);
     }
 
     @Override
-    public <T> T convertFrom(Reader source, Class<T> clazz) {
-        return gson.fromJson(source, clazz);
+    public <T> T convertFrom(Reader source, String rootName, Class<T> clazz) {
+        Map map = gson.fromJson(source, Map.class);
+
+        String root = gson.toJson(map.get(rootName));
+
+        return gson.fromJson(root, clazz);
     }
 }

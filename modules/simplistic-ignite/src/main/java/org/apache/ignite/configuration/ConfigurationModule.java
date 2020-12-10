@@ -17,8 +17,10 @@
 
 package org.apache.ignite.configuration;
 
+import com.google.gson.Gson;
 import java.io.Reader;
 import java.io.Serializable;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import com.google.gson.annotations.SerializedName;
@@ -73,9 +75,7 @@ public class ConfigurationModule {
 
         FormatConverter converter = new JsonConverter();
 
-        ConfigWrapper wrapper = converter.convertFrom(confReader, ConfigWrapper.class);
-
-        configurator.init(Selectors.LOCAL, wrapper.local);
+        configurator.init(Selectors.LOCAL, converter.convertFrom(confReader, "local", InitLocal.class));
 
         localConfigurator = configurator;
     }
@@ -83,12 +83,5 @@ public class ConfigurationModule {
     /** */
     public Configurator<LocalConfiguration> localConfigurator() {
         return localConfigurator;
-    }
-
-    /** */
-    private static class ConfigWrapper {
-        /** */
-        @SerializedName("local")
-        InitLocal local;
     }
 }

@@ -87,9 +87,9 @@ public class RestModule {
 
         app.post(CONF_URL, ctx -> {
             try {
-                ChangeLocalWrapper local = converter.convertFrom(ctx.body(), ChangeLocalWrapper.class);
+                ChangeLocal local = converter.convertFrom(ctx.body(), "local", ChangeLocal.class);
 
-                configurator.set(Selectors.LOCAL, local.local);
+                configurator.set(Selectors.LOCAL, local);
             }
             catch (SelectorNotFoundException selectorE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
@@ -125,11 +125,5 @@ public class RestModule {
         private ResponseWrapper(ErrorResult error) {
             this.error = error;
         }
-    }
-
-    /** */
-    private static class ChangeLocalWrapper {
-        /** */
-        private ChangeLocal local;
     }
 }
