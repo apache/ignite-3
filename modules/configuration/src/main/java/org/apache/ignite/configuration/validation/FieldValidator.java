@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.validation;
+package org.apache.ignite.configuration.validation;
 
 import java.io.Serializable;
+import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 /**
@@ -25,7 +26,7 @@ import org.apache.ignite.configuration.internal.DynamicConfiguration;
  * @param <T> Field type.
  * @param <C> Root configuration type.
  */
-public abstract class FieldValidator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> {
+public abstract class FieldValidator<T extends Serializable, C extends ConfigurationTree<?, ?>> {
     /** Validation error message. */
     protected final String message;
 

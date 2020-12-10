@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration.internal.selector;
 
-import org.apache.ignite.configuration.internal.property.Modifier;
+import org.apache.ignite.configuration.internal.Modifier;
 
 /**
  * Interface for objects helping select configuration elements.

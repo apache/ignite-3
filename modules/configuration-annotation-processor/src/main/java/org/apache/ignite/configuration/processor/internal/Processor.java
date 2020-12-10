@@ -53,14 +53,17 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
-import org.apache.ignite.configuration.internal.Configurator;
+import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.ConfigValue;
-import org.apache.ignite.configuration.internal.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.internal.annotation.Value;
-import org.apache.ignite.configuration.internal.property.DynamicProperty;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.internal.DynamicProperty;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
@@ -69,6 +72,7 @@ import org.apache.ignite.configuration.processor.internal.pojo.InitClassGenerato
 import org.apache.ignite.configuration.processor.internal.pojo.ViewClassGenerator;
 import org.apache.ignite.configuration.processor.internal.validation.ValidationGenerator;
 
+import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -141,6 +145,7 @@ public class Processor extends AbstractProcessor {
             final boolean isRoot = clazzConfigAnnotation.root();
             final ClassName schemaClassName = ClassName.get(packageName, clazz.getSimpleName().toString());
             final ClassName configClass = Utils.getConfigurationName(schemaClassName);
+            final ClassName configInterface = Utils.getConfigurationInterfaceName(schemaClassName);
 
             ConfigurationDescription configDesc = new ConfigurationDescription(configClass, configName, Utils.getViewName(schemaClassName), Utils.getInitName(schemaClassName), Utils.getChangeName(schemaClassName));
 
@@ -149,10 +154,13 @@ public class Processor extends AbstractProcessor {
                 packageForUtil = packageName;
             }
 
-            TypeSpec.Builder configurationClassBuilder = TypeSpec
-                .classBuilder(configClass)
+            TypeSpec.Builder configurationClassBuilder = TypeSpec.classBuilder(configClass)
+                .addSuperinterface(configInterface)
                 .addModifiers(PUBLIC, FINAL);
             TypeName wildcard = WildcardTypeName.subtypeOf(Object.class);
+
+            TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
+                .addModifiers(PUBLIC);
 
             final ParameterizedTypeName configuratorClassName = ParameterizedTypeName.get(
                 ClassName.get(Configurator.class),
@@ -164,6 +172,7 @@ public class Processor extends AbstractProcessor {
 
             for (VariableElement field : fields) {
                 TypeName getMethodType = null;
+                TypeName interfaceGetMethodType = null;
 
                 final TypeName baseType = TypeName.get(field.asType());
                 final String fieldName = field.getSimpleName().toString();
@@ -176,6 +185,7 @@ public class Processor extends AbstractProcessor {
                 final ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
                 if (confAnnotation != null) {
                     getMethodType = Utils.getConfigurationName((ClassName) baseType);
+                    interfaceGetMethodType = Utils.getConfigurationInterfaceName((ClassName) baseType);
 
                     final FieldSpec nestedConfigField =
                         FieldSpec
@@ -202,6 +212,7 @@ public class Processor extends AbstractProcessor {
                     changeClassType = Utils.getChangeName((ClassName) baseType);
 
                     getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
+                    interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
 
                     final FieldSpec nestedConfigField =
                         FieldSpec
@@ -224,6 +235,7 @@ public class Processor extends AbstractProcessor {
                 final Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
                     ClassName dynPropClass = ClassName.get(DynamicProperty.class);
+                    ClassName confValueClass = ClassName.get(ConfigurationValue.class);
 
                     TypeName genericType = baseType;
 
@@ -232,6 +244,7 @@ public class Processor extends AbstractProcessor {
                     }
 
                     getMethodType = ParameterizedTypeName.get(dynPropClass, genericType);
+                    interfaceGetMethodType = ParameterizedTypeName.get(confValueClass, genericType);
 
                     final FieldSpec generatedField = FieldSpec.builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL).build();
 
@@ -249,8 +262,13 @@ public class Processor extends AbstractProcessor {
 
                 configDesc.getFields().add(new ConfigurationElement(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
 
-                MethodSpec getMethod = MethodSpec
-                    .methodBuilder(fieldName)
+                MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
+                    .addModifiers(PUBLIC, ABSTRACT)
+                    .returns(interfaceGetMethodType)
+                    .build();
+                configurationInterfaceBuilder.addMethod(interfaceGetMethod);
+
+                MethodSpec getMethod = MethodSpec.methodBuilder(fieldName)
                     .addModifiers(PUBLIC, FINAL)
                     .returns(getMethodType)
                     .addStatement("return $L", fieldName)
@@ -270,11 +288,18 @@ public class Processor extends AbstractProcessor {
 
             props.put(configClass, configDesc);
 
-            createPojoBindings(packageName, fields, schemaClassName, configurationClassBuilder);
+            createPojoBindings(packageName, fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
 
             createConstructors(configClass, configName, configurationClassBuilder, configuratorClassName, constructorBodyBuilder, copyConstructorBodyBuilder);
 
             createCopyMethod(configClass, configurationClassBuilder);
+
+            JavaFile interfaceFile = JavaFile.builder(packageName, configurationInterfaceBuilder.build()).build();
+            try {
+                interfaceFile.writeTo(filer);
+            } catch (IOException e) {
+                throw new ProcessorException("Failed to create configuration class " + configClass.toString(), e);
+            }
 
             JavaFile classFile = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
             try {
@@ -509,16 +534,29 @@ public class Processor extends AbstractProcessor {
      * @param schemaClassName Class name of schema.
      * @param configurationClassBuilder Configuration class builder.
      */
-    private void createPojoBindings(String packageName, List<VariableElement> fields, ClassName schemaClassName, TypeSpec.Builder configurationClassBuilder) {
+    private void createPojoBindings(
+        String packageName,
+        List<VariableElement> fields,
+        ClassName schemaClassName,
+        TypeSpec.Builder configurationClassBuilder,
+        TypeSpec.Builder configurationInterfaceBuilder
+    ) {
         final ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
         final ClassName initClassName = Utils.getInitName(schemaClassName);
         final ClassName changeClassName = Utils.getChangeName(schemaClassName);
 
+        ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
+        TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, initClassName, changeClassName);
+
+        configurationClassBuilder.superclass(dynConfViewClassType);
+
+        ClassName confTreeInterface = ClassName.get(ConfigurationTree.class);
+        TypeName confTreeParameterized = ParameterizedTypeName.get(confTreeInterface, viewClassTypeName, changeClassName);
+
+        configurationInterfaceBuilder.addSuperinterface(confTreeParameterized);
+
         try {
             viewClassGenerator.create(packageName, viewClassTypeName, fields);
-            ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
-            TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, initClassName, changeClassName);
-            configurationClassBuilder.superclass(dynConfViewClassType);
             final MethodSpec toViewMethod = createToViewMethod(viewClassTypeName, fields);
             configurationClassBuilder.addMethod(toViewMethod);
         }
@@ -609,7 +647,7 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Create {@link org.apache.ignite.configuration.internal.property.Modifier#toView()} method for configuration class.
+     * Create {@link org.apache.ignite.configuration.ConfigurationProperty#value} method for configuration class.
      *
      * @param type VIEW method type.
      * @param variables List of VIEW object's fields.
@@ -617,14 +655,14 @@ public class Processor extends AbstractProcessor {
      */
     public MethodSpec createToViewMethod(TypeName type, List<VariableElement> variables) {
         String args = variables.stream()
-            .map(v -> v.getSimpleName().toString() + ".toView()")
+            .map(v -> v.getSimpleName().toString() + ".value()")
             .collect(Collectors.joining(", "));
 
         final CodeBlock returnBlock = CodeBlock.builder()
             .add("return new $T($L)", type, args)
             .build();
 
-        return MethodSpec.methodBuilder("toView")
+        return MethodSpec.methodBuilder("value")
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
             .returns(type)
@@ -633,7 +671,7 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Create {@link org.apache.ignite.configuration.internal.property.Modifier#init(Object)} method (accepts INIT object) for configuration class.
+     * Create {@link org.apache.ignite.configuration.internal.Modifier#init(Object)} method (accepts INIT object) for configuration class.
      *
      * @param type INIT method type.
      * @param variables List of INIT object's fields.
@@ -645,11 +683,11 @@ public class Processor extends AbstractProcessor {
         for (VariableElement variable : variables) {
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (initial.$L() != null)", name);
-            builder.addStatement("$L.initWithoutValidation(initial.$L())", name, name);
+            builder.addStatement("$L.init(initial.$L())", name, name);
             builder.endControlFlow();
         }
 
-        return MethodSpec.methodBuilder("initWithoutValidation")
+        return MethodSpec.methodBuilder("init")
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(type, "initial")
@@ -658,7 +696,7 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Create {@link org.apache.ignite.configuration.internal.property.Modifier#change(Object)} method (accepts CHANGE object) for configuration class.
+     * Create {@link org.apache.ignite.configuration.internal.Modifier#change(Object)} method (accepts CHANGE object) for configuration class.
      *
      * @param type CHANGE method type.
      * @param variables List of CHANGE object's fields.

@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.property;
+package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.configuration.internal.Configurator;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.PropertyListener;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
-import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.internal.validation.FieldValidator;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.FieldValidator;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 
 /**
  * Holder for property value. Expected to be used with numbers, strings and other immutable objects, e.g. IP addresses.
  */
-public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T> {
+public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T>, ConfigurationValue<T> {
     /** Name of property. */
     private final String name;
 
@@ -44,11 +45,12 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     protected volatile T val;
 
     /** Listeners of property update. */
-    private final List<PropertyListener<T, T, T>> updateListeners = new ArrayList<>();
+    private final List<PropertyListener<T, T>> updateListeners = new ArrayList<>();
 
     /** Configurator that this configuration is attached to. */
     protected final Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator;
 
+    /** Configuration root. */
     protected final DynamicConfiguration<?, ?, ?> root;
 
     /**
@@ -86,7 +88,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
         DynamicConfiguration<?, ?, ?> root
     ) {
-        this(defaultValue, name, memberKey, String.format("%s.%s", prefix, name), configurator, root);
+        this(defaultValue, name, memberKey, String.format("%s.%s", prefix, name), configurator, root, false);
     }
 
     /**
@@ -98,7 +100,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         DynamicProperty<T> base,
         DynamicConfiguration<?, ?, ?> root
     ) {
-        this(base.val, base.name, base.memberKey, base.qualifiedName, base.configurator, root);
+        this(base.val, base.name, base.memberKey, base.qualifiedName, base.configurator, root, true);
     }
 
     /**
@@ -116,7 +118,8 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         MemberKey memberKey,
         String qualifiedName,
         Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
-        DynamicConfiguration<?, ?, ?> root
+        DynamicConfiguration<?, ?, ?> root,
+        boolean isCopy
     ) {
         this.name = name;
         this.memberKey = memberKey;
@@ -124,26 +127,21 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         this.val = value;
         this.configurator = configurator;
         this.root = root;
+
+        if (isCopy)
+            configurator.onAttached(this);
     }
 
     /**
      * Add change listener to this property.
      * @param listener Property change listener.
      */
-    public void addListener(PropertyListener<T, T, T> listener) {
+    public void addListener(PropertyListener<T, T> listener) {
         updateListeners.add(listener);
     }
 
-    /**
-     * Get value of this property.
-     * @return Value of this property.
-     */
-    public T value() {
-        return val;
-    }
-
     /** {@inheritDoc} */
-    @Override public T toView() {
+    public T value() {
         return val;
     }
 
@@ -154,21 +152,15 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
 
     /** {@inheritDoc} */
     @Override public void init(T object) throws ConfigurationValidationException {
-        configurator.init(BaseSelectors.find(qualifiedName), object);
+        this.val = object;
     }
 
     /** {@inheritDoc} */
     @Override public void changeWithoutValidation(T object) {
         this.val = object;
 
-        for (PropertyListener<T, T, T> listener : updateListeners) {
+        for (PropertyListener<T, T> listener : updateListeners)
             listener.update(object, this);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void initWithoutValidation(T object) {
-        this.val = object;
     }
 
     /** {@inheritDoc} */
@@ -195,9 +187,8 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     public void setSilently(T serializable) {
         val = serializable;
 
-        for (PropertyListener<T, T, T> listener : updateListeners) {
+        for (PropertyListener<T, T> listener : updateListeners)
             listener.update(val, this);
-        }
     }
 
     /**

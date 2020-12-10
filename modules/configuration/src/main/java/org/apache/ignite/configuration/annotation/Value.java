@@ -15,30 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.property;
+package org.apache.ignite.configuration.annotation;
 
-import java.util.Map;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.internal.DynamicProperty;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
- * This class holds named configurations in VIEW object.
+ * This annotation marks configuration schema field as a configuration tree leaf.
+ * Every field annotated with this annotation will produce a {@link DynamicProperty} field in generated configuration class.
  */
-public class NamedList<T> {
-    /** Named values. */
-    private final Map<String, T> values;
-
+@Target({ FIELD })
+@Retention(SOURCE)
+@Documented
+public @interface Value {
     /**
-     * Constructor.
-     * @param values Named values.
+     * @return {@code true} if this value can only be initialized and can't be changed afterwards.
      */
-    public NamedList(Map<String, T> values) {
-        this.values = values;
-    }
-
-    /**
-     * Get named values.
-     * @return Named values.
-     */
-    public Map<String, T> getValues() {
-        return values;
-    }
+    boolean immutable() default false;
 }

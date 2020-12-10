@@ -15,37 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.annotation;
+package org.apache.ignite.configuration.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import org.apache.ignite.configuration.internal.NamedListConfiguration;
-import org.apache.ignite.configuration.internal.property.NamedList;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
- * This annotation denotes configuration schema fields that are dynamically created and mapped by name.
- * Example use-cases for this annotation are Ignite node configuration, cache configuration, because nodes and caches
- * can be added dynamically.
- * Every field annotated with this annotation will produce a {@link NamedListConfiguration} field in generated configuration class.
- *
- * <h1 class="header">Example</h1>
+ * This annotation marks configuration schema field as a configuration tree node.
  * <pre name="code" class="java">
- * {@literal @}Config(value = "local", root = true)
- * public class LocalConfigurationSchema {
+ * {@literal @}Config
+ * public class FooConfigurationSchema {
  *
- *      {@literal @}NamedConfigValue
+ *      {@literal @}ConfigValue
  *      private SomeOtherConfiguration someOther;
  *
  * }
  * </pre>
- * @see NamedList
  */
 @Target({ FIELD })
 @Retention(SOURCE)
 @Documented
-public @interface NamedConfigValue {
+public @interface ConfigValue {
+    /**
+     * @return The name of the configuration.
+     */
+    String value() default "";
 }

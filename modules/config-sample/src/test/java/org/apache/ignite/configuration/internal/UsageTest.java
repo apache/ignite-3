@@ -20,9 +20,10 @@ package org.apache.ignite.configuration.internal;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.internal.property.NamedList;
-import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
-import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.PublicConfigurator;
+import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -48,8 +49,6 @@ public class UsageTest {
             }
         };
 
-        final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
-
         InitLocal initLocal = new InitLocal().withBaseline(
             new InitBaseline()
                 .withNodes(
@@ -60,9 +59,14 @@ public class UsageTest {
                 .withAutoAdjust(new InitAutoAdjust().withEnabled(true).withTimeout(100000L))
         );
 
-        configurator.init(Selectors.LOCAL, initLocal);
+        final Configurator<LocalConfigurationImpl> configurator = Configurator.create(
+            storage,
+            LocalConfigurationImpl::new,
+            initLocal
+        );
 
-        configurator.init(Selectors.LOCAL_BASELINE_NODES("node1"), new InitNode().withPort(1000));
+        final LocalConfiguration root = configurator.getRoot();
+        root.baseline().autoAdjust().enabled().value();
 
 //
 //        final DynamicProperty<String> node1 = configurator.getInternal(Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1"));
@@ -87,6 +91,8 @@ public class UsageTest {
             configurator.getRoot().baseline().autoAdjust().enabled(false);
             Assertions.fail();
         } catch (ConfigurationValidationException e) {}
+
+        PublicConfigurator<LocalConfiguration> con = new PublicConfigurator<>(configurator);
     }
 
 }

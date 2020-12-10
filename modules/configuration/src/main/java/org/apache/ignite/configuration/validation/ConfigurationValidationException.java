@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.validation;
+package org.apache.ignite.configuration.validation;
 
 /**
  * Configuration validation exception.

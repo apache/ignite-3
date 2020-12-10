@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
-import org.apache.ignite.configuration.internal.property.Modifier;
+import org.apache.ignite.configuration.internal.Modifier;
 
 /**
  * Base selector holder.

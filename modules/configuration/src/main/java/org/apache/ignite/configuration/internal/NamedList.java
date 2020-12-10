@@ -14,23 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.internal.storage;
+
+package org.apache.ignite.configuration.internal;
+
+import java.util.Map;
 
 /**
- * Exception thrown from configuration storage.
+ * This class holds named configurations in VIEW object.
  */
-public class StorageException extends RuntimeException {
-    /** Constructor. */
-    public StorageException() {
+public class NamedList<T> {
+    /** Named values. */
+    private final Map<String, T> values;
+
+    /**
+     * Constructor.
+     * @param values Named values.
+     */
+    public NamedList(Map<String, T> values) {
+        this.values = values;
     }
 
-    /** Constructor. */
-    public StorageException(String message) {
-        super(message);
-    }
-
-    /** Constructor. */
-    public StorageException(String message, Throwable cause) {
-        super(message, cause);
+    /**
+     * Get named values.
+     * @return Named values.
+     */
+    public Map<String, T> getValues() {
+        return values;
     }
 }

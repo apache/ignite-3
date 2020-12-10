@@ -125,6 +125,19 @@ public class Utils {
     public static ClassName getConfigurationName(ClassName schemaClassName) {
         return ClassName.get(
             schemaClassName.packageName(),
+            schemaClassName.simpleName().replace("Schema", "Impl")
+        );
+    }
+
+    /**
+     * Get {@link ClassName} for configuration class' public interface.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     * @return Configuration's public interface ClassName.
+     */
+    public static ClassName getConfigurationInterfaceName(ClassName schemaClassName) {
+        return ClassName.get(
+            schemaClassName.packageName(),
             schemaClassName.simpleName().replace("Schema", "")
         );
     }

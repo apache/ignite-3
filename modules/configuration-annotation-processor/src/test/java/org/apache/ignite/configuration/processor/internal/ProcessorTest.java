@@ -43,7 +43,7 @@ public class ProcessorTest extends AbstractProcessorTest {
 
         CompilationSubject.assertThat(batch.getCompilationStatus()).succeeded();
 
-        assertEquals(6, batch.generated().size());
+        assertEquals(7, batch.generated().size());
 
         final ConfigSet classSet = batch.getBySchema(testConfigurationSchema);
 
@@ -82,7 +82,7 @@ public class ProcessorTest extends AbstractProcessorTest {
             )
         );
 
-        String viewTypeName = Types.typeName(packageName, "InitTest");
+        String initTypeName = Types.typeName(packageName, "InitTest");
         
         MatcherAssert.assertThat(
             classSet.getInitClass(),
@@ -92,11 +92,11 @@ public class ProcessorTest extends AbstractProcessorTest {
                 "boxedLong()", Types.LONG,
                 "primitiveInt()", Types.INT,
                 "boxedInt()", Types.INT,
-                "withValue1(java.lang.String)", viewTypeName,
-                "withPrimitiveLong(java.lang.Long)", viewTypeName,
-                "withBoxedLong(java.lang.Long)", viewTypeName,
-                "withPrimitiveInt(java.lang.Integer)", viewTypeName,
-                "withBoxedInt(java.lang.Integer)", viewTypeName
+                "withValue1(java.lang.String)", initTypeName,
+                "withPrimitiveLong(java.lang.Long)", initTypeName,
+                "withBoxedLong(java.lang.Long)", initTypeName,
+                "withPrimitiveInt(java.lang.Integer)", initTypeName,
+                "withBoxedInt(java.lang.Integer)", initTypeName
             )
         );
     }

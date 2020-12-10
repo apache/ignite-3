@@ -14,27 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.configuration.internal.annotation;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-import org.apache.ignite.configuration.internal.property.DynamicProperty;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.SOURCE;
+package org.apache.ignite.configuration.storage;
 
 /**
- * This annotation marks configuration schema field as a configuration tree leaf.
- * Every field annotated with this annotation will produce a {@link DynamicProperty} field in generated configuration class.
+ * Exception thrown from configuration storage.
  */
-@Target({ FIELD })
-@Retention(SOURCE)
-@Documented
-public @interface Value {
-    /**
-     * @return {@code true} if this value can only be initialized and can't be changed afterwards.
-     */
-    boolean immutable() default false;
+public class StorageException extends RuntimeException {
+    /** Constructor. */
+    public StorageException() {
+    }
+
+    /** Constructor. */
+    public StorageException(String message) {
+        super(message);
+    }
+
+    /** Constructor. */
+    public StorageException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
