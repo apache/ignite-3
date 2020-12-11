@@ -21,8 +21,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.internal.property.Modifier;
-import org.apache.ignite.configuration.internal.property.NamedList;
+import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
  * TODO: Add class description.
@@ -84,7 +84,7 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
     }
 
     /** {@inheritDoc} */
-    @Override public void initWithoutValidation(NamedList<INIT> list) {
+    @Override public void init(NamedList<INIT> list) {
         list.getValues().forEach((key, init) -> {
             if (!values.containsKey(key)) {
                 final T created = creator.apply(qualifiedName, key);
@@ -92,7 +92,7 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
                 values.put(key, created);
             }
 
-            values.get(key).initWithoutValidation(init);
+            values.get(key).init(init);
         });
     }
 
@@ -106,8 +106,8 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
     }
 
     /** {@inheritDoc} */
-    @Override public NamedList<VIEW> toView() {
-        return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it -> it.getValue().toView())));
+    @Override public NamedList<VIEW> value() {
+        return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it -> it.getValue().value())));
     }
 
     /** {@inheritDoc} */

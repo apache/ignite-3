@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.annotation;
+package org.apache.ignite.configuration.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;

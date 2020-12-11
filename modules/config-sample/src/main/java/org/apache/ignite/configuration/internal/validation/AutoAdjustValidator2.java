@@ -19,6 +19,8 @@ package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.LocalConfiguration;
 import org.apache.ignite.configuration.internal.Selectors;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.FieldValidator;
 
 public class AutoAdjustValidator2 extends FieldValidator<Number, LocalConfiguration> {
 
@@ -27,7 +29,7 @@ public class AutoAdjustValidator2 extends FieldValidator<Number, LocalConfigurat
     }
 
     @Override public void validate(Number value, LocalConfiguration newRoot, LocalConfiguration oldRoot) throws ConfigurationValidationException {
-        final Boolean isEnabled = Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED.select(newRoot).toView();
+        final Boolean isEnabled = newRoot.baseline().autoAdjust().enabled().value();
 
         if (value.longValue() > 0 && !isEnabled)
             throw new ConfigurationValidationException(message);

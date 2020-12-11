@@ -15,30 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.property;
-
-import java.util.Map;
+package org.apache.ignite.configuration;
 
 /**
- * This class holds named configurations in VIEW object.
+ * Configuration value.
+ * @param <VALUE> Type of the value.
  */
-public class NamedList<T> {
-    /** Named values. */
-    private final Map<String, T> values;
-
-    /**
-     * Constructor.
-     * @param values Named values.
-     */
-    public NamedList(Map<String, T> values) {
-        this.values = values;
-    }
-
-    /**
-     * Get named values.
-     * @return Named values.
-     */
-    public Map<String, T> getValues() {
-        return values;
-    }
+public interface ConfigurationValue<VALUE> extends ConfigurationProperty<VALUE, VALUE> {
 }

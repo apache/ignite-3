@@ -15,35 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.property;
+package org.apache.ignite.configuration.internal;
 
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
-import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
  * Interface for configuration nodes and leaves.
  */
-public interface Modifier<VIEW, INIT, CHANGE> {
-
-    /**
-     * Get key of this node.
-     * @return Key.
-     */
-    String key();
-
-    /**
-     * Get VIEW object of this node.
-     * @return VIEW object.
-     */
-    VIEW toView();
-
-    /**
-     * Change this configuration node value.
-     * @param change CHANGE object.
-     * @throws ConfigurationValidationException If validation failed.
-     */
-    void change(CHANGE change) throws ConfigurationValidationException;
-
+public interface Modifier<VIEW, INIT, CHANGE> extends ConfigurationProperty<VIEW, CHANGE> {
     /**
      * Change this configuration node value, but without validation.
      * FIXME: this is a necessary evil, but this should'n be accessed from outside of the configurator.
@@ -57,13 +37,6 @@ public interface Modifier<VIEW, INIT, CHANGE> {
      * @throws ConfigurationValidationException If validation failed.
      */
     void init(INIT init) throws ConfigurationValidationException;
-
-    /**
-     * Initialize this configuration node with value, but without validation.
-     * FIXME: this is a necessary evil, but this should'n be accessed from outside of the configurator.
-     * @param init INIT object.
-     */
-    void initWithoutValidation(INIT init);
 
     /**
      * Validate this configuration node against old configuration root thus comparing new configuration "snapshot"

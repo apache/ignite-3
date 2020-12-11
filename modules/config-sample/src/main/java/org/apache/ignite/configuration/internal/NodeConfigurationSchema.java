@@ -18,9 +18,9 @@
 package org.apache.ignite.configuration.internal;
 
 import javax.validation.constraints.NotNull;
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.Validate;
-import org.apache.ignite.configuration.internal.annotation.Value;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Validate;
+import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.internal.validation.NodeValidator;
 
 /**

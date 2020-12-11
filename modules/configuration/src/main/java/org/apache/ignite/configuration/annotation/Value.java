@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.selector;
+package org.apache.ignite.configuration.annotation;
 
-import org.apache.ignite.configuration.internal.Modifier;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.internal.DynamicProperty;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
- * Interface for objects helping select configuration elements.
- *
- * @param <ROOT> Root configuration class.
- * @param <TARGET> Target configuration class.
- * @param <VIEW> View class of target.
- * @param <INIT> Init class of target.
- * @param <CHANGE> Change class of target.
+ * This annotation marks configuration schema field as a configuration tree leaf.
+ * Every field annotated with this annotation will produce a {@link DynamicProperty} field in generated configuration class.
  */
-public interface Selector<ROOT, TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> {
+@Target({ FIELD })
+@Retention(SOURCE)
+@Documented
+public @interface Value {
     /**
-     * Select configuration element.
-     *
-     * @param root Configuration root object.
-     * @return Configuration element.
+     * @return {@code true} if this value can only be initialized and can't be changed afterwards.
      */
-    TARGET select(ROOT root);
-
+    boolean immutable() default false;
 }

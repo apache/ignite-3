@@ -18,6 +18,8 @@
 package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.FieldValidator;
 
 /**
  * Validate that field value is not less than some minimal value.

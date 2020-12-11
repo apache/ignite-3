@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.selector;
+package org.apache.ignite.configuration.internal;
 
-import org.apache.ignite.configuration.internal.Modifier;
+import java.util.Map;
 
 /**
- * Interface for objects helping select configuration elements.
- *
- * @param <ROOT> Root configuration class.
- * @param <TARGET> Target configuration class.
- * @param <VIEW> View class of target.
- * @param <INIT> Init class of target.
- * @param <CHANGE> Change class of target.
+ * This class holds named configurations in VIEW object.
  */
-public interface Selector<ROOT, TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> {
-    /**
-     * Select configuration element.
-     *
-     * @param root Configuration root object.
-     * @return Configuration element.
-     */
-    TARGET select(ROOT root);
+public class NamedList<T> {
+    /** Named values. */
+    private final Map<String, T> values;
 
+    /**
+     * Constructor.
+     * @param values Named values.
+     */
+    public NamedList(Map<String, T> values) {
+        this.values = values;
+    }
+
+    /**
+     * Get named values.
+     * @return Named values.
+     */
+    public Map<String, T> getValues() {
+        return values;
+    }
 }

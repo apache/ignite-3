@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.annotation;
+package org.apache.ignite.configuration;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-import org.apache.ignite.configuration.internal.property.DynamicProperty;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.SOURCE;
+import java.util.Map;
 
 /**
- * This annotation marks configuration schema field as a configuration tree leaf.
- * Every field annotated with this annotation will produce a {@link DynamicProperty} field in generated configuration class.
+ * Configuration tree with configuration values and other configuration trees as child nodes.
+ * @param <VALUE> Value type of the node.
+ * @param <CHANGE> Type of the object that changes this node's value.
  */
-@Target({ FIELD })
-@Retention(SOURCE)
-@Documented
-public @interface Value {
-    /**
-     * @return {@code true} if this value can only be initialized and can't be changed afterwards.
-     */
-    boolean immutable() default false;
+public interface ConfigurationTree<VALUE, CHANGE> extends ConfigurationProperty<VALUE, CHANGE> {
+    /** Children of the tree. */
+    Map<String, ConfigurationProperty<?, ?>> members();
+
 }

@@ -1,7 +1,7 @@
 package org.apache.ignite.configuration.processor.internal;
 
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.Value;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
 @Config(value = "test", root = true)
 public class TestConfigurationSchema {

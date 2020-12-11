@@ -18,6 +18,8 @@
 package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.LocalConfiguration;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.FieldValidator;
 
 public class NodeValidator extends FieldValidator<Boolean, LocalConfiguration> {
     /**

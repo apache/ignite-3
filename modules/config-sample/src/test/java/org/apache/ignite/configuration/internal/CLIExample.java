@@ -27,8 +27,9 @@ import java.io.StringReader;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.internal.selector.Selector;
-import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationStorage;
 
 public class CLIExample {
 
@@ -56,7 +57,7 @@ public class CLIExample {
 
         Selectors.CLUSTER_BASELINE_NODES_CONSISTENT_ID("");
 
-        final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
+        final Configurator<LocalConfigurationImpl> configurator = Configurator.create(storage, LocalConfigurationImpl::new);
 
         final String filePath = args[0];
         FileReader reader = new FileReader(filePath);
@@ -91,7 +92,7 @@ public class CLIExample {
         }
     }
 
-    public static void applyConfig(Configurator<LocalConfiguration> configurator, Config config) {
+    public static void applyConfig(Configurator<LocalConfigurationImpl> configurator, Config config) {
         for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
             final String key = entry.getKey();
             final Object value = entry.getValue().unwrapped();

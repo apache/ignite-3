@@ -21,16 +21,18 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.configuration.internal.property.DynamicProperty;
-import org.apache.ignite.configuration.internal.property.Modifier;
+import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
-import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.internal.validation.FieldValidator;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.FieldValidator;
 
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifier<VIEW, INIT, CHANGE> {
+public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifier<VIEW, INIT, CHANGE>, ConfigurationTree<VIEW, CHANGE> {
     /** Fully qualified name of the configuration. */
     protected final String qualifiedName;
 
@@ -102,16 +104,11 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
      */
     protected <PROP extends Serializable, M extends DynamicProperty<PROP>> void add(
         M member,
-        List<FieldValidator<? super PROP, ? extends DynamicConfiguration<?, ?, ?>>> validators
+        List<FieldValidator<? super PROP, ? extends ConfigurationTree<?, ?>>> validators
     ) {
         members.put(member.key(), member);
 
-        configurator.addValidations((Class<? extends DynamicConfiguration<?, ?, ?>>) getClass(), member.key(), validators);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void init(INIT init) throws ConfigurationValidationException {
-        configurator.init(BaseSelectors.find(qualifiedName), init);
+        configurator.addValidations((Class<? extends ConfigurationTree<?, ?>>) getClass(), member.key(), validators);
     }
 
     /** {@inheritDoc} */
@@ -136,7 +133,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
      * only on root configuration object).
      * @return Copy of this configuration.
      */
-    protected final DynamicConfiguration<VIEW, INIT, CHANGE> copy() {
+    public final DynamicConfiguration<VIEW, INIT, CHANGE> copy() {
         return copy(null);
     }
 
@@ -146,4 +143,8 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
             member.validate(oldRoot);
     }
 
+    /** {@inheritDoc} */
+    @Override public Map<String, ConfigurationProperty<?, ?>> members() {
+        return members.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
 }

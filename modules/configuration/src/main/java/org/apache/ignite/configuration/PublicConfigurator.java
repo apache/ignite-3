@@ -15,26 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.selector;
+package org.apache.ignite.configuration;
 
-import org.apache.ignite.configuration.internal.Modifier;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 /**
- * Interface for objects helping select configuration elements.
- *
- * @param <ROOT> Root configuration class.
- * @param <TARGET> Target configuration class.
- * @param <VIEW> View class of target.
- * @param <INIT> Init class of target.
- * @param <CHANGE> Change class of target.
+ * Public configurator.
+ * @param <T> Public type.
  */
-public interface Selector<ROOT, TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> {
-    /**
-     * Select configuration element.
-     *
-     * @param root Configuration root object.
-     * @return Configuration element.
-     */
-    TARGET select(ROOT root);
+public class PublicConfigurator<T extends ConfigurationTree<?, ?>> {
+    /** Configuration root. */
+    private T root;
 
+    public <VIEW, INIT, CHANGE> PublicConfigurator(Configurator<? extends DynamicConfiguration<VIEW, INIT, CHANGE>> configurator) {
+        final ConfigurationTree<VIEW, CHANGE> root = configurator.getRoot();
+        this.root = (T) root;
+    }
+
+    /**
+     * Get root of the configuration.
+     * @return Configuration root.
+     */
+    public T getRoot() {
+        return root;
+    }
 }

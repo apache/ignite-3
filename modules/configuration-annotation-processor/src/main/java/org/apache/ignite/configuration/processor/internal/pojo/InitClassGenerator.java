@@ -26,9 +26,9 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-import org.apache.ignite.configuration.internal.annotation.ConfigValue;
-import org.apache.ignite.configuration.internal.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.internal.property.NamedList;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.internal.NamedList;
 import org.apache.ignite.configuration.processor.internal.Utils;
 
 /**

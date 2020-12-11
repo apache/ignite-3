@@ -17,8 +17,8 @@
 
 package org.apache.ignite.configuration.internal;
 
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
  * TODO: Add class description.

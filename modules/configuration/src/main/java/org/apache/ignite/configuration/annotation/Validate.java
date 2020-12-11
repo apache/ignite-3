@@ -15,33 +15,61 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.annotation;
+package org.apache.ignite.configuration.annotation;
 
 import java.lang.annotation.Documented;
+import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import org.apache.ignite.configuration.validation.FieldValidator;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
- * This annotation marks configuration schema field as a configuration tree node.
+ * This annotation applies custom validation to configuration field, for example:
  * <pre name="code" class="java">
- * {@literal @}Config
- * public class FooConfigurationSchema {
+ * public class ConfSchema {
+ *     {@literal @}Validate(SomeCustomValidator.class)
+ *     private String value;
+ * }
+ * </pre>
  *
- *      {@literal @}ConfigValue
- *      private SomeOtherConfiguration someOther;
- *
+ * If you need multiple custom validations:
+ * <pre name="code" class="java">
+ * public class ConfSchema {
+ *     {@literal @}Validate(SomeCustomValidator.class),
+ *     {@literal @}Validate(SomeOtherCustomValidator.class)
+ *     private String value;
  * }
  * </pre>
  */
 @Target({ FIELD })
 @Retention(SOURCE)
+@Repeatable(Validate.List.class)
 @Documented
-public @interface ConfigValue {
+public @interface Validate {
     /**
-     * @return The name of the configuration.
+     * @return Validation class that is going to be instantiated for the field validation.
      */
-    String value() default "";
+    Class<? extends FieldValidator<?, ?>> value();
+
+    /**
+     * @return Validation error message.
+     */
+    String message() default "";
+
+    /**
+     * Defines several {@link Validate} annotations on the same element.
+     *
+     * @see Validate
+     */
+    @Target({ FIELD })
+    @Retention(SOURCE)
+    @Documented
+    @interface List {
+
+        Validate[] value();
+    }
+
 }
