@@ -17,21 +17,16 @@
 
 package org.apache.ignite.configuration;
 
-import com.google.gson.Gson;
 import java.io.Reader;
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Consumer;
 
-import com.google.gson.annotations.SerializedName;
 import org.apache.ignite.configuration.extended.InitLocal;
-import org.apache.ignite.configuration.extended.LocalConfiguration;
+import org.apache.ignite.configuration.extended.LocalConfigurationImpl;
 import org.apache.ignite.configuration.extended.Selectors;
-import org.apache.ignite.configuration.internal.Configurator;
-import org.apache.ignite.configuration.internal.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.presentation.FormatConverter;
 import org.apache.ignite.configuration.presentation.json.JsonConverter;
+import org.apache.ignite.configuration.storage.ConfigurationStorage;
 
 /**
  * Module is responsible for preparing configuration when module is started.
@@ -68,21 +63,20 @@ public class ConfigurationModule {
     };
 
     /** */
-    private Configurator<LocalConfiguration> localConfigurator;
+    private Configurator<LocalConfigurationImpl> localConfigurator;
 
     /** */
     public void bootstrap(Reader confReader) {
-        Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
-
         FormatConverter converter = new JsonConverter();
 
-        configurator.init(Selectors.LOCAL, converter.convertFrom(confReader, "local", InitLocal.class));
+        Configurator<LocalConfigurationImpl> configurator =
+            Configurator.create(storage, LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
 
         localConfigurator = configurator;
     }
 
     /** */
-    public Configurator<LocalConfiguration> localConfigurator() {
+    public Configurator<LocalConfigurationImpl> localConfigurator() {
         return localConfigurator;
     }
 }

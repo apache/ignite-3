@@ -40,20 +40,30 @@
             <artifactId>ignite-configuration</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.8.6</version>
         </dependency>
+
         <dependency>
             <groupId>io.javalin</groupId>
             <artifactId>javalin</artifactId>
             <version>3.12.0</version>
         </dependency>
+
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.30</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-configuration-annotation-processor</artifactId>
+            <version>${project.version}</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
@@ -63,18 +73,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
-                <configuration>
-                    <annotationProcessors>
-                        <annotationProcessor>org.apache.ignite.configuration.processor.internal.Processor</annotationProcessor>
-                    </annotationProcessors>
-                    <annotationProcessorPaths>
-                        <annotationProcessorPath>
-                            <groupId>org.apache.ignite</groupId>
-                            <artifactId>ignite-configuration-annotation-processor</artifactId>
-                            <version>3.0-SNAPSHOT</version>
-                        </annotationProcessorPath>
-                    </annotationProcessorPaths>
-                </configuration>
             </plugin>
         </plugins>
     </build>

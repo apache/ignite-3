@@ -17,10 +17,10 @@
 
 package org.apache.ignite.configuration.extended;
 
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.Value;
 
 import javax.validation.constraints.Min;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
 @Config(value = "auto_adjust")
 public class AutoAdjustConfigurationSchema {

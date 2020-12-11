@@ -20,15 +20,15 @@ package org.apache.ignite.rest;
 import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.extended.ChangeLocal;
 import org.apache.ignite.configuration.extended.Local;
-import org.apache.ignite.configuration.extended.LocalConfiguration;
+import org.apache.ignite.configuration.extended.LocalConfigurationImpl;
 import org.apache.ignite.configuration.extended.Selectors;
-import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.selector.SelectorNotFoundException;
-import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.presentation.FormatConverter;
 import org.apache.ignite.configuration.presentation.json.JsonConverter;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
  * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
@@ -56,16 +56,16 @@ public class RestModule {
 
     /** */
     public void start() {
-        Configurator<LocalConfiguration> configurator = confModule.localConfigurator();
+        Configurator<LocalConfigurationImpl> configurator = confModule.localConfigurator();
 
-        Integer port = configurator.getPublic(Selectors.LOCAL_REST_PORT);
+        Integer port = 8080; //dffrdfconfigurator.getPublic(Selectors.LOCAL_REST_PORT);
 
         Javalin app = Javalin.create().start(port != null ? port : DFLT_PORT);
 
         FormatConverter converter = new JsonConverter();
 
         app.get(CONF_URL, ctx -> {
-            Local local = configurator.getRoot().toView();
+            Local local = configurator.getRoot().value();
 
             ctx.result(converter.convertTo("local", local));
         });
