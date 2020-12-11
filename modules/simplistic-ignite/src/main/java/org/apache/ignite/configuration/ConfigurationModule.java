@@ -20,6 +20,7 @@ package org.apache.ignite.configuration;
 import com.google.gson.Gson;
 import java.io.Reader;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 

@@ -67,7 +67,7 @@ public class RestModule {
         app.get(CONF_URL, ctx -> {
             Local local = configurator.getRoot().toView();
 
-            ctx.result(converter.convertTo(local));
+            ctx.result(converter.convertTo("local", local));
         });
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
@@ -81,7 +81,7 @@ public class RestModule {
             catch (SelectorNotFoundException selectorE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
 
-                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo("error", eRes));
             }
         });
 
@@ -94,36 +94,25 @@ public class RestModule {
             catch (SelectorNotFoundException selectorE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
 
-                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo("error", eRes));
             }
             catch (ConfigurationValidationException validationE) {
                 ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
 
-                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo("error", eRes));
             }
             catch (JsonSyntaxException e) {
                 String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
 
                 ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
 
-                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo("error", eRes));
             }
             catch (Exception e) {
                 ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
 
-                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo("error", eRes));
             }
         });
-    }
-
-    /** */
-    private static class ResponseWrapper {
-        /** */
-        private final ErrorResult error;
-
-        /** */
-        private ResponseWrapper(ErrorResult error) {
-            this.error = error;
-        }
     }
 }

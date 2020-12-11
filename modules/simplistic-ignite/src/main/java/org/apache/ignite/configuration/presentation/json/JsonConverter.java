@@ -20,19 +20,31 @@ package org.apache.ignite.configuration.presentation.json;
 import java.io.Reader;
 
 import com.google.gson.Gson;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.configuration.presentation.FormatConverter;
 
+/** */
 public class JsonConverter implements FormatConverter {
+    /** */
     private final Gson gson = new Gson();
 
-    @Override
-    public String convertTo(Object src) {
-        return gson.toJson(src);
+    /** {@inheritDoc} */
+    @Override public String convertTo(Object obj) {
+        return gson.toJson(obj);
     }
 
-    @Override
-    public <T> T convertFrom(String source, String rootName, Class<T> clazz) {
+    /** {@inheritDoc} */
+    @Override public String convertTo(String rootName, Object src) {
+        Map<String, Object> res = new HashMap<>();
+
+        res.put(rootName, src);
+
+        return gson.toJson(res);
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T> T convertFrom(String source, String rootName, Class<T> clazz) {
         Map map = gson.fromJson(source, Map.class);
 
         String root = gson.toJson(map.get(rootName));
@@ -40,8 +52,8 @@ public class JsonConverter implements FormatConverter {
         return gson.fromJson(root, clazz);
     }
 
-    @Override
-    public <T> T convertFrom(Reader source, String rootName, Class<T> clazz) {
+    /** {@inheritDoc} */
+    @Override public <T> T convertFrom(Reader source, String rootName, Class<T> clazz) {
         Map map = gson.fromJson(source, Map.class);
 
         String root = gson.toJson(map.get(rootName));
