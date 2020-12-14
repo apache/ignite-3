@@ -19,7 +19,6 @@ package org.apache.ignite.cli.builtins.node;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,9 +26,6 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchService;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -41,7 +37,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.builtins.module.ModuleStorage;
 import org.apache.ignite.cli.IgniteCLIException;
-import org.jetbrains.annotations.Nullable;
 
 @Singleton
 public class NodeManager {

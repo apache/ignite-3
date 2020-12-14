@@ -20,9 +20,6 @@ package org.apache.ignite.cli.builtins.module;
 import java.nio.file.Path;
 import java.util.List;
 
-/**
- *
- */
 public class ResolveResult {
     private List<Path> artifacts;
 

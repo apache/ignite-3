@@ -52,11 +52,6 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
         @Inject
         private ApplicationContext ctx;
 
-        // TODO: we need to think about the 3d party modules with cli commands
-//        @CommandLine.Option(names = {"--cli"},
-//            description = "set if you want to install cli module")
-//        public boolean cli;
-
         @CommandLine.Option(names = "--repo",
             description = "Url to custom maven repo")
         public URL[] urls;

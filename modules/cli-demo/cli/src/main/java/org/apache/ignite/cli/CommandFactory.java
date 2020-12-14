@@ -18,10 +18,7 @@
 package org.apache.ignite.cli;
 
 import java.util.Optional;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import io.micronaut.context.ApplicationContext;
-import io.micronaut.core.annotation.Introspected;
 import picocli.CommandLine;
 
 public class CommandFactory implements CommandLine.IFactory {
@@ -32,8 +29,6 @@ public class CommandFactory implements CommandLine.IFactory {
         this.applicationContext = applicationContext;
     }
 
-
-    // TODO: Dirty way with silent fails on injecting - must be fixed
     @Override public <K> K create(Class<K> cls) throws Exception {
         Optional<K> bean = applicationContext.findOrInstantiateBean(cls);
         return bean.isPresent() ? bean.get() : CommandLine.defaultFactory().create(cls);// custom factory lookup or instantiation
