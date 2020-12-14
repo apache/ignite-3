@@ -102,6 +102,8 @@ public class RestModule {
             }
         }
 
+        log.info("REST protocol started successfully on port " + app.port());
+
         FormatConverter converter = new JsonConverter();
 
         app.get(CONF_URL, ctx -> {

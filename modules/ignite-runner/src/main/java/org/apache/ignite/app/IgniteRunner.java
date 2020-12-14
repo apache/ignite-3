@@ -23,6 +23,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.rest.RestModule;
+import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +38,9 @@ public class IgniteRunner {
     private static final String DFLT_CONF_FILE_NAME = "bootstrap-config.json";
 
     /** */
+    private static final String VER_KEY = "version";
+
+    /** */
     private final static Logger log = LoggerFactory.getLogger(IgniteRunner.class);
 
     /**
@@ -47,6 +51,8 @@ public class IgniteRunner {
      * @param args Empty or providing path to custom configuration file after marker parameter "--config".
      */
     public static void main(String[] args) throws IOException {
+        ackVersion();
+
         ConfigurationModule confModule = new ConfigurationModule();
 
         Reader confReader = null;
@@ -77,5 +83,19 @@ public class IgniteRunner {
         RestModule rest = new RestModule(confModule, log);
 
         rest.start();
+
+        ackSuccessStart();
+    }
+
+    /** */
+    private static void ackSuccessStart() {
+        log.info("Ignite application started successfully");
+    }
+
+    /** */
+    private static void ackVersion() {
+        String ver = IgniteProperties.get(VER_KEY);
+
+        log.info("Starting Ignite of version " + ver);
     }
 }
