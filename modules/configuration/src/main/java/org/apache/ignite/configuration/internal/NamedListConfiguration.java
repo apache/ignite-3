@@ -124,7 +124,7 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
     }
 
     /** {@inheritDoc} */
-    @Override protected NamedListConfiguration<VIEW, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
+    @Override public NamedListConfiguration<VIEW, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
         return new NamedListConfiguration<>(this, configurator, root);
     }
 }

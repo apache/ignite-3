@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.sample;
 
-import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
-@Config
-public class CacheConfigurationSchema {
+/**
+ * TODO: Add class description.
+ *
+ * @author @java.author
+ * @version @java.version
+ */
+@Config(value = "local", root = true)
+public class LocalConfigurationSchema {
 
-    @Value
-    @Min(value = 1, message = "Minimal cache size is 1")
-    private int size;
+    @ConfigValue
+    private BaselineConfigurationSchema baseline;
 
 }

@@ -85,10 +85,28 @@
                 <version>3.8.1</version>
                 <configuration>
                     <!-- disable processing because the definition in META-INF/services breaks javac -->
-                    <compilerArgument>-proc:none</compilerArgument>
+<!--                    <compilerArgument>-proc:none</compilerArgument>-->
                     <source>8</source>
                     <target>8</target>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <compilerArgument>-proc:none</compilerArgument>
+                            <includes>
+                                <include>org/apache/ignite/configuration/processor/internal/*</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>compile-project</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

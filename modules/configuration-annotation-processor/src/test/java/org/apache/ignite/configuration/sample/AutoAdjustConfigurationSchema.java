@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.sample;
 
+import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Validate;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.sample.validation.AutoAdjustValidator;
+import org.apache.ignite.configuration.sample.validation.AutoAdjustValidator2;
 
 /**
  * TODO: Add class description.
@@ -28,11 +31,13 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
  * @version @java.version
  */
 @Config
-public class BaselineConfigurationSchema {
-    @ConfigValue
-    private AutoAdjustConfigurationSchema autoAdjust;
+public class AutoAdjustConfigurationSchema {
+    @Value
+    @Min(value = 0, message = "Minimal is 0")
+    @Validate(value = AutoAdjustValidator.class, message = "a")
+    @Validate(value = AutoAdjustValidator2.class, message = "b")
+    private long timeout;
 
-    @NamedConfigValue
-    private NodeConfigurationSchema nodes;
-
+    @Value
+    private boolean enabled;
 }

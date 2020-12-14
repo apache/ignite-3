@@ -126,7 +126,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
      * @param root New configuration root.
      * @return Copy of this configuration.
      */
-    protected abstract DynamicConfiguration<VIEW, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root);
+    public abstract DynamicConfiguration<VIEW, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root);
 
     /**
      * Create a deep copy of this DynamicConfiguration, making it root configuration (so this method must be called

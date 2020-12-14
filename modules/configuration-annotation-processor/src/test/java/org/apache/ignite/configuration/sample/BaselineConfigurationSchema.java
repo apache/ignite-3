@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.sample;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
  * TODO: Add class description.
@@ -26,10 +27,12 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
  * @author @java.author
  * @version @java.version
  */
-@Config(value = "local", root = true)
-public class LocalConfigurationSchema {
-
+@Config
+public class BaselineConfigurationSchema {
     @ConfigValue
-    private BaselineConfigurationSchema baseline;
+    private AutoAdjustConfigurationSchema autoAdjust;
+
+    @NamedConfigValue
+    private NodeConfigurationSchema nodes;
 
 }

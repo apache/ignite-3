@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.sample;
 
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Validate;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.internal.validation.NodeValidator;
+import org.apache.ignite.configuration.sample.validation.NodeValidator;
 
 /**
  * TODO: Add class description.

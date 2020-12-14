@@ -15,29 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.sample;
 
 import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Validate;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.internal.validation.AutoAdjustValidator;
-import org.apache.ignite.configuration.internal.validation.AutoAdjustValidator2;
 
-/**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
- */
 @Config
-public class AutoAdjustConfigurationSchema {
-    @Value
-    @Min(value = 0, message = "Minimal is 0")
-    @Validate(value = AutoAdjustValidator.class, message = "a")
-    @Validate(value = AutoAdjustValidator2.class, message = "b")
-    private long timeout;
+public class CacheConfigurationSchema {
 
     @Value
-    private boolean enabled;
+    @Min(value = 1, message = "Minimal cache size is 1")
+    private int size;
+
 }

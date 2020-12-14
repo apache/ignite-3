@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.validation;
+package org.apache.ignite.configuration.sample.validation;
 
-import org.apache.ignite.configuration.internal.LocalConfiguration;
-import org.apache.ignite.configuration.internal.Selectors;
+import org.apache.ignite.configuration.sample.LocalConfiguration;
+import org.apache.ignite.configuration.sample.Selectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
 
-public class AutoAdjustValidator2 extends FieldValidator<Number, LocalConfiguration> {
+public class AutoAdjustValidator extends FieldValidator<Number, LocalConfiguration> {
 
-    public AutoAdjustValidator2(String message) {
+    public AutoAdjustValidator(String message) {
         super(message);
     }
 

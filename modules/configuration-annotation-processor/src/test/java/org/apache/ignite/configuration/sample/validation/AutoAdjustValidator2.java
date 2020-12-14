@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.validation;
+package org.apache.ignite.configuration.sample.validation;
 
-import org.apache.ignite.configuration.internal.LocalConfiguration;
+import org.apache.ignite.configuration.sample.LocalConfiguration;
+import org.apache.ignite.configuration.sample.Selectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
 
-public class NodeValidator extends FieldValidator<Boolean, LocalConfiguration> {
-    /**
-     * Constructor.
-     *
-     * @param message
-     */
-    public NodeValidator(String message) {
+public class AutoAdjustValidator2 extends FieldValidator<Number, LocalConfiguration> {
+
+    public AutoAdjustValidator2(String message) {
         super(message);
     }
 
-    @Override public void validate(Boolean value, LocalConfiguration newRoot, LocalConfiguration oldRoot) throws ConfigurationValidationException {
-        if (value != null && value) {
-            if (!newRoot.baseline().autoAdjust().enabled().value()) {
-                throw new ConfigurationValidationException("");
-            }
-        }
+    @Override public void validate(Number value, LocalConfiguration newRoot, LocalConfiguration oldRoot) throws ConfigurationValidationException {
+        final Boolean isEnabled = newRoot.baseline().autoAdjust().enabled().value();
+
+        if (value.longValue() > 0 && !isEnabled)
+            throw new ConfigurationValidationException(message);
     }
+
 }

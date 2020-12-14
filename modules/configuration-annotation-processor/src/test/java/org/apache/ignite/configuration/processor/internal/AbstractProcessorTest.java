@@ -31,6 +31,11 @@ import static com.google.testing.compile.Compiler.javac;
 
 public class AbstractProcessorTest {
 
+    /**
+     * Compile set of classes
+     * @param schemaClasses Configuration schema classes.
+     * @return Result of batch compilation.
+     */
     protected static BatchCompilation batchCompile(ClassName... schemaClasses) {
         List<String> fileNames = Arrays.stream(schemaClasses)
             .map(name -> {
