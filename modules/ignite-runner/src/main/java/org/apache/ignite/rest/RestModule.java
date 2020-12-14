@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.internal.selector.SelectorNotFoundExcepti
 import org.apache.ignite.configuration.presentation.FormatConverter;
 import org.apache.ignite.configuration.presentation.json.JsonConverter;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.slf4j.Logger;
 
 /**
  * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
@@ -50,17 +51,56 @@ public class RestModule {
     private final ConfigurationModule confModule;
 
     /** */
-    public RestModule(ConfigurationModule confModule) {
+    private final Logger log;
+
+    /** */
+    public RestModule(ConfigurationModule confModule, Logger log) {
         this.confModule = confModule;
+        this.log = log;
     }
 
     /** */
     public void start() {
         Configurator<LocalConfigurationImpl> configurator = confModule.localConfigurator();
 
-        Integer port = 8080; //dffrdfconfigurator.getPublic(Selectors.LOCAL_REST_PORT);
+        Integer port = configurator.getPublic(Selectors.LOCAL_REST_PORT);
+        Integer portRange = configurator.getPublic(Selectors.LOCAL_REST_PORT_RANGE);
+        Javalin app = null;
 
-        Javalin app = Javalin.create().start(port != null ? port : DFLT_PORT);
+        if (portRange == null || portRange == 0) {
+            try {
+                app = Javalin.create().start(port != null ? port : DFLT_PORT);
+            }
+            catch (RuntimeException e) {
+                log.warn("Failed to start REST endpoint: ", e);
+
+                throw e;
+            }
+        }
+        else {
+            int startPort = port;
+
+            for (int portCandidate = startPort; portCandidate < startPort + portRange; portCandidate++) {
+                try {
+                    app = Javalin.create().start(portCandidate);
+                }
+                catch (RuntimeException ignored) {
+                    // No-op.
+                }
+
+                if (app != null)
+                    break;
+            }
+
+            if (app == null) {
+                String msg = "Cannot start REST endpoint. " +
+                    "All ports in range [" + startPort + ", " + (startPort + portRange) + ") are in use.";
+
+                log.warn(msg);
+
+                throw new RuntimeException(msg);
+            }
+        }
 
         FormatConverter converter = new JsonConverter();
 

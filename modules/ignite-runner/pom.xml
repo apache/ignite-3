@@ -25,7 +25,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.apache.ignite</groupId>
-    <artifactId>ignite-configuration-simplistic-ignite</artifactId>
+    <artifactId>ignite-runner</artifactId>
     <version>3.0-SNAPSHOT</version>
     <url>http://ignite.apache.org</url>
 

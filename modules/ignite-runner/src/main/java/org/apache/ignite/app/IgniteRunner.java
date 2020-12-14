@@ -21,19 +21,23 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.rest.RestModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Sample application integrating new configuration module and providing standard REST API to access and modify it.
  */
-public class SimplisticIgnite {
+public class IgniteRunner {
     /** */
     private static final String CONF_PARAM_NAME = "--config";
 
     /** */
     private static final String DFLT_CONF_FILE_NAME = "bootstrap-config.json";
+
+    /** */
+    private final static Logger log = LoggerFactory.getLogger(IgniteRunner.class);
 
     /**
      * It is possible to start application with a custom configuration in form of json file other than that in resources.
@@ -60,7 +64,7 @@ public class SimplisticIgnite {
 
             if (confReader == null) {
                 confReader = new InputStreamReader(
-                    SimplisticIgnite.class.getClassLoader().getResourceAsStream(DFLT_CONF_FILE_NAME));
+                    IgniteRunner.class.getClassLoader().getResourceAsStream(DFLT_CONF_FILE_NAME));
             }
 
             confModule.bootstrap(confReader);
@@ -70,7 +74,7 @@ public class SimplisticIgnite {
                 confReader.close();
         }
 
-        RestModule rest = new RestModule(confModule);
+        RestModule rest = new RestModule(confModule, log);
 
         rest.start();
     }

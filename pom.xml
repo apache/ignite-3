@@ -39,6 +39,6 @@
     </dependencies>
 
     <modules>
-        <module>modules/simplistic-ignite</module>
+        <module>modules/ignite-runner</module>
     </modules>
 </project>

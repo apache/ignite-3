@@ -26,4 +26,8 @@ public class RestConfigurationSchema {
     /** */
     @Value
     private int port;
+
+    /** */
+    @Value
+    private int portRange;
 }
