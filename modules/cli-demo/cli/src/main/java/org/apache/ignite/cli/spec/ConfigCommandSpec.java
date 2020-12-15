@@ -40,8 +40,7 @@ public class ConfigCommandSpec extends AbstractCommandSpec {
     @CommandLine.Command(name = "get", description = "Get current Ignite cluster configuration values.")
     public static class GetConfigCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        private ApplicationContext ctx;
+        @Inject private ConfigurationClient configurationClient;
 
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
 
@@ -52,7 +51,7 @@ public class ConfigCommandSpec extends AbstractCommandSpec {
 
         @Override public void run() {
             spec.commandLine().getOut().println(
-                ctx.createBean(ConfigurationClient.class).get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), subtree));
+                configurationClient.get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), subtree));
         }
     }
 
@@ -62,8 +61,7 @@ public class ConfigCommandSpec extends AbstractCommandSpec {
     )
     public static class SetConfigCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        private ApplicationContext ctx;
+        @Inject private ConfigurationClient configurationClient;
 
         @CommandLine.Parameters(paramLabel = "hocon-string", description = "any text representation of hocon config")
         private String config;
@@ -72,7 +70,7 @@ public class ConfigCommandSpec extends AbstractCommandSpec {
 
         @Override public void run() {
             spec.commandLine().getOut().println(
-                ctx.createBean(ConfigurationClient.class)
+                configurationClient
                     .set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), config));
         }
     }

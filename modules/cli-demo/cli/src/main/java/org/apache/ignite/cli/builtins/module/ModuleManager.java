@@ -37,28 +37,18 @@ import org.apache.ignite.cli.CliVersionInfo;
 @Singleton
 public class ModuleManager {
 
-    private final List<StandardModuleDefinition> modules;
     private final MavenArtifactResolver mavenArtifactResolver;
     private final CliVersionInfo cliVersionInfo;
     private final ModuleStorage moduleStorage;
+    private final List<StandardModuleDefinition> modules;
 
     public static final String INTERNAL_MODULE_PREFIX = "_";
 
     @Inject
-    public ModuleManager(MavenArtifactResolver mavenArtifactResolver, CliVersionInfo cliVersionInfo,
-        ModuleStorage moduleStorage) {
-        this(readBuiltinModules(),
-            mavenArtifactResolver,
-            cliVersionInfo,
-            moduleStorage
-        );
-    }
-
     public ModuleManager(
-        List<StandardModuleDefinition> modules,
         MavenArtifactResolver mavenArtifactResolver, CliVersionInfo cliVersionInfo,
         ModuleStorage moduleStorage) {
-        this.modules = readBuiltinModules();
+        modules = readBuiltinModules();
         this.mavenArtifactResolver = mavenArtifactResolver;
         this.cliVersionInfo = cliVersionInfo;
         this.moduleStorage = moduleStorage;
@@ -165,13 +155,17 @@ public class ModuleManager {
         }
     }
 
+    public List<StandardModuleDefinition> builtinModules() {
+        return modules;
+    }
+
     private boolean isStandardModuleName(String name) {
-        return modules.stream().anyMatch(m -> m.name.equals(name));
+        return readBuiltinModules().stream().anyMatch(m -> m.name.equals(name));
     }
 
 
 
-    public static List<StandardModuleDefinition> readBuiltinModules() {
+    private static List<StandardModuleDefinition> readBuiltinModules() {
         com.typesafe.config.ConfigObject config = ConfigFactory.load("builtin_modules.conf").getObject("modules");
         List<StandardModuleDefinition> modules = new ArrayList<>();
         for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {

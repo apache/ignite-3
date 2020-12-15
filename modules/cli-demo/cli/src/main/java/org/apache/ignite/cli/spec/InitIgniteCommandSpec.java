@@ -27,10 +27,9 @@ import picocli.CommandLine;
 public class InitIgniteCommandSpec extends AbstractCommandSpec implements IgniteCommand {
 
     @Inject
-    private ApplicationContext ctx;
+    InitIgniteCommand command;
 
     @Override public void run() {
-        InitIgniteCommand command = ctx.createBean(InitIgniteCommand.class);
         command.init(spec.commandLine().getOut());
     }
 

@@ -52,7 +52,7 @@ public class ConfigurationClient {
         @Nullable String rawHoconPath) {
         var request = HttpRequest
             .newBuilder()
-            .header("Content-type", "application/json");
+            .header("Content-Type", "application/json");
 
         if (rawHoconPath == null)
             request.uri(URI.create("http://" + host + ":" + port + GET_URL));

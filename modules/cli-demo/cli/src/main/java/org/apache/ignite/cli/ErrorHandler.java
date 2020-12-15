@@ -43,7 +43,11 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
     }
 
     @Override public int handleParseException(CommandLine.ParameterException ex, String[] args) {
-        CommandLine cli = IgniteCliSpec.initCli(applicationContext);
+        CommandLine cli = ex.getCommandLine();
+
+        cli.getErr().println(cli.getColorScheme().errorText("ERROR: ") + ex.getMessage() + '\n');
+
+        cli.usage(cli.getOut());
 
         return cli.getCommandSpec().exitCodeOnInvalidInput();
     }

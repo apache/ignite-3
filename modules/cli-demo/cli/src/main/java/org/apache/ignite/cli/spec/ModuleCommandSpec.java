@@ -49,8 +49,10 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     @CommandLine.Command(name = "add", description = "Add an optional Ignite module or an external artifact.")
     public static class AddModuleCommandSpec extends AbstractCommandSpec {
 
+        @Inject private ModuleManager moduleManager;
+
         @Inject
-        private ApplicationContext ctx;
+        private CliPathsConfigLoader cliPathsConfigLoader;
 
         @CommandLine.Option(names = "--repo",
             description = "Url to custom maven repo")
@@ -61,8 +63,7 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
         public String moduleName;
 
         @Override public void run() {
-            var moduleManager = ctx.createBean(ModuleManager.class);
-            var ignitePaths = ctx.createBean(CliPathsConfigLoader.class).loadIgnitePathsOrThrowError();
+            var ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
             moduleManager.setOut(spec.commandLine().getOut());
             moduleManager.addModule(moduleName,
                 ignitePaths,
@@ -73,16 +74,14 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     @CommandLine.Command(name = "remove", description = "Add an optional Ignite module or an external artifact.")
     public static class RemoveModuleCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        private ApplicationContext ctx;
+        @Inject private ModuleManager moduleManager;
 
         @CommandLine.Parameters(paramLabel = "module",
             description = "can be a 'builtin module name (see module list)'|'mvn:groupId:artifactId:version'")
         public String moduleName;
 
         @Override public void run() {
-            boolean removed = ctx.createBean(ModuleManager.class).removeModule(moduleName);
-            if (removed)
+            if (moduleManager.removeModule(moduleName))
                 spec.commandLine().getOut().println("Module " + moduleName + " was removed successfully");
             else
                 spec.commandLine().getOut().println("Module " + moduleName + " is not found");
@@ -92,11 +91,10 @@ public class ModuleCommandSpec extends AbstractCommandSpec implements IgniteComm
     @CommandLine.Command(name = "list", description = "Show the list of available optional Ignite modules.")
     public static class ListModuleCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        private ApplicationContext ctx;
+        @Inject private ModuleManager moduleManager;
 
         @Override public void run() {
-            var builtinModules = ModuleManager.readBuiltinModules()
+            var builtinModules = moduleManager.builtinModules()
                 .stream()
                 .filter(m -> !m.name.startsWith(ModuleManager.INTERNAL_MODULE_PREFIX));
             String table = AsciiTable.getTable(builtinModules.collect(Collectors.toList()), Arrays.asList(

@@ -48,8 +48,9 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     @CommandLine.Command(name = "start", description = "Start an Ignite node locally.")
     public static class StartNodeCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        ApplicationContext ctx;
+        @Inject private CliPathsConfigLoader cliPathsConfigLoader;
+
+        @Inject private NodeManager nodeManager;
 
         @CommandLine.Parameters(paramLabel = "consistent-id", description = "ConsistentId for new node")
         public String consistentId;
@@ -59,10 +60,8 @@ public class NodeCommandSpec extends AbstractCommandSpec {
         public Path configPath;
 
         @Override public void run() {
-            var cliPathsConfigLoader= ctx.createBean(CliPathsConfigLoader.class);
             IgnitePaths ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
 
-            var nodeManager = ctx.createBean(NodeManager.class);
             NodeManager.RunningNode node = nodeManager.start(consistentId, ignitePaths.workDir,
                 ignitePaths.cliPidsDir(),
                 configPath);
@@ -75,18 +74,16 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     @CommandLine.Command(name = "stop", description = "Stop a locally running Ignite node.")
     public static class StopNodeCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        private ApplicationContext ctx;
+        @Inject private NodeManager nodeManager;
+        @Inject private CliPathsConfigLoader cliPathsConfigLoader;
 
         @CommandLine.Parameters(arity = "1..*", paramLabel = "consistent-ids",
             description = "consistent ids of nodes to start")
         public List<String> consistentIds;
 
         @Override public void run() {
-            var cliPathsConfigLoader = ctx.createBean(CliPathsConfigLoader.class);
             IgnitePaths ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
 
-            var nodeManager = ctx.createBean(NodeManager.class);
             consistentIds.forEach(p -> {
                 if (nodeManager.stopWait(p, ignitePaths.cliPidsDir()))
                     spec.commandLine().getOut().println("Node with consistent id " + p + " was stopped");
@@ -99,14 +96,12 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     @CommandLine.Command(name = "list", description = "Show the list of currently running local Ignite nodes.")
     public static class ListNodesCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        private ApplicationContext ctx;
+        @Inject private NodeManager nodeManager;
+        @Inject private CliPathsConfigLoader cliPathsConfigLoader;
 
         @Override public void run() {
-            var cliPathsConfigLoader = ctx.createBean(CliPathsConfigLoader.class);
             IgnitePaths paths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
 
-            var nodeManager = ctx.createBean(NodeManager.class);
             List<NodeManager.RunningNode> nodes = nodeManager
                 .getRunningNodes(paths.workDir, paths.cliPidsDir());
 
@@ -129,11 +124,9 @@ public class NodeCommandSpec extends AbstractCommandSpec {
     @CommandLine.Command(name = "classpath", description = "Show the current classpath used by the Ignite nodes.")
     public static class NodesClasspathCommandSpec extends AbstractCommandSpec {
 
-        @Inject
-        private ApplicationContext ctx;
+        @Inject private NodeManager nodeManager;
 
         @Override public void run() {
-            var nodeManager = ctx.createBean(NodeManager.class);
             try {
                 spec.commandLine().getOut().println(nodeManager.classpath());
             }
