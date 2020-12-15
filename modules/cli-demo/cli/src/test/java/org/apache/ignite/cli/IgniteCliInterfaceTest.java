@@ -273,12 +273,12 @@ public class IgniteCliInterfaceTest {
             assertEquals(0, exitCode);
             verify(nodeManager).getRunningNodes(ignitePaths.workDir, ignitePaths.cliPidsDir());
             assertEquals("+-----+---------------+----------+\n" +
-                "| PID | Consistent Id | Log      |\n" +
+                "| PID | Consistent ID | Log      |\n" +
                 "+-----+---------------+----------+\n" +
                 "| 1   | new1          | logFile1 |\n" +
                 "+-----+---------------+----------+\n" +
                 "| 2   | new2          | logFile2 |\n" +
-                "+-----+---------------+----------+\n", out.toString());
+                "+-----+---------------+----------+\n\n", out.toString());
         }
 
         @Test
