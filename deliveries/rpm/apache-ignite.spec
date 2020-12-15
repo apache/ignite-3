@@ -17,8 +17,8 @@ Summary:          Apache Ignite In-Memory Computing, Database and Caching Platfo
 Group:            Development/System
 License:          ASL 2.0
 URL:              https://ignite.apache.org
-Requires:         java >= 11
-Requires(pre):    shadow-utils
+Requires:         java-11 which
+Requires(pre):    (shadow-utils or shadow)
 Provides:         %{name}
 AutoReq:          no
 AutoProv:         no
@@ -27,6 +27,25 @@ BuildArch:        noarch
 Ignite™ is a memory-centric distributed database, caching, and processing
 platform for transactional, analytical, and streaming workloads, delivering
 in-memory speeds at petabyte scale
+
+
+
+%pre
+#-------------------------------------------------------------------------------
+#
+# Preinstall scripts
+# $1 can be:
+#     1 - Initial installation
+#     2 - Upgrade
+#
+echo "Preinstall mode: '$1'"
+case $1 in
+    1|configure)
+        # Add user for service operation
+        useradd -r -md %{_datadir}/%{name} %{user}
+        [ -f "%{_datadir}/%{name}/.bashrc" ] && echo "cd ~" >> %{_datadir}/%{name}/.bashrc
+        ;;
+esac
 
 
 
@@ -46,13 +65,14 @@ echoUpgradeMessage () {
 }
 
 setPermissions () {
-    chown -R %{user}:%{user} %{_sharedstatedir}/%{name} \
+    chown -R %{user}:%{user} %{_datadir}/%{name} \
+                             %{_sharedstatedir}/%{name} \
                              %{_log}/%{name} \
                              %{_bindir}/ignite
 }
 
 setFirewall () {
-	if [[ "$(type firewall-cmd &>/dev/null; echo $?)" -eq 0 && "$(systemctl is-active firewalld)" == "active" ]]
+	if [[ "$(type firewall-cmd &>/dev/null; echo $?)" -eq 0 && "$(systemctl is-active firewalld 2>/dev/null)" == "active" ]]
 	then
 	    for port in s d
 	    do
@@ -72,11 +92,9 @@ case $1 in
             echoUpgradeMessage
         fi
 
-        # Add user for service operation
-        useradd -r -d %{_datadir}/%{name} -s /usr/sbin/nologin %{user}
-        ;;
-
+        # Set firewall rules
         setFirewall
+        ;;
     2)
         # RPM postinst upgrade
         echoUpgradeMessage
@@ -97,7 +115,7 @@ setPermissions
 #
 
 stopIgniteNodes () {
-    ;
+    echo "Stopping ignite nodes"
 }
 
 case $1 in
