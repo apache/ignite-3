@@ -19,16 +19,13 @@ package org.apache.ignite.cli.spec;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import javax.inject.Inject;
-import com.github.freva.asciitable.AsciiTable;
-import com.github.freva.asciitable.Column;
-import com.github.freva.asciitable.HorizontalAlign;
 import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.IgnitePaths;
+import org.apache.ignite.cli.Table;
 import org.apache.ignite.cli.builtins.node.NodeManager;
 import picocli.CommandLine;
 
@@ -116,12 +113,14 @@ public class NodeCommandSpec extends AbstractCommandSpec {
             if (nodes.isEmpty())
                 spec.commandLine().getOut().println("No running nodes");
             else {
-                String table = AsciiTable.getTable(nodes, Arrays.asList(
-                    new Column().header("PID").dataAlign(HorizontalAlign.LEFT).with(n -> String.valueOf(n.pid)),
-                    new Column().header("Consistent Id").dataAlign(HorizontalAlign.LEFT).with(n -> n.consistentId),
-                    new Column().header("Log").maxColumnWidth(Integer.MAX_VALUE).dataAlign(HorizontalAlign.LEFT)
-                        .with(n -> n.logFile.toString())
-                ));
+                Table table = new Table(0, spec.commandLine().getColorScheme());
+
+                table.addRow("@|bold PID|@", "@|bold Consistent ID|@", "@|bold Log|@");
+
+                for (NodeManager.RunningNode node : nodes) {
+                    table.addRow(node.pid, node.consistentId, node.logFile);
+                }
+
                 spec.commandLine().getOut().println(table);
             }
         }
