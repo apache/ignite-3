@@ -71,7 +71,7 @@ public class SerializerBenchmarkTest {
     private Factory<?> objectFactory;
 
     /** Object fields count. */
-    @Param({"10", "100"})
+    @Param({"0", "1", "10", "100"})
     public int fieldsCount;
 
     /** Serializer. */
@@ -100,8 +100,16 @@ public class SerializerBenchmarkTest {
 
         rnd = new Random(seed);
 
-        final Class<?> valClass = createGeneratedObjectClass(fieldsCount, Long.TYPE);
-        objectFactory = new ObjectFactory<>(valClass);
+        final Class<?> valClass;
+
+        if (fieldsCount == 0) {
+            valClass = Long.class;
+            objectFactory = (Factory<Object>)rnd::nextLong;
+        }
+        else {
+            valClass = createGeneratedObjectClass(fieldsCount, long.class);
+            objectFactory = new ObjectFactory<>(valClass);
+        }
 
         Columns keyCols = new Columns(new Column("key", LONG, true));
         Columns valCols = mapFieldsToColumns(valClass);
@@ -140,6 +148,9 @@ public class SerializerBenchmarkTest {
      * @return Columns for schema
      */
     private Columns mapFieldsToColumns(Class<?> aClass) {
+        if (aClass == Long.class)
+            return new Columns(new Column("col0", LONG, true));
+
         final Field[] fields = aClass.getDeclaredFields();
         final Column[] cols = new Column[fields.length];
 

@@ -93,7 +93,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override public CodeBlock getValueCode(String objVar, int i) {
-        return CodeBlock.of("FIELD_HANDLE_$L.get($L)", columnAccessessors[i].columnIdx(), objVar);
+        return CodeBlock.of("($T)FIELD_HANDLE_$L.get($L)", columnAccessessors[i].mappedType(), columnAccessessors[i].columnIdx(), objVar);
     }
 
     /** {@inheritDoc} */

@@ -71,7 +71,7 @@ public class SerializerGenerator implements SerializerFactory {
 
             //TODO: pass code to logger on trace level.
 //            System.out.println("Serializer code generated in " + TimeUnit.NANOSECONDS.toMicros(generation) + "us");
-            //            System.out.println(javaFile.toString());
+//                        System.out.println(javaFile.toString());
 
             // Compile.
             long compilation = System.nanoTime();

@@ -30,12 +30,11 @@ import org.apache.ignite.internal.schema.TupleAssembler;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Field accessor to speedup access.
  */
-public abstract class FieldAccessor {
+abstract class FieldAccessor {
     /** VarHandle. */
     protected final VarHandle varHandle;
 
@@ -358,7 +357,7 @@ public abstract class FieldAccessor {
      */
     public void read(Tuple reader, Object obj) throws SerializationException {
         try {
-            read0(reader, Objects.requireNonNull(obj));
+            read0(reader, obj);
         }
         catch (Exception ex) {
             throw new SerializationException("Failed to read field [id=" + colIdx + ']', ex);

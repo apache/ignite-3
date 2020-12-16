@@ -254,4 +254,8 @@ public class TupleColumnAccessCodeGenerator {
                 .build();
         }
     }
+
+    public Class<?> mappedType() {
+        return mappedType;
+    }
 }
