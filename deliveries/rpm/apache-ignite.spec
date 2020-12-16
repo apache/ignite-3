@@ -186,6 +186,7 @@ mkdir -pv %{buildroot}%{_bindir}
 
 # Install binary
 cp -rfv ignite %{buildroot}%{_bindir}
+chmod +x %{buildroot}%{_bindir}/ignite
 
 # Install ignite-cli configuraton file
 touch %{buildroot}%{_sysconfdir}/%{name}/cfg
