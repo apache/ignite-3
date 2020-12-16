@@ -46,7 +46,6 @@ import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
@@ -81,6 +80,17 @@ import static javax.lang.model.element.Modifier.STATIC;
  * Annotation processor that produces configuration classes.
  */
 public class Processor extends AbstractProcessor {
+    /** Wildcard (?) TypeName. */
+    private static final TypeName WILDCARD = WildcardTypeName.subtypeOf(Object.class);
+
+    /** Type of Configurator (every DynamicConfiguration has a Configurator field). */
+    private static final ParameterizedTypeName CONFIGURATOR_TYPE = ParameterizedTypeName.get(
+        ClassName.get(Configurator.class),
+        WildcardTypeName.subtypeOf(
+            ParameterizedTypeName.get(ClassName.get(DynamicConfiguration.class), WILDCARD, WILDCARD, WILDCARD)
+        )
+    );
+
     /** Generator of VIEW classes. */
     private ViewClassGenerator viewClassGenerator;
 
@@ -117,32 +127,38 @@ public class Processor extends AbstractProcessor {
 
         List<ConfigurationDescription> roots = new ArrayList<>();
 
+        // Package to use for Selectors and Keys classes
         String packageForUtil = "";
 
-        final Set<? extends Element> annotatedConfigs = roundEnvironment.getElementsAnnotatedWith(Config.class);
+        // All classes annotated with @Config
+        final Set<TypeElement> annotatedConfigs = roundEnvironment.getElementsAnnotatedWith(Config.class).stream()
+            .filter(element -> element.getKind() == ElementKind.CLASS)
+            .map(TypeElement.class::cast)
+            .collect(Collectors.toSet());
 
         if (annotatedConfigs.isEmpty())
             return false;
 
-        for (Element element : annotatedConfigs) {
-            if (element.getKind() != ElementKind.CLASS)
-                continue;
-
-            TypeElement clazz = (TypeElement) element;
-
+        for (TypeElement clazz : annotatedConfigs) {
+            // Get package name of the schema class
             final PackageElement elementPackage = elementUtils.getPackageOf(clazz);
             final String packageName = elementPackage.getQualifiedName().toString();
 
+            // Find all the fields of the schema
             final List<VariableElement> fields = clazz.getEnclosedElements().stream()
                 .filter(el -> el.getKind() == ElementKind.FIELD)
                 .map(VariableElement.class::cast)
                 .collect(Collectors.toList());
 
-            final Config clazzConfigAnnotation = clazz.getAnnotation(Config.class);
+            final Config classConfigAnnotation = clazz.getAnnotation(Config.class);
 
-            final String configName = clazzConfigAnnotation.value();
-            final boolean isRoot = clazzConfigAnnotation.root();
+            // Configuration name
+            final String configName = classConfigAnnotation.value();
+            // Is root of the configuration
+            final boolean isRoot = classConfigAnnotation.root();
             final ClassName schemaClassName = ClassName.get(packageName, clazz.getSimpleName().toString());
+
+            // Get name for generated configuration class and it's interface
             final ClassName configClass = Utils.getConfigurationName(schemaClassName);
             final ClassName configInterface = Utils.getConfigurationInterfaceName(schemaClassName);
 
@@ -154,6 +170,7 @@ public class Processor extends AbstractProcessor {
                 Utils.getChangeName(schemaClassName)
             );
 
+            // If root, then use it's package as package for Selectors and Keys
             if (isRoot) {
                 roots.add(configDesc);
                 packageForUtil = packageName;
@@ -163,24 +180,19 @@ public class Processor extends AbstractProcessor {
                 .addSuperinterface(configInterface)
                 .addModifiers(PUBLIC, FINAL);
 
-            TypeName wildcard = WildcardTypeName.subtypeOf(Object.class);
-
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
                 .addModifiers(PUBLIC);
-
-            final ParameterizedTypeName configuratorClassName = ParameterizedTypeName.get(
-                ClassName.get(Configurator.class),
-                WildcardTypeName.subtypeOf(ParameterizedTypeName.get(ClassName.get(DynamicConfiguration.class), wildcard, wildcard, wildcard))
-            );
 
             CodeBlock.Builder constructorBodyBuilder = CodeBlock.builder();
             CodeBlock.Builder copyConstructorBodyBuilder = CodeBlock.builder();
 
             for (VariableElement field : fields) {
+                // Get original field type (must be another configuration schema or "primitive" like String or long)
                 final TypeName baseType = TypeName.get(field.asType());
+
                 final String fieldName = field.getSimpleName().toString();
 
-                final GenF types = getTypes(field);
+                final ConfigurationTypes types = getTypes(field);
 
                 TypeName getMethodType = types.getGetMethodType();
                 TypeName viewClassType = types.getViewClassType();
@@ -247,12 +259,16 @@ public class Processor extends AbstractProcessor {
 
             props.put(configClass, configDesc);
 
+            // Create VIEW, INIT and CHANGE classes
             createPojoBindings(packageName, fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
 
-            createConstructors(configClass, configName, configurationClassBuilder, configuratorClassName, constructorBodyBuilder, copyConstructorBodyBuilder);
+            // Create constructors for configuration class
+            createConstructors(configClass, configName, configurationClassBuilder, CONFIGURATOR_TYPE, constructorBodyBuilder, copyConstructorBodyBuilder);
 
+            // Create copy method for configuration class
             createCopyMethod(configClass, configurationClassBuilder);
 
+            // Write configuration interface
             JavaFile interfaceFile = JavaFile.builder(packageName, configurationInterfaceBuilder.build()).build();
 
             try {
@@ -261,6 +277,7 @@ public class Processor extends AbstractProcessor {
                 throw new ProcessorException("Failed to create configuration class " + configClass.toString(), e);
             }
 
+            // Write configuration
             JavaFile classFile = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
 
             try {
@@ -270,13 +287,16 @@ public class Processor extends AbstractProcessor {
             }
         }
 
+        // Get all generated configuration nodes
         final List<ConfigurationNode> flattenConfig = roots.stream()
             .map((ConfigurationDescription cfg) -> buildConfigForest(cfg, props))
             .flatMap(Set::stream)
             .collect(Collectors.toList());
 
+        // Generate Keys class
         createKeysClass(packageForUtil, flattenConfig);
 
+        // Generate Selectors class
         createSelectorsClass(packageForUtil, flattenConfig);
 
         return true;
@@ -286,7 +306,7 @@ public class Processor extends AbstractProcessor {
         TypeSpec.Builder configurationClassBuilder,
         TypeSpec.Builder configurationInterfaceBuilder,
         String fieldName,
-        GenF types,
+        ConfigurationTypes types,
         Value valueAnnotation
     ) {
         MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
@@ -313,7 +333,7 @@ public class Processor extends AbstractProcessor {
         }
     }
 
-    private GenF getTypes(final VariableElement field) {
+    private ConfigurationTypes getTypes(final VariableElement field) {
         TypeName getMethodType = null;
         TypeName interfaceGetMethodType = null;
 
@@ -362,10 +382,10 @@ public class Processor extends AbstractProcessor {
             interfaceGetMethodType = ParameterizedTypeName.get(confValueClass, genericType);
         }
 
-        return new GenF(getMethodType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
+        return new ConfigurationTypes(getMethodType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
     }
 
-    private static class GenF {
+    private static class ConfigurationTypes {
         private final TypeName getMethodType;
         private final TypeName unwrappedType;
         private final TypeName viewClassType;
@@ -373,7 +393,7 @@ public class Processor extends AbstractProcessor {
         private final TypeName changeClassType;
         private final TypeName interfaceGetMethodType;
 
-        public GenF(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
+        public ConfigurationTypes(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
             this.getMethodType = getMethodType;
             this.unwrappedType = unwrappedType;
             this.viewClassType = viewClassType;
