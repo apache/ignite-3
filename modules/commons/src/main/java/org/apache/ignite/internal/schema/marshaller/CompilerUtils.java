@@ -225,12 +225,13 @@ public final class CompilerUtils {
             boolean recurse) throws IOException {
             final Iterable<JavaFileObject> it = super.list(location, packageName, kinds, recurse);
 
-            if (location == StandardLocation.CLASS_PATH) {
+            if (location == StandardLocation.CLASS_PATH && !classesBytes.isEmpty()) {
                 assert kinds.contains(JavaFileObject.Kind.CLASS);
 
                 Iterable<JavaFileObject> localClasses = new Iterable<>() {
                     @Override public Iterator<JavaFileObject> iterator() {
                         return classesBytes.keySet().stream()
+                            .filter(cn -> !recurse || cn.lastIndexOf('.') == packageName.length())
                             .filter(cn -> cn.startsWith(packageName))
                             .map(cn -> getJavaFileObjectByName(cn))
                             .filter(Objects::nonNull).iterator();
