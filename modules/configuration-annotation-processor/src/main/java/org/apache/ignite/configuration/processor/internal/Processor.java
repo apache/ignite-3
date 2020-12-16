@@ -17,6 +17,15 @@
 
 package org.apache.ignite.configuration.processor.internal;
 
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -44,26 +53,16 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.TypeSpec;
-import com.squareup.javapoet.WildcardTypeName;
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
-import org.apache.ignite.configuration.internal.NamedListConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.DynamicProperty;
+import org.apache.ignite.configuration.internal.NamedListConfiguration;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
@@ -147,7 +146,13 @@ public class Processor extends AbstractProcessor {
             final ClassName configClass = Utils.getConfigurationName(schemaClassName);
             final ClassName configInterface = Utils.getConfigurationInterfaceName(schemaClassName);
 
-            ConfigurationDescription configDesc = new ConfigurationDescription(configClass, configName, Utils.getViewName(schemaClassName), Utils.getInitName(schemaClassName), Utils.getChangeName(schemaClassName));
+            ConfigurationDescription configDesc = new ConfigurationDescription(
+                configClass,
+                configName,
+                Utils.getViewName(schemaClassName),
+                Utils.getInitName(schemaClassName),
+                Utils.getChangeName(schemaClassName)
+            );
 
             if (isRoot) {
                 roots.add(configDesc);
@@ -157,6 +162,7 @@ public class Processor extends AbstractProcessor {
             TypeSpec.Builder configurationClassBuilder = TypeSpec.classBuilder(configClass)
                 .addSuperinterface(configInterface)
                 .addModifiers(PUBLIC, FINAL);
+
             TypeName wildcard = WildcardTypeName.subtypeOf(Object.class);
 
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
@@ -171,22 +177,18 @@ public class Processor extends AbstractProcessor {
             CodeBlock.Builder copyConstructorBodyBuilder = CodeBlock.builder();
 
             for (VariableElement field : fields) {
-                TypeName getMethodType = null;
-                TypeName interfaceGetMethodType = null;
-
                 final TypeName baseType = TypeName.get(field.asType());
                 final String fieldName = field.getSimpleName().toString();
 
-                TypeName unwrappedType = baseType;
-                TypeName viewClassType = baseType;
-                TypeName initClassType = baseType;
-                TypeName changeClassType = baseType;
+                final GenF types = getTypes(field);
+
+                TypeName getMethodType = types.getGetMethodType();
+                TypeName viewClassType = types.getViewClassType();
+                TypeName initClassType = types.getInitClassType();
+                TypeName changeClassType = types.getChangeClassType();
 
                 final ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
                 if (confAnnotation != null) {
-                    getMethodType = Utils.getConfigurationName((ClassName) baseType);
-                    interfaceGetMethodType = Utils.getConfigurationInterfaceName((ClassName) baseType);
-
                     final FieldSpec nestedConfigField =
                         FieldSpec
                             .builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL)
@@ -196,28 +198,18 @@ public class Processor extends AbstractProcessor {
 
                     constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, false, configurator, this.root))", fieldName, getMethodType, fieldName);
                     copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
-
-                    unwrappedType = getMethodType;
-                    viewClassType = Utils.getViewName((ClassName) baseType);
-                    initClassType = Utils.getInitName((ClassName) baseType);
-                    changeClassType = Utils.getChangeName((ClassName) baseType);
                 }
 
                 final NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
                 if (namedConfigAnnotation != null) {
                     ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
 
-                    viewClassType = Utils.getViewName((ClassName) baseType);
-                    initClassType = Utils.getInitName((ClassName) baseType);
-                    changeClassType = Utils.getChangeName((ClassName) baseType);
-
-                    getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
-                    interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
-
-                    final FieldSpec nestedConfigField =
-                        FieldSpec
-                            .builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL)
-                            .build();
+                    final FieldSpec nestedConfigField = FieldSpec.builder(
+                        getMethodType,
+                        fieldName,
+                        Modifier.PRIVATE,
+                        FINAL
+                    ).build();
 
                     configurationClassBuilder.addField(nestedConfigField);
 
@@ -234,18 +226,6 @@ public class Processor extends AbstractProcessor {
 
                 final Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
-                    ClassName dynPropClass = ClassName.get(DynamicProperty.class);
-                    ClassName confValueClass = ClassName.get(ConfigurationValue.class);
-
-                    TypeName genericType = baseType;
-
-                    if (genericType.isPrimitive()) {
-                        genericType = genericType.box();
-                    }
-
-                    getMethodType = ParameterizedTypeName.get(dynPropClass, genericType);
-                    interfaceGetMethodType = ParameterizedTypeName.get(confValueClass, genericType);
-
                     final FieldSpec generatedField = FieldSpec.builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL).build();
 
                     configurationClassBuilder.addField(generatedField);
@@ -262,28 +242,7 @@ public class Processor extends AbstractProcessor {
 
                 configDesc.getFields().add(new ConfigurationElement(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
 
-                MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
-                    .addModifiers(PUBLIC, ABSTRACT)
-                    .returns(interfaceGetMethodType)
-                    .build();
-                configurationInterfaceBuilder.addMethod(interfaceGetMethod);
-
-                MethodSpec getMethod = MethodSpec.methodBuilder(fieldName)
-                    .addModifiers(PUBLIC, FINAL)
-                    .returns(getMethodType)
-                    .addStatement("return $L", fieldName)
-                    .build();
-                configurationClassBuilder.addMethod(getMethod);
-
-                if (valueAnnotation != null) {
-                    MethodSpec setMethod = MethodSpec
-                        .methodBuilder(fieldName)
-                        .addModifiers(PUBLIC, FINAL)
-                        .addParameter(unwrappedType, fieldName)
-                        .addStatement("this.$L.change($L)", fieldName, fieldName)
-                        .build();
-                    configurationClassBuilder.addMethod(setMethod);
-                }
+                createGettersAndSetter(configurationClassBuilder, configurationInterfaceBuilder, fieldName, types, valueAnnotation);
             }
 
             props.put(configClass, configDesc);
@@ -295,6 +254,7 @@ public class Processor extends AbstractProcessor {
             createCopyMethod(configClass, configurationClassBuilder);
 
             JavaFile interfaceFile = JavaFile.builder(packageName, configurationInterfaceBuilder.build()).build();
+
             try {
                 interfaceFile.writeTo(filer);
             } catch (IOException e) {
@@ -302,19 +262,149 @@ public class Processor extends AbstractProcessor {
             }
 
             JavaFile classFile = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
+
             try {
                 classFile.writeTo(filer);
             } catch (IOException e) {
                 throw new ProcessorException("Failed to create configuration class " + configClass.toString(), e);
             }
         }
-        final List<ConfigurationNode> flattenConfig = roots.stream().map((ConfigurationDescription cfg) -> buildConfigForest(cfg, props)).flatMap(Set::stream).collect(Collectors.toList());
+
+        final List<ConfigurationNode> flattenConfig = roots.stream()
+            .map((ConfigurationDescription cfg) -> buildConfigForest(cfg, props))
+            .flatMap(Set::stream)
+            .collect(Collectors.toList());
 
         createKeysClass(packageForUtil, flattenConfig);
 
         createSelectorsClass(packageForUtil, flattenConfig);
 
         return true;
+    }
+
+    private void createGettersAndSetter(
+        TypeSpec.Builder configurationClassBuilder,
+        TypeSpec.Builder configurationInterfaceBuilder,
+        String fieldName,
+        GenF types,
+        Value valueAnnotation
+    ) {
+        MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
+            .addModifiers(PUBLIC, ABSTRACT)
+            .returns(types.getInterfaceGetMethodType())
+            .build();
+        configurationInterfaceBuilder.addMethod(interfaceGetMethod);
+
+        MethodSpec getMethod = MethodSpec.methodBuilder(fieldName)
+            .addModifiers(PUBLIC, FINAL)
+            .returns(types.getGetMethodType())
+            .addStatement("return $L", fieldName)
+            .build();
+        configurationClassBuilder.addMethod(getMethod);
+
+        if (valueAnnotation != null) {
+            MethodSpec setMethod = MethodSpec
+                .methodBuilder(fieldName)
+                .addModifiers(PUBLIC, FINAL)
+                .addParameter(types.getUnwrappedType(), fieldName)
+                .addStatement("this.$L.change($L)", fieldName, fieldName)
+                .build();
+            configurationClassBuilder.addMethod(setMethod);
+        }
+    }
+
+    private GenF getTypes(final VariableElement field) {
+        TypeName getMethodType = null;
+        TypeName interfaceGetMethodType = null;
+
+        final TypeName baseType = TypeName.get(field.asType());
+
+        TypeName unwrappedType = baseType;
+        TypeName viewClassType = baseType;
+        TypeName initClassType = baseType;
+        TypeName changeClassType = baseType;
+
+        final ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
+        if (confAnnotation != null) {
+            getMethodType = Utils.getConfigurationName((ClassName) baseType);
+            interfaceGetMethodType = Utils.getConfigurationInterfaceName((ClassName) baseType);
+
+            unwrappedType = getMethodType;
+            viewClassType = Utils.getViewName((ClassName) baseType);
+            initClassType = Utils.getInitName((ClassName) baseType);
+            changeClassType = Utils.getChangeName((ClassName) baseType);
+        }
+
+        final NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
+        if (namedConfigAnnotation != null) {
+            ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
+
+            viewClassType = Utils.getViewName((ClassName) baseType);
+            initClassType = Utils.getInitName((ClassName) baseType);
+            changeClassType = Utils.getChangeName((ClassName) baseType);
+
+            getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
+            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
+        }
+
+        final Value valueAnnotation = field.getAnnotation(Value.class);
+        if (valueAnnotation != null) {
+            ClassName dynPropClass = ClassName.get(DynamicProperty.class);
+            ClassName confValueClass = ClassName.get(ConfigurationValue.class);
+
+            TypeName genericType = baseType;
+
+            if (genericType.isPrimitive()) {
+                genericType = genericType.box();
+            }
+
+            getMethodType = ParameterizedTypeName.get(dynPropClass, genericType);
+            interfaceGetMethodType = ParameterizedTypeName.get(confValueClass, genericType);
+        }
+
+        return new GenF(getMethodType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
+    }
+
+    private static class GenF {
+        private final TypeName getMethodType;
+        private final TypeName unwrappedType;
+        private final TypeName viewClassType;
+        private final TypeName initClassType;
+        private final TypeName changeClassType;
+        private final TypeName interfaceGetMethodType;
+
+        public GenF(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
+            this.getMethodType = getMethodType;
+            this.unwrappedType = unwrappedType;
+            this.viewClassType = viewClassType;
+            this.initClassType = initClassType;
+            this.changeClassType = changeClassType;
+            this.interfaceGetMethodType = interfaceGetMethodType;
+        }
+
+        public TypeName getInterfaceGetMethodType() {
+            return interfaceGetMethodType;
+        }
+
+        public TypeName getGetMethodType() {
+            return getMethodType;
+        }
+
+        public TypeName getUnwrappedType() {
+            return unwrappedType;
+        }
+
+        public TypeName getViewClassType() {
+            return viewClassType;
+        }
+
+        public TypeName getInitClassType() {
+            return initClassType;
+        }
+
+        public TypeName getChangeClassType() {
+            return changeClassType;
+        }
     }
 
     /**
