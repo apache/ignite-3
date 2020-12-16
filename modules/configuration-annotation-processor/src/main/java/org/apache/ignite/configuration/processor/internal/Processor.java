@@ -192,7 +192,8 @@ public class Processor extends AbstractProcessor {
 
                 final String fieldName = field.getSimpleName().toString();
 
-                final ConfigurationTypes types = getTypes(field);
+                // Get configuration types (VIEW, INIT, CHANGE and so on)
+                final ConfigurationFieldTypes types = getTypes(field);
 
                 TypeName getMethodType = types.getGetMethodType();
                 TypeName viewClassType = types.getViewClassType();
@@ -201,6 +202,7 @@ public class Processor extends AbstractProcessor {
 
                 final ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
                 if (confAnnotation != null) {
+                    // Create DynamicConfiguration (descendant) field
                     final FieldSpec nestedConfigField =
                         FieldSpec
                             .builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL)
@@ -208,7 +210,10 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(nestedConfigField);
 
+                    // Constructor statement
                     constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, false, configurator, this.root))", fieldName, getMethodType, fieldName);
+
+                    // Copy constructor statement
                     copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
                 }
 
@@ -216,6 +221,7 @@ public class Processor extends AbstractProcessor {
                 if (namedConfigAnnotation != null) {
                     ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
 
+                    // Create NamedListConfiguration<> field
                     final FieldSpec nestedConfigField = FieldSpec.builder(
                         getMethodType,
                         fieldName,
@@ -225,6 +231,7 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(nestedConfigField);
 
+                    // Constructor statement
                     constructorBodyBuilder.addStatement(
                         "add($L = new $T(qualifiedName, $S, configurator, this.root, (p, k) -> new $T(p, k, true, configurator, this.root)))",
                         fieldName,
@@ -233,22 +240,26 @@ public class Processor extends AbstractProcessor {
                         fieldType
                     );
 
+                    // Copy constructor statement
                     copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
                 }
 
                 final Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
+                    // Create value (DynamicProperty<>) field
                     final FieldSpec generatedField = FieldSpec.builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL).build();
 
                     configurationClassBuilder.addField(generatedField);
 
                     final CodeBlock validatorsBlock = ValidationGenerator.generateValidators(field);
 
+                    // Constructor statement
                     constructorBodyBuilder.addStatement(
                         "add($L = new $T(qualifiedName, $S, new $T($T.class, $S), this.configurator, this.root), $L)",
                         fieldName, getMethodType, fieldName, MemberKey.class, configClass, fieldName, validatorsBlock
                     );
 
+                    // Copy constructor statement
                     copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
                 }
 
@@ -302,11 +313,20 @@ public class Processor extends AbstractProcessor {
         return true;
     }
 
+    /**
+     * Create getters and setters for configuration class.
+     *
+     * @param configurationClassBuilder
+     * @param configurationInterfaceBuilder
+     * @param fieldName
+     * @param types
+     * @param valueAnnotation
+     */
     private void createGettersAndSetter(
         TypeSpec.Builder configurationClassBuilder,
         TypeSpec.Builder configurationInterfaceBuilder,
         String fieldName,
-        ConfigurationTypes types,
+        ConfigurationFieldTypes types,
         Value valueAnnotation
     ) {
         MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
@@ -333,7 +353,12 @@ public class Processor extends AbstractProcessor {
         }
     }
 
-    private ConfigurationTypes getTypes(final VariableElement field) {
+    /**
+     * Get types for configuration classes generation.
+     * @param field
+     * @return Bundle with all types for configuration
+     */
+    private ConfigurationFieldTypes getTypes(final VariableElement field) {
         TypeName getMethodType = null;
         TypeName interfaceGetMethodType = null;
 
@@ -382,18 +407,29 @@ public class Processor extends AbstractProcessor {
             interfaceGetMethodType = ParameterizedTypeName.get(confValueClass, genericType);
         }
 
-        return new ConfigurationTypes(getMethodType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
+        return new ConfigurationFieldTypes(getMethodType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
     }
 
-    private static class ConfigurationTypes {
+    private static class ConfigurationFieldTypes {
+        /** Field get method type. */
         private final TypeName getMethodType;
+
+        /** Configuration type (if marked with @ConfigValue or @NamedConfig), or original type (if marked with @Value) */
         private final TypeName unwrappedType;
+
+        /** VIEW object type. */
         private final TypeName viewClassType;
+
+        /** INIT object type. */
         private final TypeName initClassType;
+
+        /** CHANGE object type. */
         private final TypeName changeClassType;
+
+        /** Get method type for public interface. */
         private final TypeName interfaceGetMethodType;
 
-        public ConfigurationTypes(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
+        public ConfigurationFieldTypes(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
             this.getMethodType = getMethodType;
             this.unwrappedType = unwrappedType;
             this.viewClassType = viewClassType;
@@ -402,26 +438,32 @@ public class Processor extends AbstractProcessor {
             this.interfaceGetMethodType = interfaceGetMethodType;
         }
 
+        /** */
         public TypeName getInterfaceGetMethodType() {
             return interfaceGetMethodType;
         }
 
+        /** */
         public TypeName getGetMethodType() {
             return getMethodType;
         }
 
+        /** */
         public TypeName getUnwrappedType() {
             return unwrappedType;
         }
 
+        /** */
         public TypeName getViewClassType() {
             return viewClassType;
         }
 
+        /** */
         public TypeName getInitClassType() {
             return initClassType;
         }
 
+        /** */
         public TypeName getChangeClassType() {
             return changeClassType;
         }
@@ -502,27 +544,30 @@ public class Processor extends AbstractProcessor {
     private void createSelectorsClass(String packageForUtil, List<ConfigurationNode> flattenConfig) {
         ClassName selectorsClassName = ClassName.get(packageForUtil, "Selectors");
 
-        final TypeSpec.Builder selectorsClass = TypeSpec.classBuilder(selectorsClassName).superclass(BaseSelectors.class).addModifiers(PUBLIC, FINAL);
+        final TypeSpec.Builder selectorsClass = TypeSpec.classBuilder(selectorsClassName)
+            .superclass(BaseSelectors.class)
+            .addModifiers(PUBLIC, FINAL);
 
         final CodeBlock.Builder selectorsStaticBlockBuilder = CodeBlock.builder();
         selectorsStaticBlockBuilder.addStatement("$T publicLookup = $T.publicLookup()", MethodHandles.Lookup.class, MethodHandles.class);
 
-        selectorsStaticBlockBuilder
-            .beginControlFlow("try");
+        selectorsStaticBlockBuilder.beginControlFlow("try");
 
+        // For every configuration node create selector (based on a method call chain)
         for (ConfigurationNode configNode : flattenConfig) {
             String regex = "([a-z])([A-Z]+)";
             String replacement = "$1_$2";
 
+            // Selector variable name (like LOCAL_BASELINE_AUTO_ADJUST_ENABLED)
             final String varName = configNode.getName()
                 .replaceAll(regex, replacement)
                 .toUpperCase()
                 .replace(".", "_");
 
-            TypeName t = configNode.getType();
+            TypeName type = configNode.getType();
 
-            if (Utils.isNamedConfiguration(t))
-                t = Utils.unwrapNamedListConfigurationClass(t);
+            if (Utils.isNamedConfiguration(type))
+                type = Utils.unwrapNamedListConfigurationClass(type);
 
             StringBuilder methodCall = new StringBuilder();
 
@@ -530,8 +575,10 @@ public class Processor extends AbstractProcessor {
             ConfigurationNode root = null;
             int namedCount = 0;
 
+            // Walk from node up to the root and create a method call chain
             while (current != null) {
                 boolean isNamed = false;
+
                 if (Utils.isNamedConfiguration(current.getType())) {
                     namedCount++;
                     isNamed = true;
@@ -540,6 +587,7 @@ public class Processor extends AbstractProcessor {
                 if (current.getParent() != null) {
                     String newMethodCall = "." + current.getOriginalName() + "()";
 
+                    // if config is named, then create a call with name parameter
                     if (isNamed)
                         newMethodCall += ".get(name" + (namedCount - 1) + ")";
 
@@ -550,7 +598,7 @@ public class Processor extends AbstractProcessor {
                 current = current.getParent();
             }
 
-            TypeName selectorRec = Utils.getParameterized(ClassName.get(Selector.class), root.getType(), t, configNode.getView(), configNode.getInit(), configNode.getChange());
+            TypeName selectorRec = Utils.getParameterized(ClassName.get(Selector.class), root.getType(), type, configNode.getView(), configNode.getInit(), configNode.getChange());
 
             if (namedCount > 0) {
                 final MethodSpec.Builder builder = MethodSpec.methodBuilder(varName);
@@ -567,7 +615,8 @@ public class Processor extends AbstractProcessor {
                         .build()
                 );
 
-                final String collect = IntStream.range(0, namedCount).mapToObj(i -> "$T.class").collect(Collectors.joining(","));
+
+                // Build a list of parameters for statement
                 List<Object> params = new ArrayList<>();
                 params.add(MethodHandle.class);
                 params.add(varName);
@@ -575,11 +624,16 @@ public class Processor extends AbstractProcessor {
                 params.add(varName);
                 params.add(MethodType.class);
                 params.add(Selector.class);
+
+                // For every named config in call chain -- add String (name) parameter
                 for (int i = 0; i < namedCount; i++) {
                     params.add(String.class);
                 }
 
-                selectorsStaticBlockBuilder.addStatement("$T $L = publicLookup.findStatic($T.class, $S, $T.methodType($T.class, " + collect + "))", params.toArray());
+                // Create a string for name parameters
+                final String nameStringParameters = IntStream.range(0, namedCount).mapToObj(i -> "$T.class").collect(Collectors.joining(","));
+
+                selectorsStaticBlockBuilder.addStatement("$T $L = publicLookup.findStatic($T.class, $S, $T.methodType($T.class, " + nameStringParameters + "))", params.toArray());
 
                 selectorsStaticBlockBuilder.addStatement("put($S, $L)", configNode.getName(), varName);
             }
