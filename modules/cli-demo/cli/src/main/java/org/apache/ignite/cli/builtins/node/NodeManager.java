@@ -41,7 +41,7 @@ import org.apache.ignite.cli.IgniteCLIException;
 @Singleton
 public class NodeManager {
 
-    private static final String MAIN_CLASS = "org.apache.ignite.app.SimplisticIgnite";
+    private static final String MAIN_CLASS = "org.apache.ignite.app.IgniteRunner";
     private static final Duration NODE_START_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration LOG_FILE_POLL_INTERVAL = Duration.ofMillis(50);
 
@@ -76,7 +76,7 @@ public class NodeManager {
                 .redirectOutput(logFile.toFile());
             Process p = pb.start();
             try {
-                if (!waitForStart("Javalin started", logFile, NODE_START_TIMEOUT)) {
+                if (!waitForStart("Ignite application started successfully", logFile, NODE_START_TIMEOUT)) {
                     p.destroyForcibly();
                     throw new IgniteCLIException("Node wasn't started during timeout period "
                         + NODE_START_TIMEOUT.toMillis() + "ms");
