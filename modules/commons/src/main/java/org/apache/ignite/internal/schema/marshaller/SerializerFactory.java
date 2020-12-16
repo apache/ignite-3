@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.generator.JaninoSerializerGenerator;
+import org.apache.ignite.internal.schema.marshaller.generator.SerializerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
+import org.apache.ignite.lang.IgniteExperimental;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * (De)Serializer factory interface.
@@ -29,13 +31,14 @@ public interface SerializerFactory {
     /**
      * @return Serializer factory back by code generator.
      */
-    public static SerializerFactory createJaninoSerializerFactory() {
-        return new JaninoSerializerGenerator();
+    public static SerializerFactory createGeneratedSerializerFactory() {
+        return new SerializerGenerator();
     }
 
     /**
      * @return Reflection-based serializer factory.
      */
+    @IgniteExperimental
     public static SerializerFactory createJavaSerializerFactory() {
         return new JavaSerializerFactory();
     }

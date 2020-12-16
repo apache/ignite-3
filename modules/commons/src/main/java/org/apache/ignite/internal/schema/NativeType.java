@@ -133,4 +133,12 @@ public class NativeType implements Comparable<NativeType> {
 
         return typeSpec.name().compareTo(o.typeSpec.name());
     }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "NativeType{" +
+            "typeSpec=" + typeSpec +
+            ", len=" + len +
+            '}';
+    }
 }

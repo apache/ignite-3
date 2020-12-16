@@ -49,14 +49,16 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Dependencies versions. -->
-        <janino.version>3.0.11</janino.version>
+        <javapoet.version>1.13.0</javapoet.version>
         <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
         <jmh.framework.verion>1.9.3</jmh.framework.verion>
         <junit.jupiter.version>5.7.0</junit.jupiter.version>
-        <mockito.version>1.10.19</mockito.version>
+        <mockito.core.version>3.6.28</mockito.core.version>
 
         <!-- Maven plugins -->
+        <maven.compiler.release>11</maven.compiler.release>
+
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M4</maven.surefire.plugin.version>
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -141,9 +143,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven.compiler.plugin.version}</version>
-                <configuration>
-                    <release>11</release>
-                </configuration>
             </plugin>
 
             <plugin>

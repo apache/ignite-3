@@ -21,6 +21,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.TupleAssembler;
+import org.apache.ignite.internal.util.ObjectFactory;
 
 /**
  * Marshaller utility class.
@@ -97,7 +98,18 @@ public final class MarshallerUtil {
     }
 
     /**
-     * Stub.
+     * Creates object factory for class.
+     * @param tClass Target type.
+     * @return Object factory.
      */
-    private MarshallerUtil() {}
+    public static <T> ObjectFactory<T> factoryForClass(Class<T> tClass) {
+        if (mode(tClass) == null)
+            return new ObjectFactory<>(tClass);
+        else
+            return null;
+    }
+
+    /** Stub. */
+    private MarshallerUtil() {
+    }
 }

@@ -103,17 +103,17 @@ public class FieldAccessorTest {
         final TestObject obj = TestObject.randomObject(rnd);
 
         for (int i = 0; i < cols.length; i++) {
-            UnsafeFieldAccessor accessor = UnsafeFieldAccessor.create(TestObject.class, cols[i], i);
+            FieldAccessor accessor = FieldAccessor.create(TestObject.class, cols[i], i);
 
-            accessor.write(obj, tupleAssembler);
+            accessor.write(tupleAssembler, obj);
         }
 
         final TestObject restoredObj = new TestObject();
 
         for (int i = 0; i < cols.length; i++) {
-            UnsafeFieldAccessor accessor = UnsafeFieldAccessor.create(TestObject.class, cols[i], i);
+            FieldAccessor accessor = FieldAccessor.create(TestObject.class, cols[i], i);
 
-            accessor.read(restoredObj, tuple);
+            accessor.read(tuple, restoredObj);
         }
 
         assertEquals(obj.pByteCol, restoredObj.pByteCol);
@@ -159,17 +159,17 @@ public class FieldAccessorTest {
         obj.stringCol = TestUtils.randomString(rnd, 255);
 
         for (int i = 0; i < cols.length; i++) {
-            UnsafeFieldAccessor accessor = UnsafeFieldAccessor.create(TestSimpleObject.class, cols[i], i);
+            FieldAccessor accessor = FieldAccessor.create(TestSimpleObject.class, cols[i], i);
 
-            accessor.write(obj, tupleAssembler);
+            accessor.write(tupleAssembler, obj);
         }
 
         final TestSimpleObject restoredObj = new TestSimpleObject();
 
         for (int i = 0; i < cols.length; i++) {
-            UnsafeFieldAccessor accessor = UnsafeFieldAccessor.create(TestSimpleObject.class, cols[i], i);
+            FieldAccessor accessor = FieldAccessor.create(TestSimpleObject.class, cols[i], i);
 
-            accessor.read(restoredObj, tuple);
+            accessor.read(tuple, restoredObj);
         }
 
         assertEquals(obj.intCol, restoredObj.intCol);
@@ -184,7 +184,7 @@ public class FieldAccessorTest {
      */
     @Test
     public void testIdentityAccessor() throws Exception {
-        final UnsafeFieldAccessor accessor = UnsafeFieldAccessor.createIdentityAccessor(
+        final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
             new Column("col0", STRING, true),
             0,
             BinaryMode.STRING);
@@ -193,7 +193,7 @@ public class FieldAccessorTest {
 
         final Pair<TupleAssembler, Tuple> mocks = createMocks();
 
-        accessor.write("Other string", mocks.getFirst());
+        accessor.write(mocks.getFirst(), "Other string");
         assertEquals("Other string", accessor.read(mocks.getSecond()));
     }
 
@@ -202,7 +202,7 @@ public class FieldAccessorTest {
      */
     @Test
     public void testWrongIdentityAccessor() throws Exception {
-        final UnsafeFieldAccessor accessor = UnsafeFieldAccessor.createIdentityAccessor(
+        final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
             new Column("col0", STRING, true),
             42,
             BinaryMode.UUID);
@@ -213,7 +213,7 @@ public class FieldAccessorTest {
 
         assertThrows(
             SerializationException.class,
-            () -> accessor.write("Other string", mocks.getFirst()),
+            () -> accessor.write(mocks.getFirst(), "Other string"),
             "Failed to write field [id=42]"
         );
     }
@@ -242,7 +242,7 @@ public class FieldAccessorTest {
 
         final Answer<Object> tupleAnswer = new Answer<Object>() {
             @Override public Object answer(InvocationOnMock invocation) {
-                final int idx = invocation.getArgumentAt(0, Integer.class);
+                final int idx = invocation.getArgument(0, Integer.class);
 
                 return vals.get(idx);
             }

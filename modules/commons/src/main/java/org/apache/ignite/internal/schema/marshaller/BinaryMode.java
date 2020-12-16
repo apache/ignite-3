@@ -41,34 +41,34 @@ public enum BinaryMode {
     /** Primitive int. */
     P_DOUBLE(NativeTypeSpec.DOUBLE),
 
-    /** */
+    /** Boxed byte. */
     BYTE(NativeTypeSpec.BYTE),
 
-    /** */
+    /** Boxed short. */
     SHORT(NativeTypeSpec.SHORT),
 
-    /** */
+    /** Boxed int. */
     INT(NativeTypeSpec.INTEGER),
 
-    /** */
+    /** Boxed long. */
     LONG(NativeTypeSpec.LONG),
 
-    /** */
+    /** Boxed float. */
     FLOAT(NativeTypeSpec.FLOAT),
 
-    /** */
+    /** Boxed double. */
     DOUBLE(NativeTypeSpec.DOUBLE),
 
-    /** */
+    /** String. */
     STRING(NativeTypeSpec.STRING),
 
-    /** */
+    /** Uuid. */
     UUID(NativeTypeSpec.UUID),
 
-    /** */
+    /** Raw byte array. */
     BYTE_ARR(NativeTypeSpec.BYTES),
 
-    /** */
+    /** BitSet.*/
     BITSET(NativeTypeSpec.BITMASK);
 
     /** Natove type spec. */

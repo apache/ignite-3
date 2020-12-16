@@ -27,7 +27,6 @@ public class SerializationException extends Exception {
      * @param cause Cause.
      */
     public SerializationException(Throwable cause) {
-        // Used by serializers generated with Janino.
         super(cause);
     }
 

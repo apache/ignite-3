@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import org.apache.ignite.internal.util.Pair;
+
 /**
  * Key-value objects (de)serializer.
  */
@@ -33,10 +35,12 @@ public interface Serializer {
     /**
      * @return Key object.
      */
-    Object deserializeKey(byte[] data) throws SerializationException;
+    <K> K deserializeKey(byte[] data) throws SerializationException;
 
     /**
      * @return Value object.
      */
-    Object deserializeValue(byte[] data) throws SerializationException;
+    <V> V deserializeValue(byte[] data) throws SerializationException;
+
+    <K, V> Pair<K,V> deserialize(byte[] data) throws SerializationException;
 }

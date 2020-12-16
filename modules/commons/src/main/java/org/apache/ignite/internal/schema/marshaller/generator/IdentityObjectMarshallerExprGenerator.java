@@ -17,29 +17,50 @@
 
 package org.apache.ignite.internal.schema.marshaller.generator;
 
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 
 /**
  * Generate {@link Serializer} method's bodies for simple types.
  */
-class IdentityObjectMarshallerExprGenerator extends MarshallerExprGenerator {
+class IdentityObjectMarshallerExprGenerator implements MarshallerCodeGenerator {
+    /** Tuple column accessor. */
+    private final TupleColumnAccessCodeGenerator columnAccessor;
+
     /**
      * Constructor.
      *
-     * @param accessor Object field access expression generators.
+     * @param columnAccessor Tuple column code generator.
      */
-    IdentityObjectMarshallerExprGenerator(FieldAccessExprGenerator accessor) {
-        super(null /* no instantiation needed */, new FieldAccessExprGenerator[] {accessor});
+    IdentityObjectMarshallerExprGenerator(TupleColumnAccessCodeGenerator columnAccessor) {
+        this.columnAccessor = columnAccessor;
     }
 
     /** {@inheritDoc} */
-    @Override public void appendMarshallObjectExpr(StringBuilder sb, String indent) {
-        for (int i = 0; i < accessors.length; i++)
-            accessors[i].appendWriteColumnExpr(sb, "obj", indent);
+    @Override public boolean isSimpleType() {
+        return true;
     }
 
     /** {@inheritDoc} */
-    @Override public void appendUnmarshallObjectExpr(StringBuilder sb, String indent) {
-        sb.append(indent).append("Object obj = ").append(accessors[0].readColumnExpr()).append(";" + JaninoSerializerGenerator.LF);
+    @Override public CodeBlock unmarshallObjectCode(String tupleExpr) {
+        return CodeBlock.builder()
+            .addStatement("return $L", columnAccessor.read(tupleExpr))
+            .build();
+    }
+
+    /** {@inheritDoc} */
+    @Override public CodeBlock marshallObjectCode(String asm, String objVar) {
+        return columnAccessor.write(asm, objVar);
+    }
+
+    /** {@inheritDoc} */
+    @Override public CodeBlock getValueCode(String objVar, int colIdx) {
+        return CodeBlock.of(objVar);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void initStaticHandlers(TypeSpec.Builder builder, CodeBlock.Builder staticBuilder) {
+        throw new UnsupportedOperationException("Static handlers are not applicable to simple types.");
     }
 }

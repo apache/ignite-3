@@ -17,171 +17,20 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import java.util.BitSet;
-import java.util.UUID;
-import org.apache.ignite.internal.schema.ByteBufferTuple;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.Tuple;
 import org.apache.ignite.internal.schema.TupleAssembler;
-import org.apache.ignite.internal.schema.marshaller.BinaryMode;
+import org.apache.ignite.internal.schema.marshaller.AbstractSerializer;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
-import org.apache.ignite.internal.schema.marshaller.Serializer;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 /**
  * Reflection based (de)serializer.
  */
-public class JavaSerializer implements Serializer {
-
-    /**
-     * Reads value object from tuple.
-     *
-     * @param reader Reader.
-     * @param colIdx Column index.
-     * @param mode Binary read mode.
-     * @return Read value object.
-     */
-    static Object readRefValue(Tuple reader, int colIdx, BinaryMode mode) {
-        assert reader != null;
-        assert colIdx >= 0;
-
-        Object val = null;
-
-        switch (mode) {
-            case BYTE:
-                val = reader.byteValueBoxed(colIdx);
-
-                break;
-
-            case SHORT:
-                val = reader.shortValueBoxed(colIdx);
-
-                break;
-
-            case INT:
-                val = reader.intValueBoxed(colIdx);
-
-                break;
-
-            case LONG:
-                val = reader.longValueBoxed(colIdx);
-
-                break;
-
-            case FLOAT:
-                val = reader.floatValueBoxed(colIdx);
-
-                break;
-
-            case DOUBLE:
-                val = reader.doubleValueBoxed(colIdx);
-
-                break;
-
-            case STRING:
-                val = reader.stringValue(colIdx);
-
-                break;
-
-            case UUID:
-                val = reader.uuidValue(colIdx);
-
-                break;
-
-            case BYTE_ARR:
-                val = reader.bytesValue(colIdx);
-
-                break;
-
-            case BITSET:
-                val = reader.bitmaskValue(colIdx);
-
-                break;
-
-            default:
-                assert false : "Invalid mode: " + mode;
-        }
-
-        return val;
-    }
-
-    /**
-     * Writes reference value to tuple.
-     *
-     * @param val Value object.
-     * @param writer Writer.
-     * @param mode Write binary mode.
-     */
-    static void writeRefObject(Object val, TupleAssembler writer, BinaryMode mode) {
-        assert writer != null;
-
-        if (val == null) {
-            writer.appendNull();
-
-            return;
-        }
-
-        switch (mode) {
-            case BYTE:
-                writer.appendByte((Byte)val);
-
-                break;
-
-            case SHORT:
-                writer.appendShort((Short)val);
-
-                break;
-
-            case INT:
-                writer.appendInt((Integer)val);
-
-                break;
-
-            case LONG:
-                writer.appendLong((Long)val);
-
-                break;
-
-            case FLOAT:
-                writer.appendFloat((Float)val);
-
-                break;
-
-            case DOUBLE:
-                writer.appendDouble((Double)val);
-
-                break;
-
-            case STRING:
-                writer.appendString((String)val);
-
-                break;
-
-            case UUID:
-                writer.appendUuid((UUID)val);
-
-                break;
-
-            case BYTE_ARR:
-                writer.appendBytes((byte[])val);
-
-                break;
-
-            case BITSET:
-                writer.appendBitmask((BitSet)val);
-
-                break;
-
-            default:
-                assert false : "Invalid mode: " + mode;
-        }
-    }
-
-    /** Schema. */
-    private final SchemaDescriptor schema;
-
+public class JavaSerializer extends AbstractSerializer {
     /** Key class. */
     private final Class<?> keyClass;
 
@@ -202,7 +51,7 @@ public class JavaSerializer implements Serializer {
      * @param valClass Value type.
      */
     public JavaSerializer(SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) {
-        this.schema = schema;
+        super(schema);
         this.keyClass = keyClass;
         this.valClass = valClass;
 
@@ -211,18 +60,13 @@ public class JavaSerializer implements Serializer {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] serialize(Object key, Object val) throws SerializationException {
+    @Override protected  byte[] serialize0(TupleAssembler asm, Object key, @Nullable Object val)
+        throws SerializationException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
-        final TupleAssembler asm = createAssembler(key, val);
-
         keyMarsh.writeObject(key, asm);
-
-        if (val != null)
-            valMarsh.writeObject(val, asm);
-        else
-            assert false; // TODO: add tomstone support and remove assertion.
+        valMarsh.writeObject(val, asm);
 
         return asm.build();
     }
@@ -234,7 +78,7 @@ public class JavaSerializer implements Serializer {
      * @param val Value object.
      * @return Tuple assembler.
      */
-    private TupleAssembler createAssembler(Object key, Object val) {
+    @Override protected TupleAssembler createAssembler(Object key, Object val) {
         ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 
@@ -274,9 +118,7 @@ public class JavaSerializer implements Serializer {
     }
 
     /** {@inheritDoc} */
-    @Override public Object deserializeKey(byte[] data) throws SerializationException {
-        final Tuple tuple = new ByteBufferTuple(schema, data);
-
+    @Override protected Object deserializeKey0(Tuple tuple) throws SerializationException {
         final Object o = keyMarsh.readObject(tuple);
 
         assert keyClass.isInstance(o);
@@ -285,14 +127,10 @@ public class JavaSerializer implements Serializer {
     }
 
     /** {@inheritDoc} */
-    @Override public Object deserializeValue(byte[] data) throws SerializationException {
-        final Tuple tuple = new ByteBufferTuple(schema, data);
-
-        // TODO: add tomstone support.
-
+    @Override protected Object deserializeValue0(Tuple tuple) throws SerializationException {
         final Object o = valMarsh.readObject(tuple);
 
-        assert valClass.isInstance(o);
+        assert o == null || valClass.isInstance(o);
 
         return o;
     }
@@ -308,7 +146,7 @@ public class JavaSerializer implements Serializer {
         int nonNullFieldsSize;
 
         /** Constructor. */
-        public ObjectStatistic(int nonNullFields, int nonNullFieldsSize) {
+        ObjectStatistic(int nonNullFields, int nonNullFieldsSize) {
             this.nonNullFields = nonNullFields;
             this.nonNullFieldsSize = nonNullFieldsSize;
         }

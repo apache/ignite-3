@@ -35,7 +35,6 @@ public class ObjectFactory<T> implements Factory<T> {
     public ObjectFactory(Class<T> tClass) {
         try {
             cnstr = tClass.getDeclaredConstructor();
-
             cnstr.setAccessible(true);
         }
         catch (NoSuchMethodException e) {
@@ -51,12 +50,5 @@ public class ObjectFactory<T> implements Factory<T> {
         catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
             throw new IllegalStateException("Failed to instantiate class: " + cnstr.getDeclaringClass().getName(), e);
         }
-    }
-
-    /**
-     * @return Class of object created by the factory.
-     */
-    public Class<T> getClazz() {
-        return cnstr.getDeclaringClass();
     }
 }

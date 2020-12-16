@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeSpec;
 import java.lang.reflect.Field;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import javax.lang.model.element.Modifier;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.CompilerUtils;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.codehaus.commons.compiler.CompilerFactoryFactory;
-import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -56,7 +59,7 @@ import static org.apache.ignite.internal.schema.NativeType.LONG;
 @Measurement(time = 10, iterations = 5, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode({Mode.Throughput, Mode.AverageTime})
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-@Fork(1)
+@Fork(jvmArgs = "-Djava.lang.invoke.stringConcat=BC_SB" /* Workaround for Java 9+ */, value = 1)
 public class SerializerBenchmarkTest {
     /** Random. */
     private Random rnd = new Random();
@@ -72,7 +75,7 @@ public class SerializerBenchmarkTest {
     public int fieldsCount;
 
     /** Serializer. */
-    @Param({"Janino", "Java"})
+    @Param({"Generated", "Java"})
     public String serializerName;
 
     /**
@@ -91,6 +94,8 @@ public class SerializerBenchmarkTest {
      */
     @Setup
     public void init() throws Exception {
+        Thread.currentThread().setContextClassLoader(CompilerUtils.dynamicClassLoader());
+
         long seed = System.currentTimeMillis();
 
         rnd = new Random(seed);
@@ -105,7 +110,7 @@ public class SerializerBenchmarkTest {
         if ("Java".equals(serializerName))
             serializer = SerializerFactory.createJavaSerializerFactory().create(schema, Long.class, valClass);
         else
-            serializer = SerializerFactory.createJaninoSerializerFactory().create(schema, Long.class, valClass);
+            serializer = SerializerFactory.createGeneratedSerializerFactory().create(schema, Long.class, valClass);
     }
 
     /**
@@ -155,28 +160,32 @@ public class SerializerBenchmarkTest {
      * @return Generated test object class.
      * @throws Exception If failed.
      */
-    private Class<?> createGeneratedObjectClass(int maxFields, Class<?> fieldType) throws Exception {
-        final IClassBodyEvaluator ce = CompilerFactoryFactory.getDefaultCompilerFactory().newClassBodyEvaluator();
+    private Class<?> createGeneratedObjectClass(int maxFields, Class<?> fieldType) {
+        final String packageName = "org.apache.ignite.internal.benchmarks";
+        final String className = "TestObject";
 
-        ce.setClassName("TestObject");
-        ce.setDefaultImports("java.util.Random");
+        final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className).addModifiers(Modifier.PUBLIC);
 
-        final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < maxFields; i++)
-            sb.append(fieldType.getName()).append(" col").append(i).append(";\n");
+            classBuilder.addField(fieldType, "col" + i, Modifier.PRIVATE);
 
-        // Constructor.
-        sb.append("public TestObject() {\n");
-        sb.append("    Random rnd = new Random();\n");
-        for (int i = 0; i < maxFields; i++)
-            sb.append("    col").append(i).append(" = rnd.nextLong();\n");
-        sb.append("}\n");
+        { // Build constructor.
+            final MethodSpec.Builder builder = MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PUBLIC)
+                .addStatement("$T rnd = new $T()", Random.class, Random.class);
+
+            for (int i = 0; i < maxFields; i++)
+                builder.addStatement("col$L = rnd.nextLong()", i);
+
+            classBuilder.addMethod(builder.build());
+        }
+
+        final JavaFile javaFile = JavaFile.builder(packageName, classBuilder.build()).build();
+
+        final ClassLoader loader = CompilerUtils.compileCode(javaFile);
 
         try {
-            ce.setParentClassLoader(getClass().getClassLoader());
-            ce.cook(sb.toString());
-
-            return ce.getClazz();
+            return loader.loadClass(packageName + '.' + className);
         }
         catch (Exception ex) {
             throw new IllegalStateException("Failed to compile/instantiate generated Serializer.", ex);

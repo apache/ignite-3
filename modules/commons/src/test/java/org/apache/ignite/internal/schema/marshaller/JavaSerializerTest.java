@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeSpec;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -24,6 +27,7 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Stream;
+import javax.lang.model.element.Modifier;
 import org.apache.ignite.internal.schema.Bitmask;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -31,8 +35,9 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TestUtils;
-import org.apache.ignite.internal.schema.marshaller.generator.JaninoSerializerGenerator;
+import org.apache.ignite.internal.schema.marshaller.generator.SerializerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
+import org.apache.ignite.internal.util.ObjectFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.TestFactory;
@@ -64,7 +69,7 @@ public class JavaSerializerTest {
      */
     private static List<SerializerFactory> serializerFactoryProvider() {
         return Arrays.asList(
-            new JaninoSerializerGenerator(),
+            new SerializerGenerator(),
             new JavaSerializerFactory()
         );
     }
@@ -245,7 +250,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void testClassWithNoDefaultConstructor(SerializerFactory factory) throws SerializationException {
+    public void testClassWithNoDefaultConstructor(SerializerFactory factory) {
         Column[] cols = new Column[] {
             new Column("pLongCol", LONG, false),
         };
@@ -258,7 +263,49 @@ public class JavaSerializerTest {
         assertThrows(IllegalStateException.class,
             () -> factory.create(schema, key.getClass(), val.getClass()),
             "Class has no default constructor: class=org.apache.ignite.internal.schema.marshaller.JavaSerializerTest$WrongTestObject"
-            );
+        );
+    }
+
+    /**
+     *
+     */
+    @ParameterizedTest
+    @MethodSource("serializerFactoryProvider")
+    public void testClassLoader(SerializerFactory factory) throws SerializationException {
+        final ClassLoader prevClassLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(CompilerUtils.dynamicClassLoader());
+
+            Column[] keyCols = new Column[] {
+                new Column("key", LONG, false)
+            };
+
+            Column[] valCols = new Column[] {
+                new Column("col0", LONG, false),
+                new Column("col1", LONG, false),
+                new Column("col2", LONG, false),
+            };
+
+            SchemaDescriptor schema = new SchemaDescriptor(1, new Columns(keyCols), new Columns(valCols));
+
+            final Class<?> valClass = createGeneratedObjectClass(Long.class);
+            final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
+
+            final Long key = rnd.nextLong();
+
+            Serializer serializer = factory.create(schema, key.getClass(), valClass);
+
+            byte[] bytes = serializer.serialize(key, objFactory.create());
+
+            Object key1 = serializer.deserializeKey(bytes);
+            Object val1 = serializer.deserializeValue(bytes);
+
+            assertTrue(key.getClass().isInstance(key1));
+            assertTrue(valClass.isInstance(val1));
+        }
+        finally {
+            Thread.currentThread().setContextClassLoader(prevClassLoader);
+        }
     }
 
     /**
@@ -318,6 +365,42 @@ public class JavaSerializerTest {
     }
 
     /**
+     * Generate class for test objects.
+     *
+     * @param fieldType Field type.
+     * @return Generated test object class.
+     */
+    private Class<?> createGeneratedObjectClass(Class<?> fieldType) {
+        final String packageName = getClass().getPackageName();
+        final String className = "GeneratedTestObject";
+
+        final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className).addModifiers(Modifier.PUBLIC);
+
+        for (int i = 0; i < 3; i++)
+            classBuilder.addField(fieldType, "col" + i, Modifier.PRIVATE);
+
+        { // Build constructor.
+            final MethodSpec.Builder builder = MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PUBLIC)
+                .addStatement("$T rnd = new $T()", Random.class, Random.class);
+
+            for (int i = 0; i < 3; i++)
+                builder.addStatement("col$L = rnd.nextLong()", i);
+
+            classBuilder.addMethod(builder.build());
+        }
+
+        final JavaFile javaFile = JavaFile.builder(packageName, classBuilder.build()).build();
+
+        try {
+            return CompilerUtils.compileCode(javaFile).loadClass(packageName + '.' + className);
+        }
+        catch (Exception ex) {
+            throw new IllegalStateException("Failed to compile/instantiate generated Serializer.", ex);
+        }
+    }
+
+    /**
      * Test object.
      */
     public static class TestObject {
@@ -340,7 +423,9 @@ public class JavaSerializerTest {
             obj.longCol = rnd.nextLong();
             obj.floatCol = rnd.nextFloat();
             obj.doubleCol = rnd.nextDouble();
+            obj.nullLongCol = null;
 
+            obj.nullBytesCol = null;
             obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
             obj.bitmaskCol = TestUtils.randomBitSet(rnd, 42);
             obj.stringCol = TestUtils.randomString(rnd, rnd.nextInt(255));
@@ -411,7 +496,7 @@ public class JavaSerializerTest {
     /**
      * Test object with private constructor.
      */
-    private static class PrivateTestObject {
+    public static class PrivateTestObject {
         /**
          * @return Random TestObject.
          */
@@ -429,7 +514,6 @@ public class JavaSerializerTest {
         /**
          * Private constructor.
          */
-        @SuppressWarnings("RedundantNoArgConstructor")
         private PrivateTestObject() {
         }
 

@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Marshaller.
  */
-public class Marshaller {
+class Marshaller {
     /**
      * Creates marshaller for class.
      *
@@ -41,7 +41,7 @@ public class Marshaller {
      * @param aClass Type.
      * @return Marshaller.
      */
-    public static Marshaller createMarshaller(Columns cols, int firstColId, Class<? extends Object> aClass) {
+    static Marshaller createMarshaller(Columns cols, int firstColId, Class<? extends Object> aClass) {
         final BinaryMode mode = MarshallerUtil.mode(aClass);
 
         if (mode != null) {
@@ -51,17 +51,17 @@ public class Marshaller {
             assert mode.typeSpec() == col.type().spec() : "Target type is not compatible.";
             assert !aClass.isPrimitive() : "Non-nullable types are not allowed.";
 
-            return new Marshaller(UnsafeFieldAccessor.createIdentityAccessor(col, firstColId, mode));
+            return new Marshaller(FieldAccessor.createIdentityAccessor(col, firstColId, mode));
         }
 
-        UnsafeFieldAccessor[] fieldAccessors = new UnsafeFieldAccessor[cols.length()];
+        FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length()];
 
         // Build accessors
         for (int i = 0; i < cols.length(); i++) {
             final Column col = cols.column(i);
 
             final int colIdx = firstColId + i; /* Absolute column idx in schema. */
-            fieldAccessors[i] = UnsafeFieldAccessor.create(aClass, col, colIdx);
+            fieldAccessors[i] = FieldAccessor.create(aClass, col, colIdx);
         }
 
         return new Marshaller(new ObjectFactory<>(aClass), fieldAccessors);
@@ -71,7 +71,7 @@ public class Marshaller {
      * Field accessors for mapped columns.
      * Array has same size and order as columns.
      */
-    private final UnsafeFieldAccessor[] fieldAccessors;
+    private final FieldAccessor[] fieldAccessors;
 
     /**
      * Object factory for complex types or {@code null} for basic type.
@@ -86,7 +86,7 @@ public class Marshaller {
      * @param fieldAccessors Object field accessors for mapped columns.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public Marshaller(Factory<?> factory, UnsafeFieldAccessor[] fieldAccessors) {
+    Marshaller(Factory<?> factory, FieldAccessor[] fieldAccessors) {
         this.fieldAccessors = fieldAccessors;
         this.factory = Objects.requireNonNull(factory);
     }
@@ -97,8 +97,8 @@ public class Marshaller {
      *
      * @param fieldAccessor Identity field accessor for object of basic type.
      */
-    public Marshaller(UnsafeFieldAccessor fieldAccessor) {
-        fieldAccessors = new UnsafeFieldAccessor[] {fieldAccessor};
+    public Marshaller(FieldAccessor fieldAccessor) {
+        fieldAccessors = new FieldAccessor[] {fieldAccessor};
         factory = null;
     }
 
@@ -121,13 +121,13 @@ public class Marshaller {
      * @throws SerializationException If failed.
      */
     public Object readObject(Tuple reader) throws SerializationException {
-        if (isBasicTypeMarshaller())
+        if (isSimpleTypeMarshaller())
             return fieldAccessors[0].read(reader);
 
         final Object obj = factory.create();
 
         for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++)
-            fieldAccessors[fldIdx].read(obj, reader);
+            fieldAccessors[fldIdx].read(reader, obj);
 
         return obj;
     }
@@ -141,13 +141,13 @@ public class Marshaller {
      */
     public void writeObject(Object obj, TupleAssembler writer) throws SerializationException {
         for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++)
-            fieldAccessors[fldIdx].write(obj, writer);
+            fieldAccessors[fldIdx].write(writer, obj);
     }
 
     /**
-     * @return {@code true} if it is marshaller for basic type, {@code false} otherwise.
+     * @return {@code true} if it is marshaller for simple type, {@code false} otherwise.
      */
-    private boolean isBasicTypeMarshaller() {
+    private boolean isSimpleTypeMarshaller() {
         return factory == null;
     }
 }
