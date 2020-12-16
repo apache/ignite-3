@@ -762,18 +762,23 @@ public class Processor extends AbstractProcessor {
 
         propsStack.addFirst(rootNode);
 
+        // Walk through the all fields of every node and build a tree of configuration (more like chain)
         while (!propsStack.isEmpty()) {
             final ConfigurationNode current = propsStack.pollFirst();
 
+            // Get configuration type
             TypeName type = current.getType();
 
             if (Utils.isNamedConfiguration(type))
                 type = Utils.unwrapNamedListConfigurationClass(current.getType());
 
             final ConfigurationDescription configDesc = props.get(type);
+
+            // Get fields of configuration
             final List<ConfigurationElement> propertiesList = configDesc.getFields();
 
             if (current.getName() != null && !current.getName().isEmpty())
+                // Add current node to result
                 res.add(current);
 
             for (ConfigurationElement property : propertiesList) {
@@ -801,8 +806,10 @@ public class Processor extends AbstractProcessor {
                 }
 
                 if (props.containsKey(property.getType()) || isNamedConfig)
+                    // If it's not a leaf, add to stack
                     propsStack.add(newChainElement);
                 else
+                    // otherwise, add to result
                     res.add(newChainElement);
 
             }
