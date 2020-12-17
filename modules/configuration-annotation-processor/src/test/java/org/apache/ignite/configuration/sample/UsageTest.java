@@ -28,8 +28,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.apache.ignite.configuration.PublicConfigurator;
 
+/**
+ * Simple usage test of generated configuration schema.
+ */
 public class UsageTest {
 
+    /**
+     * Test creation of configuration and calling configuration API methods.
+     */
     @Test
     public void test() {
         final ConfigurationStorage storage = new ConfigurationStorage() {
@@ -68,16 +74,6 @@ public class UsageTest {
 
         final LocalConfiguration root = configurator.getRoot();
         root.baseline().autoAdjust().enabled().value();
-
-//
-//        final DynamicProperty<String> node1 = configurator.getInternal(Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1"));
-//
-//        localConfiguration.baseline().autoAdjust().enabled(false);
-//        final DynamicProperty<String> node1ViaFn = Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1").select(localConfiguration);
-//        final DynamicProperty<String> node1ViaFluentAPI = localConfiguration.baseline().nodes().get("node1").consistentId();
-//
-//        final Selector selector = Selectors.find("local.baseline.nodes[node1].port");
-//        final DynamicProperty<Integer> portViaSel = (DynamicProperty<Integer>) selector.select(localConfiguration);
 
         try {
             configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED, false);

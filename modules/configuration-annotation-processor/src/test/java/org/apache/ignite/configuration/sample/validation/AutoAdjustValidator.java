@@ -18,16 +18,19 @@
 package org.apache.ignite.configuration.sample.validation;
 
 import org.apache.ignite.configuration.sample.LocalConfiguration;
-import org.apache.ignite.configuration.sample.Selectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
 
+/**
+ * Test validator for AutoAdjust.
+ */
 public class AutoAdjustValidator extends FieldValidator<Number, LocalConfiguration> {
-
+    /** Constructor. */
     public AutoAdjustValidator(String message) {
         super(message);
     }
 
+    /** {@inheritDoc} */
     @Override public void validate(Number value, LocalConfiguration newRoot, LocalConfiguration oldRoot) throws ConfigurationValidationException {
         final Boolean isEnabled = newRoot.baseline().autoAdjust().enabled().value();
 

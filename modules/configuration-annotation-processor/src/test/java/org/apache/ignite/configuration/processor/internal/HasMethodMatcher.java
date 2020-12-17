@@ -33,6 +33,7 @@ public class HasMethodMatcher extends BaseMatcher<ParsedClass> {
     /** Type of the expected field. */
     private String methodReturnType;
 
+    /** Constructor. */
     public HasMethodMatcher(String methodName, String methodReturnType) {
         this.methodName = methodName;
         this.methodReturnType = methodReturnType;

@@ -25,10 +25,7 @@ import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
+ * Named configuration wrapper.
  */
 public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>, INIT, CHANGE>
     extends DynamicConfiguration<NamedList<VIEW>, NamedList<INIT>, NamedList<CHANGE>> {
@@ -40,11 +37,11 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
 
     /**
      * Constructor.
-     * @param prefix
-     * @param key
-     * @param configurator
-     * @param root
-     * @param creator
+     * @param prefix Configuration prefix.
+     * @param key Configuration key.
+     * @param configurator Configurator that this object is attached to.
+     * @param root Root configuration.
+     * @param creator Underlying configuration creator function.
      */
     public NamedListConfiguration(
         String prefix,

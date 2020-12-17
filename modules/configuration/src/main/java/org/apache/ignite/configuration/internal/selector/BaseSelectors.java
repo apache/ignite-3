@@ -102,28 +102,50 @@ public class BaseSelectors {
         }
     }
 
+    /**
+     * Put selector to selectors map by key.
+     * @param key Selector key.
+     * @param selector Selector.
+     */
     public static void put(String key, Selector<?, ?, ?, ?, ?> selector) {
         selectors.put(key, new SelectorHolder(selector));
     }
 
+    /**
+     * Put method handle selector (for named configuration) to selectors map by key.
+     * @param key Selector key.
+     * @param handle Method handle.
+     */
     public static void put(String key, MethodHandle handle) {
         selectors.put(key, new SelectorHolder(handle));
     }
 
+    /**
+     * Holder for selector (it's either selector object or method handle for named configurations).
+     */
     private static final class SelectorHolder {
-
+        /** Selector object. */
         Selector<?, ?, ?, ?, ?> selector;
 
+        /** Method handle for named configuration. */
         MethodHandle selectorFn;
 
+        /** Constructor for selector. */
         public SelectorHolder(Selector<?, ?, ?, ?, ?> selector) {
             this.selector = selector;
         }
 
+        /** Constructor for method handle. */
         public SelectorHolder(MethodHandle selectorFn) {
             this.selectorFn = selectorFn;
         }
 
+        /**
+         * Get selector object.
+         * @param arguments Arguments (empty if static selector or contains names for named configuration).
+         * @return Selector.
+         * @throws Throwable If failed to invoke method handle.
+         */
         Selector<?, ?, ?, ?, ?> get(List<String> arguments) throws Throwable {
             if (selector != null)
                 return selector;
@@ -132,5 +154,4 @@ public class BaseSelectors {
         }
 
     }
-
 }

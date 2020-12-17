@@ -47,22 +47,27 @@ public class ConfigurationElement {
         this.change = change;
     }
 
+    /** */
     public String getName() {
         return name;
     }
 
+    /** */
     public TypeName getType() {
         return type;
     }
 
+    /** */
     public TypeName getView() {
         return view;
     }
 
+    /** */
     public TypeName getInit() {
         return init;
     }
 
+    /** */
     public TypeName getChange() {
         return change;
     }

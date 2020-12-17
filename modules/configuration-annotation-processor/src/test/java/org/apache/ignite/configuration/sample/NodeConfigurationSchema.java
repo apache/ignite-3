@@ -24,21 +24,20 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.sample.validation.NodeValidator;
 
 /**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
+ * Test node configuration schema.
  */
 @Config
 public class NodeConfigurationSchema {
-
+    /** Consistent id. */
     @Value(immutable = true)
     @NotNull(message = "Consistent id must not be null")
     private String consistentId;
 
+    /** Port. */
     @Value
     private int port;
 
+    /** Auto adjust enabled. */
     @Value
     @Validate(NodeValidator.class)
     private boolean autoAdjustEnabled;

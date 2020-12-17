@@ -29,6 +29,9 @@ import javax.tools.JavaFileObject;
 
 import static com.google.testing.compile.Compiler.javac;
 
+/**
+ * Base class for configuration annotation processor tests.
+ */
 public class AbstractProcessorTest {
 
     /**
@@ -54,10 +57,10 @@ public class AbstractProcessorTest {
     }
 
     /**
-     *
-     * @param clazz
-     * @param generatedClasses
-     * @return
+     * Get {@link ConfigSet} object from generated classes.
+     * @param clazz Configuration schema ClassName.
+     * @param generatedClasses Map with all generated classes.
+     * @return ConfigSet.
      */
     protected static ConfigSet getConfigSet(ClassName clazz, final Map<ClassName, JavaFileObject> generatedClasses) {
         final ClassName configurationName = Utils.getConfigurationName(clazz);
@@ -73,10 +76,20 @@ public class AbstractProcessorTest {
         return new ConfigSet(configurationFileObject, viewClass, initClass, changeClass);
     }
 
+    /**
+     * Get {@link ClassName} object from generated file path.
+     * @param fileName File path.
+     * @return ClassName.
+     */
     protected static ClassName fromGeneratedFilePath(String fileName) {
         return fromFilePath(fileName.replace("/SOURCE_OUTPUT/", ""));
     }
 
+    /**
+     * Get {@link ClassName} object from file path.
+     * @param fileName File path.
+     * @return ClassName.
+     */
     protected static ClassName fromFilePath(String fileName) {
         int slashIdx = fileName.lastIndexOf("/");
         int dotJavaIdx = fileName.lastIndexOf(".java");

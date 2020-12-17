@@ -21,12 +21,11 @@ import org.apache.ignite.configuration.sample.LocalConfiguration;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
 
+/**
+ * Test Node configuration validator.
+ */
 public class NodeValidator extends FieldValidator<Boolean, LocalConfiguration> {
-    /**
-     * Constructor.
-     *
-     * @param message
-     */
+    /** Constructor. */
     public NodeValidator(String message) {
         super(message);
     }

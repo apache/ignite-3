@@ -21,14 +21,11 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
+ * Test local configuration schema.
  */
 @Config(value = "local", root = true)
 public class LocalConfigurationSchema {
-
+    /** Baseline. */
     @ConfigValue
     private BaselineConfigurationSchema baseline;
 

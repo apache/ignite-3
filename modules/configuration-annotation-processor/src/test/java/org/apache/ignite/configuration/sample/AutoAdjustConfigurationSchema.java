@@ -25,19 +25,18 @@ import org.apache.ignite.configuration.sample.validation.AutoAdjustValidator;
 import org.apache.ignite.configuration.sample.validation.AutoAdjustValidator2;
 
 /**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
+ * Test auto adjust configuration schema.
  */
 @Config
 public class AutoAdjustConfigurationSchema {
+    /** Timeout. */
     @Value
     @Min(value = 0, message = "Minimal is 0")
     @Validate(value = AutoAdjustValidator.class, message = "a")
     @Validate(value = AutoAdjustValidator2.class, message = "b")
     private long timeout;
 
+    /** Enabled. */
     @Value
     private boolean enabled;
 }

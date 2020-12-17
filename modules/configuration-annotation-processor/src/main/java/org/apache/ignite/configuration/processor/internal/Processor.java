@@ -410,6 +410,9 @@ public class Processor extends AbstractProcessor {
         return new ConfigurationFieldTypes(getMethodType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
     }
 
+    /**
+     * Wrapper for configuration schema types.
+     */
     private static class ConfigurationFieldTypes {
         /** Field get method type. */
         private final TypeName getMethodType;

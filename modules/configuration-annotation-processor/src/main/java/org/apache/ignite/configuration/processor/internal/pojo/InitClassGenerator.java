@@ -35,7 +35,7 @@ import org.apache.ignite.configuration.processor.internal.Utils;
  * INIT object class generator.
  */
 public class InitClassGenerator extends ClassGenerator {
-
+    /** Constructor. */
     public InitClassGenerator(ProcessingEnvironment env) {
         super(env);
     }

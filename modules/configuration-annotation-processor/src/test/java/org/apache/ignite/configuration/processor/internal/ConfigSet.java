@@ -23,20 +23,34 @@ import org.apache.commons.io.IOUtils;
 import spoon.Launcher;
 
 /**
- *
+ * Wrapper for generated classes of the configuration schema.
  */
 public class ConfigSet {
-
+    /** Configuration class. */
     private final JavaFileObject configurationClass;
+
+    /** VIEW class. */
     private final JavaFileObject viewClass;
+
+    /** INIT class. */
     private final JavaFileObject initClass;
+
+    /** CHANGE class. */
     private final JavaFileObject changeClass;
 
+    /** Parsed configuration class. */
     private final ParsedClass conf;
+
+    /** Parsed VIEW class. */
     private final ParsedClass view;
+
+    /** Parsed INIT class. */
     private final ParsedClass init;
+
+    /** Parsed CHANGE class. */
     private final ParsedClass change;
 
+    /** Constructor. */
     public ConfigSet(JavaFileObject configurationClass, JavaFileObject viewClass, JavaFileObject initClass, JavaFileObject changeClass) {
         this.configurationClass = configurationClass;
         this.viewClass = viewClass;
@@ -64,6 +78,11 @@ public class ConfigSet {
             this.change = null;
     }
 
+    /**
+     * Parse source file.
+     * @param clz Class file object.
+     * @return Parsed class.
+     */
     private ParsedClass parse(JavaFileObject clz) {
         String classFileContent;
         try {
@@ -75,22 +94,29 @@ public class ConfigSet {
         return new ParsedClass(Launcher.parseClass(classFileContent));
     }
 
+    /**
+     * @return {@code true} if all required classes were generated.
+     */
     public boolean allGenerated() {
         return configurationClass != null && viewClass != null && initClass != null && changeClass != null;
     }
 
+    /** */
     public ParsedClass getConfigurationClass() {
         return conf;
     }
 
+    /** */
     public ParsedClass getViewClass() {
         return view;
     }
 
+    /** */
     public ParsedClass getInitClass() {
         return init;
     }
 
+    /** */
     public ParsedClass getChangeClass() {
         return change;
     }

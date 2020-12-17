@@ -27,5 +27,4 @@ import java.util.Map;
 public interface ConfigurationTree<VALUE, CHANGE> extends ConfigurationProperty<VALUE, CHANGE> {
     /** Children of the tree. */
     Map<String, ConfigurationProperty<?, ?>> members();
-
 }
