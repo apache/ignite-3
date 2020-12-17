@@ -19,7 +19,6 @@ package org.apache.ignite.configuration.validation;
 
 import java.io.Serializable;
 import org.apache.ignite.configuration.ConfigurationTree;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 /**
  * Base class for field validator. Contains exception message.

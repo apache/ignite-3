@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
  * Named configuration wrapper.
