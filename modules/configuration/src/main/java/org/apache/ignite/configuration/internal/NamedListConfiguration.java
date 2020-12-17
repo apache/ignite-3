@@ -54,10 +54,10 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
     }
 
     /**
-     * Constructor.
-     * @param base
-     * @param configurator
-     * @param root
+     * Copy constructor.
+     * @param base Base to copy from.
+     * @param configurator Configurator to attach to.
+     * @param root Root of the configuration.
      */
     private NamedListConfiguration(
         NamedListConfiguration<VIEW, T, INIT, CHANGE> base,
