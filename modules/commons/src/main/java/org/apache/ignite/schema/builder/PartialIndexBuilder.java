@@ -1,20 +1,24 @@
 package org.apache.ignite.schema.builder;
 
+import org.apache.ignite.schema.PartialIndex;
+
 public interface PartialIndexBuilder extends SortedIndexBuilder {
     /** {@inheritDoc} */
-    @Override PartialIndexBuilder withName(String indexName);
-
-    /** {@inheritDoc} */
-    @Override PartialIndexBuilder inlineSize(int inlineSize);
+    @Override PartialIndexBuilder withInlineSize(int inlineSize);
 
     /**
      * @param expr Partial index expression.
      * @return {@code this} for chaining.
      */
-    PartialIndexBuilder expr(String expr);
+    PartialIndexBuilder withExpression(String expr);
 
     /** {@inheritDoc} */
     @Override PartialIndexColumnBuilder addIndexColumn(String name);
+
+    /**
+     * @return Partial index.
+     */
+    @Override PartialIndex build();
 
     @SuppressWarnings("PublicInnerClass")
     interface PartialIndexColumnBuilder extends SortedIndexColumnBuilder {

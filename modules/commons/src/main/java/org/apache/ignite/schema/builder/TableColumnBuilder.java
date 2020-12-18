@@ -5,13 +5,13 @@ import org.apache.ignite.schema.ColumnType;
 public interface TableColumnBuilder {
     TableColumnBuilder withType(ColumnType columnType);
 
-    TableColumnBuilder nullable();
+    TableColumnBuilder asNullable();
 
-    TableColumnBuilder notNull();
+    TableColumnBuilder asNotNull();
 
     TableColumnBuilder withName(String colName);
 
-    TableColumnBuilder defaultValue(Object defValue);
+    TableColumnBuilder withDefaultValue(Object defValue);
 
     TableColumnCollectionBuilder done();
 }

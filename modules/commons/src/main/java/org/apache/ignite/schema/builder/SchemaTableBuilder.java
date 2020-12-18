@@ -1,6 +1,7 @@
 package org.apache.ignite.schema.builder;
 
 import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.TableIndex;
 
 public interface SchemaTableBuilder {
     /** Default schema name. */
@@ -15,33 +16,15 @@ public interface SchemaTableBuilder {
     TableColumnCollectionBuilder columns();
 
     /**
-     * @param colNames Column names.
-     * @return {@code this} for chaining.
-     */
-    SchemaTableBuilder affinityColumns(String... colNames); // TODO: is it a part of PK ?
-
-    /**
      * @return Primary key builder.
      */
-    SortedIndexBuilder pk();
+    PrimaryKeyBuilder pk();
 
     /**
-     * @param indexName Index name.
+     * @param index Table index.
      * @return Sorted index builder.
      */
-    SortedIndexBuilder addSortedIndex(String indexName);
-
-    /**
-     * @param indexName Index name.
-     * @return Partial index builder.
-     */
-    PartialIndexBuilder addPartialIndex(String indexName);
-
-    /**
-     * @param indexName Index name.
-     * @return Hash index builder.
-     */
-    HashIndexBuilder addHashIndex(String indexName);
+    SchemaTableBuilder withindex(TableIndex index);
 
     /**
      * Build table schema.

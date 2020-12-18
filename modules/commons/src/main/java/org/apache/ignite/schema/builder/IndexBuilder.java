@@ -1,14 +1,10 @@
 package org.apache.ignite.schema.builder;
 
+import org.apache.ignite.schema.TableIndex;
+
 public interface IndexBuilder {
     /**
-     * @param indexName Index name.
-     * @return {@code this} for chaining.
+     * @return Table index.
      */
-    IndexBuilder withName(String indexName);
-
-    /**
-     * @return Parent builder.
-     */
-    SchemaTableBuilder done();
+    TableIndex build();
 }

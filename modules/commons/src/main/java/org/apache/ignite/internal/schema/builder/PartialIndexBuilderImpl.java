@@ -1,14 +1,11 @@
 package org.apache.ignite.internal.schema.builder;
 
 import java.util.Collection;
+import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
 
 public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements PartialIndexBuilder {
     private String expr;
-
-    public PartialIndexBuilderImpl(SchemaTableBuilderImpl schemaBuilder) {
-        super(schemaBuilder);
-    }
 
     @Override public PartialIndexBuilderImpl withName(String indexName) {
         super.withName(indexName);
@@ -16,8 +13,8 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
         return this;
     }
 
-    @Override public PartialIndexBuilderImpl inlineSize(int inlineSize) {
-        super.inlineSize(inlineSize);
+    @Override public PartialIndexBuilderImpl withInlineSize(int inlineSize) {
+        super.withInlineSize(inlineSize);
 
         return this;
     }
@@ -30,11 +27,11 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
         return (Collection<PartialIndexColumnBuilderImpl>)super.columns();
     }
 
-    @Override public SchemaTableBuilderImpl done() {
-        return super.done();
+    @Override public PartialIndex build() {
+        return null;
     }
 
-    @Override public PartialIndexBuilder expr(String expr) {
+    @Override public PartialIndexBuilder withExpression(String expr) {
         this.expr = expr;
 
         return this;

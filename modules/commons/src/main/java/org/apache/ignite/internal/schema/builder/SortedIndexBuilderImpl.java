@@ -3,6 +3,7 @@ package org.apache.ignite.internal.schema.builder;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
 
 public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements SortedIndexBuilder {
@@ -10,17 +11,13 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
 
     private int inlineSize;
 
-    public SortedIndexBuilderImpl(SchemaTableBuilderImpl schemaBuilder) {
-        super(schemaBuilder);
-    }
-
     @Override public SortedIndexBuilderImpl withName(String indexName) {
         super.withName(indexName);
 
         return this;
     }
 
-    @Override public SortedIndexBuilderImpl inlineSize(int inlineSize) {
+    @Override public SortedIndexBuilderImpl withInlineSize(int inlineSize) {
         this.inlineSize = inlineSize;
 
         return this;
@@ -39,10 +36,10 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         return cols.values();
     }
 
-    @Override public SchemaTableBuilderImpl done() {
+    @Override public SortedIndex build() {
         assert !cols.isEmpty();
 
-        return super.done();
+        return null;
     }
 
     @SuppressWarnings("PublicInnerClass")

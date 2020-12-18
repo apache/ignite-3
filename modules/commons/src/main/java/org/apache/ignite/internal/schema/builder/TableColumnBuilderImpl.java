@@ -21,13 +21,13 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
         return this;
     }
 
-    @Override public TableColumnBuilderImpl nullable() {
+    @Override public TableColumnBuilderImpl asNullable() {
         nullable = true;
 
         return this;
     }
 
-    @Override public TableColumnBuilderImpl notNull() {
+    @Override public TableColumnBuilderImpl asNotNull() {
         nullable = false;
 
         return this;
@@ -39,7 +39,7 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
         return this;
     }
 
-    @Override public TableColumnBuilderImpl defaultValue(Object defValue) {
+    @Override public TableColumnBuilderImpl withDefaultValue(Object defValue) {
         this.defValue = defValue;
 
         return this;

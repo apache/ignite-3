@@ -2,7 +2,7 @@ package org.apache.ignite.schema;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.schema.builder.SchemaModificationBuilder;
+import org.apache.ignite.schema.modification.SchemaModificationBuilder;
 
 public interface SchemaTable {
     /**
@@ -35,6 +35,5 @@ public interface SchemaTable {
     /**
      * @return Schema modification builder.
      */
-    // TODO: mode to SchemaManager ?
     SchemaModificationBuilder toBuilder();
 }
