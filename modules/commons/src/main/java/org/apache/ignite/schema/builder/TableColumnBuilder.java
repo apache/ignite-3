@@ -1,5 +1,6 @@
 package org.apache.ignite.schema.builder;
 
+import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 
 /**
@@ -26,7 +27,7 @@ public interface TableColumnBuilder {
      *
      * @return {@code this} for chaining.
      */
-    TableColumnBuilder asNotNull();
+    TableColumnBuilder asNonNull();
 
     /**
      * Sets column default value.
@@ -37,10 +38,10 @@ public interface TableColumnBuilder {
     TableColumnBuilder withDefaultValue(Object defValue);
 
     /**
-     * Build column and return control to parent builder.
+     * Builds column.
      *
-     * @return {@code this} for chaining.
+     * @return Built column.
      */
-    TableColumnCollectionBuilder done();
+    Column build();
 }
 

@@ -1,5 +1,6 @@
 package org.apache.ignite.schema.builder;
 
+import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 
@@ -13,7 +14,7 @@ public interface SchemaTableBuilder {
     /**
      * @return Table columns builder.
      */
-    TableColumnCollectionBuilder columns();
+    SchemaTableBuilder columns(Column... columns);
 
     /**
      * @return Primary key builder.

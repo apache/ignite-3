@@ -1,10 +1,15 @@
-package org.apache.ignite.schema.builder;
+package org.apache.ignite.schema;
 
 import org.apache.ignite.internal.schema.builder.HashIndexBuilderImpl;
 import org.apache.ignite.internal.schema.builder.PartialIndexBuilderImpl;
 import org.apache.ignite.internal.schema.builder.SchemaTableBuilderImpl;
 import org.apache.ignite.internal.schema.builder.SortedIndexBuilderImpl;
-import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.internal.schema.builder.TableColumnBuilderImpl;
+import org.apache.ignite.schema.builder.HashIndexBuilder;
+import org.apache.ignite.schema.builder.PartialIndexBuilder;
+import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.builder.SortedIndexBuilder;
+import org.apache.ignite.schema.builder.TableColumnBuilder;
 
 /**
  * Schema builder helper.
@@ -12,18 +17,6 @@ import org.apache.ignite.schema.SchemaTable;
 public final class SchemaBuilders {
     /** Default schema name. */
     public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
-    /**
-     * Creates table descriptor builder.
-     *
-     * @param schemaName Schema name.
-     * @param tableName Table name.
-     * @return Table descriptor builder.
-     */
-    public static SchemaTableBuilder tableBuilder(String schemaName,
-        String tableName) {
-        return new SchemaTableBuilderImpl(schemaName, tableName);
-    }
 
     /**
      * Create table descriptor from classes.
@@ -40,10 +33,32 @@ public final class SchemaBuilders {
     }
 
     /**
+     * Creates table descriptor builder.
+     *
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     * @return Table descriptor builder.
+     */
+    public static SchemaTableBuilder tableBuilder(String schemaName,
+        String tableName) {
+        return new SchemaTableBuilderImpl(schemaName, tableName);
+    }
+
+    /**
+     * Creates table column buidler.
+     *
+     * @param name Column name.
+     * @return Column builder.
+     */
+    public static TableColumnBuilder column(String name) {
+        return new TableColumnBuilderImpl(name);
+    }
+
+    /**
      * @param name Index name.
      * @return Sorted index builder.
      */
-    public static SortedIndexBuilder sorted(String name) {
+    public static SortedIndexBuilder sortedIndex(String name) {
         return new SortedIndexBuilderImpl(name);
     }
 
@@ -51,7 +66,7 @@ public final class SchemaBuilders {
      * @param name Index name.
      * @return Partial index builder.
      */
-    public static PartialIndexBuilder partial(String name) {
+    public static PartialIndexBuilder partialIndex(String name) {
         return new PartialIndexBuilderImpl(name);
     }
 
@@ -59,7 +74,7 @@ public final class SchemaBuilders {
      * @param name Index name.
      * @return Hash index builder.
      */
-    public static HashIndexBuilder hash(String name) {
+    public static HashIndexBuilder hashIndex(String name) {
         return new HashIndexBuilderImpl(name);
     }
 

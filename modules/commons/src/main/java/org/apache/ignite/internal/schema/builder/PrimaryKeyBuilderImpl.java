@@ -5,13 +5,13 @@ import org.apache.ignite.schema.builder.PrimaryKeyBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
 public class PrimaryKeyBuilderImpl implements PrimaryKeyBuilder {
-    private final SchemaTableBuilder schemaTableBuilder;
+    private final SchemaTableBuilderImpl schemaTableBuilder;
 
     private String[] columns;
 
     private String[] affinityColumns;
 
-    public PrimaryKeyBuilderImpl(SchemaTableBuilder schemaTableBuilder) {
+    public PrimaryKeyBuilderImpl(SchemaTableBuilderImpl schemaTableBuilder) {
         this.schemaTableBuilder = schemaTableBuilder;
     }
 
@@ -28,11 +28,13 @@ public class PrimaryKeyBuilderImpl implements PrimaryKeyBuilder {
     }
 
     @Override public SchemaTableBuilder done() {
-        assert Arrays.stream(affinityColumns).allMatch(c -> Arrays.asList(columns).contains(c));
-
-        // All column are 'affinify columns' if not specified,
+       // All column are 'affinify columns' if not specified,
         if (affinityColumns == null)
             affinityColumns = columns;
+        else
+            assert Arrays.stream(affinityColumns).allMatch(c -> Arrays.asList(columns).contains(c));
+
+        schemaTableBuilder.pkIndex = this;
 
         return schemaTableBuilder;
     }

@@ -5,18 +5,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.SchemaTableImpl;
+import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.PartialIndex;
+import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.PrimaryKeyBuilder;
-import org.apache.ignite.schema.builder.SchemaBuilders;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
 public class SchemaTableBuilderImpl implements SchemaTableBuilder {
-    private final Map<String, TableColumnBuilderImpl> columns = new HashMap<>();
+    private final Map<String, Column> columns = new HashMap<>();
     private final Map<String, TableIndex> indices = new HashMap<>();
-    private PrimaryKeyBuilderImpl pkIndex;
+    PrimaryKeyBuilderImpl pkIndex;
 
     private final String tableName;
     private final String schemaName;
@@ -34,8 +36,13 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
         return tableName;
     }
 
-    @Override public ColumnCollectionBuilder columns() {
-        return new ColumnCollectionBuilder(this);
+    @Override public SchemaTableBuilderImpl columns(Column... columns) {
+        for (int i = 0; i < columns.length; i++) {
+            if (this.columns.put(columns[i].name(), columns[i]) != null)
+                throw new IllegalStateException("Column with same name already exists: columnName=" + columns[i].name());
+        }
+
+        return this;
     }
 
     @Override public PrimaryKeyBuilder pk() {
@@ -59,12 +66,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
         validateSecondaryIndices();
 
-        return null; // TODO: implement.
-    }
-
-    void addColumn(TableColumnBuilderImpl bld) {
-        if (columns.put(bld.name(), bld) != null)
-            throw new IllegalArgumentException("Column with same name already exists: " + bld.name());
+        return new SchemaTableImpl(); // TODO: implement.
     }
 
     private void validatePrimaryKey() {

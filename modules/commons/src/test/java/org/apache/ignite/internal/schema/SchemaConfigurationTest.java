@@ -1,7 +1,8 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.schema.builder.SchemaBuilders;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -13,14 +14,14 @@ public class SchemaConfigurationTest {
         final SchemaTableBuilder builder = SchemaBuilders.tableBuilder("PUBLIC", "table1");
 
         builder
-            .columns()
-            // Declaring columns in user order.
-            .addColumn("id").withType(ColumnType.INT64).done()
-            .addColumn("label").withType(ColumnType.stringOf(2)).withDefaultValue("AI").done()
-            .addColumn("name").withType(ColumnType.string()).asNotNull().done()
-            .addColumn("data").withType(ColumnType.blobOf(255)).asNullable().done()
-            .addColumn("affId").withType(ColumnType.INT32).done()
-            .done()
+            .columns(
+                // Declaring columns in user order.
+                SchemaBuilders.column("id").withType(ColumnType.INT64).build(),
+                SchemaBuilders.column("label").withType(ColumnType.stringOf(2)).withDefaultValue("AI").build(),
+                SchemaBuilders.column("name").withType(ColumnType.string()).asNonNull().build(),
+                SchemaBuilders.column("data").withType(ColumnType.blobOf(255)).asNullable().build(),
+                SchemaBuilders.column("affId").withType(ColumnType.INT32).build()
+            )
 
             // PK index type can't be changed as highly coupled core implementation.
             .pk()
@@ -33,7 +34,7 @@ public class SchemaConfigurationTest {
             // 'withIndex' single entry point allows extended index support.
             // E.g. we may want to support GEO indices later with some plugin.
             .withindex(
-                SchemaBuilders.sorted("idx_1_sorted")
+                SchemaBuilders.sortedIndex("idx_1_sorted")
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
                     .withInlineSize(42)
@@ -41,7 +42,7 @@ public class SchemaConfigurationTest {
             )
 
             .withindex(
-                SchemaBuilders.partial("idx_2_partial")
+                SchemaBuilders.partialIndex("idx_2_partial")
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
                     .withExpression("id > 0")
@@ -50,7 +51,7 @@ public class SchemaConfigurationTest {
             )
 
             .withindex(
-                SchemaBuilders.hash("idx_3_hash")
+                SchemaBuilders.hashIndex("idx_3_hash")
                     .withColumns("id", "affId")
                     .build()
             )
@@ -60,6 +61,47 @@ public class SchemaConfigurationTest {
 
     @Test
     public void testSchemaModification() {
+        final SchemaTable table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
+            .columns(
+                // Declaring columns in user order.
+                SchemaBuilders.column("id").withType(ColumnType.INT64).build(),
+                SchemaBuilders.column("name").withType(ColumnType.string()).build()
+            )
 
+            .pk().withColumns("id").done()
+
+            .build();
+
+        table.toBuilder()
+            .addColumn(
+                SchemaBuilders.column("firstName")
+                    .withType(ColumnType.string())
+                    .asNonNull()
+                    .build()
+            )
+            .addKeyColumn( // It looks safe to add non-affinity column to key.
+                SchemaBuilders.column("subId")
+                    .withType(ColumnType.string())
+                    .asNonNull()
+                    .build()
+            )
+
+            .alterColumn("firstName")
+            .withNewName("lastName")
+            .withNewDefault("ivanov")
+            .asNullable()
+            .convertTo(ColumnType.stringOf(100))
+            .done()
+
+            .dropColumn("name") // Key column can't be dropped.
+
+            .addIndex(
+                SchemaBuilders.sortedIndex("sortedIdx")
+                    .addIndexColumn("subId").done()
+                    .build()
+            )
+
+            .dropIndex("hash_idx")
+            .apply();
     }
 }

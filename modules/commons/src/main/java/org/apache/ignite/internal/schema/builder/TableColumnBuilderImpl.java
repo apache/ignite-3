@@ -1,18 +1,19 @@
 package org.apache.ignite.internal.schema.builder;
 
+import org.apache.ignite.internal.schema.ColumnImpl;
+import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 
 public class TableColumnBuilderImpl implements TableColumnBuilder {
-    private final ColumnCollectionBuilder columnCollectionBuilder;
 
     private String colName;
     private ColumnType columnType;
     private boolean nullable;
     private Object defValue;
 
-    TableColumnBuilderImpl(ColumnCollectionBuilder parent) {
-        this.columnCollectionBuilder = parent;
+    public TableColumnBuilderImpl(String colName) {
+        this.colName = colName;
     }
 
     @Override public TableColumnBuilderImpl withType(ColumnType columnType) {
@@ -27,14 +28,8 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
         return this;
     }
 
-    @Override public TableColumnBuilderImpl asNotNull() {
+    @Override public TableColumnBuilderImpl asNonNull() {
         nullable = false;
-
-        return this;
-    }
-
-    TableColumnBuilderImpl withName(String colName) {
-        this.colName = colName;
 
         return this;
     }
@@ -53,9 +48,7 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
         return nullable;
     }
 
-    @Override public ColumnCollectionBuilder done() {
-        columnCollectionBuilder.addColumn(this);
-
-        return columnCollectionBuilder;
+    @Override public Column build() {
+        return new ColumnImpl(colName);
     }
 }
