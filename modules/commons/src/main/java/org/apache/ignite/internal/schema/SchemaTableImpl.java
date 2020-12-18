@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.schema.modification.TableModificationBuilderImpl;
 import org.apache.ignite.schema.Column;
@@ -27,7 +28,7 @@ public class SchemaTableImpl implements SchemaTable {
     }
 
     @Override public Collection<TableIndex> indices() {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override public TableModificationBuilder toBuilder() {

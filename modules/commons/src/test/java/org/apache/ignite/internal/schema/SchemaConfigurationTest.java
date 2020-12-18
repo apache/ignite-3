@@ -7,7 +7,6 @@ import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.junit.jupiter.api.Test;
 
 public class SchemaConfigurationTest {
-
     @Test
     public void testInitialSchema() {
         //TODO: Do we need separate 'Schema builder' or left 'schema' name as kind of 'namespace'.

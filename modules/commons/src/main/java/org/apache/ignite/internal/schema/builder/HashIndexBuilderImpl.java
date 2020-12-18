@@ -1,5 +1,6 @@
 package org.apache.ignite.internal.schema.builder;
 
+import org.apache.ignite.internal.schema.HashIndexImpl;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.builder.HashIndexBuilder;
 
@@ -20,7 +21,7 @@ public class HashIndexBuilderImpl extends AbstractIndexBuilder implements HashIn
         assert columns != null;
         assert columns.length > 0;
 
-        return null;
+        return new HashIndexImpl(name());
     }
 
     String[] columns() {

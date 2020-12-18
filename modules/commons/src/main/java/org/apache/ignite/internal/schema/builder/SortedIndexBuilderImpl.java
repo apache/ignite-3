@@ -3,6 +3,7 @@ package org.apache.ignite.internal.schema.builder;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.ignite.internal.schema.SortedIndexImpl;
 import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
 
@@ -37,7 +38,7 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     @Override public SortedIndex build() {
         assert !cols.isEmpty();
 
-        return null;
+        return new SortedIndexImpl(name());
     }
 
     @SuppressWarnings("PublicInnerClass")

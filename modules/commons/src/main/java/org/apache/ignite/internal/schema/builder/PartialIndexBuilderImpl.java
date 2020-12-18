@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.schema.builder;
 
 import java.util.Collection;
+import org.apache.ignite.internal.schema.PartialIndexImpl;
 import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
 
@@ -28,7 +29,7 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
     @Override public PartialIndex build() {
         assert expr != null && !expr.trim().isEmpty();
 
-        return null;
+        return new PartialIndexImpl(name());
     }
 
     @Override public PartialIndexBuilder withExpression(String expr) {
