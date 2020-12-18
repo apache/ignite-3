@@ -1,5 +1,8 @@
 package org.apache.ignite.schema.builder;
 
+/**
+ * Column collection builder.
+ */
 public interface TableColumnCollectionBuilder {
     /**
      * @param columnName Column name.

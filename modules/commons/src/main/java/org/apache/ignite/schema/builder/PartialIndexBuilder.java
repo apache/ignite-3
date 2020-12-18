@@ -2,6 +2,9 @@ package org.apache.ignite.schema.builder;
 
 import org.apache.ignite.schema.PartialIndex;
 
+/**
+ * Partial index descriptor builder.
+ */
 public interface PartialIndexBuilder extends SortedIndexBuilder {
     /** {@inheritDoc} */
     @Override PartialIndexBuilder withInlineSize(int inlineSize);

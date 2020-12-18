@@ -1,5 +1,8 @@
 package org.apache.ignite.schema;
 
+/**
+ * Table column descriptor.
+ */
 public interface Column {
     /**
      * @return Columnt type.

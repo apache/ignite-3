@@ -1,14 +1,12 @@
 package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.schema.builder.IndexBuilder;
+import org.apache.ignite.schema.builder.Builder;
 
-public abstract class AbstractIndexBuilder implements IndexBuilder {
+public abstract class AbstractIndexBuilder implements Builder {
     private String name;
 
-    IndexBuilder withName(String indexName) {
+    AbstractIndexBuilder(String indexName) {
         this.name = indexName;
-
-        return this;
     }
 
     String name() {

@@ -7,10 +7,8 @@ import org.apache.ignite.schema.builder.PartialIndexBuilder;
 public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements PartialIndexBuilder {
     private String expr;
 
-    @Override public PartialIndexBuilderImpl withName(String indexName) {
-        super.withName(indexName);
-
-        return this;
+    public PartialIndexBuilderImpl(String indexName) {
+        super(indexName);
     }
 
     @Override public PartialIndexBuilderImpl withInlineSize(int inlineSize) {
@@ -28,6 +26,8 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
     }
 
     @Override public PartialIndex build() {
+        assert expr != null && !expr.trim().isEmpty();
+
         return null;
     }
 

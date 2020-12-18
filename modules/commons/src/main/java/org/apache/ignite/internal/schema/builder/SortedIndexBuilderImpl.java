@@ -11,10 +11,8 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
 
     private int inlineSize;
 
-    @Override public SortedIndexBuilderImpl withName(String indexName) {
-        super.withName(indexName);
-
-        return this;
+    public SortedIndexBuilderImpl(String indexName) {
+        super(indexName);
     }
 
     @Override public SortedIndexBuilderImpl withInlineSize(int inlineSize) {

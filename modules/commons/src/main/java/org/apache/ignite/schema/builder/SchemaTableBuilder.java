@@ -3,15 +3,15 @@ package org.apache.ignite.schema.builder;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 
+/**
+ * Table descriptor builder.
+ */
 public interface SchemaTableBuilder {
-    /** Default schema name. */
-    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     /** Primary key index name. */
     public static final String PRIMARY_KEY_INDEX_NAME = "PK";
 
     /**
-     * @return Tabke columns builder.
+     * @return Table columns builder.
      */
     TableColumnCollectionBuilder columns();
 
@@ -21,13 +21,15 @@ public interface SchemaTableBuilder {
     PrimaryKeyBuilder pk();
 
     /**
+     * Adds index.
+     *
      * @param index Table index.
-     * @return Sorted index builder.
+     * @return Schema table builder for chaining.
      */
     SchemaTableBuilder withindex(TableIndex index);
 
     /**
-     * Build table schema.
+     * Builds table schema.
      *
      * @return Table schema.
      */

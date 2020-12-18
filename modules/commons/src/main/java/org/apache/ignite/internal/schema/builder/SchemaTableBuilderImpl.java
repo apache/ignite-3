@@ -10,25 +10,10 @@ import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.PrimaryKeyBuilder;
+import org.apache.ignite.schema.builder.SchemaBuilders;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
 public class SchemaTableBuilderImpl implements SchemaTableBuilder {
-
-    public static org.apache.ignite.schema.builder.SchemaTableBuilder tableBuilder(String tableName) {
-        return new SchemaTableBuilderImpl(DEFAULT_SCHEMA_NAME, tableName);
-    }
-
-    public static org.apache.ignite.schema.builder.SchemaTableBuilder tableBuilder(String schemaName,
-        String tableName) {
-        return new SchemaTableBuilderImpl(schemaName, tableName);
-    }
-
-    public static SchemaTableBuilderImpl tableBuilder(Class keyClass, Class valueClass) {
-        // TODO: implement schema generation from classes.
-
-        return new SchemaTableBuilderImpl(DEFAULT_SCHEMA_NAME, valueClass.getSimpleName());
-    }
-
     private final Map<String, TableColumnBuilderImpl> columns = new HashMap<>();
     private final Map<String, TableIndex> indices = new HashMap<>();
     private PrimaryKeyBuilderImpl pkIndex;
@@ -36,8 +21,8 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
     private final String tableName;
     private final String schemaName;
 
-    SchemaTableBuilderImpl(String schemaName, String tableName) {
-        this.schemaName = DEFAULT_SCHEMA_NAME;
+    public SchemaTableBuilderImpl(String schemaName, String tableName) {
+        this.schemaName = SchemaBuilders.DEFAULT_SCHEMA_NAME;
         this.tableName = tableName;
     }
 
@@ -57,7 +42,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
         return new PrimaryKeyBuilderImpl(this);
     }
 
-    @Override public SchemaTableBuilder indices(TableIndex index) {
+    @Override public SchemaTableBuilder withindex(TableIndex index) {
         if (PRIMARY_KEY_INDEX_NAME.equals(index.name()))
             throw new IllegalArgumentException("Not valid index name for secondary index: " + index.name());
         else if (indices.put(index.name(), index) != null)

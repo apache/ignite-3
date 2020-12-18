@@ -13,5 +13,8 @@ public interface PrimaryKeyBuilder {
      */
     PrimaryKeyBuilder withAffinityColumns(String... colNames);
 
+    /**
+     * @return Parent builder for chaning.
+     */
     SchemaTableBuilder done();
 }

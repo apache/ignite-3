@@ -2,6 +2,9 @@ package org.apache.ignite.schema;
 
 import java.util.Objects;
 
+/**
+ * Predefined column types.
+ */
 @SuppressWarnings("PublicInnerClass")
 public class ColumnType {
     /** 8-bit signed int. */

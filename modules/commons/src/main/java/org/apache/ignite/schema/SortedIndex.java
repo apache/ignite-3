@@ -2,6 +2,9 @@ package org.apache.ignite.schema;
 
 import java.util.Collection;
 
+/**
+ * Sorted index descriptor.
+ */
 public interface SortedIndex extends TableIndex {
     /**
      * @return Index inline size.

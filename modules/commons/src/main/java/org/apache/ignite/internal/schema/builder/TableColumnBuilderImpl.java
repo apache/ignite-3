@@ -33,7 +33,7 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
         return this;
     }
 
-    @Override public TableColumnBuilderImpl withName(String colName) {
+    TableColumnBuilderImpl withName(String colName) {
         this.colName = colName;
 
         return this;

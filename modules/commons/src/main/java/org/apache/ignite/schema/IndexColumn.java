@@ -1,5 +1,8 @@
 package org.apache.ignite.schema;
 
+/**
+ * Index column descriptor.
+ */
 public interface IndexColumn {
     /**
      * @return Column name.

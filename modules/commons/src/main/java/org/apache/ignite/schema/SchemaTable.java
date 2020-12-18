@@ -4,6 +4,9 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.schema.modification.SchemaModificationBuilder;
 
+/**
+ * Schema table descriptor.
+ */
 public interface SchemaTable {
     /**
      * @return Key columns.

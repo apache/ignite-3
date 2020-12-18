@@ -1,6 +1,5 @@
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.internal.schema.builder.SchemaTableBuilderImpl;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.builder.SchemaBuilders;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
@@ -11,7 +10,7 @@ public class SchemaConfigurationTest {
     @Test
     public void testInitialSchema() {
         //TODO: Do we need separate 'Schema builder' or left 'schema' name as kind of 'namespace'.
-        final SchemaTableBuilder builder = SchemaTableBuilderImpl.tableBuilder("PUBLIC", "table1");
+        final SchemaTableBuilder builder = SchemaBuilders.tableBuilder("PUBLIC", "table1");
 
         builder
             .columns()
@@ -34,7 +33,7 @@ public class SchemaConfigurationTest {
             // 'withIndex' single entry point allows extended index support.
             // E.g. we may want to support GEO indices later with some plugin.
             .withindex(
-                SchemaBuilders.sortedIndex("idx_1_sorted")
+                SchemaBuilders.sorted("idx_1_sorted")
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
                     .withInlineSize(42)
@@ -42,7 +41,7 @@ public class SchemaConfigurationTest {
             )
 
             .withindex(
-                SchemaBuilders.partialIndex("idx_2_partial")
+                SchemaBuilders.partial("idx_2_partial")
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
                     .withExpression("id > 0")
@@ -51,7 +50,7 @@ public class SchemaConfigurationTest {
             )
 
             .withindex(
-                SchemaBuilders.hashIndex("idx_3_hash")
+                SchemaBuilders.hash("idx_3_hash")
                     .withColumns("id", "affId")
                     .build()
             )

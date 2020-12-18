@@ -2,14 +2,21 @@ package org.apache.ignite.schema.builder;
 
 import org.apache.ignite.schema.SortedIndex;
 
-public interface SortedIndexBuilder extends IndexBuilder {
+/**
+ * Sorted index descriptor builder.
+ */
+public interface SortedIndexBuilder extends Builder {
     /**
+     * Sets inline size for index.
+     *
      * @param inlineSize Index max inline size.
      * @return {@code this} for chaining.
      */
     SortedIndexBuilder withInlineSize(int inlineSize);
 
     /**
+     * Adds column to index.
+     *
      * @param name Table column name.
      * @return Index builder.
      */
@@ -43,7 +50,7 @@ public interface SortedIndexBuilder extends IndexBuilder {
         SortedIndexColumnBuilder withName(String name);
 
         /**
-         * @return Parent builder.
+         * @return Parent builder for chaning.
          */
         SortedIndexBuilder done();
     }

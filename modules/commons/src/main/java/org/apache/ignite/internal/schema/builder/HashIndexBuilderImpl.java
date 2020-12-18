@@ -6,10 +6,8 @@ import org.apache.ignite.schema.builder.HashIndexBuilder;
 public class HashIndexBuilderImpl extends AbstractIndexBuilder implements HashIndexBuilder {
     protected String[] columns;
 
-    @Override public HashIndexBuilderImpl withName(String indexName) {
-        super.withName(indexName);
-
-        return this;
+    public HashIndexBuilderImpl(String indexName) {
+        super(indexName);
     }
 
     @Override public HashIndexBuilder withColumns(String... columns) {
