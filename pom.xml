@@ -31,8 +31,7 @@
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
         <junit.jupiter.version>5.7.0</junit.jupiter.version>
 
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
     </properties>
 
     <dependencies>
