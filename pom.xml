@@ -124,10 +124,6 @@
         </profile>
     </profiles>
 
-    <modules>
-        <module>modules/commons</module>
-    </modules>
-
     <dependencies>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -136,6 +132,14 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <modules>
+        <module>modules/configuration</module>
+        <module>modules/configuration-annotation-processor</module>
+        <module>modules/ignite-runner</module>
+        <module>modules/cli-demo</module>
+        <module>modules/commons</module>
+    </modules>
 
     <build>
         <plugins>
