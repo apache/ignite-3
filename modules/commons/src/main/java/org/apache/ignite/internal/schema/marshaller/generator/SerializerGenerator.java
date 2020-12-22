@@ -28,6 +28,7 @@ import com.squareup.javapoet.TypeSpec;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
 import javax.lang.model.element.Modifier;
 import jdk.jfr.Experimental;
