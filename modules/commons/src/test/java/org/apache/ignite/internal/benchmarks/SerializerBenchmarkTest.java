@@ -71,7 +71,7 @@ public class SerializerBenchmarkTest {
     private Factory<?> objectFactory;
 
     /** Object fields count. */
-    @Param({"0", "1", "10", "100"})
+    @Param({/*"0", "1", */"10", "100"})
     public int fieldsCount;
 
     /** Serializer. */

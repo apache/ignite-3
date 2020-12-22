@@ -58,6 +58,8 @@
 
         <!-- Maven plugins -->
         <maven.compiler.release>11</maven.compiler.release>
+        <maven.compiler.source>11</maven.compiler.source> <!-- Requires for correct compilation in IDEA. -->
+        <maven.compiler.target>11</maven.compiler.target>
 
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M4</maven.surefire.plugin.version>
