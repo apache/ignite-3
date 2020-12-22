@@ -17,12 +17,18 @@
 
 package org.apache.ignite.app;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.Serializable;
+import java.io.StringReader;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.rest.RestModule;
+import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.rest.old.RestModule;
 import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +49,24 @@ public class IgniteRunner {
     /** */
     private final static Logger log = LoggerFactory.getLogger(IgniteRunner.class);
 
+    /** */
+    private final static ConfigurationStorage STORAGE = new ConfigurationStorage() {
+        /** {@inheritDoc} */
+        @Override public <T extends Serializable> void save(String propertyName, T object) {
+
+        }
+
+        /** {@inheritDoc} */
+        @Override public <T extends Serializable> T get(String propertyName) {
+            return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override public <T extends Serializable> void listen(String key, Consumer<T> listener) {
+
+        }
+    };
+
     /**
      * It is possible to start application with a custom configuration in form of json file other than that in resources.
      *
@@ -55,13 +79,15 @@ public class IgniteRunner {
 
         ConfigurationModule confModule = new ConfigurationModule();
 
-        Reader confReader = null;
+        org.apache.ignite.rest.RestModule newRest = new org.apache.ignite.rest.RestModule(log);
+
+        BufferedReader confReader = null;
 
         try {
             if (args != null) {
                 for (int i = 0; i < args.length; i++) {
                     if (CONF_PARAM_NAME.equals(args[i]) && i + 1 < args.length) {
-                        confReader = new FileReader(args[i + 1]);
+                        confReader = new BufferedReader(new FileReader(args[i + 1]));
 
                         break;
                     }
@@ -69,20 +95,28 @@ public class IgniteRunner {
             }
 
             if (confReader == null) {
-                confReader = new InputStreamReader(
-                    IgniteRunner.class.getClassLoader().getResourceAsStream(DFLT_CONF_FILE_NAME));
+                confReader = new BufferedReader(new InputStreamReader(
+                    IgniteRunner.class.getClassLoader().getResourceAsStream(DFLT_CONF_FILE_NAME)));
             }
 
-            confModule.bootstrap(confReader);
+            StringBuilder bldr = new StringBuilder();
+
+            String str;
+
+            while ((str = confReader.readLine()) != null) {
+                bldr.append(str);
+            }
+
+            newRest.prepareStart(confModule.systemConfiguration(), new StringReader(bldr.toString()), STORAGE);
+
+            confModule.bootstrap(new StringReader(bldr.toString()), STORAGE);
         }
         finally {
             if (confReader != null)
                 confReader.close();
         }
 
-        RestModule rest = new RestModule(confModule, log);
-
-        rest.start();
+        newRest.start();
 
         ackSuccessStart();
     }

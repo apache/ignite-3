@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.rest.old;
 
 import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;

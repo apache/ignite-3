@@ -18,8 +18,6 @@
 package org.apache.ignite.configuration;
 
 import java.io.Reader;
-import java.io.Serializable;
-import java.util.function.Consumer;
 
 import org.apache.ignite.configuration.extended.InitLocal;
 import org.apache.ignite.configuration.extended.LocalConfigurationImpl;
@@ -45,28 +43,13 @@ public class ConfigurationModule {
     }
 
     /** */
-    private final ConfigurationStorage storage = new ConfigurationStorage() {
-        /** {@inheritDoc} */
-        @Override public <T extends Serializable> void save(String propertyName, T object) {
-
-        }
-
-        /** {@inheritDoc} */
-        @Override public <T extends Serializable> T get(String propertyName) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public <T extends Serializable> void listen(String key, Consumer<T> listener) {
-
-        }
-    };
-
-    /** */
     private Configurator<LocalConfigurationImpl> localConfigurator;
 
     /** */
-    public void bootstrap(Reader confReader) {
+    private final SystemConfiguration sysConf = new SystemConfiguration();
+
+    /** */
+    public void bootstrap(Reader confReader, ConfigurationStorage storage) {
         FormatConverter converter = new JsonConverter();
 
         Configurator<LocalConfigurationImpl> configurator =
@@ -78,5 +61,10 @@ public class ConfigurationModule {
     /** */
     public Configurator<LocalConfigurationImpl> localConfigurator() {
         return localConfigurator;
+    }
+
+    /** */
+    public SystemConfiguration systemConfiguration() {
+        return sysConf;
     }
 }
