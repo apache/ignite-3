@@ -20,9 +20,7 @@ package org.apache.ignite.cli.spec;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import com.github.freva.asciitable.AsciiTable;
@@ -106,7 +104,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
             var builtinModules = moduleManager.builtinModules()
                 .stream()
                 .filter(m -> !m.name.startsWith(ModuleManager.INTERNAL_MODULE_PREFIX))
-                .map(m -> new ModelView(m, installedModules.containsKey(m.name)));
+                .map(m -> new StandardModuleView(m, installedModules.containsKey(m.name)));
 
             String table = AsciiTable.getTable(builtinModules.collect(Collectors.toList()), Arrays.asList(
                 new Column().header("Name").dataAlign(HorizontalAlign.LEFT).with(m -> m.standardModuleDefinition.name),
@@ -131,11 +129,11 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
             }
         }
 
-        private static class ModelView {
+        private static class StandardModuleView {
             public final StandardModuleDefinition standardModuleDefinition;
             public final boolean installed;
 
-            public ModelView(StandardModuleDefinition standardModuleDefinition, boolean installed) {
+            public StandardModuleView(StandardModuleDefinition standardModuleDefinition, boolean installed) {
                 this.standardModuleDefinition = standardModuleDefinition;
                 this.installed = installed;
             }
