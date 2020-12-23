@@ -70,8 +70,9 @@ public class IgniteCliInterfaceTest {
         void init() {
             var initIgniteCommand = mock(InitIgniteCommand.class);
             applicationContext.registerSingleton(InitIgniteCommand.class, initIgniteCommand);
-            assertEquals(0, commandLine(applicationContext).execute("init"));
-            verify(initIgniteCommand).init(any());
+            CommandLine cli = commandLine(applicationContext);
+            assertEquals(0, cli.execute("init"));
+            verify(initIgniteCommand).init(any(), cli.getColorScheme());
         }
     }
 

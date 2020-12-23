@@ -24,14 +24,14 @@ import picocli.CommandLine;
 
 @CommandLine.Command(
     name = "config",
-    description = "Inspect and update Ignite cluster configuration.",
+    description = "Inspects and updates Ignite cluster configuration.",
     subcommands = {
         ConfigCommandSpec.GetConfigCommandSpec.class,
         ConfigCommandSpec.SetConfigCommandSpec.class
     }
 )
 public class ConfigCommandSpec extends CategorySpec {
-    @CommandLine.Command(name = "get", description = "Get current Ignite cluster configuration values.")
+    @CommandLine.Command(name = "get", description = "Gets current Ignite cluster configuration values.")
     public static class GetConfigCommandSpec extends CommandSpec {
 
         @Inject private ConfigurationClient configurationClient;
@@ -52,7 +52,7 @@ public class ConfigCommandSpec extends CategorySpec {
 
     @CommandLine.Command(
         name = "set",
-        description = "Update Ignite cluster configuration values."
+        description = "Updates Ignite cluster configuration values."
     )
     public static class SetConfigCommandSpec extends CommandSpec {
 
@@ -64,9 +64,8 @@ public class ConfigCommandSpec extends CategorySpec {
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
 
         @Override public void run() {
-            spec.commandLine().getOut().println(
-                configurationClient
-                    .set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), config));
+            configurationClient.set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), config,
+                spec.commandLine().getOut(), spec.commandLine().getColorScheme());
         }
     }
 
@@ -74,7 +73,7 @@ public class ConfigCommandSpec extends CategorySpec {
 
         @CommandLine.Option(
             names = "--node-endpoint",
-            description = "Ignite node REST API address and port number",
+            description = "Ignite server node's REST API address and port number",
             paramLabel = "host:port"
         )
         String endpoint;

@@ -30,9 +30,10 @@ import javax.inject.Singleton;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
-import org.apache.ignite.cli.IgnitePaths;
-import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.CliVersionInfo;
+import org.apache.ignite.cli.IgniteCLIException;
+import org.apache.ignite.cli.IgnitePaths;
+import picocli.CommandLine.Help.ColorScheme;
 
 @Singleton
 public class ModuleManager {
@@ -45,6 +46,7 @@ public class ModuleManager {
     public static final String INTERNAL_MODULE_PREFIX = "_";
 
     private PrintWriter out;
+    private ColorScheme cs;
 
     @Inject
     public ModuleManager(
@@ -62,14 +64,16 @@ public class ModuleManager {
         mavenArtifactResolver.setOut(out);
     }
 
+    public void setColorScheme(ColorScheme cs) {
+        this.cs = cs;
+    }
+
     public void addModule(String name, IgnitePaths ignitePaths, List<URL> repositories) {
         Path installPath = ignitePaths.libsDir();
         if (name.startsWith("mvn:")) {
             MavenCoordinates mavenCoordinates = MavenCoordinates.of(name);
 
             try {
-                out.println("Installing " + name + "...");
-
                 ResolveResult resolveResult = mavenArtifactResolver.resolve(
                     installPath,
                     mavenCoordinates.groupId,
@@ -77,13 +81,21 @@ public class ModuleManager {
                     mavenCoordinates.version,
                     repositories
                 );
+
+                String mvnName = String.join(":", mavenCoordinates.groupId,
+                    mavenCoordinates.artifactId, mavenCoordinates.version);
+
                 moduleStorage.saveModule(new ModuleStorage.ModuleDefinition(
-                    mavenCoordinates.groupId + ":" + mavenCoordinates.artifactId + ":" + mavenCoordinates.version,
+                    mvnName,
                     resolveResult.artifacts(),
                     new ArrayList<>(),
                     ModuleStorage.SourceType.Maven,
                     name
                 ));
+
+                out.println();
+                out.println("New Maven dependency successfully added. To remove, type: " +
+                    cs.commandText("ignite module remove ") + cs.parameterText(mvnName));
             }
             catch (IOException e) {
                 throw new IgniteCLIException("\nFailed to install " + name, e);

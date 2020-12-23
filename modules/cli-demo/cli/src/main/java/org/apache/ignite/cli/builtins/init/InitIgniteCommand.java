@@ -31,10 +31,12 @@ import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CliVersionInfo;
 import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.IgnitePaths;
+import org.apache.ignite.cli.Table;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine.Help.Ansi;
+import picocli.CommandLine.Help.ColorScheme;
 
 public class InitIgniteCommand {
 
@@ -52,7 +54,7 @@ public class InitIgniteCommand {
         this.cliPathsConfigLoader = cliPathsConfigLoader;
     }
 
-    public void init(PrintWriter out) {
+    public void init(PrintWriter out, ColorScheme cs) {
         moduleManager.setOut(out);
         Optional<IgnitePaths> ignitePathsOpt = cliPathsConfigLoader.loadIgnitePathsConfig();
         if (ignitePathsOpt.isEmpty()) {
@@ -62,14 +64,20 @@ public class InitIgniteCommand {
         out.print("Creating directories... ");
         cfg.initOrRecover();
         out.println(Ansi.AUTO.string("@|green,bold Done!|@"));
-        out.println("    Binaries directory: " + cfg.binDir);
-        out.println("    Work directory: " + cfg.workDir);
+
+        Table table = new Table(0, cs);
+
+        table.addRow("@|bold Binaries Directory|@", cfg.binDir);
+        table.addRow("@|bold Work Directory|@", cfg.workDir);
+
+        out.println(table);
         out.println();
-        out.println("Installing Apache Ignite ver. " + cliVersionInfo.version + "...");
+
         installIgnite(cfg);
         initDefaultServerConfigs(cfg.serverDefaultConfigFile());
         out.println();
-        out.println("Apache Ignite ver. " + cliVersionInfo.version + " is successfully installed.");
+        out.println("Apache Ignite is successfully initialized. Use the " +
+            cs.commandText("ignite node start") + " command to start a new local node.");
     }
 
     private void initDefaultServerConfigs(Path serverCfgFile) {
