@@ -17,17 +17,14 @@
 
 package org.apache.ignite.rest;
 
-import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import java.io.Reader;
 import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.SystemConfiguration;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.selector.SelectorNotFoundException;
 import org.apache.ignite.configuration.presentation.FormatConverter;
 import org.apache.ignite.configuration.presentation.json.JsonConverter;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.rest.configuration.InitRest;
 import org.apache.ignite.rest.configuration.RestConfigurationImpl;
 import org.apache.ignite.rest.configuration.Selectors;
@@ -64,7 +61,7 @@ public class RestModule {
         Configurator<RestConfigurationImpl> restConf = Configurator.create(storage, RestConfigurationImpl::new,
             converter.convertFrom(moduleConfReader, "rest", InitRest.class));
 
-        sysConfig.registerConfigurator(restConf);
+        sysConfig.registerConfigurator(restConf, s -> restConf.getPublic(Selectors.find(s)));
     }
 
     /** */
@@ -74,11 +71,24 @@ public class RestModule {
         FormatConverter converter = new JsonConverter();
 
         app.get(CONF_URL, ctx -> {
-            ctx.result("multiroot will be here soon");
+            ctx.result(converter.convertTo(sysConf.getAllConfigurators()));
         });
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
-            ctx.result("Echoing path param for now: " + ctx.pathParam(PATH_PARAM));
+            String configPath = ctx.pathParam(PATH_PARAM);
+
+            try {
+                String res = null;
+
+                res = converter.convertTo(sysConf.getConfigurationProperty(configPath));
+
+                ctx.result(res);
+            }
+            catch (SelectorNotFoundException selectorE) {
+                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
+
+                ctx.status(400).result(converter.convertTo("error", eRes));
+            }
         });
 
         app.post(CONF_URL, ctx -> {

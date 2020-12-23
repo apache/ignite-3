@@ -61,100 +61,100 @@ public class RestModule {
 
     /** */
     public void start() {
-        Configurator<LocalConfigurationImpl> configurator = confModule.localConfigurator();
-
-        Integer port = configurator.getPublic(Selectors.LOCAL_REST_PORT);
-        Integer portRange = configurator.getPublic(Selectors.LOCAL_REST_PORT_RANGE);
-        Javalin app = null;
-
-        if (portRange == null || portRange == 0) {
-            try {
-                app = Javalin.create().start(port != null ? port : DFLT_PORT);
-            }
-            catch (RuntimeException e) {
-                log.warn("Failed to start REST endpoint: ", e);
-
-                throw e;
-            }
-        }
-        else {
-            int startPort = port;
-
-            for (int portCandidate = startPort; portCandidate < startPort + portRange; portCandidate++) {
-                try {
-                    app = Javalin.create().start(portCandidate);
-                }
-                catch (RuntimeException ignored) {
-                    // No-op.
-                }
-
-                if (app != null)
-                    break;
-            }
-
-            if (app == null) {
-                String msg = "Cannot start REST endpoint. " +
-                    "All ports in range [" + startPort + ", " + (startPort + portRange) + ") are in use.";
-
-                log.warn(msg);
-
-                throw new RuntimeException(msg);
-            }
-        }
-
-        log.info("REST protocol started successfully on port " + app.port());
-
-        FormatConverter converter = new JsonConverter();
-
-        app.get(CONF_URL, ctx -> {
-            Local local = configurator.getRoot().value();
-
-            ctx.result(converter.convertTo("local", local));
-        });
-
-        app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
-            try {
-                Object subTree = configurator.getPublic(Selectors.find(ctx.pathParam(PATH_PARAM)));
-
-                String res = converter.convertTo(subTree);
-
-                ctx.result(res);
-            }
-            catch (SelectorNotFoundException selectorE) {
-                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-        });
-
-        app.post(CONF_URL, ctx -> {
-            try {
-                ChangeLocal local = converter.convertFrom(ctx.body(), "local", ChangeLocal.class);
-
-                configurator.set(Selectors.LOCAL, local);
-            }
-            catch (SelectorNotFoundException selectorE) {
-                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-            catch (ConfigurationValidationException validationE) {
-                ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-            catch (JsonSyntaxException e) {
-                String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-
-                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-            catch (Exception e) {
-                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-        });
+//        Configurator<LocalConfigurationImpl> configurator = confModule.localConfigurator();
+//
+//        Integer port = configurator.getPublic(Selectors.LOCAL_REST_PORT);
+//        Integer portRange = configurator.getPublic(Selectors.LOCAL_REST_PORT_RANGE);
+//        Javalin app = null;
+//
+//        if (portRange == null || portRange == 0) {
+//            try {
+//                app = Javalin.create().start(port != null ? port : DFLT_PORT);
+//            }
+//            catch (RuntimeException e) {
+//                log.warn("Failed to start REST endpoint: ", e);
+//
+//                throw e;
+//            }
+//        }
+//        else {
+//            int startPort = port;
+//
+//            for (int portCandidate = startPort; portCandidate < startPort + portRange; portCandidate++) {
+//                try {
+//                    app = Javalin.create().start(portCandidate);
+//                }
+//                catch (RuntimeException ignored) {
+//                    // No-op.
+//                }
+//
+//                if (app != null)
+//                    break;
+//            }
+//
+//            if (app == null) {
+//                String msg = "Cannot start REST endpoint. " +
+//                    "All ports in range [" + startPort + ", " + (startPort + portRange) + ") are in use.";
+//
+//                log.warn(msg);
+//
+//                throw new RuntimeException(msg);
+//            }
+//        }
+//
+//        log.info("REST protocol started successfully on port " + app.port());
+//
+//        FormatConverter converter = new JsonConverter();
+//
+//        app.get(CONF_URL, ctx -> {
+//            Local local = configurator.getRoot().value();
+//
+//            ctx.result(converter.convertTo("local", local));
+//        });
+//
+//        app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
+//            try {
+//                Object subTree = configurator.getPublic(Selectors.find(ctx.pathParam(PATH_PARAM)));
+//
+//                String res = converter.convertTo(subTree);
+//
+//                ctx.result(res);
+//            }
+//            catch (SelectorNotFoundException selectorE) {
+//                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
+//
+//                ctx.status(400).result(converter.convertTo("error", eRes));
+//            }
+//        });
+//
+//        app.post(CONF_URL, ctx -> {
+//            try {
+//                ChangeLocal local = converter.convertFrom(ctx.body(), "local", ChangeLocal.class);
+//
+//                configurator.set(Selectors.LOCAL, local);
+//            }
+//            catch (SelectorNotFoundException selectorE) {
+//                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
+//
+//                ctx.status(400).result(converter.convertTo("error", eRes));
+//            }
+//            catch (ConfigurationValidationException validationE) {
+//                ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
+//
+//                ctx.status(400).result(converter.convertTo("error", eRes));
+//            }
+//            catch (JsonSyntaxException e) {
+//                String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+//
+//                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
+//
+//                ctx.status(400).result(converter.convertTo("error", eRes));
+//            }
+//            catch (Exception e) {
+//                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+//
+//                ctx.status(400).result(converter.convertTo("error", eRes));
+//            }
+//        });
     }
 }

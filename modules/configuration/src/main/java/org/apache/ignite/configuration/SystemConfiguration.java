@@ -19,6 +19,8 @@ package org.apache.ignite.configuration;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 /** */
@@ -27,12 +29,35 @@ public class SystemConfiguration {
     private Map<String, Configurator<?>> configs = new HashMap<>();
 
     /** */
-    public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig) {
-        configs.put(unitConfig.getRoot().key(), unitConfig);
+    private Map<String, Function<String, Object>> selectorsMap = new HashMap<>();
+
+    /** */
+    public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig, Function<String, Object> selectors) {
+        String key = unitConfig.getRoot().key();
+
+        configs.put(key, unitConfig);
+
+        selectorsMap.put(key, selectors);
     }
 
     /** */
     public <T extends DynamicConfiguration<?, ?, ?>> Configurator<T> getConfigurator(String key) {
         return (Configurator<T>) configs.get(key);
+    }
+
+    /** */
+    public Object getConfigurationProperty(String propertyPath) {
+        String root = propertyPath.contains(".") ? propertyPath.substring(0, propertyPath.indexOf('.')) :
+            propertyPath;
+
+        return selectorsMap.get(root).apply(propertyPath);
+    }
+
+    /** */
+    public Map<String, Object> getAllConfigurators() {
+        return configs.entrySet().stream().collect(Collectors.toMap(
+            e -> e.getKey(),
+            e -> e.getValue().getRoot().value()
+        ));
     }
 }

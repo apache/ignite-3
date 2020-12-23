@@ -17,18 +17,16 @@
 
 package org.apache.ignite.app;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.Serializable;
 import java.io.StringReader;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.rest.old.RestModule;
+import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,7 +77,7 @@ public class IgniteRunner {
 
         ConfigurationModule confModule = new ConfigurationModule();
 
-        org.apache.ignite.rest.RestModule newRest = new org.apache.ignite.rest.RestModule(log);
+        RestModule restModule = new RestModule(log);
 
         BufferedReader confReader = null;
 
@@ -107,7 +105,7 @@ public class IgniteRunner {
                 bldr.append(str);
             }
 
-            newRest.prepareStart(confModule.systemConfiguration(), new StringReader(bldr.toString()), STORAGE);
+            restModule.prepareStart(confModule.systemConfiguration(), new StringReader(bldr.toString()), STORAGE);
 
             confModule.bootstrap(new StringReader(bldr.toString()), STORAGE);
         }
@@ -116,7 +114,7 @@ public class IgniteRunner {
                 confReader.close();
         }
 
-        newRest.start();
+        restModule.start();
 
         ackSuccessStart();
     }

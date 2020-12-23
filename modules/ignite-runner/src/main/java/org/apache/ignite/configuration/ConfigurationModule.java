@@ -35,7 +35,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorage;
 public class ConfigurationModule {
     static {
         try {
-            Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED.select(null);
+            Selectors.LOCAL_BASELINE.select(null);
         }
         catch (Throwable ignored) {
             // No-op.
@@ -56,6 +56,8 @@ public class ConfigurationModule {
             Configurator.create(storage, LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
 
         localConfigurator = configurator;
+
+        sysConf.registerConfigurator(configurator, s -> configurator.getPublic(Selectors.find(s)));
     }
 
     /** */
