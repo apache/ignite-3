@@ -62,18 +62,14 @@ public class InitIgniteCommand {
         out.print("Creating directories... ");
         cfg.initOrRecover();
         out.println(Ansi.AUTO.string("@|green,bold Done!|@"));
-        out.println("    Binaries directory: " + ignitePaths.binDir);
-        out.println("    Work directory: " + ignitePaths.workDir);
+        out.println("    Binaries directory: " + cfg.binDir);
+        out.println("    Work directory: " + cfg.workDir);
         out.println();
         out.println("Installing Apache Ignite ver. " + cliVersionInfo.version + "...");
         installIgnite(cfg);
-        out.println("Init default Ignite configs");
         initDefaultServerConfigs(cfg.serverDefaultConfigFile());
         out.println();
-        out.println("Apache Ignite ver. " + cliVersionInfo.version + " is successfully installed");
-        out.println(
-            "    Binaries directory: " + cfg.binDir + "\n" +
-            "    Work directory: " + cfg.workDir);
+        out.println("Apache Ignite ver. " + cliVersionInfo.version + " is successfully installed.");
     }
 
     private void initDefaultServerConfigs(Path serverCfgFile) {
