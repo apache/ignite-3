@@ -38,14 +38,15 @@ public class ConfigCommandSpec extends CategorySpec {
 
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
 
-        @CommandLine.Option(names = {"--subtree"},
-            description = "any text representation of hocon for querying considered subtree of config " +
-                "(example: local.baseline)")
-        private String subtree;
+        @CommandLine.Option(
+            names = "--selector",
+            description = "Configuration selector (example: local.baseline)"
+        )
+        private String selector;
 
         @Override public void run() {
             spec.commandLine().getOut().println(
-                configurationClient.get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), subtree));
+                configurationClient.get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), selector));
         }
     }
 
@@ -57,7 +58,7 @@ public class ConfigCommandSpec extends CategorySpec {
 
         @Inject private ConfigurationClient configurationClient;
 
-        @CommandLine.Parameters(paramLabel = "hocon-string", description = "any text representation of hocon config")
+        @CommandLine.Parameters(paramLabel = "hocon", description = "Configuration in Hocon format")
         private String config;
 
         @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
@@ -71,12 +72,17 @@ public class ConfigCommandSpec extends CategorySpec {
 
     private static class CfgHostnameOptions {
 
-        @CommandLine.Option(names = "--node-endpoint", required = true,
-            description = "host:port of node for configuration")
-        String cfgHostPort;
-
+        @CommandLine.Option(
+            names = "--node-endpoint",
+            description = "Ignite node REST API address and port number",
+            paramLabel = "host:port"
+        )
+        String endpoint;
 
         int port() {
+            if (endpoint == null)
+                return 8080;
+
             var hostPort = parse();
 
             try {
@@ -87,11 +93,11 @@ public class ConfigCommandSpec extends CategorySpec {
         }
 
         String host() {
-            return parse()[0];
+            return endpoint != null ? parse()[0] : "localhost";
         }
 
         private String[] parse() {
-            var hostPort = cfgHostPort.split(":");
+            var hostPort = endpoint.split(":");
             if (hostPort.length != 2)
                 throw new IgniteCLIException("Incorrect host:port pair provided " +
                     "(example of valid value 'localhost:8080')");

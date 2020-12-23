@@ -140,7 +140,7 @@ public class IgniteCliInterfaceTest {
                 commandLine(applicationContext).execute("module remove builtin-module".split(" "));
             verify(moduleManager).removeModule(moduleName);
             assertEquals(0, exitCode);
-            assertEquals("Module " + moduleName + " was removed successfully\n", out.toString());
+            assertEquals("Module " + moduleName + " was uninstalled successfully.\n", out.toString());
         }
 
         @Test
@@ -153,7 +153,7 @@ public class IgniteCliInterfaceTest {
                 commandLine(applicationContext).execute("module remove unknown-module".split(" "));
             verify(moduleManager).removeModule(moduleName);
             assertEquals(0, exitCode);
-            assertEquals("Module " + moduleName + " is not found\n", out.toString());
+            assertEquals("Nothing to do: module " + moduleName + " is not yet installed.\n", out.toString());
         }
 
         @Test
@@ -296,21 +296,20 @@ public class IgniteCliInterfaceTest {
 
             assertEquals(0, exitCode);
             verify(nodeManager).getRunningNodes(ignitePaths.workDir, ignitePaths.cliPidsDir());
-            assertEquals("No running nodes\n", out.toString());
+            assertEquals("Currently, there are no locally running nodes.\n\n" +
+                "Use the ignite node start command to start a new node.\n", out.toString());
         }
 
         @Test
         @DisplayName("classpath")
         void classpath() throws IOException {
-            when(nodeManager.classpath())
-                .thenReturn("classpath");
+            when(nodeManager.classpathItems()).thenReturn(Arrays.asList("item1", "item2"));
 
-            var exitCode =
-                commandLine(applicationContext).execute("node classpath".split(" "));
+            var exitCode = commandLine(applicationContext).execute("node classpath".split(" "));
 
             assertEquals(0, exitCode);
-            verify(nodeManager).classpath();
-            assertEquals("classpath\n", out.toString());
+            verify(nodeManager).classpathItems();
+            assertEquals("Current Ignite node classpath\n  item1\n  item2\n", out.toString());
         }
     }
 
@@ -359,7 +358,7 @@ public class IgniteCliInterfaceTest {
 
             var exitCode =
                 commandLine(applicationContext).execute(("config get --node-endpoint localhost:8081 " +
-                    "--subtree local.baseline").split(" "));
+                    "--selector local.baseline").split(" "));
 
             assertEquals(0, exitCode);
             verify(httpClient).send(
@@ -394,7 +393,7 @@ public class IgniteCliInterfaceTest {
                     r.bodyPublisher().get().contentLength() == expectedSentContent.getBytes().length &&
                     r.headers().firstValue("Content-Type").get().equals("application/json")),
                 any());
-            assertEquals("\n", out.toString());
+            assertEquals("Configuration successfully updated.\n", out.toString());
         }
 
         @Test
@@ -418,7 +417,7 @@ public class IgniteCliInterfaceTest {
                     r.bodyPublisher().get().contentLength() == expectedSentContent.getBytes().length &&
                     r.headers().firstValue("Content-Type").get().equals("application/json")),
                 any());
-            assertEquals("\n", out.toString());
+            assertEquals("Configuration successfully updated.\n", out.toString());
 
         }
     }

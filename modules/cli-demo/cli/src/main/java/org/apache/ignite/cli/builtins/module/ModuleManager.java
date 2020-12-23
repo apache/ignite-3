@@ -44,6 +44,8 @@ public class ModuleManager {
 
     public static final String INTERNAL_MODULE_PREFIX = "_";
 
+    private PrintWriter out;
+
     @Inject
     public ModuleManager(
         MavenArtifactResolver mavenArtifactResolver, CliVersionInfo cliVersionInfo,
@@ -55,6 +57,8 @@ public class ModuleManager {
     }
 
     public void setOut(PrintWriter out) {
+        this.out = out;
+
         mavenArtifactResolver.setOut(out);
     }
 
@@ -64,6 +68,8 @@ public class ModuleManager {
             MavenCoordinates mavenCoordinates = MavenCoordinates.of(name);
 
             try {
+                out.println("Installing " + name + "...");
+
                 ResolveResult resolveResult = mavenArtifactResolver.resolve(
                     installPath,
                     mavenCoordinates.groupId,
@@ -80,12 +86,9 @@ public class ModuleManager {
                 ));
             }
             catch (IOException e) {
-                throw new IgniteCLIException("Error during resolving maven module " + name, e);
+                throw new IgniteCLIException("\nFailed to install " + name, e);
             }
-
         }
-        else if (name.startsWith("file://"))
-            throw new RuntimeException("File urls is not implemented yet");
         else if (isStandardModuleName(name)) {
             StandardModuleDefinition moduleDescription = readBuiltinModules()
                 .stream()
@@ -104,7 +107,7 @@ public class ModuleManager {
                     ));
                 }
                 catch (IOException e) {
-                    throw new IgniteCLIException("Error during resolving standard module " + name, e);
+                    throw new IgniteCLIException("\nFailed to install an Ignite module: " + name, e);
                 }
             }
 
@@ -121,7 +124,7 @@ public class ModuleManager {
                     ));
                 }
                 catch (IOException e) {
-                    throw new IgniteCLIException("Error during resolving module " + name, e);
+                    throw new IgniteCLIException("\nFailed to install a module " + name, e);
                 }
             }
 

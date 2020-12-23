@@ -86,7 +86,7 @@ public class ConfigurationClient {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == HttpURLConnection.HTTP_OK)
-                return "";
+                return "Configuration successfully updated.";
             else
                 throw error("Fail to set configuration", response);
         }

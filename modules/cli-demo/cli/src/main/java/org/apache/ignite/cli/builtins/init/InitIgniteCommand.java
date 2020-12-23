@@ -34,6 +34,7 @@ import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.jetbrains.annotations.NotNull;
+import picocli.CommandLine.Help.Ansi;
 
 public class InitIgniteCommand {
 
@@ -55,20 +56,22 @@ public class InitIgniteCommand {
         moduleManager.setOut(out);
         Optional<IgnitePaths> ignitePathsOpt = cliPathsConfigLoader.loadIgnitePathsConfig();
         if (ignitePathsOpt.isEmpty()) {
-            out.println("Init ignite directories...");
+            out.print("Creating directories... ");
             IgnitePaths ignitePaths = initDirectories(out);
-            out.println("Download and install current ignite version...");
+            out.println(Ansi.AUTO.string("@|green,bold Done!|@"));
+            out.println("    Binaries directory: " + ignitePaths.binDir);
+            out.println("    Work directory: " + ignitePaths.workDir);
+            out.println();
+            out.println("Installing Apache Ignite ver. " + cliVersionInfo.version + "...");
             installIgnite(ignitePaths);
-            out.println("Init default Ignite configs");
             initDefaultServerConfigs();
             out.println();
-            out.println("Apache Ignite version " + cliVersionInfo.version + " sucessfully installed");
+            out.println("Apache Ignite ver. " + cliVersionInfo.version + " is successfully installed.");
         } else {
             IgnitePaths cfg = ignitePathsOpt.get();
-            out.println("Apache Ignite was initialized earlier\n" +
-                "Configuration file: " + cliPathsConfigLoader.searchConfigPathsFile().get() + "\n" +
-                "Ignite binaries dir: " + cfg.binDir + "\n" +
-                "Ignite work dir: " + cfg.workDir);
+            out.println("Apache Ignite is already installed.\n" +
+                "    Binaries directory: " + cfg.binDir + "\n" +
+                "    Work directory: " + cfg.workDir);
         }
     }
 
@@ -83,13 +86,12 @@ public class InitIgniteCommand {
     }
 
     private IgnitePaths initDirectories(PrintWriter out) {
-        File cfgFile = initConfigFile();
-        out.println("Configuration file initialized: " + cfgFile);
+        initConfigFile();
+
         IgnitePaths cfg = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
-        out.println("Ignite binaries dir: " + cfg.binDir);
-        out.println("Ignite work dir: " + cfg.workDir);
 
         File igniteWork = cfg.workDir.toFile();
+
         if (!(igniteWork.exists() || igniteWork.mkdirs()))
             throw new IgniteCLIException("Can't create working directory: " + cfg.workDir);
 

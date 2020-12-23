@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.spec;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
 import javax.inject.Inject;
@@ -27,6 +28,7 @@ import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.Table;
 import org.apache.ignite.cli.builtins.node.NodeManager;
 import picocli.CommandLine;
+import picocli.CommandLine.Help.Ansi;
 
 @CommandLine.Command(
     name = "node",
@@ -96,11 +98,16 @@ public class NodeCommandSpec extends CategorySpec {
         @Override public void run() {
             IgnitePaths paths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
 
-            List<NodeManager.RunningNode> nodes = nodeManager
-                .getRunningNodes(paths.workDir, paths.cliPidsDir());
+            List<NodeManager.RunningNode> nodes = nodeManager.getRunningNodes(paths.workDir, paths.cliPidsDir());
 
-            if (nodes.isEmpty())
-                spec.commandLine().getOut().println("No running nodes");
+            PrintWriter out = spec.commandLine().getOut();
+
+            if (nodes.isEmpty()) {
+                out.println("Currently, there are no locally running nodes.");
+                out.println();
+                out.println("Use the " + spec.commandLine().getColorScheme().commandText("ignite node start")
+                    + " command to start a new node.");
+            }
             else {
                 Table table = new Table(0, spec.commandLine().getColorScheme());
 
@@ -110,7 +117,7 @@ public class NodeCommandSpec extends CategorySpec {
                     table.addRow(node.pid, node.consistentId, node.logFile);
                 }
 
-                spec.commandLine().getOut().println(table);
+                out.println(table);
             }
         }
     }
@@ -122,7 +129,15 @@ public class NodeCommandSpec extends CategorySpec {
 
         @Override public void run() {
             try {
-                spec.commandLine().getOut().println(nodeManager.classpath());
+                List<String> items = nodeManager.classpathItems();
+
+                PrintWriter out = spec.commandLine().getOut();
+
+                out.println(Ansi.AUTO.string("@|bold Current Ignite node classpath|@"));
+
+                for (String item : items) {
+                    out.println("  " + item);
+                }
             }
             catch (IOException e) {
                 throw new IgniteCLIException("Can't get current classpath", e);

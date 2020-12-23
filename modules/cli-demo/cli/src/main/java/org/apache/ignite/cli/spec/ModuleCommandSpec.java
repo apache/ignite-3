@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.spec;
 
+import java.io.PrintWriter;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
@@ -75,10 +76,12 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
         public String moduleName;
 
         @Override public void run() {
+            PrintWriter out = spec.commandLine().getOut();
+
             if (moduleManager.removeModule(moduleName))
-                spec.commandLine().getOut().println("Module " + moduleName + " was removed successfully");
+                out.println("Module " + moduleName + " was uninstalled successfully.");
             else
-                spec.commandLine().getOut().println("Module " + moduleName + " is not found");
+                out.println("Nothing to do: module " + moduleName + " is not yet installed.");
         }
     }
 
