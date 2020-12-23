@@ -63,7 +63,11 @@ public class ModuleStorage {
     }
 
     public ModuleDefinitionsRegistry listInstalled() {
-        if (!moduleFile().toFile().exists())
+        var moduleFileAvailable =
+            cliPathsConfigLoader.loadIgnitePathsConfig()
+                .map(p -> p.installedModulesFile().toFile().exists())
+                .orElse(false);
+        if (!moduleFileAvailable)
             return new ModuleDefinitionsRegistry(new ArrayList<>());
         else {
             ObjectMapper objectMapper = new ObjectMapper();
