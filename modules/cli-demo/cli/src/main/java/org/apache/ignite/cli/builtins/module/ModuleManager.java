@@ -78,7 +78,7 @@ public class ModuleManager {
                     repositories
                 );
                 moduleStorage.saveModule(new ModuleStorage.ModuleDefinition(
-                    name,
+                    mavenCoordinates.groupId + ":" + mavenCoordinates.artifactId + ":" + mavenCoordinates.version,
                     resolveResult.artifacts(),
                     new ArrayList<>(),
                     ModuleStorage.SourceType.Maven,
@@ -133,7 +133,7 @@ public class ModuleManager {
                     name,
                     libsResolveResults.stream().flatMap(r -> r.artifacts().stream()).collect(Collectors.toList()),
                     cliResolvResults.stream().flatMap(r -> r.artifacts().stream()).collect(Collectors.toList()),
-                    ModuleStorage.SourceType.Maven,
+                    ModuleStorage.SourceType.Standard,
                     name
                 ));
             }
