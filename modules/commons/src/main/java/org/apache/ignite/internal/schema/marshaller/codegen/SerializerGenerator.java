@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller.generator;
+package org.apache.ignite.internal.schema.marshaller.codegen;
 
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
@@ -28,7 +28,6 @@ import com.squareup.javapoet.TypeSpec;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
 import javax.lang.model.element.Modifier;
 import jdk.jfr.Experimental;
@@ -71,8 +70,8 @@ public class SerializerGenerator implements SerializerFactory {
             generation = System.nanoTime() - generation;
 
             //TODO: pass code to logger on trace level.
-            System.out.println("Serializer code generated in " + TimeUnit.NANOSECONDS.toMicros(generation) + "us");
-                        System.out.println(javaFile.toString());
+//            System.out.println("Serializer code generated in " + TimeUnit.NANOSECONDS.toMicros(generation) + "us");
+//                        System.out.println(javaFile.toString());
 
             // Compile.
             long compilation = System.nanoTime();
@@ -87,7 +86,7 @@ public class SerializerGenerator implements SerializerFactory {
                 .newInstance(schema, keyClass, valClass);
 
         }
-        catch (InstantiationException | ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+        catch (InstantiationException | ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e){
             throw new IllegalStateException("Failed to create serializer for key-value pair: schemaVer=" + schema.version() +
                 ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }

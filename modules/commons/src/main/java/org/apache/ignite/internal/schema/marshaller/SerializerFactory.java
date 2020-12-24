@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.generator.SerializerGenerator;
+import org.apache.ignite.internal.schema.marshaller.codegen.SerializerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
 import org.apache.ignite.lang.IgniteExperimental;
-import org.jetbrains.annotations.ApiStatus;
 
 /**
  * (De)Serializer factory interface.

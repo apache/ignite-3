@@ -47,6 +47,11 @@
             <artifactId>javapoet</artifactId>
             <version>${javapoet.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-bytecode</artifactId>
+            <version>${prestodb.version}</version>
+        </dependency>
 
         <!-- Test dependencies -->
         <dependency>

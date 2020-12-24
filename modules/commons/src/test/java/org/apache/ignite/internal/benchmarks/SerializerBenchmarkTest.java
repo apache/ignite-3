@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.CompilerUtils;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
+import org.apache.ignite.internal.schema.marshaller.asm.AsmSerializerGenerator;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -71,11 +72,11 @@ public class SerializerBenchmarkTest {
     private Factory<?> objectFactory;
 
     /** Object fields count. */
-    @Param({/*"0", "1", */"10", "100"})
+    @Param({"0", "1", "10", "100"})
     public int fieldsCount;
 
     /** Serializer. */
-    @Param({"Generated", "Java"})
+    @Param({"Generated", "ASM", "Java"})
     public String serializerName;
 
     /**
@@ -93,7 +94,7 @@ public class SerializerBenchmarkTest {
      * @throws Exception If failed.
      */
     @Setup
-    public void init() throws Exception {
+    public void init() {
         Thread.currentThread().setContextClassLoader(CompilerUtils.dynamicClassLoader());
 
         long seed = System.currentTimeMillis();
@@ -117,6 +118,8 @@ public class SerializerBenchmarkTest {
 
         if ("Java".equals(serializerName))
             serializer = SerializerFactory.createJavaSerializerFactory().create(schema, Long.class, valClass);
+        else if ("ASM".equals(serializerName))
+            serializer = new AsmSerializerGenerator().create(schema, Long.class, valClass);
         else
             serializer = SerializerFactory.createGeneratedSerializerFactory().create(schema, Long.class, valClass);
     }
@@ -169,7 +172,6 @@ public class SerializerBenchmarkTest {
      * @param maxFields Max class member fields.
      * @param fieldType Field type.
      * @return Generated test object class.
-     * @throws Exception If failed.
      */
     private Class<?> createGeneratedObjectClass(int maxFields, Class<?> fieldType) {
         final String packageName = "org.apache.ignite.internal.benchmarks";

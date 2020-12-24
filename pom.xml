@@ -50,6 +50,7 @@
 
         <!-- Dependencies versions. -->
         <javapoet.version>1.13.0</javapoet.version>
+        <prestodb.version>0.245</prestodb.version>
         <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
         <jmh.framework.verion>1.9.3</jmh.framework.verion>
