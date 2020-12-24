@@ -22,6 +22,7 @@ import java.io.Reader;
 import com.google.gson.Gson;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.ignite.configuration.presentation.FormatConverter;
 
 /** */
@@ -41,6 +42,15 @@ public class JsonConverter implements FormatConverter {
         res.put(rootName, src);
 
         return gson.toJson(res);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String rootName(String source) {
+        Map<String, Object> map = gson.fromJson(source, Map.class);
+
+        Optional<String> firstOpt = map.keySet().stream().findFirst();
+
+        return firstOpt.isPresent() ? firstOpt.get() : null;
     }
 
     /** {@inheritDoc} */

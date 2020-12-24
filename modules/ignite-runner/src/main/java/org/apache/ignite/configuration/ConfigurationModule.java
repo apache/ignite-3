@@ -19,6 +19,7 @@ package org.apache.ignite.configuration;
 
 import java.io.Reader;
 
+import org.apache.ignite.configuration.extended.ChangeLocal;
 import org.apache.ignite.configuration.extended.InitLocal;
 import org.apache.ignite.configuration.extended.LocalConfigurationImpl;
 import org.apache.ignite.configuration.extended.Selectors;
@@ -57,7 +58,17 @@ public class ConfigurationModule {
 
         localConfigurator = configurator;
 
-        sysConf.registerConfigurator(configurator, s -> configurator.getPublic(Selectors.find(s)));
+        sysConf.registerConfigurator(
+            configurator,
+            s -> configurator.getPublic(Selectors.find(s)),
+            s -> {
+                ChangeLocal chLoc = converter.convertFrom(s, "local", ChangeLocal.class);
+
+                configurator.set(Selectors.LOCAL, chLoc);
+
+                return null;
+            }
+        );
     }
 
     /** */

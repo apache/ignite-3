@@ -32,12 +32,20 @@ public class SystemConfiguration {
     private Map<String, Function<String, Object>> selectorsMap = new HashMap<>();
 
     /** */
-    public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig, Function<String, Object> selectors) {
+    private Map<String, Function<String, Void>> updatersMap = new HashMap<>();
+
+    /** */
+    public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig,
+        Function<String, Object> selectors,
+        Function<String, Void> updater
+    ) {
         String key = unitConfig.getRoot().key();
 
         configs.put(key, unitConfig);
 
         selectorsMap.put(key, selectors);
+
+        updatersMap.put(key, updater);
     }
 
     /** */
@@ -51,6 +59,16 @@ public class SystemConfiguration {
             propertyPath;
 
         return selectorsMap.get(root).apply(propertyPath);
+    }
+
+    /** */
+    public void updateConfigurationProperty(String rootName, String updateRequest) {
+        Function<String, Void> func = updatersMap.get(rootName);
+
+        if (func != null)
+            func.apply(updateRequest);
+        else
+            throw new RuntimeException("Unknown configuration: " + rootName);
     }
 
     /** */

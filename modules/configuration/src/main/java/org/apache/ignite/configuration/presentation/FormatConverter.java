@@ -28,6 +28,9 @@ public interface FormatConverter {
     String convertTo(String rootName, Object obj);
 
     /** */
+    String rootName(String source);
+
+    /** */
     <T> T convertFrom(String source, String rootName, Class<T> clazz);
 
     /** */
