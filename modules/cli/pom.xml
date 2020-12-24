@@ -103,11 +103,7 @@
             <artifactId>micronaut-inject-java</artifactId>
             <version>${micronaut.version}</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>io.micronaut</groupId>-->
-<!--            <artifactId>micronaut-core</artifactId>-->
-<!--            <version>${micronaut.version}</version>-->
-<!--        </dependency>-->
+
         <dependency>
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
@@ -178,23 +174,23 @@
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <id>test-compile</id>-->
-<!--                        <goals>-->
-<!--                            <goal>testCompile</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <annotationProcessorPaths>-->
-<!--                                <path>-->
-<!--                                    <groupId>io.micronaut</groupId>-->
-<!--                                    <artifactId>micronaut-inject-java</artifactId>-->
-<!--                                    <version>${micronaut.version}</version>-->
-<!--                                </path>-->
-<!--                            </annotationProcessorPaths>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
+                <executions>
+                    <execution>
+                        <id>test-compile</id>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>io.micronaut</groupId>
+                                    <artifactId>micronaut-inject-java</artifactId>
+                                    <version>${micronaut.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>
@@ -237,7 +233,7 @@
                         <configuration>
                             <headerType>console</headerType>
                             <jar>${project.build.directory}/ignite.jar</jar>
-                            <outfile>target/ignite.exe</outfile>
+                            <outfile>${project.build.directory}/ignite.exe</outfile>
                             <jre>
                                 <path>%JAVA_HOME%</path>
                                 <minVersion>11</minVersion>
