@@ -27,6 +27,7 @@
         <groupId>org.apache.ignite</groupId>
         <artifactId>apache-ignite</artifactId>
         <version>3.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>ignite-cli</artifactId>
