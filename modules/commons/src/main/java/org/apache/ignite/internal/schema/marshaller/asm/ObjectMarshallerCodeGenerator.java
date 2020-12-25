@@ -31,7 +31,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
@@ -50,7 +50,11 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** Object field access expression generators. */
     private final TupleColumnAccessCodeGenerator[] columnAccessors;
 
-    public ObjectMarshallerCodeGenerator(Columns columns, Class<?> tClass, int firstColIdx) {
+    public ObjectMarshallerCodeGenerator(
+        Columns columns,
+        Class<?> tClass,
+        int firstColIdx
+    ) {
         this.columns = columns;
         this.tClass = tClass;
         columnAccessors = new TupleColumnAccessCodeGenerator[columns.length()];
@@ -68,29 +72,38 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     }
 
     /** {@inheritDoc} */
+    @Override public boolean isSimpleType() {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Class<?> targetClass() {
+        return tClass;
+    }
+
+    /** {@inheritDoc} */
     @Override public BytecodeNode getValue(ParameterizedType serializerClass, Variable obj,
         int i) {
         final TupleColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
         return BytecodeExpressions.getStatic(serializerClass, "FIELD_HANDER_" + columnAccessor.columnIdx(), ParameterizedType.type(VarHandle.class))
-            .invoke("get", columnAccessor.mappedType(), obj.cast(tClass));
+            .invoke("get", columnAccessor.mappedType(), obj);
     }
 
     /** {@inheritDoc} */
     @Override public BytecodeBlock marshallObject(ParameterizedType serializerClass, Variable asm, Variable obj) {
         final BytecodeBlock block = new BytecodeBlock();
-        final BytecodeExpression obj0 = obj.cast(tClass);
 
         for (int i = 0; i < columns.length(); i++) {
             final TupleColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
             final BytecodeExpression fld = BytecodeExpressions.getStatic(serializerClass, "FIELD_HANDER_" + columnAccessor.columnIdx(), ParameterizedType.type(VarHandle.class))
-                .invoke("get", columnAccessor.mappedType(), obj0);
+                .invoke("get", columnAccessor.mappedType(), obj);
 
             final BytecodeExpression marshallNonNulExpr = asm.invoke(
                 columnAccessor.writeMethodName(),
                 void.class,
-                Arrays.asList(columnAccessor.writeArgType()),
+                Collections.singletonList(columnAccessor.writeArgType()),
                 fld.cast(columnAccessor.writeArgType()));
 
             if (columns.column(i).nullable())
@@ -109,9 +122,6 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** {@inheritDoc} */
     @Override public BytecodeBlock unmarshallObject(ParameterizedType serializerClass, Variable tuple, Variable obj) {
         final BytecodeBlock block = new BytecodeBlock();
-        final BytecodeExpression obj0 = obj.cast(tClass);
-
-        block.append(obj.set(BytecodeExpressions.newInstance(tClass)));
 
         for (int i = 0; i < columns.length(); i++) {
             final TupleColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
@@ -123,7 +133,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             );
 
             block.append(BytecodeExpressions.getStatic(serializerClass, "FIELD_HANDER_" + columnAccessor.columnIdx(), ParameterizedType.type(VarHandle.class))
-                .invoke("set", void.class, obj0, val)
+                .invoke("set", void.class, obj, val)
             );
         }
 
@@ -131,11 +141,18 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     }
 
     /** {@inheritDoc} */
-    @Override public void initStaticHandlers(ClassDefinition classDef) {
+    @Override public void initStaticHandlers(ClassDefinition classDef, FieldDefinition tClassField) {
         final MethodDefinition init = classDef.getClassInitializer();
-
-        final BytecodeBlock body = init.getBody();
         final Variable lookup = init.getScope().createTempVariable(MethodHandles.Lookup.class);
+
+        final BytecodeBlock body = init.getBody().append(
+            BytecodeExpressions.setStatic(
+                tClassField,
+                BytecodeExpressions.invokeStatic(Class.class, "forName", Class.class, BytecodeExpressions.constantString(tClass.getName()))
+            ));
+
+        if (isSimpleType())
+            return;
 
         body.append(
             lookup.set(
@@ -143,7 +160,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                     MethodHandles.class,
                     "privateLookupIn",
                     MethodHandles.Lookup.class,
-                    BytecodeExpressions.constantClass(tClass),
+                    BytecodeExpressions.getStatic(tClassField),
                     BytecodeExpressions.invokeStatic(MethodHandles.class, "lookup", MethodHandles.Lookup.class))
             ));
 
@@ -155,7 +172,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                 BytecodeExpressions.setStatic(fld, lookup.invoke(
                     "findVarHandle",
                     VarHandle.class,
-                    BytecodeExpressions.constantClass(tClass),
+                    BytecodeExpressions.getStatic(tClassField),
                     BytecodeExpressions.constantString(columns.column(i).name()),
                     BytecodeExpressions.constantClass(columnAccessors[i].mappedType())
                 ))

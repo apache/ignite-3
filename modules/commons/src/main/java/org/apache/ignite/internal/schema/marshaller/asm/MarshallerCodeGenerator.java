@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.marshaller.asm;
 
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 
@@ -26,6 +27,16 @@ import com.facebook.presto.bytecode.Variable;
  * Marshaller code generator.
  */
 public interface MarshallerCodeGenerator {
+    /**
+     * @return {@code true} if it is simple object marshaller, {@code false} otherwise.
+     */
+    boolean isSimpleType();
+
+    /**
+     * @return Target class.
+     */
+    Class<?> targetClass();
+
     /**
      * @param serializerClass Serializer type.
      * @param obj Target object variable.
@@ -52,8 +63,9 @@ public interface MarshallerCodeGenerator {
 
     /**
      * @param classDef Class definition.
+     * @param tClassField Target class field definition.
      */
-    default void initStaticHandlers(ClassDefinition classDef) {
+    default void initStaticHandlers(ClassDefinition classDef, FieldDefinition tClassField) {
 
     }
 }

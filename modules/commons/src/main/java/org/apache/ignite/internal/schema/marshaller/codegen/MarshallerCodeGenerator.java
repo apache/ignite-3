@@ -51,14 +51,8 @@ interface MarshallerCodeGenerator {
 
     /**
      * @param classBuilder Class builder.
+     * @param tClassExpr Target class expression.
      * @param staticInitBuilder Static initializer builder.
      */
-    void initStaticHandlers(TypeSpec.Builder classBuilder, CodeBlock.Builder staticInitBuilder);
-
-    /**
-     * @return Marshaller target class.
-     */
-    default Class<?> getClazz() {
-        return null;
-    }
+    void initStaticHandlers(TypeSpec.Builder classBuilder, String tClassExpr, CodeBlock.Builder staticInitBuilder);
 }

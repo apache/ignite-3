@@ -230,8 +230,8 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, new Columns(cols), new Columns(cols.clone()));
 
-        final Object key = PrivateTestObject.randomObject(rnd);
-        final Object val = PrivateTestObject.randomObject(rnd);
+        final Object key = PrivateContructorTestObject.randomObject(rnd);
+        final Object val = PrivateContructorTestObject.randomObject(rnd);
 
         Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
@@ -262,10 +262,33 @@ public class JavaSerializerTest {
         final Object key = WrongTestObject.randomObject(rnd);
         final Object val = WrongTestObject.randomObject(rnd);
 
-        assertThrows(IllegalStateException.class,
-            () -> factory.create(schema, key.getClass(), val.getClass()),
-            "Class has no default constructor: class=org.apache.ignite.internal.schema.marshaller.JavaSerializerTest$WrongTestObject"
-        );
+        assertThrows(IllegalStateException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
+    }
+
+    /**
+     *
+     */
+    @ParameterizedTest
+    @MethodSource("serializerFactoryProvider")
+    public void testPrivateClass(SerializerFactory factory) throws SerializationException {
+        Column[] cols = new Column[] {
+            new Column("pLongCol", LONG, false),
+        };
+
+        SchemaDescriptor schema = new SchemaDescriptor(1, new Columns(cols), new Columns(cols.clone()));
+
+        final Object key = PrivateTestObject.randomObject(rnd);
+        final Object val = PrivateTestObject.randomObject(rnd);
+
+        final ObjectFactory<?> objFactory = new ObjectFactory<>(PrivateTestObject.class);
+        final Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
+        byte[] bytes = serializer.serialize(key, objFactory.create());
+
+        Object key1 = serializer.deserializeKey(bytes);
+        Object val1 = serializer.deserializeValue(bytes);
+
+        assertTrue(key.getClass().isInstance(key1));
+        assertTrue(val.getClass().isInstance(val1));
     }
 
     /**
@@ -498,12 +521,12 @@ public class JavaSerializerTest {
     /**
      * Test object with private constructor.
      */
-    public static class PrivateTestObject {
+    public static class PrivateContructorTestObject {
         /**
          * @return Random TestObject.
          */
-        static PrivateTestObject randomObject(Random rnd) {
-            final PrivateTestObject obj = new PrivateTestObject();
+        static PrivateContructorTestObject randomObject(Random rnd) {
+            final PrivateContructorTestObject obj = new PrivateContructorTestObject();
 
             obj.pLongCol = rnd.nextLong();
 
@@ -516,7 +539,7 @@ public class JavaSerializerTest {
         /**
          * Private constructor.
          */
-        private PrivateTestObject() {
+        private PrivateContructorTestObject() {
         }
 
         /** {@inheritDoc} */
@@ -527,7 +550,7 @@ public class JavaSerializerTest {
             if (o == null || getClass() != o.getClass())
                 return false;
 
-            PrivateTestObject object = (PrivateTestObject)o;
+            PrivateContructorTestObject object = (PrivateContructorTestObject)o;
 
             return pLongCol == object.pLongCol;
         }
@@ -541,7 +564,7 @@ public class JavaSerializerTest {
     /**
      * Test object without default constructor.
      */
-    private static class WrongTestObject {
+    public static class WrongTestObject {
         /**
          * @return Random TestObject.
          */
@@ -555,7 +578,51 @@ public class JavaSerializerTest {
         /**
          * Private constructor.
          */
-        private WrongTestObject(long val) {
+        public WrongTestObject(long val) {
+            pLongCol = val;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            WrongTestObject object = (WrongTestObject)o;
+
+            return pLongCol == object.pLongCol;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return Objects.hash(pLongCol);
+        }
+    }
+
+    /**
+     * Test object without default constructor.
+     */
+    private static class PrivateTestObject {
+        /**
+         * @return Random TestObject.
+         */
+        static PrivateTestObject randomObject(Random rnd) {
+            return new PrivateTestObject(rnd.nextInt());
+        }
+
+        /** Value. */
+        private long pLongCol;
+
+        /** Contructor. */
+        public PrivateTestObject() {
+        }
+
+        /**
+         * Private constructor.
+         */
+        public PrivateTestObject(long val) {
             pLongCol = val;
         }
 

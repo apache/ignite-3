@@ -21,16 +21,17 @@ import com.facebook.presto.bytecode.Access;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.ClassGenerator;
+import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.io.StringWriter;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * {@link Serializer} code generator.
@@ -68,6 +68,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
         Class<?> keyClass,
         Class<?> valClass
     ) {
+        final boolean isDebugEnabled = true; // log.isDebugEnabled();
         final String className = SERIALIZER_CLASS_NAME_PREFIX + schema.version();
 
         final StringWriter writer = new StringWriter();
@@ -80,34 +81,58 @@ public class AsmSerializerGenerator implements SerializerFactory {
             long compilationTime = System.nanoTime();
             generation = compilationTime - generation;
 
-            final Class<? extends Serializer> aClass = ClassGenerator.classGenerator(getClassLoader())
-                .fakeLineNumbers(true)
-                .runAsmVerifier(true)
-                .dumpRawBytecode(true)
-                .dumpClassFilesTo(Paths.get("./target"))
-//                .outputTo(writer)
-                .defineClass(classDef, Serializer.class);
+            final ClassGenerator generator = ClassGenerator.classGenerator(getClassLoader());
+
+            if (isDebugEnabled) {
+                generator.outputTo(writer)
+                    .fakeLineNumbers(true)
+                    .runAsmVerifier(true)
+                    .dumpRawBytecode(true);
+            }
+
+            final Class<? extends Serializer> aClass = generator.defineClass(classDef, Serializer.class);
 
             compilationTime = System.nanoTime() - compilationTime;
 
-            //TODO: pass code to logger on trace level.
-            System.out.println("Serializer created: generated=" + TimeUnit.NANOSECONDS.toMicros(generation) + "us\n" +
-                ", compiled=" + TimeUnit.NANOSECONDS.toMicros(compilationTime) + "us\n" +
-                writer.toString());
+            if (isDebugEnabled) //TODO: pass code to logger on debug level.
+                System.out.println("ASM serializer created: generated=" + TimeUnit.NANOSECONDS.toMicros(generation) + "us" +
+                    ", compiled=" + TimeUnit.NANOSECONDS.toMicros(compilationTime) + "us." + writer.toString());
 
             // Instantiate serializer.
-            return aClass.getDeclaredConstructor(SchemaDescriptor.class, Class.class, Class.class)
-                .newInstance(schema, keyClass, valClass);
+            return aClass
+                .getDeclaredConstructor(
+                    SchemaDescriptor.class,
+                    ObjectFactory.class,
+                    ObjectFactory.class)
+                .newInstance(
+                    schema,
+                    MarshallerUtil.factoryForClass(keyClass),
+                    MarshallerUtil.factoryForClass(valClass));
 
         }
-        catch (Exception e) {
+        catch (Exception | LinkageError e) {
             throw new IllegalStateException("Failed to create serializer for key-value pair: schemaVer=" + schema.version() +
                 ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName() + " code=\n" + writer.toString(), e);
         }
     }
 
-    @NotNull private ClassDefinition generateSerializerClass(String className,
-        SchemaDescriptor schema, Class<?> keyClass, Class<?> valClass) throws ReflectiveOperationException {
+    /**
+     * Generates serializer class definition.
+     *
+     * @param className Serializer class name.
+     * @param schema Schema descriptor.
+     * @param keyClass Key class.
+     * @param valClass Value class.
+     * @return Generated java class definition.
+     */
+    private ClassDefinition generateSerializerClass(
+        String className,
+        SchemaDescriptor schema,
+        Class<?> keyClass,
+        Class<?> valClass
+    ) {
+        MarshallerCodeGenerator keyMarsh = createMarshaller(keyClass, schema.keyColumns(), 0);
+        MarshallerCodeGenerator valMarsh = createMarshaller(valClass, schema.valueColumns(), schema.keyColumns().length());
 
         final ClassDefinition classDef = new ClassDefinition(
             EnumSet.of(Access.PUBLIC),
@@ -117,12 +142,15 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
         classDef.declareAnnotation(Generated.class).setValue("value", getClass().getCanonicalName());
 
-        MarshallerCodeGenerator keyMarsh = createMarshaller(keyClass, schema.keyColumns(), 0);
-        MarshallerCodeGenerator valMarsh = createMarshaller(valClass, schema.valueColumns(), schema.keyColumns().length());
+        final FieldDefinition keyClassField = classDef.declareField(EnumSet.of(Access.PRIVATE, Access.STATIC, Access.FINAL),
+            "KEY_CLASS", Class.class);
+        final FieldDefinition valueClassField = classDef.declareField(EnumSet.of(Access.PRIVATE, Access.STATIC, Access.FINAL),
+            "VALUE_CLASS", Class.class);
 
-        generateStaticHandlers(classDef, keyMarsh, valMarsh);
+        keyMarsh.initStaticHandlers(classDef, keyClassField);
+        valMarsh.initStaticHandlers(classDef, valueClassField);
 
-        generateConstructor(classDef);
+        generateFieldsAndConstructor(classDef);
         generateAssemblerFactoryMethod(classDef, schema, keyMarsh, valMarsh);
 
         generateSerializeMethod(classDef, keyMarsh, valMarsh);
@@ -132,46 +160,66 @@ public class AsmSerializerGenerator implements SerializerFactory {
         return classDef;
     }
 
-    private void generateStaticHandlers(
-        ClassDefinition classDef,
-        MarshallerCodeGenerator keyMarsh,
-        MarshallerCodeGenerator valMarsh
+    /**
+     * Creates marshaller code generator for given class.
+     *
+     * @param tClass Target class.
+     * @param columns Columns that tClass mapped to.
+     * @param firstColIdx First column absolute index in schema.
+     * @return Marshaller code generator.
+     */
+    private static MarshallerCodeGenerator createMarshaller(
+        Class<?> tClass,
+        Columns columns,
+        int firstColIdx
     ) {
-        keyMarsh.initStaticHandlers(classDef);
-        valMarsh.initStaticHandlers(classDef);
-    }
-
-    @NotNull
-    private static MarshallerCodeGenerator createMarshaller(Class<?> tClass, Columns columns, int firstColumnIdx) {
         final BinaryMode mode = MarshallerUtil.mode(tClass);
 
         if (mode == null)
-            return new ObjectMarshallerCodeGenerator(columns, tClass, firstColumnIdx);
+            return new ObjectMarshallerCodeGenerator(columns, tClass, firstColIdx);
         else
-            return new IdentityMarshallerCodeGenerator(TupleColumnAccessCodeGenerator.createAccessor(mode, firstColumnIdx));
+            return new IdentityMarshallerCodeGenerator(tClass, TupleColumnAccessCodeGenerator.createAccessor(mode, firstColIdx));
     }
 
-    private void generateConstructor(ClassDefinition classDef) {
+    /**
+     * Generates fields and constructor.
+     *
+     * @param classDef Serializer class definition.
+     */
+    private void generateFieldsAndConstructor(ClassDefinition classDef) {
+        classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "keyFactory", ParameterizedType.type(ObjectFactory.class));
+        classDef.declareField(EnumSet.of(Access.PRIVATE, Access.FINAL), "valFactory", ParameterizedType.type(ObjectFactory.class));
+
         final MethodDefinition constrDef = classDef.declareConstructor(
             EnumSet.of(Access.PUBLIC),
             Parameter.arg("schema", SchemaDescriptor.class),
-            Parameter.arg("keyClass", Class.class),
-            Parameter.arg("valClass", Class.class)
+            Parameter.arg("keyFactory", ParameterizedType.type(ObjectFactory.class)),
+            Parameter.arg("valFactory", ParameterizedType.type(ObjectFactory.class))
         );
 
         constrDef.getBody()
             .append(constrDef.getThis())
             .append(constrDef.getScope().getVariable("schema"))
             .invokeConstructor(classDef.getSuperClass(), ParameterizedType.type(SchemaDescriptor.class))
+            .append(constrDef.getThis().setField("keyFactory", constrDef.getScope().getVariable("keyFactory")))
+            .append(constrDef.getThis().setField("valFactory", constrDef.getScope().getVariable("valFactory")))
             .ret();
     }
 
+    /**
+     * Generates helper method.
+     *
+     * @param classDef Serializer class definition.
+     * @param schema Schema descriptor.
+     * @param keyMarsh Key marshaller code generator.
+     * @param valMarsh Value marshaller code generator.
+     */
     private void generateAssemblerFactoryMethod(
         ClassDefinition classDef,
         SchemaDescriptor schema,
         MarshallerCodeGenerator keyMarsh,
         MarshallerCodeGenerator valMarsh
-    ) throws ReflectiveOperationException {
+    ) {
         final MethodDefinition methodDef = classDef.declareMethod(
             EnumSet.of(Access.PROTECTED),
             "createAssembler",
@@ -250,21 +298,18 @@ public class AsmSerializerGenerator implements SerializerFactory {
         body.retObject();
     }
 
-    @NotNull private BytecodeExpression getColumnValueSize(Variable obj, Variable cols, int i) {
-        return BytecodeExpressions.invokeStatic(MarshallerUtil.class, "getValueSize",
-            int.class,
-            Arrays.asList(Object.class, NativeType.class),
-            obj,
-            cols.invoke("column", Column.class, BytecodeExpressions.constantInt(i))
-                .invoke("type", NativeType.class)
-        );
-    }
-
+    /**
+     * Generates serialize method.
+     *
+     * @param classDef Serializer class definition.
+     * @param keyMarsh Key marshaller code generator.
+     * @param valMarsh Value marshaller code generator.
+     */
     private void generateSerializeMethod(
         ClassDefinition classDef,
         MarshallerCodeGenerator keyMarsh,
         MarshallerCodeGenerator valMarsh
-    ) throws ReflectiveOperationException {
+    ) {
         final MethodDefinition methodDef = classDef.declareMethod(
             EnumSet.of(Access.PROTECTED),
             "serialize0",
@@ -272,26 +317,25 @@ public class AsmSerializerGenerator implements SerializerFactory {
             Parameter.arg("asm", TupleAssembler.class),
             Parameter.arg("key", Object.class),
             Parameter.arg("val", Object.class)
-        )
-            .addException(SerializationException.class);
+        ).addException(SerializationException.class);
+
         methodDef.declareAnnotation(Override.class);
 
         final Variable asm = methodDef.getScope().getVariable("asm");
 
-        methodDef.getBody()
-            .append(new IfStatement().condition(BytecodeExpressions.isNull(asm)).ifTrue(
-                new BytecodeBlock()
-                    .append(BytecodeExpressions.newInstance(IllegalStateException.class, BytecodeExpressions.constantString("ASM can't be null.")))
-                    .throwObject()
-            ));
+        methodDef.getBody().append(new IfStatement().condition(BytecodeExpressions.isNull(asm)).ifTrue(
+            new BytecodeBlock()
+                .append(BytecodeExpressions.newInstance(IllegalStateException.class, BytecodeExpressions.constantString("ASM can't be null.")))
+                .throwObject()
+        ));
 
-        methodDef.getBody()
-            .append(
-                keyMarsh.marshallObject(
-                    classDef.getType(),
-                    asm,
-                    methodDef.getScope().getVariable("key"))
-            )
+        final BytecodeBlock block = new BytecodeBlock();
+        block.append(
+            keyMarsh.marshallObject(
+                classDef.getType(),
+                asm,
+                methodDef.getScope().getVariable("key"))
+        )
             .append(
                 valMarsh.marshallObject(
                     classDef.getType(),
@@ -300,20 +344,40 @@ public class AsmSerializerGenerator implements SerializerFactory {
             )
             .append(asm.invoke("build", byte[].class))
             .retObject();
+
+        final Variable ex = methodDef.getScope().createTempVariable(Throwable.class);
+        methodDef.getBody().append(new TryCatch(
+            block,
+            new BytecodeBlock()
+                .putVariable(ex)
+                .append(BytecodeExpressions.newInstance(SerializationException.class, ex))
+                .throwObject(),
+            ParameterizedType.type(Throwable.class)
+        ));
+
     }
 
-    private void generateDeserializeKeyMethod(ClassDefinition classDef,
-        MarshallerCodeGenerator keyMarsh) throws ReflectiveOperationException {
+    /**
+     * Generates deserialize method.
+     *
+     * @param classDef Serializer class definition.
+     * @param keyMarsh Key marshaller code generator.
+     */
+    private void generateDeserializeKeyMethod(ClassDefinition classDef, MarshallerCodeGenerator keyMarsh) {
         final MethodDefinition methodDef = classDef.declareMethod(
             EnumSet.of(Access.PROTECTED),
             "deserializeKey0",
             ParameterizedType.type(Object.class),
             Parameter.arg("tuple", Tuple.class)
-        )
-            .addException(SerializationException.class);
+        ).addException(SerializationException.class);
+
         methodDef.declareAnnotation(Override.class);
 
         final Variable obj = methodDef.getScope().declareVariable(Object.class, "obj");
+
+        if (!keyMarsh.isSimpleType())
+            methodDef.getBody().append(obj.set(methodDef.getThis().getField("keyFactory", ObjectFactory.class)
+                .invoke("create", Object.class)));
 
         methodDef.getBody()
             .append(keyMarsh.unmarshallObject(classDef.getType(), methodDef.getScope().getVariable("tuple"), obj))
@@ -321,99 +385,59 @@ public class AsmSerializerGenerator implements SerializerFactory {
             .retObject();
     }
 
-    private void generateDeserializeValueMethod(ClassDefinition classDef,
-        MarshallerCodeGenerator valMarsh) throws ReflectiveOperationException {
+    /**
+     * Generates serialize method.
+     *
+     * @param classDef Serializer class definition.
+     * @param valMarsh Value marshaller code generator.
+     */
+    private void generateDeserializeValueMethod(ClassDefinition classDef, MarshallerCodeGenerator valMarsh) {
         final MethodDefinition methodDef = classDef.declareMethod(
             EnumSet.of(Access.PROTECTED),
             "deserializeValue0",
             ParameterizedType.type(Object.class),
             Parameter.arg("tuple", Tuple.class)
-        )
-            .addException(SerializationException.class);
+        ).addException(SerializationException.class);
+
         methodDef.declareAnnotation(Override.class);
 
         final Variable obj = methodDef.getScope().declareVariable(Object.class, "obj");
+        final BytecodeBlock block = new BytecodeBlock();
 
-        methodDef.getBody()
-            .append(valMarsh.unmarshallObject(classDef.getType(), methodDef.getScope().getVariable("tuple"), obj))
+        if (!valMarsh.isSimpleType())
+            block.append(obj.set(methodDef.getThis().getField("valFactory", ObjectFactory.class)
+                .invoke("create", Object.class)));
+
+        block.append(valMarsh.unmarshallObject(classDef.getType(), methodDef.getScope().getVariable("tuple"), obj))
             .append(obj)
             .retObject();
+
+        methodDef.getBody().append(block);
     }
 
-//    /**
-//     * @param valMarsh Value marshaller code generator.
-//     * @return Deserialize value method spec.
-//     */
-//    private MethodSpec generateDeserializeValueMethod(MarshallerCodeGenerator valMarsh) {
-//        return MethodSpec
-//            .methodBuilder("deserializeValue0")
-//            .addAnnotation(Override.class)
-//            .addModifiers(Modifier.PROTECTED, Modifier.FINAL)
-//            .addParameter(Tuple.class, "tuple", Modifier.FINAL)
-//            .addException(SerializationException.class)
-//            .returns(TypeName.OBJECT)
-//
-//            .beginControlFlow("try")
-//            .addCode(valMarsh.unmarshallObjectCode("tuple"))
-//            .nextControlFlow("catch($T th)", Throwable.class)
-//            .addStatement("throw new $T(th)", SerializationException.class)
-//            .endControlFlow()
-//            .build();
-//    }
-//
-//    /**
-//     * @param keyMarsh Key marshaller code generator.
-//     * @return Deserialize key method spec.
-//     */
-//    private MethodSpec generateDeserializeKeyMethod(MarshallerCodeGenerator keyMarsh) {
-//        return MethodSpec
-//            .methodBuilder("deserializeKey0")
-//            .addAnnotation(Override.class)
-//            .addModifiers(Modifier.PROTECTED, Modifier.FINAL)
-//            .addParameter(Tuple.class, "tuple", Modifier.FINAL)
-//            .addException(SerializationException.class)
-//            .returns(TypeName.OBJECT)
-//
-//            .beginControlFlow("try")
-//            .addCode(keyMarsh.unmarshallObjectCode("tuple"))
-//            .nextControlFlow("catch($T th)", Throwable.class)
-//            .addStatement("throw new $T(th)", SerializationException.class)
-//            .endControlFlow()
-//            .build();
-//    }
-//
-//    /**
-//     * Creates marshaller code generator for given class.
-//     *
-//     * @param tClass Target class.
-//     * @param factoryRefVar Object factory variable.
-//     * @param columns Columns that tClass mapped to.
-//     * @param firstColIdx First column absolute index in schema.
-//     * @return Marshaller code generator.
-//     */
-//    private MarshallerCodeGenerator createObjectMarshaller(
-//        Class<?> tClass,
-//        @Nullable String factoryRefVar,
-//        Columns columns,
-//        int firstColIdx
-//    ) {
-//        BinaryMode mode = MarshallerUtil.mode(tClass);
-//
-//        if (mode != null) // Simple type.
-//            return new IdentityObjectMarshallerExprGenerator(TupleColumnAccessCodeGenerator.createAccessor(mode, firstColIdx));
-//        else
-//            return new ObjectMarshallerCodeGenerator(tClass, factoryRefVar, columns, firstColIdx);
-//    }
-
-    private static BytecodeExpression cretaObjectFactoryExpr(MethodDefinition constrDef, String aClass) {
-        return BytecodeExpressions.invokeStatic(
-            MarshallerUtil.class,
-            "factoryForClass",
-            ObjectFactory.class,
-            constrDef.getScope().getVariable(aClass)
+    /**
+     * Generates column size expression.
+     *
+     * @param obj Target object.
+     * @param cols columns.
+     * @param colIdx Column index.
+     * @return Expression.
+     */
+    private BytecodeExpression getColumnValueSize(Variable obj, Variable cols, int colIdx) {
+        return BytecodeExpressions.invokeStatic(MarshallerUtil.class, "getValueSize",
+            int.class,
+            Arrays.asList(Object.class, NativeType.class),
+            obj,
+            cols.invoke("column", Column.class, BytecodeExpressions.constantInt(colIdx))
+                .invoke("type", NativeType.class)
         );
     }
 
+    /**
+     * Resolves current classoader.
+     *
+     * @return Classloader.
+     */
     private static ClassLoader getClassLoader() {
         return Thread.currentThread().getContextClassLoader() == null ?
             ClassLoader.getSystemClassLoader() :

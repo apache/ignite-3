@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.marshaller.codegen;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -27,7 +28,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
 import javax.lang.model.element.Modifier;
 import jdk.jfr.Experimental;
@@ -62,31 +63,35 @@ public class SerializerGenerator implements SerializerFactory {
         Class<?> keyClass,
         Class<?> valClass
     ) {
+        final boolean isDebugEnabled = false; // log.isDebugEnabled();
         final String className = SERIALIZER_CLASS_NAME_PREFIX + schema.version();
+
         try {
             // Generate Serializer code.
-            long generation = System.nanoTime();
+            long generated = System.nanoTime();
             JavaFile javaFile = generateSerializerClassCode(className, schema, keyClass, valClass);
-            generation = System.nanoTime() - generation;
+            generated = System.nanoTime() - generated;
 
-            //TODO: pass code to logger on trace level.
-//            System.out.println("Serializer code generated in " + TimeUnit.NANOSECONDS.toMicros(generation) + "us");
-//                        System.out.println(javaFile.toString());
+            if (isDebugEnabled)
+                System.out.println(javaFile.toString());
 
             // Compile.
             long compilation = System.nanoTime();
             ClassLoader loader = CompilerUtils.compileCode(javaFile);
             compilation = System.nanoTime() - compilation;
 
-            //            System.out.println("Serializer code compiled in " + TimeUnit.NANOSECONDS.toMicros(compilation) + "us");
+            //TODO: pass code to logger on trace level.
+            if (isDebugEnabled)
+                System.out.println("Serializer created: generated=" + TimeUnit.NANOSECONDS.toMicros(generated) + "us" +
+                    ", compiled=" + TimeUnit.NANOSECONDS.toMicros(compilation) + "us." /*+ javaFile.toString()*/);
 
             // Instantiate serializer.
             return (Serializer)loader.loadClass(javaFile.packageName + '.' + className)
-                .getDeclaredConstructor(SchemaDescriptor.class, Class.class, Class.class)
-                .newInstance(schema, keyClass, valClass);
+                .getDeclaredConstructor(SchemaDescriptor.class)
+                .newInstance(schema);
 
         }
-        catch (InstantiationException | ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e){
+        catch (InstantiationException | ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
             throw new IllegalStateException("Failed to create serializer for key-value pair: schemaVer=" + schema.version() +
                 ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }
@@ -111,23 +116,21 @@ public class SerializerGenerator implements SerializerFactory {
             final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
                 .superclass(AbstractSerializer.class)
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                .addAnnotation(AnnotationSpec.builder(Generated.class).addMember("value", "$S", getClass().getCanonicalName()).build());
+                .addAnnotation(AnnotationSpec.builder(Generated.class).addMember("value", "$S", getClass().getName()).build());
 
-            initFieldHandlers(keyMarsh, valMarsh, classBuilder);
+            initStaticFields(keyMarsh, valMarsh, keyClass, valClass, classBuilder);
 
             classBuilder
-                .addField(ParameterizedTypeName.get(ObjectFactory.class, keyClass), "keyFactory", Modifier.PRIVATE, Modifier.FINAL)
-                .addField(ParameterizedTypeName.get(ObjectFactory.class, valClass), "valFactory", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(ParameterizedTypeName.get(ObjectFactory.class), "keyFactory", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(ParameterizedTypeName.get(ObjectFactory.class), "valFactory", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(
                     // Constructor.
                     MethodSpec.constructorBuilder()
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(SchemaDescriptor.class, "schema")
-                        .addParameter(Class.class, "keyClass")
-                        .addParameter(Class.class, "valClass")
                         .addStatement("super(schema)")
-                        .addStatement("this.keyFactory = $T.factoryForClass(keyClass)", MarshallerUtil.class)
-                        .addStatement("this.valFactory = $T.factoryForClass(valClass)", MarshallerUtil.class)
+                        .addStatement("this.keyFactory = $T.factoryForClass(KEY_CLASS)", MarshallerUtil.class)
+                        .addStatement("this.valFactory = $T.factoryForClass(VALUE_CLASS)", MarshallerUtil.class)
                         .build()
                 )
                 .addMethod(generateTupleAsseblerFactoryMethod(schema, keyMarsh, valMarsh))
@@ -143,7 +146,6 @@ public class SerializerGenerator implements SerializerFactory {
                 .build();
         }
         catch (Exception ex) {
-            //TODO: fallback to java serializer?
             throw new IllegalStateException(ex);
         }
     }
@@ -153,38 +155,55 @@ public class SerializerGenerator implements SerializerFactory {
      * @param valMarsh Value marshaller code generator.
      * @param classBuilder Serializer class builder.
      */
-    private void initFieldHandlers(
+    private void initStaticFields(
         MarshallerCodeGenerator keyMarsh,
         MarshallerCodeGenerator valMarsh,
+        Class<?> keyClass,
+        Class<?> valueClass,
         TypeSpec.Builder classBuilder
     ) {
-        if (keyMarsh.isSimpleType() && valMarsh.isSimpleType())
-            return; // No field hanlders needed for simple types.
+        classBuilder.addField(FieldSpec.builder(
+            Class.class,
+            "KEY_CLASS",
+            Modifier.PRIVATE,
+            Modifier.FINAL,
+            Modifier.STATIC)
+            .build());
+
+        classBuilder.addField(FieldSpec.builder(
+            Class.class,
+            "VALUE_CLASS",
+            Modifier.PRIVATE,
+            Modifier.FINAL,
+            Modifier.STATIC)
+            .build());
 
         final CodeBlock.Builder staticInitBuilder = CodeBlock.builder()
             .addStatement("$T.Lookup lookup", MethodHandles.class)
             .beginControlFlow("try");
 
+        // Avoid direct class name usage in code to avoid potential linkage errors.
+        staticInitBuilder.addStatement("KEY_CLASS = $T.forName($S)", Class.class, keyClass.getName());
+        staticInitBuilder.addStatement("VALUE_CLASS = $T.forName($S)", Class.class, valueClass.getName());
+
         if (!keyMarsh.isSimpleType()) {
             staticInitBuilder.addStatement(
-                "lookup = $T.privateLookupIn($T.class, $T.lookup())",
+                "lookup = $T.privateLookupIn(KEY_CLASS, $T.lookup())",
                 MethodHandles.class,
-                Objects.requireNonNull(keyMarsh.getClazz()),
                 MethodHandles.class
             );
 
-            keyMarsh.initStaticHandlers(classBuilder, staticInitBuilder);
+            keyMarsh.initStaticHandlers(classBuilder, "KEY_CLASS", staticInitBuilder);
         }
 
         if (!valMarsh.isSimpleType()) {
             staticInitBuilder.addStatement(
-                "lookup = $T.privateLookupIn($T.class, $T.lookup())",
+                "lookup = $T.privateLookupIn(VALUE_CLASS, $T.lookup())",
                 MethodHandles.class,
-                Objects.requireNonNull(valMarsh.getClazz()),
                 MethodHandles.class
             );
 
-            valMarsh.initStaticHandlers(classBuilder, staticInitBuilder);
+            valMarsh.initStaticHandlers(classBuilder, "VALUE_CLASS", staticInitBuilder);
         }
 
         staticInitBuilder

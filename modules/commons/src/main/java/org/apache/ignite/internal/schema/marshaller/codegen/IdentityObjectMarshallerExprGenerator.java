@@ -60,7 +60,7 @@ class IdentityObjectMarshallerExprGenerator implements MarshallerCodeGenerator {
     }
 
     /** {@inheritDoc} */
-    @Override public void initStaticHandlers(TypeSpec.Builder builder, CodeBlock.Builder staticBuilder) {
+    @Override public void initStaticHandlers(TypeSpec.Builder builder, String tClassExpr, CodeBlock.Builder staticBuilder) {
         throw new UnsupportedOperationException("Static handlers are not applicable to simple types.");
     }
 }

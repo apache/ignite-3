@@ -30,13 +30,28 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** Object field access expression generator. */
     private final TupleColumnAccessCodeGenerator columnAccessor;
 
+    /** Target class. */
+    private final Class<?> tClass;
+
     /**
      * Constructor.
      *
+     * @param tClass Target class.
      * @param columnAccessor Tuple column code generator.
      */
-    public IdentityMarshallerCodeGenerator(TupleColumnAccessCodeGenerator columnAccessor) {
+    public IdentityMarshallerCodeGenerator(Class<?> tClass, TupleColumnAccessCodeGenerator columnAccessor) {
+        this.tClass = tClass;
         this.columnAccessor = columnAccessor;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean isSimpleType() {
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Class<?> targetClass() {
+        return tClass;
     }
 
     /** {@inheritDoc} */

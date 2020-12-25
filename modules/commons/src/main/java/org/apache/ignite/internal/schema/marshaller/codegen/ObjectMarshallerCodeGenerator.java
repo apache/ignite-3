@@ -34,9 +34,6 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** Target object factory var. */
     private final String objectFactoryVar;
 
-    /** Target class. */
-    private final Class<?> tClass;
-
     /** Mapped columns. */
     private final Columns columns;
 
@@ -53,7 +50,6 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
      */
     public ObjectMarshallerCodeGenerator(Class<?> tClass, String objectFactoryVar, Columns columns, int firstColIdx) {
         this.objectFactoryVar = objectFactoryVar;
-        this.tClass = tClass;
 
         this.columns = columns;
         columnAccessessors = new TupleColumnAccessCodeGenerator[this.columns.length()];
@@ -68,12 +64,6 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             throw new IllegalStateException(ex);
         }
     }
-
-    /** {@inheritDoc} */
-    @Override public Class<?> getClazz() {
-        return tClass;
-    }
-
     /** {@inheritDoc} */
     @Override public boolean isSimpleType() {
         return false;
@@ -82,7 +72,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     /** {@inheritDoc} */
     @Override public CodeBlock unmarshallObjectCode(String tupleExpr) {
         final CodeBlock.Builder builder = CodeBlock.builder()
-            .addStatement("$T obj = $L.create()", tClass, objectFactoryVar);
+            .addStatement("Object obj = $L.create()", objectFactoryVar);
 
         for (int i = 0; i < columnAccessessors.length; i++)
             builder.addStatement("FIELD_HANDLE_$L.set(obj, $L)", columnAccessessors[i].columnIdx(), columnAccessessors[i].read(tupleExpr));
@@ -107,7 +97,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     }
 
     /** {@inheritDoc} */
-    @Override public void initStaticHandlers(TypeSpec.Builder builder, CodeBlock.Builder staticBuilder) {
+    @Override public void initStaticHandlers(TypeSpec.Builder builder, String tClassExpr, CodeBlock.Builder staticBuilder) {
         for (int i = 0; i < columnAccessessors.length; i++) {
             builder.addField(FieldSpec.builder(
                 VarHandle.class,
@@ -117,8 +107,8 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                 Modifier.STATIC)
                 .build());
 
-            staticBuilder.addStatement("FIELD_HANDLE_$L = lookup.unreflectVarHandle($T.class.getDeclaredField($S))",
-                columnAccessessors[i].columnIdx(), tClass, columns.column(i).name());
+            staticBuilder.addStatement("FIELD_HANDLE_$L = lookup.unreflectVarHandle($L.getDeclaredField($S))",
+                columnAccessessors[i].columnIdx(), tClassExpr, columns.column(i).name());
         }
     }
 }
