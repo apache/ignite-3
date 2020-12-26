@@ -18,18 +18,15 @@
 package org.apache.ignite.cli.builtins.module;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.jar.JarInputStream;
-import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -50,7 +47,7 @@ public class ModuleManager {
     private final List<StandardModuleDefinition> modules;
 
     public static final String INTERNAL_MODULE_PREFIX = "_";
-    public static final String CLI_MODULE_MANIFEST_HEADER = "Cli-Module";
+    public static final String CLI_MODULE_MANIFEST_HEADER = "Apache-Ignite-CLI-Module";
 
     private PrintWriter out;
     private ColorScheme cs;
