@@ -42,5 +42,6 @@
         <module>modules/configuration-annotation-processor</module>
         <module>modules/ignite-runner</module>
         <module>modules/cli-demo</module>
+        <module>modules/raft</module>
     </modules>
 </project>
