@@ -16,10 +16,10 @@
  */
 package com.alipay.sofa.jraft.storage.impl;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -94,7 +94,7 @@ public class LocalRaftMetaStorageTest extends BaseStorageTest {
 
     @Test
     public void testSaveFail() throws IOException {
-        FileUtils.deleteDirectory(new File(this.path));
+        Utils.delete(new File(this.path));
         assertFalse(this.raftMetaStorage.setVotedFor(new PeerId("localhost", 8081)));
         Mockito.verify(this.node, Mockito.times(1)).onError((RaftException) Mockito.any());
     }

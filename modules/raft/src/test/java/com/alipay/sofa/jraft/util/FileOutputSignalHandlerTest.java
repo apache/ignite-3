@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
@@ -34,7 +33,7 @@ public class FileOutputSignalHandlerTest {
     public void testGetOutputFileWithEmptyPath() throws IOException {
         final File f = getOutputFile("", "test1.log");
         assertTrue(f.exists());
-        FileUtils.forceDelete(f);
+        Utils.delete(f);
     }
 
     @Test
@@ -42,7 +41,7 @@ public class FileOutputSignalHandlerTest {
         final String path = "abc";
         final File f = getOutputFile(path, "test2.log");
         assertTrue(f.exists());
-        FileUtils.forceDelete(new File(path));
+        Utils.delete(new File(path));
     }
 
     @Test
@@ -50,7 +49,7 @@ public class FileOutputSignalHandlerTest {
         final String path = Paths.get("cde").toAbsolutePath().toString();
         final File f = getOutputFile(path, "test3.log");
         assertTrue(f.exists());
-        FileUtils.forceDelete(new File(path));
+        Utils.delete(new File(path));
     }
 
     private File getOutputFile(final String path, final String baseName) throws IOException {

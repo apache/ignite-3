@@ -16,10 +16,12 @@
  */
 package com.alipay.sofa.jraft.storage;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
 
-import org.apache.commons.io.FileUtils;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
 import org.junit.After;
 
 import com.alipay.sofa.jraft.test.TestUtils;
@@ -29,18 +31,18 @@ public class BaseStorageTest {
 
     public void setup() throws Exception {
         this.path = TestUtils.mkTempDir();
-        FileUtils.forceMkdir(new File(this.path));
+        new File(this.path).mkdirs();
     }
 
     @After
     public void teardown() throws Exception {
-        FileUtils.deleteDirectory(new File(this.path));
+        Utils.delete(new File(this.path));
     }
 
     protected String writeData() throws IOException {
         File file = new File(this.path + File.separator + "data");
         String data = "jraft is great!";
-        FileUtils.writeStringToFile(file, data);
+        Files.writeString(file.toPath(), data);
         return data;
     }
 

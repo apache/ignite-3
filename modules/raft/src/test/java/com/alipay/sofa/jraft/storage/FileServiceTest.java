@@ -16,10 +16,13 @@
  */
 package com.alipay.sofa.jraft.storage;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
 
-import org.apache.commons.io.FileUtils;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.StandardOpenOption;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -51,7 +54,7 @@ public class FileServiceTest {
 
     @After
     public void teardown() {
-        FileUtils.deleteQuietly(new File(this.path));
+        Utils.delete(new File(this.path));
         FileService.getInstance().clear();
     }
 
@@ -90,7 +93,7 @@ public class FileServiceTest {
     private String writeData() throws IOException {
         File file = new File(this.path + File.separator + "data");
         String data = "jraft is great!";
-        FileUtils.writeStringToFile(file, data);
+        Files.writeString(file.toPath(), data);
         return data;
     }
 
@@ -113,7 +116,7 @@ public class FileServiceTest {
         File file = new File(this.path + File.separator + "data");
         String data = "jraft is great!";
         for (int i = 0; i < 1000; i++) {
-            FileUtils.writeStringToFile(file, data, true);
+            Files.writeString(file.toPath(), data, StandardOpenOption.APPEND);
         }
         return data;
     }

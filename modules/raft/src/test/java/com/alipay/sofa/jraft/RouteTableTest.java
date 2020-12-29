@@ -16,12 +16,12 @@
  */
 package com.alipay.sofa.jraft;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,7 +59,7 @@ public class RouteTableTest {
         cliClientService = new CliClientServiceImpl();
         cliClientService.init(new CliOptions());
         this.dataPath = TestUtils.mkTempDir();
-        FileUtils.forceMkdir(new File(this.dataPath));
+        new File(this.dataPath).mkdirs();
         assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -78,7 +78,7 @@ public class RouteTableTest {
             Thread.sleep(1000);
             assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
         }
-        FileUtils.deleteDirectory(new File(this.dataPath));
+        Utils.delete(new File(this.dataPath));
         NodeManager.getInstance().clear();
         RouteTable.getInstance().reset();
     }

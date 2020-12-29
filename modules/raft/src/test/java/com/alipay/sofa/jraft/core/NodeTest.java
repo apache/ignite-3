@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -146,7 +145,7 @@ public class NodeTest {
     public void setup() throws Exception {
         System.out.println(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
         this.dataPath = TestUtils.mkTempDir();
-        FileUtils.forceMkdir(new File(this.dataPath));
+        new File(this.dataPath).mkdirs();
         assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
         this.testStartMs = Utils.monotonicMs();
         dumpThread.interrupt(); // reset dump timeout
@@ -163,7 +162,7 @@ public class NodeTest {
             Thread.sleep(5000);
             assertEquals(0, NodeImpl.GLOBAL_NUM_NODES.get());
         }
-        FileUtils.deleteDirectory(new File(this.dataPath));
+        Utils.delete(new File(this.dataPath));
         NodeManager.getInstance().clear();
         this.startedCounter.set(0);
         this.stoppedCounter.set(0);

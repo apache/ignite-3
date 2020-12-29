@@ -27,7 +27,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -298,7 +297,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
             if (localMeta.getSource() == FileSource.FILE_SOURCE_LOCAL) {
                 final String sourcePath = lastSnapshot.getPath() + File.separator + fileName;
                 final String destPath = writer.getPath() + File.separator + fileName;
-                FileUtils.deleteQuietly(new File(destPath));
+                Utils.delete(new File(destPath));
                 try {
                     Files.createLink(Paths.get(destPath), Paths.get(sourcePath));
                 } catch (final IOException e) {
@@ -319,7 +318,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         }
         for (final String fileName : toRemove) {
             final String removePath = writer.getPath() + File.separator + fileName;
-            FileUtils.deleteQuietly(new File(removePath));
+            Utils.delete(new File(removePath));
             LOG.info("Deleted file: {}", removePath);
         }
         return true;

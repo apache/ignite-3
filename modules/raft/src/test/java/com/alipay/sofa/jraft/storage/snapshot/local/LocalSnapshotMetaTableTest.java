@@ -16,11 +16,11 @@
  */
 package com.alipay.sofa.jraft.storage.snapshot.local;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -72,7 +72,7 @@ public class LocalSnapshotMetaTableTest {
         assertTrue(table.listFiles().contains("data2"));
 
         String path = TestUtils.mkTempDir();
-        FileUtils.forceMkdir(new File(path));
+        new File(path).mkdirs();
         try {
             String filePath = path + File.separator + "table";
             table.saveToFile(filePath);
@@ -84,7 +84,7 @@ public class LocalSnapshotMetaTableTest {
             Assert.assertEquals(meta1, newTable.getFileMeta("data1"));
             Assert.assertEquals(meta2, newTable.getFileMeta("data2"));
         } finally {
-            FileUtils.deleteDirectory(new File(path));
+            Utils.delete(new File(path));
         }
     }
 

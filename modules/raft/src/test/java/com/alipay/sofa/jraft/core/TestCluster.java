@@ -16,6 +16,7 @@
  */
 package com.alipay.sofa.jraft.core;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -30,8 +31,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-
-import org.apache.commons.io.FileUtils;
 
 import com.alipay.sofa.jraft.JRaftServiceFactory;
 import com.alipay.sofa.jraft.Node;
@@ -179,7 +178,7 @@ public class TestCluster {
             nodeOptions.setRaftOptions(raftOptions);
         }
         final String serverDataPath = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
-        FileUtils.forceMkdir(new File(serverDataPath));
+        new File(serverDataPath).mkdirs();
         nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
         nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
@@ -229,7 +228,7 @@ public class TestCluster {
             nodeOptions.setRaftOptions(raftOptions);
         }
         final String serverDataPath = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
-        FileUtils.forceMkdir(new File(serverDataPath));
+        new File(serverDataPath).mkdirs();
         nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
         nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
@@ -309,7 +308,7 @@ public class TestCluster {
     public void clean(final Endpoint listenAddr) throws IOException {
         final String path = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
         System.out.println("Clean dir:" + path);
-        FileUtils.deleteDirectory(new File(path));
+        Utils.delete(new File(path));
     }
 
     public Node getLeader() {

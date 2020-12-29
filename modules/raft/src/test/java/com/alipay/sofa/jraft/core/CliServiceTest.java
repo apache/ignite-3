@@ -16,6 +16,7 @@
  */
 package com.alipay.sofa.jraft.core;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -30,7 +31,6 @@ import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -75,7 +75,7 @@ public class CliServiceTest {
     public void setup() throws Exception {
         System.out.println(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
         this.dataPath = TestUtils.mkTempDir();
-        FileUtils.forceMkdir(new File(this.dataPath));
+        new File(this.dataPath).mkdirs();
         assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -109,7 +109,7 @@ public class CliServiceTest {
             Thread.sleep(1000);
             assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
         }
-        FileUtils.deleteDirectory(new File(this.dataPath));
+        Utils.delete(new File(this.dataPath));
         NodeManager.getInstance().clear();
         RouteTable.getInstance().reset();
         System.out.println(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());

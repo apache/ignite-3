@@ -18,7 +18,6 @@ package com.alipay.sofa.jraft.storage.snapshot.local;
 
 import java.io.File;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +51,7 @@ public class LocalSnapshotReaderTest extends BaseStorageTest {
     public void setup() throws Exception {
         super.setup();
         this.path = this.path + File.separator + Snapshot.JRAFT_SNAPSHOT_PREFIX + snapshotIndex;
-        FileUtils.forceMkdir(new File(path));
+        new File(path).mkdirs();
         this.table = new LocalSnapshotMetaTable(new RaftOptions());
         this.table.addFile("testFile", LocalFileMetaOutter.LocalFileMeta.newBuilder().setChecksum("test").build());
         table.saveToFile(path + File.separator + Snapshot.JRAFT_SNAPSHOT_META_FILE);

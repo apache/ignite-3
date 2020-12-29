@@ -19,11 +19,12 @@ package com.alipay.sofa.jraft.storage.io;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
 
-import org.apache.commons.io.FileUtils;
+import java.nio.file.Files;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -84,7 +85,7 @@ public class LocalFileReaderTest extends BaseStorageTest {
         for (int i = 0; i < 4096; i++) {
             data += i % 10;
         }
-        FileUtils.writeStringToFile(file, data);
+        Files.writeString(file.toPath(), data);
 
         int read = this.fileReader.readFile(bufRef, "data", 0, 1024);
         assertEquals(1024, read);
