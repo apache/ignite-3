@@ -15,33 +15,37 @@ import com.alipay.sofa.jraft.util.Describer;
 import com.alipay.sofa.jraft.util.Requires;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Stores log in heap.
- *
+ * <p>
  * TODO can use SegmentList.
  */
 public class LocalLogStorage implements LogStorage, Describer {
     private static final Logger LOG = LoggerFactory.getLogger(LocalLogStorage.class);
 
-    private final String                    path;
-    private final boolean                   sync;
-    private final boolean                   openStatistics;
-    private final ReadWriteLock             readWriteLock = new ReentrantReadWriteLock();
-    private final Lock                      readLock      = this.readWriteLock.readLock();
-    private final Lock                      writeLock     = this.readWriteLock.writeLock();
+    private final String path;
+    private final boolean sync;
+    private final boolean openStatistics;
+    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private final Lock readLock = this.readWriteLock.readLock();
+    private final Lock writeLock = this.readWriteLock.writeLock();
 
-    private volatile long                   firstLogIndex = 1;
-
-    private final LinkedList<LogEntry> log = new LinkedList<>();
+    private final ConcurrentSkipListMap<Long, LogEntry> log = new ConcurrentSkipListMap<>();
 
     private LogEntryEncoder logEntryEncoder;
     private LogEntryDecoder logEntryDecoder;
+
+    private volatile long firstLogIndex = 1;
+    private volatile long lastLogIndex = 0;
 
     private volatile boolean initialized = false;
 
@@ -69,33 +73,8 @@ public class LocalLogStorage implements LogStorage, Describer {
             Requires.requireNonNull(this.logEntryEncoder, "Null log entry encoder");
 
             return true;
-        } catch (final Exception e) {
-            LOG.error("Fail to init RocksDBLogStorage, path={}.", this.path, e);
-            return false;
         } finally {
             this.writeLock.unlock();
-        }
-    }
-
-    /**
-     * Save the first log index into conf column family.
-     */
-    private boolean saveFirstLogIndex(final long firstLogIndex) {
-        this.readLock.lock();
-        try {
-//            final byte[] vs = new byte[8];
-//            Bits.putLong(vs, 0, firstLogIndex);
-//            checkState();
-//            this.db.put(this.confHandle, this.writeOptions, FIRST_LOG_IDX_KEY, vs);
-
-            this.firstLogIndex = firstLogIndex;
-
-            return true;
-        } catch (final Exception e) {
-            LOG.error("Fail to save first log index {}.", firstLogIndex, e);
-            return false;
-        } finally {
-            this.readLock.unlock();
         }
     }
 
@@ -147,15 +126,14 @@ public class LocalLogStorage implements LogStorage, Describer {
     public long getLastLogIndex() {
         this.readLock.lock();
         //checkState();
-        try  {
+        try {
 //            it.seekToLast();
 //            if (it.isValid()) {
 //                return Bits.getLong(it.key(), 0);
 //            }
 
 
-
-            return this.firstLogIndex - 1 + this.log.size();
+            return this.lastLogIndex;
         } finally {
             this.readLock.unlock();
         }
@@ -165,17 +143,14 @@ public class LocalLogStorage implements LogStorage, Describer {
     public LogEntry getEntry(final long index) {
         this.readLock.lock();
         try {
-            if (index < this.firstLogIndex) {
+            if (index < getFirstLogIndex()) {
                 return null;
             }
 
-            return log.get((int) (this.firstLogIndex - 1 + this.log.size()));
-        } catch (Exception e) {
-            LOG.error("Fail to get log entry at index {}.", index, e);
+            return log.get(index);
         } finally {
             this.readLock.unlock();
         }
-        return null;
     }
 
     @Override
@@ -196,12 +171,12 @@ public class LocalLogStorage implements LogStorage, Describer {
                 return false;
             }
 
-            this.log.add(entry);
+            this.log.put(entry.getId().getIndex(), entry);
+
+            lastLogIndex = log.lastKey();
+            firstLogIndex = log.firstKey();
 
             return true;
-        } catch (Exception e) {
-            LOG.error("Fail to append entry.", e);
-            return false;
         } finally {
             this.readLock.unlock();
         }
@@ -213,13 +188,19 @@ public class LocalLogStorage implements LogStorage, Describer {
             return 0;
         }
         final int entriesCount = entries.size();
+        this.readLock.lock();
         try {
             if (!initialized) {
                 LOG.warn("DB not initialized or destroyed.");
                 return 0;
             }
 
-            this.log.addAll(entries);
+            for (LogEntry logEntry : entries) {
+                log.put(logEntry.getId().getIndex(), logEntry);
+            }
+
+            lastLogIndex = log.lastKey();
+            firstLogIndex = log.firstKey();
 
             return entriesCount;
         } catch (Exception e) {
@@ -234,12 +215,14 @@ public class LocalLogStorage implements LogStorage, Describer {
     public boolean truncatePrefix(final long firstIndexKept) {
         this.readLock.lock();
         try {
-            final long startIndex = getFirstLogIndex();
+            ConcurrentNavigableMap<Long, LogEntry> map = log.headMap(firstIndexKept);
 
-            this.firstLogIndex = firstIndexKept;
+            if (map.isEmpty())
+                return false;
 
-            for (long i = startIndex; i < firstIndexKept; i++)
-                log.pollFirst();
+            map.clear();
+
+            firstLogIndex = log.isEmpty() ? 1 : log.firstKey();
 
             return true;
         } finally {
@@ -252,10 +235,14 @@ public class LocalLogStorage implements LogStorage, Describer {
     public boolean truncateSuffix(final long lastIndexKept) {
         this.readLock.lock();
         try {
-            long lastLogIndex = getLastLogIndex();
+            ConcurrentNavigableMap<Long, LogEntry> map = log.tailMap(lastIndexKept, false);
 
-            while(lastLogIndex-- > lastIndexKept)
-                log.pollLast();
+            if (map.isEmpty())
+                return false;
+
+            map.clear();
+
+            lastLogIndex = lastIndexKept;
 
             return true;
         } catch (Exception e) {
@@ -267,7 +254,6 @@ public class LocalLogStorage implements LogStorage, Describer {
     }
 
     @Override
-    // TOOD it doesn't work.
     public boolean reset(final long nextLogIndex) {
         if (nextLogIndex <= 0) {
             throw new IllegalArgumentException("Invalid next log index.");
@@ -276,22 +262,18 @@ public class LocalLogStorage implements LogStorage, Describer {
         try {
             LogEntry entry = getEntry(nextLogIndex);
 
-            try {
-                if (false) { // TODO should read snapshot.
-                    if (entry == null) {
-                        entry = new LogEntry();
-                        entry.setType(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
-                        entry.setId(new LogId(nextLogIndex, 0));
-                        LOG.warn("Entry not found for nextLogIndex {} when reset.", nextLogIndex);
-                    }
-                    return appendEntry(entry);
-                } else {
-                    return false;
-                }
-            } catch (final Exception e) {
-                LOG.error("Fail to reset next log index.", e);
-                return false;
+            log.clear();
+            firstLogIndex = 1;
+            lastLogIndex = 0;
+
+            if (entry == null) {
+                entry = new LogEntry();
+                entry.setType(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
+                entry.setId(new LogId(nextLogIndex, 0));
+                LOG.warn("Entry not found for nextLogIndex {} when reset.", nextLogIndex);
             }
+
+            return appendEntry(entry);
         } finally {
             this.writeLock.unlock();
         }

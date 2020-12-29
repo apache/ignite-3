@@ -16,9 +16,9 @@
  */
 package com.alipay.sofa.jraft.entity;
 
+import com.alipay.sofa.jraft.util.StringUtils;
 import java.io.Serializable;
 
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

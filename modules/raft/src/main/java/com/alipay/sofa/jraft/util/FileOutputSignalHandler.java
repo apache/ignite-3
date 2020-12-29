@@ -22,8 +22,6 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.apache.commons.io.FileUtils;
-
 /**
  *
  * @author jiachun.fjc
@@ -46,7 +44,7 @@ public abstract class FileOutputSignalHandler implements JRaftSignalHandler {
         if (dir.exists()) {
             Requires.requireTrue(dir.isDirectory(), String.format("[%s] is not directory.", path));
         } else {
-            FileUtils.forceMkdir(dir);
+            dir.mkdirs();
         }
     }
 }

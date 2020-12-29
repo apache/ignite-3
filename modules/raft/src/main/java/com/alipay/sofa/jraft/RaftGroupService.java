@@ -16,7 +16,7 @@
  */
 package com.alipay.sofa.jraft;
 
-import org.apache.commons.lang.StringUtils;
+import com.alipay.sofa.jraft.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

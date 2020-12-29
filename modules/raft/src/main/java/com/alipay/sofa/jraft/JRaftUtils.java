@@ -16,12 +16,11 @@
  */
 package com.alipay.sofa.jraft;
 
+import com.alipay.sofa.jraft.util.StringUtils;
 import java.util.concurrent.Executor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-
-import org.apache.commons.lang.StringUtils;
 
 import com.alipay.sofa.jraft.conf.Configuration;
 import com.alipay.sofa.jraft.core.NodeImpl;

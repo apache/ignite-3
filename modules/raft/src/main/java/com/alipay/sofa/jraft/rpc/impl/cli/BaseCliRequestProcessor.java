@@ -16,10 +16,10 @@
  */
 package com.alipay.sofa.jraft.rpc.impl.cli;
 
+import com.alipay.sofa.jraft.util.StringUtils;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

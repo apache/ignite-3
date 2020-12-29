@@ -16,13 +16,13 @@
  */
 package com.alipay.sofa.jraft.storage.snapshot;
 
+import com.alipay.sofa.jraft.util.StringUtils;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

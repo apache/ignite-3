@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,9 +71,9 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         }
         this.node = opts.getNode();
         this.nodeMetrics = this.node.getNodeMetrics();
-        try {
-            FileUtils.forceMkdir(new File(this.path));
-        } catch (final IOException e) {
+        File dir = new File(this.path);
+
+        if (!dir.mkdirs()) {
             LOG.error("Fail to mkdir {}", this.path);
             return false;
         }

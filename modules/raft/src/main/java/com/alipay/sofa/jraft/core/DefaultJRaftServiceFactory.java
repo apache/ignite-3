@@ -18,7 +18,6 @@ package com.alipay.sofa.jraft.core;
 
 import com.alipay.sofa.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import com.alipay.sofa.jraft.storage.impl.LocalLogStorage;
-import org.apache.commons.lang.StringUtils;
 
 import com.alipay.sofa.jraft.JRaftServiceFactory;
 import com.alipay.sofa.jraft.entity.codec.LogEntryCodecFactory;
@@ -30,6 +29,7 @@ import com.alipay.sofa.jraft.storage.impl.LocalRaftMetaStorage;
 import com.alipay.sofa.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import com.alipay.sofa.jraft.util.Requires;
 import com.alipay.sofa.jraft.util.SPI;
+import com.alipay.sofa.jraft.util.StringUtils;
 
 /**
  * The default factory for JRaft services.

@@ -51,4 +51,8 @@ public class ByteString {
         }
         return bos.toByteArray();
     }
+
+    public ByteString copy() {
+        return this == EMPTY ? EMPTY : new ByteString(toByteArray());
+    }
 }

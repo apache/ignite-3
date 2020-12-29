@@ -16,6 +16,7 @@
  */
 package com.alipay.sofa.jraft.core;
 
+import com.alipay.sofa.jraft.util.StringUtils;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

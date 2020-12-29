@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,9 +98,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
     public boolean init(final Void v) {
         final File dir = new File(this.path);
 
-        try {
-            FileUtils.forceMkdir(dir);
-        } catch (final IOException e) {
+        if (!dir.mkdirs()) {
             LOG.error("Fail to create directory {}.", this.path);
             return false;
         }
@@ -111,9 +108,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             final String tempSnapshotPath = this.path + File.separator + TEMP_PATH;
             final File tempFile = new File(tempSnapshotPath);
             if (tempFile.exists()) {
-                try {
-                    FileUtils.forceDelete(tempFile);
-                } catch (final IOException e) {
+                if (!Utils.delete(tempFile)) {
                     LOG.error("Fail to delete temp snapshot path {}.", tempSnapshotPath);
                     return false;
                 }
@@ -166,13 +161,13 @@ public class LocalSnapshotStorage implements SnapshotStorage {
     private boolean destroySnapshot(final String path) {
         LOG.info("Deleting snapshot {}.", path);
         final File file = new File(path);
-        try {
-            FileUtils.deleteDirectory(file);
-            return true;
-        } catch (final IOException e) {
+
+        if (!Utils.delete(file)) {
             LOG.error("Fail to destroy snapshot {}.", path);
             return false;
         }
+
+        return true;
     }
 
     void unref(final long index) {

@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -33,8 +34,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.jar.JarFile;
 import java.util.regex.Pattern;
-import org.apache.commons.lang.StringUtils;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.alipay.sofa.jraft.Closure;
@@ -385,6 +387,59 @@ public final class Utils {
         try (final FileChannel fc = FileChannel.open(file.toPath(), isDir ? StandardOpenOption.READ
             : StandardOpenOption.WRITE)) {
             fc.force(true);
+        }
+    }
+
+    /**
+     * Deletes file or directory with all sub-directories and files.
+     *
+     * @param file File or directory to delete.
+     * @return {@code true} if and only if the file or directory is successfully deleted,
+     *      {@code false} otherwise
+     */
+    public static boolean delete(@Nullable File file) {
+        return file != null && delete(file.toPath());
+    }
+
+    /**
+     * Deletes file or directory with all sub-directories and files.
+     *
+     * @param path File or directory to delete.
+     * @return {@code true} if and only if the file or directory is successfully deleted,
+     *      {@code false} otherwise
+     */
+    public static boolean delete(Path path) {
+        if (Files.isDirectory(path)) {
+            try {
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+                    for (Path innerPath : stream) {
+                        boolean res = delete(innerPath);
+
+                        if (!res)
+                            return false;
+                    }
+                }
+            } catch (IOException e) {
+                return false;
+            }
+        }
+
+        if (path.toFile().getName().endsWith("jar")) {
+            try {
+                // Why do we do this?
+                new JarFile(path.toString(), false).close();
+            }
+            catch (IOException ignore) {
+                // Ignore it here...
+            }
+        }
+
+        try {
+            Files.delete(path);
+
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
 

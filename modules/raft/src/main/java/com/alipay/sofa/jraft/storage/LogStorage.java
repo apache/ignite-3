@@ -30,7 +30,6 @@ import com.alipay.sofa.jraft.option.LogStorageOptions;
  * 2018-Mar-12 3:43:54 PM
  */
 public interface LogStorage extends Lifecycle<LogStorageOptions>, Storage {
-
     /**
      * Returns first log index in log.
      */

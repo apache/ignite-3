@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
-import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,9 +57,8 @@ public class LocalSnapshotWriter extends SnapshotWriter {
     @Override
     public boolean init(final Void v) {
         final File dir = new File(this.path);
-        try {
-            FileUtils.forceMkdir(dir);
-        } catch (final IOException e) {
+
+        if (!dir.mkdirs()) {
             LOG.error("Fail to create directory {}.", this.path);
             setError(RaftError.EIO, "Fail to create directory  %s", this.path);
             return false;
