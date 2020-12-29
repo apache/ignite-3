@@ -47,10 +47,6 @@ import com.alipay.sofa.jraft.util.RpcFactoryHelper;
  */
 public class RaftRpcServerFactory {
 
-    static {
-        ProtobufMsgFactory.load();
-    }
-
     /**
      * Creates a raft RPC server with default request executors.
      *

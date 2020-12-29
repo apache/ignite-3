@@ -26,12 +26,13 @@ import com.alipay.sofa.jraft.option.BootstrapOptions;
 import com.alipay.sofa.jraft.option.ReplicatorOptions;
 import com.alipay.sofa.jraft.util.ByteString;
 import com.alipay.sofa.jraft.util.DisruptorBuilder;
+import java.io.ByteArrayOutputStream;
 
 public final class RpcRequests {
     private RpcRequests() {
     }
 
-    public interface PingRequest {
+    public interface PingRequest extends Message {
         /**
          * <code>required int64 send_timestamp = 1;</code>
          */
@@ -137,7 +138,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface TimeoutNowRequest {
+    public interface TimeoutNowRequest extends Message {
         static Builder newBuilder() {
             return null;
         }
@@ -168,6 +169,10 @@ public final class RpcRequests {
             return null;
         }
 
+        static Message getDefaultInstance() {
+            return null;
+        }
+
         /**
          * <code>required int64 term = 1;</code>
          */
@@ -192,7 +197,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface RequestVoteRequest {
+    public interface RequestVoteRequest extends Message {
         java.lang.String getGroupId();
 
         java.lang.String getServerId();
@@ -263,7 +268,8 @@ public final class RpcRequests {
         }
     }
 
-    public interface AppendEntriesRequestHeader {
+    // TODO asch not needed
+    public interface AppendEntriesRequestHeader extends Message {
         /**
          * <code>required string group_id = 1;</code>
          */
@@ -304,27 +310,17 @@ public final class RpcRequests {
 
         long getPrevLogIndex();
 
-        /**
-         * <code>repeated .jraft.EntryMeta entries = 7;</code>
-         */
         java.util.List<com.alipay.sofa.jraft.entity.RaftOutter.EntryMeta> getEntriesList();
 
-        /**
-         * <code>repeated .jraft.EntryMeta entries = 7;</code>
-         */
         com.alipay.sofa.jraft.entity.RaftOutter.EntryMeta getEntries(int index);
 
-        /**
-         * <code>repeated .jraft.EntryMeta entries = 7;</code>
-         */
         int getEntriesCount();
 
         long getCommittedIndex();
 
-        /**
-         * <code>optional bytes data = 9;</code>
-         */
         ByteString getData();
+
+        boolean hasData();
 
         interface Builder {
             AppendEntriesRequest build();
@@ -379,7 +375,11 @@ public final class RpcRequests {
         }
     }
 
-    public interface GetFileRequest {
+    public interface GetFileRequest extends Message {
+        static Builder newBuilder() {
+            return null;
+        }
+
         long getReaderId();
 
         java.lang.String getFilename();
@@ -392,22 +392,56 @@ public final class RpcRequests {
 
         interface Builder {
             GetFileRequest build();
+
+            long getReaderId();
+
+            String getFilename();
+
+            long getOffset();
+
+            Builder setCount(long cnt);
+
+            long getCount();
+
+            Builder setOffset(long offset);
+
+            Builder setReadPartly(boolean readPartly);
+
+            Builder setFilename(String fileName);
+
+            Builder setReaderId(long readerId);
         }
     }
 
     public interface GetFileResponse extends HasErrorResponse {
+        static Message getDefaultInstance() {
+            return null;
+        }
+
+        static Builder newBuilder() {
+            return null;
+        }
+
         boolean getEof();
 
         long getReadSize();
 
         ErrorResponse getErrorResponse();
 
+        ByteString getData();
+
         interface Builder {
             GetFileResponse build();
+
+            Builder setReadSize(int read);
+
+            Builder setEof(boolean eof);
+
+            Builder setData(ByteString data);
         }
     }
 
-    public interface ReadIndexRequest {
+    public interface ReadIndexRequest extends Message {
         static Builder newBuilder() {
             return null;
         }
@@ -441,6 +475,10 @@ public final class RpcRequests {
 
     public interface ReadIndexResponse extends HasErrorResponse {
         static Builder newBuilder() {
+            return null;
+        }
+
+        static Message getDefaultInstance() {
             return null;
         }
 

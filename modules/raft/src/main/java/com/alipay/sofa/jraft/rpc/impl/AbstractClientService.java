@@ -33,7 +33,6 @@ import com.alipay.sofa.jraft.option.RpcOptions;
 import com.alipay.sofa.jraft.rpc.ClientService;
 import com.alipay.sofa.jraft.rpc.InvokeCallback;
 import com.alipay.sofa.jraft.rpc.InvokeContext;
-import com.alipay.sofa.jraft.rpc.ProtobufMsgFactory;
 import com.alipay.sofa.jraft.rpc.RaftRpcFactory;
 import com.alipay.sofa.jraft.rpc.RpcClient;
 import com.alipay.sofa.jraft.rpc.RpcRequests.ErrorResponse;
@@ -58,10 +57,10 @@ import com.alipay.sofa.jraft.rpc.Message;
 public abstract class AbstractClientService implements ClientService {
 
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractClientService.class);
-
-    static {
-        ProtobufMsgFactory.load();
-    }
+//
+//    static {
+//        ProtobufMsgFactory.load();
+//    }
 
     protected volatile RpcClient  rpcClient;
     protected ThreadPoolExecutor  rpcExecutor;

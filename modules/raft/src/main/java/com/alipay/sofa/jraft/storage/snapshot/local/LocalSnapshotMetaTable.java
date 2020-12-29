@@ -31,8 +31,6 @@ import com.alipay.sofa.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta.File;
 import com.alipay.sofa.jraft.entity.RaftOutter.SnapshotMeta;
 import com.alipay.sofa.jraft.option.RaftOptions;
 import com.alipay.sofa.jraft.storage.io.ProtoBufFile;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.ZeroByteStringHelper;
 
 /**
  * Table to keep local snapshot metadata infos.
@@ -40,6 +38,7 @@ import com.google.protobuf.ZeroByteStringHelper;
  * @author boyan (boyan@alibaba-inc.com)
  *
  * 2018-Mar-12 7:22:27 PM
+ * TODO asch broken
  */
 public class LocalSnapshotMetaTable {
 
@@ -81,13 +80,13 @@ public class LocalSnapshotMetaTable {
             return false;
         }
         try {
-            final LocalSnapshotPbMeta pbMeta = LocalSnapshotPbMeta.parseFrom(ZeroByteStringHelper.wrap(buf));
+            final LocalSnapshotPbMeta pbMeta = LocalSnapshotPbMeta.parseFrom(buf);
             if (pbMeta == null) {
                 LOG.error("Fail to load meta from buffer.");
                 return false;
             }
             return loadFromPbMeta(pbMeta);
-        } catch (final InvalidProtocolBufferException e) {
+        } catch (final Exception e) {
             LOG.error("Fail to parse LocalSnapshotPbMeta from byte buffer", e);
             return false;
         }
@@ -127,7 +126,7 @@ public class LocalSnapshotMetaTable {
      * Returns true when has the snapshot metadata.
      */
     public boolean hasMeta() {
-        return this.meta != null && this.meta.isInitialized();
+        return this.meta != null;
     }
 
     /**

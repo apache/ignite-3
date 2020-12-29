@@ -54,7 +54,6 @@ import com.alipay.sofa.jraft.util.NamedThreadFactory;
 import com.alipay.sofa.jraft.util.OnlyForTest;
 import com.alipay.sofa.jraft.util.ThreadHelper;
 import com.alipay.sofa.jraft.util.Utils;
-import com.google.protobuf.ZeroByteStringHelper;
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;

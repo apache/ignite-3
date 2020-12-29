@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import com.alipay.sofa.jraft.entity.PeerId;
 import com.alipay.sofa.jraft.option.NodeOptions;
 import com.alipay.sofa.jraft.option.RpcOptions;
-import com.alipay.sofa.jraft.rpc.ProtobufMsgFactory;
 import com.alipay.sofa.jraft.rpc.RaftRpcServerFactory;
 import com.alipay.sofa.jraft.rpc.RpcServer;
 import com.alipay.sofa.jraft.util.Endpoint;
@@ -40,9 +39,9 @@ public class RaftGroupService {
 
     private static final Logger LOG     = LoggerFactory.getLogger(RaftGroupService.class);
 
-    static {
-        ProtobufMsgFactory.load();
-    }
+//    static {
+//        ProtobufMsgFactory.load();
+//    }
 
     private volatile boolean    started = false;
 

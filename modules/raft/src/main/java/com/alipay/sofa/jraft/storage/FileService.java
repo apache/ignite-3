@@ -16,13 +16,13 @@
  */
 package com.alipay.sofa.jraft.storage;
 
+import com.alipay.sofa.jraft.util.ByteString;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-
-import io.netty.util.internal.ThreadLocalRandom;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +37,7 @@ import com.alipay.sofa.jraft.util.ByteBufferCollector;
 import com.alipay.sofa.jraft.util.OnlyForTest;
 import com.alipay.sofa.jraft.util.RpcFactoryHelper;
 import com.alipay.sofa.jraft.util.Utils;
-import com.google.protobuf.ByteString;
 import com.alipay.sofa.jraft.rpc.Message;
-import com.google.protobuf.ZeroByteStringHelper;
 
 /**
  * File reader service.
@@ -114,7 +112,7 @@ public final class FileService {
                 responseBuilder.setData(ByteString.EMPTY);
             } else {
                 // TODO check hole
-                responseBuilder.setData(ZeroByteStringHelper.wrap(buf));
+                responseBuilder.setData(new ByteString(buf));
             }
             return responseBuilder.build();
         } catch (final RetryAgainException e) {

@@ -81,6 +81,10 @@ public final class RaftOutter {
     }
 
     public interface SnapshotMeta {
+        static Builder newBuilder() {
+            return null;
+        }
+
         long getLastIncludedIndex();
 
         long getLastIncludedTerm();
@@ -111,6 +115,18 @@ public final class RaftOutter {
 
         interface Builder {
             SnapshotMeta build();
+
+            Builder setLastIncludedIndex(long lastAppliedIndex);
+
+            Builder setLastIncludedTerm(long lastAppliedTerm);
+
+            Builder addPeers(String peerId);
+
+            Builder addLearners(String learnerId);
+
+            Builder addOldPeers(String oldPeerId);
+
+            Builder addOldLearners(String oldLearnerId);
         }
     }
 }

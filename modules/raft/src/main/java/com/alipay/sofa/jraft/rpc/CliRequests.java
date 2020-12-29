@@ -19,8 +19,6 @@
 
 package com.alipay.sofa.jraft.rpc;
 
-import com.alipay.sofa.jraft.entity.LeaderChangeContext;
-
 public final class CliRequests {
     public interface AddPeerRequest extends Message {
         java.lang.String getGroupId();
@@ -40,7 +38,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.create();
         }
     }
 

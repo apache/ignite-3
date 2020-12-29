@@ -14,36 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alipay.sofa.jraft.util.internal;
+package com.alipay.sofa.jraft.rpc.impl;
 
-import java.lang.reflect.Field;
-import sun.misc.Unsafe;
+import com.alipay.sofa.jraft.rpc.RpcProcessor;
+import com.alipay.sofa.jraft.rpc.RpcServer;
 
 /**
+ * Bolt RPC server impl.
  *
  * @author jiachun.fjc
  */
-final class UnsafeIntegerFieldUpdater<U> implements IntegerFieldUpdater<U> {
+public class LocalRpcServer implements RpcServer {
+    @Override public void registerConnectionClosedEventListener(ConnectionClosedEventListener listener) {
 
-    private final long   offset;
-    private final Unsafe unsafe;
-
-    UnsafeIntegerFieldUpdater(Unsafe unsafe, Class<? super U> tClass, String fieldName) throws NoSuchFieldException {
-        final Field field = tClass.getDeclaredField(fieldName);
-        if (unsafe == null) {
-            throw new NullPointerException("unsafe");
-        }
-        this.unsafe = unsafe;
-        this.offset = unsafe.objectFieldOffset(field);
     }
 
-    @Override
-    public void set(final U obj, final int newValue) {
-        this.unsafe.putInt(obj, this.offset, newValue);
+    @Override public void registerProcessor(RpcProcessor<?> processor) {
+
     }
 
-    @Override
-    public int get(final U obj) {
-        return this.unsafe.getInt(obj, this.offset);
+    @Override public int boundPort() {
+        return 0;
+    }
+
+    @Override public boolean init(Void opts) {
+        return false;
+    }
+
+    @Override public void shutdown() {
+
     }
 }

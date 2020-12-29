@@ -16,6 +16,8 @@
  */
 package com.alipay.sofa.jraft.storage.io;
 
+import com.alipay.sofa.jraft.rpc.CliRequests;
+import com.alipay.sofa.jraft.util.Marshaller;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -24,7 +26,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import com.alipay.sofa.jraft.rpc.ProtobufMsgFactory;
 import com.alipay.sofa.jraft.util.Bits;
 import com.alipay.sofa.jraft.util.Utils;
 import com.alipay.sofa.jraft.rpc.Message;
@@ -43,9 +44,9 @@ import com.alipay.sofa.jraft.rpc.Message;
  */
 public class ProtoBufFile {
 
-    static {
-        ProtobufMsgFactory.load();
-    }
+//    static {
+//        ProtobufMsgFactory.load();
+//    }
 
     /** file path */
     private final String path;
@@ -68,18 +69,19 @@ public class ProtoBufFile {
         try (final FileInputStream fin = new FileInputStream(file);
                 final BufferedInputStream input = new BufferedInputStream(fin)) {
             readBytes(lenBytes, input);
-            final int len = Bits.getInt(lenBytes, 0);
+            final int len = Bits.getInt(lenBytes, 0); // TODO asch endianess ?
             if (len <= 0) {
                 throw new IOException("Invalid message fullName.");
             }
             final byte[] nameBytes = new byte[len];
             readBytes(nameBytes, input);
-            final String name = new String(nameBytes);
-            readBytes(lenBytes, input);
-            final int msgLen = Bits.getInt(lenBytes, 0);
-            final byte[] msgBytes = new byte[msgLen];
-            readBytes(msgBytes, input);
-            return ProtobufMsgFactory.newMessageByProtoClassName(name, msgBytes);
+//            final String name = new String(nameBytes);
+//            readBytes(lenBytes, input);
+//            final int msgLen = Bits.getInt(lenBytes, 0);
+//            final byte[] msgBytes = new byte[msgLen];
+//            readBytes(msgBytes, input);
+//            return ProtobufMsgFactory.newMessageByProtoClassName(name, msgBytes);
+            return Marshaller.DEFAULT.unmarshall(nameBytes);
         }
     }
 
@@ -102,19 +104,12 @@ public class ProtoBufFile {
         final File file = new File(this.path + ".tmp");
         try (final FileOutputStream fOut = new FileOutputStream(file);
                 final BufferedOutputStream output = new BufferedOutputStream(fOut)) {
-            final byte[] lenBytes = new byte[4];
+            byte[] bytes = Marshaller.DEFAULT.marshall(msg);
 
-            // name len + name
-            final String fullName = msg.getDescriptorForType().getFullName();
-            final int nameLen = fullName.length();
-            Bits.putInt(lenBytes, 0, nameLen);
+            final byte[] lenBytes = new byte[4];
+            Bits.putInt(lenBytes, 0, bytes.length);
             output.write(lenBytes);
-            output.write(fullName.getBytes());
-            // msg len + msg
-            final int msgLen = msg.getSerializedSize();
-            Bits.putInt(lenBytes, 0, msgLen);
-            output.write(lenBytes);
-            msg.writeTo(output);
+            output.write(bytes);
             output.flush();
         }
         if (sync) {
@@ -122,5 +117,25 @@ public class ProtoBufFile {
         }
 
         return Utils.atomicMoveFile(file, new File(this.path), sync);
+    }
+
+    public static void main(String[] args) throws IOException {
+        File file = File.createTempFile("store", "tmp");
+
+        ProtoBufFile tmp = new ProtoBufFile(file.getAbsolutePath());
+
+        CliRequests.AddPeerRequest.Builder b = CliRequests.AddPeerRequest.newBuilder();
+        b.setGroupId("grp1");
+        b.setLeaderId("zzz");
+        b.setPeerId("tmp");
+
+        CliRequests.AddPeerRequest req0 = b.build();
+        boolean saved = tmp.save(req0, false);
+
+        CliRequests.AddPeerRequest req1 = tmp.load();
+
+        System.out.println();
+
+        file.delete();
     }
 }

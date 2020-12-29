@@ -20,8 +20,6 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 
-import com.alipay.sofa.jraft.util.internal.UnsafeUtf8Util;
-import com.alipay.sofa.jraft.util.internal.UnsafeUtil;
 
 /**
  * @author jiachun.fjc
@@ -41,39 +39,39 @@ public final class BytesUtil {
         return bytes == null || bytes.length == 0;
     }
 
-    /**
-     * This method has better performance than String#getBytes(Charset),
-     * See the benchmark class: Utf8Benchmark for details.
-     */
-    public static byte[] writeUtf8(final String in) {
-        if (in == null) {
-            return null;
-        }
-        if (UnsafeUtil.hasUnsafe()) {
-            // Calculate the encoded length.
-            final int len = UnsafeUtf8Util.encodedLength(in);
-            final byte[] outBytes = new byte[len];
-            UnsafeUtf8Util.encodeUtf8(in, outBytes, 0, len);
-            return outBytes;
-        } else {
-            return in.getBytes(StandardCharsets.UTF_8);
-        }
-    }
-
-    /**
-     * This method has better performance than String#String(byte[], Charset),
-     * See the benchmark class: Utf8Benchmark for details.
-     */
-    public static String readUtf8(final byte[] in) {
-        if (in == null) {
-            return null;
-        }
-        if (UnsafeUtil.hasUnsafe()) {
-            return UnsafeUtf8Util.decodeUtf8(in, 0, in.length);
-        } else {
-            return new String(in, StandardCharsets.UTF_8);
-        }
-    }
+//    /**
+//     * This method has better performance than String#getBytes(Charset),
+//     * See the benchmark class: Utf8Benchmark for details.
+//     */
+//    public static byte[] writeUtf8(final String in) {
+//        if (in == null) {
+//            return null;
+//        }
+//        if (UnsafeUtil.hasUnsafe()) {
+//            // Calculate the encoded length.
+//            final int len = UnsafeUtf8Util.encodedLength(in);
+//            final byte[] outBytes = new byte[len];
+//            UnsafeUtf8Util.encodeUtf8(in, outBytes, 0, len);
+//            return outBytes;
+//        } else {
+//            return in.getBytes(StandardCharsets.UTF_8);
+//        }
+//    }
+//
+//    /**
+//     * This method has better performance than String#String(byte[], Charset),
+//     * See the benchmark class: Utf8Benchmark for details.
+//     */
+//    public static String readUtf8(final byte[] in) {
+//        if (in == null) {
+//            return null;
+//        }
+//        if (UnsafeUtil.hasUnsafe()) {
+//            return UnsafeUtf8Util.decodeUtf8(in, 0, in.length);
+//        } else {
+//            return new String(in, StandardCharsets.UTF_8);
+//        }
+//    }
 
     public static byte[] nextBytes(final byte[] bytes) {
         Requires.requireNonNull(bytes, "bytes");

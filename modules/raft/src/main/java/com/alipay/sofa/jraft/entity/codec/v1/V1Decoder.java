@@ -32,6 +32,7 @@ import com.alipay.sofa.jraft.util.Bits;
  * V1 log entry decoder
  * @author boyan(boyan@antfin.com)
  *
+ * TODO checksum
  */
 @Deprecated
 public final class V1Decoder implements LogEntryDecoder {

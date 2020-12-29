@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.function.Predicate;
 
 import com.alipay.sofa.jraft.util.internal.ReferenceFieldUpdater;
-import com.alipay.sofa.jraft.util.internal.UnsafeUtil;
 import com.alipay.sofa.jraft.util.internal.Updaters;
 
 /**
@@ -375,11 +374,14 @@ public class SegmentList<T> {
 
     private Object[] coll2Array(final Collection<T> coll) {
         Object[] src;
-        if (coll instanceof ArrayList && UnsafeUtil.hasUnsafe()) {
-            src = LIST_ARRAY_GETTER.get((ArrayList<T>) coll);
-        } else {
-            src = coll.toArray();
-        }
+//        if (coll instanceof ArrayList && UnsafeUtil.hasUnsafe()) {
+//            src = LIST_ARRAY_GETTER.get((ArrayList<T>) coll);
+//        } else {
+//            src = coll.toArray();
+//        }
+
+        src = coll.toArray();
+
         return src;
     }
 

@@ -19,6 +19,11 @@
 
 package com.alipay.sofa.jraft.entity;
 
+import com.alipay.sofa.jraft.rpc.Message;
+import com.alipay.sofa.jraft.storage.RaftMetaStorage;
+import com.alipay.sofa.jraft.util.DisruptorBuilder;
+import java.nio.ByteBuffer;
+
 public final class LocalStorageOutter {
     public interface ConfigurationPB {
         java.util.List<java.lang.String> getPeersList();
@@ -38,13 +43,34 @@ public final class LocalStorageOutter {
         long getFirstLogIndex();
     }
 
-    public interface StablePBMeta {
+    public interface StablePBMeta extends Message {
+        static Builder newBuilder() {
+            return null;
+        }
+
         long getTerm();
 
         java.lang.String getVotedfor();
+
+        interface Builder {
+
+            Builder setTerm(long term);
+
+            Builder setVotedfor(String votedFor);
+
+            StablePBMeta build();
+        }
     }
 
-    public interface LocalSnapshotPbMeta {
+    public interface LocalSnapshotPbMeta extends Message {
+        static Builder newBuilder() {
+            return null;
+        }
+
+        static LocalSnapshotPbMeta parseFrom(ByteBuffer buf) {
+            throw new UnsupportedOperationException();
+        }
+
         com.alipay.sofa.jraft.entity.RaftOutter.SnapshotMeta getMeta();
 
         java.util.List<com.alipay.sofa.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta.File> getFilesList();
@@ -53,10 +79,34 @@ public final class LocalStorageOutter {
 
         com.alipay.sofa.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta.File getFiles(int index);
 
+        byte[] toByteArray();
+
+        boolean hasMeta();
+
         interface File {
+            static Builder newBuilder() {
+                return null;
+            }
+
             java.lang.String getName();
 
             LocalFileMetaOutter.LocalFileMeta getMeta();
+
+            public interface Builder {
+                Builder setName(String key);
+
+                Builder setMeta(LocalFileMetaOutter.LocalFileMeta meta);
+
+                File build();
+            }
+        }
+
+        public interface Builder {
+            Builder setMeta(RaftOutter.SnapshotMeta meta);
+
+            Builder addFiles(File file);
+
+            LocalSnapshotPbMeta build();
         }
     }
 }

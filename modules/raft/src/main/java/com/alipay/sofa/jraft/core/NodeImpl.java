@@ -103,16 +103,12 @@ import com.alipay.sofa.jraft.storage.snapshot.SnapshotExecutorImpl;
 import com.alipay.sofa.jraft.util.Describer;
 import com.alipay.sofa.jraft.util.DisruptorBuilder;
 import com.alipay.sofa.jraft.util.DisruptorMetricSet;
-import com.alipay.sofa.jraft.util.JRaftServiceLoader;
-import com.alipay.sofa.jraft.util.JRaftSignalHandler;
 import com.alipay.sofa.jraft.util.LogExceptionHandler;
 import com.alipay.sofa.jraft.util.NamedThreadFactory;
 import com.alipay.sofa.jraft.util.OnlyForTest;
-import com.alipay.sofa.jraft.util.Platform;
 import com.alipay.sofa.jraft.util.RepeatedTimer;
 import com.alipay.sofa.jraft.util.Requires;
 import com.alipay.sofa.jraft.util.RpcFactoryHelper;
-import com.alipay.sofa.jraft.util.SignalHelper;
 import com.alipay.sofa.jraft.util.SystemPropertyUtil;
 import com.alipay.sofa.jraft.util.ThreadHelper;
 import com.alipay.sofa.jraft.util.ThreadId;
@@ -140,20 +136,20 @@ public class NodeImpl implements Node, RaftServerService {
     private static final Logger                                            LOG                      = LoggerFactory
                                                                                                         .getLogger(NodeImpl.class);
 
-    static {
-        try {
-            if (SignalHelper.supportSignal()) {
-                // TODO support windows signal
-                if (!Platform.isWindows()) {
-                    final List<JRaftSignalHandler> handlers = JRaftServiceLoader.load(JRaftSignalHandler.class) //
-                        .sort();
-                    SignalHelper.addSignal(SignalHelper.SIG_USR2, handlers);
-                }
-            }
-        } catch (final Throwable t) {
-            LOG.error("Fail to add signal.", t);
-        }
-    }
+//    static {
+//        try {
+//            if (SignalHelper.supportSignal()) {
+//                // TODO support windows signal
+//                if (!Platform.isWindows()) {
+//                    final List<JRaftSignalHandler> handlers = JRaftServiceLoader.load(JRaftSignalHandler.class) //
+//                        .sort();
+//                    SignalHelper.addSignal(SignalHelper.SIG_USR2, handlers);
+//                }
+//            }
+//        } catch (final Throwable t) {
+//            LOG.error("Fail to add signal.", t);
+//        }
+//    }
 
     public final static RaftTimerFactory                                   TIMER_FACTORY            = JRaftUtils
                                                                                                         .raftTimerFactory();

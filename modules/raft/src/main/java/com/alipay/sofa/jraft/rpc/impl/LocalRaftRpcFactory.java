@@ -14,23 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alipay.sofa.jraft.util;
+package com.alipay.sofa.jraft.rpc.impl;
 
-import org.rocksdb.Statistics;
+import com.alipay.sofa.jraft.rpc.RaftRpcFactory;
+import com.alipay.sofa.jraft.rpc.RpcClient;
+import com.alipay.sofa.jraft.rpc.RpcServer;
+import com.alipay.sofa.jraft.util.Endpoint;
+import com.alipay.sofa.jraft.util.SPI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author jiachun.fjc
  */
-public class DebugStatistics extends Statistics {
+@SPI
+public class LocalRaftRpcFactory implements RaftRpcFactory {
+    private static final Logger LOG                               = LoggerFactory.getLogger(LocalRaftRpcFactory.class);
 
-    public String getString() {
-        return super.toString();
+    @Override public void registerProtobufSerializer(String className, Object... args) {
+
     }
 
-    @Override
-    public String toString() {
-        // no crash when debug
-        return getClass().getName() + "@" + Integer.toHexString(hashCode());
+    @Override public RpcClient createRpcClient(ConfigHelper<RpcClient> helper) {
+        return null;
+    }
+
+    @Override public RpcServer createRpcServer(Endpoint endpoint, ConfigHelper<RpcServer> helper) {
+        return null;
     }
 }
