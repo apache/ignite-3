@@ -17,8 +17,7 @@
 
 package org.apache.ignite.configuration;
 
-import jdk.internal.jline.internal.Nullable;
-
+/** */
 public interface ConfigurationPresentation<R> {
     /**
      * Converts to presentation whole system configuration (all system modules are included).
@@ -36,5 +35,5 @@ public interface ConfigurationPresentation<R> {
      *
      * @return Requested configuration fraction or whole configuration if {@code null} was passed.
      */
-    R presentByPath(@Nullable String path);
+    R presentByPath(String path);
 }
