@@ -60,7 +60,6 @@ public class ConfigurationModule {
 
         sysConf.registerConfigurator(
             configurator,
-            s -> configurator.getPublic(Selectors.find(s)),
             s -> {
                 ChangeLocal chLoc = converter.convertFrom(s, "local", ChangeLocal.class);
 

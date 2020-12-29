@@ -20,30 +20,27 @@ package org.apache.ignite.configuration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.presentation.json.JsonPresentation;
 
 /** */
 public class SystemConfiguration {
     /** */
-    private Map<String, Configurator<?>> configs = new HashMap<>();
+    private final Map<String, Configurator<?>> configs = new HashMap<>();
 
     /** */
-    private Map<String, Function<String, Object>> selectorsMap = new HashMap<>();
+    private final Map<String, Function<String, Void>> updatersMap = new HashMap<>();
 
     /** */
-    private Map<String, Function<String, Void>> updatersMap = new HashMap<>();
+    private final ConfigurationPresentation<String> presentation = new JsonPresentation(configs);
 
     /** */
     public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig,
-        Function<String, Object> selectors,
         Function<String, Void> updater
     ) {
         String key = unitConfig.getRoot().key();
 
         configs.put(key, unitConfig);
-
-        selectorsMap.put(key, selectors);
 
         updatersMap.put(key, updater);
     }
@@ -54,11 +51,8 @@ public class SystemConfiguration {
     }
 
     /** */
-    public Object getConfigurationProperty(String propertyPath) {
-        String root = propertyPath.contains(".") ? propertyPath.substring(0, propertyPath.indexOf('.')) :
-            propertyPath;
-
-        return selectorsMap.get(root).apply(propertyPath);
+    public ConfigurationPresentation<String> presentation() {
+        return presentation;
     }
 
     /** */
@@ -69,13 +63,5 @@ public class SystemConfiguration {
             func.apply(updateRequest);
         else
             throw new RuntimeException("Unknown configuration: " + rootName);
-    }
-
-    /** */
-    public Map<String, Object> getAllConfigurators() {
-        return configs.entrySet().stream().collect(Collectors.toMap(
-            e -> e.getKey(),
-            e -> e.getValue().getRoot().value()
-        ));
     }
 }

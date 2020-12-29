@@ -64,7 +64,7 @@ public class RestModule {
         Configurator<RestConfigurationImpl> restConf = Configurator.create(storage, RestConfigurationImpl::new,
             converter.convertFrom(moduleConfReader, "rest", InitRest.class));
 
-        sysConfig.registerConfigurator(restConf, s -> restConf.getPublic(Selectors.find(s)),
+        sysConfig.registerConfigurator(restConf,
             s -> {
                 ChangeRest chRest = converter.convertFrom(s, "rest", ChangeRest.class);
 
@@ -81,21 +81,17 @@ public class RestModule {
         FormatConverter converter = new JsonConverter();
 
         app.get(CONF_URL, ctx -> {
-            ctx.result(converter.convertTo(sysConf.getAllConfigurators()));
+            ctx.result(sysConf.presentation().present());
         });
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
             String configPath = ctx.pathParam(PATH_PARAM);
 
             try {
-                String res = null;
-
-                res = converter.convertTo(sysConf.getConfigurationProperty(configPath));
-
-                ctx.result(res);
+                ctx.result(sysConf.presentation().presentByPath(configPath));
             }
-            catch (SelectorNotFoundException selectorE) {
-                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
+            catch (SelectorNotFoundException | IllegalArgumentException pathE) {
+                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
 
                 ctx.status(400).result(converter.convertTo("error", eRes));
             }
