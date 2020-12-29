@@ -1,5 +1,6 @@
 package com.alipay.sofa.jraft.util;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -35,5 +36,19 @@ public class ByteString {
         WritableByteChannel channel = Channels.newChannel(outputStream);
 
         channel.write(buf);
+    }
+
+    public byte[] toByteArray() {
+        if (buf.hasArray())
+            return buf.array();
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        WritableByteChannel channel = Channels.newChannel(bos);
+        try {
+            channel.write(buf);
+        } catch (IOException e) {
+            throw new Error(e);
+        }
+        return bos.toByteArray();
     }
 }

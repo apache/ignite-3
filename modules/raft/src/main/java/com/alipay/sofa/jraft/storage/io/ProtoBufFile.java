@@ -118,24 +118,4 @@ public class ProtoBufFile {
 
         return Utils.atomicMoveFile(file, new File(this.path), sync);
     }
-
-    public static void main(String[] args) throws IOException {
-        File file = File.createTempFile("store", "tmp");
-
-        ProtoBufFile tmp = new ProtoBufFile(file.getAbsolutePath());
-
-        CliRequests.AddPeerRequest.Builder b = CliRequests.AddPeerRequest.newBuilder();
-        b.setGroupId("grp1");
-        b.setLeaderId("zzz");
-        b.setPeerId("tmp");
-
-        CliRequests.AddPeerRequest req0 = b.build();
-        boolean saved = tmp.save(req0, false);
-
-        CliRequests.AddPeerRequest req1 = tmp.load();
-
-        System.out.println();
-
-        file.delete();
-    }
 }

@@ -322,6 +322,8 @@ public final class RpcRequests {
 
         boolean hasData();
 
+        byte[] toByteArray();
+
         interface Builder {
             AppendEntriesRequest build();
 

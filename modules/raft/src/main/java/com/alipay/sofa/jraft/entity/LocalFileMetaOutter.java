@@ -20,6 +20,7 @@
 package com.alipay.sofa.jraft.entity;
 
 import com.alipay.sofa.jraft.rpc.Message;
+import com.alipay.sofa.jraft.rpc.MessageBuilderFactory;
 import com.alipay.sofa.jraft.util.ByteString;
 
 public final class LocalFileMetaOutter {
@@ -70,7 +71,7 @@ public final class LocalFileMetaOutter {
 
     public interface LocalFileMeta extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createLocalFileMeta();
         }
 
         ByteString getUserMeta();
@@ -81,12 +82,18 @@ public final class LocalFileMetaOutter {
 
         boolean hasChecksum();
 
+        boolean hasUserMeta();
+
         interface Builder {
             LocalFileMeta build();
 
             Builder setUserMeta(ByteString data);
 
             void mergeFrom(Message fileMeta);
+
+            Builder setChecksum(String sum);
+
+            Builder setSource(FileSource source);
         }
     }
 }

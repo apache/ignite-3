@@ -38,7 +38,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return MessageBuilderFactory.DEFAULT.create();
+            return MessageBuilderFactory.DEFAULT.createAddPeer();
         }
     }
 
@@ -177,7 +177,7 @@ public final class CliRequests {
 
             Builder setLeaderId(String leaderId);
 
-            void addNewPeers(String peerId);
+            Builder addNewPeers(String peerId);
 
             ChangePeersRequest build();
         }
@@ -281,7 +281,7 @@ public final class CliRequests {
 
             Builder setPeerId(String peerId);
 
-            void addNewPeers(String peerId);
+            Builder addNewPeers(String peerId);
 
             ResetPeerRequest build();
         }
@@ -305,7 +305,7 @@ public final class CliRequests {
 
             Builder setLeaderId(String leaderId);
 
-            void setPeerId(String peerId);
+            Builder setPeerId(String peerId);
 
             TransferLeaderRequest build();
         }
@@ -427,7 +427,7 @@ public final class CliRequests {
 
             Builder setLeaderId(String leaderId);
 
-            void addLearners(String learnerId);
+            Builder addLearners(String learnerId);
 
             AddLearnersRequest build();
         }
@@ -453,7 +453,7 @@ public final class CliRequests {
 
             Builder setLeaderId(String leaderId);
 
-            void addLearners(String leaderId);
+            Builder addLearners(String leaderId);
 
             RemoveLearnersRequest build();
         }
@@ -485,7 +485,7 @@ public final class CliRequests {
 
             Builder setLeaderId(String leaderId);
 
-            void addLearners(String learnerId);
+            Builder addLearners(String learnerId);
 
             ResetLearnersRequest build();
         }

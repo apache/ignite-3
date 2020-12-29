@@ -1,4 +1,9 @@
 package com.alipay.sofa.jraft.rpc;
 
-public interface Message {
+import java.io.Serializable;
+
+/**
+ * Base message. Extends Serializable for compatibility with JDK serialization.
+ */
+public interface Message extends Serializable {
 }

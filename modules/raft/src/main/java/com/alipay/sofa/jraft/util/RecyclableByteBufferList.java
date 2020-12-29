@@ -16,9 +16,12 @@
  */
 package com.alipay.sofa.jraft.util;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * A simple {@link java.nio.ByteBuffer} list which is recyclable.
@@ -46,6 +49,17 @@ public final class RecyclableByteBufferList extends ArrayList<ByteBuffer> implem
         final RecyclableByteBufferList ret = recyclers.get();
         ret.ensureCapacity(minCapacity);
         return ret;
+    }
+
+    /**
+     * TODO asch slow concatenation by copying, should use RopeByteBuffer.
+     *
+     * @param buffers Buffers.
+     */
+    public static ByteString concatenate(List<ByteBuffer> buffers) {
+        final ByteBuffer combined = ByteBuffer.allocate(buffers.stream().mapToInt(Buffer::remaining).sum());
+        buffers.stream().forEach(b -> combined.put(b.duplicate()));
+        return new ByteString(combined);
     }
 
     public int getCapacity() {
