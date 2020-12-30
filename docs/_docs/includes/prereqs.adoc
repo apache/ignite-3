@@ -16,4 +16,5 @@
 |===
 |JDK | 11 and later
 |OS |Linux (Ubuntu 20.04), Windows (10 Home), macOS
+|===
 
