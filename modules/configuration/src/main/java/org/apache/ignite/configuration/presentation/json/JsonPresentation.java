@@ -39,7 +39,7 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
     }
 
     /** {@inheritDoc} */
-    @Override public String present() {
+    @Override public String represent() {
         Map<String, ?> preparedMap = configsMap.entrySet().stream().collect(Collectors.toMap(
             e -> e.getKey(),
             e -> e.getValue().getRoot().value()
@@ -49,9 +49,9 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
     }
 
     /** {@inheritDoc} */
-    @Override public String presentByPath(String path) {
-        if (path.isEmpty())
-            return present();
+    @Override public String representByPath(String path) {
+        if (path == null || path.isEmpty())
+            return represent();
 
         String root = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
 
@@ -60,5 +60,24 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
         ConfigurationProperty<Object, Object> prop = configurator.getInternal(BaseSelectors.find(path));
 
         return converter.convertTo(prop.value());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void update(String configUpdate) {
+        String root = converter.rootName(configUpdate);
+
+        if (root == null) {
+            throw new IllegalArgumentException("Invalid request, no root in request: " + configUpdate);
+        }
+
+        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator = configsMap.get(root);
+
+        if (configurator == null) {
+            throw new IllegalArgumentException("Invalid request, configuration root not found: " + configUpdate);
+        }
+
+        Object updateObj = converter.convertFrom(configUpdate, root, configurator.getChangeType());
+
+        configurator.set(BaseSelectors.find(root), updateObj);
     }
 }

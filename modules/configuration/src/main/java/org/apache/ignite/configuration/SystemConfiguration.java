@@ -19,7 +19,6 @@ package org.apache.ignite.configuration;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.presentation.json.JsonPresentation;
 
@@ -29,20 +28,13 @@ public class SystemConfiguration {
     private final Map<String, Configurator<?>> configs = new HashMap<>();
 
     /** */
-    private final Map<String, Function<String, Void>> updatersMap = new HashMap<>();
-
-    /** */
     private final ConfigurationPresentation<String> presentation = new JsonPresentation(configs);
 
     /** */
-    public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig,
-        Function<String, Void> updater
-    ) {
+    public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig) {
         String key = unitConfig.getRoot().key();
 
         configs.put(key, unitConfig);
-
-        updatersMap.put(key, updater);
     }
 
     /** */
@@ -53,15 +45,5 @@ public class SystemConfiguration {
     /** */
     public ConfigurationPresentation<String> presentation() {
         return presentation;
-    }
-
-    /** */
-    public void updateConfigurationProperty(String rootName, String updateRequest) {
-        Function<String, Void> func = updatersMap.get(rootName);
-
-        if (func != null)
-            func.apply(updateRequest);
-        else
-            throw new RuntimeException("Unknown configuration: " + rootName);
     }
 }

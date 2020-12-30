@@ -27,7 +27,6 @@ import org.apache.ignite.configuration.presentation.FormatConverter;
 import org.apache.ignite.configuration.presentation.json.JsonConverter;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.rest.configuration.ChangeRest;
 import org.apache.ignite.rest.configuration.InitRest;
 import org.apache.ignite.rest.configuration.RestConfigurationImpl;
 import org.apache.ignite.rest.configuration.Selectors;
@@ -64,14 +63,7 @@ public class RestModule {
         Configurator<RestConfigurationImpl> restConf = Configurator.create(storage, RestConfigurationImpl::new,
             converter.convertFrom(moduleConfReader, "rest", InitRest.class));
 
-        sysConfig.registerConfigurator(restConf,
-            s -> {
-                ChangeRest chRest = converter.convertFrom(s, "rest", ChangeRest.class);
-
-                restConf.set(Selectors.REST, chRest);
-
-                return null;
-            } );
+        sysConfig.registerConfigurator(restConf);
     }
 
     /** */
@@ -81,14 +73,14 @@ public class RestModule {
         FormatConverter converter = new JsonConverter();
 
         app.get(CONF_URL, ctx -> {
-            ctx.result(sysConf.presentation().present());
+            ctx.result(sysConf.presentation().represent());
         });
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
             String configPath = ctx.pathParam(PATH_PARAM);
 
             try {
-                ctx.result(sysConf.presentation().presentByPath(configPath));
+                ctx.result(sysConf.presentation().representByPath(configPath));
             }
             catch (SelectorNotFoundException | IllegalArgumentException pathE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
@@ -98,41 +90,31 @@ public class RestModule {
         });
 
         app.post(CONF_URL, ctx -> {
-            String root = converter.rootName(ctx.body());
-
-            if (root != null) {
-                try {
-                    sysConf.updateConfigurationProperty(root, ctx.body());
-                }
-                catch (SelectorNotFoundException selectorE) {
-                    ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
-
-                    ctx.status(400).result(converter.convertTo("error", eRes));
-                }
-                catch (ConfigurationValidationException validationE) {
-                    ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
-
-                    ctx.status(400).result(converter.convertTo("error", eRes));
-                }
-                catch (JsonSyntaxException e) {
-                    String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-
-                    ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
-
-                    ctx.status(400).result(converter.convertTo("error", eRes));
-                }
-                catch (Exception e) {
-                    ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
-
-                    ctx.status(400).result(converter.convertTo("error", eRes));
-                }
+            try {
+                sysConf.presentation().update(ctx.body());
             }
-            else
-                ctx.status(400).result(
-                    converter.convertTo("error",
-                        new ErrorResult("CONFIG_PATH_UNRECOGNIZED", "Malformed input")
-                    )
-                );
+            catch (SelectorNotFoundException | IllegalArgumentException argE) {
+                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", argE.getMessage());
+
+                ctx.status(400).result(converter.convertTo("error", eRes));
+            }
+            catch (ConfigurationValidationException validationE) {
+                ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
+
+                ctx.status(400).result(converter.convertTo("error", eRes));
+            }
+            catch (JsonSyntaxException e) {
+                String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+
+                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
+
+                ctx.status(400).result(converter.convertTo("error", eRes));
+            }
+            catch (Exception e) {
+                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+
+                ctx.status(400).result(converter.convertTo("error", eRes));
+            }
         });
     }
 

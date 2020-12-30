@@ -24,7 +24,7 @@ public interface ConfigurationPresentation<R> {
      *
      * @return System configuration presentation converted to a given presentation type.
      */
-    R present();
+    R represent();
 
     /**
      * Converts to presentation only a fraction of system configuration defined by given path.
@@ -35,5 +35,12 @@ public interface ConfigurationPresentation<R> {
      *
      * @return Requested configuration fraction or whole configuration if {@code null} was passed.
      */
-    R presentByPath(String path);
+    R representByPath(String path);
+
+    /**
+     * Converts and applies configuration update request to system configuration.
+     *
+     * @param configUpdate Configuration update request in representation form.
+     */
+    void update(R configUpdate);
 }
