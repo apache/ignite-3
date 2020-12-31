@@ -25,6 +25,7 @@ import com.alipay.sofa.jraft.rpc.Connection;
 import com.alipay.sofa.jraft.rpc.InvokeCallback;
 import com.alipay.sofa.jraft.rpc.InvokeContext;
 import com.alipay.sofa.jraft.rpc.RpcClient;
+import com.alipay.sofa.jraft.rpc.RpcUtils;
 import com.alipay.sofa.jraft.util.Endpoint;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -104,7 +105,7 @@ public class LocalRpcClient implements RpcClient {
         assert srv.incoming.offer(tuple);
 
         fut.whenComplete((BiConsumer<Object, Throwable>) (res, err) -> {
-            callback.complete(res, err);
+            RpcUtils.runInThread(() -> callback.complete(res, err)); // Avoid deadlocks if a closure has completed in the same thread.
         }).orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
     }
 

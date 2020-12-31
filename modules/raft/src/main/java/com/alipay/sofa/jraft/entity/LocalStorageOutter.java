@@ -65,7 +65,7 @@ public final class LocalStorageOutter {
 
     public interface LocalSnapshotPbMeta extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createLocalSnapshotMeta();
         }
 
         static LocalSnapshotPbMeta parseFrom(ByteBuffer buf) {
@@ -84,9 +84,9 @@ public final class LocalStorageOutter {
 
         boolean hasMeta();
 
-        interface File {
+        interface File extends Message {
             static Builder newBuilder() {
-                return null;
+                return MessageBuilderFactory.DEFAULT.createFile();
             }
 
             java.lang.String getName();

@@ -36,4 +36,10 @@ public interface MessageBuilderFactory {
     RpcRequests.ReadIndexRequest.Builder createReadIndexRequest();
 
     RpcRequests.ReadIndexResponse.Builder createReadIndexResponse();
+
+    RaftOutter.SnapshotMeta.Builder createSnapshotMeta();
+
+    LocalStorageOutter.LocalSnapshotPbMeta.Builder createLocalSnapshotMeta();
+
+    LocalStorageOutter.LocalSnapshotPbMeta.File.Builder createFile();
 }

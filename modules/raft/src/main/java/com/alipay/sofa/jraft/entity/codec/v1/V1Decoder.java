@@ -66,10 +66,12 @@ public final class V1Decoder implements LogEntryDecoder {
         final long index = Bits.getLong(content, 5);
         final long term = Bits.getLong(content, 13);
         log.setId(new LogId(index, term));
-        // 21-25 peer count
-        int peerCount = Bits.getInt(content, 21);
+        // 21-29 checksum
+        log.setChecksum(Bits.getLong(content, 21));
+        // 29-33 peer count
+        int peerCount = Bits.getInt(content, 29);
         // peers
-        int pos = 25;
+        int pos = 33;
         if (peerCount > 0) {
             List<PeerId> peers = new ArrayList<>(peerCount);
             while (peerCount-- > 0) {

@@ -98,7 +98,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
     public boolean init(final Void v) {
         final File dir = new File(this.path);
 
-        if (!dir.mkdirs()) {
+        if (!Utils.mkdir(dir)) {
             LOG.error("Fail to create directory {}.", this.path);
             return false;
         }
@@ -162,7 +162,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         LOG.info("Deleting snapshot {}.", path);
         final File file = new File(path);
 
-        if (!Utils.delete(file)) {
+        if (file.exists() && !Utils.delete(file)) {
             LOG.error("Fail to destroy snapshot {}.", path);
             return false;
         }

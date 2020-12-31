@@ -55,4 +55,17 @@ public class ByteString {
     public ByteString copy() {
         return this == EMPTY ? EMPTY : new ByteString(toByteArray());
     }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        ByteString that = (ByteString) o;
+
+        return buf.equals(that.buf);
+    }
+
+    @Override public int hashCode() {
+        return buf.hashCode();
+    }
 }

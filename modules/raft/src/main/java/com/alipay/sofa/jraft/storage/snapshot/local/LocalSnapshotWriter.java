@@ -58,7 +58,7 @@ public class LocalSnapshotWriter extends SnapshotWriter {
     public boolean init(final Void v) {
         final File dir = new File(this.path);
 
-        if (!dir.mkdirs()) {
+        if (!Utils.mkdir(dir)) {
             LOG.error("Fail to create directory {}.", this.path);
             setError(RaftError.EIO, "Fail to create directory  %s", this.path);
             return false;

@@ -16,7 +16,7 @@ class AppendEntriesRequestImpl implements RpcRequests.AppendEntriesRequest, RpcR
     private long prevLogIndex;
     private List<RaftOutter.EntryMeta> entiesList = new ArrayList<>();
     private long committedIndex;
-    private ByteString data = ByteString.EMPTY;
+    private ByteString data;
 
     @Override public String getGroupId() {
         return groupId;
@@ -63,7 +63,7 @@ class AppendEntriesRequestImpl implements RpcRequests.AppendEntriesRequest, RpcR
     }
 
     @Override public boolean hasData() {
-        return data != ByteString.EMPTY;
+        return data != null;
     }
 
     @Override public byte[] toByteArray() {
@@ -126,5 +126,35 @@ class AppendEntriesRequestImpl implements RpcRequests.AppendEntriesRequest, RpcR
         entiesList.add(entryMeta);
 
         return this;
+    }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        AppendEntriesRequestImpl that = (AppendEntriesRequestImpl) o;
+
+        if (term != that.term) return false;
+        if (prevLogTerm != that.prevLogTerm) return false;
+        if (prevLogIndex != that.prevLogIndex) return false;
+        if (committedIndex != that.committedIndex) return false;
+        if (!groupId.equals(that.groupId)) return false;
+        if (!serverId.equals(that.serverId)) return false;
+        if (!peerId.equals(that.peerId)) return false;
+        if (!entiesList.equals(that.entiesList)) return false;
+        return data != null ? data.equals(that.data) : that.data == null;
+    }
+
+    @Override public int hashCode() {
+        int result = groupId.hashCode();
+        result = 31 * result + serverId.hashCode();
+        result = 31 * result + peerId.hashCode();
+        result = 31 * result + (int) (term ^ (term >>> 32));
+        result = 31 * result + (int) (prevLogTerm ^ (prevLogTerm >>> 32));
+        result = 31 * result + (int) (prevLogIndex ^ (prevLogIndex >>> 32));
+        result = 31 * result + entiesList.hashCode();
+        result = 31 * result + (int) (committedIndex ^ (committedIndex >>> 32));
+        result = 31 * result + (data != null ? data.hashCode() : 0);
+        return result;
     }
 }

@@ -1592,8 +1592,8 @@ public class Replicator implements ThreadId.OnError {
             RecycleUtil.recycle(recyclable);
             ThrowUtil.throwException(t);
         }
-        addInflight(RequestType.AppendEntries, nextSendingIndex, request.getEntriesCount(), request.getData().size(),
-            seq, rpcFuture);
+        addInflight(RequestType.AppendEntries, nextSendingIndex, request.getEntriesCount(),
+            !request.hasData() ? 0 : request.getData().size(), seq, rpcFuture);
 
         return true;
     }

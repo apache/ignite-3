@@ -101,10 +101,13 @@ public final class V1Encoder implements LogEntryEncoder {
         Bits.putLong(content, 5, index);
         // 13-21 term
         Bits.putLong(content, 13, term);
+        // checksum
+        Bits.putLong(content, 21, log.getChecksum());
+
         // peers
         // 21-25 peer count
-        Bits.putInt(content, 21, peerCount);
-        int pos = 25;
+        Bits.putInt(content, 29, peerCount);
+        int pos = 33;
         for (final String peerStr : peerStrs) {
             final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
             Bits.putShort(content, pos, (short) peerStr.length());

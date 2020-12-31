@@ -16,6 +16,7 @@
  */
 package com.alipay.sofa.jraft.core;
 
+import com.alipay.sofa.jraft.util.ByteString;
 import com.alipay.sofa.jraft.util.StringUtils;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -1963,7 +1964,7 @@ public class NodeImpl implements Node, RaftServerService {
             // Parse request
             long index = prevLogIndex;
             final List<LogEntry> entries = new ArrayList<>(entriesCount);
-            ByteBuffer allData = request.getData().asReadOnlyByteBuffer();
+            ByteBuffer allData = request.hasData() ? request.getData().asReadOnlyByteBuffer() : ByteString.EMPTY.asReadOnlyByteBuffer();
 
             final List<RaftOutter.EntryMeta> entriesList = request.getEntriesList();
             for (int i = 0; i < entriesCount; i++) {

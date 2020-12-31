@@ -32,6 +32,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import com.alipay.sofa.jraft.Status;
@@ -56,6 +57,7 @@ import com.alipay.sofa.jraft.storage.snapshot.SnapshotReader;
 import com.alipay.sofa.jraft.util.ThreadId;
 import com.alipay.sofa.jraft.util.Utils;
 import com.alipay.sofa.jraft.rpc.Message;
+import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -434,7 +436,11 @@ public class ReplicatorTest {
 
         final RpcRequests.AppendEntriesRequest request = rb.build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
-            .thenReturn(new FutureImpl<>());
+            .thenAnswer(new Answer<Future>() {
+                @Override public Future answer(InvocationOnMock invocation) throws Throwable {
+                    return new FutureImpl<>();
+                }
+            });
 
         assertEquals(11, r.statInfo.firstLogIndex);
         assertEquals(10, r.statInfo.lastLogIndex);
@@ -555,7 +561,11 @@ public class ReplicatorTest {
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(true);
         Mockito.when(
             this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
-                eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenReturn(new FutureImpl<>());
+                eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenAnswer(new Answer<Future>() {
+            @Override public Future answer(InvocationOnMock invocation) throws Throwable {
+                return new FutureImpl<>();
+            }
+        });
         Replicator.sendHeartbeat(this.id, new RpcResponseClosureAdapter<RpcRequests.AppendEntriesResponse>() {
 
             @Override

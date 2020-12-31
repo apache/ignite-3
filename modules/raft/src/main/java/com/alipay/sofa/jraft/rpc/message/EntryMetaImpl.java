@@ -130,4 +130,32 @@ class EntryMetaImpl implements RaftOutter.EntryMeta, RaftOutter.EntryMeta.Builde
 
         return this;
     }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        EntryMetaImpl entryMeta = (EntryMetaImpl) o;
+
+        if (term != entryMeta.term) return false;
+        if (dataLen != entryMeta.dataLen) return false;
+        if (checksum != entryMeta.checksum) return false;
+        if (type != entryMeta.type) return false;
+        if (!peersList.equals(entryMeta.peersList)) return false;
+        if (!oldPeersList.equals(entryMeta.oldPeersList)) return false;
+        if (!learnersList.equals(entryMeta.learnersList)) return false;
+        return oldLearnersList.equals(entryMeta.oldLearnersList);
+    }
+
+    @Override public int hashCode() {
+        int result = (int) (term ^ (term >>> 32));
+        result = 31 * result + type.hashCode();
+        result = 31 * result + peersList.hashCode();
+        result = 31 * result + (int) (dataLen ^ (dataLen >>> 32));
+        result = 31 * result + oldPeersList.hashCode();
+        result = 31 * result + (int) (checksum ^ (checksum >>> 32));
+        result = 31 * result + learnersList.hashCode();
+        result = 31 * result + oldLearnersList.hashCode();
+        return result;
+    }
 }

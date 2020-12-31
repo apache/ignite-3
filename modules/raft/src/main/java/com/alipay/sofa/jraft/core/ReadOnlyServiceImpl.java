@@ -301,6 +301,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
             Utils.runClosureInThread(closure, new Status(RaftError.EHOSTDOWN, "Was stopped"));
             throw new IllegalStateException("Service already shutdown.");
         }
+
         try {
             EventTranslator<ReadIndexEvent> translator = (event, sequence) -> {
                 event.done = closure;

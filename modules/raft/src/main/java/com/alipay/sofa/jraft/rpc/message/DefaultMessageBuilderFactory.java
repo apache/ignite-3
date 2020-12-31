@@ -63,4 +63,16 @@ public class DefaultMessageBuilderFactory implements MessageBuilderFactory {
     @Override public RpcRequests.ReadIndexResponse.Builder createReadIndexResponse() {
         return new ReadIndexResponseImpl();
     }
+
+    @Override public RaftOutter.SnapshotMeta.Builder createSnapshotMeta() {
+        return new SnapshotMetaImpl();
+    }
+
+    @Override public LocalStorageOutter.LocalSnapshotPbMeta.Builder createLocalSnapshotMeta() {
+        return new LocalSnapshotMetaImpl();
+    }
+
+    @Override public LocalStorageOutter.LocalSnapshotPbMeta.File.Builder createFile() {
+        return new LocalSnapshotMetaFileImpl();
+    }
 }

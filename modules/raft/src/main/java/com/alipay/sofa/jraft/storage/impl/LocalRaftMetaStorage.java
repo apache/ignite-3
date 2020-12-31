@@ -73,10 +73,11 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         this.nodeMetrics = this.node.getNodeMetrics();
         File dir = new File(this.path);
 
-        if (!dir.mkdirs()) {
+        if (!Utils.mkdir(dir)) {
             LOG.error("Fail to mkdir {}", this.path);
             return false;
         }
+
         if (load()) {
             this.isInited = true;
             return true;

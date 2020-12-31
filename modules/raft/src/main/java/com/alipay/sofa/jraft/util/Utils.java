@@ -503,4 +503,11 @@ public final class Utils {
             return StringUtils.splitPreserveAllTokens(s, ':');
         }
     }
+
+    public static boolean mkdir(File file) {
+        if (file.exists() && file.isDirectory())
+            return true;
+
+        return file.mkdirs();
+    }
 }

@@ -74,7 +74,7 @@ public final class LocalFileMetaOutter {
             return MessageBuilderFactory.DEFAULT.createLocalFileMeta();
         }
 
-        ByteString getUserMeta();
+        //ByteString getUserMeta();
 
         FileSource getSource();
 
@@ -87,7 +87,7 @@ public final class LocalFileMetaOutter {
         interface Builder {
             LocalFileMeta build();
 
-            Builder setUserMeta(ByteString data);
+            //Builder setUserMeta(ByteString data);
 
             void mergeFrom(Message fileMeta);
 
