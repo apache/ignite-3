@@ -25,6 +25,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -55,6 +56,7 @@ import javax.lang.model.util.Elements;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -164,6 +166,7 @@ public class Processor extends AbstractProcessor {
 
             ConfigurationDescription configDesc = new ConfigurationDescription(
                 configClass,
+                configInterface,
                 configName,
                 Utils.getViewName(schemaClassName),
                 Utils.getInitName(schemaClassName),
@@ -310,7 +313,38 @@ public class Processor extends AbstractProcessor {
         // Generate Selectors class
         createSelectorsClass(packageForUtil, flattenConfig);
 
+        // Generate RootKey class
+        createRootKeyClass(packageForUtil, roots);
+
         return true;
+    }
+
+    private void createRootKeyClass(String packageForUtil, List<ConfigurationDescription> roots) {
+        for (ConfigurationDescription cfgDesc : roots) {
+            String rName = cfgDesc.getName();
+
+            ClassName rKeyInterface = ClassName.get(RootKey.class);
+            ClassName configInterface = cfgDesc.getConfigInterface();
+
+            TypeName parametrizedInterface = ParameterizedTypeName.get(rKeyInterface, configInterface);
+
+            String capitalizedName = rName.substring(0, 1).toUpperCase() + rName.substring(1, rName.length() - 1);
+
+            ClassName rootKeyClassName = ClassName.get(packageForUtil, capitalizedName + "RootKey");
+
+            TypeSpec.Builder rootKeyClass =TypeSpec.classBuilder(rootKeyClassName)
+                .addSuperinterface(parametrizedInterface)
+                .addModifiers(PUBLIC, FINAL);
+
+            JavaFile rootClassFile = JavaFile.builder(rootKeyClassName.packageName(), rootKeyClass.build()).build();
+
+            try {
+                rootClassFile.writeTo(filer);
+            }
+            catch (IOException e) {
+                throw new ProcessorException("Failed to write class: " + e.getMessage(), e);
+            }
+        }
     }
 
     /**

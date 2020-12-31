@@ -56,6 +56,13 @@ public class RestModule {
 
     /** */
     public void prepareStart(SystemConfiguration sysConfig, Reader moduleConfReader, ConfigurationStorage storage) {
+        try {
+            Class.forName(Selectors.class.getName());
+        }
+        catch (ClassNotFoundException e) {
+            // No-op.
+        }
+
         sysConf = sysConfig;
 
         FormatConverter converter = new JsonConverter();
@@ -120,10 +127,8 @@ public class RestModule {
 
     /** */
     private Javalin startRestEndpoint() {
-        Configurator<RestConfigurationImpl> restConf = sysConf.getConfigurator("rest");
-
-        Integer port = restConf.getPublic(Selectors.REST_PORT);
-        Integer portRange = restConf.getPublic(Selectors.REST_PORT_RANGE);
+        Integer port = sysConf.getConfiguration(RestRootKey.KEY).port().value();
+        Integer portRange = sysConf.getConfiguration(RestRootKey.KEY).portRange().value();
 
         Javalin app = null;
 

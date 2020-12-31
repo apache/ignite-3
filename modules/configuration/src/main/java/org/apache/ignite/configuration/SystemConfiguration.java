@@ -28,6 +28,9 @@ public class SystemConfiguration {
     private final Map<String, Configurator<?>> configs = new HashMap<>();
 
     /** */
+    private final Map<String, ConfigurationTree<?, ?>> multirootConfiguration = new HashMap<>();
+
+    /** */
     private final ConfigurationPresentation<String> presentation = new JsonPresentation(configs);
 
     /** */
@@ -35,6 +38,13 @@ public class SystemConfiguration {
         String key = unitConfig.getRoot().key();
 
         configs.put(key, unitConfig);
+
+        multirootConfiguration.put(key, unitConfig.getRoot());
+    }
+
+    /** */
+    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T> rootKey) {
+        return (T) multirootConfiguration.get(rootKey.key());
     }
 
     /** */
