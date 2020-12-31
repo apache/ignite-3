@@ -60,7 +60,7 @@ public class LocalRpcServer implements RpcServer {
         this.local = local;
     }
 
-    static synchronized boolean connect(LocalRpcClient client, Endpoint srv, boolean createIfAbsent, Consumer<LocalConnection> onCreated) {
+    static boolean connect(LocalRpcClient client, Endpoint srv, boolean createIfAbsent, Consumer<LocalConnection> onCreated) {
         LocalRpcServer locSrv = servers.get(srv);
 
         if (locSrv == null)
@@ -74,15 +74,16 @@ public class LocalRpcServer implements RpcServer {
 
             conn = new LocalConnection(client, srv);
 
-            locSrv.conns.put(client, conn);
+            LocalConnection oldConn = locSrv.conns.putIfAbsent(client, conn);
 
-            onCreated.accept(conn);
+            if (oldConn == null)
+                onCreated.accept(conn);
         }
 
         return true;
     }
 
-    static synchronized void closeConnection(LocalRpcClient client, Endpoint srv) {
+    static void closeConnection(LocalRpcClient client, Endpoint srv) {
         LocalRpcServer locSrv = servers.get(srv);
 
         if (locSrv == null)

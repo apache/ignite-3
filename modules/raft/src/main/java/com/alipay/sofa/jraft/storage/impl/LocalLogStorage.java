@@ -1,8 +1,5 @@
 package com.alipay.sofa.jraft.storage.impl;
 
-import com.alipay.sofa.jraft.conf.Configuration;
-import com.alipay.sofa.jraft.conf.ConfigurationEntry;
-import com.alipay.sofa.jraft.conf.ConfigurationManager;
 import com.alipay.sofa.jraft.entity.EnumOutter;
 import com.alipay.sofa.jraft.entity.LogEntry;
 import com.alipay.sofa.jraft.entity.LogId;
@@ -13,28 +10,24 @@ import com.alipay.sofa.jraft.option.RaftOptions;
 import com.alipay.sofa.jraft.storage.LogStorage;
 import com.alipay.sofa.jraft.util.Describer;
 import com.alipay.sofa.jraft.util.Requires;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Stores log in heap.
  * <p>
- * TODO can use SegmentList.
+ * TODO asch can use SegmentList.
  */
 public class LocalLogStorage implements LogStorage, Describer {
     private static final Logger LOG = LoggerFactory.getLogger(LocalLogStorage.class);
 
     private final String path;
-    private final boolean sync;
-    private final boolean openStatistics;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = this.readWriteLock.readLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
@@ -52,8 +45,6 @@ public class LocalLogStorage implements LogStorage, Describer {
     public LocalLogStorage(final String path, final RaftOptions raftOptions) {
         super();
         this.path = path;
-        this.sync = raftOptions.isSync();
-        this.openStatistics = raftOptions.isOpenStatistics();
     }
 
     @Override
@@ -217,9 +208,6 @@ public class LocalLogStorage implements LogStorage, Describer {
         try {
             ConcurrentNavigableMap<Long, LogEntry> map = log.headMap(firstIndexKept);
 
-            if (map.isEmpty())
-                return false;
-
             map.clear();
 
             firstLogIndex = log.isEmpty() ? 1 : log.firstKey();
@@ -237,12 +225,9 @@ public class LocalLogStorage implements LogStorage, Describer {
         try {
             ConcurrentNavigableMap<Long, LogEntry> map = log.tailMap(lastIndexKept, false);
 
-            if (map.isEmpty())
-                return false;
-
             map.clear();
 
-            lastLogIndex = lastIndexKept;
+            lastLogIndex = map.isEmpty() ? 0 : map.lastKey();
 
             return true;
         } catch (Exception e) {

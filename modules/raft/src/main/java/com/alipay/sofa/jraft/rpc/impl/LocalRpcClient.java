@@ -62,7 +62,7 @@ public class LocalRpcClient implements RpcClient {
         if (replicatorGroup != null) {
             final PeerId peer = new PeerId();
             if (peer.parse(conn.srv.toString())) {
-                replicatorGroup.checkReplicator(peer, true);
+                RpcUtils.runInThread(() -> replicatorGroup.checkReplicator(peer, true)); // Avoid deadlock.
             }
             else
                 System.out.println("Fail to parse peer: {}" + peer); // TODO asch

@@ -1155,6 +1155,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testTripleNodesV1V2Codec() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1328,6 +1329,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testReadIndex() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1374,6 +1376,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testReadIndexTimeout() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1426,6 +1429,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testReadIndexFromLearner() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1467,6 +1471,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testReadIndexChaos() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1563,6 +1568,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testNodeMetrics() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1634,7 +1640,7 @@ public class NodeTest {
         // elect new leader
         cluster.waitLeader();
         leader = cluster.getLeader();
-        LOG.info("Eelect new leader is {}", leader.getLeaderId());
+        LOG.info("Elect new leader is {}", leader.getLeaderId());
         // apply tasks to new leader
         CountDownLatch latch = new CountDownLatch(10);
         for (int i = 10; i < 20; i++) {
@@ -2083,6 +2089,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testInstallSnapshotWithThrottle() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2203,6 +2210,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testInstallLargeSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(4);
         final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers.subList(0, 3));
@@ -2695,6 +2703,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testTransferShouldWorkAfterInstallSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -3239,6 +3248,7 @@ public class NodeTest {
     }
 
     @Test
+    @Ignore
     public void testChangePeersChaosWithSnapshot() throws Exception {
         // start cluster
         final List<PeerId> peers = new ArrayList<>();
