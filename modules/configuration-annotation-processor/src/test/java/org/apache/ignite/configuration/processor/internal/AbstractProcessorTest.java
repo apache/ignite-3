@@ -42,7 +42,7 @@ public class AbstractProcessorTest {
     protected static BatchCompilation batchCompile(ClassName... schemaClasses) {
         List<String> fileNames = Arrays.stream(schemaClasses)
             .map(name -> {
-                final String folderName = name.packageName().replaceAll("\\.", File.separator);
+                final String folderName = name.packageName().replace(".", File.separator);
                 return String.format("%s%c%s.java", folderName, File.separatorChar, name.simpleName());
             })
             .collect(Collectors.toList());
@@ -82,7 +82,8 @@ public class AbstractProcessorTest {
      * @return ClassName.
      */
     protected static ClassName fromGeneratedFilePath(String fileName) {
-        return fromFilePath(fileName.replace("/SOURCE_OUTPUT/", ""));
+        final String filePath = fileName.replace(String.format("%c%s%c", File.separatorChar, "SOURCE_OUTPUT", File.separatorChar), "");
+        return fromFilePath(filePath);
     }
 
     /**
@@ -91,10 +92,10 @@ public class AbstractProcessorTest {
      * @return ClassName.
      */
     protected static ClassName fromFilePath(String fileName) {
-        int slashIdx = fileName.lastIndexOf("/");
+        int slashIdx = fileName.lastIndexOf(File.separator);
         int dotJavaIdx = fileName.lastIndexOf(".java");
 
-        String packageName = fileName.substring(0, slashIdx).replaceAll("/", ".");
+        String packageName = fileName.substring(0, slashIdx).replace(File.separator, ".");
 
         final String className = fileName.substring(slashIdx + 1, dotJavaIdx);
 
