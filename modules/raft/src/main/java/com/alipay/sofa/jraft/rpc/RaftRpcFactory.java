@@ -29,15 +29,6 @@ public interface RaftRpcFactory {
     RpcResponseFactory DEFAULT = new RpcResponseFactory() {};
 
     /**
-     * Register serializer with class name.
-     *
-     * @param className class name
-     * @param args      extended parameters, different implementers may need different parameters,
-     *                  the order of parameters need a convention
-     */
-    void registerProtobufSerializer(final String className, final Object... args);
-
-    /**
      * Creates a raft RPC client.
      *
      * @return a new rpc client instance

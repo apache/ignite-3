@@ -19,14 +19,8 @@
 
 package com.alipay.sofa.jraft.rpc;
 
-import com.alipay.sofa.jraft.RaftGroupService;
-import com.alipay.sofa.jraft.entity.LeaderChangeContext;
 import com.alipay.sofa.jraft.entity.RaftOutter;
-import com.alipay.sofa.jraft.option.BootstrapOptions;
-import com.alipay.sofa.jraft.option.ReplicatorOptions;
 import com.alipay.sofa.jraft.util.ByteString;
-import com.alipay.sofa.jraft.util.DisruptorBuilder;
-import java.io.ByteArrayOutputStream;
 
 public final class RpcRequests {
     private RpcRequests() {
@@ -45,7 +39,7 @@ public final class RpcRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createPingRequest();
         }
     }
 
@@ -73,7 +67,7 @@ public final class RpcRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createErrorResponse();
         }
     }
 
@@ -140,7 +134,7 @@ public final class RpcRequests {
 
     public interface TimeoutNowRequest extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createTimeoutNowRequest();
         }
 
         java.lang.String getGroupId();
@@ -166,7 +160,7 @@ public final class RpcRequests {
 
     public interface TimeoutNowResponse extends HasErrorResponse {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createTimeoutNowResponse();
         }
 
         static Message getDefaultInstance() {
@@ -231,7 +225,7 @@ public final class RpcRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createVoteRequest();
         }
     }
 
@@ -241,7 +235,7 @@ public final class RpcRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createVoteResponse();
         }
 
         /**
@@ -292,7 +286,7 @@ public final class RpcRequests {
 
     public interface AppendEntriesRequest extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createAppendEntriesRequest();
         }
 
         /**
@@ -355,7 +349,7 @@ public final class RpcRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createAppendEntriesResponse();
         }
 
         long getTerm();
@@ -445,7 +439,7 @@ public final class RpcRequests {
 
     public interface ReadIndexRequest extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createReadIndexRequest();
         }
 
         java.lang.String getGroupId();
@@ -477,7 +471,7 @@ public final class RpcRequests {
 
     public interface ReadIndexResponse extends HasErrorResponse {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createReadIndexResponse();
         }
 
         static Message getDefaultInstance() {

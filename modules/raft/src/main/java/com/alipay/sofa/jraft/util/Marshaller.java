@@ -5,7 +5,7 @@ import java.io.IOException;
 public interface Marshaller {
     public static Marshaller DEFAULT = new JDKMarshaller();
 
-    byte[] marshall(Object o) throws IOException;
+    byte[] marshall(Object o);
 
-    <T> T unmarshall(byte[] raw) throws IOException;
+    <T> T unmarshall(byte[] raw);
 }

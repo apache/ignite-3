@@ -17,41 +17,95 @@
 package com.alipay.sofa.jraft.rpc.impl;
 
 import com.alipay.sofa.jraft.ReplicatorGroup;
+import com.alipay.sofa.jraft.entity.PeerId;
+import com.alipay.sofa.jraft.error.InvokeTimeoutException;
 import com.alipay.sofa.jraft.error.RemotingException;
 import com.alipay.sofa.jraft.option.RpcOptions;
+import com.alipay.sofa.jraft.rpc.Connection;
 import com.alipay.sofa.jraft.rpc.InvokeCallback;
 import com.alipay.sofa.jraft.rpc.InvokeContext;
 import com.alipay.sofa.jraft.rpc.RpcClient;
 import com.alipay.sofa.jraft.util.Endpoint;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 
 /**
- * Bolt rpc client impl.
+ * Local rpc client impl.
  *
- * @author jiachun.fjc
+ * @author ascherbakov.
  */
 public class LocalRpcClient implements RpcClient {
+    private volatile ReplicatorGroup replicatorGroup = null;
+
     @Override public boolean checkConnection(Endpoint endpoint) {
-        return false;
+        return LocalRpcServer.connect(this, endpoint, false, null);
     }
 
     @Override public boolean checkConnection(Endpoint endpoint, boolean createIfAbsent) {
-        return false;
+        return LocalRpcServer.connect(this, endpoint, createIfAbsent, this::onCreated);
     }
 
     @Override public void closeConnection(Endpoint endpoint) {
-
+        LocalRpcServer.closeConnection(this, endpoint);
     }
 
     @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
+        this.replicatorGroup = replicatorGroup;
+    }
 
+    private void onCreated(LocalConnection conn) {
+        if (replicatorGroup != null) {
+            final PeerId peer = new PeerId();
+            if (peer.parse(conn.srv.toString())) {
+                replicatorGroup.checkReplicator(peer, true);
+            }
+            else
+                System.out.println("Fail to parse peer: {}" + peer); // TODO asch
+        }
     }
 
     @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {
-        return null;
+        if (!checkConnection(endpoint, true))
+            throw new RemotingException("Server is dead " + endpoint);
+
+        LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
+        if (srv == null)
+            throw new RemotingException("Server is dead " + endpoint);
+
+        CompletableFuture fut = new CompletableFuture();
+
+        Object[] tuple = {this, request, fut};
+        assert srv.incoming.offer(tuple); // Should never fail because server uses unbounded queue.
+
+        try {
+            return fut.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw new RemotingException(e);
+        } catch (TimeoutException e) {
+            throw new InvokeTimeoutException(e);
+        }
     }
 
     @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback, long timeoutMs) throws InterruptedException, RemotingException {
+        if (!checkConnection(endpoint, true))
+            throw new RemotingException("Server is dead " + endpoint);
 
+        LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
+        if (srv == null)
+            throw new RemotingException("Server is dead " + endpoint);
+
+        CompletableFuture fut = new CompletableFuture();
+
+        Object[] tuple = {this, request, fut};
+        assert srv.incoming.offer(tuple);
+
+        fut.whenComplete((BiConsumer<Object, Throwable>) (res, err) -> {
+            callback.complete(res, err);
+        }).orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override public boolean init(RpcOptions opts) {
@@ -59,6 +113,10 @@ public class LocalRpcClient implements RpcClient {
     }
 
     @Override public void shutdown() {
-
+        // Close all connection from this peer.
+        for (LocalRpcServer value : LocalRpcServer.servers.values())
+            LocalRpcServer.closeConnection(this, value.local);
     }
+
+
 }

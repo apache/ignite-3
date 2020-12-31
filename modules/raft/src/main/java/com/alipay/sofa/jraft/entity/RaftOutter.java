@@ -19,12 +19,13 @@
 
 package com.alipay.sofa.jraft.entity;
 
+import com.alipay.sofa.jraft.rpc.MessageBuilderFactory;
 import com.alipay.sofa.jraft.rpc.RpcRequests;
 
 public final class RaftOutter {
     public interface EntryMeta {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createEntryMeta();
         }
 
         long getTerm();

@@ -38,7 +38,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return MessageBuilderFactory.DEFAULT.createAddPeer();
+            return MessageBuilderFactory.DEFAULT.createAddPeerRequest();
         }
     }
 

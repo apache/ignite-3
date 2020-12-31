@@ -19,7 +19,6 @@ package com.alipay.sofa.jraft.storage.io;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;

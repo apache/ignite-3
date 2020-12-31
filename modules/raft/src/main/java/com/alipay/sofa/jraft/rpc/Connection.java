@@ -22,7 +22,6 @@ package com.alipay.sofa.jraft.rpc;
  * @author jiachun.fjc
  */
 public interface Connection {
-
     /**
      * Get the attribute that bound to the connection.
      *

@@ -16,6 +16,7 @@
  */
 package com.alipay.sofa.jraft.rpc.impl;
 
+import com.alipay.sofa.jraft.option.RpcOptions;
 import com.alipay.sofa.jraft.rpc.RaftRpcFactory;
 import com.alipay.sofa.jraft.rpc.RpcClient;
 import com.alipay.sofa.jraft.rpc.RpcServer;
@@ -31,16 +32,40 @@ import org.slf4j.LoggerFactory;
 @SPI
 public class LocalRaftRpcFactory implements RaftRpcFactory {
     private static final Logger LOG                               = LoggerFactory.getLogger(LocalRaftRpcFactory.class);
-
-    @Override public void registerProtobufSerializer(String className, Object... args) {
-
-    }
-
     @Override public RpcClient createRpcClient(ConfigHelper<RpcClient> helper) {
-        return null;
+        LocalRpcClient rpcClient = new LocalRpcClient();
+
+        if (helper != null)
+            helper.config(rpcClient);
+
+        return rpcClient;
     }
 
     @Override public RpcServer createRpcServer(Endpoint endpoint, ConfigHelper<RpcServer> helper) {
-        return null;
+        LocalRpcServer srv = new LocalRpcServer(endpoint);
+
+        if (helper != null)
+            helper.config(srv);
+
+        return srv;
+    }
+
+    @Override public ConfigHelper<RpcServer> defaultJRaftServerConfigHelper(RpcOptions opts) {
+        return new ConfigHelper<RpcServer>() {
+            @Override public void config(RpcServer instance) {
+                LocalRpcServer srv = (LocalRpcServer) instance;
+                // TODO asch.
+            }
+        };
+    }
+
+    @Override
+    public ConfigHelper<RpcClient> defaultJRaftClientConfigHelper(final RpcOptions opts) {
+        return new ConfigHelper<RpcClient>() {
+            @Override public void config(RpcClient instance) {
+                LocalRpcClient rpcClient = (LocalRpcClient) instance;
+                // TODO asch.
+            }
+        };
     }
 }

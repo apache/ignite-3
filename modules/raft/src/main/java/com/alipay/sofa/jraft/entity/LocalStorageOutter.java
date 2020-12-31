@@ -20,6 +20,7 @@
 package com.alipay.sofa.jraft.entity;
 
 import com.alipay.sofa.jraft.rpc.Message;
+import com.alipay.sofa.jraft.rpc.MessageBuilderFactory;
 import com.alipay.sofa.jraft.storage.RaftMetaStorage;
 import com.alipay.sofa.jraft.util.DisruptorBuilder;
 import java.nio.ByteBuffer;
@@ -45,7 +46,7 @@ public final class LocalStorageOutter {
 
     public interface StablePBMeta extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createStableMeta();
         }
 
         long getTerm();

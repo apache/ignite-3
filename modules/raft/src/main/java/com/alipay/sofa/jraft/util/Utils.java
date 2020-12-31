@@ -381,7 +381,7 @@ public final class Utils {
         final boolean isDir = file.isDirectory();
         // can't fsync on windowns.
         if (isDir && Platform.isWindows()) {
-            LOG.warn("Unable to fsync directory {} on windows.", file);
+            // LOG.warn("Unable to fsync directory {} on windows.", file);
             return;
         }
         try (final FileChannel fc = FileChannel.open(file.toPath(), isDir ? StandardOpenOption.READ

@@ -26,9 +26,4 @@ public class LocalLogStorageTest extends BaseLogStorageTest {
     protected LogStorage newLogStorage() {
         return new LocalLogStorage(this.path, new RaftOptions());
     }
-
-    @Test
-    @Override public void testEmptyState() {
-        super.testEmptyState();
-    }
 }

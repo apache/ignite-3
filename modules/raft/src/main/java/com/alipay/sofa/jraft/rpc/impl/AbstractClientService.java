@@ -219,10 +219,15 @@ public abstract class AbstractClientService implements ClientService {
                         if (result instanceof ErrorResponse) {
                             status = handleErrorResponse((ErrorResponse) result);
                             msg = (Message) result;
-                        } else if (result instanceof HasErrorResponse) {
+                        } else if (result instanceof HasErrorResponse) { // TODO asch we don't need this.
                             final ErrorResponse eResp = ((HasErrorResponse) result).getErrorResponse();
-                            status = handleErrorResponse(eResp);
-                            msg = (Message) eResp;
+                            if (eResp != null) {
+                                status = handleErrorResponse(eResp);
+                                msg = eResp;
+                            }
+                            else {
+                                msg = (T) result;
+                            }
                         } else {
                             msg = (T) result;
                         }
