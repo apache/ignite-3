@@ -76,7 +76,7 @@ public class SerializerBenchmarkTest {
     public int fieldsCount;
 
     /** Serializer. */
-    @Param({"Generated", "ASM", "Java"})
+    @Param({"ASM", "Java"})
     public String serializerName;
 
     /**
@@ -118,8 +118,6 @@ public class SerializerBenchmarkTest {
 
         if ("Java".equals(serializerName))
             serializer = SerializerFactory.createJavaSerializerFactory().create(schema, Long.class, valClass);
-        else if ("ASM".equals(serializerName))
-            serializer = new AsmSerializerGenerator().create(schema, Long.class, valClass);
         else
             serializer = SerializerFactory.createGeneratedSerializerFactory().create(schema, Long.class, valClass);
     }

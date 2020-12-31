@@ -36,7 +36,6 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TestUtils;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmSerializerGenerator;
-import org.apache.ignite.internal.schema.marshaller.codegen.SerializerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,7 +70,6 @@ public class JavaSerializerTest {
     private static List<SerializerFactory> serializerFactoryProvider() {
         return Arrays.asList(
             new JavaSerializerFactory(),
-            new SerializerGenerator(),
             new AsmSerializerGenerator()
         );
     }
