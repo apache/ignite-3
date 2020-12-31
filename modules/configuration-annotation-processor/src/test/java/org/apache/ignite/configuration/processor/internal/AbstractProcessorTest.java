@@ -20,7 +20,6 @@ import com.google.common.base.Functions;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import com.squareup.javapoet.ClassName;
-import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -42,8 +41,8 @@ public class AbstractProcessorTest {
     protected static BatchCompilation batchCompile(ClassName... schemaClasses) {
         List<String> fileNames = Arrays.stream(schemaClasses)
             .map(name -> {
-                final String folderName = name.packageName().replace(".", File.separator);
-                return String.format("%s%c%s.java", folderName, File.separatorChar, name.simpleName());
+                final String folderName = name.packageName().replace(".", "/");
+                return String.format("%s/%s.java", folderName, name.simpleName());
             })
             .collect(Collectors.toList());
 
@@ -82,7 +81,7 @@ public class AbstractProcessorTest {
      * @return ClassName.
      */
     protected static ClassName fromGeneratedFilePath(String fileName) {
-        final String filePath = fileName.replace(String.format("%c%s%c", File.separatorChar, "SOURCE_OUTPUT", File.separatorChar), "");
+        final String filePath = fileName.replace("/SOURCE_OUTPUT/", "");
         return fromFilePath(filePath);
     }
 
@@ -92,10 +91,10 @@ public class AbstractProcessorTest {
      * @return ClassName.
      */
     protected static ClassName fromFilePath(String fileName) {
-        int slashIdx = fileName.lastIndexOf(File.separator);
+        int slashIdx = fileName.lastIndexOf("/");
         int dotJavaIdx = fileName.lastIndexOf(".java");
 
-        String packageName = fileName.substring(0, slashIdx).replace(File.separator, ".");
+        String packageName = fileName.substring(0, slashIdx).replace("/", ".");
 
         final String className = fileName.substring(slashIdx + 1, dotJavaIdx);
 
