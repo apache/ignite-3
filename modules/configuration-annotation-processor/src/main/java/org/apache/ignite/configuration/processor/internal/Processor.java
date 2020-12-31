@@ -166,7 +166,6 @@ public class Processor extends AbstractProcessor {
 
             ConfigurationDescription configDesc = new ConfigurationDescription(
                 configClass,
-                configInterface,
                 configName,
                 Utils.getViewName(schemaClassName),
                 Utils.getInitName(schemaClassName),
@@ -276,6 +275,9 @@ public class Processor extends AbstractProcessor {
             // Create VIEW, INIT and CHANGE classes
             createPojoBindings(packageName, fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
 
+            if (isRoot)
+                createRootKeyField(configInterface, configurationClassBuilder, configDesc);
+
             // Create constructors for configuration class
             createConstructors(configClass, configName, configurationClassBuilder, CONFIGURATOR_TYPE, constructorBodyBuilder, copyConstructorBodyBuilder);
 
@@ -313,38 +315,33 @@ public class Processor extends AbstractProcessor {
         // Generate Selectors class
         createSelectorsClass(packageForUtil, flattenConfig);
 
-        // Generate RootKey class
-        createRootKeyClass(packageForUtil, roots);
-
         return true;
     }
 
-    private void createRootKeyClass(String packageForUtil, List<ConfigurationDescription> roots) {
-        for (ConfigurationDescription cfgDesc : roots) {
-            String rName = cfgDesc.getName();
+    /** */
+    private void createRootKeyField(ClassName configInterface,
+        TypeSpec.Builder configurationClassBuilder,
+        ConfigurationDescription configDesc) {
 
-            ClassName rKeyInterface = ClassName.get(RootKey.class);
-            ClassName configInterface = cfgDesc.getConfigInterface();
+        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ClassName.get(RootKey.class), configInterface);
 
-            TypeName parametrizedInterface = ParameterizedTypeName.get(rKeyInterface, configInterface);
+        TypeSpec anonymousClass = TypeSpec.anonymousClassBuilder("")
+            .addSuperinterface(fieldTypeName)
+            .addMethod(MethodSpec
+                .methodBuilder("key")
+                .addAnnotation(Override.class)
+                .addModifiers(PUBLIC)
+                .returns(TypeName.get(String.class))
+                .addStatement("return $S", configDesc.getName())
+                .build()).build();
 
-            String capitalizedName = rName.substring(0, 1).toUpperCase() + rName.substring(1, rName.length() - 1);
+        FieldSpec keyField = FieldSpec.builder(
+            fieldTypeName, "KEY", PUBLIC, STATIC
+            )
+            .initializer("$L", anonymousClass)
+            .build();
 
-            ClassName rootKeyClassName = ClassName.get(packageForUtil, capitalizedName + "RootKey");
-
-            TypeSpec.Builder rootKeyClass =TypeSpec.classBuilder(rootKeyClassName)
-                .addSuperinterface(parametrizedInterface)
-                .addModifiers(PUBLIC, FINAL);
-
-            JavaFile rootClassFile = JavaFile.builder(rootKeyClassName.packageName(), rootKeyClass.build()).build();
-
-            try {
-                rootClassFile.writeTo(filer);
-            }
-            catch (IOException e) {
-                throw new ProcessorException("Failed to write class: " + e.getMessage(), e);
-            }
-        }
+        configurationClassBuilder.addField(keyField);
     }
 
     /**

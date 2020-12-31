@@ -29,14 +29,9 @@ public class ConfigurationDescription extends ConfigurationElement {
     /** Inner configuration fields. */
     private List<ConfigurationElement> fields = new ArrayList<>();
 
-    /** */
-    private ClassName configInterface;
-
     /** Constructor. */
-    public ConfigurationDescription(TypeName type, ClassName configInterface, String name, TypeName view, TypeName init, TypeName change) {
+    public ConfigurationDescription(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
         super(type, name, view, init, change);
-
-        this.configInterface = configInterface;
     }
 
     /**
@@ -44,10 +39,5 @@ public class ConfigurationDescription extends ConfigurationElement {
      */
     public List<ConfigurationElement> getFields() {
         return fields;
-    }
-
-    /** */
-    public ClassName getConfigInterface() {
-        return configInterface;
     }
 }
