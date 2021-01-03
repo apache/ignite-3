@@ -44,13 +44,12 @@ public final class V1Encoder implements LogEntryEncoder {
 
     @Override
     public byte[] encode(final LogEntry log) {
-        if (log.hasLearners()) {
-            throw new IllegalArgumentException("V1 log entry encoder doesn't support learners");
-        }
         EntryType type = log.getType();
         LogId id = log.getId();
         List<PeerId> peers = log.getPeers();
         List<PeerId> oldPeers = log.getOldPeers();
+        List<PeerId> learners = log.getLearners();
+        List<PeerId> oldLearners = log.getOldLearners();
         ByteBuffer data = log.getData();
 
         // magic number 1 byte
@@ -58,12 +57,12 @@ public final class V1Encoder implements LogEntryEncoder {
         final int iType = type.getNumber();
         final long index = id.getIndex();
         final long term = id.getTerm();
-        // type(4) + index(8) + term(8)
-        totalLen += 4 + 8 + 8;
+        // type(4) + index(8) + term(8) + checksum(8)
+        totalLen += 4 + 8 + 8 + 8;
         int peerCount = 0;
         // peer count
         totalLen += 4;
-        final List<String> peerStrs = new ArrayList<>(peerCount);
+        final List<String> peerStrs = new ArrayList<>();
         if (peers != null) {
             peerCount = peers.size();
             for (final PeerId peer : peers) {
@@ -77,7 +76,7 @@ public final class V1Encoder implements LogEntryEncoder {
         int oldPeerCount = 0;
         // old peer count
         totalLen += 4;
-        final List<String> oldPeerStrs = new ArrayList<>(oldPeerCount);
+        final List<String> oldPeerStrs = new ArrayList<>();
         if (oldPeers != null) {
             oldPeerCount = oldPeers.size();
             for (final PeerId peer : oldPeers) {
@@ -86,6 +85,34 @@ public final class V1Encoder implements LogEntryEncoder {
                 // peer str
                 totalLen += 2 + peerStr.length();
                 oldPeerStrs.add(peerStr);
+            }
+        }
+        int learnerCount = 0;
+        // peer count
+        totalLen += 4;
+        final List<String> learnerStrs = new ArrayList<>();
+        if (learners != null) {
+            learnerCount = learners.size();
+            for (final PeerId learner : learners) {
+                final String learnerStr = learner.toString();
+                // learner len (short in 2 bytes)
+                // learner str
+                totalLen += 2 + learnerStr.length();
+                learnerStrs.add(learnerStr);
+            }
+        }
+        int oldLearnerCount = 0;
+        // old peer count
+        totalLen += 4;
+        final List<String> oldLearnerStrs = new ArrayList<>();
+        if (oldLearners != null) {
+            oldLearnerCount = oldLearners.size();
+            for (final PeerId oldLearner : oldLearners) {
+                final String learnerStr = oldLearner.toString();
+                // oldLearner len (short in 2 bytes)
+                // oldLearner str
+                totalLen += 2 + learnerStr.length();
+                oldLearnerStrs.add(learnerStr);
             }
         }
 
@@ -119,6 +146,26 @@ public final class V1Encoder implements LogEntryEncoder {
         Bits.putInt(content, pos, oldPeerCount);
         pos += 4;
         for (final String peerStr : oldPeerStrs) {
+            final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
+            Bits.putShort(content, pos, (short) peerStr.length());
+            System.arraycopy(ps, 0, content, pos + 2, ps.length);
+            pos += 2 + ps.length;
+        }
+        // learners
+        // learners count
+        Bits.putInt(content, pos, learnerCount);
+        pos += 4;
+        for (final String peerStr : learnerStrs) {
+            final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
+            Bits.putShort(content, pos, (short) peerStr.length());
+            System.arraycopy(ps, 0, content, pos + 2, ps.length);
+            pos += 2 + ps.length;
+        }
+        // old learners
+        // old learners count
+        Bits.putInt(content, pos, oldLearnerCount);
+        pos += 4;
+        for (final String peerStr : oldLearnerStrs) {
             final byte[] ps = AsciiStringUtil.unsafeEncode(peerStr);
             Bits.putShort(content, pos, (short) peerStr.length());
             System.arraycopy(ps, 0, content, pos + 2, ps.length);

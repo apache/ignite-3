@@ -19,6 +19,7 @@ package com.alipay.sofa.jraft.entity.codec;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import java.util.List;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -91,8 +92,12 @@ public abstract class BaseLogEntryCodecFactoryTest {
         ByteBuffer buf = ByteBuffer.wrap("hello".getBytes());
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setId(new LogId(100, 3));
+        entry.setChecksum(123456L);
         entry.setData(buf);
         entry.setPeers(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
+        entry.setOldPeers(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
+        entry.setLearners(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
+        entry.setOldLearners(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
         assertEquals(buf, entry.getData());
 
         byte[] content = this.encoder.encode(entry);
@@ -105,14 +110,35 @@ public abstract class BaseLogEntryCodecFactoryTest {
 
         assertEquals(100, nentry.getId().getIndex());
         assertEquals(3, nentry.getId().getTerm());
+        assertEquals(123456L, nentry.getChecksum());
 
-        assertEquals(2, nentry.getPeers().size());
-        assertEquals("localhost:99:1", nentry.getPeers().get(0).toString());
-        assertEquals("localhost:100:2", nentry.getPeers().get(1).toString());
+        List<PeerId> peers = nentry.getPeers();
+
+        assertEquals(2, peers.size());
+        assertEquals("localhost:99:1", peers.get(0).toString());
+        assertEquals("localhost:100:2", peers.get(1).toString());
+
+        peers = nentry.getOldPeers();
+
+        assertEquals(2, peers.size());
+        assertEquals("localhost:99:1", peers.get(0).toString());
+        assertEquals("localhost:100:2", peers.get(1).toString());
+
+        peers = nentry.getLearners();
+
+        assertEquals(2, peers.size());
+        assertEquals("localhost:99:1", peers.get(0).toString());
+        assertEquals("localhost:100:2", peers.get(1).toString());
+
+        peers = nentry.getOldLearners();
+
+        assertEquals(2, peers.size());
+        assertEquals("localhost:99:1", peers.get(0).toString());
+        assertEquals("localhost:100:2", peers.get(1).toString());
+
         assertEquals(buf, nentry.getData());
         assertEquals(0, nentry.getData().position());
         assertEquals(5, nentry.getData().remaining());
-        assertNull(nentry.getOldPeers());
     }
 
 }

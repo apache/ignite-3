@@ -105,6 +105,42 @@ public final class V1Decoder implements LogEntryDecoder {
             }
             log.setOldPeers(oldPeers);
         }
+        // learners
+        int learnersCount = Bits.getInt(content, pos);
+        pos += 4;
+        if (learnersCount > 0) {
+            List<PeerId> learners = new ArrayList<>(learnersCount);
+            while (learnersCount-- > 0) {
+                final short len = Bits.getShort(content, pos);
+                final byte[] bs = new byte[len];
+                System.arraycopy(content, pos + 2, bs, 0, len);
+                // peer len (short in 2 bytes)
+                // peer str
+                pos += 2 + len;
+                final PeerId peer = new PeerId();
+                peer.parse(AsciiStringUtil.unsafeDecode(bs));
+                learners.add(peer);
+            }
+            log.setLearners(learners);
+        }
+        // old learners
+        int oldLearnersCount = Bits.getInt(content, pos);
+        pos += 4;
+        if (oldLearnersCount > 0) {
+            List<PeerId> oldLearners = new ArrayList<>(oldLearnersCount);
+            while (oldLearnersCount-- > 0) {
+                final short len = Bits.getShort(content, pos);
+                final byte[] bs = new byte[len];
+                System.arraycopy(content, pos + 2, bs, 0, len);
+                // peer len (short in 2 bytes)
+                // peer str
+                pos += 2 + len;
+                final PeerId peer = new PeerId();
+                peer.parse(AsciiStringUtil.unsafeDecode(bs));
+                oldLearners.add(peer);
+            }
+            log.setOldLearners(oldLearners);
+        }
 
         // data
         if (content.length > pos) {
