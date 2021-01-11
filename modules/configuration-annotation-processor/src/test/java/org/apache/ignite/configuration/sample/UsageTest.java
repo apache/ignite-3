@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.apache.ignite.configuration.PublicConfigurator;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 /**
  * Simple usage test of generated configuration schema.
  */
@@ -97,16 +99,21 @@ public class UsageTest {
     public void multiRootConfigurationTest() {
         SystemConfiguration sysConf = new SystemConfiguration();
 
+        int failureDetectionTimeout = 30_000;
+        int joinTimeout = 10_000;
+
+        long autoAdjustTimeout = 30_000L;
+
         InitNetwork initNetwork = new InitNetwork().withDiscovery(
             new InitDiscovery()
-                .withFailureDetectionTimeout(30_000)
-                .withJoinTimeout(10_000)
+                .withFailureDetectionTimeout(failureDetectionTimeout)
+                .withJoinTimeout(joinTimeout)
         );
 
         InitLocal initLocal = new InitLocal().withBaseline(
             new InitBaseline().withAutoAdjust(
                 new InitAutoAdjust().withEnabled(true)
-                    .withTimeout(30_000L))
+                    .withTimeout(autoAdjustTimeout))
         );
 
         Configurator<LocalConfigurationImpl> localConf = Configurator.create(storage,
@@ -119,6 +126,10 @@ public class UsageTest {
 
         sysConf.registerConfigurator(networkConf);
 
-        sysConf.getConfiguration(NetworkConfigurationImpl.KEY).discovery().failureDetectionTimeout();
+        assertEquals(failureDetectionTimeout,
+            sysConf.getConfiguration(NetworkConfigurationImpl.KEY).discovery().failureDetectionTimeout().value());
+
+        assertEquals(autoAdjustTimeout,
+            sysConf.getConfiguration(LocalConfigurationImpl.KEY).baseline().autoAdjust().timeout().value());
     }
 }
