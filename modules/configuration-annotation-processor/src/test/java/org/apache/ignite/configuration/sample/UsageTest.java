@@ -21,8 +21,10 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.SystemConfiguration;
 import org.apache.ignite.configuration.internal.NamedList;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,30 +34,26 @@ import org.apache.ignite.configuration.PublicConfigurator;
  * Simple usage test of generated configuration schema.
  */
 public class UsageTest {
+    private final ConfigurationStorage storage = new ConfigurationStorage() {
+        @Override public <T extends Serializable> void save(String propertyName, T object) throws StorageException {
+
+        }
+
+        @Override public <T extends Serializable> T get(String propertyName) throws StorageException {
+            return null;
+        }
+
+        @Override
+        public <T extends Serializable> void listen(String key, Consumer<T> listener) throws StorageException {
+
+        }
+    };
 
     /**
      * Test creation of configuration and calling configuration API methods.
      */
     @Test
     public void test() {
-        final ConfigurationStorage storage = new ConfigurationStorage() {
-
-            @Override
-            public <T extends Serializable> void save(String propertyName, T object) {
-
-            }
-
-            @Override
-            public <T extends Serializable> T get(String propertyName) {
-                return null;
-            }
-
-            @Override
-            public <T extends Serializable> void listen(String key, Consumer<T> listener) {
-
-            }
-        };
-
         InitLocal initLocal = new InitLocal().withBaseline(
             new InitBaseline()
                 .withNodes(
@@ -92,4 +90,35 @@ public class UsageTest {
         PublicConfigurator<LocalConfiguration> con = new PublicConfigurator<>(configurator);
     }
 
+    /**
+     * Test to show an API to work with multiroot configurations.
+     */
+    @Test
+    public void multiRootConfigurationTest() {
+        SystemConfiguration sysConf = new SystemConfiguration();
+
+        InitNetwork initNetwork = new InitNetwork().withDiscovery(
+            new InitDiscovery()
+                .withFailureDetectionTimeout(30_000)
+                .withJoinTimeout(10_000)
+        );
+
+        InitLocal initLocal = new InitLocal().withBaseline(
+            new InitBaseline().withAutoAdjust(
+                new InitAutoAdjust().withEnabled(true)
+                    .withTimeout(30_000L))
+        );
+
+        Configurator<LocalConfigurationImpl> localConf = Configurator.create(storage,
+            LocalConfigurationImpl::new, initLocal);
+
+        sysConf.registerConfigurator(localConf);
+
+        Configurator<NetworkConfigurationImpl> networkConf = Configurator.create(storage,
+            NetworkConfigurationImpl::new, initNetwork);
+
+        sysConf.registerConfigurator(networkConf);
+
+        sysConf.getConfiguration(NetworkConfigurationImpl.KEY).discovery().failureDetectionTimeout();
+    }
 }
