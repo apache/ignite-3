@@ -28,7 +28,6 @@ import org.apache.ignite.configuration.presentation.json.JsonConverter;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.rest.configuration.InitRest;
-import org.apache.ignite.rest.configuration.RestConfiguration;
 import org.apache.ignite.rest.configuration.RestConfigurationImpl;
 import org.apache.ignite.rest.configuration.Selectors;
 import org.slf4j.Logger;

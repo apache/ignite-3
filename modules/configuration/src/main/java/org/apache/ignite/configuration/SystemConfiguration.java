@@ -48,11 +48,6 @@ public class SystemConfiguration {
     }
 
     /** */
-    public <T extends DynamicConfiguration<?, ?, ?>> Configurator<T> getConfigurator(String key) {
-        return (Configurator<T>) configs.get(key);
-    }
-
-    /** */
     public ConfigurationPresentation<String> presentation() {
         return presentation;
     }
