@@ -55,8 +55,8 @@ import static org.apache.ignite.internal.schema.NativeType.LONG;
  * Serializer benchmark.
  */
 @State(Scope.Benchmark)
-@Warmup(time = 10, iterations = 3, timeUnit = TimeUnit.SECONDS)
-@Measurement(time = 10, iterations = 5, timeUnit = TimeUnit.SECONDS)
+@Warmup(time = 30, timeUnit = TimeUnit.SECONDS)
+@Measurement(time = 60, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode({Mode.Throughput, Mode.AverageTime})
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Fork(jvmArgs = "-Djava.lang.invoke.stringConcat=BC_SB" /* Workaround for Java 9+ */, value = 1)
@@ -90,7 +90,7 @@ public class SerializerBenchmarkTest {
     }
 
     /**
-     * @throws Exception If failed.
+     *
      */
     @Setup
     public void init() {
