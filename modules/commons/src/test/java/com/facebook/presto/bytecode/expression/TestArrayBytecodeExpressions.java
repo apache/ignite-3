@@ -44,12 +44,12 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invoke
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 
 public class TestArrayBytecodeExpressions {
-    private final DynamicClassLoader classLoader = new DynamicClassLoader(TestArrayBytecodeExpressions.class.getClassLoader());
+    private static final DynamicClassLoader classLoader = new DynamicClassLoader(TestArrayBytecodeExpressions.class.getClassLoader());
     private static final ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), "DummyClass", type(Object.class));
-    private final Map<Class<?>, MethodDefinition> typeMethodMap = new HashMap<>();
+    private static final Map<Class<?>, MethodDefinition> typeMethodMap = new HashMap<>();
 
     @BeforeAll
-    public void setUp() {
+    public static void setUp() {
         for (Class<?> aClass : List.of(boolean[].class, char[].class, float[].class, double[].class, byte[].class, short[].class, int[].class, long[].class, String[].class)) {
             MethodDefinition methodDefinition = defineSetAndGetMethod(aClass);
             typeMethodMap.put(aClass, methodDefinition);

@@ -601,13 +601,17 @@ public class DumpBytecodeVisitor
 
         public void print()
         {
-            printLine(parts.stream().map(Object::toString).collect(Collectors.joining(separator)));
+            printLine(parts.stream().map(this::toCharSequence).collect(Collectors.joining(separator)));
+        }
+
+        private CharSequence toCharSequence(Object p) {
+            return p instanceof CharSequence ? (CharSequence)p : p.toString();
         }
 
         @Override
         public String toString()
         {
-            return parts.stream().map(Object::toString).collect(Collectors.joining(separator));
+            return parts.stream().map(this::toCharSequence).collect(Collectors.joining(separator));
         }
     }
 }

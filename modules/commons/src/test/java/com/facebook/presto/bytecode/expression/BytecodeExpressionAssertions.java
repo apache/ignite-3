@@ -18,6 +18,8 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
+import java.lang.reflect.Array;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -31,6 +33,7 @@ import static com.facebook.presto.bytecode.BytecodeUtils.makeClassName;
 import static com.facebook.presto.bytecode.ClassGenerator.classGenerator;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public final class BytecodeExpressionAssertions {
     private BytecodeExpressionAssertions() {
@@ -76,7 +79,7 @@ public final class BytecodeExpressionAssertions {
     public static void assertBytecodeNode(BytecodeNode node, ParameterizedType returnType, Object expected,
         Optional<ClassLoader> parentClassLoader)
         throws Exception {
-        assertEquals(execute(context -> node, returnType, parentClassLoader), expected);
+        assertValueEquals(execute(context -> node, returnType, parentClassLoader), expected);
     }
 
     public static void assertBytecodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType,
@@ -88,7 +91,7 @@ public final class BytecodeExpressionAssertions {
     public static void assertBytecodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType,
         Object expected, Optional<ClassLoader> parentClassLoader)
         throws Exception {
-        assertEquals(execute(nodeGenerator, returnType, parentClassLoader), expected);
+        assertValueEquals(execute(nodeGenerator, returnType, parentClassLoader), expected);
     }
 
     public static Object execute(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType,
@@ -114,5 +117,35 @@ public final class BytecodeExpressionAssertions {
             .defineClass(classDefinition, Object.class)
             .getMethod("test")
             .invoke(null);
+    }
+
+    /**
+     * returns not equal reason or null if equal
+     **/
+    private static void assertValueEquals(Object actual, Object expected) {
+        if (expected == null || !expected.getClass().isArray()) {
+            assertEquals(actual, expected);
+
+            return;
+        }
+
+        if (null == expected)
+            fail("expected a null array, but not null found");
+
+        if (null == actual) {
+            fail("expected not null array, but null found");
+        }
+
+        int expectedLength = Array.getLength(expected);
+        if (expectedLength != Array.getLength(actual)) {
+            fail("array lengths are not the same");
+        }
+        for (int i = 0; i < expectedLength; i++) {
+            Object _actual = Array.get(actual, i);
+            Object _expected = Array.get(expected, i);
+
+            if (!Objects.equals(_expected, _actual))
+                fail("(values at index " + i + " are not the same)");
+        }
     }
 }

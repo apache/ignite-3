@@ -228,7 +228,7 @@ public class MethodDefinition {
 
     public String toSourceString() {
         StringBuilder sb = new StringBuilder();
-        sb.append(access.stream().map(Access::toString).collect(Collectors.joining(", ")))
+        sb.append(access.stream().map(Access::toString).collect(Collectors.joining(" ")))
             .append(' ');
         sb.append(returnType.getJavaClassName()).append(' ');
         sb.append(name).append('(');

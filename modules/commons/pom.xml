@@ -96,4 +96,19 @@
             <version>${javax.annotation.api.version}</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.rat</groupId>
+                <artifactId>apache-rat-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>src/main/java/com/facebook/presto/bytecode/ClassInfo.java</exclude>
+                        <exclude>src/main/java/com/facebook/presto/bytecode/ClassInfoLoader.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
