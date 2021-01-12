@@ -63,7 +63,7 @@ public class NodeCommandSpec extends CategorySpec {
 
             out.println("Starting a new Ignite node...");
 
-            NodeManager.RunningNode node = nodeManager.start(consistentId, ignitePaths.workDir,
+            NodeManager.RunningNode node = nodeManager.start(consistentId, ignitePaths.logDir,
                 ignitePaths.cliPidsDir(),
                 configPath,
                 out);

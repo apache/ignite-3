@@ -79,6 +79,16 @@ public class IgniteCliInterfaceTest {
             .setOut(new PrintWriter(out, true));
     }
 
+    IgnitePaths dummyIgnitePaths() {
+        return new IgnitePaths(
+            Path.of(""),
+            Path.of(""),
+            Path.of(""),
+            Path.of(""),
+            "version");
+
+    }
+
     @DisplayName("init")
     @Nested
     class Init {
@@ -110,8 +120,7 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("add mvn:groupId:artifact:version")
         void add() {
-            IgnitePaths paths = new IgnitePaths(Path.of("binDir"),
-                Path.of("worksDir"), "version");
+            IgnitePaths paths = dummyIgnitePaths();
             when(cliPathsConfigLoader.loadIgnitePathsOrThrowError()).thenReturn(paths);
 
             var exitCode =
@@ -125,8 +134,7 @@ public class IgniteCliInterfaceTest {
         void addWithCustomRepo() throws MalformedURLException {
             doNothing().when(moduleManager).addModule(any(), any(), any());
 
-            IgnitePaths paths = new IgnitePaths(Path.of("binDir"),
-                Path.of("worksDir"), "version");
+            IgnitePaths paths = dummyIgnitePaths();
             when(cliPathsConfigLoader.loadIgnitePathsOrThrowError()).thenReturn(paths);
 
             var exitCode =
@@ -142,8 +150,7 @@ public class IgniteCliInterfaceTest {
         void addBuiltinModule() {
             doNothing().when(moduleManager).addModule(any(), any(), any());
 
-            IgnitePaths paths = new IgnitePaths(Path.of("binDir"),
-                Path.of("worksDir"), "version");
+            IgnitePaths paths = dummyIgnitePaths();
             when(cliPathsConfigLoader.loadIgnitePathsOrThrowError()).thenReturn(paths);
 
             var exitCode =
@@ -239,7 +246,7 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("start node1 --config conf.json")
         void start() {
-           var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+           var ignitePaths = dummyIgnitePaths();
            var nodeName = "node1";
            var node =
                new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
@@ -254,7 +261,7 @@ public class IgniteCliInterfaceTest {
             var exitCode = cli.execute(("node start " + nodeName + " --config conf.json").split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeManager).start(nodeName, ignitePaths.workDir, ignitePaths.cliPidsDir(), Path.of("conf.json"), cli.getOut());
+            verify(nodeManager).start(nodeName, ignitePaths.logDir(), ignitePaths.cliPidsDir(), Path.of("conf.json"), cli.getOut());
             assertEquals("Starting a new Ignite node...\n\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +
                 "+---------------+---------+\n" +
                 "| Consistent ID | node1   |\n" +
@@ -269,7 +276,7 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("stop node1")
         void stopRunning() {
-            var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+            var ignitePaths = dummyIgnitePaths();
             var nodeName = "node1";
             when(nodeManager.stopWait(any(), any()))
                 .thenReturn(true);
@@ -289,7 +296,7 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("stop unknown-node")
         void stopUnknown() {
-            var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+            var ignitePaths = dummyIgnitePaths();
             var nodeName = "unknown-node";
             when(nodeManager.stopWait(any(), any()))
                 .thenReturn(false);
@@ -309,7 +316,7 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("list")
         void list() {
-            var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+            var ignitePaths = dummyIgnitePaths();
             when(nodeManager.getRunningNodes(any(), any()))
                 .thenReturn(Arrays.asList(
                     new NodeManager.RunningNode(1, "new1", Path.of("logFile1")),
@@ -338,7 +345,7 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("list")
         void listEmpty() {
-            var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+            var ignitePaths = dummyIgnitePaths();
             when(nodeManager.getRunningNodes(any(), any()))
                 .thenReturn(Arrays.asList());
 

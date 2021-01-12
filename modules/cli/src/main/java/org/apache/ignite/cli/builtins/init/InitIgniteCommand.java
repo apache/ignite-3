@@ -108,8 +108,10 @@ public class InitIgniteCommand {
 
             Path binDir = pathResolver.toolHomeDirectoryPath().resolve("ignite-bin");
             Path workDir = pathResolver.toolHomeDirectoryPath().resolve("ignite-work");
+            Path configDir = pathResolver.toolHomeDirectoryPath().resolve("ignite-config");
+            Path logDir = pathResolver.toolHomeDirectoryPath().resolve("ignite-log");
 
-            fillNewConfigFile(newCfgFile, binDir, workDir);
+            fillNewConfigFile(newCfgFile, binDir, workDir, configDir, logDir);
 
             return newCfgFile;
         }
@@ -118,11 +120,18 @@ public class InitIgniteCommand {
         }
     }
 
-    private void fillNewConfigFile(File f, @NotNull Path binDir, @NotNull Path workDir) {
+    private void fillNewConfigFile(File f,
+        @NotNull Path binDir,
+        @NotNull Path workDir,
+        @NotNull Path configDir,
+        @NotNull Path logDir
+        ) {
         try (FileWriter fileWriter = new FileWriter(f)) {
             Properties properties = new Properties();
             properties.setProperty("bin", binDir.toString());
             properties.setProperty("work", workDir.toString());
+            properties.setProperty("config", configDir.toString());
+            properties.setProperty("log", logDir.toString());
             properties.store(fileWriter, "");
         }
         catch (IOException e) {

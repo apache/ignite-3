@@ -64,7 +64,12 @@ public class ModuleMangerTest {
        when(mavenArtifactResolver.resolve(any(), any(), any(), any(), any())).thenReturn(
            new ResolveResult(Arrays.asList(rootArtifact, depArtifact)));
 
-       var ignitePaths = new IgnitePaths(homeDir.resolve("bin"), homeDir.resolve("work"), "n/a");
+       var ignitePaths = new IgnitePaths(
+           homeDir.resolve("bin"),
+           homeDir.resolve("work"),
+           homeDir.resolve("config"),
+           homeDir.resolve("log"),
+           "n/a");
        moduleManager.setOut(new PrintWriter(System.out));
        moduleManager.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
        moduleManager.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
@@ -81,7 +86,12 @@ public class ModuleMangerTest {
         when(mavenArtifactResolver.resolve(any(), any(), any(), any(), any())).thenReturn(
             new ResolveResult(Arrays.asList(rootArtifact, depArtifact)));
 
-        var ignitePaths = new IgnitePaths(homeDir.resolve("bin"), homeDir.resolve("work"), "n/a");
+        var ignitePaths = new IgnitePaths(
+            homeDir.resolve("bin"),
+            homeDir.resolve("work"),
+            homeDir.resolve("config"),
+            homeDir.resolve("log"),
+            "n/a");
         moduleManager.setOut(new PrintWriter(System.out));
         moduleManager.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
         moduleManager.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());

@@ -24,12 +24,16 @@ public class IgnitePaths {
 
     public final Path binDir;
     public final Path workDir;
+    public final Path configDir;
+    public final Path logDir;
     private final String version;
 
-    public IgnitePaths(Path binDir, Path workDir, String version) {
+    public IgnitePaths(Path binDir, Path workDir, Path configDir, Path logDir, String version) {
         this.binDir = binDir;
         this.workDir = workDir;
         this.version = version;
+        this.configDir = configDir;
+        this.logDir = logDir;
     }
 
 
@@ -50,7 +54,11 @@ public class IgnitePaths {
     }
     
     public Path serverConfigDir() {
-        return workDir.resolve("config");
+        return configDir;
+    }
+
+    public Path logDir() {
+        return logDir;
     }
 
     public Path serverDefaultConfigFile() {
@@ -58,27 +66,24 @@ public class IgnitePaths {
     }
 
     public void initOrRecover() {
-        File igniteWork = workDir.toFile();
-        if (!(igniteWork.exists() || igniteWork.mkdirs()))
-            throw new IgniteCLIException("Can't create working directory: " + workDir);
+        initDirIfNeeded(workDir,"Can't create working directory: " + workDir);
+        initDirIfNeeded(libsDir(),"Can't create a directory for ignite modules: " + libsDir());
+        initDirIfNeeded(cliLibsDir(),"Can't create a directory for cli modules: " + cliLibsDir());
+        initDirIfNeeded(serverConfigDir(),"Can't create a directory for server configs: " + serverConfigDir());
+        initDirIfNeeded(logDir(),"Can't create a directory for server logs: " + logDir());
+    }
 
-        File igniteBin = libsDir().toFile();
-        if (!(igniteBin.exists() || igniteBin.mkdirs()))
-            throw new IgniteCLIException("Can't create a directory for ignite modules: " + libsDir());
-
-        File igniteBinCli = cliLibsDir().toFile();
-        if (!(igniteBinCli.exists() || igniteBinCli.mkdirs()))
-            throw new IgniteCLIException("Can't create a directory for cli modules: " + cliLibsDir());
-
-        File serverConfig = serverConfigDir().toFile();
-        if (!(serverConfig.exists() || serverConfig.mkdirs()))
-            throw new IgniteCLIException("Can't create a directory for server configs: " + serverConfigDir());
+    private void initDirIfNeeded(Path dir, String exceptionMessage) {
+        File dirFile = dir.toFile();
+        if (!(dirFile.exists() || dirFile.mkdirs()))
+            throw new IgniteCLIException(exceptionMessage);
     }
 
     public boolean validateDirs() {
         return workDir.toFile().exists() &&
                 libsDir().toFile().exists() &&
                 cliLibsDir().toFile().exists() &&
-                serverConfigDir().toFile().exists();
+                serverConfigDir().toFile().exists() &&
+                logDir().toFile().exists();
     }
 }

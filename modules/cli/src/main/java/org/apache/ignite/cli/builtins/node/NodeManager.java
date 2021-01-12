@@ -49,11 +49,11 @@ public class NodeManager {
         this.moduleStorage = moduleStorage;
     }
 
-    public RunningNode start(String consistentId, Path workDir, Path pidsDir, Path serverConfig, PrintWriter out) {
-        if (getRunningNodes(workDir, pidsDir).stream().anyMatch(n -> n.consistentId.equals(consistentId)))
+    public RunningNode start(String consistentId, Path logDir, Path pidsDir, Path serverConfig, PrintWriter out) {
+        if (getRunningNodes(logDir, pidsDir).stream().anyMatch(n -> n.consistentId.equals(consistentId)))
             throw new IgniteCLIException("Node with consistentId " + consistentId + " is already exist");
         try {
-            Path logFile = logFile(workDir, consistentId);
+            Path logFile = logFile(logDir, consistentId);
             if (Files.exists(logFile))
                 Files.delete(logFile);
 

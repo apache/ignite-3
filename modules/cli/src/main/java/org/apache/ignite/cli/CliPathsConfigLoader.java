@@ -67,11 +67,18 @@ public class CliPathsConfigLoader {
         try (InputStream inputStream = new FileInputStream(configPath.toFile())) {
             Properties properties = new Properties();
             properties.load(inputStream);
-            if ((properties.getProperty("bin") == null) || (properties.getProperty("work") == null))
+            if ((properties.getProperty("bin") == null) ||
+                (properties.getProperty("work") == null) ||
+                (properties.getProperty("config") == null) ||
+                (properties.getProperty("log") == null) )
                 throw new IgniteCLIException("Config file has wrong format. " +
-                    "It must contain correct paths to bin and work dirs");
-            return new IgnitePaths(Path.of(properties.getProperty("bin")),
-                Path.of(properties.getProperty("work")), version);
+                    "It must contain bin, work, config and log dirs paths");
+            return new IgnitePaths(
+                Path.of(properties.getProperty("bin")),
+                Path.of(properties.getProperty("work")),
+                Path.of(properties.getProperty("config")),
+                Path.of(properties.getProperty("log")),
+                version);
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can't read config file");
