@@ -74,7 +74,6 @@
             <plugin>
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
-                <version>${apache.rat.plugin.version}</version>
                 <configuration>
                     <excludes>
                         <exclude>src/main/resources/bootstrap-config.json</exclude>

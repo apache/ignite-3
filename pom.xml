@@ -78,7 +78,6 @@
         <maven.surefire.plugin.version>3.0.0-M4</maven.surefire.plugin.version>
     </properties>
 
-
     <modules>
         <module>modules/cli</module>
         <module>modules/cli-common</module>
@@ -94,6 +93,11 @@
             <url>https://repository.apache.org/service/local/staging/deploy/maven2</url>
         </repository>
     </distributionManagement>
+
+    <issueManagement>
+        <system>Jira</system>
+        <url>https://issues.apache.org/jira/projects/IGNITE/issues</url>
+    </issueManagement>
 
     <dependencyManagement>
         <dependencies>
@@ -224,58 +228,95 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven.compiler.plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven.surefire.plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.rat</groupId>
+                    <artifactId>apache-rat-plugin</artifactId>
+                    <version>${apache.rat.plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>check-licenses</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <excludes>
+                            <exclude>README.md</exclude>
+                            <exclude>DEVNOTES.md</exclude>
+                            <exclude>docs/assets/images/**</exclude>
+                            <exclude>docs/assets/js/anchor.min.js
+                            </exclude><!-- Distributed under the MIT license. The original license header is badly formatted. -->
+                        </excludes>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>${maven.assembly.plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>${maven.antrun.plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven.compiler.plugin.version}</version>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>${maven.surefire.plugin.version}</version>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
-                <version>${apache.rat.plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>check-licenses</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <excludes>
-                        <exclude>README.md</exclude>
-                        <exclude>DEVNOTES.md</exclude>
-                        <exclude>docs/assets/images/**</exclude>
-                        <exclude>docs/assets/js/anchor.min.js
-                        </exclude><!-- Distributed under the MIT license. The original license header is badly formatted. -->
-                    </excludes>
-                </configuration>
             </plugin>
         </plugins>
     </build>
