@@ -43,6 +43,12 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-cli-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- 3-rd party dependencies. -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -53,11 +59,6 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.databind.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-cli-common</artifactId>
-            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.ivy</groupId>
@@ -190,11 +191,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.2</version>
             </plugin>
 
             <plugin>

@@ -57,7 +57,7 @@
         <mockito.framework.version>3.4.6</mockito.framework.version>
         <mockito.junit.jupiter.version>3.3.3</mockito.junit.jupiter.version>
 
-        <!-- Maven plugins -->
+        <!-- Maven plugins. -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
         <maven.antrun.plugin.version>3.0.0</maven.antrun.plugin.version>
         <maven.assembly.plugin.version>3.2.0</maven.assembly.plugin.version>
