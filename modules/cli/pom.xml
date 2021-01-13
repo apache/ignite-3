@@ -33,15 +33,6 @@
 
     <artifactId>ignite-cli</artifactId>
 
-    <properties>
-        <apache.ivy.version>2.5.0</apache.ivy.version>
-        <jackson.databind.version>2.11.1</jackson.databind.version>
-        <jansi.version>1.18</jansi.version>
-        <logback.version>1.2.3</logback.version>
-        <picocli.version>4.5.2</picocli.version>
-        <typesafe.version>1.4.1</typesafe.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
@@ -53,66 +44,54 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>${logback.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.databind.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.ivy</groupId>
             <artifactId>ivy</artifactId>
-            <version>${apache.ivy.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli-shell-jline3</artifactId>
-            <version>${picocli.version}</version>
         </dependency>
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-inject-java</artifactId>
-            <version>${micronaut.version}</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
-            <version>${typesafe.version}</version>
         </dependency>
         <dependency>
             <groupId>org.fusesource.jansi</groupId>
             <artifactId>jansi</artifactId>
-            <version>${jansi.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>
-            <version>${picocli.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>${jetbrains.annotations.version}</version>
         </dependency>
 
         <!-- Test dependencies. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>${mockito.junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.micronaut.test</groupId>
             <artifactId>micronaut-test-junit5</artifactId>
-            <version>${micronaut.test.junit5.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
