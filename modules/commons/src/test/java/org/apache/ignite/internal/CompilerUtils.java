@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.internal;
 
 import com.squareup.javapoet.JavaFile;
 import java.io.ByteArrayInputStream;

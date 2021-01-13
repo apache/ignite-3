@@ -68,12 +68,13 @@
     </dependencies>
 
     <modules>
+        <module>modules/bytecode</module>
+        <module>modules/cli</module>
+        <module>modules/cli-common</module>
+        <module>modules/commons</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/ignite-runner</module>
-        <module>modules/cli-common</module>
-        <module>modules/cli</module>
-        <module>modules/commons</module>
     </modules>
 
     <distributionManagement>
@@ -126,6 +127,12 @@
                         <exclude>docs/assets/js/anchor.min.js</exclude><!-- Distributed under the MIT license. The original license header is badly formatted. -->
                     </excludes>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M4</version>
             </plugin>
         </plugins>
     </build>

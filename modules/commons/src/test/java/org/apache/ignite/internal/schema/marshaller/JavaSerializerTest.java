@@ -28,6 +28,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
+import org.apache.ignite.internal.CompilerUtils;
 import org.apache.ignite.internal.schema.Bitmask;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
