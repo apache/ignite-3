@@ -28,26 +28,31 @@
         <groupId>org.apache.ignite</groupId>
         <artifactId>apache-ignite</artifactId>
         <version>3.0.0-SNAPSHOT</version>
-        <relativePath>../..</relativePath>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>ignite-cli</artifactId>
 
     <properties>
-        <micronaut.version>2.1.2</micronaut.version>
+        <apache.ivy.version>2.5.0</apache.ivy.version>
+        <jackson.databind.version>2.11.1</jackson.databind.version>
+        <jansi.version>1.18</jansi.version>
+        <logback.version>1.2.3</logback.version>
         <picocli.version>4.5.2</picocli.version>
+        <typesafe.version>1.4.1</typesafe.version>
     </properties>
 
     <dependencies>
+        <!-- 3-rd party dependencies. -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.2.3</version>
+            <version>${logback.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.11.1</version>
+            <version>${jackson.databind.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.ignite</groupId>
@@ -57,7 +62,7 @@
         <dependency>
             <groupId>org.apache.ivy</groupId>
             <artifactId>ivy</artifactId>
-            <version>2.5.0</version>
+            <version>${apache.ivy.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
@@ -65,9 +70,19 @@
             <version>${picocli.version}</version>
         </dependency>
         <dependency>
+            <groupId>io.micronaut</groupId>
+            <artifactId>micronaut-inject-java</artifactId>
+            <version>${micronaut.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe</groupId>
+            <artifactId>config</artifactId>
+            <version>${typesafe.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.fusesource.jansi</groupId>
             <artifactId>jansi</artifactId>
-            <version>1.18</version>
+            <version>${jansi.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
@@ -77,37 +92,27 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>16.0.3</version>
+            <version>${jetbrains.annotations.version}</version>
         </dependency>
+
+        <!-- Test dependencies. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.7.0</version>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>3.3.3</version>
+            <version>${mockito.junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.micronaut.test</groupId>
             <artifactId>micronaut-test-junit5</artifactId>
-            <version>2.3.1</version>
+            <version>${micronaut.test.junit5.version}</version>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.micronaut</groupId>
-            <artifactId>micronaut-inject-java</artifactId>
-            <version>${micronaut.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.typesafe</groupId>
-            <artifactId>config</artifactId>
-            <version>1.4.1</version>
         </dependency>
     </dependencies>
 
@@ -122,7 +127,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>${maven.assembly.plugin.version}</version>
 
                 <configuration>
                     <finalName>ignite</finalName>
@@ -151,7 +156,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>${maven.compiler.plugin.version}</version>
                 <configuration>
                     <!-- Uncomment to enable incremental compilation -->
                     <!-- <useIncrementalCompilation>false</useIncrementalCompilation> -->
@@ -194,7 +199,7 @@
 
             <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.0.0</version>
+                <version>${maven.antrun.plugin.version}</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -248,7 +253,7 @@
             <plugin>
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
-                <version>0.13</version>
+                <version>${apache.rat.plugin.version}</version>
                 <configuration>
                     <excludes>
                         <exclude>**/builtin_modules.conf</exclude>
