@@ -23,34 +23,31 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 
 public class TableColumnBuilderImpl implements TableColumnBuilder {
-
     private String colName;
-    private ColumnType columnType;
+    private ColumnType colType;
     private boolean nullable;
     private Object defValue;
 
-    public TableColumnBuilderImpl(String colName) {
+    public TableColumnBuilderImpl(String colName, ColumnType colType) {
         this.colName = colName;
+        this.colType = colType;
     }
 
-    @Override public TableColumnBuilderImpl withType(ColumnType columnType) {
-        this.columnType = columnType;
-
-        return this;
-    }
-
+    /** {@inheritDoc} */
     @Override public TableColumnBuilderImpl asNullable() {
         nullable = true;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public TableColumnBuilderImpl asNonNull() {
         nullable = false;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public TableColumnBuilderImpl withDefaultValue(Object defValue) {
         this.defValue = defValue;
 
@@ -65,6 +62,7 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
         return nullable;
     }
 
+    /** {@inheritDoc} */
     @Override public Column build() {
         return new ColumnImpl(colName);
     }

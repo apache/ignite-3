@@ -29,10 +29,12 @@ public class HashIndexImpl implements HashIndex {
         this.name = name;
     }
 
+    /** {@inheritDoc} */
     @Override public Collection<String> columns() {
         return Collections.emptyList();
     }
 
+    /** {@inheritDoc} */
     @Override public String name() {
         return name;
     }

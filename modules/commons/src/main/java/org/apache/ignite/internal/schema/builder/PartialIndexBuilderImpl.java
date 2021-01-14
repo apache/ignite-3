@@ -29,6 +29,7 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
         super(indexName);
     }
 
+    /** {@inheritDoc} */
     @Override public PartialIndexBuilderImpl withInlineSize(int inlineSize) {
         super.withInlineSize(inlineSize);
 
@@ -39,22 +40,26 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
         super.addIndexColumn(bld);
     }
 
+    /** {@inheritDoc} */
     @Override Collection<PartialIndexColumnBuilderImpl> columns() {
         return (Collection<PartialIndexColumnBuilderImpl>)super.columns();
     }
 
+    /** {@inheritDoc} */
     @Override public PartialIndex build() {
         assert expr != null && !expr.trim().isEmpty();
 
         return new PartialIndexImpl(name());
     }
 
+    /** {@inheritDoc} */
     @Override public PartialIndexBuilder withExpression(String expr) {
         this.expr = expr;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public PartialIndexColumnBuilderImpl addIndexColumn(String name) {
         return new PartialIndexColumnBuilderImpl(this).withName(name);
     }
@@ -65,24 +70,28 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
             super(indexBuilder);
         }
 
+        /** {@inheritDoc} */
         @Override public PartialIndexColumnBuilderImpl desc() {
             super.desc();
 
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override public PartialIndexColumnBuilderImpl asc() {
             super.asc();
 
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override public PartialIndexColumnBuilderImpl withName(String name) {
             super.withName(name);
 
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override public PartialIndexBuilderImpl done() {
             return (PartialIndexBuilderImpl)super.done();
         }

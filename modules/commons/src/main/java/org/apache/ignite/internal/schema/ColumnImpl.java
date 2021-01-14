@@ -28,26 +28,32 @@ public class ColumnImpl implements Column {
         this.name = name;
     }
 
+    /** {@inheritDoc} */
     @Override public ColumnType type() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public String name() {
         return name;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean nullable() {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public Object defaultValue() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean isKeyColumn() {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean isAffinityColumn() {
         return false;
     }

@@ -28,5 +28,5 @@ public interface HashIndex extends TableIndex {
      */
     Collection<String> columns();
 
-    // TODO: What about hidden cols?
+    // TODO: What about hidden cols (pk cols) which can be append for row uniqueness purposes?
 }

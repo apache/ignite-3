@@ -25,14 +25,6 @@ import org.apache.ignite.schema.ColumnType;
  */
 public interface TableColumnBuilder {
     /**
-     * Sets column type.
-     *
-     * @param columnType Column type.
-     * @return {@code this} for chaining.
-     */
-    TableColumnBuilder withType(ColumnType columnType);
-
-    /**
      * Mark column as nullable.
      *
      * @return {@code this} for chaining.

@@ -29,26 +29,32 @@ class AlterColumnBuilderImpl implements AlterColumnBuilder {
         this.tableBuilder = tableBuilder;
     }
 
+    /** {@inheritDoc} */
     @Override public AlterColumnBuilder withNewName(String newName) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public AlterColumnBuilder convertTo(ColumnType newType) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public AlterColumnBuilder withNewDefault(Object defaultValue) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public AlterColumnBuilder asNullable() {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public AlterColumnBuilder asNonNullable(Object replacement) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public TableModificationBuilder done() {
         return tableBuilder;
     }

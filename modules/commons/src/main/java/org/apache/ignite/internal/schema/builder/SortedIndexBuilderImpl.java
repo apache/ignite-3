@@ -33,12 +33,14 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         super(indexName);
     }
 
+    /** {@inheritDoc} */
     @Override public SortedIndexBuilderImpl withInlineSize(int inlineSize) {
         this.inlineSize = inlineSize;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public SortedIndexColumnBuilderImpl addIndexColumn(String name) {
         return new SortedIndexColumnBuilderImpl(this).withName(name);
     }
@@ -52,6 +54,7 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         return cols.values();
     }
 
+    /** {@inheritDoc} */
     @Override public SortedIndex build() {
         assert !cols.isEmpty();
 
@@ -69,18 +72,21 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
             this.indexBuilder = indexBuilder;
         }
 
+        /** {@inheritDoc} */
         @Override public SortedIndexColumnBuilderImpl desc() {
             desc = true;
 
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override public SortedIndexColumnBuilderImpl asc() {
             desc = false;
 
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override public SortedIndexColumnBuilderImpl withName(String name) {
             this.name = name;
 
@@ -91,6 +97,7 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
             return name;
         }
 
+        /** {@inheritDoc} */
         @Override public SortedIndexBuilderImpl done() {
             indexBuilder.addIndexColumn(this);
 

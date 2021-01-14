@@ -45,9 +45,10 @@ public interface SortedIndex extends TableIndex {
     /**
      * Unique index flag.
      *
-     * IMPORTANT: Index MUST have all affinity columns declared explicitely.
+     * Limitation: Index MUST have all affinity columns declared explicitely.
+     * This requirement allows to omit cluster wide constraint checks.
      *
-     * @return Uniq flag.
+     * @return Unique flag.
      */
     default boolean unique() {
         return false;

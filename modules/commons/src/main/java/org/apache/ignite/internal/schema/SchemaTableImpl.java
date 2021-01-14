@@ -28,26 +28,32 @@ import org.apache.ignite.schema.modification.TableModificationBuilder;
 
 public class SchemaTableImpl implements SchemaTable {
 
+    /** {@inheritDoc} */
     @Override public List<Column> keyColumns() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public List<Column> valueColumns() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public String tableName() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public String canonicalName() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public Collection<TableIndex> indices() {
         return Collections.emptyList();
     }
 
+    /** {@inheritDoc} */
     @Override public TableModificationBuilder toBuilder() {
         return new TableModificationBuilderImpl(this);
     }

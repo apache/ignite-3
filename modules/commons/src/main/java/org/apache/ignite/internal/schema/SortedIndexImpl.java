@@ -28,18 +28,22 @@ public class SortedIndexImpl implements SortedIndex {
         this.name = name;
     }
 
+    /** {@inheritDoc} */
     @Override public int inlineSize() {
         return 0;
     }
 
+    /** {@inheritDoc} */
     @Override public Collection<IndexColumn> columns() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public Collection<IndexColumn> indexedColumns() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public String name() {
         return name;
     }

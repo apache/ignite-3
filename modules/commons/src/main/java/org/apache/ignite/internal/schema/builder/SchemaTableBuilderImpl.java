@@ -29,13 +29,14 @@ import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
-import org.apache.ignite.schema.builder.PrimaryKeyBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
 public class SchemaTableBuilderImpl implements SchemaTableBuilder {
     private final Map<String, Column> columns = new HashMap<>();
     private final Map<String, TableIndex> indices = new HashMap<>();
-    PrimaryKeyBuilderImpl pkIndex;
+
+    private String[] pkColumns;
+    private String[] affinityColumns;
 
     private final String tableName;
     private final String schemaName;
@@ -53,6 +54,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
         return tableName;
     }
 
+    /** {@inheritDoc} */
     @Override public SchemaTableBuilderImpl columns(Column... columns) {
         for (int i = 0; i < columns.length; i++) {
             if (this.columns.put(columns[i].name(), columns[i]) != null)
@@ -62,10 +64,19 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
         return this;
     }
 
-    @Override public PrimaryKeyBuilder pk() {
-        return new PrimaryKeyBuilderImpl(this);
+    /** {@inheritDoc} */
+    @Override public SchemaTableBuilder pkColumns(String... colNames) {
+        pkColumns = colNames;
+
+        return this;
     }
 
+    @Override public SchemaTableBuilder affinityColumns(String... colNames) {
+        affinityColumns = colNames;
+        return this;
+    }
+
+    /** {@inheritDoc} */
     @Override public SchemaTableBuilder withindex(TableIndex index) {
         if (PRIMARY_KEY_INDEX_NAME.equals(index.name()))
             throw new IllegalArgumentException("Not valid index name for secondary index: " + index.name());
@@ -75,6 +86,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public SchemaTable build() {
         assert schemaName != null : "Table name was not specified.";
         assert columns.size() >= 2 : "Key or/and value columns was not defined.";
@@ -87,13 +99,16 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
     }
 
     private void validatePrimaryKey() {
-        assert pkIndex != null : "PK index is not configured";
-        assert pkIndex.columns().length > 0 && pkIndex.affinityColumns().length > 0 : "Primary key must have one affinity column at least";
+        assert pkColumns != null : "PK index is not configured";
 
-        final Set<String> keyCols = Arrays.stream(pkIndex.columns()).collect(Collectors.toSet());
+        if (affinityColumns == null)
+            affinityColumns = pkColumns;
+
+        final Set<String> keyCols = Arrays.stream(pkColumns).collect(Collectors.toSet());
 
         assert keyCols.stream().allMatch(columns::containsKey) : "Key column must be a valid table column.";
-        assert Arrays.stream(pkIndex.affinityColumns()).allMatch(keyCols::contains) : "Affinity column must be a valid key column.";
+        assert affinityColumns != null && affinityColumns.length > 0 : "Primary key must have one affinity column at least";
+        assert Arrays.stream(affinityColumns).allMatch(keyCols::contains) : "Affinity column must be a valid key column.";
     }
 
     private void validateSecondaryIndices() {

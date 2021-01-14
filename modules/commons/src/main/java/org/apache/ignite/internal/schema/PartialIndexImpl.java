@@ -29,22 +29,27 @@ public class PartialIndexImpl implements PartialIndex {
         this.name = name;
     }
 
+    /** {@inheritDoc} */
     @Override public String expr() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public int inlineSize() {
         return 0;
     }
 
+    /** {@inheritDoc} */
     @Override public Collection<IndexColumn> columns() {
         return Collections.emptyList();
     }
 
+    /** {@inheritDoc} */
     @Override public Collection<IndexColumn> indexedColumns() {
         return Collections.emptyList();
     }
 
+    /** {@inheritDoc} */
     @Override public String name() {
         return name;
     }

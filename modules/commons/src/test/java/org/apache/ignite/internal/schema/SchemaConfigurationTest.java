@@ -32,20 +32,16 @@ public class SchemaConfigurationTest {
         builder
             .columns(
                 // Declaring columns in user order.
-                SchemaBuilders.column("id").withType(ColumnType.INT64).build(),
-                SchemaBuilders.column("label").withType(ColumnType.stringOf(2)).withDefaultValue("AI").build(),
-                SchemaBuilders.column("name").withType(ColumnType.string()).asNonNull().build(),
-                SchemaBuilders.column("data").withType(ColumnType.blobOf(255)).asNullable().build(),
-                SchemaBuilders.column("affId").withType(ColumnType.INT32).build()
+                SchemaBuilders.column("id", ColumnType.INT64).build(),
+                SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValue("AI").build(),
+                SchemaBuilders.column("name", ColumnType.string()).asNonNull().build(),
+                SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable().build(),
+                SchemaBuilders.column("affId", ColumnType.INT32).build()
             )
 
             // PK index type can't be changed as highly coupled core implementation.
-            .pk()
-            .withColumns("id", "affId", "label") // Declare index column in order.
-            .withAffinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
-            //TODO: As we have affinity columns here,
-            //TODO: do we want to add affinity function config here???
-            .done()
+            .pkColumns("id", "affId", "label") // Declare index column in order.
+            .affinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
 
             // 'withIndex' single entry point allows extended index support.
             // E.g. we may want to support GEO indices later with some plugin.
@@ -80,24 +76,20 @@ public class SchemaConfigurationTest {
         final SchemaTable table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
             .columns(
                 // Declaring columns in user order.
-                SchemaBuilders.column("id").withType(ColumnType.INT64).build(),
-                SchemaBuilders.column("name").withType(ColumnType.string()).build()
+                SchemaBuilders.column("id", ColumnType.INT64).build(),
+                SchemaBuilders.column("name", ColumnType.string()).build()
             )
-
-            .pk().withColumns("id").done()
-
+            .pkColumns("id")
             .build();
 
         table.toBuilder()
             .addColumn(
-                SchemaBuilders.column("firstName")
-                    .withType(ColumnType.string())
+                SchemaBuilders.column("firstName", ColumnType.string())
                     .asNonNull()
                     .build()
             )
             .addKeyColumn( // It looks safe to add non-affinity column to key.
-                SchemaBuilders.column("subId")
-                    .withType(ColumnType.string())
+                SchemaBuilders.column("subId", ColumnType.string())
                     .asNonNull()
                     .build()
             )

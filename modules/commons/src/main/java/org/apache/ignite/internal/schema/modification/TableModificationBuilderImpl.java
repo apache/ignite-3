@@ -31,30 +31,37 @@ public class TableModificationBuilderImpl implements TableModificationBuilder {
         this.table = table;
     }
 
+    /** {@inheritDoc} */
     @Override public TableModificationBuilder addColumn(Column column) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public TableModificationBuilder addKeyColumn(Column column) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public AlterColumnBuilder alterColumn(String columnName) {
         return new AlterColumnBuilderImpl(this);
     }
 
+    /** {@inheritDoc} */
     @Override public TableModificationBuilder dropColumn(String columnName) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public TableModificationBuilder addIndex(TableIndex index) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public TableModificationBuilder dropIndex(String indexName) {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public void apply() {
 
     }

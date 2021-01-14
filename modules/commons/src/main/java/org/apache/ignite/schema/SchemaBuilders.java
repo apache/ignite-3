@@ -65,10 +65,11 @@ public final class SchemaBuilders {
      * Creates table column buidler.
      *
      * @param name Column name.
+     * @param type Column type.
      * @return Column builder.
      */
-    public static TableColumnBuilder column(String name) {
-        return new TableColumnBuilderImpl(name);
+    public static TableColumnBuilder column(String name, ColumnType type) {
+        return new TableColumnBuilderImpl(name, type);
     }
 
     /**

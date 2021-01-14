@@ -28,12 +28,14 @@ public class HashIndexBuilderImpl extends AbstractIndexBuilder implements HashIn
         super(indexName);
     }
 
+    /** {@inheritDoc} */
     @Override public HashIndexBuilder withColumns(String... columns) {
         this.columns = columns.clone();
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public HashIndex build() {
         assert columns != null;
         assert columns.length > 0;
