@@ -17,9 +17,6 @@
   limitations under the License.
 -->
 
-<!--
-    POM file.
--->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -46,17 +43,15 @@
     </licenses>
 
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
 
         <!-- Dependency versions -->
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
         <junit.jupiter.version>5.7.0</junit.jupiter.version>
 
         <!-- Maven plugins -->
-        <maven.compiler.release>11</maven.compiler.release>
-        <maven.compiler.source>11</maven.compiler.source> <!-- Requires for correct compilation in IDEA. -->
-        <maven.compiler.target>11</maven.compiler.target>
-
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M4</maven.surefire.plugin.version>
     </properties>
@@ -71,12 +66,21 @@
     </dependencies>
 
     <modules>
+        <module>modules/cli</module>
+        <module>modules/cli-common</module>
+        <module>modules/commons</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/ignite-runner</module>
-        <module>modules/cli-demo</module>
-        <module>modules/commons</module>
     </modules>
+
+    <distributionManagement>
+        <repository>
+            <id>apache.staging</id>
+            <name>Apache Staging Repository</name>
+            <url>https://repository.apache.org/service/local/staging/deploy/maven2</url>
+        </repository>
+    </distributionManagement>
 
     <build>
         <plugins>
@@ -90,6 +94,42 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven.surefire.plugin.version}</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.rat</groupId>
+                <artifactId>apache-rat-plugin</artifactId>
+                <version>0.13</version>
+                <executions>
+                    <execution>
+                        <id>check-licenses</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <excludes>
+                        <exclude>README.md</exclude>
+                        <exclude>DEVNOTES.md</exclude>
+                        <exclude>docs/assets/images/**</exclude>
+                        <exclude>docs/assets/js/anchor.min.js</exclude><!-- Distributed under the MIT license. The original license header is badly formatted. -->
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
