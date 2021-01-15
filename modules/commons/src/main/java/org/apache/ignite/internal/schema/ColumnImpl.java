@@ -47,14 +47,4 @@ public class ColumnImpl implements Column {
     @Override public Object defaultValue() {
         return null;
     }
-
-    /** {@inheritDoc} */
-    @Override public boolean isKeyColumn() {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isAffinityColumn() {
-        return false;
-    }
 }

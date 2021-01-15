@@ -42,14 +42,4 @@ public interface Column {
      * @return Default column value.
      */
     Object defaultValue();
-
-    /**
-     * @return {@code true} if column belong to key, {@code false} otherwise.
-     */
-    boolean isKeyColumn();
-
-    /**
-     * @return {@code true} if column is affinity column, {@code false} otherwise.
-     */
-    boolean isAffinityColumn();
 }

@@ -27,9 +27,13 @@ import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
 public class SchemaTableImpl implements SchemaTable {
-
     /** {@inheritDoc} */
     @Override public List<Column> keyColumns() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public List<Column> affinityColumns() {
         return null;
     }
 

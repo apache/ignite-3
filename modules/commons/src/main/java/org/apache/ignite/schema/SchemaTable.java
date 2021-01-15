@@ -31,6 +31,11 @@ public interface SchemaTable {
     List<Column> keyColumns();
 
     /**
+     * @return Affinity columns.
+     */
+    List<Column> affinityColumns();
+
+    /**
      * @return Value columns.
      */
     List<Column> valueColumns();
