@@ -9,8 +9,8 @@ class SnapshotMetaImpl implements RaftOutter.SnapshotMeta, RaftOutter.SnapshotMe
     private long lastIncludedTerm;
     private List<String> peersList = new ArrayList<>();
     private List<String> oldPeersList = new ArrayList<>();
-    private List<String> learnersList = new ArrayList<>();;
-    private List<String> oldLearnersList = new ArrayList<>();;
+    private List<String> learnersList = new ArrayList<>();
+    private List<String> oldLearnersList = new ArrayList<>();
 
     @Override public long getLastIncludedIndex() {
         return lastIncludedIndex;

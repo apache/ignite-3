@@ -243,7 +243,6 @@ public class NodeTest {
      * https://github.com/sofastack/sofa-jraft/issues/317
      */
     @Test
-    @Ignore
     public void testRollbackStateMachineWithReadIndex_Issue317() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final PeerId peer = new PeerId(addr, 0);
@@ -1240,7 +1239,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testReadIndex() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1287,7 +1285,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testReadIndexTimeout() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1340,7 +1337,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testReadIndexFromLearner() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1382,7 +1378,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testReadIndexChaos() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 

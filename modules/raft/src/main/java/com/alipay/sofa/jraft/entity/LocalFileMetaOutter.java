@@ -69,6 +69,7 @@ public final class LocalFileMetaOutter {
         }
     }
 
+    // TODO asch usermeta support ?
     public interface LocalFileMeta extends Message {
         static Builder newBuilder() {
             return MessageBuilderFactory.DEFAULT.createLocalFileMeta();

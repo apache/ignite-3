@@ -142,9 +142,6 @@ public class LocalRpcServer implements RpcServer {
                             }
                         }
 
-                        if (prc == null)
-                            System.out.println();
-
                         prc.handleRequest(new RpcContext() {
                             @Override public void sendResponse(Object responseObj) {
                                 fut.complete(responseObj);

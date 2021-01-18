@@ -29,7 +29,7 @@ class ReadIndexResponseImpl implements RpcRequests.ReadIndexResponse, RpcRequest
     }
 
     @Override public Builder setIndex(long lastCommittedIndex) {
-        this.index = index;
+        this.index = lastCommittedIndex;
 
         return this;
     }

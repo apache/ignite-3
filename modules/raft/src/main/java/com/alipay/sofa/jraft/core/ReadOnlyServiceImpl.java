@@ -212,7 +212,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         final List<ReadIndexState> states = new ArrayList<>(events.size());
 
         for (final ReadIndexEvent event : events) {
-            rb.addEntries(new ByteString(event.requestContext.get()));
+            byte[] ctx = event.requestContext.get();
+            rb.addEntries(ctx == null ? ByteString.EMPTY : new ByteString(ctx));
             states.add(new ReadIndexState(event.requestContext, event.done, event.startTime));
         }
         final ReadIndexRequest request = rb.build();

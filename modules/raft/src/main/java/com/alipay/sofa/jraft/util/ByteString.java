@@ -45,7 +45,7 @@ public class ByteString {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         WritableByteChannel channel = Channels.newChannel(bos);
         try {
-            channel.write(buf);
+            channel.write(buf); // TODO asch slice ?
         } catch (IOException e) {
             throw new Error(e);
         }
