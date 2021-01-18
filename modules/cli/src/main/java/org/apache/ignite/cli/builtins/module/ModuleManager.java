@@ -100,8 +100,8 @@ public class ModuleManager {
 
                 moduleStorage.saveModule(new ModuleStorage.ModuleDefinition(
                     mvnName,
-                    (isCliModule)? Collections.emptyList() : resolveRes.artifacts(),
-                    (isCliModule)? resolveRes.artifacts() : Collections.emptyList(),
+                    (isCliModule) ? Collections.emptyList() : resolveRes.artifacts(),
+                    (isCliModule) ? resolveRes.artifacts() : Collections.emptyList(),
                     ModuleStorage.SourceType.Maven,
                     name
                 ));

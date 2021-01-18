@@ -90,7 +90,6 @@ public class ModuleStorage {
         }
     }
 
-
     public static class ModuleDefinitionsRegistry {
         public final List<ModuleDefinition> modules;
 

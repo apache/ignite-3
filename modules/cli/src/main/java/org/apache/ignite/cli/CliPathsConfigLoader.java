@@ -31,6 +31,7 @@ import org.apache.ignite.cli.builtins.SystemPathResolver;
 public class CliPathsConfigLoader {
 
     private final SystemPathResolver pathRslvr;
+
     private final String ver;
 
     @Inject

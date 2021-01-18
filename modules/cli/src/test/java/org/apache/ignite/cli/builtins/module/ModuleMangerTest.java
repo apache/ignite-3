@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.builtins.init;
+package org.apache.ignite.cli.builtins.module;
 
 import java.io.FileOutputStream;
 import java.io.IOException;

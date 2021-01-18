@@ -75,7 +75,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
 
             moduleManager.addModule(moduleName,
                 ignitePaths,
-                (urls == null)? Collections.emptyList() : Arrays.asList(urls));
+                (urls == null) ? Collections.emptyList() : Arrays.asList(urls));
         }
     }
 
@@ -109,9 +109,11 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
         description = "Shows the list of Ignite modules and Maven dependencies."
     )
     public static class ListModuleCommandSpec extends CommandSpec {
+        @Inject
+        private ModuleManager moduleMgr;
 
-        @Inject private ModuleManager moduleManager;
-        @Inject private ModuleStorage moduleStorage;
+        @Inject
+        private ModuleStorage moduleStorage;
 
         @Override public void run() {
             var installedModules = new LinkedHashMap<String, ModuleStorage.ModuleDefinition>();
@@ -126,7 +128,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
             PrintWriter out = spec.commandLine().getOut();
             ColorScheme cs = spec.commandLine().getColorScheme();
 
-            var builtinModules = moduleManager.builtinModules()
+            var builtinModules = moduleMgr.builtinModules()
                 .stream()
                 .filter(m -> !m.name.startsWith(ModuleManager.INTERNAL_MODULE_PREFIX))
                 .map(m -> new StandardModuleView(m, installedModules.containsKey(m.name)))
@@ -166,7 +168,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
 
                 table.addRow("@|bold Group ID|@", "@|bold Artifact ID|@", "@|bold Version|@");
 
-                for (ModuleStorage.ModuleDefinition m :externalInstalledModules){
+                for (ModuleStorage.ModuleDefinition m :externalInstalledModules) {
                     MavenCoordinates mvn = MavenCoordinates.of("mvn:" + m.name);
 
                     table.addRow(mvn.grpId, mvn.artifactId, mvn.ver);
@@ -180,6 +182,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
 
         private static class StandardModuleView {
             public final StandardModuleDefinition standardModuleDefinition;
+
             public final boolean installed;
 
             public StandardModuleView(StandardModuleDefinition standardModuleDefinition, boolean installed) {
