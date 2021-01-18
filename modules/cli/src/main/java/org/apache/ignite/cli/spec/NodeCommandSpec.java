@@ -45,9 +45,11 @@ public class NodeCommandSpec extends CategorySpec {
     @CommandLine.Command(name = "start", description = "Starts an Ignite node locally.")
     public static class StartNodeCommandSpec extends CommandSpec {
 
-        @Inject private CliPathsConfigLoader cliPathsConfigLoader;
+        @Inject
+        private CliPathsConfigLoader cliPathsCfgLdr;
 
-        @Inject private NodeManager nodeManager;
+        @Inject
+        private NodeManager nodeMgr;
 
         @CommandLine.Parameters(paramLabel = "consistent-id", description = "Consistent ID of the new node")
         public String consistentId;
@@ -56,14 +58,14 @@ public class NodeCommandSpec extends CategorySpec {
         public Path configPath;
 
         @Override public void run() {
-            IgnitePaths ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
+            IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             PrintWriter out = spec.commandLine().getOut();
             ColorScheme cs = spec.commandLine().getColorScheme();
 
             out.println("Starting a new Ignite node...");
 
-            NodeManager.RunningNode node = nodeManager.start(consistentId, ignitePaths.workDir,
+            NodeManager.RunningNode node = nodeMgr.start(consistentId, ignitePaths.workDir,
                 ignitePaths.cliPidsDir(),
                 configPath,
                 out);
@@ -73,21 +75,23 @@ public class NodeCommandSpec extends CategorySpec {
                 cs.commandText("ignite node stop ") + cs.parameterText(node.consistentId));
             out.println();
 
-            Table table = new Table(0, cs);
+            Table tbl = new Table(0, cs);
 
-            table.addRow("@|bold Consistent ID|@", node.consistentId);
-            table.addRow("@|bold PID|@", node.pid);
-            table.addRow("@|bold Log File|@", node.logFile);
+            tbl.addRow("@|bold Consistent ID|@", node.consistentId);
+            tbl.addRow("@|bold PID|@", node.pid);
+            tbl.addRow("@|bold Log File|@", node.logFile);
 
-            out.println(table);
+            out.println(tbl);
         }
     }
 
     @CommandLine.Command(name = "stop", description = "Stops a locally running Ignite node.")
     public static class StopNodeCommandSpec extends CommandSpec {
+        @Inject
+        private NodeManager nodeMgr;
 
-        @Inject private NodeManager nodeManager;
-        @Inject private CliPathsConfigLoader cliPathsConfigLoader;
+        @Inject
+        private CliPathsConfigLoader cliPathsCfgLdr;
 
         @CommandLine.Parameters(
             arity = "1..*",
@@ -97,7 +101,7 @@ public class NodeCommandSpec extends CategorySpec {
         public List<String> consistentIds;
 
         @Override public void run() {
-            IgnitePaths ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
+            IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             PrintWriter out = spec.commandLine().getOut();
             ColorScheme cs = spec.commandLine().getColorScheme();
@@ -105,7 +109,7 @@ public class NodeCommandSpec extends CategorySpec {
             consistentIds.forEach(p -> {
                 out.print("Stopping locally running node with consistent ID " + cs.parameterText(p) + "... ");
 
-                if (nodeManager.stopWait(p, ignitePaths.cliPidsDir()))
+                if (nodeMgr.stopWait(p, ignitePaths.cliPidsDir()))
                     out.println(cs.text("@|bold,green Done!|@"));
                 else
                     out.println(cs.text("@|bold,red Failed|@"));
@@ -115,14 +119,16 @@ public class NodeCommandSpec extends CategorySpec {
 
     @CommandLine.Command(name = "list", description = "Shows the list of currently running local Ignite nodes.")
     public static class ListNodesCommandSpec extends CommandSpec {
+        @Inject
+        private NodeManager nodeMgr;
 
-        @Inject private NodeManager nodeManager;
-        @Inject private CliPathsConfigLoader cliPathsConfigLoader;
+        @Inject
+        private CliPathsConfigLoader cliPathsCfgLdr;
 
         @Override public void run() {
-            IgnitePaths paths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
+            IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
-            List<NodeManager.RunningNode> nodes = nodeManager.getRunningNodes(paths.workDir, paths.cliPidsDir());
+            List<NodeManager.RunningNode> nodes = nodeMgr.getRunningNodes(paths.workDir, paths.cliPidsDir());
 
             PrintWriter out = spec.commandLine().getOut();
             ColorScheme cs = spec.commandLine().getColorScheme();
@@ -138,27 +144,27 @@ public class NodeCommandSpec extends CategorySpec {
                     cs.text("@|bold " + nodes.size() + "|@") + " locally running nodes.");
                 out.println();
 
-                Table table = new Table(0, cs);
+                Table tbl = new Table(0, cs);
 
-                table.addRow("@|bold Consistent ID|@", "@|bold PID|@", "@|bold Log File|@");
+                tbl.addRow("@|bold Consistent ID|@", "@|bold PID|@", "@|bold Log File|@");
 
                 for (NodeManager.RunningNode node : nodes) {
-                    table.addRow(node.consistentId, node.pid, node.logFile);
+                    tbl.addRow(node.consistentId, node.pid, node.logFile);
                 }
 
-                out.println(table);
+                out.println(tbl);
             }
         }
     }
 
     @CommandLine.Command(name = "classpath", description = "Shows the current classpath used by the Ignite nodes.")
     public static class NodesClasspathCommandSpec extends CommandSpec {
-
-        @Inject private NodeManager nodeManager;
+        @Inject
+        private NodeManager nodeMgr;
 
         @Override public void run() {
             try {
-                List<String> items = nodeManager.classpathItems();
+                List<String> items = nodeMgr.classpathItems();
 
                 PrintWriter out = spec.commandLine().getOut();
 

@@ -31,6 +31,7 @@ import picocli.CommandLine.Model.PositionalParamSpec;
 
 public class HelpFactoryImpl implements CommandLine.IHelpFactory {
     public static final String SECTION_KEY_BANNER = "banner";
+
     public static final String SECTION_KEY_PARAMETER_OPTION_TABLE = "paramsOptsTable";
 
     @Override public CommandLine.Help create(CommandLine.Model.CommandSpec commandSpec, ColorScheme cs) {
@@ -92,52 +93,53 @@ public class HelpFactoryImpl implements CommandLine.IHelpFactory {
 
         if (hasCommands) {
             sectionMap.put(CommandLine.Model.UsageMessageSpec.SECTION_KEY_COMMAND_LIST, help -> {
-                Table table = new Table(0, cs);
+                Table tbl = new Table(0, cs);
 
-                table.addSection("@|bold COMMANDS|@");
+                tbl.addSection("@|bold COMMANDS|@");
 
                 for (Map.Entry<String, CommandLine.Help> entry : help.subcommands().entrySet()) {
                     String name = entry.getKey();
+
                     CommandLine.Help cmd = entry.getValue();
 
-                    if (cmd.subcommands().isEmpty()) {
-                        table.addRow(cs.commandText(name), cmd.description().trim());
-                    }
+                    if (cmd.subcommands().isEmpty())
+                        tbl.addRow(cs.commandText(name), cmd.description().trim());
                     else {
                         for (Map.Entry<String, CommandLine.Help> subEntry : cmd.subcommands().entrySet()) {
                             String subName = subEntry.getKey();
+
                             CommandLine.Help subCmd = subEntry.getValue();
 
                             // Further hierarchy is prohibited.
                             assert subCmd.subcommands().isEmpty();
 
-                            table.addRow(cs.commandText(name + " " + subName), subCmd.description().trim());
+                            tbl.addRow(cs.commandText(name + " " + subName), subCmd.description().trim());
                         }
                     }
                 }
 
-                return table.toString() + "\n";
+                return tbl.toString() + "\n";
             });
         }
         else if (hasParameters || hasOptions) {
             sectionMap.put(SECTION_KEY_PARAMETER_OPTION_TABLE, help -> {
-                Table table = new Table(0, cs);
+                Table tbl = new Table(0, cs);
 
                 if (hasParameters) {
-                    table.addSection("@|bold REQUIRED PARAMETERS|@");
+                    tbl.addSection("@|bold REQUIRED PARAMETERS|@");
 
                     for (PositionalParamSpec param : help.commandSpec().positionalParameters()) {
                         if (!param.hidden()) {
                             // TODO: Support multiple-line descriptions.
                             assert param.description().length == 1;
 
-                            table.addRow(cs.parameterText(param.paramLabel()), param.description()[0]);
+                            tbl.addRow(cs.parameterText(param.paramLabel()), param.description()[0]);
                         }
                     }
                 }
 
                 if (hasOptions) {
-                    table.addSection("@|bold OPTIONS|@");
+                    tbl.addSection("@|bold OPTIONS|@");
 
                     for (OptionSpec option : help.commandSpec().options()) {
                         if (!option.hidden()) {
@@ -146,14 +148,14 @@ public class HelpFactoryImpl implements CommandLine.IHelpFactory {
                             // TODO: Support multiple-line descriptions.
                             assert option.description().length == 1;
 
-                            table.addRow(
+                            tbl.addRow(
                                 cs.optionText(option.names()[0] + '=' + option.paramLabel()),
                                 option.description()[0]);
                         }
                     }
                 }
 
-                return table.toString() + "\n";
+                return tbl.toString() + "\n";
             });
         }
 

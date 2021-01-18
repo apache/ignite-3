@@ -61,6 +61,7 @@ public class InteractiveWrapper {
 
             TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
             widgets.enable();
+
             KeyMap<Binding> keyMap = reader.getKeyMaps().get("main");
             keyMap.bind(new Reference("tailtip-toggle"), KeyMap.alt("s"));
 
@@ -71,9 +72,11 @@ public class InteractiveWrapper {
             while (true) {
                 try {
                     systemRegistry.cleanUp();
+
                     line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
+
                     systemRegistry.execute(line);
-                } catch (UserInterruptException e) {
+                } catch (UserInterruptException ignored) {
                     // Ignore
                 } catch (EndOfFileException e) {
                     return;

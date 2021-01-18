@@ -30,7 +30,6 @@ import java.util.Optional;
 import java.util.Properties;
 import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
-import org.apache.ignite.cli.CliVersionInfo;
 import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.IgnitePaths;
 import org.apache.ignite.cli.Table;
@@ -41,41 +40,49 @@ import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.Help.ColorScheme;
 
 public class InitIgniteCommand {
+    private final SystemPathResolver pathRslvr;
 
-    private final SystemPathResolver pathResolver;
-    private final CliVersionInfo cliVersionInfo;
-    private final ModuleManager moduleManager;
-    private final CliPathsConfigLoader cliPathsConfigLoader;
+    private final ModuleManager moduleMgr;
+
+    private final CliPathsConfigLoader cliPathsCfgLdr;
 
     @Inject
-    public InitIgniteCommand(SystemPathResolver pathResolver, CliVersionInfo cliVersionInfo,
-        ModuleManager moduleManager, CliPathsConfigLoader cliPathsConfigLoader) {
-        this.pathResolver = pathResolver;
-        this.cliVersionInfo = cliVersionInfo;
-        this.moduleManager = moduleManager;
-        this.cliPathsConfigLoader = cliPathsConfigLoader;
+    public InitIgniteCommand(
+        SystemPathResolver pathRslvr,
+        ModuleManager moduleMgr,
+        CliPathsConfigLoader cliPathsCfgLdr) {
+        this.pathRslvr = pathRslvr;
+        this.moduleMgr = moduleMgr;
+        this.cliPathsCfgLdr = cliPathsCfgLdr;
     }
 
     public void init(URL[] urls, PrintWriter out, ColorScheme cs) {
-        moduleManager.setOut(out);
-        Optional<IgnitePaths> ignitePathsOpt = cliPathsConfigLoader.loadIgnitePathsConfig();
+
+        moduleMgr.setOut(out);
+
+        Optional<IgnitePaths> ignitePathsOpt = cliPathsCfgLdr.loadIgnitePathsConfig();
+
         if (ignitePathsOpt.isEmpty())
             initConfigFile();
 
-        IgnitePaths cfg = cliPathsConfigLoader.loadIgnitePathsConfig().get();
+        IgnitePaths cfg = cliPathsCfgLdr.loadIgnitePathsConfig().get();
+
         out.print("Creating directories... ");
+
         cfg.initOrRecover();
+
         out.println(Ansi.AUTO.string("@|green,bold Done!|@"));
 
-        Table table = new Table(0, cs);
+        Table tbl = new Table(0, cs);
 
-        table.addRow("@|bold Binaries Directory|@", cfg.binDir);
-        table.addRow("@|bold Work Directory|@", cfg.workDir);
+        tbl.addRow("@|bold Binaries Directory|@", cfg.binDir);
+        tbl.addRow("@|bold Work Directory|@", cfg.workDir);
 
-        out.println(table);
+        out.println(tbl);
         out.println();
 
         installIgnite(cfg, urls);
+
         initDefaultServerConfigs(cfg.serverDefaultConfigFile());
 
         out.println();
@@ -83,12 +90,12 @@ public class InitIgniteCommand {
             cs.commandText("ignite node start") + " command to start a new local node.");
     }
 
-    private void initDefaultServerConfigs(Path serverCfgFile) {
+    private void initDefaultServerConfigs(Path srvCfgFile) {
         try {
-            if (!serverCfgFile.toFile().exists())
+            if (!srvCfgFile.toFile().exists())
                 Files.copy(
                     InitIgniteCommand.class
-                        .getResourceAsStream("/default-config.xml"), serverCfgFile);
+                        .getResourceAsStream("/default-config.xml"), srvCfgFile);
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can't create default config file for server", e);
@@ -96,18 +103,19 @@ public class InitIgniteCommand {
     }
 
     private void installIgnite(IgnitePaths ignitePaths, URL[] urls) {
-        moduleManager.addModule("_server", ignitePaths,
+        moduleMgr.addModule("_server", ignitePaths,
             urls == null ? Collections.emptyList() : Arrays.asList(urls));
     }
 
     private File initConfigFile() {
-        Path newCfgPath = pathResolver.osHomeDirectoryPath().resolve(".ignitecfg");
+        Path newCfgPath = pathRslvr.osHomeDirectoryPath().resolve(".ignitecfg");
         File newCfgFile = newCfgPath.toFile();
+
         try {
             newCfgFile.createNewFile();
 
-            Path binDir = pathResolver.toolHomeDirectoryPath().resolve("ignite-bin");
-            Path workDir = pathResolver.toolHomeDirectoryPath().resolve("ignite-work");
+            Path binDir = pathRslvr.toolHomeDirectoryPath().resolve("ignite-bin");
+            Path workDir = pathRslvr.toolHomeDirectoryPath().resolve("ignite-work");
 
             fillNewConfigFile(newCfgFile, binDir, workDir);
 
@@ -120,10 +128,11 @@ public class InitIgniteCommand {
 
     private void fillNewConfigFile(File f, @NotNull Path binDir, @NotNull Path workDir) {
         try (FileWriter fileWriter = new FileWriter(f)) {
-            Properties properties = new Properties();
-            properties.setProperty("bin", binDir.toString());
-            properties.setProperty("work", workDir.toString());
-            properties.store(fileWriter, "");
+            Properties props = new Properties();
+
+            props.setProperty("bin", binDir.toString());
+            props.setProperty("work", workDir.toString());
+            props.store(fileWriter, "");
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can't write to ignitecfg file");

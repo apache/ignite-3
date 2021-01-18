@@ -29,7 +29,7 @@ import picocli.CommandLine.Help.ColorScheme;
 public class Table {
     private final int indent;
 
-    private final ColorScheme colorScheme;
+    private final ColorScheme cs;
 
     private final Collection<Row> data = new ArrayList<>();
 
@@ -38,39 +38,36 @@ public class Table {
     /**
      * Creates a new table.
      *
-     * @param indent Left-side indentation (i.e. the provided
-     *               number of spaces will be added to every line in the output).
-     * @param colorScheme Color scheme.
+     * @param indent Left-side indentation (i.e. the provided number of spaces will be added to every line in the
+     *               output).
+     * @param cs     Color scheme.
      */
-    public Table(int indent, ColorScheme colorScheme) {
+    public Table(int indent, ColorScheme cs) {
         if (indent < 0)
             throw new IllegalArgumentException("Indent can't be negative.");
 
         this.indent = indent;
-        this.colorScheme = colorScheme;
+        this.cs = cs;
     }
 
     /**
      * Adds a row.
      *
-     * @param items List of items in the row. Every item is converted to a string
-     *              and styled based on the provided {@link ColorScheme}.
-     *              If an instance of {@link Text} is provided, it is added as-is.
+     * @param items List of items in the row. Every item is converted to a string and styled based on the provided
+     *              {@link ColorScheme}. If an instance of {@link Text} is provided, it is added as-is.
      */
     public void addRow(Object... items) {
-        if (lengths == null) {
+        if (lengths == null)
             lengths = new int[items.length];
-        }
-        else if (items.length != lengths.length) {
+        else if (items.length != lengths.length)
             throw new IllegalArgumentException("Wrong number of items.");
-        }
 
         Text[] row = new Text[items.length];
 
         for (int i = 0; i < items.length; i++) {
             Object item = items[i];
 
-            Text text = item instanceof Text ? (Text)item : colorScheme.text(item.toString());
+            Text text = item instanceof Text ? (Text)item : cs.text(item.toString());
 
             row[i] = text;
 
@@ -86,7 +83,7 @@ public class Table {
      * @param title Section title.
      */
     public void addSection(Object title) {
-        Text text = title instanceof Text ? (Text)title : colorScheme.text(title.toString());
+        Text text = title instanceof Text ? (Text)title : cs.text(title.toString());
 
         data.add(new SectionTitle(text));
     }
@@ -124,8 +121,8 @@ public class Table {
 
     private void appendRow(StringBuilder sb, Row row) {
         sb.append(" ".repeat(indent))
-          .append(row.render())
-          .append('\n');
+            .append(row.render())
+            .append('\n');
     }
 
     private interface Row {
@@ -148,8 +145,8 @@ public class Table {
                 Text item = row[i];
 
                 sb.append("| ")
-                  .append(item.toString())
-                  .append(" ".repeat(lengths[i] + 1 - item.getCJKAdjustedLength()));
+                    .append(item.toString())
+                    .append(" ".repeat(lengths[i] + 1 - item.getCJKAdjustedLength()));
             }
 
             sb.append("|");

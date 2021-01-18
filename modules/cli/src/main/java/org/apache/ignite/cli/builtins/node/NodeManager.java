@@ -39,7 +39,9 @@ import org.apache.ignite.cli.builtins.module.ModuleStorage;
 public class NodeManager {
 
     private static final String MAIN_CLASS = "org.apache.ignite.app.IgniteRunner";
+
     private static final Duration NODE_START_TIMEOUT = Duration.ofSeconds(30);
+
     private static final Duration LOG_FILE_POLL_INTERVAL = Duration.ofMillis(500);
 
     private final ModuleStorage moduleStorage;
@@ -52,8 +54,10 @@ public class NodeManager {
     public RunningNode start(String consistentId, Path workDir, Path pidsDir, Path serverConfig, PrintWriter out) {
         if (getRunningNodes(workDir, pidsDir).stream().anyMatch(n -> n.consistentId.equals(consistentId)))
             throw new IgniteCLIException("Node with consistentId " + consistentId + " is already exist");
+
         try {
             Path logFile = logFile(workDir, consistentId);
+
             if (Files.exists(logFile))
                 Files.delete(logFile);
 
@@ -84,11 +88,12 @@ public class NodeManager {
 
                 if (!waitForStart("Apache Ignite started successfully!", logFile, NODE_START_TIMEOUT)) {
                     p.destroyForcibly();
+
                     throw new IgniteCLIException("Node wasn't started during timeout period "
                         + NODE_START_TIMEOUT.toMillis() + "ms");
                 }
             }
-            catch (InterruptedException|IOException e) {
+            catch (InterruptedException | IOException e) {
                 throw new IgniteCLIException("Waiting for node start was failed", e);
             }
 
@@ -102,7 +107,11 @@ public class NodeManager {
     }
 
     // TODO: We need more robust way of checking if node successfully run
-    private static boolean waitForStart(String started, Path file, Duration timeout) throws IOException, InterruptedException {
+    private static boolean waitForStart(
+        String started,
+        Path file,
+        Duration timeout
+    ) throws IOException, InterruptedException {
         var start = System.currentTimeMillis();
 
         while ((System.currentTimeMillis() - start) < timeout.toMillis()) {
@@ -133,7 +142,7 @@ public class NodeManager {
             .collect(Collectors.toList());
     }
 
-    public void createPidFile(String consistentId, long pid,Path pidsDir) {
+    public void createPidFile(String consistentId, long pid, Path pidsDir) {
         if (!Files.exists(pidsDir)) {
             if (!pidsDir.toFile().mkdirs())
                 throw new IgniteCLIException("Can't create directory for storing the process pids: " + pidsDir);
@@ -151,29 +160,34 @@ public class NodeManager {
 
     public List<RunningNode> getRunningNodes(Path worksDir, Path pidsDir) {
         if (Files.exists(pidsDir)) {
-            try (Stream<Path> files = Files.find(pidsDir, 1, (f, attrs) ->  f.getFileName().toString().endsWith(".pid"))) {
-                    return files
-                        .map(f -> {
-                            long pid = 0;
-                            try {
-                                pid = Long.parseLong(Files.readAllLines(f).get(0));
-                                if (!ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
-                                    return Optional.<RunningNode>empty();
-                            }
-                            catch (IOException e) {
-                                throw new IgniteCLIException("Can't parse pid file " + f);
-                            }
-                            String filename = f.getFileName().toString();
-                            if (filename.lastIndexOf("_") == -1)
-                                return Optional.<RunningNode>empty();
-                            else {
-                                String consistentId = filename.substring(0, filename.lastIndexOf("_"));
-                                return Optional.of(new RunningNode(pid, consistentId, logFile(worksDir, consistentId)));
-                            }
+            try (Stream<Path> files = Files.find(pidsDir, 1, (f, attrs) -> f.getFileName().toString().endsWith(".pid"))) {
+                return files
+                    .map(f -> {
+                        long pid = 0;
 
-                        })
-                        .filter(Optional::isPresent)
-                        .map(Optional::get).collect(Collectors.toList());
+                        try {
+                            pid = Long.parseLong(Files.readAllLines(f).get(0));
+
+                            if (!ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
+                                return Optional.<RunningNode>empty();
+                        }
+                        catch (IOException e) {
+                            throw new IgniteCLIException("Can't parse pid file " + f);
+                        }
+
+                        String filename = f.getFileName().toString();
+
+                        if (filename.lastIndexOf("_") == -1)
+                            return Optional.<RunningNode>empty();
+                        else {
+                            String consistentId = filename.substring(0, filename.lastIndexOf("_"));
+
+                            return Optional.of(new RunningNode(pid, consistentId, logFile(worksDir, consistentId)));
+                        }
+
+                    })
+                    .filter(Optional::isPresent)
+                    .map(Optional::get).collect(Collectors.toList());
             }
             catch (IOException e) {
                 throw new IgniteCLIException("Can't find directory with pid files for running nodes " + pidsDir);
@@ -189,13 +203,17 @@ public class NodeManager {
                 List<Path> files = Files.find(pidsDir, 1,
                     (f, attrs) ->
                         f.getFileName().toString().startsWith(consistentId + "_")).collect(Collectors.toList());
+
                 if (files.size() > 0) {
                     return files.stream().map(f -> {
                         try {
                             long pid = Long.parseLong(Files.readAllLines(f).get(0));
-                            boolean result = stopWait(pid);
+
+                            boolean res = stopWait(pid);
+
                             Files.delete(f);
-                            return result;
+
+                            return res;
                         }
                         catch (IOException e) {
                             throw new IgniteCLIException("Can't read pid file " + f);
@@ -221,13 +239,15 @@ public class NodeManager {
     }
 
     private static Path logFile(Path workDir, String consistentId) {
-          return workDir.resolve(consistentId + ".log");
+        return workDir.resolve(consistentId + ".log");
     }
 
     public static class RunningNode {
 
         public final long pid;
+
         public final String consistentId;
+
         public final Path logFile;
 
         public RunningNode(long pid, String consistentId, Path logFile) {

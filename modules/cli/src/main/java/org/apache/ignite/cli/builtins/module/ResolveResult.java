@@ -18,16 +18,17 @@
 package org.apache.ignite.cli.builtins.module;
 
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 
 public class ResolveResult {
-    private List<Path> artifacts;
+    private final List<Path> artifacts;
 
     public ResolveResult(List<Path> artifacts) {
         this.artifacts = artifacts;
     }
 
     public List<Path> artifacts() {
-        return artifacts;
+        return Collections.unmodifiableList(artifacts);
     }
 }

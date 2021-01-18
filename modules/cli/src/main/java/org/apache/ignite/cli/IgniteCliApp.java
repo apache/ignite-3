@@ -23,14 +23,14 @@ import org.fusesource.jansi.AnsiConsole;
 
 public class IgniteCliApp {
     public static void main(String... args) {
-        ApplicationContext applicationContext = ApplicationContext.run();
+        ApplicationContext applicationCtx = ApplicationContext.run();
 
         int exitCode;
 
         try {
             AnsiConsole.systemInstall();
 
-            exitCode = IgniteCliSpec.initCli(applicationContext).execute(args);
+            exitCode = IgniteCliSpec.initCli(applicationCtx).execute(args);
         }
         finally {
             AnsiConsole.systemUninstall();

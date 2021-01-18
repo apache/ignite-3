@@ -20,23 +20,25 @@ package org.apache.ignite.cli.builtins.module;
 import org.apache.ignite.cli.IgniteCLIException;
 
 public class MavenCoordinates {
-    public final String groupId;
-    public final String artifactId;
-    public final String version;
+    public final String grpId;
 
-    public MavenCoordinates(String groupId, String artifactId, String version) {
-        this.groupId = groupId;
+    public final String artifactId;
+
+    public final String ver;
+
+    public MavenCoordinates(String grpId, String artifactId, String ver) {
+        this.grpId = grpId;
         this.artifactId = artifactId;
-        this.version = version;
+        this.ver = ver;
     }
 
-    public static MavenCoordinates of(String mvnString) {
-        String[] coords = mvnString.split(":");
+    public static MavenCoordinates of(String mvnStr) {
+        String[] coords = mvnStr.split(":");
 
         if (coords.length == 4)
             return new MavenCoordinates(coords[1], coords[2], coords[3]);
         else
-            throw new IgniteCLIException("Incorrect maven coordinates " + mvnString);
+            throw new IgniteCLIException("Incorrect maven coordinates " + mvnStr);
     }
 
     static MavenCoordinates of(String mvnString, String version) {

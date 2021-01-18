@@ -17,25 +17,22 @@
 
 package org.apache.ignite.cli;
 
-import javax.inject.Inject;
-import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.spec.CategorySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
 public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, CommandLine.IParameterExceptionHandler {
-    Logger logger = LoggerFactory.getLogger(ErrorHandler.class);
+    private Logger log = LoggerFactory.getLogger(ErrorHandler.class);
 
-    @Inject
-    private ApplicationContext applicationContext;
-
-    @Override public int handleExecutionException(Exception ex, CommandLine cmd,
-        CommandLine.ParseResult parseResult) throws Exception {
+    @Override public int handleExecutionException(
+        Exception ex,
+        CommandLine cmd,
+        CommandLine.ParseResult parseRes) {
         if (ex instanceof IgniteCLIException)
             cmd.getErr().println(cmd.getColorScheme().errorText(ex.getMessage()));
         else
-            logger.error("", ex);
+            log.error("", ex);
 
         return cmd.getExitCodeExceptionMapper() != null
             ? cmd.getExitCodeExceptionMapper().getExitCode(ex)
@@ -45,9 +42,8 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
     @Override public int handleParseException(CommandLine.ParameterException ex, String[] args) {
         CommandLine cli = ex.getCommandLine();
 
-        if (cli.getCommand() instanceof CategorySpec) {
+        if (cli.getCommand() instanceof CategorySpec)
             ((Runnable)cli.getCommand()).run();
-        }
         else {
             cli.getErr().println(cli.getColorScheme().errorText("[ERROR] ") + ex.getMessage() +
                 ". Please see usage information below.\n");

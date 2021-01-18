@@ -33,46 +33,54 @@ import org.apache.ignite.cli.IgniteCLIException;
 
 @Singleton
 public class ModuleStorage {
-
-    private final CliPathsConfigLoader cliPathsConfigLoader;
+    private final CliPathsConfigLoader cliPathsCfgLdr;
 
     @Inject
-    public ModuleStorage(CliPathsConfigLoader cliPathsConfigLoader) {
-        this.cliPathsConfigLoader = cliPathsConfigLoader;
+    public ModuleStorage(CliPathsConfigLoader cliPathsCfgLdr) {
+        this.cliPathsCfgLdr = cliPathsCfgLdr;
     }
 
     private Path moduleFile() {
-        return cliPathsConfigLoader.loadIgnitePathsOrThrowError().installedModulesFile();
+        return cliPathsCfgLdr.loadIgnitePathsOrThrowError().installedModulesFile();
     }
 
     //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public void saveModule(ModuleDefinition moduleDefinition) throws IOException {
         ModuleDefinitionsRegistry moduleDefinitionsRegistry = listInstalled();
+
         moduleDefinitionsRegistry.modules.add(moduleDefinition);
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.writeValue(moduleFile().toFile(), moduleDefinitionsRegistry);
+
+        ObjectMapper objMapper = new ObjectMapper();
+
+        objMapper.writeValue(moduleFile().toFile(), moduleDefinitionsRegistry);
     }
 
     //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public boolean removeModule(String name) throws IOException {
         ModuleDefinitionsRegistry moduleDefinitionsRegistry = listInstalled();
-        boolean removed = moduleDefinitionsRegistry.modules.removeIf(m -> m.name.equals(name));
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.writeValue(moduleFile().toFile(), moduleDefinitionsRegistry);
-        return removed;
+
+        boolean rmv = moduleDefinitionsRegistry.modules.removeIf(m -> m.name.equals(name));
+
+        ObjectMapper objMapper = new ObjectMapper();
+
+        objMapper.writeValue(moduleFile().toFile(), moduleDefinitionsRegistry);
+
+        return rmv;
     }
 
     public ModuleDefinitionsRegistry listInstalled() {
         var moduleFileAvailable =
-            cliPathsConfigLoader.loadIgnitePathsConfig()
+            cliPathsCfgLdr.loadIgnitePathsConfig()
                 .map(p -> p.installedModulesFile().toFile().exists())
                 .orElse(false);
+
         if (!moduleFileAvailable)
             return new ModuleDefinitionsRegistry(new ArrayList<>());
         else {
-            ObjectMapper objectMapper = new ObjectMapper();
+            ObjectMapper objMapper = new ObjectMapper();
+
             try {
-                return objectMapper.readValue(
+                return objMapper.readValue(
                     moduleFile().toFile(),
                     ModuleDefinitionsRegistry.class);
             }
@@ -92,8 +100,10 @@ public class ModuleStorage {
             this.modules = modules;
         }
     }
+
     public static class ModuleDefinition {
         public final String name;
+
         public final List<Path> artifacts;
 
         @Override public String toString() {
@@ -107,14 +117,18 @@ public class ModuleStorage {
         }
 
         public final List<Path> cliArtifacts;
+
         public final SourceType type;
+
         public final String source;
 
         @JsonCreator
         public ModuleDefinition(
-            @JsonProperty("name") String name, @JsonProperty("artifacts") List<Path> artifacts,
+            @JsonProperty("name") String name,
+            @JsonProperty("artifacts") List<Path> artifacts,
             @JsonProperty("cliArtifacts") List<Path> cliArtifacts,
-            @JsonProperty("type") SourceType type, @JsonProperty("source") String source) {
+            @JsonProperty("type") SourceType type,
+            @JsonProperty("source") String source) {
             this.name = name;
             this.artifacts = artifacts;
             this.cliArtifacts = cliArtifacts;
@@ -123,18 +137,17 @@ public class ModuleStorage {
         }
 
         @JsonGetter("artifacts")
-        public List<String> getArtifacts() {
+        public List<String> artifacts() {
             return artifacts.stream().map(a -> a.toAbsolutePath().toString()).collect(Collectors.toList());
         }
 
         @JsonGetter("cliArtifacts")
-        public List<String> getCliArtifacts() {
+        public List<String> cliArtifacts() {
             return cliArtifacts.stream().map(a -> a.toAbsolutePath().toString()).collect(Collectors.toList());
         }
     }
 
     public enum SourceType {
-        File,
         Maven,
         Standard
     }

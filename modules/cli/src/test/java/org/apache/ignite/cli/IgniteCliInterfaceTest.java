@@ -58,22 +58,28 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class IgniteCliInterfaceTest {
 
-    ApplicationContext applicationContext;
+    ApplicationContext applicationCtx;
+
     ByteArrayOutputStream err;
+
     ByteArrayOutputStream out;
 
-    @Mock CliPathsConfigLoader cliPathsConfigLoader;
+    @Mock
+    CliPathsConfigLoader cliPathsCfgLdr;
 
     @BeforeEach
     void setup() {
-        applicationContext = ApplicationContext.run(Environment.TEST);
-        applicationContext.registerSingleton(cliPathsConfigLoader);
+        applicationCtx = ApplicationContext.run(Environment.TEST);
+
+        applicationCtx.registerSingleton(cliPathsCfgLdr);
+
         err = new ByteArrayOutputStream();
         out = new ByteArrayOutputStream();
     }
 
-    CommandLine commandLine(ApplicationContext applicationContext) {
-        CommandLine.IFactory factory = new CommandFactory(applicationContext);
+    CommandLine commandLine(ApplicationContext applicationCtx) {
+        CommandLine.IFactory factory = new CommandFactory(applicationCtx);
+
         return new CommandLine(IgniteCliSpec.class, factory)
             .setErr(new PrintWriter(err, true))
             .setOut(new PrintWriter(out, true));
@@ -82,73 +88,89 @@ public class IgniteCliInterfaceTest {
     @DisplayName("init")
     @Nested
     class Init {
-
         @Test
         @DisplayName("init")
         void init() {
-            var initIgniteCommand = mock(InitIgniteCommand.class);
-            applicationContext.registerSingleton(InitIgniteCommand.class, initIgniteCommand);
-            CommandLine cli = commandLine(applicationContext);
+            var initIgniteCmd = mock(InitIgniteCommand.class);
+
+            applicationCtx.registerSingleton(InitIgniteCommand.class, initIgniteCmd);
+
+            CommandLine cli = commandLine(applicationCtx);
+
             Assertions.assertEquals(0, cli.execute("init"));
-            verify(initIgniteCommand).init(any(), any(), any());
+            verify(initIgniteCmd).init(any(), any(), any());
         }
     }
 
     @DisplayName("module")
     @Nested
     class Module {
+        @Mock
+        ModuleManager moduleMgr;
 
-        @Mock ModuleManager moduleManager;
-        @Mock ModuleStorage moduleStorage;
+        @Mock
+        ModuleStorage moduleStorage;
 
         @BeforeEach
         void setUp() {
-            applicationContext.registerSingleton(moduleManager);
-            applicationContext.registerSingleton(moduleStorage);
+            applicationCtx.registerSingleton(moduleMgr);
+            applicationCtx.registerSingleton(moduleStorage);
         }
 
         @Test
         @DisplayName("add mvn:groupId:artifact:version")
         void add() {
-            IgnitePaths paths = new IgnitePaths(Path.of("binDir"),
-                Path.of("worksDir"), "version");
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError()).thenReturn(paths);
+            IgnitePaths paths = new IgnitePaths(
+                Path.of("binDir"),
+                Path.of("worksDir"),
+                "version");
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(paths);
 
             var exitCode =
-                commandLine(applicationContext).execute("module add mvn:groupId:artifactId:version".split(" "));
-            verify(moduleManager).addModule("mvn:groupId:artifactId:version", paths, Arrays.asList());
+                commandLine(applicationCtx).execute("module add mvn:groupId:artifactId:version".split(" "));
+
+            verify(moduleMgr).addModule("mvn:groupId:artifactId:version", paths, Arrays.asList());
             Assertions.assertEquals(0, exitCode);
         }
 
         @Test
         @DisplayName("add mvn:groupId:artifact:version --repo http://mvnrepo.com/repostiory")
         void addWithCustomRepo() throws MalformedURLException {
-            doNothing().when(moduleManager).addModule(any(), any(), any());
+            doNothing().when(moduleMgr).addModule(any(), any(), any());
 
             IgnitePaths paths = new IgnitePaths(Path.of("binDir"),
                 Path.of("worksDir"), "version");
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError()).thenReturn(paths);
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(paths);
 
             var exitCode =
-                commandLine(applicationContext)
+                commandLine(applicationCtx)
                     .execute("module add mvn:groupId:artifactId:version --repo http://mvnrepo.com/repostiory".split(" "));
-            verify(moduleManager).addModule("mvn:groupId:artifactId:version", paths,
-                Arrays.asList(new URL("http://mvnrepo.com/repostiory")));
+
+            verify(moduleMgr).addModule(
+                "mvn:groupId:artifactId:version",
+                paths,
+                Collections.singletonList(new URL("http://mvnrepo.com/repostiory")));
             Assertions.assertEquals(0, exitCode);
         }
 
         @Test
         @DisplayName("add test-module")
         void addBuiltinModule() {
-            doNothing().when(moduleManager).addModule(any(), any(), any());
+            doNothing().when(moduleMgr).addModule(any(), any(), any());
 
-            IgnitePaths paths = new IgnitePaths(Path.of("binDir"),
-                Path.of("worksDir"), "version");
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError()).thenReturn(paths);
+            IgnitePaths paths = new IgnitePaths(
+                Path.of("binDir"),
+                Path.of("worksDir"),
+                "version");
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(paths);
 
             var exitCode =
-                commandLine(applicationContext).execute("module add test-module".split(" "));
-            verify(moduleManager).addModule("test-module", paths, Collections.emptyList());
+                commandLine(applicationCtx).execute("module add test-module".split(" "));
+
+            verify(moduleMgr).addModule("test-module", paths, Collections.emptyList());
             Assertions.assertEquals(0, exitCode);
         }
 
@@ -156,11 +178,13 @@ public class IgniteCliInterfaceTest {
         @DisplayName("remove builtin-module")
         void remove() {
             var moduleName = "builtin-module";
-            when(moduleManager.removeModule(moduleName)).thenReturn(true);
+
+            when(moduleMgr.removeModule(moduleName)).thenReturn(true);
 
             var exitCode =
-                commandLine(applicationContext).execute("module remove builtin-module".split(" "));
-            verify(moduleManager).removeModule(moduleName);
+                commandLine(applicationCtx).execute("module remove builtin-module".split(" "));
+
+            verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
             assertEquals("Module " + moduleName + " was removed successfully.\n", out.toString());
         }
@@ -169,11 +193,13 @@ public class IgniteCliInterfaceTest {
         @DisplayName("remove unknown-module")
         void removeUnknownModule() {
             var moduleName = "unknown-module";
-            when(moduleManager.removeModule(moduleName)).thenReturn(false);
+
+            when(moduleMgr.removeModule(moduleName)).thenReturn(false);
 
             var exitCode =
-                commandLine(applicationContext).execute("module remove unknown-module".split(" "));
-            verify(moduleManager).removeModule(moduleName);
+                commandLine(applicationCtx).execute("module remove unknown-module".split(" "));
+
+            verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
             assertEquals("Nothing to do: module " + moduleName + " is not yet added.\n", out.toString());
         }
@@ -181,16 +207,26 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("list")
         void list() {
+            var module1 = new StandardModuleDefinition(
+                "module1",
+                "description1",
+                Collections.singletonList("artifact1"),
+                Collections.singletonList("cli-artifact1"));
+            var module2 = new StandardModuleDefinition(
+                "module2",
+                "description2",
+                Collections.singletonList("artifact2"),
+                Collections.singletonList("cli-artifact2"));
 
-            var module1 = new StandardModuleDefinition("module1", "description1", Collections.singletonList("artifact1"), Collections.singletonList("cli-artifact1"));
-            var module2 = new StandardModuleDefinition("module2", "description2", Collections.singletonList("artifact2"), Collections.singletonList("cli-artifact2"));
-            when(moduleManager.builtinModules()).thenReturn(Arrays.asList(module1, module2));
+            when(moduleMgr.builtinModules()).thenReturn(Arrays.asList(module1, module2));
 
             var externalModule = new ModuleStorage.ModuleDefinition(
                 "org.apache.ignite:snapshot:2.9.0",
                 Collections.emptyList(),
                 Collections.emptyList(),
-                ModuleStorage.SourceType.Maven, "mvn:org.apache.ignite:snapshot:2.9.0");
+                ModuleStorage.SourceType.Maven,
+                "mvn:org.apache.ignite:snapshot:2.9.0");
+
             when(moduleStorage.listInstalled()).thenReturn(
                 new ModuleStorage.ModuleDefinitionsRegistry(
                     Arrays.asList(
@@ -201,11 +237,12 @@ public class IgniteCliInterfaceTest {
                             ModuleStorage.SourceType.Standard, ""), externalModule)));
 
             var exitCode =
-                commandLine(applicationContext).execute("module list".split(" "));
-            verify(moduleManager).builtinModules();
+                commandLine(applicationCtx).execute("module list".split(" "));
+
+            verify(moduleMgr).builtinModules();
             Assertions.assertEquals(0, exitCode);
 
-            var expectedOutput = "Optional Ignite Modules\n" +
+            var expOutput = "Optional Ignite Modules\n" +
                 "+---------+--------------+------------+\n" +
                 "| Name    | Description  | Installed? |\n" +
                 "+---------+--------------+------------+\n" +
@@ -221,40 +258,43 @@ public class IgniteCliInterfaceTest {
                 "| org.apache.ignite | snapshot    | 2.9.0   |\n" +
                 "+-------------------+-------------+---------+\n" +
                 "Type ignite module remove <groupId>:<artifactId>:<version> to remove a dependency.\n";
-            assertEquals(expectedOutput, out.toString());
+            assertEquals(expOutput, out.toString());
         }
     }
 
     @Nested
     @DisplayName("node")
     class Node {
-
-        @Mock NodeManager nodeManager;
+        @Mock
+        NodeManager nodeMgr;
 
         @BeforeEach
         void setUp() {
-            applicationContext.registerSingleton(nodeManager);
+            applicationCtx.registerSingleton(nodeMgr);
         }
 
         @Test
         @DisplayName("start node1 --config conf.json")
         void start() {
            var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+
            var nodeName = "node1";
+
            var node =
                new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
-           when(nodeManager.start(any(), any(), any(), any(), any()))
+
+           when(nodeMgr.start(any(), any(), any(), any(), any()))
                .thenReturn(node);
 
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError())
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
-            CommandLine cli = commandLine(applicationContext);
+            CommandLine cli = commandLine(applicationCtx);
 
             var exitCode = cli.execute(("node start " + nodeName + " --config conf.json").split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeManager).start(nodeName, ignitePaths.workDir, ignitePaths.cliPidsDir(), Path.of("conf.json"), cli.getOut());
+            verify(nodeMgr).start(nodeName, ignitePaths.workDir, ignitePaths.cliPidsDir(), Path.of("conf.json"), cli.getOut());
             assertEquals("Starting a new Ignite node...\n\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +
                 "+---------------+---------+\n" +
                 "| Consistent ID | node1   |\n" +
@@ -270,19 +310,22 @@ public class IgniteCliInterfaceTest {
         @DisplayName("stop node1")
         void stopRunning() {
             var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+
             var nodeName = "node1";
-            when(nodeManager.stopWait(any(), any()))
+
+            when(nodeMgr.stopWait(any(), any()))
                 .thenReturn(true);
 
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError())
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
             var exitCode =
-                commandLine(applicationContext).execute(("node stop " + nodeName).split(" "));
+                commandLine(applicationCtx).execute(("node stop " + nodeName).split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeManager).stopWait(nodeName, ignitePaths.cliPidsDir());
-            assertEquals("Stopping locally running node with consistent ID " + nodeName + "... Done!\n",
+            verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
+            assertEquals(
+                "Stopping locally running node with consistent ID " + nodeName + "... Done!\n",
                 out.toString());
         }
 
@@ -290,19 +333,22 @@ public class IgniteCliInterfaceTest {
         @DisplayName("stop unknown-node")
         void stopUnknown() {
             var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
+
             var nodeName = "unknown-node";
-            when(nodeManager.stopWait(any(), any()))
+
+            when(nodeMgr.stopWait(any(), any()))
                 .thenReturn(false);
 
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError())
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
             var exitCode =
-                commandLine(applicationContext).execute(("node stop " + nodeName).split(" "));
+                commandLine(applicationCtx).execute(("node stop " + nodeName).split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeManager).stopWait(nodeName, ignitePaths.cliPidsDir());
-            assertEquals("Stopping locally running node with consistent ID " + nodeName + "... Failed\n",
+            verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
+            assertEquals(
+                "Stopping locally running node with consistent ID " + nodeName + "... Failed\n",
                 out.toString());
         }
 
@@ -310,20 +356,21 @@ public class IgniteCliInterfaceTest {
         @DisplayName("list")
         void list() {
             var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
-            when(nodeManager.getRunningNodes(any(), any()))
+
+            when(nodeMgr.getRunningNodes(any(), any()))
                 .thenReturn(Arrays.asList(
                     new NodeManager.RunningNode(1, "new1", Path.of("logFile1")),
                     new NodeManager.RunningNode(2, "new2", Path.of("logFile2"))
                 ));
 
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError())
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
             var exitCode =
-                commandLine(applicationContext).execute("node list".split(" "));
+                commandLine(applicationCtx).execute("node list".split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeManager).getRunningNodes(ignitePaths.workDir, ignitePaths.cliPidsDir());
+            verify(nodeMgr).getRunningNodes(ignitePaths.workDir, ignitePaths.cliPidsDir());
             assertEquals("Currently, there are 2 locally running nodes.\n\n" +
                 "+---------------+-----+----------+\n" +
                 "| Consistent ID | PID | Log File |\n" +
@@ -339,17 +386,18 @@ public class IgniteCliInterfaceTest {
         @DisplayName("list")
         void listEmpty() {
             var ignitePaths = new IgnitePaths(Path.of(""), Path.of(""), "version");
-            when(nodeManager.getRunningNodes(any(), any()))
+
+            when(nodeMgr.getRunningNodes(any(), any()))
                 .thenReturn(Arrays.asList());
 
-            when(cliPathsConfigLoader.loadIgnitePathsOrThrowError())
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
             var exitCode =
-                commandLine(applicationContext).execute("node list".split(" "));
+                commandLine(applicationCtx).execute("node list".split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeManager).getRunningNodes(ignitePaths.workDir, ignitePaths.cliPidsDir());
+            verify(nodeMgr).getRunningNodes(ignitePaths.workDir, ignitePaths.cliPidsDir());
             assertEquals("Currently, there are no locally running nodes.\n\n" +
                 "Use the ignite node start command to start a new node.\n", out.toString());
         }
@@ -357,12 +405,12 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("classpath")
         void classpath() throws IOException {
-            when(nodeManager.classpathItems()).thenReturn(Arrays.asList("item1", "item2"));
+            when(nodeMgr.classpathItems()).thenReturn(Arrays.asList("item1", "item2"));
 
-            var exitCode = commandLine(applicationContext).execute("node classpath".split(" "));
+            var exitCode = commandLine(applicationCtx).execute("node classpath".split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeManager).classpathItems();
+            verify(nodeMgr).classpathItems();
             assertEquals("Current Ignite node classpath:\n    item1\n    item2\n", out.toString());
         }
     }
@@ -370,24 +418,26 @@ public class IgniteCliInterfaceTest {
     @Nested
     @DisplayName("config")
     class Config {
+        @Mock
+        private HttpClient httpClient;
 
-        @Mock private HttpClient httpClient;
-        @Mock private HttpResponse<String> response;
+        @Mock
+        private HttpResponse<String> res;
 
         @BeforeEach
         void setUp() {
-            applicationContext.registerSingleton(httpClient);
+            applicationCtx.registerSingleton(httpClient);
         }
 
         @Test
         @DisplayName("get --node-endpoint localhost:8081")
         void get() throws IOException, InterruptedException {
-            when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
-            when(response.body()).thenReturn("{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}");
-            when(httpClient.<String>send(any(), any())).thenReturn(response);
+            when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
+            when(res.body()).thenReturn("{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}");
+            when(httpClient.<String>send(any(), any())).thenReturn(res);
 
             var exitCode =
-                commandLine(applicationContext).execute("config get --node-endpoint localhost:8081".split(" "));
+                commandLine(applicationCtx).execute("config get --node-endpoint localhost:8081".split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
@@ -406,12 +456,12 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("get --node-endpoint localhost:8081 --selector local.baseline")
         void getSubtree() throws IOException, InterruptedException {
-            when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
-            when(response.body()).thenReturn("{\"autoAdjust\":{\"enabled\":true}}");
-            when(httpClient.<String>send(any(), any())).thenReturn(response);
+            when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
+            when(res.body()).thenReturn("{\"autoAdjust\":{\"enabled\":true}}");
+            when(httpClient.<String>send(any(), any())).thenReturn(res);
 
             var exitCode =
-                commandLine(applicationContext).execute(("config get --node-endpoint localhost:8081 " +
+                commandLine(applicationCtx).execute(("config get --node-endpoint localhost:8081 " +
                     "--selector local.baseline").split(" "));
 
             Assertions.assertEquals(0, exitCode);
@@ -429,13 +479,13 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("set --node-endpoint localhost:8081 local.baseline.autoAdjust.enabled=true")
         void setHocon() throws IOException, InterruptedException {
-            when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
-            when(httpClient.<String>send(any(), any())).thenReturn(response);
+            when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
+            when(httpClient.<String>send(any(), any())).thenReturn(res);
 
-            var expectedSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
+            var expSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
 
             var exitCode =
-                commandLine(applicationContext).execute(("config set --node-endpoint localhost:8081 " +
+                commandLine(applicationCtx).execute(("config set --node-endpoint localhost:8081 " +
                     "local.baseline.autoAdjust.enabled=true"
                     ).split(" "));
 
@@ -444,7 +494,7 @@ public class IgniteCliInterfaceTest {
                 argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/") &&
                     r.method().equals("POST") &&
                     // TODO: body matcher should be fixed to more appropriate
-                    r.bodyPublisher().get().contentLength() == expectedSentContent.getBytes().length &&
+                    r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     r.headers().firstValue("Content-Type").get().equals("application/json")),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
@@ -454,13 +504,13 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}")
         void setJson() throws IOException, InterruptedException {
-            when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
-            when(httpClient.<String>send(any(), any())).thenReturn(response);
+            when(res.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
+            when(httpClient.<String>send(any(), any())).thenReturn(res);
 
-            var expectedSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
+            var expSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
 
             var exitCode =
-                commandLine(applicationContext).execute(("config set --node-endpoint localhost:8081 " +
+                commandLine(applicationCtx).execute(("config set --node-endpoint localhost:8081 " +
                     "local.baseline.autoAdjust.enabled=true"
                 ).split(" "));
 
@@ -469,7 +519,7 @@ public class IgniteCliInterfaceTest {
                 argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/") &&
                     r.method().equals("POST") &&
                     // TODO: body matcher should be fixed to more appropriate
-                    r.bodyPublisher().get().contentLength() == expectedSentContent.getBytes().length &&
+                    r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     r.headers().firstValue("Content-Type").get().equals("application/json")),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
@@ -477,9 +527,9 @@ public class IgniteCliInterfaceTest {
         }
     }
 
-    private static void assertEquals(String expected, String actual) {
+    private static void assertEquals(String exp, String actual) {
         Assertions.assertEquals(
-            expected.lines().collect(Collectors.toList()),
+            exp.lines().collect(Collectors.toList()),
             actual.lines().collect(Collectors.toList())
         );
     }

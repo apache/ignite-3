@@ -20,11 +20,11 @@ package org.apache.ignite.cli;
 public class IgniteCLIException extends RuntimeException {
     private static final long serialVersionUID = 0L;
 
-    public IgniteCLIException(String message) {
-        super(message);
+    public IgniteCLIException(String msg) {
+        super(msg);
     }
 
-    public IgniteCLIException(String message, Throwable cause) {
-        super(message, cause);
+    public IgniteCLIException(String msg, Throwable cause) {
+        super(msg, cause);
     }
 }

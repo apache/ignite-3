@@ -49,25 +49,34 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @MicronautTest
 public class ModuleMangerTest {
+    @Inject
+    MavenArtifactResolver mavenArtifactRslvr;
 
-    @Inject MavenArtifactResolver mavenArtifactResolver;
-    @Inject ModuleManager moduleManager;
-    @Inject ModuleStorage moduleStorage;
+    @Inject
+    ModuleManager moduleMgr;
 
-    @TempDir Path artifactsDir;
-    @TempDir Path homeDir;
+    @Inject
+    ModuleStorage moduleStorage;
+
+    @TempDir
+    Path artifactsDir;
+
+    @TempDir
+    Path homeDir;
 
     @Test
     void testCliModuleInstallation() throws IOException {
        var rootArtifact = generateJar("test-module", "1.0", true);
        var depArtifact = generateJar("dep-artifact", "0.1", false);
-       when(mavenArtifactResolver.resolve(any(), any(), any(), any(), any())).thenReturn(
+
+       when(mavenArtifactRslvr.resolve(any(), any(), any(), any(), any())).thenReturn(
            new ResolveResult(Arrays.asList(rootArtifact, depArtifact)));
 
        var ignitePaths = new IgnitePaths(homeDir.resolve("bin"), homeDir.resolve("work"), "n/a");
-       moduleManager.setOut(new PrintWriter(System.out));
-       moduleManager.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
-       moduleManager.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
+
+       moduleMgr.setOut(new PrintWriter(System.out));
+       moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
+       moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
 
        verify(moduleStorage).saveModule(argThat(m ->
            m.cliArtifacts.equals(Arrays.asList(rootArtifact, depArtifact)) &&
@@ -78,35 +87,43 @@ public class ModuleMangerTest {
     void testServerModuleInstallation() throws IOException {
         var rootArtifact = generateJar("test-module", "1.0", false);
         var depArtifact = generateJar("dep-artifact", "0.1", false);
-        when(mavenArtifactResolver.resolve(any(), any(), any(), any(), any())).thenReturn(
+
+        when(mavenArtifactRslvr.resolve(any(), any(), any(), any(), any())).thenReturn(
             new ResolveResult(Arrays.asList(rootArtifact, depArtifact)));
 
         var ignitePaths = new IgnitePaths(homeDir.resolve("bin"), homeDir.resolve("work"), "n/a");
-        moduleManager.setOut(new PrintWriter(System.out));
-        moduleManager.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
-        moduleManager.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
+
+        moduleMgr.setOut(new PrintWriter(System.out));
+        moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
+        moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
 
         verify(moduleStorage).saveModule(argThat(m ->
             m.artifacts.equals(Arrays.asList(rootArtifact, depArtifact)) &&
                 m.cliArtifacts.equals(Collections.emptyList())));
     }
 
-    @MockBean(MavenArtifactResolver.class) MavenArtifactResolver mavenArtifactResolver() {
+    @MockBean(MavenArtifactResolver.class)
+    MavenArtifactResolver mavenArtifactResolver() {
         return mock(MavenArtifactResolver.class);
     }
 
-    @MockBean(ModuleStorage.class) ModuleStorage moduleStorage() {
+    @MockBean(ModuleStorage.class)
+    ModuleStorage moduleStorage() {
         return mock(ModuleStorage.class);
     }
 
-    private Path generateJar(String artifactId, String version, boolean isCliModule) throws IOException {
+    private Path generateJar(String artifactId, String ver, boolean isCliModule) throws IOException {
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
-        var jarPath = artifactsDir.resolve(MavenArtifactResolver.fileNameByArtifactPattern(artifactId, version));
+
+        var jarPath = artifactsDir.resolve(MavenArtifactResolver.fileNameByArtifactPattern(artifactId, ver));
+
         if (isCliModule)
             manifest.getMainAttributes().put(new Attributes.Name(ModuleManager.CLI_MODULE_MANIFEST_HEADER), "true");
+
         var target = new JarOutputStream(new FileOutputStream(jarPath.toString()), manifest);
         target.close();
+
         return jarPath;
     }
 }

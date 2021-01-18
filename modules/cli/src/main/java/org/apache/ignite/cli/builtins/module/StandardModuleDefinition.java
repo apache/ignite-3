@@ -21,18 +21,21 @@ import java.util.List;
 
 public class StandardModuleDefinition {
     public final String name;
-    public final String description;
+
+    public final String desc;
+
     public final List<String> artifacts;
+
     public final List<String> cliArtifacts;
 
-    public StandardModuleDefinition(String name, String description, List<String> artifacts, List<String> cliArtifacts) {
+    public StandardModuleDefinition(String name, String desc, List<String> artifacts, List<String> cliArtifacts) {
         this.name = name;
-        this.description = description;
+        this.desc = desc;
         this.artifacts = artifacts;
         this.cliArtifacts = cliArtifacts;
     }
 
     public String toString() {
-        return this.name + ":\t" + this.description;
+        return name + ":\t" + desc;
     }
 }

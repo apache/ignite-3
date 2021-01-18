@@ -33,10 +33,11 @@ import picocli.CommandLine;
 public class ConfigCommandSpec extends CategorySpec {
     @CommandLine.Command(name = "get", description = "Gets current Ignite cluster configuration values.")
     public static class GetConfigCommandSpec extends CommandSpec {
+        @Inject
+        private ConfigurationClient configurationClient;
 
-        @Inject private ConfigurationClient configurationClient;
-
-        @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
+        @CommandLine.Mixin
+        CfgHostnameOptions cfgHostnameOptions;
 
         @CommandLine.Option(
             names = "--selector",
@@ -55,13 +56,14 @@ public class ConfigCommandSpec extends CategorySpec {
         description = "Updates Ignite cluster configuration values."
     )
     public static class SetConfigCommandSpec extends CommandSpec {
-
-        @Inject private ConfigurationClient configurationClient;
+        @Inject
+        private ConfigurationClient configurationClient;
 
         @CommandLine.Parameters(paramLabel = "hocon", description = "Configuration in Hocon format")
         private String config;
 
-        @CommandLine.Mixin CfgHostnameOptions cfgHostnameOptions;
+        @CommandLine.Mixin
+        CfgHostnameOptions cfgHostnameOptions;
 
         @Override public void run() {
             configurationClient.set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), config,
@@ -70,7 +72,6 @@ public class ConfigCommandSpec extends CategorySpec {
     }
 
     private static class CfgHostnameOptions {
-
         @CommandLine.Option(
             names = "--node-endpoint",
             description = "Ignite server node's REST API address and port number",
@@ -97,9 +98,11 @@ public class ConfigCommandSpec extends CategorySpec {
 
         private String[] parse() {
             var hostPort = endpoint.split(":");
+
             if (hostPort.length != 2)
                 throw new IgniteCLIException("Incorrect host:port pair provided " +
                     "(example of valid value 'localhost:10300')");
+
            return hostPort;
         }
     }

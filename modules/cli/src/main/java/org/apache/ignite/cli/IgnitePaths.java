@@ -21,24 +21,24 @@ import java.io.File;
 import java.nio.file.Path;
 
 public class IgnitePaths {
-
     public final Path binDir;
-    public final Path workDir;
-    private final String version;
 
-    public IgnitePaths(Path binDir, Path workDir, String version) {
+    public final Path workDir;
+
+    private final String ver;
+
+    public IgnitePaths(Path binDir, Path workDir, String ver) {
         this.binDir = binDir;
         this.workDir = workDir;
-        this.version = version;
+        this.ver = ver;
     }
 
-
     public Path cliLibsDir() {
-        return binDir.resolve(version).resolve("cli");
+        return binDir.resolve(ver).resolve("cli");
     }
 
     public Path libsDir() {
-        return binDir.resolve(version).resolve("libs");
+        return binDir.resolve(ver).resolve("libs");
     }
 
     public Path cliPidsDir() {
@@ -70,8 +70,8 @@ public class IgnitePaths {
         if (!(igniteBinCli.exists() || igniteBinCli.mkdirs()))
             throw new IgniteCLIException("Can't create a directory for cli modules: " + cliLibsDir());
 
-        File serverConfig = serverConfigDir().toFile();
-        if (!(serverConfig.exists() || serverConfig.mkdirs()))
+        File srvCfg = serverConfigDir().toFile();
+        if (!(srvCfg.exists() || srvCfg.mkdirs()))
             throw new IgniteCLIException("Can't create a directory for server configs: " + serverConfigDir());
     }
 

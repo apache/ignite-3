@@ -40,32 +40,36 @@ import picocli.CommandLine.Help.ColorScheme;
 
 @Singleton
 public class ModuleManager {
-
-    private final MavenArtifactResolver mavenArtifactResolver;
-    private final CliVersionInfo cliVersionInfo;
-    private final ModuleStorage moduleStorage;
-    private final List<StandardModuleDefinition> modules;
-
     public static final String INTERNAL_MODULE_PREFIX = "_";
+
     public static final String CLI_MODULE_MANIFEST_HEADER = "Apache-Ignite-CLI-Module";
 
+    private final MavenArtifactResolver mavenArtifactRslvr;
+
+    private final CliVersionInfo cliVerInfo;
+
+    private final ModuleStorage moduleStorage;
+
+    private final List<StandardModuleDefinition> modules;
+
     private PrintWriter out;
+
     private ColorScheme cs;
 
     @Inject
     public ModuleManager(
-        MavenArtifactResolver mavenArtifactResolver, CliVersionInfo cliVersionInfo,
+        MavenArtifactResolver mavenArtifactRslvr, CliVersionInfo cliVerInfo,
         ModuleStorage moduleStorage) {
         modules = readBuiltinModules();
-        this.mavenArtifactResolver = mavenArtifactResolver;
-        this.cliVersionInfo = cliVersionInfo;
+        this.mavenArtifactRslvr = mavenArtifactRslvr;
+        this.cliVerInfo = cliVerInfo;
         this.moduleStorage = moduleStorage;
     }
 
     public void setOut(PrintWriter out) {
         this.out = out;
 
-        mavenArtifactResolver.setOut(out);
+        mavenArtifactRslvr.setOut(out);
     }
 
     public void setColorScheme(ColorScheme cs) {
@@ -74,26 +78,30 @@ public class ModuleManager {
 
     public void addModule(String name, IgnitePaths ignitePaths, List<URL> repositories) {
         Path installPath = ignitePaths.libsDir();
+
         if (name.startsWith("mvn:")) {
             MavenCoordinates mavenCoordinates = MavenCoordinates.of(name);
 
             try {
-                ResolveResult resolveResult = mavenArtifactResolver.resolve(
+                ResolveResult resolveRes = mavenArtifactRslvr.resolve(
                     installPath,
-                    mavenCoordinates.groupId,
+                    mavenCoordinates.grpId,
                     mavenCoordinates.artifactId,
-                    mavenCoordinates.version,
+                    mavenCoordinates.ver,
                     repositories
                 );
 
-                String mvnName = String.join(":", mavenCoordinates.groupId,
-                    mavenCoordinates.artifactId, mavenCoordinates.version);
+                String mvnName = String.join(":", mavenCoordinates.grpId,
+                    mavenCoordinates.artifactId, mavenCoordinates.ver);
 
-                var isCliModule = isRootArtifactCliModule(mavenCoordinates.artifactId, mavenCoordinates.version, resolveResult.artifacts());
+                var isCliModule = isRootArtifactCliModule(
+                    mavenCoordinates.artifactId, mavenCoordinates.ver,
+                    resolveRes.artifacts());
+
                 moduleStorage.saveModule(new ModuleStorage.ModuleDefinition(
                     mvnName,
-                    (isCliModule)? Collections.emptyList() : resolveResult.artifacts(),
-                    (isCliModule)? resolveResult.artifacts() : Collections.emptyList(),
+                    (isCliModule)? Collections.emptyList() : resolveRes.artifacts(),
+                    (isCliModule)? resolveRes.artifacts() : Collections.emptyList(),
                     ModuleStorage.SourceType.Maven,
                     name
                 ));
@@ -107,19 +115,22 @@ public class ModuleManager {
             }
         }
         else if (isStandardModuleName(name)) {
-            StandardModuleDefinition moduleDescription = readBuiltinModules()
+            StandardModuleDefinition moduleDesc = readBuiltinModules()
                 .stream()
                 .filter(m -> m.name.equals(name))
                 .findFirst().get();
+
             List<ResolveResult> libsResolveResults = new ArrayList<>();
-            for (String artifact: moduleDescription.artifacts) {
-                MavenCoordinates mavenCoordinates = MavenCoordinates.of(artifact, cliVersionInfo.version);
+
+            for (String artifact: moduleDesc.artifacts) {
+                MavenCoordinates mavenCoordinates = MavenCoordinates.of(artifact, cliVerInfo.ver);
+
                 try {
-                    libsResolveResults.add(mavenArtifactResolver.resolve(
+                    libsResolveResults.add(mavenArtifactRslvr.resolve(
                         ignitePaths.libsDir(),
-                        mavenCoordinates.groupId,
+                        mavenCoordinates.grpId,
                         mavenCoordinates.artifactId,
-                        mavenCoordinates.version,
+                        mavenCoordinates.ver,
                         repositories
                     ));
                 }
@@ -129,14 +140,16 @@ public class ModuleManager {
             }
 
             List<ResolveResult> cliResolvResults = new ArrayList<>();
-            for (String artifact: moduleDescription.cliArtifacts) {
-                MavenCoordinates mavenCoordinates = MavenCoordinates.of(artifact, cliVersionInfo.version);
+
+            for (String artifact: moduleDesc.cliArtifacts) {
+                MavenCoordinates mavenCoordinates = MavenCoordinates.of(artifact, cliVerInfo.ver);
+
                 try {
-                    cliResolvResults.add(mavenArtifactResolver.resolve(
+                    cliResolvResults.add(mavenArtifactRslvr.resolve(
                         ignitePaths.cliLibsDir(),
-                        mavenCoordinates.groupId,
+                        mavenCoordinates.grpId,
                         mavenCoordinates.artifactId,
-                        mavenCoordinates.version,
+                        mavenCoordinates.ver,
                         repositories
                     ));
                 }
@@ -176,20 +189,24 @@ public class ModuleManager {
     }
 
     public List<StandardModuleDefinition> builtinModules() {
-        return modules;
+        return Collections.unmodifiableList(modules);
     }
 
-    private boolean isRootArtifactCliModule(String artifactId, String version, List<Path> artifacts) throws IOException {
+    private boolean isRootArtifactCliModule(String artifactId, String ver, List<Path> artifacts) throws IOException {
        var rootJarArtifactOpt = artifacts.stream()
-           .filter(p -> MavenArtifactResolver.fileNameByArtifactPattern(artifactId, version).equals(p.getFileName().toString()))
+           .filter(p -> MavenArtifactResolver.fileNameByArtifactPattern(artifactId, ver).equals(p.getFileName().toString()))
            .findFirst();
+
        if (rootJarArtifactOpt.isPresent()) {
            try (var input = new FileInputStream(rootJarArtifactOpt.get().toFile())) {
                var jarStream = new JarInputStream(input);
                var manifest = jarStream.getManifest();
+
                return "true".equals(manifest.getMainAttributes().getValue(CLI_MODULE_MANIFEST_HEADER));
            }
-       } else return false;
+       }
+       else
+           return false;
     }
 
     private boolean isStandardModuleName(String name) {
@@ -197,28 +214,21 @@ public class ModuleManager {
     }
 
     private static List<StandardModuleDefinition> readBuiltinModules() {
-        com.typesafe.config.ConfigObject config = ConfigFactory.load("builtin_modules.conf").getObject("modules");
+        var cfg = ConfigFactory.load("builtin_modules.conf").getObject("modules");
+
         List<StandardModuleDefinition> modules = new ArrayList<>();
-        for (Map.Entry<String, ConfigValue> entry: config.entrySet()) {
-            ConfigObject configObject = (ConfigObject) entry.getValue();
+
+        for (Map.Entry<String, ConfigValue> entry: cfg.entrySet()) {
+            ConfigObject cfgObj = (ConfigObject) entry.getValue();
+
             modules.add(new StandardModuleDefinition(
                 entry.getKey(),
-                configObject.toConfig().getString("description"),
-                configObject.toConfig().getStringList("artifacts"),
-                configObject.toConfig().getStringList("cli-artifacts")
+                cfgObj.toConfig().getString("description"),
+                cfgObj.toConfig().getStringList("artifacts"),
+                cfgObj.toConfig().getStringList("cli-artifacts")
             ));
         }
+
         return modules;
     }
-
-    private static class IgniteArtifacts {
-        private List<Path> serverArtifacts;
-        private List<Path> cliArtifacts;
-
-        public IgniteArtifacts(List<Path> serverArtifacts, List<Path> cliArtifacts) {
-            this.serverArtifacts = serverArtifacts;
-            this.cliArtifacts = cliArtifacts;
-        }
-    }
-
 }

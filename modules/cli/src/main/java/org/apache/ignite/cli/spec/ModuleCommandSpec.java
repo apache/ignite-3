@@ -143,7 +143,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
                 table.addRow("@|bold Name|@", "@|bold Description|@", "@|bold Installed?|@");
 
                 for (StandardModuleView m : builtinModules) {
-                    table.addRow(m.standardModuleDefinition.name, m.standardModuleDefinition.description,
+                    table.addRow(m.standardModuleDefinition.name, m.standardModuleDefinition.desc,
                         m.installed ? "Yes" : "No");
                 }
 
@@ -169,7 +169,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
                 for (ModuleStorage.ModuleDefinition m :externalInstalledModules){
                     MavenCoordinates mvn = MavenCoordinates.of("mvn:" + m.name);
 
-                    table.addRow(mvn.groupId, mvn.artifactId, mvn.version);
+                    table.addRow(mvn.grpId, mvn.artifactId, mvn.ver);
                 }
 
                 out.println(table);

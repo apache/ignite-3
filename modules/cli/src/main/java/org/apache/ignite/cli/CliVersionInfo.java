@@ -27,20 +27,21 @@ import io.micronaut.core.annotation.Introspected;
 @Introspected
 public class CliVersionInfo {
 
-    public final String version;
+    public final String ver;
 
     public CliVersionInfo() {
         try (InputStream inputStream = CliVersionInfo.class.getResourceAsStream("/version.properties")) {
             Properties prop = new Properties();
             prop.load(inputStream);
-            version = prop.getProperty("version", "undefined");
+
+            ver = prop.getProperty("version", "undefined");
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can' read ignite version info");
         }
     }
 
-    public CliVersionInfo(String version) {
-        this.version = version;
+    public CliVersionInfo(String ver) {
+        this.ver = ver;
     }
 }

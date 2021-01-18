@@ -30,29 +30,33 @@ import org.apache.ignite.cli.builtins.SystemPathResolver;
 @Singleton
 public class CliPathsConfigLoader {
 
-    private final SystemPathResolver pathResolver;
-    private final String version;
+    private final SystemPathResolver pathRslvr;
+    private final String ver;
 
     @Inject
-    public CliPathsConfigLoader(SystemPathResolver pathResolver,
-        CliVersionInfo cliVersionInfo) {
-        this.pathResolver = pathResolver;
-        this.version = cliVersionInfo.version;
+    public CliPathsConfigLoader(
+        SystemPathResolver pathRslvr,
+        CliVersionInfo cliVersionInfo
+    ) {
+        this.pathRslvr = pathRslvr;
+        this.ver = cliVersionInfo.ver;
     }
 
     public Optional<IgnitePaths> loadIgnitePathsConfig() {
         if (configFilePath().toFile().exists())
-            return Optional.of(CliPathsConfigLoader.readConfigFile(configFilePath(), version));
+            return Optional.of(readConfigFile(configFilePath(), ver));
 
         return Optional.empty();
     }
 
     public IgnitePaths loadIgnitePathsOrThrowError() {
         Optional<IgnitePaths> ignitePaths = loadIgnitePathsConfig();
+
         if (ignitePaths.isPresent()) {
             if (!ignitePaths.get().validateDirs())
                 throw new IgniteCLIException("Some required directories are absent. " +
                     "Try to run 'init' command to fix the issue.");
+
             return ignitePaths.get();
         }
         else
@@ -60,18 +64,22 @@ public class CliPathsConfigLoader {
     }
 
     public Path configFilePath() {
-        return pathResolver.osHomeDirectoryPath().resolve(".ignitecfg");
+        return pathRslvr.osHomeDirectoryPath().resolve(".ignitecfg");
     }
 
     private static IgnitePaths readConfigFile(Path configPath, String version) {
         try (InputStream inputStream = new FileInputStream(configPath.toFile())) {
-            Properties properties = new Properties();
-            properties.load(inputStream);
-            if ((properties.getProperty("bin") == null) || (properties.getProperty("work") == null))
+            Properties props = new Properties();
+            props.load(inputStream);
+
+            if ((props.getProperty("bin") == null) || (props.getProperty("work") == null))
                 throw new IgniteCLIException("Config file has wrong format. " +
                     "It must contain correct paths to bin and work dirs");
-            return new IgnitePaths(Path.of(properties.getProperty("bin")),
-                Path.of(properties.getProperty("work")), version);
+
+            return new IgnitePaths(
+                Path.of(props.getProperty("bin")),
+                Path.of(props.getProperty("work")),
+                version);
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can't read config file");

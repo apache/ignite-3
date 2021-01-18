@@ -34,6 +34,6 @@ public class VersionProvider implements CommandLine.IVersionProvider {
     }
 
     @Override public String[] getVersion() throws Exception {
-        return new String[] { "Apache Ignite CLI ver. " + cliVersionInfo.version};
+        return new String[] { "Apache Ignite CLI ver. " + cliVersionInfo.ver};
     }
 }

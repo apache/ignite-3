@@ -38,14 +38,14 @@ public class IgniteProgressBar implements AutoCloseable {
     /**
      * Creates a new progress bar.
      *
-     * @param initialMax Initial maximum number of steps.
+     * @param initMax Initial maximum number of steps.
      */
-    public IgniteProgressBar(PrintWriter out, int initialMax) {
+    public IgniteProgressBar(PrintWriter out, int initMax) {
         this.out = out;
 
-        assert initialMax > 0;
+        assert initMax > 0;
 
-        max = initialMax;
+        max = initMax;
     }
 
     /**

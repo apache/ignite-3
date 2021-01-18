@@ -48,50 +48,66 @@ import static org.mockito.Mockito.when;
 @MicronautTest
 public class InitIgniteCommandTest {
 
-    @Inject SystemPathResolver pathResolver;
-    @Inject MavenArtifactResolver mavenArtifactResolver;
-    @Inject InitIgniteCommand initIgniteCommand;
-    @Inject CliPathsConfigLoader cliPathsConfigLoader;
+    @Inject
+    SystemPathResolver pathRslvr;
 
-    @TempDir Path homeDir;
-    @TempDir Path currentDir;
+    @Inject
+    MavenArtifactResolver mavenArtifactRslvr;
+
+    @Inject
+    InitIgniteCommand initIgniteCmd;
+
+    @Inject
+    CliPathsConfigLoader cliPathsCfgLdr;
+
+    @TempDir
+    Path homeDir;
+
+    @TempDir
+    Path currDir;
 
     @Test
     void init() throws IOException {
-        when(pathResolver.osHomeDirectoryPath()).thenReturn(homeDir);
-        when(pathResolver.toolHomeDirectoryPath()).thenReturn(currentDir);
+        when(pathRslvr.osHomeDirectoryPath()).thenReturn(homeDir);
+        when(pathRslvr.toolHomeDirectoryPath()).thenReturn(currDir);
 
-        when(mavenArtifactResolver.resolve(any(), any(), any(), any(), any()))
+        when(mavenArtifactRslvr.resolve(any(), any(), any(), any(), any()))
             .thenReturn(new ResolveResult(Arrays.asList()));
 
         var out = new PrintWriter(System.out, true);
-        initIgniteCommand.init(null, out, new ColorScheme.Builder().build());
 
-        var ignitePaths = cliPathsConfigLoader.loadIgnitePathsConfig().get();
+        initIgniteCmd.init(null, out, new ColorScheme.Builder().build());
+
+        var ignitePaths = cliPathsCfgLdr.loadIgnitePathsConfig().get();
+
         assertTrue(ignitePaths.validateDirs());
     }
 
     @Test
     void reinit() throws IOException {
-        when(pathResolver.osHomeDirectoryPath()).thenReturn(homeDir);
-        when(pathResolver.toolHomeDirectoryPath()).thenReturn(currentDir);
+        when(pathRslvr.osHomeDirectoryPath()).thenReturn(homeDir);
+        when(pathRslvr.toolHomeDirectoryPath()).thenReturn(currDir);
 
-        when(mavenArtifactResolver.resolve(any(), any(), any(), any(), any()))
+        when(mavenArtifactRslvr.resolve(any(), any(), any(), any(), any()))
             .thenReturn(new ResolveResult(Collections.emptyList()));
 
         var out = new PrintWriter(System.out, true);
-        initIgniteCommand.init(null, out, new ColorScheme.Builder().build());
 
-        var ignitePaths = cliPathsConfigLoader.loadIgnitePathsOrThrowError();
+        initIgniteCmd.init(null, out, new ColorScheme.Builder().build());
+
+        var ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
+
         recursiveDirRemove(ignitePaths.binDir);
 
         assertFalse(ignitePaths::validateDirs);
 
-        initIgniteCommand.init(null, out, new ColorScheme.Builder().build());
+        initIgniteCmd.init(null, out, new ColorScheme.Builder().build());
+
         assertTrue(ignitePaths::validateDirs);
     }
 
-    @MockBean(MavenArtifactResolver.class) MavenArtifactResolver mavenArtifactResolver() {
+    @MockBean(MavenArtifactResolver.class)
+    MavenArtifactResolver mavenArtifactResolver() {
         return mock(MavenArtifactResolver.class);
     }
 

@@ -26,7 +26,6 @@ import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.IgniteCliApp;
 
 public interface SystemPathResolver {
-
     Path osHomeDirectoryPath();
 
     Path toolHomeDirectoryPath();

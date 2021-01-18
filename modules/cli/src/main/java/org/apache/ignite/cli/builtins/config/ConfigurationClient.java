@@ -37,11 +37,12 @@ import picocli.CommandLine.Help.ColorScheme;
 
 @Singleton
 public class ConfigurationClient {
+    private static final String GET_URL = "/management/v1/configuration/";
 
-    private final String GET_URL = "/management/v1/configuration/";
-    private final String SET_URL = "/management/v1/configuration/";
+    private static final String SET_URL = "/management/v1/configuration/";
 
     private final HttpClient httpClient;
+
     private final ObjectMapper mapper;
 
     @Inject
@@ -52,25 +53,26 @@ public class ConfigurationClient {
 
     public String get(String host, int port,
         @Nullable String rawHoconPath) {
-        var request = HttpRequest
+        var req = HttpRequest
             .newBuilder()
             .header("Content-Type", "application/json");
 
         if (rawHoconPath == null)
-            request.uri(URI.create("http://" + host + ":" + port + GET_URL));
+            req.uri(URI.create("http://" + host + ":" + port + GET_URL));
         else
-            request.uri(URI.create("http://" + host + ":" + port + GET_URL +
+            req.uri(URI.create("http://" + host + ":" + port + GET_URL +
                 rawHoconPath));
 
         try {
-            HttpResponse<String> response =
-                httpClient.send(request.build(),
+            HttpResponse<String> res =
+                httpClient.send(req.build(),
                     HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == HttpURLConnection.HTTP_OK)
+
+            if (res.statusCode() == HttpURLConnection.HTTP_OK)
                 return mapper.writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(mapper.readValue(response.body(), JsonNode.class));
+                    .writeValueAsString(mapper.readValue(res.body(), JsonNode.class));
             else
-                throw error("Can't get configuration", response);
+                throw error("Can't get configuration", res);
         }
         catch (IOException | InterruptedException e) {
             throw new IgniteCLIException("Connection issues while trying to send http request");
@@ -78,7 +80,7 @@ public class ConfigurationClient {
     }
 
     public void set(String host, int port, String rawHoconData, PrintWriter out, ColorScheme cs) {
-        var request = HttpRequest
+        var req = HttpRequest
             .newBuilder()
             .POST(HttpRequest.BodyPublishers.ofString(renderJsonFromHocon(rawHoconData)))
             .header("Content-Type", "application/json")
@@ -86,31 +88,31 @@ public class ConfigurationClient {
             .build();
 
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == HttpURLConnection.HTTP_OK) {
+            HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+
+            if (res.statusCode() == HttpURLConnection.HTTP_OK) {
                 out.println("Configuration was updated successfully.");
                 out.println();
                 out.println("Use the " + cs.commandText("ignite config get") +
                     " command to view the updated configuration.");
             }
             else
-                throw error("Fail to set configuration", response);
+                throw error("Fail to set configuration", res);
         }
         catch (IOException | InterruptedException e) {
             throw new IgniteCLIException("Connection issues while trying to send http request");
         }
     }
 
-    private IgniteCLIException error(String message, HttpResponse<String> response) throws JsonProcessingException {
-        var errorMessage = mapper.writerWithDefaultPrettyPrinter()
-            .writeValueAsString(mapper.readValue(response.body(), JsonNode.class));
-        return new IgniteCLIException(message + "\n\n" + errorMessage);
+    private IgniteCLIException error(String msg, HttpResponse<String> res) throws JsonProcessingException {
+        var errorMsg = mapper.writerWithDefaultPrettyPrinter()
+            .writeValueAsString(mapper.readValue(res.body(), JsonNode.class));
+
+        return new IgniteCLIException(msg + "\n\n" + errorMsg);
     }
 
     private static String renderJsonFromHocon(String rawHoconData) {
         return ConfigFactory.parseString(rawHoconData)
             .root().render(ConfigRenderOptions.concise());
     }
-
-
 }

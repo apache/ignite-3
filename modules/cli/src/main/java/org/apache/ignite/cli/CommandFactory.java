@@ -23,14 +23,14 @@ import picocli.CommandLine;
 
 public class CommandFactory implements CommandLine.IFactory {
 
-    private final ApplicationContext applicationContext;
+    private final ApplicationContext applicationCtx;
 
-    public CommandFactory(ApplicationContext applicationContext) {
-        this.applicationContext = applicationContext;
+    public CommandFactory(ApplicationContext applicationCtx) {
+        this.applicationCtx = applicationCtx;
     }
 
     @Override public <K> K create(Class<K> cls) throws Exception {
-        Optional<K> bean = applicationContext.findOrInstantiateBean(cls);
-        return bean.isPresent() ? bean.get() : CommandLine.defaultFactory().create(cls);// custom factory lookup or instantiation
+        Optional<K> bean = applicationCtx.findOrInstantiateBean(cls);
+        return bean.isPresent() ? bean.get() : CommandLine.defaultFactory().create(cls);
     }
 }
