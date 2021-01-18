@@ -21,11 +21,20 @@ import org.apache.ignite.internal.schema.HashIndexImpl;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.builder.HashIndexBuilder;
 
+/**
+ * Hash index builder.
+ */
 public class HashIndexBuilderImpl extends AbstractIndexBuilder implements HashIndexBuilder {
-    protected String[] columns;
+    /** Index columns. */
+    private String[] columns;
 
-    public HashIndexBuilderImpl(String indexName) {
-        super(indexName);
+    /**
+     * Constructor.
+     *
+     * @param name Index name.
+     */
+    public HashIndexBuilderImpl(String name) {
+        super(name);
     }
 
     /** {@inheritDoc} */
@@ -40,10 +49,6 @@ public class HashIndexBuilderImpl extends AbstractIndexBuilder implements HashIn
         assert columns != null;
         assert columns.length > 0;
 
-        return new HashIndexImpl(name());
-    }
-
-    String[] columns() {
-        return columns;
+        return new HashIndexImpl(name, columns);
     }
 }

@@ -29,6 +29,7 @@ public interface SchemaTableBuilder {
     public static final String PRIMARY_KEY_INDEX_NAME = "PK";
 
     /**
+     * @param columns Table columns.
      * @return Schema table builder for chaining.
      */
     SchemaTableBuilder columns(Column... columns);

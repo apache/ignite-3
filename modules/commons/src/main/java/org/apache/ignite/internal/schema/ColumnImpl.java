@@ -17,20 +17,45 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.Objects;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
+/**
+ * Table column.
+ */
 public class ColumnImpl implements Column {
-
+    /** Column name. */
     private final String name;
 
-    public ColumnImpl(String name) {
+    /** Column type. */
+    private final ColumnType type;
+
+    /** Nullable flag. */
+    private final boolean nullable;
+
+    /** Default value. */
+    private final Object defVal;
+
+    /**
+     * Constructor.
+     *
+     * @param name Column name.
+     * @param type Column type.
+     * @param nullable Nullable flag.
+     * @param defVal Default value.
+     */
+    public ColumnImpl(String name, ColumnType type, boolean nullable, @Nullable Object defVal) {
         this.name = name;
+        this.type = type;
+        this.nullable = nullable;
+        this.defVal = defVal;
     }
 
     /** {@inheritDoc} */
     @Override public ColumnType type() {
-        return null;
+        return type;
     }
 
     /** {@inheritDoc} */
@@ -40,11 +65,37 @@ public class ColumnImpl implements Column {
 
     /** {@inheritDoc} */
     @Override public boolean nullable() {
-        return false;
+        return nullable;
     }
 
     /** {@inheritDoc} */
     @Override public Object defaultValue() {
-        return null;
+        return defVal;
+    }
+
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        ColumnImpl column = (ColumnImpl)o;
+
+        return nullable == column.nullable && name.equals(column.name) && type.equals(column.type) && Objects.equals(defVal, column.defVal);
+    }
+
+    @Override public int hashCode() {
+        return Objects.hash(name, type, nullable, defVal);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "ColumnImpl[" +
+            "name='" + name + '\'' +
+            ", type=" + type +
+            ", nullable=" + nullable +
+            ", default=" + defVal +
+            ']';
     }
 }

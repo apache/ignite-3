@@ -17,40 +17,45 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PartialIndex;
 
-public class PartialIndexImpl implements PartialIndex {
-    private final String name;
+/**
+ * Partial index.
+ */
+public class PartialIndexImpl extends SortedIndexImpl implements PartialIndex {
+    /** Expression. */
+    private final String expr;
 
-    public PartialIndexImpl(String name) {
-        this.name = name;
+    /**
+     * Constructor.
+     *
+     * @param name Index name.
+     * @param columns Index columns.
+     * @param inlineSize Inline size.
+     * @param expr Partial index expression.
+     */
+    public PartialIndexImpl(String name, List<IndexColumn> columns, int inlineSize, String expr) {
+        super(name, columns, inlineSize);
+
+        this.expr = expr;
     }
 
     /** {@inheritDoc} */
     @Override public String expr() {
-        return null;
+        return expr;
     }
 
     /** {@inheritDoc} */
-    @Override public int inlineSize() {
-        return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<IndexColumn> columns() {
-        return Collections.emptyList();
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<IndexColumn> indexedColumns() {
-        return Collections.emptyList();
-    }
-
-    /** {@inheritDoc} */
-    @Override public String name() {
-        return name;
+    @Override public String toString() {
+        return "PartialIndex[" +
+            "name='" + name + '\'' +
+            ", type=PARTIAL" +
+            ", expr='" + expr + '\'' +
+            ", inline=" + inlineSize +
+            ", columns=[" + columns().stream().map(IndexColumn::toString).collect(Collectors.joining(",")) + ']' +
+            ']';
     }
 }

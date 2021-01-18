@@ -17,16 +17,26 @@
 
 package org.apache.ignite.internal.schema.builder;
 
-import java.util.Collection;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.PartialIndexImpl;
+import org.apache.ignite.internal.schema.SortedIndexImpl;
 import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
 
+/**
+ * Partial index builder.
+ */
 public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements PartialIndexBuilder {
+    /** Partial index expression. */
     private String expr;
 
-    public PartialIndexBuilderImpl(String indexName) {
-        super(indexName);
+    /**
+     * Constructor.
+     *
+     * @param idxName Index name.
+     */
+    public PartialIndexBuilderImpl(String idxName) {
+        super(idxName);
     }
 
     /** {@inheritDoc} */
@@ -36,20 +46,16 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
         return this;
     }
 
-    void addIndexColumn(PartialIndexColumnBuilderImpl bld) {
-        super.addIndexColumn(bld);
-    }
-
-    /** {@inheritDoc} */
-    @Override Collection<PartialIndexColumnBuilderImpl> columns() {
-        return (Collection<PartialIndexColumnBuilderImpl>)super.columns();
-    }
-
     /** {@inheritDoc} */
     @Override public PartialIndex build() {
         assert expr != null && !expr.trim().isEmpty();
 
-        return new PartialIndexImpl(name());
+        return new PartialIndexImpl(
+            name,
+            cols.values().stream().map(c -> new SortedIndexImpl.IndexColumnImpl(c.name, c.asc)).collect(Collectors.toList()),
+            inlineSize,
+            expr
+        );
     }
 
     /** {@inheritDoc} */
@@ -64,10 +70,18 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
         return new PartialIndexColumnBuilderImpl(this).withName(name);
     }
 
+    /**
+     * Index column builder.
+     */
     @SuppressWarnings("PublicInnerClass")
     public static class PartialIndexColumnBuilderImpl extends SortedIndexColumnBuilderImpl implements PartialIndexColumnBuilder {
-        public PartialIndexColumnBuilderImpl(PartialIndexBuilderImpl indexBuilder) {
-            super(indexBuilder);
+        /**
+         * Constructor.
+         *
+         * @param idxBuilder Index builder.
+         */
+        public PartialIndexColumnBuilderImpl(PartialIndexBuilderImpl idxBuilder) {
+            super(idxBuilder);
         }
 
         /** {@inheritDoc} */

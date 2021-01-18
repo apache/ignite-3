@@ -57,32 +57,61 @@ public class ColumnType {
     /** 128-bit UUID. */
     public static final ColumnType UUID = new ColumnType(ColumnTypeSpec.UUID);
 
-    /** Bitmask type factory method. */
+    /**
+     * Bitmask type factory method.
+     *
+     * @param bits Bitmask size in bits.
+     * @return Bitmap type.
+     */
     public static VarlenColumnType bitmaskOf(int bits) {
         return new VarlenColumnType(ColumnTypeSpec.BITMASK, bits);
     }
 
-    /** String factory method. */
+    /**
+     * String factory method.
+     *
+     * @return String type.
+     */
     public static VarlenColumnType string() {
         return stringOf(0);
     }
 
-    /** String factory method. */
+    /**
+     * String factory method for fix-sized string type.
+     *
+     * @param length String length in chars.
+     * @return String type.
+     */
     public static VarlenColumnType stringOf(int length) {
         return new VarlenColumnType(ColumnTypeSpec.STRING, length);
     }
 
-    /** Blob type factory method. */
+    /**
+     * Blob type factory method.
+     *
+     * @return Blob type.
+     */
     public static VarlenColumnType blobOf() {
         return blobOf(0);
     }
 
-    /** Blob type factory method. */
+    /**
+     * Blob type factory method for fix-sized blob.
+     *
+     * @param length Blob length in bytes.
+     * @return Blob type.
+     */
     public static VarlenColumnType blobOf(int length) {
         return new VarlenColumnType(ColumnTypeSpec.BLOB, length);
     }
 
-    /** Decimal type factory method. */
+    /**
+     * Decimal type factory method.
+     *
+     * @param precision Precision.
+     * @param scale Scale.
+     * @return Numeric type.
+     */
     public static NumericColumnType number(int precision, int scale) {
         return new NumericColumnType(ColumnTypeSpec.DECIMAL, precision, scale);
     }

@@ -39,6 +39,7 @@ public final class SchemaBuilders {
      * Create table descriptor from classes.
      *
      * @param schemaName Schema name.
+     * @param tableName Table name.
      * @param keyClass Key class.
      * @param valueClass Value class.
      * @return Table descriptor for given key-value pair.
@@ -56,8 +57,7 @@ public final class SchemaBuilders {
      * @param tableName Table name.
      * @return Table descriptor builder.
      */
-    public static SchemaTableBuilder tableBuilder(String schemaName,
-        String tableName) {
+    public static SchemaTableBuilder tableBuilder(String schemaName, String tableName) {
         return new SchemaTableBuilderImpl(schemaName, tableName);
     }
 

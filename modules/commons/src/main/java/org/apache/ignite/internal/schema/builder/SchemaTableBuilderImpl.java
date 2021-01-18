@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.schema.builder;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,27 +34,37 @@ import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
+/**
+ * Table builder.
+ */
 public class SchemaTableBuilderImpl implements SchemaTableBuilder {
-    private final Map<String, Column> columns = new HashMap<>();
-    private final Map<String, TableIndex> indices = new HashMap<>();
-
-    private String[] pkColumns;
-    private String[] affinityColumns;
-
-    private final String tableName;
+    /** Schema name. */
     private final String schemaName;
 
+    /** Table name. */
+    private final String tableName;
+
+    /** Columns. */
+    private final LinkedHashMap<String, Column> columns = new LinkedHashMap<>();
+
+    /** Indices. */
+    private final Map<String, TableIndex> indices = new HashMap<>();
+
+    /** Primary key fields. */
+    private LinkedHashSet<String> pkCols;
+
+    /** Primary key fields. */
+    private LinkedHashSet<String> affCols;
+
+    /**
+     * Constructor.
+     *
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     */
     public SchemaTableBuilderImpl(String schemaName, String tableName) {
         this.schemaName = SchemaBuilders.DEFAULT_SCHEMA_NAME;
         this.tableName = tableName;
-    }
-
-    String canonicalName() {
-        return schemaName;
-    }
-
-    String tableName() {
-        return tableName;
     }
 
     /** {@inheritDoc} */
@@ -66,13 +79,15 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
     /** {@inheritDoc} */
     @Override public SchemaTableBuilder pkColumns(String... colNames) {
-        pkColumns = colNames;
+        pkCols = new LinkedHashSet<>(Arrays.asList(colNames));
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public SchemaTableBuilder affinityColumns(String... colNames) {
-        affinityColumns = colNames;
+        affCols = new LinkedHashSet<>(Arrays.asList(colNames));
+
         return this;
     }
 
@@ -95,22 +110,35 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
         validateSecondaryIndices();
 
-        return new SchemaTableImpl(); // TODO: implement.
+        return new SchemaTableImpl(
+            schemaName,
+            tableName,
+            columns,
+            pkCols,
+            affCols,
+            Collections.unmodifiableMap(indices)
+        );
     }
 
+    /**
+     * Validate key columns.
+     */
     private void validatePrimaryKey() {
-        assert pkColumns != null : "PK index is not configured";
+        assert pkCols != null : "PK index is not configured";
 
-        if (affinityColumns == null)
-            affinityColumns = pkColumns;
+        if (affCols == null)
+            affCols = pkCols;
 
-        final Set<String> keyCols = Arrays.stream(pkColumns).collect(Collectors.toSet());
+        final Set<String> keyCols = pkCols.stream().collect(Collectors.toSet());
 
         assert keyCols.stream().allMatch(columns::containsKey) : "Key column must be a valid table column.";
-        assert affinityColumns != null && affinityColumns.length > 0 : "Primary key must have one affinity column at least";
-        assert Arrays.stream(affinityColumns).allMatch(keyCols::contains) : "Affinity column must be a valid key column.";
+        assert affCols != null && !affCols.isEmpty() : "Primary key must have one affinity column at least";
+        assert affCols.stream().allMatch(keyCols::contains) : "Affinity column must be a valid key column.";
     }
 
+    /**
+     * Validate secondary indices.
+     */
     private void validateSecondaryIndices() {
         assert indices.values().stream()
             .filter(SortedIndexBuilderImpl.class::isInstance)
@@ -129,6 +157,6 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
             .filter(PartialIndex.class::isInstance)
             .map(PartialIndex.class::cast)
             .flatMap(idx -> idx.columns().stream())
-            .allMatch(columns::containsKey) : "Indexed column dosn't exists in schema.";
+            .allMatch(c -> columns.containsKey(c.name())) : "Indexed column dosn't exists in schema.";
     }
 }

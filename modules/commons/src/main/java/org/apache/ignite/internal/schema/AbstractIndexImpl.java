@@ -17,39 +17,26 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.List;
-import org.apache.ignite.schema.HashIndex;
+import org.apache.ignite.schema.TableIndex;
 
 /**
- * Hash index.
+ * Index base class.
  */
-public class HashIndexImpl extends AbstractIndexImpl implements HashIndex {
-    /** Index columns. */
-    private final List<String> columns;
+public class AbstractIndexImpl implements TableIndex {
+    /** Index name. */
+    protected final String name;
 
     /**
      * Constructor.
      *
      * @param name Index name.
-     * @param columns Index columns.
      */
-    public HashIndexImpl(String name, String[] columns) {
-        super(name);
-
-        this.columns = List.of(columns);
+    public AbstractIndexImpl(String name) {
+        this.name = name;
     }
 
     /** {@inheritDoc} */
-    @Override public List<String> columns() {
-        return columns;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return "TableIndex[" +
-            "type=HASH, " +
-            "name='" + name + '\'' +
-            ", columns=[" + String.join(",", columns) + ']' +
-            ']';
+    @Override public String name() {
+        return name;
     }
 }

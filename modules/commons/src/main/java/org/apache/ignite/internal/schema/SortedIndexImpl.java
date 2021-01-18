@@ -18,24 +18,44 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.SortedIndex;
 
-public class SortedIndexImpl implements SortedIndex {
-    private final String name;
+/**
+ * Sorted index.
+ */
+public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
+    /** Index inline size. */
+    protected final int inlineSize;
 
-    public SortedIndexImpl(String name) {
-        this.name = name;
+    /** Columns. */
+    private final List<IndexColumn> cols;
+
+    /**
+     * Constructor.
+     *
+     * @param name Index name.
+     * @param cols Index columns.
+     * @param inlineSize Inline size.
+     */
+    public SortedIndexImpl(String name, List<IndexColumn> cols, int inlineSize) {
+        super(name);
+
+        this.inlineSize = inlineSize;
+        this.cols = Collections.unmodifiableList(cols);
     }
 
     /** {@inheritDoc} */
     @Override public int inlineSize() {
-        return 0;
+        return inlineSize;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<IndexColumn> columns() {
-        return null;
+        return cols;
     }
 
     /** {@inheritDoc} */
@@ -44,7 +64,52 @@ public class SortedIndexImpl implements SortedIndex {
     }
 
     /** {@inheritDoc} */
-    @Override public String name() {
-        return name;
+    @Override public String toString() {
+        return "SortedIndex[" +
+            "name='" + name + '\'' +
+            ", type=SORTED" +
+            ", inline=" + inlineSize +
+            ", columns=[" + columns().stream().map(IndexColumn::toString).collect(Collectors.joining(",")) + ']' +
+            ']';
+    }
+
+    /**
+     * Index column.
+     */
+    public static class IndexColumnImpl implements IndexColumn {
+        /** Column name. */
+        private final String name;
+
+        /** Sort order. */
+        private final boolean asc;
+
+        /**
+         * Constructor.
+         *
+         * @param name Column name.
+         * @param asc Sort order flag.
+         */
+        public IndexColumnImpl(String name, boolean asc) {
+            this.name = name;
+            this.asc = asc;
+        }
+
+        /** {@inheritDoc} */
+        @Override public String name() {
+            return name;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean asc() {
+            return asc;
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return "Column[" +
+                "name='" + name + '\'' +
+                ", order=" + (asc ? "asc" : "desc") +
+                ']';
+        }
     }
 }

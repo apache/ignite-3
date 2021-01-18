@@ -22,12 +22,27 @@ import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 
+/**
+ * Column builder.
+ */
 public class TableColumnBuilderImpl implements TableColumnBuilder {
-    private String colName;
-    private ColumnType colType;
+    /** Column name. */
+    private final String colName;
+
+    /** Column type. */
+    private final ColumnType colType;
+
+    /** Nullable flag. */
     private boolean nullable;
+
+    /** Default value. */
     private Object defValue;
 
+    /**
+     * Constructor.
+     * @param colName Column name.
+     * @param colType Column type.
+     */
     public TableColumnBuilderImpl(String colName, ColumnType colType) {
         this.colName = colName;
         this.colType = colType;
@@ -54,16 +69,8 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
         return this;
     }
 
-    String name() {
-        return colName;
-    }
-
-    boolean isNullable() {
-        return nullable;
-    }
-
     /** {@inheritDoc} */
     @Override public Column build() {
-        return new ColumnImpl(colName);
+        return new ColumnImpl(colName, colType, nullable, defValue);
     }
 }

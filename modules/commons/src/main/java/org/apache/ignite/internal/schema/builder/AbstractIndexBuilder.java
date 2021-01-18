@@ -19,14 +19,19 @@ package org.apache.ignite.internal.schema.builder;
 
 import org.apache.ignite.schema.builder.Builder;
 
+/**
+ * Index base class.
+ */
 public abstract class AbstractIndexBuilder implements Builder {
-    private String name;
+    /** Index name. */
+    protected final String name;
 
-    AbstractIndexBuilder(String indexName) {
-        this.name = indexName;
-    }
-
-    String name() {
-        return name;
+    /**
+     * Constructor.
+     *
+     * @param name Index name.
+     */
+    AbstractIndexBuilder(String name) {
+        this.name = name;
     }
 }

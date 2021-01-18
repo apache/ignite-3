@@ -28,17 +28,17 @@ public interface SchemaTable {
     /**
      * @return Key columns.
      */
-    List<Column> keyColumns();
+    Collection<Column> keyColumns();
 
     /**
      * @return Affinity columns.
      */
-    List<Column> affinityColumns();
+    Collection<Column> affinityColumns();
 
     /**
      * @return Value columns.
      */
-    List<Column> valueColumns();
+    Collection<Column> valueColumns();
 
     /**
      * @return Table name.
