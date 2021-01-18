@@ -34,15 +34,6 @@
     <version>3.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <description>Java-based middleware for in-memory processing of big data in a distributed environment.</description>
-
-    <licenses>
-        <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        </license>
-    </licenses>
-
     <modules>
         <module>modules/cli</module>
         <module>modules/cli-common</module>
@@ -62,13 +53,12 @@
     <build>
         <plugins>
             <!--
-              This profile is used for checking that all files in project are compliant with target licenses headers.
+              This plugin is used for checking that all files in project are compliant with target licenses headers.
               Exlusions are possible, but every exclusion should have it's own motivated comment and/or issue key.
             -->
             <plugin>
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
-                <version>${apache.rat.plugin.version}</version>
                 <configuration>
                     <addDefaultLicenseMatchers>true</addDefaultLicenseMatchers>
                     <licenses>
@@ -109,6 +99,36 @@
                         <exclude>modules/configuration-annotation-processor/src/main/resources/META-INF/services/javax.annotation.processing.Processor</exclude> <!-- ? -->
                     </excludes>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <!--
+                  This plugin is used to check the code for coding guidelines
+                -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <configuration>
+                    <sourceDirectories>
+                        <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+                        <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
+                    </sourceDirectories>
+                    <consoleOutput>true</consoleOutput>
+                    <logViolationsToConsole>true</logViolationsToConsole>
+                    <failsOnError>true</failsOnError>
+                    <failOnViolation>true</failOnViolation>
+                    <outputFile>${project.build.directory}/checkstyle-result.xml</outputFile>
+                    <configLocation>../checkstyle/checkstyle.xml</configLocation>
+                    <suppressionsLocation>../checkstyle/checkstyle-suppressions.xml</suppressionsLocation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <excludes>**/generated/**/*</excludes>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>${checkstyle.puppycrawl.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>
