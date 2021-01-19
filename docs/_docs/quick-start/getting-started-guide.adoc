@@ -1,0 +1,235 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Getting Started Guide
+
+This guide provides essential details on how to start working with Ignite 3.0 by using the Ignite CLI tool,
+including the following information:
+
+* How to download and install the tool
+* How to manage nodes using the Ignite CLI tool
+* Additional information regarding the use of the tool
+
+== Prerequisites
+
+
+Ignite 3.0 was officially tested on:
+
+include::../includes/prereqs.adoc[]
+
+
+== Installing Ignite CLI Tool
+
+
+To download and install the Ignite CLI Tool, follow the steps below:
+
+. Create a folder. For example, use a Linux command similar to the following:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+mkdir ignite3 && cd ignite3
+----
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+(mkdir ignite3) -AND (cd ignite3)
+----
+
+tab:Windows (CMD)[]
+[source,shell]
+----
+mkdir ignite3 & cd ignite3
+----
+--
+
+. Download the Ignite CLI tool and set required execute permissions:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-alpha1/ignite" -o ignite && chmod +x ignite
+----
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
+----
+
+tab:Windows (CMD)[]
+[source,shell]
+----
+include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
+----
+--
+
+. Add your installation directory to the PATH environment variable:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+echo 'export PATH="'`pwd`':$PATH"' >> ~/.bash_profile && source ~/.bash_profile
+----
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+$ENV:PATH += ";."
+----
+
+tab:Windows (CMD)[]
+[source,text]
+----
+set PATH=%cd%;%PATH%
+----
+--
+
+NOTE: On Windows, this latter change is not permanent and will only affect the current terminal session. If you want the
+`ignite` command to be available after terminal or system restart, use the `System Properties` dialog to
+permanently update the `PATH` environment variable by adding a full path to the Ignite installation directory.
+
+== Using Ignite CLI Tool
+
+Ignite CLI is a single entry point for all the Ignite operations. For example, it allows you to perform the following
+actions:
+
+* Manage existing nodes
+* Install new nodes
+* Update old nodes to new versions
+* Install or remove optional modules
+
+Let's use some of the <<Ignite CLI Tool Commands>>.
+
+. Use the command below to see the full list:
++
+[source, shell]
+----
+ignite
+----
+
+. Pass the `--help` parameter to the previous command to get its detailed description:
++
+[source, shell]
+----
+ignite init --help
+----
+
+== Installing Ignite Artifacts and Dependencies
+
+Ignite CLI allows to install Ignite modules and 3rd party Maven dependencies.
+
+. To start an Ignite 3.0 cluster, you need to install Ignite core artifacts first:
++
+[source, shell]
+----
+ignite init
+----
+
+. Use the `module add` command to download Guava from Maven and add it to the Ignite classpath:
++
+[source, shell]
+----
+ignite module add mvn:com.google.guava:guava:23.0
+----
+
+. Confirm the library is added to the Ignite dependencies list:
++
+[source, shell]
+----
+ignite module list
+----
+
+== Starting a Node
+
+This section explains how to start a node, how to stop, and perform other basic operations with it.
+
+. Start a cluster node setting `myFirstNode` as a node unique identifier:
++
+[source, shell]
+----
+ignite node start myFirstNode
+----
+
+. Confirm the node is started and running:
++
+[source, shell]
+----
+ignite node list
+----
++
+This command also displays the path to the log file.
+
+. To view the log, use the log file path from the previous step result. To open the log file, use any suitable approach.
+For example, use the `cat` command on a Unix operating system.
+
+== Working With the Cluster
+
+The Ignite CLI tool also allows to perform some operations with a cluster using the `config` command.
+
+See some of the examples below:
+
+. Read the cluster configuration:
++
+[source, shell]
+----
+ignite config get
+----
++
+It can be performed either for the whole tree or filtered via the `--selector` option.
+
+. Update the baseline topology auto-adjustment timeout:
++
+[source, shell]
+----
+ignite config set local.baseline.autoAdjust.timeout=20000
+----
+. Confirm the change is applied:
++
+[source, shell]
+----
+ignite config get --selector=local.baseline.autoAdjust.timeout
+----
+
+== Stopping the Cluster
+
+To stop the node, use the command below passing `myFirstNode` as a node unique identifier:
+[source, shell]
+----
+ignite node stop myFirstNode
+----
+
+== Next Steps
+
+From here, you may want to:
+
+* Check out the link:ignite-cli-tool[Ignite CLI Tool] page for more detail on supported commands.
+
+//== Apache Ignite Configuration
+//
+//Apache Ignite uses HOCON configuration format.
+//For more detail, please see the link:https://github.com/lightbend/config/blob/master/HOCON.md[HOCON documentation,window=_blank].
+
+
+
+
+
+
