@@ -1017,7 +1017,7 @@
   <inspection_tool class="OneButtonGroup" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="OptionEqualsSome" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="OptionalAssignedToNull" enabled="false" level="WARNING" enabled_by_default="false" />
-  <inspection_tool class="OptionalIsPresent" enabled="false" level="WARNING" enabled_by_default="false" />
+<!--  <inspection_tool class="OptionalIsPresent" enabled="false" level="WARNING" enabled_by_default="false" />-->
   <inspection_tool class="OptionalUsedAsFieldOrParameterType" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="OverridingDeprecatedMember" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="OverwrittenKey" enabled="false" level="WARNING" enabled_by_default="false" />
@@ -1237,11 +1237,11 @@
   <inspection_tool class="SortModifiers" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
   <inspection_tool class="SortedHeadLast" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="Specs2Matchers" enabled="false" level="WARNING" enabled_by_default="false" />
-  <inspection_tool class="SpellCheckingInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false">
-    <option name="processCode" value="true" />
-    <option name="processLiterals" value="true" />
-    <option name="processComments" value="true" />
-  </inspection_tool>
+<!--  <inspection_tool class="SpellCheckingInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false">-->
+<!--    <option name="processCode" value="true" />-->
+<!--    <option name="processLiterals" value="true" />-->
+<!--    <option name="processComments" value="true" />-->
+<!--  </inspection_tool>-->
   <inspection_tool class="StatefulEp" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="StaticInitializerReferencesSubClass" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="StaticPseudoFunctionalStyleMethod" enabled="false" level="WARNING" enabled_by_default="false" />
