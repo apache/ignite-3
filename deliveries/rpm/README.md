@@ -15,7 +15,7 @@ mvn clean package
 
 * **Copied Apache Ignite CLI binary in RPM build directory**:
 ```bash
-cp -rfv modules/cli-demo/cli/target/ignite \
+cp -rfv modules/cli/target/ignite \
         deliveries/rpm/
 ```
 
