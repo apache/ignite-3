@@ -24,11 +24,6 @@ import java.util.Collection;
  */
 public interface SortedIndex extends TableIndex {
     /**
-     * @return Index inline size.
-     */
-    int inlineSize();
-
-    /**
      * Return user defined indexed columns.
      *
      * @return Declared columns.
@@ -40,7 +35,9 @@ public interface SortedIndex extends TableIndex {
      *
      * @return Indexed columns.
      */
-    Collection<IndexColumn> indexedColumns();
+    default Collection<IndexColumn> indexedColumns() {
+        return columns();
+    }
 
     /**
      * Unique index flag.
@@ -52,5 +49,10 @@ public interface SortedIndex extends TableIndex {
      */
     default boolean unique() {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override default String type() {
+        return "SORTED";
     }
 }

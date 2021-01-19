@@ -27,4 +27,9 @@ public interface PartialIndex extends SortedIndex {
      * @return Expresssion.
      */
     String expr();
+
+    /** {@inheritDoc} */
+    @Override default String type() {
+        return "PARTIAL";
+    }
 }

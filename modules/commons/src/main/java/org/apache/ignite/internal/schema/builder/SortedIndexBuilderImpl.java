@@ -48,8 +48,8 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     }
 
     /** {@inheritDoc} */
-    @Override public SortedIndexBuilderImpl withInlineSize(int inlineSize) {
-        this.inlineSize = inlineSize;
+    @Override public SortedIndexBuilderImpl withHints(Map<String, String> hints) {
+        super.withHints(hints);
 
         return this;
     }

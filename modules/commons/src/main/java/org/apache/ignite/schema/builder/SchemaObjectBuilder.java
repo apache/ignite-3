@@ -17,12 +17,22 @@
 
 package org.apache.ignite.schema.builder;
 
+import java.util.Map;
+
 /**
  * Builder base interface.
  */
-public interface Builder {
+public interface SchemaObjectBuilder {
     /**
      * @return Built object.
      */
     Object build();
+
+    /**
+     * Provide hints to builder.
+     *
+     * @param hints Hints.
+     * @return {@code This} for chaining.
+     */
+    SchemaObjectBuilder withHints(Map<String, String> hints);
 }

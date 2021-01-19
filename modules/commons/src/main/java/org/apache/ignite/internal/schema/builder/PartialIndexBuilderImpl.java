@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.builder;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.PartialIndexImpl;
 import org.apache.ignite.internal.schema.SortedIndexImpl;
@@ -40,8 +41,8 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
     }
 
     /** {@inheritDoc} */
-    @Override public PartialIndexBuilderImpl withInlineSize(int inlineSize) {
-        super.withInlineSize(inlineSize);
+    @Override public PartialIndexBuilderImpl withHints(Map<String, String> hints) {
+        super.withHints(hints);
 
         return this;
     }

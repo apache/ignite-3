@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.schema.builder.Builder;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.ignite.schema.builder.SchemaObjectBuilder;
 
 /**
  * Index base class.
  */
-public abstract class AbstractIndexBuilder implements Builder {
+public abstract class AbstractIndexBuilder implements SchemaObjectBuilder {
     /** Index name. */
     protected final String name;
+
+    /** Builder hints. */
+    protected Map<String, String> hints;
 
     /**
      * Constructor.
@@ -33,5 +38,13 @@ public abstract class AbstractIndexBuilder implements Builder {
      */
     AbstractIndexBuilder(String name) {
         this.name = name;
+    }
+
+
+    /** {@inheritDoc} */
+    @Override public AbstractIndexBuilder withHints(Map<String, String> hints) {
+        this.hints = Collections.unmodifiableMap(hints);
+
+        return this;
     }
 }

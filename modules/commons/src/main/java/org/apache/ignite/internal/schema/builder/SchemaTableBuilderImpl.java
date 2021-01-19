@@ -32,6 +32,7 @@ import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
+import org.apache.ignite.schema.builder.SchemaObjectBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
 /**
@@ -98,6 +99,12 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
         else if (indices.put(index.name(), index) != null)
             throw new IllegalArgumentException("Index with same name already exists: " + index.name());
 
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public SchemaTableBuilder withHints(Map<String, String> hints) {
+        // No op.
         return this;
     }
 

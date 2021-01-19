@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.builder;
 
+import java.util.Map;
 import org.apache.ignite.internal.schema.HashIndexImpl;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.builder.HashIndexBuilder;
@@ -40,6 +41,13 @@ public class HashIndexBuilderImpl extends AbstractIndexBuilder implements HashIn
     /** {@inheritDoc} */
     @Override public HashIndexBuilder withColumns(String... columns) {
         this.columns = columns.clone();
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public HashIndexBuilderImpl withHints(Map<String, String> hints) {
+        super.withHints(hints);
 
         return this;
     }

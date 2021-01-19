@@ -17,12 +17,13 @@
 
 package org.apache.ignite.schema.builder;
 
+import java.util.Map;
 import org.apache.ignite.schema.HashIndex;
 
 /**
  * Hash index dscriptor builder.
  */
-public interface HashIndexBuilder extends Builder {
+public interface HashIndexBuilder extends SchemaObjectBuilder {
     /**
      * @param columns Indexed columns.
      * @return {@code this} for chaining.
@@ -33,4 +34,7 @@ public interface HashIndexBuilder extends Builder {
      * @return Hash index.
      */
     @Override HashIndex build();
+
+    /** {@inheritDoc} */
+    @Override HashIndexBuilder withHints(Map<String, String> hints);
 }

@@ -17,15 +17,13 @@
 
 package org.apache.ignite.schema.builder;
 
+import java.util.Map;
 import org.apache.ignite.schema.PartialIndex;
 
 /**
  * Partial index descriptor builder.
  */
 public interface PartialIndexBuilder extends SortedIndexBuilder {
-    /** {@inheritDoc} */
-    @Override PartialIndexBuilder withInlineSize(int inlineSize);
-
     /**
      * @param expr Partial index expression.
      * @return {@code this} for chaining.
@@ -34,6 +32,9 @@ public interface PartialIndexBuilder extends SortedIndexBuilder {
 
     /** {@inheritDoc} */
     @Override PartialIndexColumnBuilder addIndexColumn(String name);
+
+    /** {@inheritDoc} */
+    @Override PartialIndexBuilder withHints(Map<String, String> hints);
 
     /**
      * @return Partial index.

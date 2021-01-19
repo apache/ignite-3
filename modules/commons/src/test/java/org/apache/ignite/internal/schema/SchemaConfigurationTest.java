@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.Map;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
@@ -26,7 +27,6 @@ import org.junit.jupiter.api.Test;
 public class SchemaConfigurationTest {
     @Test
     public void testInitialSchema() {
-        //TODO: Do we need separate 'Schema builder' or left 'schema' name as kind of 'namespace'.
         final SchemaTableBuilder builder = SchemaBuilders.tableBuilder("PUBLIC", "table1");
 
         builder
@@ -49,7 +49,7 @@ public class SchemaConfigurationTest {
                 SchemaBuilders.sortedIndex("idx_1_sorted")
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
-                    .withInlineSize(42)
+                    .withHints(Map.of("INLINE_SIZE", "42", "UNIQ_STRATEGY", "INLINE_HASH")) // Attach key-hash.
                     .build()
             )
 
@@ -58,7 +58,7 @@ public class SchemaConfigurationTest {
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
                     .withExpression("id > 0")
-                    .withInlineSize(42)
+                    .withHints(Map.of("INLINE_COLUMNS", "id"))
                     .build()
             )
 
@@ -106,6 +106,7 @@ public class SchemaConfigurationTest {
             .addIndex(
                 SchemaBuilders.sortedIndex("sortedIdx")
                     .addIndexColumn("subId").done()
+                    .withHints(Map.of("INLINE_SIZE", "73"))
                     .build()
             )
 

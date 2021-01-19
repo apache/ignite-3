@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.builder;
 
+import java.util.Map;
 import org.apache.ignite.internal.schema.ColumnImpl;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
@@ -65,6 +66,13 @@ public class TableColumnBuilderImpl implements TableColumnBuilder {
     /** {@inheritDoc} */
     @Override public TableColumnBuilderImpl withDefaultValue(Object defValue) {
         this.defValue = defValue;
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public TableColumnBuilderImpl withHints(Map<String, String> hints) {
+        // No op.
 
         return this;
     }

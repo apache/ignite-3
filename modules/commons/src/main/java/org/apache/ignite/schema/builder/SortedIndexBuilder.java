@@ -17,21 +17,13 @@
 
 package org.apache.ignite.schema.builder;
 
-import org.apache.ignite.internal.schema.builder.SortedIndexBuilderImpl;
+import java.util.Map;
 import org.apache.ignite.schema.SortedIndex;
 
 /**
  * Sorted index descriptor builder.
  */
-public interface SortedIndexBuilder extends Builder {
-    /**
-     * Sets inline size for index.
-     *
-     * @param inlineSize Index max inline size.
-     * @return {@code this} for chaining.
-     */
-    SortedIndexBuilder withInlineSize(int inlineSize);
-
+public interface SortedIndexBuilder extends SchemaObjectBuilder {
     /**
      * Sets unique flag to {@code true}.
      *
@@ -46,6 +38,9 @@ public interface SortedIndexBuilder extends Builder {
      * @return Index builder.
      */
     SortedIndexColumnBuilder addIndexColumn(String name);
+
+    /** {@inheritDoc} */
+    @Override SortedIndexBuilder withHints(Map<String, String> hints);
 
     /**
      * @return Sorted index.

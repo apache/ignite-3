@@ -18,12 +18,11 @@
 package org.apache.ignite.schema.builder;
 
 import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.ColumnType;
 
 /**
  * Table column builder.
  */
-public interface TableColumnBuilder {
+public interface TableColumnBuilder extends SchemaObjectBuilder {
     /**
      * Mark column as nullable.
      *
@@ -51,6 +50,6 @@ public interface TableColumnBuilder {
      *
      * @return Built column.
      */
-    Column build();
+    @Override Column build();
 }
 

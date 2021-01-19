@@ -25,4 +25,11 @@ public interface TableIndex {
      * @return Index name.
      */
     String name();
+
+    /**
+     * Index type.
+     *
+     * @return Index type.
+     */
+    String type();
 }

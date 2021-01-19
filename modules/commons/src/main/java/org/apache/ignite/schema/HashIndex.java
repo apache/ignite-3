@@ -29,4 +29,9 @@ public interface HashIndex extends TableIndex {
     List<String> columns();
 
     // TODO: What about hidden cols (pk cols) which can be append for row uniqueness purposes?
+
+    /** {@inheritDoc} */
+    @Override default String type() {
+        return "HASH";
+    }
 }

@@ -22,7 +22,7 @@ import org.apache.ignite.schema.TableIndex;
 /**
  * Index base class.
  */
-public class AbstractIndexImpl implements TableIndex {
+public abstract class AbstractIndexImpl implements TableIndex {
     /** Index name. */
     protected final String name;
 
