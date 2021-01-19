@@ -30,10 +30,6 @@ import javax.inject.Inject;
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.cli.IgnitePaths;
-import org.apache.ignite.cli.builtins.module.MavenArtifactResolver;
-import org.apache.ignite.cli.builtins.module.ModuleManager;
-import org.apache.ignite.cli.builtins.module.ModuleStorage;
-import org.apache.ignite.cli.builtins.module.ResolveResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -46,24 +42,33 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Tests for CLI module manager logic.
+ */
 @ExtendWith(MockitoExtension.class)
 @MicronautTest
 public class ModuleMangerTest {
+    /** */
     @Inject
     MavenArtifactResolver mavenArtifactRslvr;
 
+    /** */
     @Inject
     ModuleManager moduleMgr;
 
+    /** */
     @Inject
-    ModuleStorage moduleStorage;
+    ModuleRegistry moduleRegistry;
 
+    /** */
     @TempDir
     Path artifactsDir;
 
+    /** Temporary home directory replacement. */
     @TempDir
     Path homeDir;
 
+    /** */
     @Test
     void testCliModuleInstallation() throws IOException {
        var rootArtifact = generateJar("test-module", "1.0", true);
@@ -78,11 +83,12 @@ public class ModuleMangerTest {
        moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
        moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
 
-       verify(moduleStorage).saveModule(argThat(m ->
+       verify(moduleRegistry).saveModule(argThat(m ->
            m.cliArtifacts.equals(Arrays.asList(rootArtifact, depArtifact)) &&
                 m.artifacts.equals(Collections.emptyList())));
     }
 
+    /** */
     @Test
     void testServerModuleInstallation() throws IOException {
         var rootArtifact = generateJar("test-module", "1.0", false);
@@ -97,21 +103,26 @@ public class ModuleMangerTest {
         moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
         moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
 
-        verify(moduleStorage).saveModule(argThat(m ->
+        verify(moduleRegistry).saveModule(argThat(m ->
             m.artifacts.equals(Arrays.asList(rootArtifact, depArtifact)) &&
                 m.cliArtifacts.equals(Collections.emptyList())));
     }
 
+    /** */
     @MockBean(MavenArtifactResolver.class)
     MavenArtifactResolver mavenArtifactResolver() {
         return mock(MavenArtifactResolver.class);
     }
 
-    @MockBean(ModuleStorage.class)
-    ModuleStorage moduleStorage() {
-        return mock(ModuleStorage.class);
+    /** */
+    @MockBean(ModuleRegistry.class)
+    ModuleRegistry moduleStorage() {
+        return mock(ModuleRegistry.class);
     }
 
+    /**
+     * Generate jar file with CLI module mark or not.
+     */
     private Path generateJar(String artifactId, String ver, boolean isCliModule) throws IOException {
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");

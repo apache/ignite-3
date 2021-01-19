@@ -27,12 +27,16 @@ import picocli.CommandLine.Help.ColorScheme;
  * Basic implementation of an ascii table. Supports styling via {@link ColorScheme}.
  */
 public class Table {
+    /** Indent size. */
     private final int indent;
 
+    /** Color scheme for table output. */
     private final ColorScheme cs;
 
+    /** Table data */
     private final Collection<Row> data = new ArrayList<>();
 
+    /** Columns lengths. */
     private int[] lengths;
 
     /**
@@ -109,6 +113,7 @@ public class Table {
         return sb.toString().stripTrailing();
     }
 
+    /** */
     private void appendLine(StringBuilder sb) {
         sb.append(" ".repeat(indent));
 
@@ -119,23 +124,32 @@ public class Table {
         sb.append("+\n");
     }
 
+    /** */
     private void appendRow(StringBuilder sb, Row row) {
         sb.append(" ".repeat(indent))
             .append(row.render())
             .append('\n');
     }
 
+    /** Interface for any renderable row. */
     private interface Row {
+        /** Render row to string. */
         String render();
     }
 
+    /**
+     * Row with actual data.
+     */
     private class DataRow implements Row {
+        /** */
         private final Text[] row;
 
+        /** */
         DataRow(Text[] row) {
             this.row = row;
         }
 
+        /** {inheritDoc} */
         @Override public String render() {
             assert row.length == lengths.length;
 
@@ -155,13 +169,19 @@ public class Table {
         }
     }
 
+    /**
+     * Row with table title.
+     */
     private class SectionTitle implements Row {
+        /** */
         private final Text title;
 
+        /** */
         SectionTitle(Text title) {
             this.title = title;
         }
 
+        /** {inheritDoc} */
         @Override public String render() {
             int totalLen = Arrays.stream(lengths).sum() + 3 * (lengths.length - 1);
 

@@ -31,12 +31,12 @@ import org.apache.ignite.cli.ErrorHandler;
 import org.apache.ignite.cli.HelpFactoryImpl;
 import org.apache.ignite.cli.IgniteCLIException;
 import org.apache.ignite.cli.InteractiveWrapper;
-import org.apache.ignite.cli.builtins.module.ModuleStorage;
+import org.apache.ignite.cli.builtins.module.ModuleRegistry;
 import org.apache.ignite.cli.common.IgniteCommand;
 import picocli.CommandLine;
 
 /**
- *
+ * Root command of Ignite CLI.
  */
 @CommandLine.Command(
     name = "ignite",
@@ -49,9 +49,11 @@ import picocli.CommandLine;
     }
 )
 public class IgniteCliSpec extends CommandSpec {
+    /** Interactive mode option. */
     @CommandLine.Option(names = "-i", hidden = true, required = false)
     boolean interactive;
 
+    /** {inheritDoc} */
     @Override public void run() {
         CommandLine cli = spec.commandLine();
 
@@ -63,6 +65,13 @@ public class IgniteCliSpec extends CommandSpec {
             cli.usage(cli.getOut());
     }
 
+    /**
+     * Init Ignite command line with needed look&feel options
+     * and load external extensions if any exists.
+     *
+     * @param applicationCtx DI application context.
+     * @return Initialized command line instance.
+     */
     public static CommandLine initCli(ApplicationContext applicationCtx) {
         CommandLine.IFactory factory = new CommandFactory(applicationCtx);
 
@@ -86,7 +95,7 @@ public class IgniteCliSpec extends CommandSpec {
             .ifPresent(ignitePaths ->
                 loadSubcommands(
                     cli,
-                    applicationCtx.createBean(ModuleStorage.class)
+                    applicationCtx.createBean(ModuleRegistry.class)
                         .listInstalled()
                         .modules
                         .stream()
@@ -96,6 +105,12 @@ public class IgniteCliSpec extends CommandSpec {
         return cli;
     }
 
+    /**
+     * Load external Ignite CLI commands from installed modules.
+     *
+     * @param cmdLine Command line
+     * @param cliLibs List of artifacts to load.
+     */
     public static void loadSubcommands(CommandLine cmdLine, List<Path> cliLibs) {
         URL[] urls = cliLibs.stream()
             .map(p -> {

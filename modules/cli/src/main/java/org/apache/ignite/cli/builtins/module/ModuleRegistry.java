@@ -31,58 +31,95 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.IgniteCLIException;
 
+/**
+ * The registry of installed CLI or Ignite server modules.
+ * Module from the the registry's point of view is a pair of (name -> [artifacts, cliArtifacts]).
+ * Where:
+ * <ul>
+ *     <li>artifacts - is a list of Ignite server node artifacts, which will be used in classpath of any server node.</li>
+ *     <li>cliArtifacts - is a list of Ignite CLI artifacts, which will be used to lookup CLI extensions.</li>
+ * </ul>
+ * Registry persisted on a disk as a JSON file.
+ */
 @Singleton
-public class ModuleStorage {
+public class ModuleRegistry {
+    /** Loader of CLI config with Ignite distributive paths. */
     private final CliPathsConfigLoader cliPathsCfgLdr;
 
+    /**
+     * Creates module registry instance.
+     *
+     * @param cliPathsCfgLdr Loader of CLI config with Ignite ditributive paths.
+     */
     @Inject
-    public ModuleStorage(CliPathsConfigLoader cliPathsCfgLdr) {
+    public ModuleRegistry(CliPathsConfigLoader cliPathsCfgLdr) {
         this.cliPathsCfgLdr = cliPathsCfgLdr;
     }
 
+    /**
+     * @return Path of registry file.
+     */
     private Path moduleFile() {
         return cliPathsCfgLdr.loadIgnitePathsOrThrowError().installedModulesFile();
     }
 
+    /**
+     * Saves module to module registry.
+     *
+     * @param moduleDefinition Module definition.
+     * @throws IOException If can't save the registry file.
+     */
     //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public void saveModule(ModuleDefinition moduleDefinition) throws IOException {
-        ModuleDefinitionsRegistry moduleDefinitionsRegistry = listInstalled();
+        ModuleDefinitionsList moduleDefinitionsList = listInstalled();
 
-        moduleDefinitionsRegistry.modules.add(moduleDefinition);
+        moduleDefinitionsList.modules.add(moduleDefinition);
 
         ObjectMapper objMapper = new ObjectMapper();
 
-        objMapper.writeValue(moduleFile().toFile(), moduleDefinitionsRegistry);
+        objMapper.writeValue(moduleFile().toFile(), moduleDefinitionsList);
     }
 
+    /**
+     * Removes module from the registry of installed modules.
+     * Note: artifacts' files will not be removed.
+     * This action only remove module and its dependencies from current classpaths as a result.
+     *
+     * @param name Module name to remove.
+     * @return true if module was removed, false otherwise.
+     * @throws IOException If can't save updated registry file.
+     */
     //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public boolean removeModule(String name) throws IOException {
-        ModuleDefinitionsRegistry moduleDefinitionsRegistry = listInstalled();
+        ModuleDefinitionsList moduleDefinitionsList = listInstalled();
 
-        boolean rmv = moduleDefinitionsRegistry.modules.removeIf(m -> m.name.equals(name));
+        boolean rmv = moduleDefinitionsList.modules.removeIf(m -> m.name.equals(name));
 
         ObjectMapper objMapper = new ObjectMapper();
 
-        objMapper.writeValue(moduleFile().toFile(), moduleDefinitionsRegistry);
+        objMapper.writeValue(moduleFile().toFile(), moduleDefinitionsList);
 
         return rmv;
     }
 
-    public ModuleDefinitionsRegistry listInstalled() {
+    /**
+     * @return Definitions of installed modules.
+     */
+    public ModuleDefinitionsList listInstalled() {
         var moduleFileAvailable =
             cliPathsCfgLdr.loadIgnitePathsConfig()
                 .map(p -> p.installedModulesFile().toFile().exists())
                 .orElse(false);
 
         if (!moduleFileAvailable)
-            return new ModuleDefinitionsRegistry(new ArrayList<>());
+            return new ModuleDefinitionsList(new ArrayList<>());
         else {
             ObjectMapper objMapper = new ObjectMapper();
 
             try {
                 return objMapper.readValue(
                     moduleFile().toFile(),
-                    ModuleDefinitionsRegistry.class);
+                    ModuleDefinitionsList.class);
             }
             catch (IOException e) {
                 throw new IgniteCLIException("Can't read lsit of installed modules because of IO error", e);
@@ -90,64 +127,107 @@ public class ModuleStorage {
         }
     }
 
-    public static class ModuleDefinitionsRegistry {
+    /**
+     * Simple wrapper for a list of modules' definitions.
+     * Wrap it in the form suitable for JSON serialization.
+     */
+    public static class ModuleDefinitionsList {
+        /** Modules list. */
         public final List<ModuleDefinition> modules;
 
+        /**
+         * Creates modules definitions list.
+         *
+         * @param modules List of definitions to wrap.
+         */
         @JsonCreator
-        public ModuleDefinitionsRegistry(
+        public ModuleDefinitionsList(
             @JsonProperty("modules") List<ModuleDefinition> modules) {
             this.modules = modules;
         }
     }
 
+    /**
+     * Definition of Ignite module. Every module can consist of server, CLI, or both artifacts' lists.
+     */
     public static class ModuleDefinition {
+        /** Module's name. */
         public final String name;
 
+        /** Module's server artifacts. */
         public final List<Path> artifacts;
 
-        @Override public String toString() {
-            return "ModuleDefinition{" +
-                "name='" + name + '\'' +
-                ", artifacts=" + artifacts +
-                ", cliArtifacts=" + cliArtifacts +
-                ", type=" + type +
-                ", source='" + source + '\'' +
-                '}';
-        }
-
+        /** Module's CLI artifacts. */
         public final List<Path> cliArtifacts;
 
+        /** Type of module source. */
         public final SourceType type;
 
-        public final String source;
+        /**
+         * It can be an url, file path, or any other source identificator,
+         * depending on the source type.
+         */
+        public final String src;
 
+        /**
+         * Creates module defition.
+         *
+         * @param name Module name.
+         * @param artifacts Module server artifacts' paths.
+         * @param cliArtifacts Module CLI artifacts' paths.
+         * @param type Source type of the module.
+         * @param src Source string (file path, url, maven coordinates and etc.).
+         */
         @JsonCreator
         public ModuleDefinition(
             @JsonProperty("name") String name,
             @JsonProperty("artifacts") List<Path> artifacts,
             @JsonProperty("cliArtifacts") List<Path> cliArtifacts,
             @JsonProperty("type") SourceType type,
-            @JsonProperty("source") String source) {
+            @JsonProperty("source") String src) {
             this.name = name;
             this.artifacts = artifacts;
             this.cliArtifacts = cliArtifacts;
             this.type = type;
-            this.source = source;
+            this.src = src;
         }
 
+        /**
+         * @return Server artifacts' paths.
+         */
         @JsonGetter("artifacts")
         public List<String> artifacts() {
             return artifacts.stream().map(a -> a.toAbsolutePath().toString()).collect(Collectors.toList());
         }
 
+        /**
+         * @return CLI artifacts paths.
+         */
         @JsonGetter("cliArtifacts")
         public List<String> cliArtifacts() {
             return cliArtifacts.stream().map(a -> a.toAbsolutePath().toString()).collect(Collectors.toList());
         }
+
+        /** {inheritDoc} */
+        @Override public String toString() {
+            return "ModuleDefinition{" +
+                "name='" + name + '\'' +
+                ", artifacts=" + artifacts +
+                ", cliArtifacts=" + cliArtifacts +
+                ", type=" + type +
+                ", source='" + src + '\'' +
+                '}';
+        }
+
     }
 
+    /**
+     * Type of module source.
+     */
     public enum SourceType {
+        /** Module is an maven artifact. */
         Maven,
+        /** Module is an builtin module. */
         Standard
     }
 }

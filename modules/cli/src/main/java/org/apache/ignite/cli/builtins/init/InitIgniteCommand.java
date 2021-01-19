@@ -39,13 +39,31 @@ import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.Help.ColorScheme;
 
+/**
+ * Init Ignite distro on the current machine. This process has the following steps:
+ * <ul>
+ *     <li>Initialize configuration file with the needed directories paths (@see {@link IgnitePaths})</li>
+ *     <li>Create all needed directories for Ignite deployment</li>
+ *     <li>Download current Ignite distro and prepare it for running</li>
+ * </ul>
+ */
 public class InitIgniteCommand {
+    /** Resolver of paths like home directory and etc. **/
     private final SystemPathResolver pathRslvr;
 
+    /** Manager of Ignite server and CLI modules. **/
     private final ModuleManager moduleMgr;
 
+    /** Loader of current Ignite distro dirs configuration. **/
     private final CliPathsConfigLoader cliPathsCfgLdr;
 
+    /**
+     * Creates init command instance.
+     *
+     * @param pathRslvr Resolver of paths like home directory and etc.
+     * @param moduleMgr Manager of Ignite server and CLI modules.
+     * @param cliPathsCfgLdr Loader of current Ignite distro dirs configuration.
+     */
     @Inject
     public InitIgniteCommand(
         SystemPathResolver pathRslvr,
@@ -56,8 +74,16 @@ public class InitIgniteCommand {
         this.cliPathsCfgLdr = cliPathsCfgLdr;
     }
 
+    /**
+     * Execute init process with initialization of config file,
+     * directories, and download of current Ignite release.
+     * Also, it can be used to recover after corruption of node directories structure.
+     *
+     * @param urls Urls with custom maven repositories for Ignite download.
+     * @param out PrintWriter for output user message.
+     * @param cs ColorScheme for enriching user outputs with colors.
+     */
     public void init(URL[] urls, PrintWriter out, ColorScheme cs) {
-
         moduleMgr.setOut(out);
 
         Optional<IgnitePaths> ignitePathsOpt = cliPathsCfgLdr.loadIgnitePathsConfig();
@@ -90,6 +116,11 @@ public class InitIgniteCommand {
             cs.commandText("ignite node start") + " command to start a new local node.");
     }
 
+    /**
+     * Init default server config file.
+     *
+     * @param srvCfgFile Path to server node config file.
+     */
     private void initDefaultServerConfigs(Path srvCfgFile) {
         try {
             if (!srvCfgFile.toFile().exists())
@@ -102,11 +133,22 @@ public class InitIgniteCommand {
         }
     }
 
+    /**
+     * Download ignite node distro with all needed dependencies.
+     *
+     * @param ignitePaths Ignite distributive paths (bin, config, etc.).
+     * @param urls Urls for custom maven repositories.
+     */
     private void installIgnite(IgnitePaths ignitePaths, URL[] urls) {
         moduleMgr.addModule("_server", ignitePaths,
             urls == null ? Collections.emptyList() : Arrays.asList(urls));
     }
 
+    /**
+     * Init configuration file for CLI utility with Ignite directories (bin, config, etc.) paths.
+     *
+     * @return Initialized configuration file.
+     */
     private File initConfigFile() {
         Path newCfgPath = pathRslvr.osHomeDirectoryPath().resolve(".ignitecfg");
         File newCfgFile = newCfgPath.toFile();
@@ -126,6 +168,13 @@ public class InitIgniteCommand {
         }
     }
 
+    /**
+     * Fill config file with bin and work directories paths.
+     *
+     * @param f Config file.
+     * @param binDir Path for bin dir.
+     * @param workDir Path for work dir.
+     */
     private void fillNewConfigFile(File f, @NotNull Path binDir, @NotNull Path workDir) {
         try (FileWriter fileWriter = new FileWriter(f)) {
             Properties props = new Properties();

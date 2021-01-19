@@ -22,9 +22,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
+/**
+ * Top level picocli exception handler.
+ */
 public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, CommandLine.IParameterExceptionHandler {
+    /** Logger. */
     private Logger log = LoggerFactory.getLogger(ErrorHandler.class);
 
+    /** {inheritDoc} */
     @Override public int handleExecutionException(
         Exception ex,
         CommandLine cmd,
@@ -39,6 +44,7 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
             : cmd.getCommandSpec().exitCodeOnExecutionException();
     }
 
+    /** {inheritDoc} */
     @Override public int handleParseException(CommandLine.ParameterException ex, String[] args) {
         CommandLine cli = ex.getCommandLine();
 

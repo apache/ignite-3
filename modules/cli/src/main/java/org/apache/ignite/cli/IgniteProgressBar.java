@@ -27,12 +27,16 @@ import picocli.CommandLine.Help.Ansi;
  * Basic implementation of a progress bar.
  */
 public class IgniteProgressBar implements AutoCloseable {
+    /** Out to output the progress bar UI.. */
     private final PrintWriter out;
 
-    private int current;
+    /** Current progress. */
+    private int curr;
 
+    /** Maximum progress bar value. */
     private int max;
 
+    /** Execute. */
     private ScheduledExecutorService exec;
 
     /**
@@ -52,8 +56,8 @@ public class IgniteProgressBar implements AutoCloseable {
      * Performs a single step.
      */
     public void step() {
-        if (current < max)
-            current++;
+        if (curr < max)
+            curr++;
 
         out.print('\r' + render());
         out.flush();
@@ -83,8 +87,9 @@ public class IgniteProgressBar implements AutoCloseable {
         max = newMax;
     }
 
+    /** {inheritDoc} */
     @Override public void close() {
-        while (current < max) {
+        while (curr < max) {
             try {
                 Thread.sleep(10);
             }
@@ -98,10 +103,15 @@ public class IgniteProgressBar implements AutoCloseable {
         out.println();
     }
 
+    /**
+     * Render current progress bar state to Ansi string.
+     *
+     * @return Ansi string with progress bar.
+     */
     private String render() {
-        assert current <= max;
+        assert curr <= max;
 
-        int completed = (int)((double)current / (double)max * 100);
+        int completed = (int)((double)curr / (double)max * 100);
 
         StringBuilder sb = new StringBuilder("|");
 

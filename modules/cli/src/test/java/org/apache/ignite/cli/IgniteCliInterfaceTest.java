@@ -33,7 +33,7 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
 import org.apache.ignite.cli.builtins.init.InitIgniteCommand;
 import org.apache.ignite.cli.builtins.module.ModuleManager;
-import org.apache.ignite.cli.builtins.module.ModuleStorage;
+import org.apache.ignite.cli.builtins.module.ModuleRegistry;
 import org.apache.ignite.cli.builtins.module.StandardModuleDefinition;
 import org.apache.ignite.cli.builtins.node.NodeManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
@@ -54,19 +54,29 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Smoke test for Ignite CLI features and its UI.
+ * Structure of tests should be self-documented
+ * and repeat the structure of Ignite CLI subcommands.
+ */
 @DisplayName("ignite")
 @ExtendWith(MockitoExtension.class)
 public class IgniteCliInterfaceTest {
 
+    /** DI application context. */
     ApplicationContext applicationCtx;
 
+    /** stderr. */
     ByteArrayOutputStream err;
 
+    /** stdout. */
     ByteArrayOutputStream out;
 
+    /** */
     @Mock
     CliPathsConfigLoader cliPathsCfgLdr;
 
+    /** */
     @BeforeEach
     void setup() {
         applicationCtx = ApplicationContext.run(Environment.TEST);
@@ -77,6 +87,7 @@ public class IgniteCliInterfaceTest {
         out = new ByteArrayOutputStream();
     }
 
+    /** */
     CommandLine commandLine(ApplicationContext applicationCtx) {
         CommandLine.IFactory factory = new CommandFactory(applicationCtx);
 
@@ -85,9 +96,11 @@ public class IgniteCliInterfaceTest {
             .setOut(new PrintWriter(out, true));
     }
 
+    /** */
     @DisplayName("init")
     @Nested
     class Init {
+        /** */
         @Test
         @DisplayName("init")
         void init() {
@@ -102,21 +115,26 @@ public class IgniteCliInterfaceTest {
         }
     }
 
+    /** */
     @DisplayName("module")
     @Nested
     class Module {
+        /** */
         @Mock
         ModuleManager moduleMgr;
 
+        /** */
         @Mock
-        ModuleStorage moduleStorage;
+        ModuleRegistry moduleRegistry;
 
+        /** */
         @BeforeEach
         void setUp() {
             applicationCtx.registerSingleton(moduleMgr);
-            applicationCtx.registerSingleton(moduleStorage);
+            applicationCtx.registerSingleton(moduleRegistry);
         }
 
+        /** */
         @Test
         @DisplayName("add mvn:groupId:artifact:version")
         void add() {
@@ -134,6 +152,7 @@ public class IgniteCliInterfaceTest {
             Assertions.assertEquals(0, exitCode);
         }
 
+        /** */
         @Test
         @DisplayName("add mvn:groupId:artifact:version --repo http://mvnrepo.com/repostiory")
         void addWithCustomRepo() throws MalformedURLException {
@@ -155,6 +174,7 @@ public class IgniteCliInterfaceTest {
             Assertions.assertEquals(0, exitCode);
         }
 
+        /** */
         @Test
         @DisplayName("add test-module")
         void addBuiltinModule() {
@@ -174,6 +194,7 @@ public class IgniteCliInterfaceTest {
             Assertions.assertEquals(0, exitCode);
         }
 
+        /** */
         @Test
         @DisplayName("remove builtin-module")
         void remove() {
@@ -189,6 +210,7 @@ public class IgniteCliInterfaceTest {
             assertEquals("Module " + moduleName + " was removed successfully.\n", out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("remove unknown-module")
         void removeUnknownModule() {
@@ -204,6 +226,7 @@ public class IgniteCliInterfaceTest {
             assertEquals("Nothing to do: module " + moduleName + " is not yet added.\n", out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("list")
         void list() {
@@ -220,21 +243,21 @@ public class IgniteCliInterfaceTest {
 
             when(moduleMgr.builtinModules()).thenReturn(Arrays.asList(module1, module2));
 
-            var externalModule = new ModuleStorage.ModuleDefinition(
+            var externalModule = new ModuleRegistry.ModuleDefinition(
                 "org.apache.ignite:snapshot:2.9.0",
                 Collections.emptyList(),
                 Collections.emptyList(),
-                ModuleStorage.SourceType.Maven,
+                ModuleRegistry.SourceType.Maven,
                 "mvn:org.apache.ignite:snapshot:2.9.0");
 
-            when(moduleStorage.listInstalled()).thenReturn(
-                new ModuleStorage.ModuleDefinitionsRegistry(
+            when(moduleRegistry.listInstalled()).thenReturn(
+                new ModuleRegistry.ModuleDefinitionsList(
                     Arrays.asList(
-                        new ModuleStorage.ModuleDefinition(
+                        new ModuleRegistry.ModuleDefinition(
                             module1.name,
                             Collections.emptyList(),
                             Collections.emptyList(),
-                            ModuleStorage.SourceType.Standard, ""), externalModule)));
+                            ModuleRegistry.SourceType.Standard, ""), externalModule)));
 
             var exitCode =
                 commandLine(applicationCtx).execute("module list".split(" "));
@@ -262,17 +285,21 @@ public class IgniteCliInterfaceTest {
         }
     }
 
+    /** */
     @Nested
     @DisplayName("node")
     class Node {
+        /** */
         @Mock
         NodeManager nodeMgr;
 
+        /** */
         @BeforeEach
         void setUp() {
             applicationCtx.registerSingleton(nodeMgr);
         }
 
+        /** */
         @Test
         @DisplayName("start node1 --config conf.json")
         void start() {
@@ -306,6 +333,7 @@ public class IgniteCliInterfaceTest {
                 out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("stop node1")
         void stopRunning() {
@@ -329,6 +357,7 @@ public class IgniteCliInterfaceTest {
                 out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("stop unknown-node")
         void stopUnknown() {
@@ -352,6 +381,7 @@ public class IgniteCliInterfaceTest {
                 out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("list")
         void list() {
@@ -382,6 +412,7 @@ public class IgniteCliInterfaceTest {
                 out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("list")
         void listEmpty() {
@@ -402,6 +433,7 @@ public class IgniteCliInterfaceTest {
                 "Use the ignite node start command to start a new node.\n", out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("classpath")
         void classpath() throws IOException {
@@ -415,20 +447,25 @@ public class IgniteCliInterfaceTest {
         }
     }
 
+    /** */
     @Nested
     @DisplayName("config")
     class Config {
+        /** */
         @Mock
         private HttpClient httpClient;
 
+        /** */
         @Mock
         private HttpResponse<String> res;
 
+        /** */
         @BeforeEach
         void setUp() {
             applicationCtx.registerSingleton(httpClient);
         }
 
+        /** */
         @Test
         @DisplayName("get --node-endpoint localhost:8081")
         void get() throws IOException, InterruptedException {
@@ -453,6 +490,7 @@ public class IgniteCliInterfaceTest {
                 "}\n", out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("get --node-endpoint localhost:8081 --selector local.baseline")
         void getSubtree() throws IOException, InterruptedException {
@@ -476,6 +514,7 @@ public class IgniteCliInterfaceTest {
                 "}\n", out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("set --node-endpoint localhost:8081 local.baseline.autoAdjust.enabled=true")
         void setHocon() throws IOException, InterruptedException {
@@ -501,6 +540,7 @@ public class IgniteCliInterfaceTest {
                 "Use the ignite config get command to view the updated configuration.\n", out.toString());
         }
 
+        /** */
         @Test
         @DisplayName("set --node-endpoint localhost:8081 {\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}")
         void setJson() throws IOException, InterruptedException {
@@ -527,6 +567,7 @@ public class IgniteCliInterfaceTest {
         }
     }
 
+    /** */
     private static void assertEquals(String exp, String actual) {
         Assertions.assertEquals(
             exp.lines().collect(Collectors.toList()),

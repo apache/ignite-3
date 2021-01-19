@@ -35,23 +35,45 @@ import org.apache.ignite.cli.IgniteCLIException;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.Help.ColorScheme;
 
+/**
+ * Client to get/put HOCON based configuration from/to Ignite server nodes
+ */
 @Singleton
 public class ConfigurationClient {
+    /** Url for getting configuration from REST endpoint of the node. */
     private static final String GET_URL = "/management/v1/configuration/";
 
+    /** Url for set configuration with REST endpoint of the node. */
     private static final String SET_URL = "/management/v1/configuration/";
 
+    /** Http client. */
     private final HttpClient httpClient;
 
+    /** Mapper serialize/deserialize json values during communication with node REST endpoint. */
     private final ObjectMapper mapper;
 
+    /**
+     * Creates new configuration client.
+     *
+     * @param httpClient Http client.
+     */
     @Inject
     public ConfigurationClient(HttpClient httpClient) {
         this.httpClient = httpClient;
         mapper = new ObjectMapper();
     }
 
-    public String get(String host, int port,
+    /**
+     * Get server node configuration as a raw JSON string.
+     *
+     * @param host String representation of server node host.
+     * @param port Host REST port.
+     * @param rawHoconPath HOCON dot-delimited path of requested configuration.
+     * @return JSON string with node configuration.
+     */
+    public String get(
+        String host,
+        int port,
         @Nullable String rawHoconPath) {
         var req = HttpRequest
             .newBuilder()
@@ -79,6 +101,15 @@ public class ConfigurationClient {
         }
     }
 
+    /**
+     * Set node configuration from JSON string with configs.
+     *
+     * @param host String representation of server node host.
+     * @param port Host REST port.
+     * @param rawHoconData Valid HOCON represented as a string.
+     * @param out PrintWriter for printing user messages.
+     * @param cs ColorScheme to enrich user messages.
+     */
     public void set(String host, int port, String rawHoconData, PrintWriter out, ColorScheme cs) {
         var req = HttpRequest
             .newBuilder()
@@ -104,6 +135,14 @@ public class ConfigurationClient {
         }
     }
 
+    /**
+     * Prepare exception with message, enriched by HTTP response details.
+     *
+     * @param msg Base error message.
+     * @param res Http response, which cause the raising exce[tion.
+     * @return Exception with detailed message.
+     * @throws JsonProcessingException if response has incorrect error format.
+     */
     private IgniteCLIException error(String msg, HttpResponse<String> res) throws JsonProcessingException {
         var errorMsg = mapper.writerWithDefaultPrettyPrinter()
             .writeValueAsString(mapper.readValue(res.body(), JsonNode.class));
@@ -111,6 +150,12 @@ public class ConfigurationClient {
         return new IgniteCLIException(msg + "\n\n" + errorMsg);
     }
 
+    /**
+     * Produce JSON representation of any valid HOCON string.
+     *
+     * @param rawHoconData HOCON string.
+     * @return JSON representation of HOCON string.
+     */
     private static String renderJsonFromHocon(String rawHoconData) {
         return ConfigFactory.parseString(rawHoconData)
             .root().render(ConfigRenderOptions.concise());

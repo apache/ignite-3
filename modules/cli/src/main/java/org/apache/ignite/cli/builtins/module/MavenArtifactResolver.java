@@ -55,25 +55,50 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- *
+ * Resolver of maven artifacts with Ivy.
  */
 @Singleton
 public class MavenArtifactResolver {
+    /** Pattern for naming artifact files. **/
     private static final String FILE_ARTIFACT_PATTERN = "[artifact](-[classifier]).[revision].[ext]";
 
+    /** Resolver of system paths. **/
     private final SystemPathResolver pathRslvr;
 
+    /** Console writer for output user messages. **/
     private PrintWriter out;
 
+    /**
+     * Creates resolver
+     *
+     * @param pathRslvr Resolver of system paths like home directory and etc.
+     */
     @Inject
     public MavenArtifactResolver(SystemPathResolver pathRslvr) {
         this.pathRslvr = pathRslvr;
     }
 
+    /**
+     * Set writer for user messages.
+     *
+     * @param out PrintWriter
+     */
     public void setOut(PrintWriter out) {
         this.out = out;
     }
 
+    /**
+     * Download and copy artifact and its dependencies to {mavenRoot}.
+     *
+     * @param mavenRoot Path where artifacts will be copied to.
+     * @param grpId Maven group id of the artifact.
+     * @param artifactId Maven artifact id of the artifact.
+     * @param ver Manve version of the artifact.
+     * @param customRepositories Urls with custom maven repositories to resolve artifact.
+     * @return Result of resolving with files' paths of resolved artifact + dependencies.
+     * @throws IOException if connection issues occurred during resolving
+     *                     or if r/w issues occurred during the retrieving of artifacts
+     */
     public ResolveResult resolve(
         Path mavenRoot,
         String grpId,
@@ -145,9 +170,9 @@ public class MavenArtifactResolver {
      * <p>
      * Note: Current implementation doesn't support artifacts with classifiers or non-jar packaging
      *
-     * @param artfactId
-     * @param ver
-     * @return
+     * @param artfactId Maven artifact id.
+     * @param ver Maven version
+     * @return File name
      */
     public static String fileNameByArtifactPattern(
         String artfactId,
@@ -159,6 +184,12 @@ public class MavenArtifactResolver {
             .replace("[ext]", "jar");
     }
 
+    /**
+     * Prepare Ivy instance for artifact resolving.
+     *
+     * @param repositories Additional maven repositories
+     * @return Ivy instance
+     */
     private Ivy ivyInstance(List<URL> repositories) {
         File tmpDir;
 
@@ -228,6 +259,16 @@ public class MavenArtifactResolver {
         return ivy;
     }
 
+    /**
+     * Prepare Ivy module descriptor with target maven artifact as a dependency.
+     * Then descriptor can be used for further resolving the artifact dependencies.
+     * Existence of this descriptor is Ivy's requirement.
+     *
+     * @param grpId Maven group id.
+     * @param artifactId Maven artifact id.
+     * @param ver Maven artifact version.
+     * @return Prepared for resolving module descriptor.
+     */
     private ModuleDescriptor rootModuleDescriptor(String grpId, String artifactId, String ver) {
         // 1st create an ivy module (this always(!) has a "default" configuration already)
         DefaultModuleDescriptor md = DefaultModuleDescriptor.newDefaultInstance(
@@ -261,17 +302,24 @@ public class MavenArtifactResolver {
         return md;
     }
 
+    /**
+     * Ivy logger for routing all ivy logs to general logging system of CLI.
+     */
     private static class IvyLogger extends AbstractMessageLogger {
+        /** Common loogger */
         private final Logger log = LoggerFactory.getLogger(IvyLogger.class);
 
+        /** {@inheritDoc} */
         @Override protected void doProgress() {
             // no-op
         }
 
+        /** {@inheritDoc} */
         @Override protected void doEndProgress(String msg) {
             // no-op
         }
 
+        /** {@inheritDoc} */
         @Override public void log(String msg, int level) {
             switch (level) {
                 case Message.MSG_ERR:
@@ -296,6 +344,7 @@ public class MavenArtifactResolver {
             }
         }
 
+        /** {@inheritDoc} */
         @Override public void rawlog(String msg, int level) {
             log(msg, level);
         }

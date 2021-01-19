@@ -44,35 +44,45 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Tests for Ignite init command.
+ */
 @ExtendWith(MockitoExtension.class)
 @MicronautTest
 public class InitIgniteCommandTest {
 
+    /** */
     @Inject
     SystemPathResolver pathRslvr;
 
+    /** */
     @Inject
     MavenArtifactResolver mavenArtifactRslvr;
 
+    /** */
     @Inject
     InitIgniteCommand initIgniteCmd;
 
+    /** */
     @Inject
     CliPathsConfigLoader cliPathsCfgLdr;
 
+    /** Temporary home directory replacement. */
     @TempDir
     Path homeDir;
 
+    /** Temporary current directory replacement. */
     @TempDir
     Path currDir;
 
+    /** */
     @Test
     void init() throws IOException {
         when(pathRslvr.osHomeDirectoryPath()).thenReturn(homeDir);
         when(pathRslvr.toolHomeDirectoryPath()).thenReturn(currDir);
 
         when(mavenArtifactRslvr.resolve(any(), any(), any(), any(), any()))
-            .thenReturn(new ResolveResult(Arrays.asList()));
+            .thenReturn(new ResolveResult(Collections.emptyList()));
 
         var out = new PrintWriter(System.out, true);
 
@@ -83,6 +93,7 @@ public class InitIgniteCommandTest {
         assertTrue(ignitePaths.validateDirs());
     }
 
+    /** */
     @Test
     void reinit() throws IOException {
         when(pathRslvr.osHomeDirectoryPath()).thenReturn(homeDir);
@@ -106,15 +117,18 @@ public class InitIgniteCommandTest {
         assertTrue(ignitePaths::validateDirs);
     }
 
+    /** */
     @MockBean(MavenArtifactResolver.class)
     MavenArtifactResolver mavenArtifactResolver() {
         return mock(MavenArtifactResolver.class);
     }
 
+    /** */
     @MockBean(SystemPathResolver.class) SystemPathResolver systemPathResolver() {
         return mock(SystemPathResolver.class);
     }
 
+    /** */
     private void recursiveDirRemove(Path dir) throws IOException {
         Files.walk(dir)
             .sorted(Comparator.reverseOrder())

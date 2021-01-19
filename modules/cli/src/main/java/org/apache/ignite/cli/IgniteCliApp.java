@@ -21,6 +21,9 @@ import io.micronaut.context.ApplicationContext;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.fusesource.jansi.AnsiConsole;
 
+/**
+ * Entry point of Ignite CLI.
+ */
 public class IgniteCliApp {
     public static void main(String... args) {
         ApplicationContext applicationCtx = ApplicationContext.run();

@@ -31,6 +31,9 @@ import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.Help.ColorScheme;
 
+/**
+ * Commands for start/stop/list Ignite nodes on the current machine.
+ */
 @CommandLine.Command(
     name = "node",
     description = "Manages locally running Ignite nodes.",
@@ -42,21 +45,29 @@ import picocli.CommandLine.Help.ColorScheme;
     }
 )
 public class NodeCommandSpec extends CategorySpec {
+    /**
+     * Start Ignite node command.
+     */
     @CommandLine.Command(name = "start", description = "Starts an Ignite node locally.")
     public static class StartNodeCommandSpec extends CommandSpec {
 
+        /** Loader for Ignite distributive paths. */
         @Inject
         private CliPathsConfigLoader cliPathsCfgLdr;
 
+        /** Node manager. */
         @Inject
         private NodeManager nodeMgr;
 
+        /** Consistent id, which will be used by new node. */
         @CommandLine.Parameters(paramLabel = "consistent-id", description = "Consistent ID of the new node")
         public String consistentId;
 
+        /** Path to node config. */
         @CommandLine.Option(names = "--config", description = "Configuration file to start the node with")
         public Path configPath;
 
+        /** {inheritDoc} */
         @Override public void run() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
@@ -85,14 +96,20 @@ public class NodeCommandSpec extends CategorySpec {
         }
     }
 
+    /**
+     * Command for stopping Ignite node on the current machine.
+     */
     @CommandLine.Command(name = "stop", description = "Stops a locally running Ignite node.")
     public static class StopNodeCommandSpec extends CommandSpec {
+        /** Node manager. */
         @Inject
         private NodeManager nodeMgr;
 
+        /** Loader for Ignite distributive paths. */
         @Inject
         private CliPathsConfigLoader cliPathsCfgLdr;
 
+        /** Consistent ids of nodes to stop. */
         @CommandLine.Parameters(
             arity = "1..*",
             paramLabel = "consistent-ids",
@@ -100,6 +117,7 @@ public class NodeCommandSpec extends CategorySpec {
         )
         public List<String> consistentIds;
 
+        /** {inheritDoc} */
         @Override public void run() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
@@ -117,14 +135,20 @@ public class NodeCommandSpec extends CategorySpec {
         }
     }
 
+    /**
+     * Command for listing the running nodes.
+     */
     @CommandLine.Command(name = "list", description = "Shows the list of currently running local Ignite nodes.")
     public static class ListNodesCommandSpec extends CommandSpec {
+        /** Node manager. */
         @Inject
         private NodeManager nodeMgr;
 
+        /** Loader for Ignite distributive paths. */
         @Inject
         private CliPathsConfigLoader cliPathsCfgLdr;
 
+        /** {inheritDoc} */
         @Override public void run() {
             IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
@@ -157,11 +181,16 @@ public class NodeCommandSpec extends CategorySpec {
         }
     }
 
+    /**
+     * Command for reading the current classpath of Ignite nodes.
+     */
     @CommandLine.Command(name = "classpath", description = "Shows the current classpath used by the Ignite nodes.")
     public static class NodesClasspathCommandSpec extends CommandSpec {
+        /** Node manager. */
         @Inject
         private NodeManager nodeMgr;
 
+        /** {inheritDoc} */
         @Override public void run() {
             try {
                 List<String> items = nodeMgr.classpathItems();

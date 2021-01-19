@@ -27,22 +27,43 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 
+/**
+ * Due to the nature of Ignite CLI tool it can be runned in the environment without ignitecfg file at all.
+ * This class created to simplify the managing of the different cases:
+ * <ul>
+ *     <li>When user download binary and run it to manage any existence remote cluster</li>
+ *     <li>When user download binary and run 'init' to deploy Ignite distribution on the current machine</li>
+ *     <li>When user install it by system package</li>
+ * </ul>
+ */
 @Singleton
 public class CliPathsConfigLoader {
-
+    /** System paths' resolver. */
     private final SystemPathResolver pathRslvr;
 
+    /** Ignite CLI tool version. */
     private final String ver;
 
+    /**
+     * Creates new loader.
+     *
+     * @param pathRslvr System paths' resolver.
+     * @param cliVerInfo CLI version info provider.
+     */
     @Inject
     public CliPathsConfigLoader(
         SystemPathResolver pathRslvr,
-        CliVersionInfo cliVersionInfo
+        CliVersionInfo cliVerInfo
     ) {
         this.pathRslvr = pathRslvr;
-        this.ver = cliVersionInfo.ver;
+        this.ver = cliVerInfo.ver;
     }
 
+    /**
+     * Load Ignite paths config from file if exists.
+     *
+     * @return IgnitePaths if config file exists, empty otherwise.
+     */
     public Optional<IgnitePaths> loadIgnitePathsConfig() {
         if (configFilePath().toFile().exists())
             return Optional.of(readConfigFile(configFilePath(), ver));
@@ -50,6 +71,11 @@ public class CliPathsConfigLoader {
         return Optional.empty();
     }
 
+    /**
+     * Load Ignite paths configuration if config file exists or failed otherwise.
+     *
+     * @return IgnitePaths or throw exception, if no config file exists.
+     */
     public IgnitePaths loadIgnitePathsOrThrowError() {
         Optional<IgnitePaths> ignitePaths = loadIgnitePathsConfig();
 
@@ -64,12 +90,22 @@ public class CliPathsConfigLoader {
             throw new IgniteCLIException("To execute node module/node management commands you must run 'init' first");
     }
 
+    /**
+     * @return Path to Ignite CLI config file.
+     */
     public Path configFilePath() {
         return pathRslvr.osHomeDirectoryPath().resolve(".ignitecfg");
     }
 
-    private static IgnitePaths readConfigFile(Path configPath, String version) {
-        try (InputStream inputStream = new FileInputStream(configPath.toFile())) {
+    /**
+     * Read Ignite CLI configuration file and prepare {@link IgnitePaths} instance.
+     *
+     * @param cfgPath Path to config file.
+     * @param ver Ignite CLI version.
+     * @return IgnitePaths with resolved directories of current Ignite distribution.
+     */
+    private static IgnitePaths readConfigFile(Path cfgPath, String ver) {
+        try (InputStream inputStream = new FileInputStream(cfgPath.toFile())) {
             Properties props = new Properties();
             props.load(inputStream);
 
@@ -80,7 +116,7 @@ public class CliPathsConfigLoader {
             return new IgnitePaths(
                 Path.of(props.getProperty("bin")),
                 Path.of(props.getProperty("work")),
-                version);
+                ver);
         }
         catch (IOException e) {
             throw new IgniteCLIException("Can't read config file");
