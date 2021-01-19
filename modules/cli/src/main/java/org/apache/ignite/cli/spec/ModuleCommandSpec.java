@@ -182,7 +182,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
             public final StandardModuleDefinition standardModuleDefinition;
             public final boolean installed;
 
-            public StandardModuleView(StandardModuleDefinition standardModuleDefinition, boolean installed) {
+            private StandardModuleView(StandardModuleDefinition standardModuleDefinition, boolean installed) {
                 this.standardModuleDefinition = standardModuleDefinition;
                 this.installed = installed;
             }

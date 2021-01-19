@@ -189,7 +189,7 @@ public class NodeManager {
                 List<Path> files = Files.find(pidsDir, 1,
                     (f, attrs) ->
                         f.getFileName().toString().startsWith(consistentId + "_")).collect(Collectors.toList());
-                if (files.size() > 0) {
+                if (!files.isEmpty()) {
                     return files.stream().map(f -> {
                         try {
                             long pid = Long.parseLong(Files.readAllLines(f).get(0));

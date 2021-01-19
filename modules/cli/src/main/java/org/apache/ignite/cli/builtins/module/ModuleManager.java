@@ -210,15 +210,4 @@ public class ModuleManager {
         }
         return modules;
     }
-
-    private static class IgniteArtifacts {
-        private List<Path> serverArtifacts;
-        private List<Path> cliArtifacts;
-
-        public IgniteArtifacts(List<Path> serverArtifacts, List<Path> cliArtifacts) {
-            this.serverArtifacts = serverArtifacts;
-            this.cliArtifacts = cliArtifacts;
-        }
-    }
-
 }
