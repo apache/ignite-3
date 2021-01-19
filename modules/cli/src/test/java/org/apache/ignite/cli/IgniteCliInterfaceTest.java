@@ -391,8 +391,8 @@ public class IgniteCliInterfaceTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/") &&
-                    r.headers().firstValue("Content-Type").get().equals("application/json")),
+                argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
+                    "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("{\n" +
                 "  \"baseline\" : {\n" +
@@ -416,8 +416,8 @@ public class IgniteCliInterfaceTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/local.baseline") &&
-                    r.headers().firstValue("Content-Type").get().equals("application/json")),
+                argThat(r -> "http://localhost:8081/management/v1/configuration/local.baseline".equals(r.uri().toString()) &&
+                    "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("{\n" +
                 "  \"autoAdjust\" : {\n" +
@@ -441,11 +441,11 @@ public class IgniteCliInterfaceTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/") &&
-                    r.method().equals("POST") &&
+                argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
+                    "POST".equals(r.method()) &&
                     // TODO: body matcher should be fixed to more appropriate
                     r.bodyPublisher().get().contentLength() == expectedSentContent.getBytes().length &&
-                    r.headers().firstValue("Content-Type").get().equals("application/json")),
+                    "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
                 "Use the ignite config get command to view the updated configuration.\n", out.toString());
@@ -466,11 +466,11 @@ public class IgniteCliInterfaceTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/") &&
-                    r.method().equals("POST") &&
+                argThat(r -> "http://localhost:8081/management/v1/configuration/".equals(r.uri().toString()) &&
+                    "POST".equals(r.method()) &&
                     // TODO: body matcher should be fixed to more appropriate
                     r.bodyPublisher().get().contentLength() == expectedSentContent.getBytes().length &&
-                    r.headers().firstValue("Content-Type").get().equals("application/json")),
+                    "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
                 "Use the ignite config get command to view the updated configuration.\n", out.toString());
