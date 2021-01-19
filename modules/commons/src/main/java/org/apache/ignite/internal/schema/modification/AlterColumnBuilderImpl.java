@@ -21,10 +21,18 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.modification.AlterColumnBuilder;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
+/**
+ * Alter column builder.
+ */
 class AlterColumnBuilderImpl implements AlterColumnBuilder {
-
+    /** Table modification builder. */
     private final TableModificationBuilderImpl tableBuilder;
 
+    /**
+     * Constructor.
+     *
+     * @param tableBuilder Table modification builder.
+     */
     public AlterColumnBuilderImpl(TableModificationBuilderImpl tableBuilder) {
         this.tableBuilder = tableBuilder;
     }

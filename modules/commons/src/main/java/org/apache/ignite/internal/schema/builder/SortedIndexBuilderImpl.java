@@ -35,6 +35,9 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     /** Inline size. */
     protected int inlineSize;
 
+    /** Unique flag. */
+    protected boolean uniq;
+
     /**
      * Constructor.
      *
@@ -54,6 +57,13 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     /** {@inheritDoc} */
     @Override public SortedIndexColumnBuilderImpl addIndexColumn(String name) {
         return new SortedIndexColumnBuilderImpl(this).withName(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override public SortedIndexBuilderImpl unique() {
+        uniq = true;
+
+        return this;
     }
 
     /**
@@ -78,7 +88,8 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         return new SortedIndexImpl(
             name,
             cols.values().stream().map(c -> new SortedIndexImpl.IndexColumnImpl(c.name, c.asc)).collect(Collectors.toList()),
-            inlineSize);
+            inlineSize,
+            uniq);
     }
 
     /**

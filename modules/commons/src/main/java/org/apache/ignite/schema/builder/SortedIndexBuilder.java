@@ -17,6 +17,7 @@
 
 package org.apache.ignite.schema.builder;
 
+import org.apache.ignite.internal.schema.builder.SortedIndexBuilderImpl;
 import org.apache.ignite.schema.SortedIndex;
 
 /**
@@ -30,6 +31,13 @@ public interface SortedIndexBuilder extends Builder {
      * @return {@code this} for chaining.
      */
     SortedIndexBuilder withInlineSize(int inlineSize);
+
+    /**
+     * Sets unique flag to {@code true}.
+     *
+     * @return {@code this} for chaining.
+     */
+    SortedIndexBuilder unique();
 
     /**
      * Adds column to index.

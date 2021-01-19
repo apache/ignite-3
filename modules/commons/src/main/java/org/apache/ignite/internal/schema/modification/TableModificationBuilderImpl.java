@@ -23,10 +23,18 @@ import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.modification.AlterColumnBuilder;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
 
+/**
+ * Table modification builder.
+ */
 public class TableModificationBuilderImpl implements TableModificationBuilder {
-
+    /** Table. */
     private final SchemaTableImpl table;
 
+    /**
+     * Constructor.
+     *
+     * @param table Table.
+     */
     public TableModificationBuilderImpl(SchemaTableImpl table) {
         this.table = table;
     }

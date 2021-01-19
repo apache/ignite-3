@@ -34,18 +34,23 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
     /** Columns. */
     private final List<IndexColumn> cols;
 
+    /** Unique flag. */
+    private final boolean uniq;
+
     /**
      * Constructor.
      *
      * @param name Index name.
      * @param cols Index columns.
      * @param inlineSize Inline size.
+     * @param uniq Unique flag.
      */
-    public SortedIndexImpl(String name, List<IndexColumn> cols, int inlineSize) {
+    public SortedIndexImpl(String name, List<IndexColumn> cols, int inlineSize, boolean uniq) {
         super(name);
 
         this.inlineSize = inlineSize;
         this.cols = Collections.unmodifiableList(cols);
+        this.uniq = uniq;
     }
 
     /** {@inheritDoc} */
@@ -60,7 +65,12 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
 
     /** {@inheritDoc} */
     @Override public Collection<IndexColumn> indexedColumns() {
-        return null;
+        return cols;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean unique() {
+        return uniq;
     }
 
     /** {@inheritDoc} */
@@ -69,6 +79,7 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
             "name='" + name + '\'' +
             ", type=SORTED" +
             ", inline=" + inlineSize +
+            ", uniq=" + uniq +
             ", columns=[" + columns().stream().map(IndexColumn::toString).collect(Collectors.joining(",")) + ']' +
             ']';
     }
