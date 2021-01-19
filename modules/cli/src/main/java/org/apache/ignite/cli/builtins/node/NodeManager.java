@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.inject.Inject;
@@ -106,7 +107,7 @@ public class NodeManager {
         var start = System.currentTimeMillis();
 
         while ((System.currentTimeMillis() - start) < timeout.toMillis()) {
-            Thread.sleep(LOG_FILE_POLL_INTERVAL.toMillis());
+            LockSupport.parkNanos(LOG_FILE_POLL_INTERVAL.toNanos());
 
             var content = Files.readString(file);
 
@@ -154,7 +155,7 @@ public class NodeManager {
             try (Stream<Path> files = Files.find(pidsDir, 1, (f, attrs) ->  f.getFileName().toString().endsWith(".pid"))) {
                     return files
                         .map(f -> {
-                            long pid = 0;
+                            long pid;
                             try {
                                 pid = Long.parseLong(Files.readAllLines(f).get(0));
                                 if (!ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
@@ -170,7 +171,6 @@ public class NodeManager {
                                 String consistentId = filename.substring(0, filename.lastIndexOf("_"));
                                 return Optional.of(new RunningNode(pid, consistentId, logFile(worksDir, consistentId)));
                             }
-
                         })
                         .filter(Optional::isPresent)
                         .map(Optional::get).collect(Collectors.toList());

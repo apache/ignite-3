@@ -75,21 +75,16 @@ public class UsageTest {
         final LocalConfiguration root = configurator.getRoot();
         root.baseline().autoAdjust().enabled().value();
 
-        try {
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
             configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED, false);
-            Assertions.fail();
-        } catch (ConfigurationValidationException e) {}
+        });
         configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST, new ChangeAutoAdjust().withEnabled(false).withTimeout(0L));
         configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(false);
         configurator.getRoot().baseline().autoAdjust().enabled(true);
         configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(true);
 
-        try{
+        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
             configurator.getRoot().baseline().autoAdjust().enabled(false);
-            Assertions.fail();
-        } catch (ConfigurationValidationException e) {}
-
-        PublicConfigurator<LocalConfiguration> con = new PublicConfigurator<>(configurator);
+        });
     }
-
 }
