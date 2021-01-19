@@ -2426,7 +2426,7 @@
   <inspection_tool class="SafeVarargsDetector" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="SameElementsToEquals" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="SamePackageImport" enabled="false" level="WARNING" enabled_by_default="false" />
-  <inspection_tool class="SameParameterValue" enabled="true" level="WARNING" enabled_by_default="true" />
+  <inspection_tool class="SameParameterValue" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="SameReturnValue" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="SbtReplaceProjectWithProjectIn" enabled="false" level="WARNING" enabled_by_default="false" />
   <inspection_tool class="ScalaDefaultFileTemplate" enabled="false" level="WARNING" enabled_by_default="false" />
@@ -2996,7 +2996,7 @@
   <inspection_tool class="unused" enabled="true" level="ERROR" enabled_by_default="true" method="private" ignoreAccessors="true" INNER_CLASS="false" isSelected="true">
     <option name="LOCAL_VARIABLE" value="true" />
     <option name="FIELD" value="false" />
-    <option name="METHOD" value="true" />
+    <option name="METHOD" value="false" />
     <option name="CLASS" value="false" />
     <option name="PARAMETER" value="true" />
     <option name="REPORT_PARAMETER_FOR_PUBLIC_METHODS" value="false" />

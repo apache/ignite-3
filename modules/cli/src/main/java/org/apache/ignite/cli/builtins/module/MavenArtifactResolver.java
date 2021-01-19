@@ -161,7 +161,7 @@ public class MavenArtifactResolver {
     }
 
     private Ivy ivyInstance(List<URL> repositories) {
-        File tmpDir = null;
+        File tmpDir;
         try {
             tmpDir = Files.createTempDirectory("ignite-installer-cache").toFile();
         }
