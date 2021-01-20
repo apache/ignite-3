@@ -15,31 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema;
+package org.apache.ignite.internal.schema;
+
+import org.apache.ignite.schema.IndexColumn;
 
 /**
- * Table column descriptor.
+ * Non-ordered index column.
  */
-public interface Column extends SchemaObject {
+class IndexColumnImpl extends AbstractSchemaObject implements IndexColumn {
     /**
-     * @return Column name.
-     */
-    @Override String name();
-
-    /**
-     * @return Column type.
-     */
-    ColumnType type();
-
-    /**
-     * {@code Nullable} flag.
+     * Constructor.
      *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
+     * @param name Column name.
      */
-    boolean nullable();
+    IndexColumnImpl(String name) {
+        super(name);
+    }
 
-    /**
-     * @return Default column value.
-     */
-    Object defaultValue();
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "Column[" +
+            "name='" + name() + '\'' +
+            ']';
+    }
 }

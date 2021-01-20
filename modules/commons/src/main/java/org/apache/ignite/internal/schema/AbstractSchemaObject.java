@@ -17,44 +17,50 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import org.apache.ignite.schema.HashIndex;
-import org.apache.ignite.schema.IndexColumn;
+import java.util.Objects;
+import org.apache.ignite.schema.SchemaObject;
 
 /**
- * Hash index.
+ * Schema object base class.
  */
-public class HashIndexImpl extends AbstractSchemaObject implements HashIndex {
-    /** Index columns. */
-    private final List<IndexColumn> columns;
+public abstract class AbstractSchemaObject implements SchemaObject {
+    /** Schema object name. */
+    private final String name;
 
     /**
      * Constructor.
      *
-     * @param name Index name.
-     * @param columns Index columns.
+     * @param name Schema object name.
      */
-    public HashIndexImpl(String name, String[] columns) {
-        super(name);
-
-        this.columns = Arrays.stream(columns).map(IndexColumnImpl::new).collect(Collectors.toUnmodifiableList());
+    protected AbstractSchemaObject(String name) {
+        this.name = name;
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    @Override public List<IndexColumn> columns() {
-        return columns;
+    @Override public String name() {
+        return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        AbstractSchemaObject object = (AbstractSchemaObject)o;
+        return Objects.equals(name, object.name);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Objects.hash(name);
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "TableIndex[" +
-            "type=HASH, " +
-            "name='" + name() + '\'' +
-            ", columns=[" + columns.stream().map(IndexColumn::name).collect(Collectors.joining()) + ']' +
+        return "SchemaObject[" +
+            "name='" + name + '\'' +
+            "class=" + this.getClass().getName() +
             ']';
     }
-
 }

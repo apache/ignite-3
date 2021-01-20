@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,7 +27,7 @@ import org.apache.ignite.schema.SortedIndexColumn;
 /**
  * Sorted index.
  */
-public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
+public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex {
     /** Index inline size. */
     protected final int inlineSize;
 
@@ -77,51 +76,12 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
     /** {@inheritDoc} */
     @Override public String toString() {
         return "SortedIndex[" +
-            "name='" + name + '\'' +
+            "name='" + name() + '\'' +
             ", type=SORTED" +
             ", inline=" + inlineSize +
             ", uniq=" + uniq +
-            ", columns=[" + columns().stream().map(IndexColumn::toString).collect(Collectors.joining(",")) + ']' +
-            ']';
+            ", columns=[" + columns().stream().map(IndexColumn::toString).collect(Collectors.joining(",")) +
+            "]]";
     }
 
-    /**
-     * Index column.
-     */
-    public static class IndexColumnImpl implements SortedIndexColumn {
-        /** Column name. */
-        private final String name;
-
-        /** Sort order. */
-        private final boolean asc;
-
-        /**
-         * Constructor.
-         *
-         * @param name Column name.
-         * @param asc Sort order flag.
-         */
-        public IndexColumnImpl(String name, boolean asc) {
-            this.name = name;
-            this.asc = asc;
-        }
-
-        /** {@inheritDoc} */
-        @Override public String name() {
-            return name;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean asc() {
-            return asc;
-        }
-
-        /** {@inheritDoc} */
-        @Override public String toString() {
-            return "Column[" +
-                "name='" + name + '\'' +
-                ", order=" + (asc ? "asc" : "desc") +
-                ']';
-        }
-    }
 }

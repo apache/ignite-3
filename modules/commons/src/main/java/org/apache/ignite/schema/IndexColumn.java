@@ -20,9 +20,9 @@ package org.apache.ignite.schema;
 /**
  * Index column descriptor.
  */
-public interface IndexColumn {
+public interface IndexColumn extends SchemaObject {
     /**
      * @return Column name.
      */
-    String name();
+    @Override String name();
 }

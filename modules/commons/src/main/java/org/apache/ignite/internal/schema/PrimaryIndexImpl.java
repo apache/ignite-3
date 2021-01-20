@@ -24,7 +24,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SortedIndexColumn;
 
 /**
- * Primary index.
+ * Primary key index.
  */
 public class PrimaryIndexImpl extends SortedIndexImpl implements PrimaryIndex {
     /** Affinity columns. */

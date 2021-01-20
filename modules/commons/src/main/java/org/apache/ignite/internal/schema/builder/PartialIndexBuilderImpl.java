@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema.builder;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.PartialIndexImpl;
-import org.apache.ignite.internal.schema.SortedIndexImpl;
+import org.apache.ignite.internal.schema.SortedIndexColumnImpl;
 import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
 
@@ -53,7 +53,7 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
 
         return new PartialIndexImpl(
             name,
-            cols.values().stream().map(c -> new SortedIndexImpl.IndexColumnImpl(c.name, c.asc)).collect(Collectors.toList()),
+            cols.values().stream().map(c -> new SortedIndexColumnImpl(c.name, c.asc)).collect(Collectors.toList()),
             inlineSize,
             unique,
             expr

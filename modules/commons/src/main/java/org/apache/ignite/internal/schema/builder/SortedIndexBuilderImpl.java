@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.SortedIndexColumnImpl;
 import org.apache.ignite.internal.schema.SortedIndexImpl;
 import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.SortedIndexColumn;
@@ -79,7 +80,7 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
      * @return Index columns.
      */
     public List<SortedIndexColumn> columns() {
-        return cols.values().stream().map(c -> new SortedIndexImpl.IndexColumnImpl(c.name, c.asc)).collect(Collectors.toList());
+        return cols.values().stream().map(c -> new SortedIndexColumnImpl(c.name, c.asc)).collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */

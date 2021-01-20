@@ -25,10 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table column.
  */
-public class ColumnImpl implements Column {
-    /** Column name. */
-    private final String name;
-
+public class ColumnImpl extends AbstractSchemaObject implements Column {
     /** Column type. */
     private final ColumnType type;
 
@@ -47,7 +44,7 @@ public class ColumnImpl implements Column {
      * @param defVal Default value.
      */
     public ColumnImpl(String name, ColumnType type, boolean nullable, @Nullable Object defVal) {
-        this.name = name;
+        super(name);
         this.type = type;
         this.nullable = nullable;
         this.defVal = defVal;
@@ -56,11 +53,6 @@ public class ColumnImpl implements Column {
     /** {@inheritDoc} */
     @Override public ColumnType type() {
         return type;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String name() {
-        return name;
     }
 
     /** {@inheritDoc} */
@@ -82,17 +74,17 @@ public class ColumnImpl implements Column {
 
         ColumnImpl column = (ColumnImpl)o;
 
-        return nullable == column.nullable && name.equals(column.name) && type.equals(column.type) && Objects.equals(defVal, column.defVal);
+        return nullable == column.nullable && name().equals(column.name()) && type.equals(column.type) && Objects.equals(defVal, column.defVal);
     }
 
     @Override public int hashCode() {
-        return Objects.hash(name, type, nullable, defVal);
+        return Objects.hash(super.hashCode(), type, nullable, defVal);
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
         return "ColumnImpl[" +
-            "name='" + name + '\'' +
+            "name='" + name() + '\'' +
             ", type=" + type +
             ", nullable=" + nullable +
             ", default=" + defVal +

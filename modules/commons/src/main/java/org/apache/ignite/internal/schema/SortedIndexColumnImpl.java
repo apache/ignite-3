@@ -15,49 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema;
+package org.apache.ignite.internal.schema;
 
-import java.util.Collection;
-import org.apache.ignite.schema.modification.TableModificationBuilder;
+import org.apache.ignite.schema.SortedIndexColumn;
 
 /**
- * Schema table descriptor.
+ * Ordered index column.
  */
-public interface SchemaTable extends SchemaObject {
-    /**
-     * @return Table name.
-     */
-    @Override String name();
+public class SortedIndexColumnImpl extends AbstractSchemaObject implements SortedIndexColumn {
+    /** Sort order. */
+    private final boolean asc;
 
     /**
-     * @return Key columns.
-     */
-    Collection<Column> keyColumns();
-
-    /**
-     * @return Affinity columns.
-     */
-    Collection<Column> affinityColumns();
-
-    /**
-     * @return Value columns.
-     */
-    Collection<Column> valueColumns();
-
-    /**
-     * Schema name + Table name
+     * Constructor.
      *
-     * @return Canonical table name.
+     * @param name Column name.
+     * @param asc Sort order flag.
      */
-    String canonicalName();
+    public SortedIndexColumnImpl(String name, boolean asc) {
+        super(name);
 
-    /**
-     * @return Table indexes.
-     */
-    Collection<TableIndex> indices();
+        this.asc = asc;
+    }
 
-    /**
-     * @return Schema modification builder.
-     */
-    TableModificationBuilder toBuilder();
+    /** {@inheritDoc} */
+    @Override public boolean asc() {
+        return asc;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "Column[" +
+            "name='" + name() + '\'' +
+            ", order=" + (asc ? "asc" : "desc") +
+            ']';
+    }
 }

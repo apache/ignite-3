@@ -15,28 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
-
-import org.apache.ignite.schema.TableIndex;
+package org.apache.ignite.schema;
 
 /**
- * Index base class.
+ * Schema object.
  */
-public abstract class AbstractIndexImpl implements TableIndex {
-    /** Index name. */
-    protected final String name;
-
+public interface SchemaObject {
     /**
-     * Constructor.
-     *
-     * @param name Index name.
+     * @return Schema object name.
      */
-    public AbstractIndexImpl(String name) {
-        this.name = name;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String name() {
-        return name;
-    }
+    String name();
 }

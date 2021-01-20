@@ -24,7 +24,7 @@ import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.SortedIndexColumn;
 
 /**
- * Partial index.
+ * Partial table index.
  */
 public class PartialIndexImpl extends SortedIndexImpl implements PartialIndex {
     /** Expression. */
@@ -53,7 +53,7 @@ public class PartialIndexImpl extends SortedIndexImpl implements PartialIndex {
     /** {@inheritDoc} */
     @Override public String toString() {
         return "PartialIndex[" +
-            "name='" + name + '\'' +
+            "name='" + name() + '\'' +
             ", type=PARTIAL" +
             ", expr='" + expr + '\'' +
             ", inline=" + inlineSize +

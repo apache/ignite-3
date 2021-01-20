@@ -37,12 +37,9 @@ import org.apache.ignite.schema.modification.TableModificationBuilder;
  * Table.
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-public class SchemaTableImpl implements SchemaTable {
+public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable {
     /** Schema name. */
     private final String schemaName;
-
-    /** Table name. */
-    private final String tableName;
 
     /** Key columns. */
     private final LinkedHashMap<String, Column> cols;
@@ -73,8 +70,9 @@ public class SchemaTableImpl implements SchemaTable {
         final LinkedHashMap<String, Column> cols,
         final Map<String, TableIndex> indices
     ) {
+        super(tableName);
+
         this.schemaName = schemaName;
-        this.tableName = tableName;
 
         final PrimaryIndex pkIndex = (PrimaryIndex)indices.get(SchemaBuilders.PK_INDEX_NAME);
 
@@ -106,13 +104,8 @@ public class SchemaTableImpl implements SchemaTable {
     }
 
     /** {@inheritDoc} */
-    @Override public String tableName() {
-        return tableName;
-    }
-
-    /** {@inheritDoc} */
     @Override public String canonicalName() {
-        return schemaName + '.' + tableName;
+        return schemaName + '.' + name();
     }
 
     /** {@inheritDoc} */
@@ -128,7 +121,7 @@ public class SchemaTableImpl implements SchemaTable {
     /** {@inheritDoc} */
     @Override public String toString() {
         return "SchemaTable[" +
-            "name='" + tableName + '\'' +
+            "name='" + name() + '\'' +
             ", keyCols=" + keyCols.stream().map(Column::name).collect(Collectors.joining(",")) +
             ", affCols=" + affCols.stream().map(Column::name).collect(Collectors.joining(",")) +
             ", column=" + cols.values() +
