@@ -128,7 +128,7 @@ public class ConfigurationClient {
                     " command to view the updated configuration.");
             }
             else
-                throw error("Fail to set configuration", res);
+                throw error("Failed to set configuration", res);
         }
         catch (IOException | InterruptedException e) {
             throw new IgniteCLIException("Connection issues while trying to send http request");

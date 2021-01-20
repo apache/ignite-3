@@ -52,7 +52,7 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
             ((Runnable)cli.getCommand()).run();
         else {
             cli.getErr().println(cli.getColorScheme().errorText("[ERROR] ") + ex.getMessage() +
-                ". Please see usage information below.\n");
+                ". See usage information below.\n");
 
             cli.usage(cli.getOut());
         }
