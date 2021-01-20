@@ -79,7 +79,7 @@ public class MavenArtifactResolver {
     }
 
     /**
-     * Set writer for user messages.
+     * Sets writer for user messages.
      *
      * @param out PrintWriter
      */
@@ -88,7 +88,7 @@ public class MavenArtifactResolver {
     }
 
     /**
-     * Download and copy artifact and its dependencies to {mavenRoot}.
+     * Downloads and copies artifact and its dependencies to {mavenRoot}.
      *
      * @param mavenRoot Path where artifacts will be copied to.
      * @param grpId Maven group id of the artifact.
@@ -166,7 +166,7 @@ public class MavenArtifactResolver {
     }
 
     /**
-     * Get artifact file name by artifactId and version
+     * Gets artifact file name by artifactId and version
      * <p>
      * Note: Current implementation doesn't support artifacts with classifiers or non-jar packaging
      *
@@ -185,7 +185,7 @@ public class MavenArtifactResolver {
     }
 
     /**
-     * Prepare Ivy instance for artifact resolving.
+     * Prepares Ivy instance for artifact resolving.
      *
      * @param repositories Additional maven repositories
      * @return Ivy instance
@@ -260,7 +260,7 @@ public class MavenArtifactResolver {
     }
 
     /**
-     * Prepare Ivy module descriptor with target maven artifact as a dependency.
+     * Prepares Ivy module descriptor with target maven artifact as a dependency.
      * Then descriptor can be used for further resolving the artifact dependencies.
      * Existence of this descriptor is Ivy's requirement.
      *

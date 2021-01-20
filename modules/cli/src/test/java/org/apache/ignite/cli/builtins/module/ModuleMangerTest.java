@@ -121,7 +121,7 @@ public class ModuleMangerTest {
     }
 
     /**
-     * Generate jar file with CLI module mark or not.
+     * Generates jar file with CLI module mark or not.
      */
     private Path generateJar(String artifactId, String ver, boolean isCliModule) throws IOException {
         Manifest manifest = new Manifest();

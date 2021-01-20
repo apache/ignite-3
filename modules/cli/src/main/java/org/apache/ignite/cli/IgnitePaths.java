@@ -108,7 +108,7 @@ public class IgnitePaths {
     }
 
     /**
-     * Init or recover Ignite distributive directories structure.
+     * Init or recovers Ignite distributive directories structure.
      */
     public void initOrRecover() {
         File igniteWork = workDir.toFile();
@@ -129,7 +129,7 @@ public class IgnitePaths {
     }
 
     /**
-     * Validate that all Ignite distributive directories is exists.
+     * Validates that all Ignite distributive directories is exists.
      *
      * @return true if check passes, false otherwise.
      */

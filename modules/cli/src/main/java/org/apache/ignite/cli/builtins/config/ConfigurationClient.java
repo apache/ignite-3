@@ -43,7 +43,7 @@ public class ConfigurationClient {
     /** Url for getting configuration from REST endpoint of the node. */
     private static final String GET_URL = "/management/v1/configuration/";
 
-    /** Url for set configuration with REST endpoint of the node. */
+    /** Url for setting configuration with REST endpoint of the node. */
     private static final String SET_URL = "/management/v1/configuration/";
 
     /** Http client. */
@@ -64,7 +64,7 @@ public class ConfigurationClient {
     }
 
     /**
-     * Get server node configuration as a raw JSON string.
+     * Gets server node configuration as a raw JSON string.
      *
      * @param host String representation of server node host.
      * @param port Host REST port.
@@ -102,7 +102,7 @@ public class ConfigurationClient {
     }
 
     /**
-     * Set node configuration from JSON string with configs.
+     * Sets node configuration from JSON string with configs.
      *
      * @param host String representation of server node host.
      * @param port Host REST port.
@@ -136,7 +136,7 @@ public class ConfigurationClient {
     }
 
     /**
-     * Prepare exception with message, enriched by HTTP response details.
+     * Prepares exception with message, enriched by HTTP response details.
      *
      * @param msg Base error message.
      * @param res Http response, which cause the raising exce[tion.
@@ -151,7 +151,7 @@ public class ConfigurationClient {
     }
 
     /**
-     * Produce JSON representation of any valid HOCON string.
+     * Produces JSON representation of any valid HOCON string.
      *
      * @param rawHoconData HOCON string.
      * @return JSON representation of HOCON string.

@@ -122,7 +122,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
     }
 
     /**
-     * Show available and installed Ignite modules.
+     * Shows available and installed Ignite modules.
      */
     @CommandLine.Command(
         name = "list",

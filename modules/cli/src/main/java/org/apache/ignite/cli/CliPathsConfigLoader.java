@@ -60,7 +60,7 @@ public class CliPathsConfigLoader {
     }
 
     /**
-     * Load Ignite paths config from file if exists.
+     * Loads Ignite paths config from file if exists.
      *
      * @return IgnitePaths if config file exists, empty otherwise.
      */
@@ -72,7 +72,7 @@ public class CliPathsConfigLoader {
     }
 
     /**
-     * Load Ignite paths configuration if config file exists or failed otherwise.
+     * Loads Ignite paths configuration if config file exists or failed otherwise.
      *
      * @return IgnitePaths or throw exception, if no config file exists.
      */
@@ -98,7 +98,7 @@ public class CliPathsConfigLoader {
     }
 
     /**
-     * Read Ignite CLI configuration file and prepare {@link IgnitePaths} instance.
+     * Reads Ignite CLI configuration file and prepare {@link IgnitePaths} instance.
      *
      * @param cfgPath Path to config file.
      * @param ver Ignite CLI version.

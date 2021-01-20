@@ -40,7 +40,7 @@ import picocli.CommandLine.Help.ColorScheme;
 
 /**
  * Ignite distributive module manager.
- * The main responsobilites:
+ * The main responsibilities:
  * <ul>
  *     <li>Add/remove standard Ignite server modules</li>
  *     <li>Add/remove any external server modules from maven repositories.</li>
@@ -91,7 +91,7 @@ public class ModuleManager {
     }
 
     /**
-     * Set print writer for any user messages.
+     * Sets print writer for any user messages.
      *
      * @param out PrintWriter
      */
@@ -102,7 +102,7 @@ public class ModuleManager {
     }
 
     /**
-     * Set color scheme for enrhiching user output.
+     * Sets color scheme for enrhiching user output.
      *
      * @param cs ColorScheme
      */
@@ -111,7 +111,7 @@ public class ModuleManager {
     }
 
     /**
-     * Install the CLI/server module by name to according directories from {@link IgnitePaths}.
+     * Installs the CLI/server module by name to according directories from {@link IgnitePaths}.
      *
      * @param name Module name can be either fully qualified maven artifact name (groupId:artifactId:version)
      *             or the name of the standard Ignite module.
@@ -248,7 +248,7 @@ public class ModuleManager {
     }
 
     /**
-     * Check if root artifact contains Jar manifest key, which marks it as CLI extension.
+     * Checks if root artifact contains Jar manifest key, which marks it as CLI extension.
      *
      * @param artifactId Maven artifact id.
      * @param ver Maven root artifact version.
@@ -274,7 +274,7 @@ public class ModuleManager {
     }
 
     /**
-     * Check if the module is a builtin Ignite module.
+     * Checks if the module is a builtin Ignite module.
      *
      * @param name Module name.
      * @return true if the module is a builtin Ignite module.

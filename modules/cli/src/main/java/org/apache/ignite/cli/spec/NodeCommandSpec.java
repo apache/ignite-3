@@ -46,7 +46,7 @@ import picocli.CommandLine.Help.ColorScheme;
 )
 public class NodeCommandSpec extends CategorySpec {
     /**
-     * Start Ignite node command.
+     * Starts Ignite node command.
      */
     @CommandLine.Command(name = "start", description = "Starts an Ignite node locally.")
     public static class StartNodeCommandSpec extends CommandSpec {

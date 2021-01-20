@@ -40,7 +40,8 @@ import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.Help.ColorScheme;
 
 /**
- * Init Ignite distro on the current machine. This process has the following steps:
+ * Implementation of command for initializing Ignite distro on the current machine.
+ * This process has the following steps:
  * <ul>
  *     <li>Initialize configuration file with the needed directories paths (@see {@link IgnitePaths})</li>
  *     <li>Create all needed directories for Ignite deployment</li>
@@ -75,7 +76,7 @@ public class InitIgniteCommand {
     }
 
     /**
-     * Execute init process with initialization of config file,
+     * Executes init process with initialization of config file,
      * directories, and download of current Ignite release.
      * Also, it can be used to recover after corruption of node directories structure.
      *
@@ -134,7 +135,7 @@ public class InitIgniteCommand {
     }
 
     /**
-     * Download ignite node distro with all needed dependencies.
+     * Downloads ignite node distro with all needed dependencies.
      *
      * @param ignitePaths Ignite distributive paths (bin, config, etc.).
      * @param urls Urls for custom maven repositories.
@@ -169,7 +170,7 @@ public class InitIgniteCommand {
     }
 
     /**
-     * Fill config file with bin and work directories paths.
+     * Fills config file with bin and work directories paths.
      *
      * @param f Config file.
      * @param binDir Path for bin dir.

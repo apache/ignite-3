@@ -104,7 +104,7 @@ public class IgniteProgressBar implements AutoCloseable {
     }
 
     /**
-     * Render current progress bar state to Ansi string.
+     * Renders current progress bar state to Ansi string.
      *
      * @return Ansi string with progress bar.
      */

@@ -67,7 +67,7 @@ public class IgniteCliSpec extends CommandSpec {
 
     /**
      * Init Ignite command line with needed look&feel options
-     * and load external extensions if any exists.
+     * and loads external extensions if any exists.
      *
      * @param applicationCtx DI application context.
      * @return Initialized command line instance.
@@ -106,7 +106,7 @@ public class IgniteCliSpec extends CommandSpec {
     }
 
     /**
-     * Load external Ignite CLI commands from installed modules.
+     * Loads external Ignite CLI commands from installed modules.
      *
      * @param cmdLine Command line
      * @param cliLibs List of artifacts to load.

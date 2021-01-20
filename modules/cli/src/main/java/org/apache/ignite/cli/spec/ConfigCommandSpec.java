@@ -62,7 +62,7 @@ public class ConfigCommandSpec extends CategorySpec {
     }
 
     /**
-     * Conmmand for setting Ignite node configuration.
+     * Command for setting Ignite node configuration.
      */
     @CommandLine.Command(
         name = "set",
@@ -125,6 +125,7 @@ public class ConfigCommandSpec extends CategorySpec {
 
         /**
          * Parses REST endpoint host and port from string.
+         *
          * @return 2-elements array [host, port].
          */
         private String[] parse() {

@@ -130,7 +130,7 @@ public class NodeManager {
     }
 
     /**
-     * Wait for node start by checking node logs in cycle.
+     * Waits for node start by checking node logs in cycle.
      *
      * @param started Mark string that node was started.
      * @param file Node's log file
@@ -250,7 +250,7 @@ public class NodeManager {
     }
 
     /**
-     * Stop node by consistent id and wait for success.
+     * Stops the node by consistent id and waits for success.
      *
      * @param consistentId Node consistent id.
      * @param pidsDir Dir with running nodes pids.
@@ -291,7 +291,7 @@ public class NodeManager {
     }
 
     /**
-     * Stop process and wait for success.
+     * Stops the process and waits for success.
      *
      * @param pid Pid of proccess to stop.
      * @return true if process was stopped, false otherwise.
