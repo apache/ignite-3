@@ -27,9 +27,6 @@ import org.apache.ignite.schema.TableIndex;
  * Table descriptor builder.
  */
 public interface SchemaTableBuilder extends SchemaObjectBuilder {
-    /** Primary key index name. */
-    public static final String PRIMARY_KEY_INDEX_NAME = "PK";
-
     /**
      * @param columns Table columns.
      * @return Schema table builder for chaining.

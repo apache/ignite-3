@@ -34,12 +34,6 @@ import org.apache.ignite.schema.builder.TableColumnBuilder;
  * Schema builder helper.
  */
 public final class SchemaBuilders {
-    /** Default schema name. */
-    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
-    /** Primary key index name. */
-    public static final String PK_INDEX_NAME = "PK";
-
     /**
      * Create table descriptor from classes.
      *

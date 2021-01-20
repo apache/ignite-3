@@ -26,7 +26,7 @@ import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SortedIndexColumn;
 import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
 
-import static org.apache.ignite.schema.SchemaBuilders.PK_INDEX_NAME;
+import static org.apache.ignite.schema.PrimaryIndex.PRIMARY_KEY_INDEX_NAME;
 
 /**
  * Primary index builder.
@@ -35,7 +35,7 @@ public class PrimaryKeyBuilderImpl extends SortedIndexBuilderImpl implements Pri
     private List<String> affCols;
 
     public PrimaryKeyBuilderImpl() {
-        super(PK_INDEX_NAME);
+        super(PRIMARY_KEY_INDEX_NAME);
 
         super.unique();
     }

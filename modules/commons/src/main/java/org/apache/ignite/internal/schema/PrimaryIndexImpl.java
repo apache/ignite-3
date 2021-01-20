@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SortedIndexColumn;
 
 /**
@@ -37,7 +36,7 @@ public class PrimaryIndexImpl extends SortedIndexImpl implements PrimaryIndex {
      * @param affCols Affinity columns.
      */
     public PrimaryIndexImpl(List<SortedIndexColumn> cols, List<String> affCols) {
-        super(SchemaBuilders.PK_INDEX_NAME, cols, -1, true);
+        super(PrimaryIndex.PRIMARY_KEY_INDEX_NAME, cols, -1, true);
         this.affCols = Collections.unmodifiableList(affCols);
     }
 

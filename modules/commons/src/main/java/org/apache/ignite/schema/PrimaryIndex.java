@@ -23,6 +23,9 @@ import java.util.List;
  * Primary key index.
  */
 public interface PrimaryIndex extends SortedIndex {
+    /** Primary key index name. */
+    String PRIMARY_KEY_INDEX_NAME = "PK";
+
     /**
      * @return Affinity columns
      */

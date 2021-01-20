@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 public class SchemaConfigurationTest {
     @Test
     public void testInitialSchema() {
-        final SchemaTableBuilder builder = SchemaBuilders.tableBuilder("PUBLIC", "table1");
+        final SchemaTableBuilder builder = SchemaBuilders.tableBuilder(SchemaTable.DEFAULT_SCHEMA_NAME, "table1");
 
         builder
             .columns(

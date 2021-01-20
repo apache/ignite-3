@@ -26,10 +26,11 @@ import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnarIndex;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
+
+import static org.apache.ignite.schema.PrimaryIndex.PRIMARY_KEY_INDEX_NAME;
 
 /**
  * Table builder.
@@ -54,7 +55,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
      * @param tableName Table name.
      */
     public SchemaTableBuilderImpl(String schemaName, String tableName) {
-        this.schemaName = SchemaBuilders.DEFAULT_SCHEMA_NAME;
+        this.schemaName = schemaName;
         this.tableName = tableName;
     }
 

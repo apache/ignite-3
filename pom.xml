@@ -72,7 +72,7 @@
 
         <!-- Maven plugins. -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
-        <launch.mave.plugin.version>1.7.25</launch.mave.plugin.version>
+        <launch.maven.plugin.version>1.7.25</launch.maven.plugin.version>
         <maven.antrun.plugin.version>3.0.0</maven.antrun.plugin.version>
         <maven.assembly.plugin.version>3.2.0</maven.assembly.plugin.version>
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
@@ -328,7 +328,7 @@
                 <plugin>
                     <groupId>com.akathist.maven.plugins.launch4j</groupId>
                     <artifactId>launch4j-maven-plugin</artifactId>
-                    <version>${launch.mave.plugin.version}</version>
+                    <version>${launch.maven.plugin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>

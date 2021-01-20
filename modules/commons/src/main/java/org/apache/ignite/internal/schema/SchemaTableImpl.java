@@ -28,7 +28,6 @@ import org.apache.ignite.internal.schema.modification.TableModificationBuilderIm
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PrimaryIndex;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
@@ -74,7 +73,7 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
 
         this.schemaName = schemaName;
 
-        final PrimaryIndex pkIndex = (PrimaryIndex)indices.get(SchemaBuilders.PK_INDEX_NAME);
+        final PrimaryIndex pkIndex = (PrimaryIndex)indices.get(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
 
         assert pkIndex != null;
 
@@ -116,6 +115,22 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
     /** {@inheritDoc} */
     @Override public TableModificationBuilder toBuilder() {
         return new TableModificationBuilderImpl(this);
+    }
+
+    /**
+     * @param name Column name.
+     * @return {@code True} if column with given name already exists, {@code false} otherwise.
+     */
+    public boolean hasColumn(String name) {
+        return cols.containsKey(name);
+    }
+
+    /**
+     * @param name Column name.
+     * @return {@code True} if key column with given name already exists, {@code false} otherwise.
+     */
+    public boolean hasKeyColumn(String name) {
+        return keyCols.stream().anyMatch(c -> c.name().equals(name));
     }
 
     /** {@inheritDoc} */
