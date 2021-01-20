@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Objects;
 import org.apache.ignite.schema.SchemaObject;
 
 /**
@@ -39,21 +38,6 @@ public abstract class AbstractSchemaObject implements SchemaObject {
     /** {@inheritDoc} */
     @Override public String name() {
         return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
-        AbstractSchemaObject object = (AbstractSchemaObject)o;
-        return Objects.equals(name, object.name);
-    }
-
-    /** {@inheritDoc} */
-    @Override public int hashCode() {
-        return Objects.hash(name);
     }
 
     /** {@inheritDoc} */

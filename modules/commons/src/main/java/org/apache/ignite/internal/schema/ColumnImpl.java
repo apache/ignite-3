@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Objects;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -63,22 +62,6 @@ public class ColumnImpl extends AbstractSchemaObject implements Column {
     /** {@inheritDoc} */
     @Override public Object defaultValue() {
         return defVal;
-    }
-
-    @Override public boolean equals(Object o) {
-        if (this == o)
-            return true;
-
-        if (o == null || getClass() != o.getClass())
-            return false;
-
-        ColumnImpl column = (ColumnImpl)o;
-
-        return nullable == column.nullable && name().equals(column.name()) && type.equals(column.type) && Objects.equals(defVal, column.defVal);
-    }
-
-    @Override public int hashCode() {
-        return Objects.hash(super.hashCode(), type, nullable, defVal);
     }
 
     /** {@inheritDoc} */
