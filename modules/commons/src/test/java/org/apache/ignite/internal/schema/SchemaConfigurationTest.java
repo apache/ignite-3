@@ -39,7 +39,7 @@ public class SchemaConfigurationTest {
                 SchemaBuilders.column("affId", ColumnType.INT32).build()
             )
 
-            .withPkIndex(
+            .withIndex(
                 SchemaBuilders.pkIndex()  // Declare index column in order.
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("affId").asc().done()
@@ -84,7 +84,7 @@ public class SchemaConfigurationTest {
                 SchemaBuilders.column("id", ColumnType.INT64).build(),
                 SchemaBuilders.column("name", ColumnType.string()).build()
             )
-            .withPkIndex(SchemaBuilders.pkIndex().addIndexColumn("id").done().build())
+            .withIndex(SchemaBuilders.pkIndex().addIndexColumn("id").done().build())
             .build();
 
         table.toBuilder()

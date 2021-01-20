@@ -71,17 +71,12 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
     /** {@inheritDoc} */
     @Override public SchemaTableBuilder withIndex(TableIndex index) {
-        if (!(index instanceof PrimaryIndex) && PRIMARY_KEY_INDEX_NAME.equals(index.name()))
+        if (index instanceof PrimaryIndex) {
+            if (!PRIMARY_KEY_INDEX_NAME.equals(index.name()))
+                throw new IllegalArgumentException("Not valid index name for a primary index: " + index.name());
+        }
+        else if (PRIMARY_KEY_INDEX_NAME.equals(index.name()))
             throw new IllegalArgumentException("Not valid index name for a secondary index: " + index.name());
-        else if (indices.put(index.name(), index) != null)
-            throw new IllegalArgumentException("Index with same name already exists: " + index.name());
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaTableBuilder withPkIndex(PrimaryIndex index) {
-        assert PRIMARY_KEY_INDEX_NAME.equals(index.name());
 
         if (indices.put(index.name(), index) != null)
             throw new IllegalArgumentException("Index with same name already exists: " + index.name());
@@ -121,8 +116,8 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
             .map(IndexColumn::name)
             .allMatch(columns::containsKey) : "Index column doesn't exists in schema.";
 
-        assert indices.containsKey(PRIMARY_KEY_INDEX_NAME) : "PK index is not configured";
-        assert !((PrimaryIndex)indices.get(PRIMARY_KEY_INDEX_NAME)).affinityColumns().isEmpty() : "Primary key must have one affinity column at least";
+        assert indices.containsKey(PRIMARY_KEY_INDEX_NAME) : "Primary key index is not configured.";
+        assert !((PrimaryIndex)indices.get(PRIMARY_KEY_INDEX_NAME)).affinityColumns().isEmpty() : "Primary key must have one affinity column at least.";
 
         // Note: E.g. functional index is not columnar index as it index an expression result only.
         assert indices.values().stream().allMatch(ColumnarIndex.class::isInstance) : "Columnar indices are supported only.";

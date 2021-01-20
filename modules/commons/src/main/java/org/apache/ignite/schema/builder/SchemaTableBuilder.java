@@ -41,14 +41,6 @@ public interface SchemaTableBuilder extends SchemaObjectBuilder {
      */
     SchemaTableBuilder withIndex(TableIndex index);
 
-    /**
-     * Adds a primary index.
-     *
-     * @param pkIndex Primary index.
-     * @return Schema table builder for chaining.
-     */
-    SchemaTableBuilder withPkIndex(PrimaryIndex pkIndex);
-
     /** {@inheritDoc} */
     @Override SchemaTableBuilder withHints(Map<String, String> hints);
 
