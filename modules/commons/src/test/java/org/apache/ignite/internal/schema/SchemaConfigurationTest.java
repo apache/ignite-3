@@ -42,6 +42,7 @@ public class SchemaConfigurationTest {
             .withPkIndex(
                 SchemaBuilders.pkIndex()  // Declare index column in order.
                     .addIndexColumn("id").desc().done()
+                    .addIndexColumn("affId").asc().done()
                     .addIndexColumn("name").asc().done()
                     .withAffinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
                     .build()

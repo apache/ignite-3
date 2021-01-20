@@ -53,7 +53,7 @@ public class PrimaryKeyBuilderImpl extends SortedIndexBuilderImpl implements Pri
     }
 
     @Override public PkIndexColumnBuilderImpl addIndexColumn(String name) {
-        return new PkIndexColumnBuilderImpl(this);
+        return new PkIndexColumnBuilderImpl(this).withName(name);
     }
 
     /** {@inheritDoc} */
@@ -65,10 +65,10 @@ public class PrimaryKeyBuilderImpl extends SortedIndexBuilderImpl implements Pri
 
     /** {@inheritDoc} */
     @Override public PrimaryIndex build() {
-        assert affCols.stream().allMatch(cols::containsKey) : "Affinity column should be a valid PK index column.";
-
         if (affCols == null)
             affCols = columns().stream().map(SortedIndexColumn::name).collect(Collectors.toList());
+        else
+            assert affCols.stream().allMatch(cols::containsKey) : "Affinity column should be a valid PK index column.";
 
         return new PrimaryIndexImpl(columns(), affCols);
     }
