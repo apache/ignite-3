@@ -532,7 +532,6 @@ public class IgniteCliInterfaceTest {
             verify(httpClient).send(
                 argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/") &&
                     r.method().equals("POST") &&
-                    // TODO: body matcher should be fixed to more appropriate
                     r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     r.headers().firstValue("Content-Type").get().equals("application/json")),
                 any());
@@ -558,7 +557,6 @@ public class IgniteCliInterfaceTest {
             verify(httpClient).send(
                 argThat(r -> r.uri().toString().equals("http://localhost:8081/management/v1/configuration/") &&
                     r.method().equals("POST") &&
-                    // TODO: body matcher should be fixed to more appropriate
                     r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length &&
                     r.headers().firstValue("Content-Type").get().equals("application/json")),
                 any());

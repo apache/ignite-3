@@ -136,7 +136,7 @@ public class HelpFactoryImpl implements CommandLine.IHelpFactory {
 
                     for (PositionalParamSpec param : help.commandSpec().positionalParameters()) {
                         if (!param.hidden()) {
-                            // TODO: Support multiple-line descriptions.
+                            // TODO: IGNITE-14022 Support multiple-line descriptions.
                             assert param.description().length == 1;
 
                             tbl.addRow(cs.parameterText(param.paramLabel()), param.description()[0]);
@@ -149,9 +149,9 @@ public class HelpFactoryImpl implements CommandLine.IHelpFactory {
 
                     for (OptionSpec option : help.commandSpec().options()) {
                         if (!option.hidden()) {
-                            // TODO: Support multiple names.
+                            // TODO: IGNITE-14022 Support multiple names.
                             assert option.names().length == 1;
-                            // TODO: Support multiple-line descriptions.
+                            // TODO: IGNITE-14022 Support multiple-line descriptions.
                             assert option.description().length == 1;
 
                             tbl.addRow(

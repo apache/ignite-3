@@ -69,7 +69,7 @@ public class ModuleRegistry {
      * @param moduleDefinition Module definition.
      * @throws IOException If can't save the registry file.
      */
-    //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
+    //TODO: IGNITE-14021 write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public void saveModule(ModuleDefinition moduleDefinition) throws IOException {
         ModuleDefinitionsList moduleDefinitionsList = listInstalled();
 
@@ -89,7 +89,7 @@ public class ModuleRegistry {
      * @return true if module was removed, false otherwise.
      * @throws IOException If can't save updated registry file.
      */
-    //TODO: write-to-tmp->move approach should be used to prevent file corruption on accidental exit
+    //TODO: iIGNITE-14021 write-to-tmp->move approach should be used to prevent file corruption on accidental exit
     public boolean removeModule(String name) throws IOException {
         ModuleDefinitionsList moduleDefinitionsList = listInstalled();
 

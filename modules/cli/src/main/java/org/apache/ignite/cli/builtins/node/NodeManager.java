@@ -139,7 +139,6 @@ public class NodeManager {
      * @throws IOException If can't read the log file
      * @throws InterruptedException If waiting was interrupted.
      */
-    // TODO: We need more robust way of checking if node successfully run
     private static boolean waitForStart(
         String started,
         Path file,
