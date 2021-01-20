@@ -26,7 +26,7 @@ import org.apache.ignite.schema.ColumnType;
  */
 public interface AlterColumnBuilder {
     /**
-     * Renames column.
+     * Renames a column.
      *
      * @param newName New column name.
      * @return {@code this} for chaining.
@@ -64,7 +64,7 @@ public interface AlterColumnBuilder {
      * Note: Replacement param is mandatory, all previously stored 'nulls'
      * will be treated as replacement value on read.
      *
-     * @param replacement Non null value, that 'null' will be converted to.
+     * @param replacement Non-null value, that 'null' will be converted to.
      * @return {@code this} for chaining.
      */
     AlterColumnBuilder asNonNullable(Object replacement);

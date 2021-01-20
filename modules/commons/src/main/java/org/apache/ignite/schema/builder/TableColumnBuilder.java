@@ -17,6 +17,7 @@
 
 package org.apache.ignite.schema.builder;
 
+import java.util.Map;
 import org.apache.ignite.schema.Column;
 
 /**
@@ -44,6 +45,9 @@ public interface TableColumnBuilder extends SchemaObjectBuilder {
      * @return {@code this} for chaining.
      */
     TableColumnBuilder withDefaultValue(Object defValue);
+
+    /** {@inheritDoc} */
+    @Override TableColumnBuilder withHints(Map<String, String> hints);
 
     /**
      * Builds column.

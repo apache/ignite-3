@@ -17,7 +17,9 @@
 
 package org.apache.ignite.schema.builder;
 
+import java.util.Map;
 import org.apache.ignite.schema.Column;
+import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 
@@ -35,24 +37,23 @@ public interface SchemaTableBuilder extends SchemaObjectBuilder {
     SchemaTableBuilder columns(Column... columns);
 
     /**
-     * @param colNames PK column names.
-     * @return Schema table builder for chaining.
-     */
-    SchemaTableBuilder pkColumns(String... colNames);
-
-    /**
-     * @param colNames Affinity column names.
-     * @return Schema table builder for chaining.
-     */
-    SchemaTableBuilder affinityColumns(String... colNames);
-
-    /**
-     * Adds index.
+     * Adds an index.
      *
      * @param index Table index.
      * @return Schema table builder for chaining.
      */
-    SchemaTableBuilder withindex(TableIndex index);
+    SchemaTableBuilder withIndex(TableIndex index);
+
+    /**
+     * Adds a primary index.
+     *
+     * @param pkIndex Primary index.
+     * @return Schema table builder for chaining.
+     */
+    SchemaTableBuilder withPkIndex(PrimaryIndex pkIndex);
+
+    /** {@inheritDoc} */
+    @Override SchemaTableBuilder withHints(Map<String, String> hints);
 
     /**
      * Builds table schema.

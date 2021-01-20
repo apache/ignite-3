@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.schema.builder;
 
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.SortedIndexImpl;
 import org.apache.ignite.schema.SortedIndex;
+import org.apache.ignite.schema.SortedIndexColumn;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
 
 /**
- * Sorted index.
+ * Sorted index builder.
  */
 public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements SortedIndexBuilder {
     /** Index columns. */
@@ -36,7 +37,7 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     protected int inlineSize;
 
     /** Unique flag. */
-    protected boolean uniq;
+    protected boolean unique;
 
     /**
      * Constructor.
@@ -61,24 +62,24 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
 
     /** {@inheritDoc} */
     @Override public SortedIndexBuilderImpl unique() {
-        uniq = true;
+        unique = true;
 
         return this;
     }
 
     /**
-     * @param idxBulder Index builder.
+     * @param idxBuilder Index builder.
      */
-    protected void addIndexColumn(SortedIndexColumnBuilderImpl idxBulder) {
-        if (cols.put(idxBulder.name(), idxBulder) != null)
-            throw new IllegalArgumentException("Index with same name already exists: " + idxBulder.name());
+    protected void addIndexColumn(SortedIndexColumnBuilderImpl idxBuilder) {
+        if (cols.put(idxBuilder.name(), idxBuilder) != null)
+            throw new IllegalArgumentException("Index with same name already exists: " + idxBuilder.name());
     }
 
     /**
      * @return Index columns.
      */
-    public Collection<? extends SortedIndexColumnBuilderImpl> columns() {
-        return cols.values();
+    public List<SortedIndexColumn> columns() {
+        return cols.values().stream().map(c -> new SortedIndexImpl.IndexColumnImpl(c.name, c.asc)).collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
@@ -87,18 +88,17 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
 
         return new SortedIndexImpl(
             name,
-            cols.values().stream().map(c -> new SortedIndexImpl.IndexColumnImpl(c.name, c.asc)).collect(Collectors.toList()),
+            columns(),
             inlineSize,
-            uniq);
+            unique);
     }
 
     /**
      * Index column builder.
      */
-    @SuppressWarnings("PublicInnerClass")
-    public static class SortedIndexColumnBuilderImpl implements SortedIndexColumnBuilder {
+    protected static class SortedIndexColumnBuilderImpl implements SortedIndexColumnBuilder {
         /** Index builder. */
-        private final SortedIndexBuilderImpl idxBuilder;
+        private final SortedIndexBuilderImpl parent;
 
         /** Columns name. */
         protected String name;
@@ -109,10 +109,10 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         /**
          * Constructor.
          *
-         * @param idxBuilder Index builder.
+         * @param parent Parent builder.
          */
-        public SortedIndexColumnBuilderImpl(SortedIndexBuilderImpl idxBuilder) {
-            this.idxBuilder = idxBuilder;
+        SortedIndexColumnBuilderImpl(SortedIndexBuilderImpl parent) {
+            this.parent = parent;
         }
 
         /** {@inheritDoc} */
@@ -142,9 +142,9 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
 
         /** {@inheritDoc} */
         @Override public SortedIndexBuilderImpl done() {
-            idxBuilder.addIndexColumn(this);
+            parent.addIndexColumn(this);
 
-            return idxBuilder;
+            return parent;
         }
     }
 }

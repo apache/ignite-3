@@ -21,7 +21,7 @@ import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.TableIndex;
 
 /**
- * Collect schema modification commands and pass them to manager to create schema upgrade script.
+ * Collect schema modification commands and pass them to manager to create a schema upgrade script.
  */
 public interface TableModificationBuilder {
     /**
@@ -61,7 +61,7 @@ public interface TableModificationBuilder {
     /**
      * Adds new table index.
      *
-     * @param index Table index..
+     * @param index Table index.
      * @return {@code this} for chaining.
      */
     TableModificationBuilder addIndex(TableIndex index);
@@ -77,7 +77,7 @@ public interface TableModificationBuilder {
     TableModificationBuilder dropIndex(String indexName);
 
     /**
-     * Applies changes.
+     * Apply changes.
      */
     void apply();
 }

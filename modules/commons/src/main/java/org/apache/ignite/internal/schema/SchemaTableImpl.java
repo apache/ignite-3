@@ -20,12 +20,15 @@ package org.apache.ignite.internal.schema;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.modification.TableModificationBuilderImpl;
 import org.apache.ignite.schema.Column;
+import org.apache.ignite.schema.IndexColumn;
+import org.apache.ignite.schema.PrimaryIndex;
+import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.modification.TableModificationBuilder;
@@ -42,67 +45,64 @@ public class SchemaTableImpl implements SchemaTable {
     private final String tableName;
 
     /** Key columns. */
-    private final Map<String, Column> cols;
-
-    /** Key affinity columns. */
-    final Set<String> keyColNames;
-
-    /** Value columns. */
-    final Set<String> affColNames;
+    private final LinkedHashMap<String, Column> cols;
 
     /** Indices. */
     private final Map<String, TableIndex> indices;
+
+    /** Cached key columns. */
+    private final List<Column> keyCols;
+
+    /** Cached key affinity columns. */
+    private final List<Column> affCols;
+
+    /** Cached value columns. */
+    private final List<Column> valCols;
 
     /**
      * Constructor.
      *
      * @param schemaName Schema name.
      * @param tableName Table name.
-     * @param columns Columns.
-     * @param keyColNames Key columns names.
-     * @param affColNames Affinity key columns names.
+     * @param cols Columns.
      * @param indices Indices.
      */
     public SchemaTableImpl(
         String schemaName,
         String tableName,
-        final LinkedHashMap<String, Column> columns,
-        final Set<String> keyColNames,
-        final Set<String> affColNames,
+        final LinkedHashMap<String, Column> cols,
         final Map<String, TableIndex> indices
     ) {
         this.schemaName = schemaName;
         this.tableName = tableName;
 
-        this.cols = Collections.unmodifiableMap(
-            columns.values().stream().filter(c -> keyColNames.contains(c.name())).collect(Collectors.toMap(
-                Column::name,
-                Function.identity(),
-                (c1, c2) -> {
-                    throw new IllegalStateException("Duplicate key column.");
-                },
-                LinkedHashMap::new
-            )));
+        final PrimaryIndex pkIndex = (PrimaryIndex)indices.get(SchemaBuilders.PK_INDEX_NAME);
 
-        this.keyColNames = keyColNames;
-        this.affColNames = affColNames;
+        assert pkIndex != null;
+
+        this.cols = cols;
+        this.keyCols = pkIndex.columns().stream().map(c -> cols.get(c.name())).collect(Collectors.toUnmodifiableList());
+        this.affCols = pkIndex.affinityColumns().stream().map(cols::get).collect(Collectors.toUnmodifiableList());
+
+        final Set<String> pkColNames = pkIndex.columns().stream().map(IndexColumn::name).collect(Collectors.toSet());
+        this.valCols = cols.values().stream().filter(c -> !pkColNames.contains(c.name())).collect(Collectors.toUnmodifiableList());
 
         this.indices = indices;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Column> keyColumns() {
-        return cols.values().stream().filter(c -> keyColNames.contains(c.name())).collect(Collectors.toList());
+        return keyCols;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Column> affinityColumns() {
-        return cols.values().stream().filter(c -> affColNames.contains(c.name())).collect(Collectors.toList());
+        return affCols;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Column> valueColumns() {
-        return cols.values().stream().filter(c -> !keyColNames.contains(c.name())).collect(Collectors.toList());
+        return valCols;
     }
 
     /** {@inheritDoc} */
@@ -129,8 +129,8 @@ public class SchemaTableImpl implements SchemaTable {
     @Override public String toString() {
         return "SchemaTable[" +
             "name='" + tableName + '\'' +
-            ", keyCols=" + keyColNames +
-            ", affCols=" + affColNames +
+            ", keyCols=" + keyCols.stream().map(Column::name).collect(Collectors.joining(",")) +
+            ", affCols=" + affCols.stream().map(Column::name).collect(Collectors.joining(",")) +
             ", column=" + cols.values() +
             ", indices=" + indices.values() +
             ']';

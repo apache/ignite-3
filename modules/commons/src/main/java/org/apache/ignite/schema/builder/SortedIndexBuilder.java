@@ -32,7 +32,7 @@ public interface SortedIndexBuilder extends SchemaObjectBuilder {
     SortedIndexBuilder unique();
 
     /**
-     * Adds column to index.
+     * Adds a column to index.
      *
      * @param name Table column name.
      * @return Index builder.
@@ -47,6 +47,9 @@ public interface SortedIndexBuilder extends SchemaObjectBuilder {
      */
     @Override SortedIndex build();
 
+    /**
+     * Index column builder.
+     */
     @SuppressWarnings("PublicInnerClass")
     interface SortedIndexColumnBuilder {
         /**
@@ -70,7 +73,7 @@ public interface SortedIndexBuilder extends SchemaObjectBuilder {
         SortedIndexColumnBuilder withName(String name);
 
         /**
-         * @return Parent builder for chaning.
+         * @return Parent builder for chaining.
          */
         SortedIndexBuilder done();
     }

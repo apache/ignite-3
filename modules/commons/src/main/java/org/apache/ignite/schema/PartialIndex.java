@@ -24,7 +24,7 @@ public interface PartialIndex extends SortedIndex {
     /**
      * Partial index expression.
      *
-     * @return Expresssion.
+     * @return Expression.
      */
     String expr();
 

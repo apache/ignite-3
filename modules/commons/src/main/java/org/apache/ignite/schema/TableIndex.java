@@ -18,7 +18,7 @@
 package org.apache.ignite.schema;
 
 /**
- * Table index base interface
+ * Table index base interface.
  */
 public interface TableIndex {
     /**

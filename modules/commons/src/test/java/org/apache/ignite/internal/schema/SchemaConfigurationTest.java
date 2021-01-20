@@ -39,21 +39,25 @@ public class SchemaConfigurationTest {
                 SchemaBuilders.column("affId", ColumnType.INT32).build()
             )
 
-            // PK index type can't be changed as highly coupled core implementation.
-            .pkColumns("id", "affId", "label") // Declare index column in order.
-            .affinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
-
-            // 'withIndex' single entry point allows extended index support.
-            // E.g. we may want to support GEO indices later with some plugin.
-            .withindex(
-                SchemaBuilders.sortedIndex("idx_1_sorted")
+            .withPkIndex(
+                SchemaBuilders.pkIndex()  // Declare index column in order.
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
-                    .withHints(Map.of("INLINE_SIZE", "42", "UNIQ_STRATEGY", "INLINE_HASH")) // Attach key-hash.
+                    .withAffinityColumns("affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
                     .build()
             )
 
-            .withindex(
+            // 'withIndex' single entry point allows extended index support.
+            // E.g. we may want to support Geo-index later with some plugin.
+            .withIndex(
+                SchemaBuilders.sortedIndex("idx_1_sorted")
+                    .addIndexColumn("id").desc().done()
+                    .addIndexColumn("name").asc().done()
+                    .withHints(Map.of("INLINE_SIZE", "42", "INLINE_STRATEGY", "INLINE_HASH")) // In-line key-hash as well.
+                    .build()
+            )
+
+            .withIndex(
                 SchemaBuilders.partialIndex("idx_2_partial")
                     .addIndexColumn("id").desc().done()
                     .addIndexColumn("name").asc().done()
@@ -62,7 +66,7 @@ public class SchemaConfigurationTest {
                     .build()
             )
 
-            .withindex(
+            .withIndex(
                 SchemaBuilders.hashIndex("idx_3_hash")
                     .withColumns("id", "affId")
                     .build()
@@ -79,7 +83,7 @@ public class SchemaConfigurationTest {
                 SchemaBuilders.column("id", ColumnType.INT64).build(),
                 SchemaBuilders.column("name", ColumnType.string()).build()
             )
-            .pkColumns("id")
+            .withPkIndex(SchemaBuilders.pkIndex().addIndexColumn("id").done().build())
             .build();
 
         table.toBuilder()

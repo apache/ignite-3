@@ -17,12 +17,14 @@
 
 package org.apache.ignite.schema;
 
+import java.util.List;
+
 /**
- * Index column descriptor.
+ * Primary key index.
  */
-public interface IndexColumn {
+public interface PrimaryIndex extends SortedIndex {
     /**
-     * @return Column name.
+     * @return Affinity columns
      */
-    String name();
+    List<String> affinityColumns();
 }

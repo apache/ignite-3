@@ -17,24 +17,43 @@
 
 package org.apache.ignite.schema.builder;
 
-import java.util.Map;
-import org.apache.ignite.schema.HashIndex;
+import org.apache.ignite.schema.PrimaryIndex;
 
 /**
  * Hash index descriptor builder.
  */
-public interface HashIndexBuilder extends SchemaObjectBuilder {
+public interface PrimaryIndexBuilder extends SortedIndexBuilder {
     /**
-     * @param columns Indexed columns.
-     * @return {@code this} for chaining.
+     * Sets affinity columns.
+     *
+     * @param cols Affinity columns
+     * @return Primary index builder.
      */
-    HashIndexBuilder withColumns(String... columns);
+    PrimaryIndexBuilder withAffinityColumns(String... cols);
 
     /** {@inheritDoc} */
-    @Override HashIndexBuilder withHints(Map<String, String> hints);
+    @Override PrimaryIndexColumnBuilder addIndexColumn(String name);
 
     /**
-     * @return Hash index.
+     * @return Primary index.
      */
-    @Override HashIndex build();
+    @Override PrimaryIndex build();
+
+    /**
+     * Index column builder.
+     */
+    @SuppressWarnings("PublicInnerClass")
+    interface PrimaryIndexColumnBuilder extends SortedIndexColumnBuilder {
+        /** {@inheritDoc} */
+        @Override PrimaryIndexColumnBuilder desc();
+
+        /** {@inheritDoc} */
+        @Override PrimaryIndexColumnBuilder asc();
+
+        /** {@inheritDoc} */
+        @Override PrimaryIndexColumnBuilder withName(String name);
+
+        /** {@inheritDoc} */
+        @Override PrimaryIndexBuilder done();
+    }
 }

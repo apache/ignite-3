@@ -63,8 +63,8 @@ public class ColumnType {
      * @param bits Bitmask size in bits.
      * @return Bitmap type.
      */
-    public static VarlenColumnType bitmaskOf(int bits) {
-        return new VarlenColumnType(ColumnTypeSpec.BITMASK, bits);
+    public static VarLenColumnType bitmaskOf(int bits) {
+        return new VarLenColumnType(ColumnTypeSpec.BITMASK, bits);
     }
 
     /**
@@ -72,7 +72,7 @@ public class ColumnType {
      *
      * @return String type.
      */
-    public static VarlenColumnType string() {
+    public static VarLenColumnType string() {
         return stringOf(0);
     }
 
@@ -82,8 +82,8 @@ public class ColumnType {
      * @param length String length in chars.
      * @return String type.
      */
-    public static VarlenColumnType stringOf(int length) {
-        return new VarlenColumnType(ColumnTypeSpec.STRING, length);
+    public static VarLenColumnType stringOf(int length) {
+        return new VarLenColumnType(ColumnTypeSpec.STRING, length);
     }
 
     /**
@@ -91,7 +91,7 @@ public class ColumnType {
      *
      * @return Blob type.
      */
-    public static VarlenColumnType blobOf() {
+    public static VarLenColumnType blobOf() {
         return blobOf(0);
     }
 
@@ -101,8 +101,8 @@ public class ColumnType {
      * @param length Blob length in bytes.
      * @return Blob type.
      */
-    public static VarlenColumnType blobOf(int length) {
-        return new VarlenColumnType(ColumnTypeSpec.BLOB, length);
+    public static VarLenColumnType blobOf(int length) {
+        return new VarLenColumnType(ColumnTypeSpec.BLOB, length);
     }
 
     /**
@@ -117,14 +117,14 @@ public class ColumnType {
     }
 
     /**
-     * Varlen column type.
+     * Column type of variable length.
      */
-    public static class VarlenColumnType extends ColumnType {
+    public static class VarLenColumnType extends ColumnType {
         /** Max length. */
         private final int length;
 
         /** Constructor. */
-        private VarlenColumnType(ColumnTypeSpec typeSpec, int length) {
+        private VarLenColumnType(ColumnTypeSpec typeSpec, int length) {
             super(typeSpec);
 
             this.length = length;
@@ -145,7 +145,7 @@ public class ColumnType {
                 return false;
             if (!super.equals(o))
                 return false;
-            VarlenColumnType type = (VarlenColumnType)o;
+            VarLenColumnType type = (VarLenColumnType)o;
             return length == type.length;
         }
 
@@ -159,7 +159,7 @@ public class ColumnType {
      * Numeric column type.
      */
     public static class NumericColumnType extends ColumnType {
-        /** Presicion. */
+        /** Precision. */
         private final int precision;
 
         /** Scale. */

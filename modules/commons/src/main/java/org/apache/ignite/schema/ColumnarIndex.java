@@ -17,12 +17,20 @@
 
 package org.apache.ignite.schema;
 
-/**
- * Index column descriptor.
- */
-public interface IndexColumn {
+import java.util.List;
+
+public interface ColumnarIndex {
     /**
-     * @return Column name.
+     * @return Index columns.
      */
-    String name();
+    List<? extends IndexColumn> columns();
+
+    /**
+     * Returns all index columns: user defined + implicitly attched.
+     *
+     * @return Indexed columns.
+     */
+    default List<? extends IndexColumn> indexedColumns() {
+        return columns();
+    }
 }

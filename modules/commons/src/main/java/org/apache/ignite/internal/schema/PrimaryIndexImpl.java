@@ -15,34 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema;
+package org.apache.ignite.internal.schema;
 
+import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.schema.PrimaryIndex;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.SortedIndexColumn;
 
 /**
- * Sorted index descriptor.
+ * Primary index.
  */
-public interface SortedIndex extends TableIndex, ColumnarIndex {
-    /** {@inheritDoc} */
-    @Override List<SortedIndexColumn> columns();
-
-    /** {@inheritDoc} */
-    @Override List<SortedIndexColumn> indexedColumns();
+public class PrimaryIndexImpl extends SortedIndexImpl implements PrimaryIndex {
+    /** Affinity columns. */
+    private final List<String> affCols;
 
     /**
-     * Unique index flag.
-     * <p>
-     * Limitation: Index MUST have all affinity columns declared explicitly.
-     * This requirement allows omitting cluster wide constraint checks.
+     * Constructor.
      *
-     * @return Unique flag.
+     * @param cols Index columns.
+     * @param affCols Affinity columns.
      */
-    default boolean unique() {
-        return false;
+    public PrimaryIndexImpl(List<SortedIndexColumn> cols, List<String> affCols) {
+        super(SchemaBuilders.PK_INDEX_NAME, cols, -1, true);
+        this.affCols = Collections.unmodifiableList(affCols);
     }
 
     /** {@inheritDoc} */
-    @Override default String type() {
-        return "SORTED";
+    @Override public List<String> affinityColumns() {
+        return affCols;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String type() {
+        return "PK";
     }
 }

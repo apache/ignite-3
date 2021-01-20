@@ -19,11 +19,13 @@ package org.apache.ignite.schema;
 
 import org.apache.ignite.internal.schema.builder.HashIndexBuilderImpl;
 import org.apache.ignite.internal.schema.builder.PartialIndexBuilderImpl;
+import org.apache.ignite.internal.schema.builder.PrimaryKeyBuilderImpl;
 import org.apache.ignite.internal.schema.builder.SchemaTableBuilderImpl;
 import org.apache.ignite.internal.schema.builder.SortedIndexBuilderImpl;
 import org.apache.ignite.internal.schema.builder.TableColumnBuilderImpl;
 import org.apache.ignite.schema.builder.HashIndexBuilder;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
+import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.apache.ignite.schema.builder.SortedIndexBuilder;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
@@ -34,6 +36,9 @@ import org.apache.ignite.schema.builder.TableColumnBuilder;
 public final class SchemaBuilders {
     /** Default schema name. */
     public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
+    /** Primary key index name. */
+    public static final String PK_INDEX_NAME = "PK";
 
     /**
      * Create table descriptor from classes.
@@ -62,7 +67,7 @@ public final class SchemaBuilders {
     }
 
     /**
-     * Creates table column buidler.
+     * Creates table column builder.
      *
      * @param name Column name.
      * @param type Column type.
@@ -70,6 +75,13 @@ public final class SchemaBuilders {
      */
     public static TableColumnBuilder column(String name, ColumnType type) {
         return new TableColumnBuilderImpl(name, type);
+    }
+
+    /**
+     * @return Primary index builder.
+     */
+    public static PrimaryIndexBuilder pkIndex() {
+        return new PrimaryKeyBuilderImpl();
     }
 
     /**

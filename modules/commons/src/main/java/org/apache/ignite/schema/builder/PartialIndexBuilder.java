@@ -41,6 +41,9 @@ public interface PartialIndexBuilder extends SortedIndexBuilder {
      */
     @Override PartialIndex build();
 
+    /**
+     * Index column builder.
+     */
     @SuppressWarnings("PublicInnerClass")
     interface PartialIndexColumnBuilder extends SortedIndexColumnBuilder {
         /** {@inheritDoc} */

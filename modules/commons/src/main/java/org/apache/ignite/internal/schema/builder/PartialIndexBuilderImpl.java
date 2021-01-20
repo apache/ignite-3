@@ -55,7 +55,7 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
             name,
             cols.values().stream().map(c -> new SortedIndexImpl.IndexColumnImpl(c.name, c.asc)).collect(Collectors.toList()),
             inlineSize,
-            uniq,
+            unique,
             expr
         );
     }
@@ -75,8 +75,7 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
     /**
      * Index column builder.
      */
-    @SuppressWarnings("PublicInnerClass")
-    public static class PartialIndexColumnBuilderImpl extends SortedIndexColumnBuilderImpl implements PartialIndexColumnBuilder {
+    private static class PartialIndexColumnBuilderImpl extends SortedIndexColumnBuilderImpl implements PartialIndexColumnBuilder {
         /**
          * Constructor.
          *

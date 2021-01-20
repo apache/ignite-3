@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PartialIndex;
+import org.apache.ignite.schema.SortedIndexColumn;
 
 /**
  * Partial index.
@@ -38,7 +39,7 @@ public class PartialIndexImpl extends SortedIndexImpl implements PartialIndex {
      * @param uniq Unique flag.
      * @param expr Partial index expression.
      */
-    public PartialIndexImpl(String name, List<IndexColumn> columns, int inlineSize, boolean uniq, String expr) {
+    public PartialIndexImpl(String name, List<SortedIndexColumn> columns, int inlineSize, boolean uniq, String expr) {
         super(name, columns, inlineSize, uniq);
 
         this.expr = expr;

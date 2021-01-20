@@ -24,15 +24,15 @@ import java.util.Map;
  */
 public interface SchemaObjectBuilder {
     /**
-     * @return Built object.
-     */
-    Object build();
-
-    /**
      * Provide hints to builder.
      *
      * @param hints Hints.
      * @return {@code This} for chaining.
      */
     SchemaObjectBuilder withHints(Map<String, String> hints);
+
+    /**
+     * @return Built object.
+     */
+    Object build();
 }

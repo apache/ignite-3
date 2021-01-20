@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.SortedIndex;
+import org.apache.ignite.schema.SortedIndexColumn;
 
 /**
  * Sorted index.
@@ -32,7 +33,7 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
     protected final int inlineSize;
 
     /** Columns. */
-    private final List<IndexColumn> cols;
+    private final List<SortedIndexColumn> cols;
 
     /** Unique flag. */
     private final boolean uniq;
@@ -45,7 +46,7 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
      * @param inlineSize Inline size.
      * @param uniq Unique flag.
      */
-    public SortedIndexImpl(String name, List<IndexColumn> cols, int inlineSize, boolean uniq) {
+    public SortedIndexImpl(String name, List<SortedIndexColumn> cols, int inlineSize, boolean uniq) {
         super(name);
 
         this.inlineSize = inlineSize;
@@ -54,17 +55,17 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
     }
 
     /** {@inheritDoc} */
-    @Override public int inlineSize() {
+    public int inlineSize() {
         return inlineSize;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<IndexColumn> columns() {
+    @Override public List<SortedIndexColumn> columns() {
         return cols;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<IndexColumn> indexedColumns() {
+    @Override public List<SortedIndexColumn> indexedColumns() {
         return cols;
     }
 
@@ -87,7 +88,7 @@ public class SortedIndexImpl extends AbstractIndexImpl implements SortedIndex {
     /**
      * Index column.
      */
-    public static class IndexColumnImpl implements IndexColumn {
+    public static class IndexColumnImpl implements SortedIndexColumn {
         /** Column name. */
         private final String name;
 

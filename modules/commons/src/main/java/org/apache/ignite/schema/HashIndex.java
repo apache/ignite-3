@@ -17,19 +17,10 @@
 
 package org.apache.ignite.schema;
 
-import java.util.List;
-
 /**
  * Hash index descriptor.
  */
-public interface HashIndex extends TableIndex {
-    /**
-     * @return Index columns.
-     */
-    List<String> columns();
-
-    // TODO: What about hidden cols (pk cols) which can be append for row uniqueness purposes?
-
+public interface HashIndex extends TableIndex, ColumnarIndex {
     /** {@inheritDoc} */
     @Override default String type() {
         return "HASH";

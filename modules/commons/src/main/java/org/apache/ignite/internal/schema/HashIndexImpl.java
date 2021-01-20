@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.schema.HashIndex;
+import org.apache.ignite.schema.IndexColumn;
 
 /**
  * Hash index.
  */
 public class HashIndexImpl extends AbstractIndexImpl implements HashIndex {
     /** Index columns. */
-    private final List<String> columns;
+    private final List<IndexColumn> columns;
 
     /**
      * Constructor.
@@ -36,11 +39,11 @@ public class HashIndexImpl extends AbstractIndexImpl implements HashIndex {
     public HashIndexImpl(String name, String[] columns) {
         super(name);
 
-        this.columns = List.of(columns);
+        this.columns = Arrays.stream(columns).map(IndexColumnImpl::new).collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
-    @Override public List<String> columns() {
+    @Override public List<IndexColumn> columns() {
         return columns;
     }
 
@@ -49,7 +52,36 @@ public class HashIndexImpl extends AbstractIndexImpl implements HashIndex {
         return "TableIndex[" +
             "type=HASH, " +
             "name='" + name + '\'' +
-            ", columns=[" + String.join(",", columns) + ']' +
+            ", columns=[" + columns.stream().map(IndexColumn::name).collect(Collectors.joining()) + ']' +
             ']';
+    }
+
+    /**
+     * Index column.
+     */
+    public static class IndexColumnImpl implements IndexColumn {
+        /** Column name. */
+        private final String name;
+
+        /**
+         * Constructor.
+         *
+         * @param name Column name.
+         */
+        IndexColumnImpl(String name) {
+            this.name = name;
+        }
+
+        /** {@inheritDoc} */
+        @Override public String name() {
+            return name;
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return "HashIndexColumn[" +
+                "name='" + name + '\'' +
+                ']';
+        }
     }
 }

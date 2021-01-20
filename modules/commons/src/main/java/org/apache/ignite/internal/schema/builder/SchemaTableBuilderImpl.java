@@ -17,22 +17,18 @@
 
 package org.apache.ignite.internal.schema.builder;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.SchemaTableImpl;
 import org.apache.ignite.schema.Column;
-import org.apache.ignite.schema.HashIndex;
-import org.apache.ignite.schema.PartialIndex;
+import org.apache.ignite.schema.ColumnarIndex;
+import org.apache.ignite.schema.IndexColumn;
+import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
-import org.apache.ignite.schema.builder.SchemaObjectBuilder;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
 /**
@@ -50,12 +46,6 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
     /** Indices. */
     private final Map<String, TableIndex> indices = new HashMap<>();
-
-    /** Primary key fields. */
-    private LinkedHashSet<String> pkCols;
-
-    /** Primary key fields. */
-    private LinkedHashSet<String> affCols;
 
     /**
      * Constructor.
@@ -79,24 +69,20 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaTableBuilder pkColumns(String... colNames) {
-        pkCols = new LinkedHashSet<>(Arrays.asList(colNames));
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaTableBuilder affinityColumns(String... colNames) {
-        affCols = new LinkedHashSet<>(Arrays.asList(colNames));
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaTableBuilder withindex(TableIndex index) {
-        if (PRIMARY_KEY_INDEX_NAME.equals(index.name()))
-            throw new IllegalArgumentException("Not valid index name for secondary index: " + index.name());
+    @Override public SchemaTableBuilder withIndex(TableIndex index) {
+        if (!(index instanceof PrimaryIndex) && PRIMARY_KEY_INDEX_NAME.equals(index.name()))
+            throw new IllegalArgumentException("Not valid index name for a secondary index: " + index.name());
         else if (indices.put(index.name(), index) != null)
+            throw new IllegalArgumentException("Index with same name already exists: " + index.name());
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public SchemaTableBuilder withPkIndex(PrimaryIndex index) {
+        assert PRIMARY_KEY_INDEX_NAME.equals(index.name());
+
+        if (indices.put(index.name(), index) != null)
             throw new IllegalArgumentException("Index with same name already exists: " + index.name());
 
         return this;
@@ -113,57 +99,31 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
         assert schemaName != null : "Table name was not specified.";
         assert columns.size() >= 2 : "Key or/and value columns was not defined.";
 
-        validatePrimaryKey();
-
-        validateSecondaryIndices();
+        validateIndices();
 
         return new SchemaTableImpl(
             schemaName,
             tableName,
             columns,
-            pkCols,
-            affCols,
             Collections.unmodifiableMap(indices)
         );
     }
 
     /**
-     * Validate key columns.
+     * Validate indices.
      */
-    private void validatePrimaryKey() {
-        assert pkCols != null : "PK index is not configured";
-
-        if (affCols == null)
-            affCols = pkCols;
-
-        final Set<String> keyCols = pkCols.stream().collect(Collectors.toSet());
-
-        assert keyCols.stream().allMatch(columns::containsKey) : "Key column must be a valid table column.";
-        assert affCols != null && !affCols.isEmpty() : "Primary key must have one affinity column at least";
-        assert affCols.stream().allMatch(keyCols::contains) : "Affinity column must be a valid key column.";
-    }
-
-    /**
-     * Validate secondary indices.
-     */
-    private void validateSecondaryIndices() {
+    private void validateIndices() {
         assert indices.values().stream()
-            .filter(SortedIndexBuilderImpl.class::isInstance)
-            .map(SortedIndexBuilderImpl.class::cast)
+            .filter(ColumnarIndex.class::isInstance)
+            .map(ColumnarIndex.class::cast)
             .flatMap(idx -> idx.columns().stream())
-            .map(SortedIndexBuilderImpl.SortedIndexColumnBuilderImpl::name)
-            .allMatch(columns::containsKey) : "Indexed column dosn't exists in schema.";
+            .map(IndexColumn::name)
+            .allMatch(columns::containsKey) : "Index column doesn't exists in schema.";
 
-        assert indices.values().stream()
-            .filter(HashIndex.class::isInstance)
-            .map(HashIndex.class::cast)
-            .flatMap(idx -> idx.columns().stream())
-            .allMatch(columns::containsKey) : "Indexed column dosn't exists in schema.";
+        assert indices.containsKey(PRIMARY_KEY_INDEX_NAME) : "PK index is not configured";
+        assert !((PrimaryIndex)indices.get(PRIMARY_KEY_INDEX_NAME)).affinityColumns().isEmpty() : "Primary key must have one affinity column at least";
 
-        assert indices.values().stream()
-            .filter(PartialIndex.class::isInstance)
-            .map(PartialIndex.class::cast)
-            .flatMap(idx -> idx.columns().stream())
-            .allMatch(c -> columns.containsKey(c.name())) : "Indexed column dosn't exists in schema.";
+        // Note: E.g. functional index is not columnar index as it index an expression result only.
+        assert indices.values().stream().allMatch(ColumnarIndex.class::isInstance) : "Columnar indices are supported only.";
     }
 }
