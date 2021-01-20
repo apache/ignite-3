@@ -29,7 +29,7 @@ import org.apache.ignite.schema.TableIndex;
 public interface SchemaTableBuilder extends SchemaObjectBuilder {
     /**
      * @param columns Table columns.
-     * @return Schema table builder for chaining.
+     * @return {@code This} for chaining.
      */
     SchemaTableBuilder columns(Column... columns);
 
@@ -37,9 +37,17 @@ public interface SchemaTableBuilder extends SchemaObjectBuilder {
      * Adds an index.
      *
      * @param index Table index.
-     * @return Schema table builder for chaining.
+     * @return {@code This} for chaining.
      */
     SchemaTableBuilder withIndex(TableIndex index);
+
+    /**
+     * Shortcut method for adding {@link PrimaryIndex} via {@link #withIndex(TableIndex)}
+     *
+     * @param colName Key column name.
+     * @return {@code This} for chaining.
+     */
+    SchemaTableBuilder withPrimaryKey(String colName);
 
     /** {@inheritDoc} */
     @Override SchemaTableBuilder withHints(Map<String, String> hints);
@@ -50,4 +58,5 @@ public interface SchemaTableBuilder extends SchemaObjectBuilder {
      * @return Table schema.
      */
     @Override SchemaTable build();
+
 }

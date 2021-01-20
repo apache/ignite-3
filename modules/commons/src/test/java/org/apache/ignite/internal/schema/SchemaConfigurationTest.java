@@ -84,7 +84,7 @@ public class SchemaConfigurationTest {
                 SchemaBuilders.column("id", ColumnType.INT64).build(),
                 SchemaBuilders.column("name", ColumnType.string()).build()
             )
-            .withIndex(SchemaBuilders.pkIndex().addIndexColumn("id").done().build())
+            .withPrimaryKey("id")
             .build();
 
         table.toBuilder()

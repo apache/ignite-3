@@ -26,6 +26,7 @@ import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnarIndex;
 import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PrimaryIndex;
+import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
@@ -80,6 +81,13 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
         if (indices.put(index.name(), index) != null)
             throw new IllegalArgumentException("Index with same name already exists: " + index.name());
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public SchemaTableBuilder withPrimaryKey(String colName) {
+        withIndex(SchemaBuilders.pkIndex().addIndexColumn(colName).done().build());
 
         return this;
     }
