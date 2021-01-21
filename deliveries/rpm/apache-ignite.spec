@@ -18,7 +18,7 @@ Group:            Development/System
 License:          ASL 2.0
 URL:              https://ignite.apache.org
 Requires:         java-11 which
-Requires(pre):    (shadow-utils or shadow)
+Requires(pre):    shadow-utils
 Provides:         %{name}
 AutoReq:          no
 AutoProv:         no
