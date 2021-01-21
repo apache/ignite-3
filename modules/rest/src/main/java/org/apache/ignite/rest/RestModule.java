@@ -21,10 +21,12 @@ import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import java.io.Reader;
 import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.SystemConfiguration;
+import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.internal.selector.SelectorNotFoundException;
-import org.apache.ignite.configuration.presentation.FormatConverter;
-import org.apache.ignite.configuration.presentation.json.JsonConverter;
+import org.apache.ignite.rest.presentation.ConfigurationPresentation;
+import org.apache.ignite.rest.presentation.FormatConverter;
+import org.apache.ignite.rest.presentation.json.JsonConverter;
+import org.apache.ignite.rest.presentation.json.JsonPresentation;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.rest.configuration.InitRest;
@@ -49,7 +51,10 @@ public class RestModule {
     private static final String PATH_PARAM = "selector";
 
     /** */
-    private SystemConfiguration sysConf;
+    private ConfigurationRegistry sysConf;
+
+    /** */
+    private volatile ConfigurationPresentation<String> presentation;
 
     /** */
     private final Logger log;
@@ -60,7 +65,7 @@ public class RestModule {
     }
 
     /** */
-    public void prepareStart(SystemConfiguration sysConfig, Reader moduleConfReader, ConfigurationStorage storage) {
+    public void prepareStart(ConfigurationRegistry sysConfig, Reader moduleConfReader, ConfigurationStorage storage) {
         try {
             Class.forName(Selectors.class.getName());
         }
@@ -69,6 +74,8 @@ public class RestModule {
         }
 
         sysConf = sysConfig;
+
+        presentation = new JsonPresentation(sysConfig.getConfigurators());
 
         FormatConverter converter = new JsonConverter();
 
@@ -85,14 +92,14 @@ public class RestModule {
         FormatConverter converter = new JsonConverter();
 
         app.get(CONF_URL, ctx -> {
-            ctx.result(sysConf.presentation().represent());
+            ctx.result(presentation.represent());
         });
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
             String configPath = ctx.pathParam(PATH_PARAM);
 
             try {
-                ctx.result(sysConf.presentation().representByPath(configPath));
+                ctx.result(presentation.representByPath(configPath));
             }
             catch (SelectorNotFoundException | IllegalArgumentException pathE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
@@ -103,7 +110,7 @@ public class RestModule {
 
         app.post(CONF_URL, ctx -> {
             try {
-                sysConf.presentation().update(ctx.body());
+                presentation.update(ctx.body());
             }
             catch (SelectorNotFoundException | IllegalArgumentException argE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", argE.getMessage());

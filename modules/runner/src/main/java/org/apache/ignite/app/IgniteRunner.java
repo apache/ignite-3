@@ -21,7 +21,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.io.Serializable;
@@ -125,7 +124,7 @@ public class IgniteRunner {
                 bldr.append(str);
             }
 
-            restModule.prepareStart(confModule.systemConfiguration(), new StringReader(bldr.toString()), STORAGE);
+            restModule.prepareStart(confModule.configurationRegistry(), new StringReader(bldr.toString()), STORAGE);
 
             confModule.bootstrap(new StringReader(bldr.toString()), STORAGE);
         }

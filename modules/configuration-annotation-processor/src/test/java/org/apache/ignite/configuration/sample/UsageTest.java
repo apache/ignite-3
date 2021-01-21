@@ -21,7 +21,7 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.SystemConfiguration;
+import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.internal.NamedList;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.StorageException;
@@ -97,7 +97,7 @@ public class UsageTest {
      */
     @Test
     public void multiRootConfigurationTest() {
-        SystemConfiguration sysConf = new SystemConfiguration();
+        ConfigurationRegistry sysConf = new ConfigurationRegistry();
 
         int failureDetectionTimeout = 30_000;
         int joinTimeout = 10_000;

@@ -15,24 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.presentation;
+package org.apache.ignite.configuration;
 
-import java.io.Reader;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 /** */
-public interface FormatConverter {
+public class ConfigurationRegistry {
     /** */
-    String convertTo(Object obj);
+    private final Map<String, Configurator<?>> configs = new HashMap<>();
 
     /** */
-    String convertTo(String rootName, Object obj);
+    public <T extends DynamicConfiguration<?, ?, ?>> void registerConfigurator(Configurator<T> unitConfig) {
+        String key = unitConfig.getRoot().key();
+
+        configs.put(key, unitConfig);
+    }
 
     /** */
-    String rootName(String source);
+    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T> rootKey) {
+        return (T) configs.get(rootKey.key()).getRoot();
+    }
 
     /** */
-    <T> T convertFrom(String source, String rootName, Class<T> clazz);
-
-    /** */
-    <T> T convertFrom(Reader source, String rootName, Class<T> clazz);
+    public Map<String, Configurator<? extends DynamicConfiguration<?, ?, ?>>> getConfigurators() {
+        return configs;
+    }
 }

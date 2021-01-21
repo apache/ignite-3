@@ -22,9 +22,9 @@ import java.io.Reader;
 import org.apache.ignite.configuration.extended.InitLocal;
 import org.apache.ignite.configuration.extended.LocalConfigurationImpl;
 import org.apache.ignite.configuration.extended.Selectors;
-import org.apache.ignite.configuration.presentation.FormatConverter;
-import org.apache.ignite.configuration.presentation.json.JsonConverter;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.rest.presentation.FormatConverter;
+import org.apache.ignite.rest.presentation.json.JsonConverter;
 
 /**
  * Module is responsible for preparing configuration when module is started.
@@ -46,7 +46,7 @@ public class ConfigurationModule {
     private Configurator<LocalConfigurationImpl> localConfigurator;
 
     /** */
-    private final SystemConfiguration sysConf = new SystemConfiguration();
+    private final ConfigurationRegistry confRegistry = new ConfigurationRegistry();
 
     /** */
     public void bootstrap(Reader confReader, ConfigurationStorage storage) {
@@ -59,7 +59,7 @@ public class ConfigurationModule {
 
         String key = configurator.getRoot().key();
 
-        sysConf.registerConfigurator(configurator);
+        confRegistry.registerConfigurator(configurator);
     }
 
     /** */
@@ -68,7 +68,7 @@ public class ConfigurationModule {
     }
 
     /** */
-    public SystemConfiguration systemConfiguration() {
-        return sysConf;
+    public ConfigurationRegistry configurationRegistry() {
+        return confRegistry;
     }
 }

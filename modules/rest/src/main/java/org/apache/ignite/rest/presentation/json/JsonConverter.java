@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.presentation.json;
+package org.apache.ignite.rest.presentation.json;
 
 import java.io.Reader;
 
@@ -23,7 +23,7 @@ import com.google.gson.Gson;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.ignite.configuration.presentation.FormatConverter;
+import org.apache.ignite.rest.presentation.FormatConverter;
 
 /** */
 public class JsonConverter implements FormatConverter {

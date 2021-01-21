@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.presentation.json;
+package org.apache.ignite.rest.presentation.json;
 
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.ConfigurationPresentation;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.rest.presentation.ConfigurationPresentation;
 
 /** */
 public class JsonPresentation implements ConfigurationPresentation<String> {
