@@ -258,6 +258,21 @@ public class TestCluster {
         return false;
     }
 
+    public Node getNode(Endpoint endpoint) {
+        this.lock.lock();
+        try {
+            for (NodeImpl node : nodes) {
+                if (node.getServerId().getEndpoint().equals(endpoint))
+                    return node;
+            }
+        } finally {
+            this.lock.unlock();
+        }
+
+        return null;
+    }
+
+
     public MockStateMachine getFsmByPeer(final PeerId peer) {
         this.lock.lock();
         try {

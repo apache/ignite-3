@@ -48,7 +48,7 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createAddPeerResponse();
         }
 
         java.util.List<java.lang.String> getOldPeersList();
@@ -92,7 +92,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createRemovePeerRequest();
         }
     }
 
@@ -102,37 +102,19 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createRemovePeerResponse();
         }
 
-        /**
-         * <code>repeated string old_peers = 1;</code>
-         */
         java.util.List<java.lang.String> getOldPeersList();
 
-        /**
-         * <code>repeated string old_peers = 1;</code>
-         */
         int getOldPeersCount();
 
-        /**
-         * <code>repeated string old_peers = 1;</code>
-         */
         java.lang.String getOldPeers(int index);
 
-        /**
-         * <code>repeated string new_peers = 2;</code>
-         */
         java.util.List<java.lang.String> getNewPeersList();
 
-        /**
-         * <code>repeated string new_peers = 2;</code>
-         */
         int getNewPeersCount();
 
-        /**
-         * <code>repeated string new_peers = 2;</code>
-         */
         java.lang.String getNewPeers(int index);
 
         RpcRequests.ErrorResponse getErrorResponse();
@@ -147,29 +129,14 @@ public final class CliRequests {
     }
 
     public interface ChangePeersRequest extends Message {
-        /**
-         * <code>required string group_id = 1;</code>
-         */
         java.lang.String getGroupId();
 
-        /**
-         * <code>required string leader_id = 2;</code>
-         */
         java.lang.String getLeaderId();
 
-        /**
-         * <code>repeated string new_peers = 3;</code>
-         */
         java.util.List<java.lang.String> getNewPeersList();
 
-        /**
-         * <code>repeated string new_peers = 3;</code>
-         */
         int getNewPeersCount();
 
-        /**
-         * <code>repeated string new_peers = 3;</code>
-         */
         java.lang.String getNewPeers(int index);
 
         public interface Builder {
@@ -183,7 +150,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createChangePeerRequest();
         }
     }
 
@@ -194,42 +161,21 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createChangePeerResponse();
         }
 
-        /**
-         * <code>repeated string old_peers = 1;</code>
-         */
         java.util.List<java.lang.String> getOldPeersList();
 
-        /**
-         * <code>repeated string old_peers = 1;</code>
-         */
         int getOldPeersCount();
 
-        /**
-         * <code>repeated string old_peers = 1;</code>
-         */
         java.lang.String getOldPeers(int index);
 
-        /**
-         * <code>repeated string new_peers = 2;</code>
-         */
         java.util.List<java.lang.String> getNewPeersList();
 
-        /**
-         * <code>repeated string new_peers = 2;</code>
-         */
         int getNewPeersCount();
 
-        /**
-         * <code>repeated string new_peers = 2;</code>
-         */
         java.lang.String getNewPeers(int index);
 
-        /**
-         * <code>optional .jraft.ErrorResponse errorResponse = 99;</code>
-         */
         RpcRequests.ErrorResponse getErrorResponse();
 
         public interface Builder {
@@ -255,7 +201,7 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createSnapshotRequest();
         }
     }
 
@@ -287,7 +233,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createResetPeerRequest();
         }
     }
 
@@ -311,7 +257,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createTransferLeaderRequest();
         }
     }
 
@@ -331,7 +277,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createGetLeaderRequest();
         }
     }
 
@@ -341,7 +287,7 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createGetLeaderResponse();
         }
 
         java.lang.String getLeaderId();
@@ -375,7 +321,7 @@ public final class CliRequests {
         }
 
         public static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createGetPeersRequest();
         }
     }
 
@@ -385,7 +331,7 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createGetPeersResponse();
         }
 
         java.util.List<java.lang.String> getPeersList();
@@ -433,7 +379,7 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createAddLearnersRequest();
         }
     }
 
@@ -459,7 +405,7 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createRemoveLearnersRequest();
         }
     }
 
@@ -491,7 +437,7 @@ public final class CliRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createResetLearnersRequest();
         }
     }
 
@@ -515,7 +461,7 @@ public final class CliRequests {
         RpcRequests.ErrorResponse getErrorResponse();
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createLearnersOpResponse();
         }
 
         public interface Builder {

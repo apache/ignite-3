@@ -73,7 +73,7 @@ public final class RpcRequests {
 
     public interface InstallSnapshotRequest extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createInstallSnapshotRequest();
         }
 
         java.lang.String getGroupId();
@@ -111,7 +111,7 @@ public final class RpcRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createInstallSnapshotResponse();
         }
 
         /**
@@ -373,7 +373,7 @@ public final class RpcRequests {
 
     public interface GetFileRequest extends Message {
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createGetFileRequest();
         }
 
         long getReaderId();
@@ -415,7 +415,7 @@ public final class RpcRequests {
         }
 
         static Builder newBuilder() {
-            return null;
+            return MessageBuilderFactory.DEFAULT.createGetFileResponse();
         }
 
         boolean getEof();

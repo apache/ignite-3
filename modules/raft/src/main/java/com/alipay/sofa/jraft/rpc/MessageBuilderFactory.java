@@ -9,8 +9,6 @@ import com.alipay.sofa.jraft.rpc.message.DefaultMessageBuilderFactory;
 public interface MessageBuilderFactory {
     public static MessageBuilderFactory DEFAULT = new DefaultMessageBuilderFactory();
 
-    CliRequests.AddPeerRequest.Builder createAddPeerRequest();
-
     LocalFileMetaOutter.LocalFileMeta.Builder createLocalFileMeta();
 
     RpcRequests.PingRequest.Builder createPingRequest();
@@ -42,4 +40,47 @@ public interface MessageBuilderFactory {
     LocalStorageOutter.LocalSnapshotPbMeta.Builder createLocalSnapshotMeta();
 
     LocalStorageOutter.LocalSnapshotPbMeta.File.Builder createFile();
+
+    RpcRequests.InstallSnapshotRequest.Builder createInstallSnapshotRequest();
+
+    RpcRequests.InstallSnapshotResponse.Builder createInstallSnapshotResponse();
+
+    RpcRequests.GetFileRequest.Builder createGetFileRequest();
+
+    RpcRequests.GetFileResponse.Builder createGetFileResponse();
+
+    // CLI
+    CliRequests.AddPeerRequest.Builder createAddPeerRequest();
+
+    CliRequests.AddPeerResponse.Builder createAddPeerResponse();
+
+    CliRequests.RemovePeerRequest.Builder createRemovePeerRequest();
+
+    CliRequests.RemovePeerResponse.Builder createRemovePeerResponse();
+
+    CliRequests.ChangePeersRequest.Builder createChangePeerRequest();
+
+    CliRequests.ChangePeersResponse.Builder createChangePeerResponse();
+
+    CliRequests.SnapshotRequest.Builder createSnapshotRequest();
+
+    CliRequests.ResetPeerRequest.Builder createResetPeerRequest();
+
+    CliRequests.TransferLeaderRequest.Builder createTransferLeaderRequest();
+
+    CliRequests.GetLeaderRequest.Builder createGetLeaderRequest();
+
+    CliRequests.GetLeaderResponse.Builder createGetLeaderResponse();
+
+    CliRequests.GetPeersRequest.Builder createGetPeersRequest();
+
+    CliRequests.GetPeersResponse.Builder createGetPeersResponse();
+
+    CliRequests.AddLearnersRequest.Builder createAddLearnersRequest();
+
+    CliRequests.RemoveLearnersRequest.Builder createRemoveLearnersRequest();
+
+    CliRequests.ResetLearnersRequest.Builder createResetLearnersRequest();
+
+    CliRequests.LearnersOpResponse.Builder createLearnersOpResponse();
 }

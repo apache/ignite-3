@@ -8,10 +8,6 @@ import com.alipay.sofa.jraft.rpc.MessageBuilderFactory;
 import com.alipay.sofa.jraft.rpc.RpcRequests;
 
 public class DefaultMessageBuilderFactory implements MessageBuilderFactory {
-    @Override public CliRequests.AddPeerRequest.Builder createAddPeerRequest() {
-        return new AddPeerRequestImpl();
-    }
-
     @Override public LocalFileMetaOutter.LocalFileMeta.Builder createLocalFileMeta() {
         return new LocalFileMetaImpl();
     }
@@ -74,5 +70,89 @@ public class DefaultMessageBuilderFactory implements MessageBuilderFactory {
 
     @Override public LocalStorageOutter.LocalSnapshotPbMeta.File.Builder createFile() {
         return new LocalSnapshotMetaFileImpl();
+    }
+
+    @Override public RpcRequests.InstallSnapshotRequest.Builder createInstallSnapshotRequest() {
+        return new InstallSnapshotRequestImpl();
+    }
+
+    @Override public RpcRequests.InstallSnapshotResponse.Builder createInstallSnapshotResponse() {
+        return new InstallSnapshotResponseImpl();
+    }
+
+    @Override public RpcRequests.GetFileRequest.Builder createGetFileRequest() {
+        return new GetFileRequestImpl();
+    }
+
+    @Override public RpcRequests.GetFileResponse.Builder createGetFileResponse() {
+        return new GetFileResponseImpl();
+    }
+
+    @Override public CliRequests.AddPeerRequest.Builder createAddPeerRequest() {
+        return new AddPeerRequestImpl();
+    }
+
+    @Override public CliRequests.AddPeerResponse.Builder createAddPeerResponse() {
+        return null;
+    }
+
+    @Override public CliRequests.RemovePeerRequest.Builder createRemovePeerRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.RemovePeerResponse.Builder createRemovePeerResponse() {
+        return null;
+    }
+
+    @Override public CliRequests.ChangePeersRequest.Builder createChangePeerRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.ChangePeersResponse.Builder createChangePeerResponse() {
+        return null;
+    }
+
+    @Override public CliRequests.SnapshotRequest.Builder createSnapshotRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.ResetPeerRequest.Builder createResetPeerRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.TransferLeaderRequest.Builder createTransferLeaderRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.GetLeaderRequest.Builder createGetLeaderRequest() {
+        return new CreateGetLeaderRequestImpl();
+    }
+
+    @Override public CliRequests.GetLeaderResponse.Builder createGetLeaderResponse() {
+        return new CreateGetLeaderResponseImpl();
+    }
+
+    @Override public CliRequests.GetPeersRequest.Builder createGetPeersRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.GetPeersResponse.Builder createGetPeersResponse() {
+        return null;
+    }
+
+    @Override public CliRequests.AddLearnersRequest.Builder createAddLearnersRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.RemoveLearnersRequest.Builder createRemoveLearnersRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.ResetLearnersRequest.Builder createResetLearnersRequest() {
+        return null;
+    }
+
+    @Override public CliRequests.LearnersOpResponse.Builder createLearnersOpResponse() {
+        return null;
     }
 }

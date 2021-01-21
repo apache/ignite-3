@@ -2,7 +2,7 @@ package com.alipay.sofa.jraft.rpc.message;
 
 import com.alipay.sofa.jraft.rpc.RpcRequests;
 
-class TimeoutNowResponseImpl implements RpcRequests.TimeoutNowResponse, RpcRequests.TimeoutNowResponse.Builder {
+public class InstallSnapshotResponseImpl implements RpcRequests.InstallSnapshotResponse, RpcRequests.InstallSnapshotResponse.Builder {
     private long term;
     private boolean success;
 
@@ -18,7 +18,7 @@ class TimeoutNowResponseImpl implements RpcRequests.TimeoutNowResponse, RpcReque
         return null;
     }
 
-    @Override public RpcRequests.TimeoutNowResponse build() {
+    @Override public RpcRequests.InstallSnapshotResponse build() {
         return this;
     }
 

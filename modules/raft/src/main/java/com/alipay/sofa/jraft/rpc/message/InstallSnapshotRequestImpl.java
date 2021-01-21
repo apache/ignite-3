@@ -1,12 +1,15 @@
 package com.alipay.sofa.jraft.rpc.message;
 
+import com.alipay.sofa.jraft.entity.RaftOutter;
 import com.alipay.sofa.jraft.rpc.RpcRequests;
 
-class TimeoutNowRequestImpl implements RpcRequests.TimeoutNowRequest, RpcRequests.TimeoutNowRequest.Builder {
+public class InstallSnapshotRequestImpl implements RpcRequests.InstallSnapshotRequest, RpcRequests.InstallSnapshotRequest.Builder {
     private String groupId;
     private String serverId;
     private String peerId;
     private long term;
+    private RaftOutter.SnapshotMeta meta;
+    private String uri;
 
     @Override public String getGroupId() {
         return groupId;
@@ -24,7 +27,15 @@ class TimeoutNowRequestImpl implements RpcRequests.TimeoutNowRequest, RpcRequest
         return term;
     }
 
-    @Override public RpcRequests.TimeoutNowRequest build() {
+    @Override public RaftOutter.SnapshotMeta getMeta() {
+        return meta;
+    }
+
+    @Override public String getUri() {
+        return uri;
+    }
+
+    @Override public RpcRequests.InstallSnapshotRequest build() {
         return this;
     }
 
@@ -52,16 +63,30 @@ class TimeoutNowRequestImpl implements RpcRequests.TimeoutNowRequest, RpcRequest
         return this;
     }
 
+    @Override public Builder setMeta(RaftOutter.SnapshotMeta meta) {
+        this.meta = meta;
+
+        return this;
+    }
+
+    @Override public Builder setUri(String uri) {
+        this.uri = uri;
+
+        return this;
+    }
+
     @Override public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        TimeoutNowRequestImpl that = (TimeoutNowRequestImpl) o;
+        InstallSnapshotRequestImpl that = (InstallSnapshotRequestImpl) o;
 
         if (term != that.term) return false;
         if (!groupId.equals(that.groupId)) return false;
         if (!serverId.equals(that.serverId)) return false;
-        return peerId.equals(that.peerId);
+        if (!peerId.equals(that.peerId)) return false;
+        if (!meta.equals(that.meta)) return false;
+        return uri.equals(that.uri);
     }
 
     @Override public int hashCode() {
@@ -69,6 +94,8 @@ class TimeoutNowRequestImpl implements RpcRequests.TimeoutNowRequest, RpcRequest
         result = 31 * result + serverId.hashCode();
         result = 31 * result + peerId.hashCode();
         result = 31 * result + (int) (term ^ (term >>> 32));
+        result = 31 * result + meta.hashCode();
+        result = 31 * result + uri.hashCode();
         return result;
     }
 }

@@ -67,7 +67,9 @@ public class TestUtils {
     }
 
     public static String mkTempDir() {
-        return Paths.get(System.getProperty("java.io.tmpdir", "/tmp"), "jraft_test_" + System.nanoTime()).toString();
+        String userDirectory = System.getProperty("user.dir");
+        // String tmpDir = System.getProperty("java.io.tmpdir", "/tmp");
+        return Paths.get(userDirectory, "jraft_test_" + System.nanoTime()).toString();
     }
 
     public static LogEntry mockEntry(final int index, final int term) {

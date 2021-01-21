@@ -3,7 +3,7 @@
 
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{YYYY-MM-dd HH:mm:ss} [%t] %-5p %c{1}:%L - %msg%n"/>
+            <PatternLayout pattern="%d{YYYY-MM-dd HH:mm:ss,SSS} [%t] %-5p %c{1}:%L - %msg%n"/>
         </Console>
 
         <!--<RollingFile name="RollingFile" filename="log/jraft-example.log"-->
@@ -19,7 +19,7 @@
     <Loggers>
         <Root level="info">
             <AppenderRef ref="Console"/>
-            <AppenderRef ref="RollingFile"/>
+            <!--<AppenderRef ref="RollingFile"/>-->
         </Root>
     </Loggers>
 </Configuration>

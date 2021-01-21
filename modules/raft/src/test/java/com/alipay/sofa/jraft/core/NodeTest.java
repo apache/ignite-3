@@ -1941,8 +1941,10 @@ public class NodeTest {
         cluster.stopAll();
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
-    @Ignore
     public void testRestoreSnasphot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1955,6 +1957,9 @@ public class NodeTest {
         cluster.waitLeader();
         // get leader
         final Node leader = cluster.getLeader();
+
+        LOG.info("Leader: " + leader);
+
         assertNotNull(leader);
         // apply tasks to leader
         this.sendTestTaskAndWait(leader);
@@ -1965,7 +1970,7 @@ public class NodeTest {
         // stop leader
         final Endpoint leaderAddr = leader.getNodeId().getPeerId().getEndpoint().copy();
         assertTrue(cluster.stop(leaderAddr));
-        Thread.sleep(2000);
+        Thread.sleep(2000); // TODO asch while sleep is needed ?
 
         // restart leader
         cluster.waitLeader();
@@ -1973,6 +1978,56 @@ public class NodeTest {
         assertTrue(cluster.start(leaderAddr));
         cluster.ensureSame();
         assertEquals(0, cluster.getLeaderFsm().getLoadSnapshotTimes());
+
+        cluster.stopAll();
+    }
+
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testRestoreSnapshotWithDelta() throws Exception {
+        final List<PeerId> peers = TestUtils.generatePeers(3);
+
+        final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers);
+
+        for (final PeerId peer : peers) {
+            assertTrue(cluster.start(peer.getEndpoint()));
+        }
+
+        cluster.waitLeader();
+        // get leader
+        final Node leader = cluster.getLeader();
+
+        LOG.info("Leader: " + leader);
+
+        assertNotNull(leader);
+        // apply tasks to leader
+        this.sendTestTaskAndWait(leader);
+
+        cluster.ensureSame();
+        triggerLeaderSnapshot(cluster, leader);
+
+        // stop leader
+        final Endpoint leaderAddr = leader.getNodeId().getPeerId().getEndpoint().copy();
+        assertTrue(cluster.stop(leaderAddr));
+        Thread.sleep(2000); // TODO asch while sleep is needed ?
+
+        // restart leader
+        cluster.waitLeader();
+
+        sendTestTaskAndWait(cluster.getLeader(), 10, RaftError.SUCCESS);
+
+        assertEquals(0, cluster.getLeaderFsm().getLoadSnapshotTimes());
+        assertTrue(cluster.start(leaderAddr));
+
+        Node oldLeader = cluster.getNode(leaderAddr);
+
+        cluster.ensureSame();
+        assertEquals(0, cluster.getLeaderFsm().getLoadSnapshotTimes());
+
+        MockStateMachine fsm = (MockStateMachine) oldLeader.getOptions().getFsm();
+        assertEquals(1, fsm.getLoadSnapshotTimes());
 
         cluster.stopAll();
     }
