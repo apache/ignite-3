@@ -123,7 +123,7 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     /**
      * 
      */
-    public <CHANGE> Class<CHANGE> getChangeType() {
+    public Class<?> getChangeType() {
         Type sClass = root.getClass().getGenericSuperclass();
 
         assert sClass instanceof ParameterizedType;
@@ -132,7 +132,7 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
 
         assert pt.getActualTypeArguments().length == 3;
 
-        return (Class<CHANGE>) pt.getActualTypeArguments()[2];
+        return (Class<?>) pt.getActualTypeArguments()[2];
     }
 
     /**

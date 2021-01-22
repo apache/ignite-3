@@ -619,7 +619,6 @@ public class Processor extends AbstractProcessor {
 
                 if (current.getParent() != null) {
                     String newMethodCall = "." + current.getOriginalName() + "()";
-
                     // if config is named, then create a call with name parameter
                     if (isNamed)
                         newMethodCall += ".get(name" + (namedCount - 1) + ")";

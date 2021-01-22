@@ -31,7 +31,7 @@ public interface FormatConverter {
     String rootName(String source);
 
     /** */
-    <T> T convertFrom(String source, String rootName, Class<T> clazz);
+    Object convertFrom(String source, String rootName, Class<?> clazz);
 
     /** */
     <T> T convertFrom(Reader source, String rootName, Class<T> clazz);

@@ -54,7 +54,7 @@ public class JsonConverter implements FormatConverter {
     }
 
     /** {@inheritDoc} */
-    @Override public <T> T convertFrom(String source, String rootName, Class<T> clazz) {
+    @Override public Object convertFrom(String source, String rootName, Class<?> clazz) {
         Map map = gson.fromJson(source, Map.class);
 
         String root = gson.toJson(map.get(rootName));
