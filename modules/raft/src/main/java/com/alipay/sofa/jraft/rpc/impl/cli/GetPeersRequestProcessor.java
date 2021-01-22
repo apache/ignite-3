@@ -51,7 +51,7 @@ public class GetPeersRequestProcessor extends BaseCliRequestProcessor<GetPeersRe
                                       final RpcRequestClosure done) {
         final List<PeerId> peers;
         final List<PeerId> learners;
-        if (request.hasOnlyAlive() && request.getOnlyAlive()) {
+        if (request.getOnlyAlive()) {
             peers = ctx.node.listAlivePeers();
             learners = ctx.node.listAliveLearners();
         } else {

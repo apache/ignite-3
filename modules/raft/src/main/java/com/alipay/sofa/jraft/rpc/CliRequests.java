@@ -63,8 +63,6 @@ public final class CliRequests {
 
         java.lang.String getNewPeers(int index);
 
-        RpcRequests.ErrorResponse getErrorResponse();
-
         public interface Builder {
             Builder addOldPeers(String oldPeersId);
 
@@ -307,8 +305,6 @@ public final class CliRequests {
         java.lang.String getLeaderId();
 
         boolean getOnlyAlive();
-
-        boolean hasOnlyAlive();
 
         public interface Builder {
             Builder setGroupId(String groupId);

@@ -93,35 +93,35 @@ public class DefaultMessageBuilderFactory implements MessageBuilderFactory {
     }
 
     @Override public CliRequests.AddPeerResponse.Builder createAddPeerResponse() {
-        return null;
+        return new AddPeerResponseImpl();
     }
 
     @Override public CliRequests.RemovePeerRequest.Builder createRemovePeerRequest() {
-        return null;
+        return new RemovePeerRequestImpl();
     }
 
     @Override public CliRequests.RemovePeerResponse.Builder createRemovePeerResponse() {
-        return null;
+        return new RemovePeerResponseImpl();
     }
 
     @Override public CliRequests.ChangePeersRequest.Builder createChangePeerRequest() {
-        return null;
+        return new ChangePeerRequestImpl();
     }
 
     @Override public CliRequests.ChangePeersResponse.Builder createChangePeerResponse() {
-        return null;
+        return new ChangePeersResponseImpl();
     }
 
     @Override public CliRequests.SnapshotRequest.Builder createSnapshotRequest() {
-        return null;
+        return new SnapshotRequestImpl();
     }
 
     @Override public CliRequests.ResetPeerRequest.Builder createResetPeerRequest() {
-        return null;
+        return new ResetPeerRequestImpl();
     }
 
     @Override public CliRequests.TransferLeaderRequest.Builder createTransferLeaderRequest() {
-        return null;
+        return new TransferLeaderRequestImpl();
     }
 
     @Override public CliRequests.GetLeaderRequest.Builder createGetLeaderRequest() {
@@ -133,26 +133,26 @@ public class DefaultMessageBuilderFactory implements MessageBuilderFactory {
     }
 
     @Override public CliRequests.GetPeersRequest.Builder createGetPeersRequest() {
-        return null;
+        return new GetPeersRequestImpl();
     }
 
     @Override public CliRequests.GetPeersResponse.Builder createGetPeersResponse() {
-        return null;
+        return new GetPeersResponseImpl();
     }
 
     @Override public CliRequests.AddLearnersRequest.Builder createAddLearnersRequest() {
-        return null;
+        return new AddLearnersRequestImpl();
     }
 
     @Override public CliRequests.RemoveLearnersRequest.Builder createRemoveLearnersRequest() {
-        return null;
+        return new RemoveLearnersRequestImpl();
     }
 
     @Override public CliRequests.ResetLearnersRequest.Builder createResetLearnersRequest() {
-        return null;
+        return new ResetLearnersRequestImpl();
     }
 
     @Override public CliRequests.LearnersOpResponse.Builder createLearnersOpResponse() {
-        return null;
+        return new LearnersOpResponseImpl();
     }
 }
