@@ -36,6 +36,7 @@
     <modules>
         <module>modules/cli</module>
         <module>modules/cli-common</module>
+        <module>modules/commons</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/rest</module>
