@@ -24,9 +24,7 @@ AutoReq:          no
 AutoProv:         no
 BuildArch:        noarch
 %description
-Ignite™ is a memory-centric distributed database, caching, and processing
-platform for transactional, analytical, and streaming workloads, delivering
-in-memory speeds at petabyte scale
+Apache Ignite is a distributed database for high-performance computing with in-memory speed.
 
 
 
