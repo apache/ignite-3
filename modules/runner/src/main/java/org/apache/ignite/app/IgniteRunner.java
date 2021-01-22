@@ -64,10 +64,10 @@ public class IgniteRunner {
     private static final String VER_KEY = "version";
 
     /** */
-    private final static Logger log = LoggerFactory.getLogger(IgniteRunner.class);
+    private static final Logger log = LoggerFactory.getLogger(IgniteRunner.class);
 
     /** */
-    private final static ConfigurationStorage STORAGE = new ConfigurationStorage() {
+    private static final ConfigurationStorage STORAGE = new ConfigurationStorage() {
         /** {@inheritDoc} */
         @Override public <T extends Serializable> void save(String propertyName, T object) {
 

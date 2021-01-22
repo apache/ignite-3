@@ -647,7 +647,6 @@ public class Processor extends AbstractProcessor {
                         .build()
                 );
 
-
                 // Build a list of parameters for statement
                 List<Object> params = new ArrayList<>();
                 params.add(MethodHandle.class);

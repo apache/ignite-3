@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.extended;
 
-
 import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
