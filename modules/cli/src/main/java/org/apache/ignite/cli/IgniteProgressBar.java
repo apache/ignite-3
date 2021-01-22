@@ -87,7 +87,7 @@ public class IgniteProgressBar implements AutoCloseable {
         max = newMax;
     }
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public void close() {
         while (curr < max) {
             try {

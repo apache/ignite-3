@@ -37,7 +37,7 @@ public class CommandFactory implements CommandLine.IFactory {
         this.applicationCtx = applicationCtx;
     }
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public <K> K create(Class<K> cls) throws Exception {
         Optional<K> bean = applicationCtx.findOrInstantiateBean(cls);
         return bean.isPresent() ? bean.get() : CommandLine.defaultFactory().create(cls);

@@ -149,7 +149,7 @@ public class Table {
             this.row = row;
         }
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public String render() {
             assert row.length == lengths.length;
 
@@ -181,7 +181,7 @@ public class Table {
             this.title = title;
         }
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public String render() {
             int totalLen = Arrays.stream(lengths).sum() + 3 * (lengths.length - 1);
 

@@ -53,9 +53,7 @@ public class IgnitePaths {
      */
     public final Path binDir;
 
-    /**
-     * Work directory for Ignite server and CLI operation.
-     */
+    /** Work directory for Ignite server and CLI operation. */
     public final Path workDir;
 
     /**
@@ -77,32 +75,44 @@ public class IgnitePaths {
         this.ver = ver;
     }
 
-    /** Path where CLI module artifacts will be placed. */
+    /**
+     * Path where CLI module artifacts will be placed.
+     */
     public Path cliLibsDir() {
         return binDir.resolve(ver).resolve("cli");
     }
 
-    /** Path where Ignite server module artifacts will be placed. */
+    /**
+     * Path where Ignite server module artifacts will be placed.
+     */
     public Path libsDir() {
         return binDir.resolve(ver).resolve("libs");
     }
 
-    /** Path where Ignite node pid files will be created. */
+    /**
+     * Path where Ignite node pid files will be created.
+     */
     public Path cliPidsDir() {
         return workDir.resolve("cli").resolve("pids");
     }
 
-    /** Path to file with registry data for {@link org.apache.ignite.cli.builtins.module.ModuleRegistry} */
+    /**
+     * Path to file with registry data for {@link org.apache.ignite.cli.builtins.module.ModuleRegistry}
+     */
     public Path installedModulesFile() {
         return workDir.resolve("modules.json");
     }
 
-    /** Path to directory with Ignite nodes configs. */
+    /**
+     * Path to directory with Ignite nodes configs.
+     */
     public Path serverConfigDir() {
         return workDir.resolve("config");
     }
 
-    /** Path to default Ignite node config. */
+    /**
+     * Path to default Ignite node config.
+     */
     public Path serverDefaultConfigFile() {
         return serverConfigDir().resolve("default-config.xml");
     }

@@ -42,7 +42,7 @@ public class InitIgniteCommandSpec extends CommandSpec implements IgniteCommand 
     )
     URL[] urls;
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public void run() {
         cmd.init(urls, spec.commandLine().getOut(), spec.commandLine().getColorScheme());
     }

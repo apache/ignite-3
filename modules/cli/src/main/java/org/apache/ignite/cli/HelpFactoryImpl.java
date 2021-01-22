@@ -39,7 +39,7 @@ public class HelpFactoryImpl implements CommandLine.IHelpFactory {
     /** Section key parameter option table. */
     public static final String SECTION_KEY_PARAMETER_OPTION_TABLE = "paramsOptsTable";
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public CommandLine.Help create(CommandLine.Model.CommandSpec cmdSpec, ColorScheme cs) {
         boolean hasCommands = !cmdSpec.subcommands().isEmpty();
         boolean hasOptions = cmdSpec.options().stream().anyMatch(o -> !o.hidden());

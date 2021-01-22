@@ -80,9 +80,10 @@ public class CliPathsConfigLoader {
         Optional<IgnitePaths> ignitePaths = loadIgnitePathsConfig();
 
         if (ignitePaths.isPresent()) {
-            if (!ignitePaths.get().validateDirs())
+            if (!ignitePaths.get().validateDirs()) {
                 throw new IgniteCLIException("Some required directories are absent. " +
                     "Try to run 'init' command to fix the issue.");
+            }
 
             return ignitePaths.get();
         }

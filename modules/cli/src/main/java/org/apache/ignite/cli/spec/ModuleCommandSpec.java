@@ -76,7 +76,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
         )
         public String moduleName;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             var ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
@@ -109,7 +109,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
         )
         public String moduleName;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             PrintWriter out = spec.commandLine().getOut();
             ColorScheme cs = spec.commandLine().getColorScheme();
@@ -137,7 +137,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
         @Inject
         private ModuleRegistry moduleRegistry;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             var installedModules = new LinkedHashMap<String, ModuleRegistry.ModuleDefinition>();
 

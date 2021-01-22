@@ -208,7 +208,7 @@ public class ModuleRegistry {
             return cliArtifacts.stream().map(a -> a.toAbsolutePath().toString()).collect(Collectors.toList());
         }
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public String toString() {
             return "ModuleDefinition{" +
                 "name='" + name + '\'' +

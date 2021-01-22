@@ -29,7 +29,7 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
     /** Logger. */
     private Logger log = LoggerFactory.getLogger(ErrorHandler.class);
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public int handleExecutionException(
         Exception ex,
         CommandLine cmd,
@@ -44,7 +44,7 @@ public class ErrorHandler implements CommandLine.IExecutionExceptionHandler, Com
             : cmd.getCommandSpec().exitCodeOnExecutionException();
     }
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public int handleParseException(CommandLine.ParameterException ex, String[] args) {
         CommandLine cli = ex.getCommandLine();
 

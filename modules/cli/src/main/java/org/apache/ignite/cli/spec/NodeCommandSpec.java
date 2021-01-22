@@ -67,7 +67,7 @@ public class NodeCommandSpec extends CategorySpec {
         @CommandLine.Option(names = "--config", description = "Configuration file to start the node with")
         public Path configPath;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
@@ -117,7 +117,7 @@ public class NodeCommandSpec extends CategorySpec {
         )
         public List<String> consistentIds;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
@@ -148,7 +148,7 @@ public class NodeCommandSpec extends CategorySpec {
         @Inject
         private CliPathsConfigLoader cliPathsCfgLdr;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
@@ -190,7 +190,7 @@ public class NodeCommandSpec extends CategorySpec {
         @Inject
         private NodeManager nodeMgr;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             try {
                 List<String> items = nodeMgr.classpathItems();

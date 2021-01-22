@@ -53,7 +53,7 @@ public class IgniteCliSpec extends CommandSpec {
     @CommandLine.Option(names = "-i", hidden = true, required = false)
     boolean interactive;
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public void run() {
         CommandLine cli = spec.commandLine();
 

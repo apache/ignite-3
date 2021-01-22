@@ -24,7 +24,7 @@ import picocli.CommandLine.Help.ColorScheme;
  * Base specification for commands which have subcommands.
  */
 public abstract class CategorySpec extends SpecAdapter {
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public void run() {
         PrintWriter out = spec.commandLine().getOut();
         ColorScheme cs = spec.commandLine().getColorScheme();

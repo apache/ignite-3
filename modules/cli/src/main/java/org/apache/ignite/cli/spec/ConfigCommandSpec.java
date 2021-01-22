@@ -54,7 +54,7 @@ public class ConfigCommandSpec extends CategorySpec {
         )
         private String selector;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             spec.commandLine().getOut().println(
                 configurationClient.get(cfgHostnameOptions.host(), cfgHostnameOptions.port(), selector));
@@ -81,7 +81,7 @@ public class ConfigCommandSpec extends CategorySpec {
         @CommandLine.Mixin
         CfgHostnameOptions cfgHostnameOptions;
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public void run() {
             configurationClient.set(cfgHostnameOptions.host(), cfgHostnameOptions.port(), cfg,
                 spec.commandLine().getOut(), spec.commandLine().getColorScheme());

@@ -53,7 +53,7 @@ public class StandardModuleDefinition {
         this.cliArtifacts = Collections.unmodifiableList(cliArtifacts);
     }
 
-    /** {inheritDoc} */
+    /** {@inheritDoc} */
     @Override public String toString() {
         return name + ":\t" + desc;
     }

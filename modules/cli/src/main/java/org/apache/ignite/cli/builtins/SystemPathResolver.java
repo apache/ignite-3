@@ -45,12 +45,12 @@ public interface SystemPathResolver {
     @Singleton
     @Introspected
     class DefaultPathResolver implements SystemPathResolver {
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public Path osHomeDirectoryPath() {
             return Path.of(System.getProperty("user.home"));
         }
 
-        /** {inheritDoc} */
+        /** {@inheritDoc} */
         @Override public Path toolHomeDirectoryPath() {
             try {
                 var file = new File(IgniteCliApp.class.getProtectionDomain().getCodeSource().getLocation().toURI());
