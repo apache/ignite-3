@@ -192,7 +192,7 @@ public class Example {
             /* BillingDetails */ Object billingDetails;
         }
 
-        class CreditCard /* extends BillingDetails */{
+        class CreditCard /* extends BillingDetails */ {
             long cardNumber;
             int expYear;
             int expMonth;
@@ -239,7 +239,7 @@ public class Example {
             }
         }
 
-        final TableView<OrderRecord> orderRecView = t.tableView(Mappers.ofRowClass(OrderRecord.class));
+        final TableView<OrderRecord> orderRecView = t.tableView(OrderRecord.class);
 
         OrderRecord orderRecord = orderRecView.get(new OrderRecord(1, 1));
         binObj = orderRecord.billingDetails;
@@ -285,7 +285,7 @@ public class Example {
             }
         }
 
-        TableView<Record> recordView = t.tableView(Mappers.ofRowClass(Record.class));
+        TableView<Record> recordView = t.tableView(Record.class);
 
         // Similarly work with the binary objects.
         Record rec = recordView.get(new Record(1, 1));
@@ -307,7 +307,7 @@ public class Example {
             int department;
         }
 
-        TableView<JavaPersonRecord> personRecordView = t.tableView(Mappers.ofRowClass(JavaPersonRecord.class));
+        TableView<JavaPersonRecord> personRecordView = t.tableView(JavaPersonRecord.class);
 
         // Or we can have an arbitrary record with custom class selection.
         class TruncatedRecord {
