@@ -58,7 +58,6 @@ public class CounterExampleTest {
 
     @Test
     public void testCounter() throws IOException, InterruptedException, TimeoutException, RemotingException {
-
         try {
             String initConfStr = "127.0.0.1:8080,127.0.0.1:8081,127.0.0.1:8082";
 
@@ -69,7 +68,9 @@ public class CounterExampleTest {
             CounterServer node1 = CounterServer.start(dataPath, groupId, "127.0.0.1:8081", initConfStr);
             CounterServer node2 = CounterServer.start(dataPath, groupId, "127.0.0.1:8082", initConfStr);
 
-            Thread.sleep(3000);
+            LOG.info("Waiting for leader election");
+
+            Thread.sleep(2000);
 
             // Create client.
             final Configuration conf = new Configuration();
@@ -87,7 +88,7 @@ public class CounterExampleTest {
 
             final PeerId leader = RouteTable.getInstance().selectLeader(groupId);
             System.out.println("Leader is " + leader);
-            final int n = 1;
+            final int n = 1000;
             final CountDownLatch latch = new CountDownLatch(n);
             final long start = System.currentTimeMillis();
             for (int i = 0; i < n; i++) {

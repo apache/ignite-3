@@ -116,14 +116,10 @@ public class CounterServer {
 
     public static CounterServer start(String dataPath, String groupId, String serverIdStr, String initConfStr) throws IOException {
         final NodeOptions nodeOptions = new NodeOptions();
-        // 为了测试,调整 snapshot 间隔等参数
-        // 设置选举超时时间为 1 秒
+
         nodeOptions.setElectionTimeoutMs(1000);
-        // 关闭 CLI 服务。
         nodeOptions.setDisableCli(false);
-        // 每隔30秒做一次 snapshot
         nodeOptions.setSnapshotIntervalSecs(30);
-        // 解析参数
         final PeerId serverId = new PeerId();
         if (!serverId.parse(serverIdStr)) {
             throw new IllegalArgumentException("Fail to parse serverId:" + serverIdStr);
@@ -132,11 +128,16 @@ public class CounterServer {
         if (!initConf.parse(initConfStr)) {
             throw new IllegalArgumentException("Fail to parse initConf:" + initConfStr);
         }
-        // 设置初始集群配置
         nodeOptions.setInitialConf(initConf);
 
-        // 启动
-        final CounterServer counterServer = new CounterServer(dataPath, groupId, serverId, nodeOptions);
+        File serverData = new File(dataPath, serverIdStr.replaceAll("\\W+", ""));
+
+        if (!serverData.exists()) {
+            if (!serverData.mkdirs())
+                throw new IllegalArgumentException("Failed to create server data path:" + serverData);
+        }
+
+        final CounterServer counterServer = new CounterServer(serverData.getPath(), groupId, serverId, nodeOptions);
         System.out.println("Started counter server at port:"
                            + counterServer.getNode().getNodeId().getPeerId().getPort());
 
