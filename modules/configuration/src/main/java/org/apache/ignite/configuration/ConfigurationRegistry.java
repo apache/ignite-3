@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
@@ -40,6 +41,6 @@ public class ConfigurationRegistry {
 
     /** */
     public Map<String, Configurator<? extends DynamicConfiguration<?, ?, ?>>> getConfigurators() {
-        return configs;
+        return Collections.unmodifiableMap(configs);
     }
 }
