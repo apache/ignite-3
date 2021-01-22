@@ -30,6 +30,10 @@ public interface Table {
 
     public <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
+    public default  <R> TableView<R> tableView(Class<R> rowClass) {
+        return tableView(Mappers.ofRowClass(rowClass));
+    };
+
     public default <K, V> KVView<K, V> kvView(Class<K> kCls, Class<V> vCls) {
         return kvView(Mappers.ofKeyClass(kCls), Mappers.ofValueClass(vCls));
     }

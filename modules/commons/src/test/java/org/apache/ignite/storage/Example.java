@@ -63,11 +63,11 @@ public class Example {
             }
         }
 
-        TableView<Employee> employeeView = t.tableView(Mappers.ofRowClass(Employee.class));
+        TableView<Employee> employeeView = t.tableView(Employee.class);
 
         Employee e = employeeView.get(new Employee(1, 1));
 
-        // As described in the IEP, we can have a truncated mapping.
+        // As described in the IEP-54, we can have a truncated mapping.
         class TruncatedEmployee {
             final int id;
             final int orgId;
@@ -81,7 +81,7 @@ public class Example {
             }
         }
 
-        TableView<TruncatedEmployee> truncatedEmployeeView = t.tableView(Mappers.ofRowClass(TruncatedEmployee.class));
+        TableView<TruncatedEmployee> truncatedEmployeeView = t.tableView(TruncatedEmployee.class);
 
         // salary and department will not be sent over the network during this call.
         TruncatedEmployee te = truncatedEmployeeView.get(new TruncatedEmployee(1, 1));
@@ -113,21 +113,17 @@ public class Example {
             int department;
         }
 
-        KVView<EmployeeKey, Employee> employeeKv = t.kvView(
-            Mappers.ofKeyClass(EmployeeKey.class),
-            Mappers.ofValueClass(Employee.class));
+        KVView<EmployeeKey, Employee> employeeKv = t.kvView(EmployeeKey.class, Employee.class);
 
         employeeKv.get(new EmployeeKey(1, 1));
 
-        // As described in the IEP, we can have a truncated KV mapping.
+        // As described in the IEP-54, we can have a truncated KV mapping.
         class TruncatedEmployee {
             String name;
             String lastName;
         }
 
-        KVView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.kvView(
-            Mappers.ofKeyClass(EmployeeKey.class),
-            Mappers.ofValueClass(TruncatedEmployee.class));
+        KVView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.kvView(EmployeeKey.class, TruncatedEmployee.class);
 
         TruncatedEmployee te = truncatedEmployeeKv.get(new EmployeeKey(1, 1));
     }
@@ -156,17 +152,19 @@ public class Example {
             String bankName;
         }
 
-        KVView<Long, CreditCard> credCardKvView = t.kvView(
-            Mappers.ofKeyClass(Long.class),
-            Mappers.ofValueClass(CreditCard.class));
+        KVView<Long, CreditCard> credCardKvView = t.kvView(Long.class, CreditCard.class);
+        CreditCard creditCard = credCardKvView.get(1L);
 
-        CreditCard cred = credCardKvView.get(1L);
+        KVView<Long, BankAccount> backAccKvView = t.kvView(Long.class, BankAccount.class);
+        BankAccount bankAccount = backAccKvView.get(2L);
 
-        KVView<Long, BankAccount> backAccKvView = t.kvView(
-            Mappers.ofKeyClass(Long.class),
-            Mappers.ofValueClass(BankAccount.class));
+        // Truncated view.
+        KVView<Long, BillingDetails> billingDetailsKVView = t.kvView(Long.class, BillingDetails.class);
+        BillingDetails billingDetails = billingDetailsKVView.get(2L);
 
-        BankAccount ewd = backAccKvView.get(2L);
+        // Without discriminator it is impossible to deserialize to correct type automatically.
+        assert !(billingDetails instanceof CreditCard);
+        assert !(billingDetails instanceof BankAccount);
     }
 
     /**
@@ -190,17 +188,17 @@ public class Example {
 
         class OrderValue {
             String owner;
-            int type;
-            Object billingDetails;
+            int type; // Discriminator value.
+            /* BillingDetails */ Object billingDetails;
         }
 
-        class CreditCard {
+        class CreditCard /* extends BillingDetails */{
             long cardNumber;
             int expYear;
             int expMonth;
         }
 
-        class BankAccount {
+        class BankAccount /* extends BillingDetails */ {
             long account;
             String bankName;
         }
@@ -208,15 +206,15 @@ public class Example {
         KVView<OrderKey, OrderValue> orderKvView = t.kvView(Mappers.ofKeyClass(OrderKey.class),
             Mappers.ofValueClassBuilder(OrderValue.class)
                 .map("billingDetails", (row) -> {
-                    BinaryObject bobj = row.binaryObjectField("conditionalDetails");
+                    BinaryObject bObj = row.binaryObjectField("conditionalDetails");
                     int type = row.intField("type");
 
-                    return bobj.deserialize(type == 0 ? CreditCard.class : BankAccount.class);
+                    return bObj.deserialize(type == 0 ? CreditCard.class : BankAccount.class);
                 }).build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
-        // Same with RecordAPI.
+        // Same with direct Row access and BinaryObject wrapper.
         Row res = t.get(t.createSearchRow(1, 1));
 
         byte[] objData = res.field("billingDetails");
@@ -226,6 +224,7 @@ public class Example {
         // Additionally, we may have a shortcut similar to primitive methods.
         binObj = res.binaryObjectField("billingDetails");
 
+        // Same with RecordAPI.
         class OrderRecord {
             final int id;
             final int orgId;
@@ -245,10 +244,10 @@ public class Example {
         OrderRecord orderRecord = orderRecView.get(new OrderRecord(1, 1));
         binObj = orderRecord.billingDetails;
 
-        // Manual deserialization.
+        // Manual deserialization is possible as well.
         Object billingDetails = orderRecord.type == 0 ?
             binObj.deserialize(CreditCard.class) :
-            binObj.deserialize(BankAccount.class) ;
+            binObj.deserialize(BankAccount.class);
     }
 
     /**
@@ -324,10 +323,10 @@ public class Example {
         TableView<TruncatedRecord> truncatedView2 = t.tableView(
             Mappers.ofRowClassBuilder(TruncatedRecord.class)
                 .map("upgradedObject", (row) -> {
-                    BinaryObject bobj = row.binaryObjectField("upgradedObject");
+                    BinaryObject bObj = row.binaryObjectField("upgradedObject");
                     int dept = row.intField("department");
 
-                    return dept == 0 ? bobj.deserialize(JavaPerson.class) : bobj.deserialize(JavaPersonV2.class);
+                    return dept == 0 ? bObj.deserialize(JavaPerson.class) : bObj.deserialize(JavaPersonV2.class);
                 }).build());
     }
 }
