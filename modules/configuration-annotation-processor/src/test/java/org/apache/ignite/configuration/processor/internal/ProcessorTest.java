@@ -17,7 +17,6 @@
 package org.apache.ignite.configuration.processor.internal;
 
 import com.google.testing.compile.Compilation;
-import com.google.testing.compile.CompilationSubject;
 import com.squareup.javapoet.ClassName;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.Test;
