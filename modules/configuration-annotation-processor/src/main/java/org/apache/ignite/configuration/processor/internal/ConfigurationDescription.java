@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.processor.internal;
 
-import com.squareup.javapoet.ClassName;
 import java.util.ArrayList;
 import java.util.List;
 import com.squareup.javapoet.TypeName;
