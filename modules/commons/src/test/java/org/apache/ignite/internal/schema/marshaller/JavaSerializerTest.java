@@ -17,18 +17,24 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.TypeSpec;
+import com.facebook.presto.bytecode.Access;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassGenerator;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Stream;
-import javax.lang.model.element.Modifier;
-import org.apache.ignite.internal.CompilerUtils;
+import javax.annotation.processing.Generated;
 import org.apache.ignite.internal.schema.Bitmask;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -65,6 +71,9 @@ import static org.junit.jupiter.api.DynamicTest.dynamicTest;
  * Serializer test.
  */
 public class JavaSerializerTest {
+
+    private DynamicClassLoader cl;
+
     /**
      * @return List of serializers for test.
      */
@@ -88,6 +97,7 @@ public class JavaSerializerTest {
         System.out.println("Using seed: " + seed + "L;");
 
         rnd = new Random(seed);
+        cl = new DynamicClassLoader(getClass().getClassLoader());
     }
 
     /**
@@ -296,40 +306,34 @@ public class JavaSerializerTest {
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
     public void testClassLoader(SerializerFactory factory) throws SerializationException {
-        final ClassLoader prevClassLoader = Thread.currentThread().getContextClassLoader();
-        try {
-            Thread.currentThread().setContextClassLoader(CompilerUtils.dynamicClassLoader());
+        Thread.currentThread().setContextClassLoader(new DynamicClassLoader(getClass().getClassLoader()));
 
-            Column[] keyCols = new Column[] {
-                new Column("key", LONG, false)
-            };
+        Column[] keyCols = new Column[] {
+            new Column("key", LONG, false)
+        };
 
-            Column[] valCols = new Column[] {
-                new Column("col0", LONG, false),
-                new Column("col1", LONG, false),
-                new Column("col2", LONG, false),
-            };
+        Column[] valCols = new Column[] {
+            new Column("col0", LONG, false),
+            new Column("col1", LONG, false),
+            new Column("col2", LONG, false),
+        };
 
-            SchemaDescriptor schema = new SchemaDescriptor(1, new Columns(keyCols), new Columns(valCols));
+        SchemaDescriptor schema = new SchemaDescriptor(1, new Columns(keyCols), new Columns(valCols));
 
-            final Class<?> valClass = createGeneratedObjectClass(Long.class);
-            final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
+        final Class<?> valClass = createGeneratedObjectClass(long.class);
+        final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
 
-            final Long key = rnd.nextLong();
+        final Long key = rnd.nextLong();
 
-            Serializer serializer = factory.create(schema, key.getClass(), valClass);
+        Serializer serializer = factory.create(schema, key.getClass(), valClass);
 
-            byte[] bytes = serializer.serialize(key, objFactory.create());
+        byte[] bytes = serializer.serialize(key, objFactory.create());
 
-            Object key1 = serializer.deserializeKey(bytes);
-            Object val1 = serializer.deserializeValue(bytes);
+        Object key1 = serializer.deserializeKey(bytes);
+        Object val1 = serializer.deserializeValue(bytes);
 
-            assertTrue(key.getClass().isInstance(key1));
-            assertTrue(valClass.isInstance(val1));
-        }
-        finally {
-            Thread.currentThread().setContextClassLoader(prevClassLoader);
-        }
+        assertTrue(key.getClass().isInstance(key1));
+        assertTrue(valClass.isInstance(val1));
     }
 
     /**
@@ -398,30 +402,36 @@ public class JavaSerializerTest {
         final String packageName = getClass().getPackageName();
         final String className = "GeneratedTestObject";
 
-        final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className).addModifiers(Modifier.PUBLIC);
+        final ClassDefinition classDef = new ClassDefinition(
+            EnumSet.of(Access.PUBLIC),
+            packageName.replace('.', '/') + '/' + className,
+            ParameterizedType.type(Object.class)
+        );
+        classDef.declareAnnotation(Generated.class).setValue("value", getClass().getCanonicalName());
 
         for (int i = 0; i < 3; i++)
-            classBuilder.addField(fieldType, "col" + i, Modifier.PRIVATE);
+            classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
 
         { // Build constructor.
-            final MethodSpec.Builder builder = MethodSpec.constructorBuilder()
-                .addModifiers(Modifier.PUBLIC)
-                .addStatement("$T rnd = new $T()", Random.class, Random.class);
+            final MethodDefinition constr = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
+            final Variable rnd = constr.getScope().declareVariable(Random.class, "rnd");
+
+            BytecodeBlock body = constr.getBody()
+                .append(constr.getThis())
+                .invokeConstructor(classDef.getSuperClass())
+                .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
 
             for (int i = 0; i < 3; i++)
-                builder.addStatement("col$L = rnd.nextLong()", i);
+                body.append(constr.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
 
-            classBuilder.addMethod(builder.build());
+            body.ret();
         }
 
-        final JavaFile javaFile = JavaFile.builder(packageName, classBuilder.build()).build();
-
-        try {
-            return CompilerUtils.compileCode(javaFile).loadClass(packageName + '.' + className);
-        }
-        catch (Exception ex) {
-            throw new IllegalStateException("Failed to compile/instantiate generated Serializer.", ex);
-        }
+        return ClassGenerator.classGenerator(Thread.currentThread().getContextClassLoader())
+            .fakeLineNumbers(true)
+            .runAsmVerifier(true) // Field of primitive type signature check fails.
+            .dumpRawBytecode(true)
+            .defineClass(classDef, Object.class);
     }
 
     /**

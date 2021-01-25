@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.benchmarks;
 
-import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.TypeSpec;
+import com.facebook.presto.bytecode.Access;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassGenerator;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.reflect.Field;
+import java.util.EnumSet;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import javax.lang.model.element.Modifier;
+import javax.annotation.processing.Generated;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.CompilerUtils;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
 import org.apache.ignite.internal.util.Factory;
@@ -94,8 +99,6 @@ public class SerializerBenchmarkTest {
      */
     @Setup
     public void init() {
-        Thread.currentThread().setContextClassLoader(CompilerUtils.dynamicClassLoader());
-
         long seed = System.currentTimeMillis();
 
         rnd = new Random(seed);
@@ -174,31 +177,31 @@ public class SerializerBenchmarkTest {
         final String packageName = "org.apache.ignite.internal.benchmarks";
         final String className = "TestObject";
 
-        final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className).addModifiers(Modifier.PUBLIC);
+        final ClassDefinition classDef = new ClassDefinition(
+            EnumSet.of(Access.PUBLIC),
+            packageName.replace('.', '/') + '/' + className,
+            ParameterizedType.type(Object.class)
+        );
+        classDef.declareAnnotation(Generated.class).setValue("value", getClass().getCanonicalName());
 
         for (int i = 0; i < maxFields; i++)
-            classBuilder.addField(fieldType, "col" + i, Modifier.PRIVATE);
+            classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
 
         { // Build constructor.
-            final MethodSpec.Builder builder = MethodSpec.constructorBuilder()
-                .addModifiers(Modifier.PUBLIC)
-                .addStatement("$T rnd = new $T()", Random.class, Random.class);
+            final MethodDefinition constr = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
+            final Variable rnd = constr.getScope().declareVariable(Random.class, "rnd");
+
+            final BytecodeBlock body = constr.getBody()
+                .append(constr.getThis())
+                .invokeConstructor(classDef.getSuperClass())
+                .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
 
             for (int i = 0; i < maxFields; i++)
-                builder.addStatement("col$L = rnd.nextLong()", i);
+                body.append(constr.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
 
-            classBuilder.addMethod(builder.build());
+            body.ret();
         }
 
-        final JavaFile javaFile = JavaFile.builder(packageName, classBuilder.build()).build();
-
-        final ClassLoader loader = CompilerUtils.compileCode(javaFile);
-
-        try {
-            return loader.loadClass(packageName + '.' + className);
-        }
-        catch (Exception ex) {
-            throw new IllegalStateException("Failed to compile/instantiate generated Serializer.", ex);
-        }
+        return ClassGenerator.classGenerator(getClass().getClassLoader()).defineClass(classDef, Object.class);
     }
 }

@@ -63,12 +63,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.squareup</groupId>
-            <artifactId>javapoet</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <!-- Benchmarks dependencies -->
         <dependency>
             <groupId>org.openjdk.jmh</groupId>

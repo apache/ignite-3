@@ -50,6 +50,9 @@ public class ClassGenerator
 
     public static ClassGenerator classGenerator(ClassLoader parentClassLoader)
     {
+        if (parentClassLoader instanceof DynamicClassLoader)
+            return classGenerator((DynamicClassLoader)parentClassLoader);
+
         return classGenerator(parentClassLoader, Map.of());
     }
 
