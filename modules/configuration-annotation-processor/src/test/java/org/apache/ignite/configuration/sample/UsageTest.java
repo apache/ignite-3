@@ -20,15 +20,15 @@ package org.apache.ignite.configuration.sample;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.ConfigurationRegistry;
+import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.PublicConfigurator;
 import org.apache.ignite.configuration.internal.NamedList;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.apache.ignite.configuration.PublicConfigurator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -72,6 +72,21 @@ public class UsageTest {
             initLocal
         );
 
+//        something.initSomethingLocal(localCfg -> localCfg
+//            .withBaseline(baselineCfg -> baselineCfg
+//                .withNodes(nodesCfg -> nodesCfg
+//                    .add(nodeCfg -> nodeCfg
+//                        .withConsistentId("test")
+//                        .withPort(1000)
+//                    )
+//                )
+//                .withAutoAdjust(autoAdjustCfg -> autoAdjustCfg
+//                    .withEnabled(true)
+//                    .withTimeout(100_000L)
+//                )
+//            )
+//        );
+
         final LocalConfiguration root = configurator.getRoot();
         root.baseline().autoAdjust().enabled().value();
 
@@ -82,6 +97,7 @@ public class UsageTest {
         configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST, new ChangeAutoAdjust().withEnabled(false).withTimeout(0L));
         configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(false);
         configurator.getRoot().baseline().autoAdjust().enabled(true);
+        configurator.getRoot().baseline().autoAdjust().change(new ChangeAutoAdjust().withEnabled(true));
         configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(true);
 
         try {

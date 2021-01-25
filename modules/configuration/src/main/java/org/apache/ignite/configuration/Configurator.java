@@ -28,11 +28,13 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.DynamicProperty;
 import org.apache.ignite.configuration.internal.Modifier;
+import org.apache.ignite.configuration.internal.NamedListConfiguration;
 import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.validation.MemberKey;
+import org.apache.ignite.configuration.poc.ConfigurationVisitor;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
-import org.apache.ignite.configuration.internal.validation.MemberKey;
 
 /**
  * Convenient wrapper for configuration root. Provides access to configuration tree, stores validators, performs actions
@@ -202,6 +204,69 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
      */
     public T getRoot() {
         return root;
+    }
+
+    /** */
+    public void spreadRoot(Map<String, Serializable> flatMap) {
+        SpreadVisitor v = new SpreadVisitor(flatMap);
+
+        root.accept(v);
+    }
+
+    /** */
+    private static class SpreadVisitor implements ConfigurationVisitor {
+        /** */
+        private final Map<String, Serializable> flatMap;
+
+        /** */
+        private final StringBuilder sb = new StringBuilder();
+
+        /** */
+        private SpreadVisitor(Map<String, Serializable> flatMap) {
+            this.flatMap = flatMap;
+        }
+
+        /** {@inheritDoc} */
+        @Override public <V, I, C, M extends Modifier<V, I, C>> void onNamedListConfiguration(
+            NamedListConfiguration<V, M, I, C> cfg
+        ) {
+            int len = sb.length();
+
+            sb.append('.').append(cfg.key());
+
+            for (String key : cfg.keys())
+                cfg.get(key).accept(this);
+
+            sb.setLength(len);
+        }
+
+        /** {@inheritDoc} */
+        @Override public <V, I, C> void onDynamicConfiguration(DynamicConfiguration<V, I, C> cfg) {
+            int len = sb.length();
+
+            sb.append('.').append(escape(cfg.key()));
+
+            for (ConfigurationProperty<?, ?> p : cfg.members().values())
+                p.accept(this);
+
+            sb.setLength(len);
+        }
+
+        /** {@inheritDoc} */
+        @Override public <T extends Serializable> void onDynamicProperty(DynamicProperty<T> prop) {
+            int len = sb.length();
+
+            sb.append('.').append(escape(prop.key()));
+
+            flatMap.put(sb.toString(), prop.value());
+
+            sb.setLength(len);
+        }
+    }
+
+    /** */
+    private static String escape(String key) {
+        return key.replaceAll("([.\\\\])", "\\\\$1");
     }
 
     /**

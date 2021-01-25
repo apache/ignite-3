@@ -24,9 +24,10 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.PropertyListener;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.configuration.internal.validation.MemberKey;
+import org.apache.ignite.configuration.poc.ConfigurationVisitor;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
-import org.apache.ignite.configuration.internal.validation.MemberKey;
 
 /**
  * Holder for property value. Expected to be used with numbers, strings and other immutable objects, e.g. IP addresses.
@@ -198,5 +199,10 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
      */
     public DynamicProperty<T> copy(DynamicConfiguration<?, ?, ?> newRoot) {
         return new DynamicProperty<>(this, newRoot);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void accept(ConfigurationVisitor v) {
+        v.onDynamicProperty(this);
     }
 }

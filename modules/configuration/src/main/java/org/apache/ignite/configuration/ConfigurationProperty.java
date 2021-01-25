@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration;
 
+import org.apache.ignite.configuration.poc.ConfigurationVisitor;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
@@ -43,4 +44,11 @@ public interface ConfigurationProperty<VALUE, CHANGE> {
      * @throws ConfigurationValidationException If validation failed.
      */
     void change(CHANGE change) throws ConfigurationValidationException;
+
+    /** */
+    void accept(ConfigurationVisitor v);
+
+//    default void traverseChildren(ConfigurationVisitor v) {
+//
+//    }
 }

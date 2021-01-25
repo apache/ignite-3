@@ -46,6 +46,15 @@ public class BaseSelectors {
      * @return Selector.
      */
     public static <ROOT extends DynamicConfiguration<?, ?, ?>, TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> Selector<ROOT, TARGET, VIEW, INIT, CHANGE> find(String name) {
+//        String[] split = "aa.bb.cc\\.dd.ee\\\\ff".split("(?<!\\\\)[.]");
+//        System.out.println(Arrays.toString(split));
+//
+//        Object[] unescaped = Arrays.stream(split).map(s -> s.replaceAll("\\\\([.\\\\])", "$1")).toArray();
+//        System.out.println(Arrays.toString(unescaped));
+//
+//        String escaped = Arrays.stream(unescaped).map(s -> s.toString().replaceAll("([.\\\\])", "\\\\$1")).collect(Collectors.joining("."));
+//        System.out.println(escaped);
+
         String[] nameParts = name.split("\\.");
 
         List<String> arguments = new ArrayList<>();

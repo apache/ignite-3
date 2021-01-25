@@ -15,30 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.poc;
 
-import java.util.Map;
+import java.io.Serializable;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.internal.DynamicProperty;
+import org.apache.ignite.configuration.internal.Modifier;
+import org.apache.ignite.configuration.internal.NamedListConfiguration;
 
 /**
- * This class holds named configurations in VIEW object.
+ * Maybe we don't need it, I'm not sure.
  */
-public class NamedList<T> { // Переделать! Дно какое-то
-    /** Named values. */
-    private final Map<String, T> values;
+public interface ConfigurationVisitor {
+    /** */
+    <V, I, C> void onDynamicConfiguration(DynamicConfiguration<V, I, C> cfg);
 
-    /**
-     * Constructor.
-     * @param values Named values.
-     */
-    public NamedList(Map<String, T> values) {
-        this.values = values;
-    }
+    /** */
+    <V, I, C, M extends Modifier<V, I, C>> void onNamedListConfiguration(NamedListConfiguration<V, M, I, C> cfg);
 
-    /**
-     * Get named values.
-     * @return Named values.
-     */
-    public Map<String, T> getValues() {
-        return values;
-    }
+    /** */
+    <T extends Serializable> void onDynamicProperty(DynamicProperty<T> prop);
 }

@@ -18,14 +18,15 @@
 package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.configuration.poc.ConfigurationVisitor;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
 
@@ -145,6 +146,11 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
 
     /** {@inheritDoc} */
     @Override public Map<String, ConfigurationProperty<?, ?>> members() {
-        return members.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return Collections.unmodifiableMap(members);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void accept(ConfigurationVisitor v) {
+        v.onDynamicConfiguration(this);
     }
 }

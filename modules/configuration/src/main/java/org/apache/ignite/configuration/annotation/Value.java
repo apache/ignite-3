@@ -21,6 +21,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import org.apache.ignite.configuration.internal.DynamicProperty;
+import org.apache.ignite.configuration.poc.ConfigurationStorage;
+import org.apache.ignite.configuration.poc.LocalConfigurationStorage;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
@@ -29,7 +31,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  * This annotation marks configuration schema field as a configuration tree leaf.
  * Every field annotated with this annotation will produce a {@link DynamicProperty} field in generated configuration class.
  */
-@Target({ FIELD })
+@Target(FIELD)
 @Retention(SOURCE)
 @Documented
 public @interface Value {
@@ -37,4 +39,7 @@ public @interface Value {
      * @return {@code true} if this value can only be initialized and can't be changed afterwards.
      */
     boolean immutable() default false;
+
+    /** */
+    Class<? extends ConfigurationStorage> storage() default LocalConfigurationStorage.class;
 }

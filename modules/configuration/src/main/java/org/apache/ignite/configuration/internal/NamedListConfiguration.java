@@ -17,11 +17,14 @@
 
 package org.apache.ignite.configuration.internal;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.poc.ConfigurationVisitor;
 
 /**
  * Named configuration wrapper.
@@ -101,6 +104,11 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
         return values.get(name);
     }
 
+    /** */
+    public Set<String> keys() {
+        return Collections.unmodifiableSet(values.keySet());
+    }
+
     /** {@inheritDoc} */
     @Override public NamedList<VIEW> value() {
         return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it -> it.getValue().value())));
@@ -122,5 +130,10 @@ public class NamedListConfiguration<VIEW, T extends Modifier<VIEW, INIT, CHANGE>
     /** {@inheritDoc} */
     @Override public NamedListConfiguration<VIEW, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
         return new NamedListConfiguration<>(this, configurator, root);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void accept(ConfigurationVisitor v) {
+        v.onNamedListConfiguration(this);
     }
 }

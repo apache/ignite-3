@@ -15,30 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.poc;
 
-import java.util.Map;
-
-/**
- * This class holds named configurations in VIEW object.
- */
-public class NamedList<T> { // Переделать! Дно какое-то
-    /** Named values. */
-    private final Map<String, T> values;
-
-    /**
-     * Constructor.
-     * @param values Named values.
-     */
-    public NamedList(Map<String, T> values) {
-        this.values = values;
-    }
-
-    /**
-     * Get named values.
-     * @return Named values.
-     */
-    public Map<String, T> getValues() {
-        return values;
-    }
+/** */
+public abstract class LocalConfigurationStorage implements ConfigurationStorage {
 }
