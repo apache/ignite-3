@@ -64,14 +64,10 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.rat</groupId>
-                <artifactId>apache-rat-plugin</artifactId>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
                 <configuration>
-                    <excludes>
-                        <exclude>README.md</exclude>
-                        <exclude>src/main/java/com/facebook/presto/bytecode/ClassInfo.java</exclude>
-                        <exclude>src/main/java/com/facebook/presto/bytecode/ClassInfoLoader.java</exclude>
-                    </excludes>
+                    <skip>true</skip>
                 </configuration>
             </plugin>
         </plugins>
