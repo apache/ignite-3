@@ -67,14 +67,14 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
             names = "--repo",
             description = "Additional Maven repository URL"
         )
-        public URL[] urls;
+        private URL[] urls;
 
         /** Module name command parameter. */
         @CommandLine.Parameters(
             paramLabel = "module",
             description = "Optional Ignite module name or Maven dependency coordinates (mvn:groupId:artifactId:version)"
         )
-        public String moduleName;
+        private String moduleName;
 
         /** {@inheritDoc} */
         @Override public void run() {
@@ -107,7 +107,7 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
             paramLabel = "module",
             description = "Optional Ignite module name or Maven dependency coordinates (groupId:artifactId:version)"
         )
-        public String moduleName;
+        private String moduleName;
 
         /** {@inheritDoc} */
         @Override public void run() {
@@ -207,10 +207,10 @@ public class ModuleCommandSpec extends CategorySpec implements IgniteCommand {
          */
         private static class StandardModuleView {
             /** Module definition. */
-            public final StandardModuleDefinition standardModuleDefinition;
+            private final StandardModuleDefinition standardModuleDefinition;
 
             /** Installed flag. */
-            public final boolean installed;
+            private final boolean installed;
 
             /**
              * Creates (moduleDefinition, installed) pair.

@@ -30,17 +30,16 @@ import picocli.CommandLine;
  */
 @CommandLine.Command(name = "init", description = "Installs Ignite core modules locally.")
 public class InitIgniteCommandSpec extends CommandSpec implements IgniteCommand {
-
     /** Init command implementation. */
     @Inject
-    InitIgniteCommand cmd;
+    private InitIgniteCommand cmd;
 
     /** Option for custom maven repository to download Ignite core. */
     @CommandLine.Option(
         names = "--repo",
         description = "Additional Maven repository URL"
     )
-    URL[] urls;
+    private URL[] urls;
 
     /** {@inheritDoc} */
     @Override public void run() {

@@ -65,7 +65,7 @@ public class NodeCommandSpec extends CategorySpec {
 
         /** Path to node config. */
         @CommandLine.Option(names = "--config", description = "Configuration file to start the node with")
-        public Path configPath;
+        private Path configPath;
 
         /** {@inheritDoc} */
         @Override public void run() {
@@ -115,7 +115,7 @@ public class NodeCommandSpec extends CategorySpec {
             paramLabel = "consistent-ids",
             description = "Consistent IDs of the nodes to stop (space separated list)"
         )
-        public List<String> consistentIds;
+        private List<String> consistentIds;
 
         /** {@inheritDoc} */
         @Override public void run() {

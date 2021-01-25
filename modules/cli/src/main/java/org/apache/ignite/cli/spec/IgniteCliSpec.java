@@ -51,7 +51,7 @@ import picocli.CommandLine;
 public class IgniteCliSpec extends CommandSpec {
     /** Interactive mode option. */
     @CommandLine.Option(names = "-i", hidden = true, required = false)
-    boolean interactive;
+    private boolean interactive;
 
     /** {@inheritDoc} */
     @Override public void run() {

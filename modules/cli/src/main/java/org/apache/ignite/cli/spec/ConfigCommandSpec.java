@@ -45,7 +45,7 @@ public class ConfigCommandSpec extends CategorySpec {
 
         /** Command option for setting custom node host. */
         @CommandLine.Mixin
-        CfgHostnameOptions cfgHostnameOptions;
+        private CfgHostnameOptions cfgHostnameOptions;
 
         /** Command option for setting HOCON based config selector. */
         @CommandLine.Option(
@@ -79,7 +79,7 @@ public class ConfigCommandSpec extends CategorySpec {
 
         /** Command option for setting custome node host. */
         @CommandLine.Mixin
-        CfgHostnameOptions cfgHostnameOptions;
+        private CfgHostnameOptions cfgHostnameOptions;
 
         /** {@inheritDoc} */
         @Override public void run() {
@@ -98,12 +98,12 @@ public class ConfigCommandSpec extends CategorySpec {
             description = "Ignite server node's REST API address and port number",
             paramLabel = "host:port"
         )
-        String endpoint;
+        private String endpoint;
 
         /**
          * @return REST endpoint port.
          */
-        int port() {
+        private int port() {
             if (endpoint == null)
                 return 10300;
 
@@ -119,7 +119,7 @@ public class ConfigCommandSpec extends CategorySpec {
         /**
          * @return REST endpoint host.
          */
-        String host() {
+        private String host() {
             return endpoint != null ? parse()[0] : "localhost";
         }
 

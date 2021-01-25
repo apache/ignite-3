@@ -26,7 +26,6 @@ import io.micronaut.context.annotation.Factory;
  */
 @Factory
 public class HttpClientFactory {
-
     /**
      * Creates new HTTP client.
      *

@@ -159,7 +159,6 @@ public class MavenArtifactResolver {
                 );
             }
             catch (ParseException e) {
-                // TOOD
                 throw new IOException(e);
             }
         }

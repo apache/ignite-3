@@ -42,7 +42,6 @@ import picocli.shell.jline3.PicocliCommands;
  * Interactive shell mode for Ignite CLI.
  */
 public class InteractiveWrapper {
-
     /**
      * Start interactive shell.
      *
