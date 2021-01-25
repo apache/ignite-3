@@ -18,6 +18,8 @@
 package org.apache.ignite.configuration;
 
 import java.io.Serializable;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -119,6 +121,21 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     }
 
     /**
+     * 
+     */
+    public Class<?> getChangeType() {
+        Type sClass = root.getClass().getGenericSuperclass();
+
+        assert sClass instanceof ParameterizedType;
+
+        ParameterizedType pt = (ParameterizedType)sClass;
+
+        assert pt.getActualTypeArguments().length == 3;
+
+        return (Class<?>) pt.getActualTypeArguments()[2];
+    }
+
+    /**
      *
      * @param selector
      * @param newValue
@@ -132,14 +149,12 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         Selector<T, TARGET, VIEW, INIT, CHANGE> selector,
         CHANGE newValue
     ) throws ConfigurationValidationException {
-        // TODO: atomic change start
         final T copy = (T) root.copy();
 
         final TARGET select = selector.select(copy);
         select.changeWithoutValidation(newValue);
         copy.validate(root);
         selector.select(root).changeWithoutValidation(newValue);
-        // TODO: atomic change end
     }
 
     /**
@@ -198,7 +213,7 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         final String key = property.key();
         property.addListener(new PropertyListener<PROP, PROP>() {
             /** {@inheritDoc} */
-            public void update(PROP newValue, ConfigurationProperty<PROP, PROP> modifier) {
+            @Override public void update(PROP newValue, ConfigurationProperty<PROP, PROP> modifier) {
                 storage.save(key, newValue);
             }
         });

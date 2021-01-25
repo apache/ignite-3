@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.rest.presentation;
 
-/**
- * Configuration validation exception.
- */
-public class ConfigurationValidationException extends RuntimeException {
-    /** Constructor. */
-    public ConfigurationValidationException(String message) {
-        super(message);
-    }
+import java.io.Reader;
+
+/** */
+public interface FormatConverter {
+    /** */
+    String convertTo(Object obj);
+
+    /** */
+    String convertTo(String rootName, Object obj);
+
+    /** */
+    String rootName(String source);
+
+    /** */
+    Object convertFrom(String source, String rootName, Class<?> clazz);
+
+    /** */
+    <T> T convertFrom(Reader source, String rootName, Class<T> clazz);
 }

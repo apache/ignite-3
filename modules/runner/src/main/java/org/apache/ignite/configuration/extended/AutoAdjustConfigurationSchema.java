@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.configuration.extended;
 
-/**
- * Configuration validation exception.
- */
-public class ConfigurationValidationException extends RuntimeException {
-    /** Constructor. */
-    public ConfigurationValidationException(String message) {
-        super(message);
-    }
+import javax.validation.constraints.Min;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+
+/** */
+@Config(value = "auto_adjust")
+public class AutoAdjustConfigurationSchema {
+    /** */
+    @Value
+    private boolean enabled;
+
+    /** */
+    @Value
+    @Min(value = 0, message = "Minimum value is 0")
+    private int timeout;
 }

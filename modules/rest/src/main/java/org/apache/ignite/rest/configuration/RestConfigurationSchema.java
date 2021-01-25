@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.rest.configuration;
 
-/**
- * Configuration validation exception.
- */
-public class ConfigurationValidationException extends RuntimeException {
-    /** Constructor. */
-    public ConfigurationValidationException(String message) {
-        super(message);
-    }
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+
+@Config(value = "rest", root = true)
+public class RestConfigurationSchema {
+    /** */
+    @Value
+    private int port;
+
+    /** */
+    @Value
+    private int portRange;
 }

@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.configuration.extended;
+
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * Configuration validation exception.
+ *
  */
-public class ConfigurationValidationException extends RuntimeException {
-    /** Constructor. */
-    public ConfigurationValidationException(String message) {
-        super(message);
-    }
+@Config(value = "local", root = true)
+public class LocalConfigurationSchema {
+    /** */
+    @ConfigValue
+    private BaselineConfigurationSchema baseline;
+
+    /** */
+    @ConfigValue
+    private DataStorageConfigurationSchema dataStorage;
 }

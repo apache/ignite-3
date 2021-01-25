@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.configuration.sample;
+
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * Configuration validation exception.
+ * Test network configuration schema.
  */
-public class ConfigurationValidationException extends RuntimeException {
-    /** Constructor. */
-    public ConfigurationValidationException(String message) {
-        super(message);
-    }
+@Config(value = "network", root = true)
+public class NetworkConfigurationSchema {
+    /** Discovery. */
+    @ConfigValue
+    private DiscoveryConfigurationSchema discovery;
+
+
 }

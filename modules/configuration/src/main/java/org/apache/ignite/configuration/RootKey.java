@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.configuration;
 
-/**
- * Configuration validation exception.
- */
-public class ConfigurationValidationException extends RuntimeException {
-    /** Constructor. */
-    public ConfigurationValidationException(String message) {
-        super(message);
-    }
+/** */
+public interface RootKey<T extends ConfigurationTree<?, ?>> {
+    /** */
+    public String key();
 }

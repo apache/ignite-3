@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
+package org.apache.ignite.configuration.sample;
+
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Configuration validation exception.
+ * Test discovery configuration schema.
  */
-public class ConfigurationValidationException extends RuntimeException {
-    /** Constructor. */
-    public ConfigurationValidationException(String message) {
-        super(message);
-    }
+@Config
+public class DiscoveryConfigurationSchema {
+    /** Node failure detection timeout. */
+    @Value
+    private int failureDetectionTimeout;
+
+    /** Node join timeout. */
+    @Value
+    private int joinTimeout;
 }
