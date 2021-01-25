@@ -117,6 +117,7 @@
                     <suppressionsLocation>${project.basedir}/check-rules/checkstyle-suppressions.xml</suppressionsLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                     <excludes>**/generated/**/*</excludes>
+                    <excludes>modules/bytecode</excludes>
                 </configuration>
                 <dependencies>
                     <dependency>
