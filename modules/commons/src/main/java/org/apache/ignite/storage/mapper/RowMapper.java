@@ -26,7 +26,9 @@ import org.apache.ignite.storage.Row;
 public interface RowMapper<R> {
     public interface Builder<R> {
         public Builder<R> deserializing(String fieldName, Class<?> targetClass);
+
         public Builder<R> map(String fieldName, Function<Row, Object> mapping);
+
         public <R> RowMapper<R> build();
     }
 }
