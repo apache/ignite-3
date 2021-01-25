@@ -165,6 +165,28 @@ public class Example {
         // Without discriminator it is impossible to deserialize to correct type automatically.
         assert !(billingDetails instanceof CreditCard);
         assert !(billingDetails instanceof BankAccount);
+
+        // Wide record.
+        class BillingRecord {
+            final long id;
+
+            String owner;
+
+            long cardNumber;
+            int expYear;
+            int expMonth;
+
+            long account;
+            String bankName;
+
+            public BillingRecord(long id) {
+                this.id = id;
+            }
+        }
+
+        final TableView<BillingRecord> billingView = t.tableView(BillingRecord.class);
+
+        final BillingRecord br = billingView.get(new BillingRecord(1));
     }
 
     /**
