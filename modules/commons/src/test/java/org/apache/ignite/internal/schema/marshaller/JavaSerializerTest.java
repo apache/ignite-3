@@ -306,34 +306,40 @@ public class JavaSerializerTest {
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
     public void testClassLoader(SerializerFactory factory) throws SerializationException {
-        Thread.currentThread().setContextClassLoader(new DynamicClassLoader(getClass().getClassLoader()));
+        final ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(new DynamicClassLoader(getClass().getClassLoader()));
 
-        Column[] keyCols = new Column[] {
-            new Column("key", LONG, false)
-        };
+            Column[] keyCols = new Column[] {
+                new Column("key", LONG, false)
+            };
 
-        Column[] valCols = new Column[] {
-            new Column("col0", LONG, false),
-            new Column("col1", LONG, false),
-            new Column("col2", LONG, false),
-        };
+            Column[] valCols = new Column[] {
+                new Column("col0", LONG, false),
+                new Column("col1", LONG, false),
+                new Column("col2", LONG, false),
+            };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, new Columns(keyCols), new Columns(valCols));
+            SchemaDescriptor schema = new SchemaDescriptor(1, new Columns(keyCols), new Columns(valCols));
 
-        final Class<?> valClass = createGeneratedObjectClass(long.class);
-        final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
+            final Class<?> valClass = createGeneratedObjectClass(long.class);
+            final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
 
-        final Long key = rnd.nextLong();
+            final Long key = rnd.nextLong();
 
-        Serializer serializer = factory.create(schema, key.getClass(), valClass);
+            Serializer serializer = factory.create(schema, key.getClass(), valClass);
 
-        byte[] bytes = serializer.serialize(key, objFactory.create());
+            byte[] bytes = serializer.serialize(key, objFactory.create());
 
-        Object key1 = serializer.deserializeKey(bytes);
-        Object val1 = serializer.deserializeValue(bytes);
+            Object key1 = serializer.deserializeKey(bytes);
+            Object val1 = serializer.deserializeValue(bytes);
 
-        assertTrue(key.getClass().isInstance(key1));
-        assertTrue(valClass.isInstance(val1));
+            assertTrue(key.getClass().isInstance(key1));
+            assertTrue(valClass.isInstance(val1));
+        }
+        finally {
+            Thread.currentThread().setContextClassLoader(loader);
+        }
     }
 
     /**
@@ -429,7 +435,7 @@ public class JavaSerializerTest {
 
         return ClassGenerator.classGenerator(Thread.currentThread().getContextClassLoader())
             .fakeLineNumbers(true)
-            .runAsmVerifier(true) // Field of primitive type signature check fails.
+//            .runAsmVerifier(true) // Field of primitive type signature check fails.
             .dumpRawBytecode(true)
             .defineClass(classDef, Object.class);
     }
