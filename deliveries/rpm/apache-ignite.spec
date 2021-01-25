@@ -39,9 +39,10 @@ Apache Ignite is a distributed database for high-performance computing with in-m
 echo "Preinstall mode: '$1'"
 case $1 in
     1|configure)
-        # Add user for service operation
-        useradd -r -md %{_datadir}/%{name} %{user}
-        [ -f "%{_datadir}/%{name}/.bashrc" ] && echo "cd ~" >> %{_datadir}/%{name}/.bashrc
+        # Add service user
+        /usr/sbin/useradd -r -M -d %{_datadir}/%{name} -s /bin/bash %{user} 
+        #useradd -r -md %{_datadir}/%{name} %{user}
+        #[ -f "%{_datadir}/%{name}/.bashrc" ] && echo "cd ~" >> %{_datadir}/%{name}/.bashrc
         ;;
 esac
 
@@ -62,27 +63,6 @@ echoUpgradeMessage () {
     echo "======================================================================================================="
 }
 
-setPermissions () {
-    chown -R %{user}:%{user} %{_datadir}/%{name} \
-                             %{_sharedstatedir}/%{name} \
-                             %{_log}/%{name} \
-                             %{_bindir}/ignite
-}
-
-setFirewall () {
-	if [[ "$(type firewall-cmd &>/dev/null; echo $?)" -eq 0 && "$(systemctl is-active firewalld 2>/dev/null)" == "active" ]]
-	then
-	    for port in s d
-	    do
-	        ${firewallCmd} -p tcp -m multiport --${port}ports 11211:11220,47500:47509,47100:47109 -j ACCEPT &>/dev/null
-	        ${firewallCmd} -p udp -m multiport --${port}ports 47400:47409 -j ACCEPT &>/dev/null
-	    done
-	    ${firewallCmd} -m pkttype --pkt-type multicast -j ACCEPT &>/dev/null
-
-	    systemctl restart firewalld
-	fi
-}
-
 case $1 in
     1|configure)
         # DEB postinst upgrade
@@ -91,15 +71,32 @@ case $1 in
         fi
 
         # Set firewall rules
-        setFirewall
+        if [[ "$(type firewall-cmd &>/dev/null; echo $?)" -eq 0 && "$(systemctl is-active firewalld 2>/dev/null)" == "active" ]]
+        then
+            for port in s d
+            do
+                ${firewallCmd} -p tcp -m multiport --${port}ports 11211:11220,47500:47509,47100:47109 -j ACCEPT &>/dev/null
+                ${firewallCmd} -p udp -m multiport --${port}ports 47400:47409 -j ACCEPT &>/dev/null
+            done
+            ${firewallCmd} -m pkttype --pkt-type multicast -j ACCEPT &>/dev/null
+
+            systemctl restart firewalld
+        fi
         ;;
     2)
         # RPM postinst upgrade
         echoUpgradeMessage
 esac
 
+# Copy and configure skel
+cp -rfv /etc/skel/.bash* %{_datadir}/%{name} 
+echo "cd ~" >> %{_datadir}/%{name}/.bashrc
+
 # Change ownership for work and log directories (yum resets permissions on upgrade nevertheless)
-setPermissions
+chown -R %{user}:%{user} %{_datadir}/%{name} \
+                             %{_sharedstatedir}/%{name} \
+                             %{_log}/%{name} \
+                             %{_bindir}/ignite
 
 
 
