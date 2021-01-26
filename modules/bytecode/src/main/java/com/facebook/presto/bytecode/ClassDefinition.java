@@ -28,6 +28,7 @@ import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
+import static org.objectweb.asm.Opcodes.V11;
 import static org.objectweb.asm.Opcodes.V1_8;
 
 public class ClassDefinition {
@@ -120,7 +121,7 @@ public class ClassDefinition {
             interfaces[i] = this.interfaces.get(i).getClassName();
         }
         int accessModifier = toAccessModifier(access);
-        visitor.visit(V1_8, isInterface() ? accessModifier : accessModifier | ACC_SUPER, type.getClassName(), signature, superClass.getClassName(), interfaces);
+        visitor.visit(V11, isInterface() ? accessModifier : accessModifier | ACC_SUPER, type.getClassName(), signature, superClass.getClassName(), interfaces);
 
         // visit source
         if (source != null) {
