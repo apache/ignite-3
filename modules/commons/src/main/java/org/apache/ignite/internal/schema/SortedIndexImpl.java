@@ -28,9 +28,6 @@ import org.apache.ignite.schema.SortedIndexColumn;
  * Sorted index.
  */
 public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex {
-    /** Index inline size. */
-    protected final int inlineSize;
-
     /** Columns. */
     private final List<SortedIndexColumn> cols;
 
@@ -42,20 +39,13 @@ public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex
      *
      * @param name Index name.
      * @param cols Index columns.
-     * @param inlineSize Inline size.
      * @param uniq Unique flag.
      */
-    public SortedIndexImpl(String name, List<SortedIndexColumn> cols, int inlineSize, boolean uniq) {
+    public SortedIndexImpl(String name, List<SortedIndexColumn> cols, boolean uniq) {
         super(name);
 
-        this.inlineSize = inlineSize;
         this.cols = Collections.unmodifiableList(cols);
         this.uniq = uniq;
-    }
-
-    /** {@inheritDoc} */
-    public int inlineSize() {
-        return inlineSize;
     }
 
     /** {@inheritDoc} */
@@ -78,7 +68,6 @@ public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex
         return "SortedIndex[" +
             "name='" + name() + '\'' +
             ", type=SORTED" +
-            ", inline=" + inlineSize +
             ", uniq=" + uniq +
             ", columns=[" + columns().stream().map(IndexColumn::toString).collect(Collectors.joining(",")) +
             "]]";

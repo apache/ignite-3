@@ -36,7 +36,7 @@ public class PrimaryIndexImpl extends SortedIndexImpl implements PrimaryIndex {
      * @param affCols Affinity columns.
      */
     public PrimaryIndexImpl(List<SortedIndexColumn> cols, List<String> affCols) {
-        super(PrimaryIndex.PRIMARY_KEY_INDEX_NAME, cols, -1, true);
+        super(PrimaryIndex.PRIMARY_KEY_INDEX_NAME, cols, true);
         this.affCols = Collections.unmodifiableList(affCols);
     }
 

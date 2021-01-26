@@ -34,9 +34,6 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
     /** Index columns. */
     protected final Map<String, SortedIndexColumnBuilderImpl> cols = new HashMap<>();
 
-    /** Inline size. */
-    protected int inlineSize;
-
     /** Unique flag. */
     protected boolean unique;
 
@@ -90,7 +87,6 @@ public class SortedIndexBuilderImpl extends AbstractIndexBuilder implements Sort
         return new SortedIndexImpl(
             name,
             columns(),
-            inlineSize,
             unique);
     }
 
