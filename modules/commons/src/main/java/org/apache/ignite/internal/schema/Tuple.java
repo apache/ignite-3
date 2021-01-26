@@ -332,7 +332,7 @@ public abstract class Tuple {
 
         long len = idx == vartableSize - 1 ?
             // totalLength - columnStartOffset
-            readShort(baseOff) - resOff:
+            readShort(baseOff) - resOff :
             // nextColumnStartOffset - columnStartOffset
             readShort(vartableOff + 2 * (idx + 1)) - resOff;
 

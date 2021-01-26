@@ -49,7 +49,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a four-bytes signed value.
      */
-    INTEGER ("integer", true) {
+    INTEGER("integer", true) {
         /** {@inheritDoc} */
         @Override public Object objectValue(Tuple tup, int colIdx) {
             return tup.intValueBoxed(colIdx);

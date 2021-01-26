@@ -476,25 +476,40 @@ public class JavaSerializerTest {
 
         // Primitive typed
         private byte pByteCol;
+
         private short pShortCol;
+
         private int pIntCol;
+
         private long pLongCol;
+
         private float pFloatCol;
+
         private double pDoubleCol;
 
         // Reference typed
         private Byte byteCol;
+
         private Short shortCol;
+
         private Integer intCol;
+
         private Long longCol;
+
         private Long nullLongCol;
+
         private Float floatCol;
+
         private Double doubleCol;
 
         private UUID uuidCol;
+
         private BitSet bitmaskCol;
+
         private String stringCol;
+
         private byte[] bytesCol;
+
         private byte[] nullBytesCol;
 
         /** {@inheritDoc} */

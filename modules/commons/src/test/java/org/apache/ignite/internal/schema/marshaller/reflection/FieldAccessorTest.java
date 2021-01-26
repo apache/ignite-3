@@ -316,23 +316,36 @@ public class FieldAccessorTest {
 
         // Primitive typed
         private byte pByteCol;
+
         private short pShortCol;
+
         private int pIntCol;
+
         private long pLongCol;
+
         private float pFloatCol;
+
         private double pDoubleCol;
 
         // Reference typed
         private Byte byteCol;
+
         private Short shortCol;
+
         private Integer intCol;
+
         private Long longCol;
+
         private Float floatCol;
+
         private Double doubleCol;
 
         private UUID uuidCol;
+
         private BitSet bitmaskCol;
+
         private String stringCol;
+
         private byte[] bytesCol;
 
         /** {@inheritDoc} */
@@ -371,17 +384,23 @@ public class FieldAccessorTest {
      */
     private static class TestSimpleObject {
         Long longCol;
+
         Integer intCol;
+
         byte[] bytesCol;
+
         String stringCol;
 
         /** {@inheritDoc} */
         @Override public boolean equals(Object o) {
             if (this == o)
                 return true;
+
             if (o == null || getClass() != o.getClass())
                 return false;
+
             TestSimpleObject object = (TestSimpleObject)o;
+
             return Objects.equals(longCol, object.longCol) &&
                 Objects.equals(intCol, object.intCol) &&
                 Arrays.equals(bytesCol, object.bytesCol) &&
