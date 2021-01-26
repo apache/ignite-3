@@ -435,7 +435,7 @@ public class JavaSerializerTest {
 
         return ClassGenerator.classGenerator(Thread.currentThread().getContextClassLoader())
             .fakeLineNumbers(true)
-//            .runAsmVerifier(true) // Field of primitive type signature check fails.
+            .runAsmVerifier(true)
             .dumpRawBytecode(true)
             .defineClass(classDef, Object.class);
     }

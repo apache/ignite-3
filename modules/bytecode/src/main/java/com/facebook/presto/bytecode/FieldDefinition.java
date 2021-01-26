@@ -79,7 +79,7 @@ public class FieldDefinition {
         FieldVisitor fieldVisitor = visitor.visitField(toAccessModifier(access),
             name,
             type.getType(),
-            type.getGenericSignature(),
+            type.isPrimitive() ? null : type.getGenericSignature(),
             null);
 
         if (fieldVisitor == null) {
