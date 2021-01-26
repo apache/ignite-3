@@ -60,8 +60,11 @@ public class JavaSerializer extends AbstractSerializer {
     }
 
     /** {@inheritDoc} */
-    @Override protected  byte[] serialize0(TupleAssembler asm, Object key, @Nullable Object val)
-        throws SerializationException {
+    @Override protected byte[] serialize0(
+        TupleAssembler asm,
+        Object key,
+        @Nullable Object val
+    ) throws SerializationException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
