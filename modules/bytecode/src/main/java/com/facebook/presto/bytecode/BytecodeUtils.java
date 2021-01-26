@@ -26,7 +26,7 @@ import static java.time.ZoneOffset.UTC;
 
 public final class BytecodeUtils {
     private static final AtomicLong CLASS_ID = new AtomicLong();
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss");
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private static final Map<Class<?>, Class<?>> PRIMITIVES_TO_WRAPPERS
         = Map.of(boolean.class, Boolean.class,
