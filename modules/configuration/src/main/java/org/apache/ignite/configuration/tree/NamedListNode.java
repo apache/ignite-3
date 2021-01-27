@@ -107,4 +107,3 @@ public final class NamedListNode<N extends TraversableTreeNode> implements Named
         return new NamedListNode<>(this);
     }
 }
-
