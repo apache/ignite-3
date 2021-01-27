@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.tree;
 import java.util.Set;
 
 /** */
-interface NamedListView<T> {
+public interface NamedListView<T> {
     /**
      * @return Immutable collection of keys contained within this list.
      */

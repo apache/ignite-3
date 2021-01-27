@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.tree;
 import java.util.function.Consumer;
 
 /** */
-interface NamedListChange<T> {
+public interface NamedListChange<T> {
     /**
      * Update the value in named list configuration.
      *
