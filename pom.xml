@@ -109,8 +109,8 @@
                     <failsOnError>true</failsOnError>
                     <failOnViolation>true</failOnViolation>
                     <outputFile>${project.build.directory}/checkstyle.xml</outputFile>
-                    <configLocation>${project.basedir}/check-rules/checkstyle-rules.xml</configLocation>
-                    <suppressionsLocation>${project.basedir}/check-rules/checkstyle-suppressions.xml</suppressionsLocation>
+                    <configLocation>${checkstyle.dir}/checkstyle-rules.xml</configLocation>
+                    <suppressionsLocation>${checkstyle.dir}/checkstyle-suppressions.xml</suppressionsLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                     <excludes>**/generated/**/*</excludes>
                 </configuration>

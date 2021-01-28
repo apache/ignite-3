@@ -85,6 +85,9 @@
         <maven.pmd.plugin.version>3.14.0</maven.pmd.plugin.version>
         <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M4</maven.surefire.plugin.version>
+
+        <!--suppress UnresolvedMavenProperty -->
+        <checkstyle.dir>${maven.multiModuleProjectDirectory}/check-rules</checkstyle.dir>
     </properties>
 
     <distributionManagement>
