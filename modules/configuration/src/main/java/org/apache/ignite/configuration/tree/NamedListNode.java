@@ -73,7 +73,7 @@ public final class NamedListNode<N extends TraversableTreeNode> implements Named
         Objects.requireNonNull(valConsumer, "valConsumer");
 
         if (map.containsKey(key) && map.get(key) == null)
-            throw new IllegalStateException("You can't add entity that has just been deleted.");
+            throw new IllegalStateException("You can't add entity that has just been deleted [key=" + key + ']');
 
         N val = map.get(key);
 
@@ -88,7 +88,7 @@ public final class NamedListNode<N extends TraversableTreeNode> implements Named
     /** {@inheritDoc} */
     @Override public NamedListChange<N> remove(String key) {
         if (map.containsKey(key) && map.get(key) != null)
-            throw new IllegalStateException("You can't add entity that has just been modified.");
+            throw new IllegalStateException("You can't add entity that has just been modified [key=" + key + ']');
 
         map.put(key, null);
 
