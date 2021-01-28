@@ -84,7 +84,6 @@ public class TraversableNodesTest {
         private static final long serialVersionUID = 0L;
     }
 
-
     /** */
     @Test
     public void nodeClassesImplementRequiredInterfaces() {
