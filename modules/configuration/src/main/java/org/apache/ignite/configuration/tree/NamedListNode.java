@@ -75,8 +75,12 @@ public final class NamedListNode<N extends TraversableTreeNode> implements Named
         if (map.containsKey(key) && map.get(key) == null)
             throw new IllegalStateException("You can't add entity that has just been deleted.");
 
-        N val = valSupplier.get();
-        map.put(key, val);
+        N val = map.get(key);
+
+        if (val == null)
+            map.put(key, val = valSupplier.get());
+
+        valConsumer.accept(val);
 
         return this;
     }
