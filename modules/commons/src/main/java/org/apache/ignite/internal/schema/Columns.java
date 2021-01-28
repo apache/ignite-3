@@ -57,7 +57,7 @@ public class Columns {
     private final int nullMapSize;
 
     /**
-     * Fixed-size column length folding table. The table is used to quickly calculate the offset of a fixed-lengh
+     * Fixed-size column length folding table. The table is used to quickly calculate the offset of a fixed-length
      * column based on the nullability map.
      */
     private int[][] foldingTbl;
@@ -79,15 +79,15 @@ public class Columns {
      * Gets a number of null columns for the given byte from the nullability map (essentially, the number of non-zero
      * bits in the given byte).
      *
-     * @param nullmapByte Byte from a nullability map.
+     * @param nullMapByte Byte from a nullability map.
      * @return Number of null columns for the given byte.
      */
-    public static int numberOfNullColumns(int nullmapByte) {
-        return NULL_COLUMNS_LOOKUP[nullmapByte];
+    public static int numberOfNullColumns(int nullMapByte) {
+        return NULL_COLUMNS_LOOKUP[nullMapByte];
     }
 
     /**
-     * Constructs the columns chunk. The columns will be internally sorted in write-effecient order based on
+     * Constructs the columns chunk. The columns will be internally sorted in write-efficient order based on
      * {@link Column} comparison.
      *
      * @param cols Array of columns.
