@@ -906,7 +906,6 @@ public class Processor extends AbstractProcessor {
                 ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Node")
             );
 
-
             if (namedListField) {
                 viewFieldType = ParameterizedTypeName.get(ClassName.get(NamedListView.class), WildcardTypeName.subtypeOf(viewFieldType));
 
@@ -1014,7 +1013,6 @@ public class Processor extends AbstractProcessor {
                 }
 
                 {
-
                     MethodSpec.Builder nodeInitMtdBuilder = MethodSpec.methodBuilder(initMtdName)
                         .addAnnotation(Override.class)
                         .addModifiers(PUBLIC)
