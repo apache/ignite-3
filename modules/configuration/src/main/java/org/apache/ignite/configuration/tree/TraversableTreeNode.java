@@ -17,8 +17,6 @@
 
 package org.apache.ignite.configuration.tree;
 
-import java.util.NoSuchElementException;
-
 /** */
 public interface TraversableTreeNode {
     /**
@@ -26,16 +24,4 @@ public interface TraversableTreeNode {
      * @param visitor Configuration visitor.
      */
     void accept(String key, ConfigurationVisitor visitor);
-
-    /**
-     * @param visitor Configuration visitor.
-     */
-    void traverseChildren(ConfigurationVisitor visitor);
-
-    /**
-     * @param key Name of the child.
-     * @param visitor Configuration visitor.
-     * @throws NoSuchElementException If field {@code key} is not found.
-     */
-    void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException;
 }

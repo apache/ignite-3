@@ -20,7 +20,6 @@ package org.apache.ignite.configuration.tree;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -60,16 +59,6 @@ public final class NamedListNode<N extends TraversableTreeNode> implements Named
     }
 
     /** {@inheritDoc} */
-    @Override public final void traverseChildren(ConfigurationVisitor visitor) {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override public final void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException {
-        throw new NoSuchElementException(key);
-    }
-
-    /** {@inheritDoc} */
     @Override public final Set<String> namedListKeys() {
         return Collections.unmodifiableSet(map.keySet());
     }
@@ -100,6 +89,11 @@ public final class NamedListNode<N extends TraversableTreeNode> implements Named
         map.put(key, null);
 
         return this;
+    }
+
+    /** */
+    public void delete(String key) {
+        map.remove(key);
     }
 
     /** {@inheritDoc} */

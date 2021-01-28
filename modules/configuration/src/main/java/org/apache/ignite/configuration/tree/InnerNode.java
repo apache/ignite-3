@@ -42,9 +42,9 @@ public abstract class InnerNode implements TraversableTreeNode, Cloneable {
      *
      * Order of fields must be the same as they are described in configuration schema.
      *
-     * {@inheritDoc}
+     * @param visitor Configuration visitor.
      */
-    @Override public abstract void traverseChildren(ConfigurationVisitor visitor);
+    public abstract void traverseChildren(ConfigurationVisitor visitor);
 
     /**
      * Method with auto-generated implementation. Must look like this:
@@ -72,9 +72,12 @@ public abstract class InnerNode implements TraversableTreeNode, Cloneable {
      *     }
      * }
      * }</pre>
-     * {@inheritDoc}
+     *
+     * @param key Name of the child.
+     * @param visitor Configuration visitor.
+     * @throws NoSuchElementException If field {@code key} is not found.
      */
-    @Override public abstract void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException;
+    public abstract void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException;
 
     /** {@inheritDoc} */
     @Override protected Object clone() {
