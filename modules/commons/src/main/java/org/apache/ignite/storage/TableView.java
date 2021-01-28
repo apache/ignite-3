@@ -18,12 +18,30 @@
 package org.apache.ignite.storage;
 
 /**
- *
+ * Record adapter for Table.
  */
 public interface TableView<T> {
+    /**
+     * Fills given record with the values from the table.
+     *
+     * @param keyRow Record with key fields set.
+     * @return Record with all fields filled from the table.
+     */
     public T get(T keyRow);
 
+    /**
+     * Insert new record into the table if it is not exists or replace existed one.
+     *
+     * @param row Record to be inserted into table.
+     * @return {@code True} if was successful, {@code false} otherwise.
+     */
     public boolean upsert(T row);
 
+    /**
+     * Insert record into the table.
+     *
+     * @param row Record to be inserted into table.
+     * @return {@code True} if was successful, {@code false} otherwise.
+     */
     public boolean insert(T row);
 }
