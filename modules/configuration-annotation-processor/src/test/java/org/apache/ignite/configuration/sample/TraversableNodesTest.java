@@ -294,6 +294,8 @@ public class TraversableNodesTest {
         assertThrows(VisitException.class, () ->
             parentNode.traverseChild("child", new ConfigurationVisitor() {
                 @Override public void visitInnerNode(String key, InnerNode node) {
+                    assertEquals("child", key);
+
                     throw new VisitException();
                 }
             })
@@ -303,6 +305,8 @@ public class TraversableNodesTest {
             parentNode.traverseChild("elements", new ConfigurationVisitor() {
                 @Override
                 public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
+                    assertEquals("elements", key);
+
                     throw new VisitException();
                 }
             })
@@ -313,6 +317,8 @@ public class TraversableNodesTest {
         assertThrows(VisitException.class, () ->
             childNode.traverseChild("intCfg", new ConfigurationVisitor() {
                 @Override public void visitLeafNode(String key, Serializable val) {
+                    assertEquals("intCfg", key);
+
                     throw new VisitException();
                 }
             })
