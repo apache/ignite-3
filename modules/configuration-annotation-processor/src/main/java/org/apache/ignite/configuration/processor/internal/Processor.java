@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.processor.internal;
 
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -986,8 +987,15 @@ public class Processor extends AbstractProcessor {
                             );
                             nodeChangeMtdBuilder.addStatement("$L.accept($L)", paramName, fieldName);
                         }
-                        else
+                        else {
+                            nodeChangeMtdBuilder.addAnnotation(
+                                AnnotationSpec.builder(SuppressWarnings.class)
+                                    .addMember("value", "$S", "unchecked")
+                                    .build()
+                            );
+
                             nodeChangeMtdBuilder.addStatement("$L.accept((NamedListChange)$L)", paramName, fieldName);
+                        }
                     }
 
                     nodeChangeMtdBuilder.addStatement("return this");
@@ -1038,9 +1046,15 @@ public class Processor extends AbstractProcessor {
 
                             nodeInitMtdBuilder.addStatement("$L.accept($L)", paramName, fieldName);
                         }
-                        else
-                            nodeInitMtdBuilder.addStatement("$L.accept((NamedListChange)$L)", paramName, fieldName);
+                        else {
+                            nodeInitMtdBuilder.addAnnotation(
+                                AnnotationSpec.builder(SuppressWarnings.class)
+                                    .addMember("value", "$S", "unchecked")
+                                    .build()
+                            );
 
+                            nodeInitMtdBuilder.addStatement("$L.accept((NamedListChange)$L)", paramName, fieldName);
+                        }
                     }
 
                     nodeInitMtdBuilder.addStatement("return this");
