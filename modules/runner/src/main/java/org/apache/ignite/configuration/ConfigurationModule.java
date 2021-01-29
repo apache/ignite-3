@@ -49,11 +49,11 @@ public class ConfigurationModule {
     private final ConfigurationRegistry confRegistry = new ConfigurationRegistry();
 
     /** */
-    public void bootstrap(Reader confReader, ConfigurationStorage storage) {
+    public void bootstrap(Reader confReader) {
         FormatConverter converter = new JsonConverter();
 
         Configurator<LocalConfigurationImpl> configurator =
-            Configurator.create(storage, LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
+            Configurator.create(LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
 
         localConfigurator = configurator;
 

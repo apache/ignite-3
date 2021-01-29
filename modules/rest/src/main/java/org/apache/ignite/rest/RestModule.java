@@ -65,7 +65,7 @@ public class RestModule {
     }
 
     /** */
-    public void prepareStart(ConfigurationRegistry sysConfig, Reader moduleConfReader, ConfigurationStorage storage) {
+    public void prepareStart(ConfigurationRegistry sysConfig, Reader moduleConfReader) {
         try {
             Class.forName(Selectors.class.getName());
         }
@@ -79,7 +79,7 @@ public class RestModule {
 
         FormatConverter converter = new JsonConverter();
 
-        Configurator<RestConfigurationImpl> restConf = Configurator.create(storage, RestConfigurationImpl::new,
+        Configurator<RestConfigurationImpl> restConf = Configurator.create(RestConfigurationImpl::new,
             converter.convertFrom(moduleConfReader, "rest", InitRest.class));
 
         sysConfig.registerConfigurator(restConf);
