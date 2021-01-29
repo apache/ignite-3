@@ -83,7 +83,9 @@ public class TraversableNodesTest {
         private static final long serialVersionUID = 0L;
     }
 
-    /** */
+    /**
+     * Test that generated node classes implement generated VIEW, CHANGE and INIT interfaces.
+     */
     @Test
     public void nodeClassesImplementRequiredInterfaces() {
         var parentNode = new ParentNode();
@@ -105,7 +107,9 @@ public class TraversableNodesTest {
         assertThat(childNode, instanceOf(ChildInit.class));
     }
 
-    /** */
+    /**
+     * Test for signature and implementation of "change" method on leaves.
+     */
     @Test
     public void changeLeaf() {
         var childNode = new ChildNode();
@@ -117,7 +121,9 @@ public class TraversableNodesTest {
         assertEquals("value", childNode.strCfg());
     }
 
-    /** */
+    /**
+     * Test for signature and implementation of "change" method on inner nodes.
+     */
     @Test
     public void changeInnerChild() {
         var parentNode = new ParentNode();
@@ -132,24 +138,31 @@ public class TraversableNodesTest {
 
         parentNode.changeChild(child -> child.changeStrCfg("value"));
 
+        // Assert that change method applied its closure to the same object instead of creating a new one.
         assertSame(childNode, parentNode.child());
     }
 
-    /** */
+    /**
+     * Test for signature and implementation of "change" method on named list nodes.
+     */
     @Test
     public void changeNamedChild() {
         var parentNode = new ParentNode();
 
         NamedListNode<NamedElementNode> elementsNode = parentNode.elements();
 
+        // Named list node must always be instantiated.
         assertNotNull(elementsNode);
 
         parentNode.changeElements(elements -> elements.put("key", element -> {}));
 
+        // Assert that change method applied its closure to the same object instead of creating a new one.
         assertSame(elementsNode, parentNode.elements());
     }
 
-    /** */
+    /**
+     * Test for signature and implementation of "init" method on leaves.
+     */
     @Test
     public void initLeaf() {
         var childNode = new ChildNode();
@@ -159,7 +172,9 @@ public class TraversableNodesTest {
         assertEquals("value", childNode.strCfg());
     }
 
-    /** */
+    /**
+     * Test for signature and implementation of "init" method on inner nodes.
+     */
     @Test
     public void initInnerChild() {
         var parentNode = new ParentNode();
@@ -170,10 +185,13 @@ public class TraversableNodesTest {
 
         parentNode.initChild(child -> child.initStrCfg("value"));
 
+        // Assert that init method applied its closure to the same object instead of creating a new one.
         assertSame(childNode, parentNode.child());
     }
 
-    /** */
+    /**
+     * Test for signature and implementation of "init" method on named list nodes.
+     */
     @Test
     public void initNamedChild() {
         var parentNode = new ParentNode();
@@ -182,12 +200,15 @@ public class TraversableNodesTest {
 
         parentNode.initElements(elements -> elements.put("key", element -> {}));
 
+        // Assert that change method applied its closure to the same object instead of creating a new one.
         assertSame(elementsNode, parentNode.elements());
     }
 
-    /** */
+    /**
+     * Test for signature and implementation of "put" and "remove" methods on elements of named list nodes.
+     */
     @Test
-    public void changeOrInitNamedConfiguration() {
+    public void putRemoveNamedConfiguration() {
         var elementsNode = new NamedListNode<>(NamedElementNode::new);
 
         assertEquals(emptySet(), elementsNode.namedListKeys());
@@ -204,22 +225,28 @@ public class TraversableNodesTest {
 
         elementsNode.put("keyPut", element -> element.changeStrCfg("val"));
 
+        // Assert that consecutive put methods don't create new object every time.
         assertSame(elementNode, elementsNode.get("keyPut"));
 
         assertEquals("val", elementNode.strCfg());
 
+        // Assert that once you put something into list, removing it makes no sense and hence prohibited.
         assertThrows(IllegalStateException.class, () -> elementsNode.remove("keyPut"));
 
         elementsNode.remove("keyRemove");
 
+        // Assert that "remove" method creates null element inside of the node.
         assertThat(elementsNode.namedListKeys(), hasItem("keyRemove"));
 
         assertNull(elementsNode.get("keyRemove"));
 
+        // Assert that once you remove something from list, you can't put it back again with different set of fields.
         assertThrows(IllegalStateException.class, () -> elementsNode.put("keyRemove", element -> {}));
     }
 
-    /** */
+    /**
+     * Test that inner nodes properly implement visitor interface.
+     */
     @Test
     public void innerNodeAcceptVisitor() {
         var parentNode = new ParentNode();
@@ -233,7 +260,9 @@ public class TraversableNodesTest {
         );
     }
 
-    /** */
+    /**
+     * Test that named list nodes properly implement visitor interface.
+     */
     @Test
     public void namedListNodeAcceptVisitor() {
         var elementsNode = new NamedListNode<>(NamedElementNode::new);
@@ -247,7 +276,9 @@ public class TraversableNodesTest {
         );
     }
 
-    /** */
+    /**
+     * Test for "traverseChildren" method implementation on generated inner nodes classes.
+     */
     @Test
     public void traverseChildren() {
         var parentNode = new ParentNode();
@@ -270,6 +301,7 @@ public class TraversableNodesTest {
             }
         });
 
+        // Assert that updates happened in the same order as fields declaration in schema.
         assertEquals(List.of("child", "elements"), keys);
 
         keys.clear();
@@ -282,14 +314,18 @@ public class TraversableNodesTest {
             }
         });
 
+        // Assert that updates happened in the same order as fields declaration in schema.
         assertEquals(List.of("intCfg", "strCfg"), keys);
     }
 
-    /** */
+    /**
+     * Test for "traverseChild" method implementation on generated inner nodes classes.
+     */
     @Test
     public void traverseSingleChild() {
         var parentNode = new ParentNode();
 
+        // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
             parentNode.traverseChild("child", new ConfigurationVisitor() {
                 @Override public void visitInnerNode(String key, InnerNode node) {
@@ -300,6 +336,7 @@ public class TraversableNodesTest {
             })
         );
 
+        // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
             parentNode.traverseChild("elements", new ConfigurationVisitor() {
                 @Override
@@ -313,6 +350,7 @@ public class TraversableNodesTest {
 
         var childNode = new ChildNode();
 
+        // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
             childNode.traverseChild("intCfg", new ConfigurationVisitor() {
                 @Override public void visitLeafNode(String key, Serializable val) {
@@ -323,6 +361,7 @@ public class TraversableNodesTest {
             })
         );
 
+        // Assert that traversing inexistent field leads to exception.
         assertThrows(NoSuchElementException.class, () ->
             childNode.traverseChild("foo", new ConfigurationVisitor() {})
         );
