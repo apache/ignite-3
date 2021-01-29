@@ -33,7 +33,6 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.junit.jupiter.api.Test;
 
-import static java.util.Arrays.asList;
 import static java.util.Collections.emptySet;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -87,19 +86,19 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void nodeClassesImplementRequiredInterfaces() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         assertThat(parentNode, instanceOf(ParentView.class));
         assertThat(parentNode, instanceOf(ParentChange.class));
         assertThat(parentNode, instanceOf(ParentInit.class));
 
-        NamedElementNode namedElementNode = new NamedElementNode();
+        var namedElementNode = new NamedElementNode();
 
         assertThat(namedElementNode, instanceOf(NamedElementView.class));
         assertThat(namedElementNode, instanceOf(NamedElementChange.class));
         assertThat(namedElementNode, instanceOf(NamedElementInit.class));
 
-        ChildNode childNode = new ChildNode();
+        var childNode = new ChildNode();
 
         assertThat(childNode, instanceOf(ChildView.class));
         assertThat(childNode, instanceOf(ChildChange.class));
@@ -109,7 +108,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void changeLeaf() {
-        ChildNode childNode = new ChildNode();
+        var childNode = new ChildNode();
 
         assertNull(childNode.strCfg());
 
@@ -121,7 +120,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void changeInnerChild() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         assertNull(parentNode.child());
 
@@ -139,7 +138,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void changeNamedChild() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         NamedListNode<NamedElementNode> elementsNode = parentNode.elements();
 
@@ -153,7 +152,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void initLeaf() {
-        ChildNode childNode = new ChildNode();
+        var childNode = new ChildNode();
 
         childNode.initStrCfg("value");
 
@@ -163,7 +162,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void initInnerChild() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         parentNode.initChild(child -> {});
 
@@ -177,7 +176,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void initNamedChild() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         NamedListNode<NamedElementNode> elementsNode = parentNode.elements();
 
@@ -189,7 +188,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void changeOrInitNamedConfiguration() {
-        NamedListNode<NamedElementNode> elementsNode = new NamedListNode<>(NamedElementNode::new);
+        var elementsNode = new NamedListNode<>(NamedElementNode::new);
 
         assertEquals(emptySet(), elementsNode.namedListKeys());
 
@@ -223,7 +222,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void innerNodeAcceptVisitor() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         assertThrows(VisitException.class, () ->
             parentNode.accept("root", new ConfigurationVisitor() {
@@ -237,7 +236,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void namedListNodeAcceptVisitor() {
-        NamedListNode<NamedElementNode> elementsNode = new NamedListNode<>(NamedElementNode::new);
+        var elementsNode = new NamedListNode<>(NamedElementNode::new);
 
         assertThrows(VisitException.class, () ->
             elementsNode.accept("root", new ConfigurationVisitor() {
@@ -251,7 +250,7 @@ public class TraversableNodesTest {
     /** */
     @Test
     public void traverseChildren() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         List<String> keys = new ArrayList<>(2);
 
@@ -271,7 +270,7 @@ public class TraversableNodesTest {
             }
         });
 
-        assertEquals(asList("child", "elements"), keys);
+        assertEquals(List.of("child", "elements"), keys);
 
         keys.clear();
 
@@ -283,13 +282,13 @@ public class TraversableNodesTest {
             }
         });
 
-        assertEquals(asList("intCfg", "strCfg"), keys);
+        assertEquals(List.of("intCfg", "strCfg"), keys);
     }
 
     /** */
     @Test
     public void traverseSingleChild() {
-        ParentNode parentNode = new ParentNode();
+        var parentNode = new ParentNode();
 
         assertThrows(VisitException.class, () ->
             parentNode.traverseChild("child", new ConfigurationVisitor() {
@@ -312,7 +311,7 @@ public class TraversableNodesTest {
             })
         );
 
-        ChildNode childNode = new ChildNode();
+        var childNode = new ChildNode();
 
         assertThrows(VisitException.class, () ->
             childNode.traverseChild("intCfg", new ConfigurationVisitor() {
