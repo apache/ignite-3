@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli;
+package org.apache.ignite.cli.ui;
 
 import java.io.PrintWriter;
 import java.util.concurrent.Executors;
@@ -36,6 +36,9 @@ public class IgniteProgressBar implements AutoCloseable {
     /** Maximum progress bar value. */
     private int max;
 
+    /** Current width of terminal. */
+    private int terminalWidth;
+
     /** Execute. */
     private ScheduledExecutorService exec;
 
@@ -44,12 +47,29 @@ public class IgniteProgressBar implements AutoCloseable {
      *
      * @param initMax Initial maximum number of steps.
      */
-    public IgniteProgressBar(PrintWriter out, int initMax) {
+    public IgniteProgressBar(PrintWriter out, int initMax, int terminalWidth) {
         this.out = out;
 
         assert initMax > 0;
 
         max = initMax;
+
+        this.terminalWidth = terminalWidth;
+    }
+
+    public IgniteProgressBar(PrintWriter out, int initMax) {
+        this(out, initMax, 80);
+    }
+
+    /**
+     * Updates maximum number of steps.
+     *
+     * @param newMax New maximum.
+     */
+    public void setMax(int newMax) {
+        assert newMax > 0;
+
+        max = newMax;
     }
 
     /**
@@ -76,17 +96,6 @@ public class IgniteProgressBar implements AutoCloseable {
         }
     }
 
-    /**
-     * Updates maximum number of steps.
-     *
-     * @param newMax New maximum.
-     */
-    public void setMax(int newMax) {
-        assert newMax > 0;
-
-        max = newMax;
-    }
-
     /** {@inheritDoc} */
     @Override public void close() {
         while (curr < max) {
@@ -111,27 +120,28 @@ public class IgniteProgressBar implements AutoCloseable {
     private String render() {
         assert curr <= max;
 
-        int completed = (int)((double)curr / (double)max * 100);
+        var completedPart = ((double)curr / (double)max);
+
+        // Space reserved for '||Done!'
+        var reservedSpace = 7;
+        var numOfCompletedSymbols = (int) (completedPart * (terminalWidth - reservedSpace));
 
         StringBuilder sb = new StringBuilder("|");
 
-        sb.append("=".repeat(completed));
+        // 1 symbol will be used buy '>' of the progress bar
+        sb.append("=".repeat(Math.max(numOfCompletedSymbols - 1, 0)));
 
         String percentage;
         int percentageLen;
+        if (completedPart < 1) {
+            sb.append('>').append(" ".repeat(terminalWidth - reservedSpace - numOfCompletedSymbols));
 
-        if (completed < 100) {
-            sb.append('>').append(" ".repeat(99 - completed));
-
-            percentage = completed + "%";
+            percentage = (int) (completedPart * 100) + "%";
             percentageLen = percentage.length();
+            sb.append("|").append(" ".repeat(4 - percentageLen)).append(percentage);
         }
-        else {
-            percentage = "@|green,bold Done!|@";
-            percentageLen = 5;
-        }
-
-        sb.append("|").append(" ".repeat(6 - percentageLen)).append(percentage);
+        else
+            sb.append("=|@|green,bold Done!|@");
 
         return Ansi.AUTO.string(sb.toString());
     }

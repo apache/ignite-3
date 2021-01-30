@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.IgniteCLIException;
-import org.apache.ignite.cli.IgniteProgressBar;
+import org.apache.ignite.cli.ui.IgniteProgressBar;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ivy.Ivy;
 import org.apache.ivy.core.IvyContext;
@@ -111,6 +111,7 @@ public class MavenArtifactResolver {
         out.println("Installing " + String.join(":", grpId, artifactId, ver) + "...");
 
         try (IgniteProgressBar bar = new IgniteProgressBar(out, 100)) {
+            var step = 0;
             ivy.getEventManager().addIvyListener(event -> {
                 if (event instanceof EndResolveEvent) {
                     int cnt = ((EndResolveEvent)event).getReport().getArtifacts().size();

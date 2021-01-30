@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.IgniteCLIException;
-import org.apache.ignite.cli.IgniteProgressBar;
+import org.apache.ignite.cli.ui.IgniteProgressBar;
 import org.apache.ignite.cli.builtins.module.ModuleRegistry;
 
 /**
