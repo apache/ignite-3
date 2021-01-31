@@ -320,7 +320,7 @@ public class IgniteCliInterfaceTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).start(nodeName, ignitePaths.logDir, ignitePaths.cliPidsDir(), Path.of("conf.json"), cli.getOut());
-            assertEquals("Starting a new Ignite node...\n\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +
+            assertEquals("\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +
                 "+---------------+---------+\n" +
                 "| Consistent ID | node1   |\n" +
                 "+---------------+---------+\n" +
