@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.jline.console.SystemRegistry;
@@ -33,7 +32,6 @@ import org.jline.reader.Reference;
 import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.shell.jline3.PicocliCommands;
@@ -45,6 +43,9 @@ public class InteractiveWrapper {
     /** System terminal instance. */
     private final Terminal terminal;
 
+    /**
+     * @param terminal Terminal.
+     */
     public InteractiveWrapper(Terminal terminal) {
         this.terminal = terminal;
     }
