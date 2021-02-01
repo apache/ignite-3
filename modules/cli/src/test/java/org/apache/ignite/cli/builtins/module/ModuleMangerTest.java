@@ -87,10 +87,6 @@ public class ModuleMangerTest {
        moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
        moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
 
-       moduleMgr.setOut(new PrintWriter(System.out));
-       moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
-       moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
-
        verify(moduleRegistry).saveModule(argThat(m ->
            m.cliArtifacts.equals(Arrays.asList(rootArtifact, depArtifact)) &&
                 m.artifacts.equals(Collections.emptyList())));
@@ -111,10 +107,6 @@ public class ModuleMangerTest {
             homeDir.resolve("config"),
             homeDir.resolve("log"),
             "n/a");
-        moduleMgr.setOut(new PrintWriter(System.out));
-        moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
-        moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
-
         moduleMgr.setOut(new PrintWriter(System.out));
         moduleMgr.setColorScheme(CommandLine.Help.defaultColorScheme(CommandLine.Help.Ansi.AUTO));
         moduleMgr.addModule("mvn:any-group:test-module:1.0", ignitePaths, Collections.emptyList());
