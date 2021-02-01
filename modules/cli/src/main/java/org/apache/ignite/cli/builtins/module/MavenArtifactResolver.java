@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.apache.ignite.cli.IgniteCLIException;
-import org.apache.ignite.cli.ui.IgniteProgressBar;
+import org.apache.ignite.cli.ui.ProgressBar;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ivy.Ivy;
 import org.apache.ivy.core.IvyContext;
@@ -51,6 +51,7 @@ import org.apache.ivy.plugins.resolver.ChainResolver;
 import org.apache.ivy.plugins.resolver.IBiblioResolver;
 import org.apache.ivy.util.AbstractMessageLogger;
 import org.apache.ivy.util.Message;
+import org.jline.terminal.Terminal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,6 +66,9 @@ public class MavenArtifactResolver {
     /** Resolver of system paths. **/
     private final SystemPathResolver pathRslvr;
 
+    /** System terminal instance, needed for receiving info about terminal settings. **/
+    private final Terminal terminal;
+
     /** Console writer for output user messages. **/
     private PrintWriter out;
 
@@ -74,8 +78,9 @@ public class MavenArtifactResolver {
      * @param pathRslvr Resolver of system paths like home directory and etc.
      */
     @Inject
-    public MavenArtifactResolver(SystemPathResolver pathRslvr) {
+    public MavenArtifactResolver(SystemPathResolver pathRslvr, Terminal terminal) {
         this.pathRslvr = pathRslvr;
+        this.terminal = terminal;
     }
 
     /**
@@ -110,8 +115,7 @@ public class MavenArtifactResolver {
 
         out.println("Installing " + String.join(":", grpId, artifactId, ver) + "...");
 
-        try (IgniteProgressBar bar = new IgniteProgressBar(out, 100)) {
-            var step = 0;
+        try (ProgressBar bar = new ProgressBar(out, 100, terminal.getWidth())) {
             ivy.getEventManager().addIvyListener(event -> {
                 if (event instanceof EndResolveEvent) {
                     int cnt = ((EndResolveEvent)event).getReport().getArtifacts().size();

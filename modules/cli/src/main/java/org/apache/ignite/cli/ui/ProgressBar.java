@@ -21,12 +21,17 @@ import java.io.PrintWriter;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Help.Ansi;
 
 /**
  * Basic implementation of a progress bar.
  */
-public class IgniteProgressBar implements AutoCloseable {
+public class ProgressBar implements AutoCloseable {
+    /** Logger. **/
+    private final Logger log = LoggerFactory.getLogger(getClass());
+
     /** Out to output the progress bar UI.. */
     private final PrintWriter out;
 
@@ -36,8 +41,8 @@ public class IgniteProgressBar implements AutoCloseable {
     /** Maximum progress bar value. */
     private int max;
 
-    /** Current width of terminal. */
-    private int terminalWidth;
+    /** Target width of bar in symbols. */
+    private int targetBarWidth;
 
     /** Execute. */
     private ScheduledExecutorService exec;
@@ -45,20 +50,20 @@ public class IgniteProgressBar implements AutoCloseable {
     /**
      * Creates a new progress bar.
      *
+     * @param out Output which terminal render will use
      * @param initMax Initial maximum number of steps.
+     * @param terminalWidth Width of user terminal for scale progress bar length
      */
-    public IgniteProgressBar(PrintWriter out, int initMax, int terminalWidth) {
+    public ProgressBar(PrintWriter out, int initMax, int terminalWidth) {
         this.out = out;
 
         assert initMax > 0;
 
         max = initMax;
 
-        this.terminalWidth = terminalWidth;
-    }
-
-    public IgniteProgressBar(PrintWriter out, int initMax) {
-        this(out, initMax, 80);
+        // A huge progress bar for big terminals looks ugly.
+        // It's better to have just enough wide progress bar.
+        targetBarWidth = Math.min(100, terminalWidth);
     }
 
     /**
@@ -124,17 +129,23 @@ public class IgniteProgressBar implements AutoCloseable {
 
         // Space reserved for '||Done!'
         var reservedSpace = 7;
-        var numOfCompletedSymbols = (int) (completedPart * (terminalWidth - reservedSpace));
+
+        if (targetBarWidth < reservedSpace) {
+           log.warn("Terminal width is so small to show the progress bar");
+           return "";
+        }
+
+
+        var numOfCompletedSymbols = (int) (completedPart * (targetBarWidth - reservedSpace));
 
         StringBuilder sb = new StringBuilder("|");
 
-        // 1 symbol will be used buy '>' of the progress bar
-        sb.append("=".repeat(Math.max(numOfCompletedSymbols - 1, 0)));
+        sb.append("=".repeat(numOfCompletedSymbols));
 
         String percentage;
         int percentageLen;
         if (completedPart < 1) {
-            sb.append('>').append(" ".repeat(terminalWidth - reservedSpace - numOfCompletedSymbols));
+            sb.append('>').append(" ".repeat(targetBarWidth - reservedSpace - numOfCompletedSymbols));
 
             percentage = (int) (completedPart * 100) + "%";
             percentageLen = percentage.length();
