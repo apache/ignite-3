@@ -42,7 +42,7 @@ public class ProgressBar implements AutoCloseable {
     private int max;
 
     /** Target width of bar in symbols. */
-    private int targetBarWidth;
+    private final int targetBarWidth;
 
     /** Execute. */
     private ScheduledExecutorService exec;

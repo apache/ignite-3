@@ -76,6 +76,7 @@ public class MavenArtifactResolver {
      * Creates resolver
      *
      * @param pathRslvr Resolver of system paths like home directory and etc.
+     * @param terminal User system terminal.
      */
     @Inject
     public MavenArtifactResolver(SystemPathResolver pathRslvr, Terminal terminal) {
