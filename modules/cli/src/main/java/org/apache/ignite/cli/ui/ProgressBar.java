@@ -132,9 +132,9 @@ public class ProgressBar implements AutoCloseable {
 
         if (targetBarWidth < reservedSpace) {
            log.warn("Terminal width is so small to show the progress bar");
+
            return "";
         }
-
 
         var numOfCompletedSymbols = (int) (completedPart * (targetBarWidth - reservedSpace));
 
@@ -144,11 +144,13 @@ public class ProgressBar implements AutoCloseable {
 
         String percentage;
         int percentageLen;
+
         if (completedPart < 1) {
             sb.append('>').append(" ".repeat(targetBarWidth - reservedSpace - numOfCompletedSymbols));
 
             percentage = (int) (completedPart * 100) + "%";
             percentageLen = percentage.length();
+
             sb.append("|").append(" ".repeat(4 - percentageLen)).append(percentage);
         }
         else
