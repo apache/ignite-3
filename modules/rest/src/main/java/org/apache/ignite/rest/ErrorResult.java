@@ -30,4 +30,16 @@ public class ErrorResult {
         this.type = type;
         this.message = message;
     }
+
+    /**
+     */
+    public String type() {
+        return type;
+    }
+
+    /**
+     */
+    public String message() {
+        return message;
+    }
 }

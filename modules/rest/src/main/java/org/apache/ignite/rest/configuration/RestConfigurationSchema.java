@@ -20,6 +20,7 @@ package org.apache.ignite.rest.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
+@SuppressWarnings("PMD.UnusedPrivateField")
 @Config(value = "rest", root = true)
 public class RestConfigurationSchema {
     /** */

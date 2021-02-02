@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.PublicConfigurator;
 import org.apache.ignite.configuration.internal.NamedList;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.StorageException;
