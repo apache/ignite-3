@@ -26,12 +26,12 @@ import org.apache.ignite.storage.mapper.ValueMapper;
  *
  */
 public interface Table {
-    public <R> TableView<R> tableView(RowMapper<R> rowMapper);
+    public <R> RecordView<R> recordView(RowMapper<R> rowMapper);
 
     public <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
-    public default <R> TableView<R> tableView(Class<R> rowClass) {
-        return tableView(Mappers.ofRowClass(rowClass));
+    public default <R> RecordView<R> recordView(Class<R> rowClass) {
+        return recordView(Mappers.ofRowClass(rowClass));
     }
 
     public default <K, V> KVView<K, V> kvView(Class<K> kCls, Class<V> vCls) {

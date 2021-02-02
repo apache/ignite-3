@@ -15,20 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
+package org.apache.ignite.internal.storage;
 
-import java.util.function.Function;
-import org.apache.ignite.storage.Row;
-
-/**
- *
- */
-public interface RowMapper<R> {
-    public interface Builder<R> {
-        public Builder<R> map(String fieldName, Class<?> targetClass);
-
-        public Builder<R> map(String fieldName, Function<Row, Object> mapping);
-
-        public <R> RowMapper<R> build();
-    }
+public interface KeyObject {
+    byte[] getBytes();
 }

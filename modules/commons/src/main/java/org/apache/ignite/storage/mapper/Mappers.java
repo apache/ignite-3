@@ -33,6 +33,10 @@ public class Mappers {
         return null;
     }
 
+    public static <R> KeyMapper<R> identity() {
+        return null;
+    }
+
     public static <R> RowMapper<R> ofRowClass(Class<R> rowCls) {
         return null;
     }

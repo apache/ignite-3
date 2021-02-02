@@ -15,20 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
+package org.apache.ignite.internal.storage;
 
-import java.util.function.Function;
-import org.apache.ignite.storage.Row;
+import org.apache.ignite.storage.RecordView;
+import org.apache.ignite.storage.TableStorage;
+import org.apache.ignite.storage.mapper.RowMapper;
 
-/**
- *
- */
-public interface RowMapper<R> {
-    public interface Builder<R> {
-        public Builder<R> map(String fieldName, Class<?> targetClass);
+public class RecordViewImpl<R> implements RecordView<R> {
+    public RecordViewImpl(TableStorage table, RowMapper<R> mapper) {
 
-        public Builder<R> map(String fieldName, Function<Row, Object> mapping);
+    }
 
-        public <R> RowMapper<R> build();
+    @Override public R get(R keyRow) {
+        return null;
+    }
+
+    @Override public boolean upsert(R row) {
+        return false;
+    }
+
+    @Override public boolean insert(R row) {
+        return false;
     }
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.storage;
 /**
  * Record adapter for Table.
  */
-public interface TableView<T> {
+public interface RecordView<T> {
     /**
      * Fills given record with the values from the table.
      *

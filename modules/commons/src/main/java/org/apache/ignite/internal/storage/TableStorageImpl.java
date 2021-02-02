@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
+package org.apache.ignite.internal.storage;
 
-import java.util.function.Function;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.schema.TableSchemaManager;
 import org.apache.ignite.storage.Row;
+import org.apache.ignite.storage.TableStorage;
 
-/**
- *
- */
-public interface RowMapper<R> {
-    public interface Builder<R> {
-        public Builder<R> map(String fieldName, Class<?> targetClass);
+public class TableStorageImpl implements TableStorage {
+    private final Map<byte[], byte[]> store = new ConcurrentHashMap<>();
 
-        public Builder<R> map(String fieldName, Function<Row, Object> mapping);
+    private TableSchemaManager schemaMgr;
 
-        public <R> RowMapper<R> build();
+    @Override public Row get(KeyObject obj) {
+        final byte[] valBytes = store.get(obj.getBytes());
+
+//        return schemaMgr.toRow(valBytes);
+        return null;
     }
 }

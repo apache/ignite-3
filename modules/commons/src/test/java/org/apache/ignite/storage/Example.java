@@ -63,7 +63,7 @@ public class Example {
             }
         }
 
-        TableView<Employee> employeeView = t.tableView(Employee.class);
+        RecordView<Employee> employeeView = t.recordView(Employee.class);
 
         Employee e = employeeView.get(new Employee(1, 1));
 
@@ -81,7 +81,7 @@ public class Example {
             }
         }
 
-        TableView<TruncatedEmployee> truncatedEmployeeView = t.tableView(TruncatedEmployee.class);
+        RecordView<TruncatedEmployee> truncatedEmployeeView = t.recordView(TruncatedEmployee.class);
 
         // salary and department will not be sent over the network during this call.
         TruncatedEmployee te = truncatedEmployeeView.get(new TruncatedEmployee(1, 1));
@@ -184,7 +184,7 @@ public class Example {
             }
         }
 
-        final TableView<BillingRecord> billingView = t.tableView(BillingRecord.class);
+        final RecordView<BillingRecord> billingView = t.recordView(BillingRecord.class);
 
         final BillingRecord br = billingView.get(new BillingRecord(1));
     }
@@ -261,7 +261,7 @@ public class Example {
             }
         }
 
-        final TableView<OrderRecord> orderRecView = t.tableView(OrderRecord.class);
+        final RecordView<OrderRecord> orderRecView = t.recordView(OrderRecord.class);
 
         OrderRecord orderRecord = orderRecView.get(new OrderRecord(1, 1));
         binObj = orderRecord.billingDetails;
@@ -307,7 +307,7 @@ public class Example {
             }
         }
 
-        TableView<Record> recordView = t.tableView(Record.class);
+        RecordView<Record> recordView = t.recordView(Record.class);
 
         // Similarly work with the binary objects.
         Record rec = recordView.get(new Record(1, 1));
@@ -329,7 +329,7 @@ public class Example {
             int department;
         }
 
-        TableView<JavaPersonRecord> personRecordView = t.tableView(JavaPersonRecord.class);
+        RecordView<JavaPersonRecord> personRecordView = t.recordView(JavaPersonRecord.class);
 
         // Or we can have an arbitrary record with custom class selection.
         class TruncatedRecord {
@@ -337,12 +337,12 @@ public class Example {
             int department;
         }
 
-        TableView<TruncatedRecord> truncatedView = t.tableView(
+        RecordView<TruncatedRecord> truncatedView = t.recordView(
             Mappers.ofRowClassBuilder(TruncatedRecord.class)
-                .deserializing("upgradedObject", JavaPersonV2.class).build());
+                .map("upgradedObject", JavaPersonV2.class).build());
 
         // Or we can have a custom conditional type selection.
-        TableView<TruncatedRecord> truncatedView2 = t.tableView(
+        RecordView<TruncatedRecord> truncatedView2 = t.recordView(
             Mappers.ofRowClassBuilder(TruncatedRecord.class)
                 .map("upgradedObject", (row) -> {
                     BinaryObject bObj = row.binaryObjectField("upgradedObject");
@@ -350,6 +350,69 @@ public class Example {
 
                     return dept == 0 ? bObj.deserialize(JavaPerson.class) : bObj.deserialize(JavaPersonV2.class);
                 }).build());
+    }
+
+    /**
+     * Use case 1: a simple one. The table has the structure
+     * [
+     * [id long] // key
+     * [name varchar, lastName varchar, decimal salary, int department] // value
+     * ]
+     * We show how to use the raw TableRow and a mapped class.
+     */
+    public void useCase6(Table t) {
+        // Search row will allow nulls even in non-null columns.
+        Row res = t.get(t.createSearchRow(1L));
+
+        String name = res.field("name");
+        String lastName = res.field("latName");
+        BigDecimal salary = res.field("salary");
+        Integer department = res.field("department");
+
+        // We may have primitive-returning methods if needed.
+        int departmentPrimitive = res.intField("department");
+
+        // Note that schema itself already defined which fields are key field.
+        class Employee {
+            String name;
+            String lastName;
+            BigDecimal salary;
+            int department;
+        }
+
+        class Key {
+            long id;
+        }
+
+        KVView<Long, Employee> employeeView = t.kvView(Long.class, Employee.class);
+
+        Employee e = employeeView.get(1L);
+    }
+
+    /**
+     * Use case 1: a simple one. The table has the structure
+     * [
+     * [byte[]] // key
+     * [name varchar, lastName varchar, decimal salary, int department] // value
+     * ]
+     * We show how to use the raw TableRow and a mapped class.
+     */
+    public void useCase7(Table t) {
+        // Note that schema itself already defined which fields are key field.
+        class Employee {
+            String name;
+            String lastName;
+            BigDecimal salary;
+            int department;
+        }
+
+        KVView<Long, BinaryObject> employeeView = t.kvView(Long.class, BinaryObject.class);
+
+        employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
+
+        t.kvView(
+            Mappers.identity(),
+            Mappers.ofValueClassBuilder(BinaryObject.class).deserializeTo(Employee.class).build());
     }
 }
 

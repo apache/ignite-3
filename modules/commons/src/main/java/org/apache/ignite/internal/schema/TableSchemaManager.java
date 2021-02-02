@@ -15,20 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
+package org.apache.ignite.internal.schema;
 
-import java.util.function.Function;
-import org.apache.ignite.storage.Row;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
- *
+ * Table schema manager.
  */
-public interface RowMapper<R> {
-    public interface Builder<R> {
-        public Builder<R> map(String fieldName, Class<?> targetClass);
+public class TableSchemaManager {
 
-        public Builder<R> map(String fieldName, Function<Row, Object> mapping);
-
-        public <R> RowMapper<R> build();
-    }
 }
