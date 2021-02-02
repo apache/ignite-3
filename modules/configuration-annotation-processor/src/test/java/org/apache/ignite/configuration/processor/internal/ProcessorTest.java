@@ -16,14 +16,15 @@
  */
 package org.apache.ignite.configuration.processor.internal;
 
-import com.google.testing.compile.CompilationSubject;
+import com.google.testing.compile.Compilation;
 import com.squareup.javapoet.ClassName;
 import org.hamcrest.MatcherAssert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.configuration.processor.internal.HasFieldMatcher.hasFields;
 import static org.apache.ignite.configuration.processor.internal.HasMethodMatcher.hasMethods;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -41,9 +42,11 @@ public class ProcessorTest extends AbstractProcessorTest {
 
         final BatchCompilation batch = batchCompile(testConfigurationSchema);
 
-        CompilationSubject.assertThat(batch.getCompilationStatus()).succeeded();
+        final Compilation status = batch.getCompilationStatus();
 
-        assertEquals(7, batch.generated().size());
+        assertNotEquals(Compilation.Status.FAILURE, status.status());
+
+        assertEquals(11, batch.generated().size());
 
         final ConfigSet classSet = batch.getBySchema(testConfigurationSchema);
 
@@ -54,9 +57,7 @@ public class ProcessorTest extends AbstractProcessorTest {
             hasFields(
                 "value1", Types.STRING,
                 "primitiveLong", Types.LONG,
-                "boxedLong", Types.LONG,
-                "primitiveInt", Types.INT,
-                "boxedInt", Types.INT
+                "primitiveInt", Types.INT
             )
         );
 
@@ -65,9 +66,7 @@ public class ProcessorTest extends AbstractProcessorTest {
             hasMethods(
                 "value1()", Types.STRING,
                 "primitiveLong()", Types.LONG,
-                "boxedLong()", Types.LONG,
-                "primitiveInt()", Types.INT,
-                "boxedInt()", Types.INT
+                "primitiveInt()", Types.INT
             )
         );
 
@@ -76,9 +75,7 @@ public class ProcessorTest extends AbstractProcessorTest {
             hasFields(
                 "value1", Types.STRING,
                 "primitiveLong", Types.LONG,
-                "boxedLong", Types.LONG,
-                "primitiveInt", Types.INT,
-                "boxedInt", Types.INT
+                "primitiveInt", Types.INT
             )
         );
 
@@ -89,14 +86,10 @@ public class ProcessorTest extends AbstractProcessorTest {
             hasMethods(
                 "value1()", Types.STRING,
                 "primitiveLong()", Types.LONG,
-                "boxedLong()", Types.LONG,
                 "primitiveInt()", Types.INT,
-                "boxedInt()", Types.INT,
                 "withValue1(java.lang.String)", initTypeName,
                 "withPrimitiveLong(java.lang.Long)", initTypeName,
-                "withBoxedLong(java.lang.Long)", initTypeName,
-                "withPrimitiveInt(java.lang.Integer)", initTypeName,
-                "withBoxedInt(java.lang.Integer)", initTypeName
+                "withPrimitiveInt(java.lang.Integer)", initTypeName
             )
         );
     }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.jline.console.SystemRegistry;
@@ -33,13 +32,29 @@ import org.jline.reader.Reference;
 import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.shell.jline3.PicocliCommands;
 
+/**
+ * Interactive shell mode for Ignite CLI.
+ */
 public class InteractiveWrapper {
+    /** System terminal instance. */
+    private final Terminal terminal;
 
+    /**
+     * @param terminal Terminal.
+     */
+    public InteractiveWrapper(Terminal terminal) {
+        this.terminal = terminal;
+    }
+
+    /**
+     * Start interactive shell.
+     *
+     * @param cmd Prepared CommandLine instance to use for interactive mode.
+     */
     public void run(CommandLine cmd) {
         PicocliCommands picocliCommands = new PicocliCommands(workDir(), cmd) {
             @Override public Object invoke(CommandSession ses, String cmd, Object... args) throws Exception {
@@ -48,45 +63,45 @@ public class InteractiveWrapper {
         };
 
         Parser parser = new DefaultParser();
-        try (Terminal terminal = TerminalBuilder.builder().build()) {
-            SystemRegistry systemRegistry = new SystemRegistryImpl(parser, terminal, InteractiveWrapper::workDir, null);
-            systemRegistry.setCommandRegistries(picocliCommands);
 
-            LineReader reader = LineReaderBuilder.builder()
-                .terminal(terminal)
-                .completer(systemRegistry.completer())
-                .parser(parser)
-                .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
-                .build();
+        SystemRegistry sysRegistry = new SystemRegistryImpl(parser, terminal, InteractiveWrapper::workDir, null);
+        sysRegistry.setCommandRegistries(picocliCommands);
 
-            TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
-            widgets.enable();
-            KeyMap<Binding> keyMap = reader.getKeyMaps().get("main");
-            keyMap.bind(new Reference("tailtip-toggle"), KeyMap.alt("s"));
+        LineReader reader = LineReaderBuilder.builder()
+            .terminal(terminal)
+            .completer(sysRegistry.completer())
+            .parser(parser)
+            .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates
+            .build();
 
-            String prompt = "ignite> ";
-            String rightPrompt = null;
+        TailTipWidgets widgets = new TailTipWidgets(reader, sysRegistry::commandDescription, 5, TailTipWidgets.TipType.COMPLETER);
+        widgets.enable();
 
-            String line;
-            while (true) {
-                try {
-                    systemRegistry.cleanUp();
-                    line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
-                    systemRegistry.execute(line);
-                } catch (UserInterruptException e) {
-                    // Ignore
-                } catch (EndOfFileException e) {
-                    return;
-                } catch (Exception e) {
-                    systemRegistry.trace(e);
-                }
+        KeyMap<Binding> keyMap = reader.getKeyMaps().get("main");
+        keyMap.bind(new Reference("tailtip-toggle"), KeyMap.alt("s"));
+
+        String prompt = "ignite> ";
+        String rightPrompt = null;
+
+        String line;
+        while (true) {
+            try {
+                sysRegistry.cleanUp();
+
+                line = reader.readLine(prompt, rightPrompt, (MaskingCallback) null, null);
+
+                sysRegistry.execute(line);
+            } catch (UserInterruptException ignored) {
+                // Ignore
+            } catch (EndOfFileException e) {
+                return;
+            } catch (Exception e) {
+                sysRegistry.trace(e);
             }
-        }
-        catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
+    /** */
     private static Path workDir() {
         return Paths.get(System.getProperty("user.dir"));
     }
