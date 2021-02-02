@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.sample.configuration;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Map;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.RootKey;
@@ -38,9 +39,13 @@ import static org.hamcrest.collection.IsMapContaining.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class ConfigurationStorageTest {
-
+/**
+ * Test configuration changer.
+ */
+public class ConfigurationChangerTest {
+    /** Root configuration key. */
     private static final RootKey<?> KEY = () -> "key";
+
     /** */
     @Config
     public static class AConfigurationSchema {
@@ -73,12 +78,15 @@ class ConfigurationStorageTest {
         private String strCfg;
     }
 
+    /**
+     * Test simple change of configuration.
+     */
     @Test
-    public void testPutGet() {
+    public void testSimpleConfigurationChange() {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final DynamicConfigurationController con = new DynamicConfigurationController();
-        final Configurator<?> configuration = con.getConfiguration();
+        final ConfiguratorController con = new ConfiguratorController();
+        final Configurator<?> configuration = con.configurator();
 
         ANode data = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
@@ -100,6 +108,9 @@ class ConfigurationStorageTest {
         assertThat(dataMap, hasEntry("key.elements.a.strCfg", "1"));
     }
 
+    /**
+     * Test subsequent change of configuration via different changers.
+     */
     @Test
     public void testModifiedFromAnotherStorage() {
         final TestConfigurationStorage.Storage singleSource = new TestConfigurationStorage.Storage();
@@ -107,8 +118,8 @@ class ConfigurationStorageTest {
         final TestConfigurationStorage storage1 = new TestConfigurationStorage(singleSource);
         final TestConfigurationStorage storage2 = new TestConfigurationStorage(singleSource);
 
-        final DynamicConfigurationController con = new DynamicConfigurationController();
-        final Configurator<?> configuration = con.getConfiguration();
+        final ConfiguratorController con = new ConfiguratorController();
+        final Configurator<?> configuration = con.configurator();
 
         ANode data1 = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
@@ -143,6 +154,9 @@ class ConfigurationStorageTest {
         assertThat(dataMap, hasEntry("key.elements.b.strCfg", "2"));
     }
 
+    /**
+     * Test that subsequent change of configuration is failed if changes are incompatible.
+     */
     @Test
     public void testModifiedFromAnotherStorageWithIncompatibleChanges() {
         final TestConfigurationStorage.Storage singleSource = new TestConfigurationStorage.Storage();
@@ -150,9 +164,9 @@ class ConfigurationStorageTest {
         final TestConfigurationStorage storage1 = new TestConfigurationStorage(singleSource);
         final TestConfigurationStorage storage2 = new TestConfigurationStorage(singleSource);
 
-        final DynamicConfigurationController con = new DynamicConfigurationController();
+        final ConfiguratorController con = new ConfiguratorController();
 
-        final Configurator<?> configuration = con.getConfiguration();
+        final Configurator<?> configuration = con.configurator();
 
         ANode data1 = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
@@ -176,7 +190,7 @@ class ConfigurationStorageTest {
 
         changer1.change(Collections.singletonMap(KEY, data1));
 
-        con.setHasIssues(true);
+        con.hasIssues(true);
 
         assertThrows(ConfigurationValidationException.class, () -> changer2.change(Collections.singletonMap(KEY, data2)));
 
@@ -189,22 +203,64 @@ class ConfigurationStorageTest {
         assertThat(dataMap, hasEntry("key.elements.a.strCfg", "1"));
     }
 
-    private static class DynamicConfigurationController {
+    /**
+     * Test that init and change fail with right exception if storage is inaccessible.
+     */
+    @Test
+    public void testFailedToWrite() {
+        final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final Configurator<?> configuration;
+        final ConfiguratorController con = new ConfiguratorController();
+        final Configurator<?> configuration = con.configurator();
 
+        ANode data = new ANode();
+
+        final ConfigurationChanger changer = new ConfigurationChanger(storage);
+
+        storage.fail(true);
+
+        assertThrows(ConfigurationChangeException.class, changer::init);
+
+        storage.fail(false);
+
+        changer.init();
+
+        changer.registerConfiguration(KEY, configuration);
+
+        storage.fail(true);
+
+        assertThrows(ConfigurationChangeException.class, () -> changer.change(Collections.singletonMap(KEY, data)));
+
+        storage.fail(false);
+
+        final Data dataFromStorage = storage.readAll();
+        final Map<String, Serializable> dataMap = dataFromStorage.values();
+
+        assertEquals(0, dataMap.size());
+    }
+
+    /**
+     * Wrapper for Configurator mock to control validation.
+     */
+    private static class ConfiguratorController {
+        /** Configurator. */
+        final Configurator<?> configurator;
+
+        /** Whether validate method should return issues. */
         private boolean hasIssues;
 
-        public DynamicConfigurationController() {
+        /** Constructor. */
+        public ConfiguratorController() {
             this(false);
         }
 
-        public DynamicConfigurationController(boolean hasIssues) {
+        /** Constructor. */
+        public ConfiguratorController(boolean hasIssues) {
             this.hasIssues = hasIssues;
 
-            configuration = Mockito.mock(Configurator.class);
+            configurator = Mockito.mock(Configurator.class);
 
-            Mockito.when(configuration.validateChanges(Mockito.any())).then(mock -> {
+            Mockito.when(configurator.validateChanges(Mockito.any())).then(mock -> {
                 if (this.hasIssues)
                     return Collections.singletonList(new ValidationIssue());
 
@@ -212,13 +268,20 @@ class ConfigurationStorageTest {
             });
         }
 
-        public void setHasIssues(boolean hasIssues) {
+        /**
+         * Set has issues flag.
+         * @param hasIssues Has issues flag.
+         */
+        public void hasIssues(boolean hasIssues) {
             this.hasIssues = hasIssues;
         }
 
-        public Configurator<?> getConfiguration() {
-            return configuration;
+        /**
+         * Get configurator.
+         * @return Configurator.
+         */
+        public Configurator<?> configurator() {
+            return configurator;
         }
     }
-
 }
