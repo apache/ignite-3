@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.tree;
 import java.util.NoSuchElementException;
 
 /** */
-public abstract class InnerNode implements TraversableTreeNode, Cloneable {
+public abstract class InnerNode implements TraversableTreeNode, ConstructableTreeNode, Cloneable {
     /** {@inheritDoc} */
     @Override public final void accept(String key, ConfigurationVisitor visitor) {
         visitor.visitInnerNode(key, this);
@@ -80,9 +80,12 @@ public abstract class InnerNode implements TraversableTreeNode, Cloneable {
     public abstract void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException;
 
     /** {@inheritDoc} */
-    @Override protected Object clone() {
+    @Override public abstract void construct(String key, ConfigurationSource src);
+
+    /** {@inheritDoc} */
+    @Override public InnerNode copy() {
         try {
-            return super.clone();
+            return (InnerNode)clone();
         }
         catch (CloneNotSupportedException e) {
             throw new IllegalStateException(e);

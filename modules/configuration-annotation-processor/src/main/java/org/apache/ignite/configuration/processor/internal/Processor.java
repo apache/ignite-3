@@ -74,6 +74,7 @@ import org.apache.ignite.configuration.processor.internal.pojo.ChangeClassGenera
 import org.apache.ignite.configuration.processor.internal.pojo.InitClassGenerator;
 import org.apache.ignite.configuration.processor.internal.pojo.ViewClassGenerator;
 import org.apache.ignite.configuration.processor.internal.validation.ValidationGenerator;
+import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListChange;
@@ -875,6 +876,15 @@ public class Processor extends AbstractProcessor {
             .addParameter(ClassName.get(ConfigurationVisitor.class), "visitor")
             .beginControlFlow("switch (key)");
 
+        MethodSpec.Builder constructBuilder = MethodSpec.methodBuilder("construct")
+            .addAnnotation(Override.class)
+            .addJavadoc("{@inheritDoc}")
+            .addModifiers(PUBLIC)
+            .returns(TypeName.VOID)
+            .addParameter(ClassName.get(String.class), "key")
+            .addParameter(ClassName.get(ConfigurationSource.class), "src")
+            .beginControlFlow("switch (key)");
+
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
         for (VariableElement field : fields) {
@@ -907,6 +917,8 @@ public class Processor extends AbstractProcessor {
                 ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Node")
             );
 
+            TypeName namedListParamType = nodeFieldType;
+
             if (namedListField) {
                 viewFieldType = ParameterizedTypeName.get(ClassName.get(NamedListView.class), WildcardTypeName.subtypeOf(viewFieldType));
 
@@ -921,7 +933,7 @@ public class Processor extends AbstractProcessor {
                 FieldSpec.Builder nodeFieldBuilder = FieldSpec.builder(nodeFieldType, fieldName, PRIVATE);
 
                 if (namedListField)
-                    nodeFieldBuilder.initializer("new $T<>($T::new)", NamedListNode.class, ((ParameterizedTypeName)nodeFieldType).typeArguments.get(0));
+                    nodeFieldBuilder.initializer("new $T<>($T::new)", NamedListNode.class, namedListParamType);
 
                 nodeClsBuilder.addField(nodeFieldBuilder.build());
             }
@@ -966,7 +978,7 @@ public class Processor extends AbstractProcessor {
                     MethodSpec.Builder nodeChangeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
                         .addAnnotation(Override.class)
                         .addModifiers(PUBLIC)
-                        .returns(changeClsName);
+                        .returns(nodeClsName);
 
                     if (valAnnotation != null) {
                         nodeChangeMtdBuilder
@@ -1024,7 +1036,7 @@ public class Processor extends AbstractProcessor {
                     MethodSpec.Builder nodeInitMtdBuilder = MethodSpec.methodBuilder(initMtdName)
                         .addAnnotation(Override.class)
                         .addModifiers(PUBLIC)
-                        .returns(initClsName);
+                        .returns(nodeClsName);
 
                     if (valAnnotation != null) {
                         nodeInitMtdBuilder
@@ -1086,15 +1098,65 @@ public class Processor extends AbstractProcessor {
                         .addStatement(INDENT + "break");
                 }
             }
+
+            {
+                if (leafField) {
+                    constructBuilder.addStatement(
+                        "case $S: $L = src == null ? null : src.unwrap($T.class)",
+                        fieldName,
+                        fieldName,
+                        schemaFieldType
+                    )
+                    .addStatement(INDENT + "break");
+                }
+                else if (namedListField) {
+                    constructBuilder
+                        .addStatement(
+                            "case $S: if (src == null) $L = new $T<>($T::new)",
+                            fieldName,
+                            fieldName,
+                            NamedListNode.class,
+                            namedListParamType
+                        )
+                        .addStatement(
+                            INDENT + "else src.descend($L = $L.copy())",
+                            fieldName,
+                            fieldName
+                        )
+                        .addStatement(INDENT + "break");
+                }
+                else {
+                    constructBuilder
+                        .addStatement(
+                            "case $S: if (src == null) $L = null",
+                            fieldName,
+                            fieldName
+                        )
+                        .addStatement(
+                            INDENT + "else src.descend($L = ($L == null ? new $T() : ($T)$L.copy()))",
+                            fieldName,
+                            fieldName,
+                            nodeFieldType,
+                            nodeFieldType,
+                            fieldName
+                        )
+                        .addStatement(INDENT + "break");
+                }
+            }
         }
 
         traverseChildBuilder
             .addStatement("default: throw new $T(key)", NoSuchElementException.class)
             .endControlFlow();
 
+        constructBuilder
+            .addStatement("default: throw new $T(key)", NoSuchElementException.class)
+            .endControlFlow();
+
         nodeClsBuilder
             .addMethod(traverseChildrenBuilder.build())
-            .addMethod(traverseChildBuilder.build());
+            .addMethod(traverseChildBuilder.build())
+            .addMethod(constructBuilder.build());
 
         TypeSpec viewCls = viewClsBuilder.build();
         TypeSpec changeCls = changeClsBuilder.build();
