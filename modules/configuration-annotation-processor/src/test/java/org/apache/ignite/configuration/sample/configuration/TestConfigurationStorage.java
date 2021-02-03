@@ -62,7 +62,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean write(Map<String, Serializable> newValues, int sentVersion) throws StorageException {
+    @Override public synchronized boolean write(Map<String, Serializable> newValues, int sentVersion) throws StorageException {
         if (fail)
             throw new StorageException("Failed to write data");
 
@@ -73,10 +73,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
         version.incrementAndGet();
 
-        // Make listeners update async, so next storage accessor will have to busy wait for new data to be visible
-        new Thread(() ->
-            listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, version.get())))
-        ).start();
+        listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, version.get())));
 
         return true;
     }
