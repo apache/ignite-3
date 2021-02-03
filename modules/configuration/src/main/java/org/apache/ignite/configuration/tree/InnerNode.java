@@ -79,8 +79,36 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      */
     public abstract void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException;
 
-    /** {@inheritDoc} */
-    @Override public abstract void construct(String key, ConfigurationSource src);
+    /**
+     * Method with auto-generated implementation. Must look like this:
+     * <pre>{@code
+     * @Override public abstract void construct(String key, ConfigurationSource src) throws NoSuchElementException {
+     *     switch (key) {
+     *         case "namedList":
+     *             if (src == null)
+     *                 namedList = new NamedListNode<>(Foo::new);
+     *             else
+     *                 src.descend(namedList = namedList.copy());
+     *             break;
+     *
+     *         case "innerNode":
+     *             if (src == null)
+     *                 innerNode = null;
+     *             else
+     *                 src.descend(innerNode = (innerNode == null ? new Bar() : (Bar)innerNode.copy()));
+     *             break;
+     *
+     *         case "leaf":
+     *             leaf = src == null ? null : src.unwrap(Integer.class);
+     *             break;
+     *
+     *         default: throw new NoSuchElementException(key);
+     *     }
+     * }
+     * }</pre>
+     * {@inheritDoc}
+     */
+    @Override public abstract void construct(String key, ConfigurationSource src) throws NoSuchElementException;
 
     /** {@inheritDoc} */
     @Override public InnerNode copy() {

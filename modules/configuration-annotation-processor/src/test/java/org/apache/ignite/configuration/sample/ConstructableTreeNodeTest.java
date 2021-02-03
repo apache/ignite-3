@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** */
-public class ConstructableNodesTest {
+public class ConstructableTreeNodeTest {
     /** */
     @Test
     public void noKey() {

@@ -1105,7 +1105,7 @@ public class Processor extends AbstractProcessor {
                         "case $S: $L = src == null ? null : src.unwrap($T.class)",
                         fieldName,
                         fieldName,
-                        schemaFieldType
+                        schemaFieldType.box()
                     )
                     .addStatement(INDENT + "break");
                 }
