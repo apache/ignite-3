@@ -27,7 +27,6 @@ import org.apache.ignite.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.rest.presentation.FormatConverter;
 import org.apache.ignite.rest.presentation.json.JsonConverter;
 import org.apache.ignite.rest.presentation.json.JsonPresentation;
-import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.rest.configuration.InitRest;
 import org.apache.ignite.rest.configuration.RestConfigurationImpl;

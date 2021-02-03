@@ -201,7 +201,6 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
      * @param <PROP> Type of the property.
      */
     public <PROP extends Serializable> void onAttached(DynamicProperty<PROP> property) {
-        final String key = property.key();
         property.addListener(new PropertyListener<PROP, PROP>() {
             /** {@inheritDoc} */
             @Override public void update(PROP newValue, ConfigurationProperty<PROP, PROP> modifier) {

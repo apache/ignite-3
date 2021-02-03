@@ -35,7 +35,9 @@ import org.apache.ignite.configuration.util.ConfigurationUtil;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 
-// TODO: stupid stub name, think later
+/**
+ * Class that handles configuration changes, by validating them, passing to storage and listening to storage updates.
+ */
 public class ConfigurationChanger {
     /** Map of configurations' configurators. */
     private Map<RootKey<?>, Configurator<?>> registry = new HashMap<>();
@@ -91,11 +93,11 @@ public class ConfigurationChanger {
             .flatMap(map -> map.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        boolean success = false;
+        boolean writing = true;
 
         List<ValidationIssue> validationIssues = Collections.emptyList();
 
-        while (!success) {
+        while (writing) {
             final ValidationResult validationResult = validate(changes);
 
             validationIssues = validationResult.issues();
@@ -104,7 +106,7 @@ public class ConfigurationChanger {
 
             if (validationIssues.isEmpty())
                 try {
-                    success = configurationStorage.write(allChanges, version);
+                    writing = !configurationStorage.write(allChanges, version);
                 }
                 catch (StorageException e) {
                     throw new ConfigurationChangeException("Failed to change configuration: " + e.getMessage(), e);
@@ -199,7 +201,7 @@ public class ConfigurationChanger {
         private final List<ValidationIssue> issues;
         private final int version;
 
-        public ValidationResult(List<ValidationIssue> issues, int version) {
+        private ValidationResult(List<ValidationIssue> issues, int version) {
             this.issues = issues;
             this.version = version;
         }
