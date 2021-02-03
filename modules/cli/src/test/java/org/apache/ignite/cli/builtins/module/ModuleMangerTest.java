@@ -29,6 +29,7 @@ import java.util.jar.Manifest;
 import javax.inject.Inject;
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import org.apache.ignite.cli.AbstractCliTest;
 import org.apache.ignite.cli.IgnitePaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +48,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 @MicronautTest
-public class ModuleMangerTest {
+public class ModuleMangerTest extends AbstractCliTest {
     /** */
     @Inject
     MavenArtifactResolver mavenArtifactRslvr;

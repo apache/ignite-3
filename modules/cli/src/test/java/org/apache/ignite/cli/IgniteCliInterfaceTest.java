@@ -62,7 +62,7 @@ import static org.mockito.Mockito.when;
  */
 @DisplayName("ignite")
 @ExtendWith(MockitoExtension.class)
-public class IgniteCliInterfaceTest {
+public class IgniteCliInterfaceTest extends AbstractCliTest {
 
     /** DI application context. */
     ApplicationContext applicationCtx;
