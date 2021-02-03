@@ -33,17 +33,34 @@ import org.apache.ignite.configuration.tree.TraversableTreeNode;
 
 /** */
 public class ConfigurationUtil {
-    /** */
+    /**
+     * Replaces all {@code .} and {@code \} characters with {@code \.} and {@code \\} respectively.
+     *
+     * @param key Unescaped string.
+     * @return Escaped string.
+     */
     public static String escape(String key) {
         return key.replaceAll("([.\\\\])", "\\\\$1");
     }
 
-    /** */
+    /**
+     * Replaces all {@code \.} and {@code \\} with {@code .} and {@code \} respectively.
+     *
+     * @param key Escaped string.
+     * @return Unescaped string.
+     */
     public static String unescape(String key) {
         return key.replaceAll("\\\\([.\\\\])", "$1");
     }
 
-    /** */
+    /**
+     * Splits string using unescaped {@code .} character as a separator.
+     *
+     * @param keys Qualified key where escaped subkeys are joined with dots.
+     * @return List of unescaped subkeys.
+     * @see #unescape(String)
+     * @see #join(List)
+     */
     public static List<String> split(String keys) {
         String[] split = keys.split("(?<!\\\\)[.]", -1);
 
@@ -53,7 +70,14 @@ public class ConfigurationUtil {
         return Arrays.asList(split);
     }
 
-    /** */
+    /**
+     * Joins list of keys with {@code .} character as a separator. All keys are preemptively escaped.
+     *
+     * @param keys List of unescaped keys.
+     * @return Escaped keys joined with dots.
+     * @see #escape(String)
+     * @see #split(String)
+     */
     public static String join(List<String> keys) {
         return keys.stream().map(ConfigurationUtil::escape).collect(Collectors.joining("."));
     }
@@ -114,7 +138,15 @@ public class ConfigurationUtil {
         return visitor.res;
     }
 
-    /** */
+    /**
+     * Convert Map tree to configuration tree. No error handling here.
+     *
+     * @param node Node to fill. Not necessarily empty.
+     * @param prefixMap Map of {@link Serializable} values or other prefix maps (recursive structure).
+     *      Every key is unescaped.
+     * @throws UnsupportedOperationException if prefix map structure doesn't correspond to actual tree structure.
+     *      This will be fixed when method is actually used in configuration storage intergration.
+     */
     public static void fillFromSuffixMap(ConstructableTreeNode node, Map<String, ?> prefixMap) {
         assert node instanceof InnerNode;
 
@@ -126,7 +158,7 @@ public class ConfigurationUtil {
             /**
              * @param val Value.
              */
-            LeafConfigurationSource(Serializable val) {
+            private LeafConfigurationSource(Serializable val) {
                 this.val = val;
             }
 
@@ -139,7 +171,7 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override public void descend(ConstructableTreeNode node) {
-                throw new UnsupportedOperationException("descend"); //TODO
+                throw new UnsupportedOperationException("descend");
             }
         }
 
@@ -157,13 +189,13 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override public <T> T unwrap(Class<T> clazz) {
-                throw new UnsupportedOperationException("unwrap"); //TODO
+                throw new UnsupportedOperationException("unwrap");
             }
 
             /** {@inheritDoc} */
             @Override public void descend(ConstructableTreeNode node) {
                 for (Map.Entry<String, ?> entry : map.entrySet()) {
-                    String key = unescape(entry.getKey()); //TODO Depends on the usage.
+                    String key = entry.getKey();
                     Object val = entry.getValue();
 
                     assert val == null || val instanceof Map || val instanceof Serializable;
@@ -183,17 +215,37 @@ public class ConfigurationUtil {
         src.descend(node);
     }
 
-    /** */
-    public static <C extends ConstructableTreeNode & TraversableTreeNode> C merge(C root, InnerNode rootChanges) {
-        assert root.getClass() == rootChanges.getClass(); // Yes.
+    /**
+     * Apply changes on top of existing node. Creates completely new object while reusing parts of the original tree
+     * that weren't modified.
+     *
+     * @param root Immutable configuration node.
+     * @param changes Change or Init object to be applied.
+     */
+    public static <C extends ConstructableTreeNode & TraversableTreeNode> C merge(C root, TraversableTreeNode changes) {
+        assert root.getClass() == changes.getClass(); // Yes.
 
-        var src = new MergeInnerConfigurationSource(rootChanges);
+        var scrHolder = new ConfigurationVisitor() {
+            ConfigurationSource src;
 
-        C clone = (C)root.copy();
+            @Override public void visitInnerNode(String key, InnerNode node) {
+                src = new MergeInnerConfigurationSource(node);
+            }
 
-        src.descend(clone);
+            @Override public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
+                src = new MergeNamedListConfigurationSource(node);
+            }
+        };
 
-        return clone;
+        changes.accept(null, scrHolder);
+
+        assert scrHolder.src != null;
+
+        C copy = (C)root.copy();
+
+        scrHolder.src.descend(copy);
+
+        return copy;
     }
 
     /** */

@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** */
-public class TraversableNodesTest {
+public class TraversableTreeNodeTest {
     /** */
     @Config
     public static class ParentConfigurationSchema {
