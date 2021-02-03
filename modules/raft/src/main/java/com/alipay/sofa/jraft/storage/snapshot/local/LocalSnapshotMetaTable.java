@@ -38,7 +38,6 @@ import com.alipay.sofa.jraft.storage.io.ProtoBufFile;
  * @author boyan (boyan@alibaba-inc.com)
  *
  * 2018-Mar-12 7:22:27 PM
- * TODO asch broken
  */
 public class LocalSnapshotMetaTable {
 

@@ -39,17 +39,10 @@ public class ByteString {
     }
 
     public byte[] toByteArray() {
-        if (buf.hasArray())
-            return buf.array();
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        WritableByteChannel channel = Channels.newChannel(bos);
-        try {
-            channel.write(buf); // TODO asch slice ?
-        } catch (IOException e) {
-            throw new Error(e);
-        }
-        return bos.toByteArray();
+        byte[] arr = new byte[buf.remaining()];
+        buf.get(arr);
+        buf.flip();
+        return arr;
     }
 
     public ByteString copy() {

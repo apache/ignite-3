@@ -16,6 +16,8 @@ import com.alipay.sofa.jraft.test.TestUtils;
 import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
@@ -59,25 +61,25 @@ public class CounterExampleTest {
     @Test
     public void testCounter() throws IOException, InterruptedException, TimeoutException, RemotingException {
         try {
-            String initConfStr = "127.0.0.1:8080,127.0.0.1:8081,127.0.0.1:8082";
+            List<PeerId> peers = Arrays.asList(
+                new PeerId("127.0.0.1", 8080),
+                new PeerId("127.0.0.1", 8081),
+                new PeerId("127.0.0.1", 8082)
+            );
+
+            Configuration initConf = new Configuration(peers);
 
             String groupId = "counter";
 
             // Create initial topology.
-            CounterServer node0 = CounterServer.start(dataPath, groupId, "127.0.0.1:8080", initConfStr);
-            CounterServer node1 = CounterServer.start(dataPath, groupId, "127.0.0.1:8081", initConfStr);
-            CounterServer node2 = CounterServer.start(dataPath, groupId, "127.0.0.1:8082", initConfStr);
+            for (PeerId peer : peers)
+                CounterServer.start(dataPath, groupId, peer, initConf);
 
             LOG.info("Waiting for leader election");
 
             Thread.sleep(2000);
 
-            // Create client.
-            final Configuration conf = new Configuration();
-
-            assertTrue(conf.parse(initConfStr));
-
-            RouteTable.getInstance().updateConfiguration(groupId, conf);
+            RouteTable.getInstance().updateConfiguration(groupId, initConf);
 
             final CliClientServiceImpl cliClientService = new CliClientServiceImpl();
             cliClientService.init(new CliOptions());

@@ -44,7 +44,7 @@ public class NodeManager {
 
     private final ConcurrentMap<NodeId, Node>       nodeMap  = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<Node>> groupMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashSet<Endpoint>       addrSet  = new ConcurrentHashSet<>();
+    private final ConcurrentHashSet<Endpoint>       addrSet  = new ConcurrentHashSet<>(); // TODO asch useless ?
 
     public static NodeManager getInstance() {
         return INSTANCE;

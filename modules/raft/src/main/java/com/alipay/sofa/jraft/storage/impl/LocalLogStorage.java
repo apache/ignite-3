@@ -223,11 +223,11 @@ public class LocalLogStorage implements LogStorage, Describer {
     public boolean truncateSuffix(final long lastIndexKept) {
         this.readLock.lock();
         try {
-            ConcurrentNavigableMap<Long, LogEntry> map = log.tailMap(lastIndexKept, false);
+            ConcurrentNavigableMap<Long, LogEntry> suffix = log.tailMap(lastIndexKept, false);
 
-            map.clear();
+            suffix.clear();
 
-            lastLogIndex = map.isEmpty() ? 0 : map.lastKey();
+            lastLogIndex = log.isEmpty() ? 0 : log.lastKey();
 
             return true;
         } catch (Exception e) {

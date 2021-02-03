@@ -48,29 +48,22 @@ public class CounterServer {
 
     public CounterServer(final String dataPath, final String groupId, final PeerId serverId,
                          final NodeOptions nodeOptions) throws IOException {
-        // 初始化路径
         new File(dataPath).mkdirs();
 
-        // 这里让 raft RPC 和业务 RPC 使用同一个 RPC server, 通常也可以分开
         final RpcServer rpcServer = RaftRpcServerFactory.createRaftRpcServer(serverId.getEndpoint());
-        // 注册业务处理器
+
         CounterService counterService = new CounterServiceImpl(this);
         rpcServer.registerProcessor(new GetValueRequestProcessor(counterService));
         rpcServer.registerProcessor(new IncrementAndGetRequestProcessor(counterService));
-        // 初始化状态机
+
         this.fsm = new CounterStateMachine();
-        // 设置状态机到启动参数
+
         nodeOptions.setFsm(this.fsm);
-        // 设置存储路径
-        // 日志, 必须
         nodeOptions.setLogUri(dataPath + File.separator + "log");
-        // 元信息, 必须
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "raft_meta");
-        // snapshot, 可选, 一般都推荐
         nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
-        // 初始化 raft group 服务框架
+
         this.raftGroupService = new RaftGroupService(groupId, serverId, nodeOptions, rpcServer);
-        // 启动
         this.node = this.raftGroupService.start();
     }
 
@@ -114,23 +107,15 @@ public class CounterServer {
         return response;
     }
 
-    public static CounterServer start(String dataPath, String groupId, String serverIdStr, String initConfStr) throws IOException {
+    public static CounterServer start(String dataPath, String groupId, PeerId serverId, Configuration initConf) throws IOException {
         final NodeOptions nodeOptions = new NodeOptions();
 
         nodeOptions.setElectionTimeoutMs(1000);
         nodeOptions.setDisableCli(false);
         nodeOptions.setSnapshotIntervalSecs(30);
-        final PeerId serverId = new PeerId();
-        if (!serverId.parse(serverIdStr)) {
-            throw new IllegalArgumentException("Fail to parse serverId:" + serverIdStr);
-        }
-        final Configuration initConf = new Configuration();
-        if (!initConf.parse(initConfStr)) {
-            throw new IllegalArgumentException("Fail to parse initConf:" + initConfStr);
-        }
         nodeOptions.setInitialConf(initConf);
 
-        File serverData = new File(dataPath, serverIdStr.replaceAll("\\W+", ""));
+        File serverData = new File(dataPath, serverId.toString().replaceAll("\\W+", ""));
 
         if (!serverData.exists()) {
             if (!serverData.mkdirs())

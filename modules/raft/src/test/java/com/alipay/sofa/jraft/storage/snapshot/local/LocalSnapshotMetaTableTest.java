@@ -16,6 +16,7 @@
  */
 package com.alipay.sofa.jraft.storage.snapshot.local;
 
+import com.alipay.sofa.jraft.entity.RaftOutter;
 import com.alipay.sofa.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
@@ -68,8 +69,12 @@ public class LocalSnapshotMetaTableTest {
             .setSource(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL).build();
         assertTrue(this.table.addFile("data2", meta2));
 
+        RaftOutter.SnapshotMeta meta = RaftOutter.SnapshotMeta.newBuilder().setLastIncludedIndex(1).setLastIncludedTerm(1).build();
+        this.table.setMeta(meta);
+
         assertTrue(table.listFiles().contains("data1"));
         assertTrue(table.listFiles().contains("data2"));
+        assertTrue(table.hasMeta());
 
         String path = TestUtils.mkTempDir();
         new File(path).mkdirs();
@@ -83,6 +88,7 @@ public class LocalSnapshotMetaTableTest {
             assertTrue(newTable.loadFromFile(filePath));
             Assert.assertEquals(meta1, newTable.getFileMeta("data1"));
             Assert.assertEquals(meta2, newTable.getFileMeta("data2"));
+            Assert.assertEquals(meta, newTable.getMeta());
         } finally {
             Utils.delete(new File(path));
         }

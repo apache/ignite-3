@@ -420,6 +420,8 @@ public final class Utils {
                     }
                 }
             } catch (IOException e) {
+                LOG.error("Failed to read directory " + path, e);
+
                 return false;
             }
         }
@@ -439,6 +441,8 @@ public final class Utils {
 
             return true;
         } catch (IOException e) {
+            LOG.error("Failed to remove " + path, e);
+
             return false;
         }
     }

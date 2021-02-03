@@ -63,4 +63,20 @@ public class LocalFileMetaImpl implements LocalFileMetaOutter.LocalFileMeta, Loc
 
         return this;
     }
+
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        LocalFileMetaImpl that = (LocalFileMetaImpl) o;
+
+        if (fileSource != that.fileSource) return false;
+        return checksum.equals(that.checksum);
+    }
+
+    @Override public int hashCode() {
+        int result = fileSource.hashCode();
+        result = 31 * result + checksum.hashCode();
+        return result;
+    }
 }

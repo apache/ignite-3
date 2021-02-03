@@ -23,6 +23,7 @@ import com.alipay.sofa.jraft.rpc.Message;
 import com.alipay.sofa.jraft.rpc.MessageBuilderFactory;
 import com.alipay.sofa.jraft.storage.RaftMetaStorage;
 import com.alipay.sofa.jraft.util.DisruptorBuilder;
+import com.alipay.sofa.jraft.util.Marshaller;
 import java.nio.ByteBuffer;
 
 public final class LocalStorageOutter {
@@ -69,7 +70,7 @@ public final class LocalStorageOutter {
         }
 
         static LocalSnapshotPbMeta parseFrom(ByteBuffer buf) {
-            throw new UnsupportedOperationException();
+            return Marshaller.DEFAULT.unmarshall(buf.array());
         }
 
         com.alipay.sofa.jraft.entity.RaftOutter.SnapshotMeta getMeta();

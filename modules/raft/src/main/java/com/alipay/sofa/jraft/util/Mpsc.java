@@ -25,9 +25,11 @@ import java.util.Queue;
 
 //import com.alipay.sofa.jraft.util.internal.UnsafeUtil;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * @author jiachun.fjc
+ * TODO asch fixme.
  */
 public final class Mpsc {
 
@@ -45,6 +47,6 @@ public final class Mpsc {
 //        return UnsafeUtil.hasUnsafe() ? new MpscChunkedArrayQueue<>(MPSC_CHUNK_SIZE, capacity)
 //            : new MpscGrowableAtomicArrayQueue<>(MPSC_CHUNK_SIZE, capacity);
 
-        return new ConcurrentLinkedQueue<>();
+        return new LinkedBlockingQueue<>(maxCapacity);
     }
 }

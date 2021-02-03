@@ -16,6 +16,7 @@
  */
 package com.alipay.sofa.jraft.test;
 
+import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -24,6 +25,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -69,7 +71,9 @@ public class TestUtils {
     public static String mkTempDir() {
         String dir = System.getProperty("user.dir");
         //String dir = System.getProperty("java.io.tmpdir", "/tmp");
-        return Paths.get(dir, "jraft_test_" + System.nanoTime()).toString();
+        Path path = Paths.get(dir, "jraft_test_" + System.nanoTime());
+        path.toFile().mkdirs();
+        return path.toString();
     }
 
     public static LogEntry mockEntry(final int index, final int term) {

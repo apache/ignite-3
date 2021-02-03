@@ -41,6 +41,8 @@ class LocalSnapshotMetaImpl implements LocalStorageOutter.LocalSnapshotPbMeta, L
     }
 
     @Override public Builder addFiles(File file) {
+        files.add(file);
+
         return this;
     }
 

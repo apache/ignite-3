@@ -146,7 +146,13 @@ public class NodeTest {
     public void setup() throws Exception {
         System.out.println(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
         this.dataPath = TestUtils.mkTempDir();
-        new File(this.dataPath).mkdirs();
+
+        File dataFile = new File(this.dataPath);
+
+        if (dataFile.exists())
+            assertTrue(Utils.delete(dataFile));
+
+        dataFile.mkdirs();
         assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
         this.testStartMs = Utils.monotonicMs();
         dumpThread.interrupt(); // reset dump timeout
@@ -2050,7 +2056,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testInstallSnapshotWithThrottle() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2109,7 +2114,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(4);
         final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers.subList(0, 3));
@@ -2171,7 +2175,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testInstallLargeSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(4);
         final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers.subList(0, 3));
@@ -2234,7 +2237,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testInstallSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2664,7 +2666,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testTransferShouldWorkAfterInstallSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2935,7 +2936,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testBootStrapWithSnapshot() throws Exception {
         final Endpoint addr = JRaftUtils.getEndPoint("127.0.0.1:5006");
         final MockStateMachine fsm = new MockStateMachine(addr);
@@ -2969,6 +2969,7 @@ public class NodeTest {
             assertEquals('a' + i, fsm.getLogs().get(i).get());
         }
 
+        // Group configuration will be restored from snapshot meta.
         while (!node.isLeader()) {
             Thread.sleep(20);
         }
@@ -2979,7 +2980,7 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
+    @Ignore // TODO asch the test doesn't work with volatile log. Initial configuration is not set and group is empty on start.
     public void testBootStrapWithoutSnapshot() throws Exception {
         final Endpoint addr = JRaftUtils.getEndPoint("127.0.0.1:5006");
         final MockStateMachine fsm = new MockStateMachine(addr);
@@ -3209,7 +3210,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testChangePeersChaosWithSnapshot() throws Exception {
         // start cluster
         final List<PeerId> peers = new ArrayList<>();
@@ -3261,7 +3261,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testChangePeersChaosWithoutSnapshot() throws Exception {
         // start cluster
         final List<PeerId> peers = new ArrayList<>();

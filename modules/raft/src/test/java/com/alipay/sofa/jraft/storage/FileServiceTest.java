@@ -27,6 +27,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.internal.ArrayComparisonFailure;
 import org.mockito.Mockito;
 
 import com.alipay.sofa.jraft.error.RaftError;
@@ -116,7 +117,7 @@ public class FileServiceTest {
         File file = new File(this.path + File.separator + "data");
         String data = "jraft is great!";
         for (int i = 0; i < 1000; i++) {
-            Files.writeString(file.toPath(), data, StandardOpenOption.APPEND);
+            Files.writeString(file.toPath(), data, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         }
         return data;
     }
@@ -133,18 +134,24 @@ public class FileServiceTest {
                 .setReaderId(readerId) //
                 .build();
             final RpcContext asyncContext = Mockito.mock(RpcContext.class);
+
             final Message msg = FileService.getInstance() //
                 .handleGetFile(request, new RpcRequestClosure(asyncContext));
             assertTrue(msg instanceof RpcRequests.GetFileResponse);
             final RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
             final byte[] sourceArray = data.getBytes();
             final byte[] respData = response.getData().toByteArray();
+
             final int length = sourceArray.length;
             int offset = 0;
             while (offset + length <= respData.length) {
                 final byte[] respArray = new byte[length];
                 System.arraycopy(respData, offset, respArray, 0, length);
-                assertArrayEquals(sourceArray, respArray);
+                try {
+                    assertArrayEquals("Offset: " + fileOffset, sourceArray, respArray);
+                } catch (ArrayComparisonFailure arrayComparisonFailure) {
+                    arrayComparisonFailure.printStackTrace();
+                }
                 offset += length;
             }
             fileOffset += offset;
