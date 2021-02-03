@@ -119,11 +119,20 @@ public class ConfigurationChanger {
             throw new ConfigurationValidationException(validationIssues);
     }
 
+    /**
+     * Update configuration from storage listener.
+     * @param changedEntries Changed data.
+     */
     private synchronized void updateFromListener(Data changedEntries) {
         // TODO: IGNITE-14118 add tree update
         version.set(changedEntries.version());
     }
 
+    /**
+     * Validate configuration changes.
+     * @param changes Configuration changes.
+     * @return Validation results.
+     */
     private synchronized ValidationResult validate(Map<RootKey<?>, TraversableTreeNode> changes) {
         final int version = this.version.get();
 
@@ -197,19 +206,38 @@ public class ConfigurationChanger {
         return values;
     }
 
+    /**
+     * Results of the validation.
+     */
     private static final class ValidationResult {
+        /** List of issues. */
         private final List<ValidationIssue> issues;
+
+        /** Version of configuration that changes were validated against. */
         private final int version;
 
+        /**
+         * Constructor.
+         * @param issues List of issues.
+         * @param version Version.
+         */
         private ValidationResult(List<ValidationIssue> issues, int version) {
             this.issues = issues;
             this.version = version;
         }
 
+        /**
+         * Get issues.
+         * @return Issues.
+         */
         public List<ValidationIssue> issues() {
             return issues;
         }
 
+        /**
+         * Get version.
+         * @return Version.
+         */
         public int version() {
             return version;
         }
