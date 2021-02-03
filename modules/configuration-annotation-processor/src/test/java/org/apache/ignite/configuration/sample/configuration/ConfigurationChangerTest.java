@@ -113,10 +113,7 @@ public class ConfigurationChangerTest {
      */
     @Test
     public void testModifiedFromAnotherStorage() {
-        final TestConfigurationStorage.Storage singleSource = new TestConfigurationStorage.Storage();
-
-        final TestConfigurationStorage storage1 = new TestConfigurationStorage(singleSource);
-        final TestConfigurationStorage storage2 = new TestConfigurationStorage(singleSource);
+        final TestConfigurationStorage storage = new TestConfigurationStorage();
 
         final ConfiguratorController con = new ConfiguratorController();
         final Configurator<?> configuration = con.configurator();
@@ -132,10 +129,10 @@ public class ConfigurationChangerTest {
                 .put("b", init -> init.initStrCfg("2"))
             );
 
-        final ConfigurationChanger changer1 = new ConfigurationChanger(storage1);
+        final ConfigurationChanger changer1 = new ConfigurationChanger(storage);
         changer1.init();
 
-        final ConfigurationChanger changer2 = new ConfigurationChanger(storage2);
+        final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
         changer2.init();
 
         changer1.registerConfiguration(KEY, configuration);
@@ -144,7 +141,7 @@ public class ConfigurationChangerTest {
         changer1.change(Collections.singletonMap(KEY, data1));
         changer2.change(Collections.singletonMap(KEY, data2));
 
-        final Data dataFromStorage = storage1.readAll();
+        final Data dataFromStorage = storage.readAll();
         final Map<String, Serializable> dataMap = dataFromStorage.values();
 
         assertEquals(4, dataMap.size());
@@ -159,10 +156,7 @@ public class ConfigurationChangerTest {
      */
     @Test
     public void testModifiedFromAnotherStorageWithIncompatibleChanges() {
-        final TestConfigurationStorage.Storage singleSource = new TestConfigurationStorage.Storage();
-
-        final TestConfigurationStorage storage1 = new TestConfigurationStorage(singleSource);
-        final TestConfigurationStorage storage2 = new TestConfigurationStorage(singleSource);
+        final TestConfigurationStorage storage = new TestConfigurationStorage();
 
         final ConfiguratorController con = new ConfiguratorController();
 
@@ -179,10 +173,10 @@ public class ConfigurationChangerTest {
                 .put("b", init -> init.initStrCfg("2"))
             );
 
-        final ConfigurationChanger changer1 = new ConfigurationChanger(storage1);
+        final ConfigurationChanger changer1 = new ConfigurationChanger(storage);
         changer1.init();
 
-        final ConfigurationChanger changer2 = new ConfigurationChanger(storage2);
+        final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
         changer2.init();
 
         changer1.registerConfiguration(KEY, configuration);
@@ -194,7 +188,7 @@ public class ConfigurationChangerTest {
 
         assertThrows(ConfigurationValidationException.class, () -> changer2.change(Collections.singletonMap(KEY, data2)));
 
-        final Data dataFromStorage = storage1.readAll();
+        final Data dataFromStorage = storage.readAll();
         final Map<String, Serializable> dataMap = dataFromStorage.values();
 
         assertEquals(3, dataMap.size());
