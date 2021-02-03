@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.configuration.util.ConfigurationUtil;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 
@@ -181,7 +182,7 @@ public class ConfigurationChanger {
 
                 for (String namedListKey : node.namedListKeys()) {
                     String loopPreviousKey = currentKey.toString();
-                    currentKey.append('.').append(namedListKey);
+                    currentKey.append('.').append(ConfigurationUtil.escape(namedListKey));
 
                     node.get(namedListKey).traverseChildren(this);
 
