@@ -889,7 +889,7 @@ public class Processor extends AbstractProcessor {
 
         for (VariableElement field : fields) {
             Value valAnnotation = field.getAnnotation(Value.class);
-            boolean immutable = valAnnotation != null && valAnnotation.immutable();
+            boolean mutable = valAnnotation == null || !valAnnotation.immutable();
 
             String fieldName = field.getSimpleName().toString();
             TypeName schemaFieldType = TypeName.get(field.asType());
@@ -952,13 +952,13 @@ public class Processor extends AbstractProcessor {
                         .addAnnotation(Override.class)
                         .addModifiers(PUBLIC)
                         .returns(leafField ? viewFieldType : nodeFieldType)
-                        .addStatement("return $L", fieldName); //TODO Explicit null check?
+                        .addStatement("return $L", fieldName);
 
                     nodeClsBuilder.addMethod(nodeGetMtdBuilder.build());
                 }
             }
 
-            if (!immutable) {
+            if (mutable) {
                 String changeMtdName = "change" + capitalize(fieldName);
 
                 {

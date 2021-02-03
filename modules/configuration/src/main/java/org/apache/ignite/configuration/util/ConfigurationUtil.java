@@ -126,7 +126,7 @@ public class ConfigurationUtil {
             /**
              * @param val Value.
              */
-            public LeafConfigurationSource(Serializable val) {
+            LeafConfigurationSource(Serializable val) {
                 this.val = val;
             }
 
@@ -204,7 +204,7 @@ public class ConfigurationUtil {
         /**
          * @param val Value.
          */
-        public MergeLeafConfigurationSource(Serializable val) {
+        MergeLeafConfigurationSource(Serializable val) {
             this.val = val;
         }
 
@@ -229,7 +229,7 @@ public class ConfigurationUtil {
         /**
          * @param srcNode Inner node.
          */
-        public MergeInnerConfigurationSource(InnerNode srcNode) {
+        MergeInnerConfigurationSource(InnerNode srcNode) {
             this.srcNode = srcNode;
         }
 
@@ -269,7 +269,7 @@ public class ConfigurationUtil {
         /**
          * @param srcNode Named list node.
          */
-        public MergeNamedListConfigurationSource(NamedListNode<?> srcNode) {
+        MergeNamedListConfigurationSource(NamedListNode<?> srcNode) {
             this.srcNode = srcNode;
         }
 
