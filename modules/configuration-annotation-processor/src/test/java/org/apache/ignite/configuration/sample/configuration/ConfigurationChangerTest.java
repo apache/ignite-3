@@ -85,8 +85,8 @@ public class ConfigurationChangerTest {
     public void testSimpleConfigurationChange() {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController con = new ConfiguratorController();
-        final Configurator<?> configuration = con.configurator();
+        final ConfiguratorController configuratorController = new ConfiguratorController();
+        final Configurator<?> configurator = configuratorController.configurator();
 
         ANode data = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
@@ -95,7 +95,7 @@ public class ConfigurationChangerTest {
         final ConfigurationChanger changer = new ConfigurationChanger(storage);
         changer.init();
 
-        changer.registerConfiguration(KEY, configuration);
+        changer.registerConfiguration(KEY, configurator);
 
         changer.change(Collections.singletonMap(KEY, data));
 
@@ -115,8 +115,8 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorage() {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController con = new ConfiguratorController();
-        final Configurator<?> configuration = con.configurator();
+        final ConfiguratorController configuratorController = new ConfiguratorController();
+        final Configurator<?> configurator = configuratorController.configurator();
 
         ANode data1 = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
@@ -135,8 +135,8 @@ public class ConfigurationChangerTest {
         final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
         changer2.init();
 
-        changer1.registerConfiguration(KEY, configuration);
-        changer2.registerConfiguration(KEY, configuration);
+        changer1.registerConfiguration(KEY, configurator);
+        changer2.registerConfiguration(KEY, configurator);
 
         changer1.change(Collections.singletonMap(KEY, data1));
         changer2.change(Collections.singletonMap(KEY, data2));
@@ -158,9 +158,8 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorageWithIncompatibleChanges() {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController con = new ConfiguratorController();
-
-        final Configurator<?> configuration = con.configurator();
+        final ConfiguratorController configuratorController = new ConfiguratorController();
+        final Configurator<?> configurator = configuratorController.configurator();
 
         ANode data1 = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
@@ -179,12 +178,12 @@ public class ConfigurationChangerTest {
         final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
         changer2.init();
 
-        changer1.registerConfiguration(KEY, configuration);
-        changer2.registerConfiguration(KEY, configuration);
+        changer1.registerConfiguration(KEY, configurator);
+        changer2.registerConfiguration(KEY, configurator);
 
         changer1.change(Collections.singletonMap(KEY, data1));
 
-        con.hasIssues(true);
+        configuratorController.hasIssues(true);
 
         assertThrows(ConfigurationValidationException.class, () -> changer2.change(Collections.singletonMap(KEY, data2)));
 
@@ -204,8 +203,8 @@ public class ConfigurationChangerTest {
     public void testFailedToWrite() {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController con = new ConfiguratorController();
-        final Configurator<?> configuration = con.configurator();
+        final ConfiguratorController configuratorController = new ConfiguratorController();
+        final Configurator<?> configurator = configuratorController.configurator();
 
         ANode data = new ANode();
 
@@ -219,7 +218,7 @@ public class ConfigurationChangerTest {
 
         changer.init();
 
-        changer.registerConfiguration(KEY, configuration);
+        changer.registerConfiguration(KEY, configurator);
 
         storage.fail(true);
 
