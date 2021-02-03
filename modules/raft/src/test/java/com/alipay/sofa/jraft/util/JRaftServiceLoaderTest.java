@@ -19,6 +19,7 @@ package com.alipay.sofa.jraft.util;
 import java.util.List;
 import java.util.ServiceConfigurationError;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -29,6 +30,7 @@ import static org.junit.Assert.fail;
  *
  * @author jiachun.fjc
  */
+@Ignore // TODO asch do we need this at all ?
 public class JRaftServiceLoaderTest {
 
     @Test

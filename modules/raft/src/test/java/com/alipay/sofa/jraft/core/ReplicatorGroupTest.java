@@ -131,12 +131,6 @@ public class ReplicatorGroupTest {
         this.replicatorGroup.resetTerm(1);
         assertTrue(this.replicatorGroup.addReplicator(this.peerId1));
         assertNull(this.replicatorGroup.getFailureReplicators().get(this.peerId1));
-
-        try {
-            Thread.sleep(100000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
     }
 
     @Test
