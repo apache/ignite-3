@@ -4,7 +4,7 @@ import com.alipay.sofa.jraft.rpc.RpcRequests;
 
 public class ErrorResponseImpl implements RpcRequests.ErrorResponse, RpcRequests.ErrorResponse.Builder {
     private int errorCode;
-    private String errorMsg;
+    private String errorMsg = "";
 
     @Override public int getErrorCode() {
         return errorCode;
