@@ -222,7 +222,7 @@ public class ConfigurationUtil {
      * @param root Immutable configuration node.
      * @param changes Change or Init object to be applied.
      */
-    public static <C extends ConstructableTreeNode & TraversableTreeNode> C merge(C root, TraversableTreeNode changes) {
+    public static <C extends ConstructableTreeNode> C merge(C root, TraversableTreeNode changes) {
         assert root.getClass() == changes.getClass(); // Yes.
 
         var scrHolder = new ConfigurationVisitor() {
