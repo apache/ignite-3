@@ -80,7 +80,7 @@ public class PartialIndexBuilderImpl extends SortedIndexBuilderImpl implements P
          *
          * @param idxBuilder Index builder.
          */
-        public PartialIndexColumnBuilderImpl(PartialIndexBuilderImpl idxBuilder) {
+        PartialIndexColumnBuilderImpl(PartialIndexBuilderImpl idxBuilder) {
             super(idxBuilder);
         }
 

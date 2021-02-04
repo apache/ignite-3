@@ -82,7 +82,7 @@ public class PrimaryKeyBuilderImpl extends SortedIndexBuilderImpl implements Pri
          *
          * @param parent Parent builder.
          */
-        public PkIndexColumnBuilderImpl(PrimaryKeyBuilderImpl parent) {
+        PkIndexColumnBuilderImpl(PrimaryKeyBuilderImpl parent) {
             super(parent);
         }
 

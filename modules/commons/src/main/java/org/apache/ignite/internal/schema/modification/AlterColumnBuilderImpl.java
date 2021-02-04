@@ -33,7 +33,7 @@ class AlterColumnBuilderImpl implements AlterColumnBuilder {
      *
      * @param tableBuilder Table modification builder.
      */
-    public AlterColumnBuilderImpl(TableModificationBuilderImpl tableBuilder) {
+    AlterColumnBuilderImpl(TableModificationBuilderImpl tableBuilder) {
         this.tableBuilder = tableBuilder;
     }
 
