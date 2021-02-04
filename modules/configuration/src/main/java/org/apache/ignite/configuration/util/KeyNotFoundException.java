@@ -15,35 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.configuration.util;
 
-/**
- * Error result represent a tuple of error type and user-friendly error message.
- */
-public class ErrorResult {
-    /** */
-    private final String type;
-
-    /** */
-    private final String message;
-
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
+/** */
+public class KeyNotFoundException extends RuntimeException {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
 
     /**
-     * @return Error type describing the class of the error occurred.
+     * @param msg Message.
      */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
+    public KeyNotFoundException(String msg) {
+        super(msg);
     }
 }

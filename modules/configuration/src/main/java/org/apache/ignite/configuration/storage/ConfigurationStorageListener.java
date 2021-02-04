@@ -14,36 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.rest;
+package org.apache.ignite.configuration.storage;
 
 /**
- * Error result represent a tuple of error type and user-friendly error message.
+ * Configuration storage listener for changes.
  */
-public class ErrorResult {
-    /** */
-    private final String type;
-
-    /** */
-    private final String message;
-
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
-
+public interface ConfigurationStorageListener {
     /**
-     * @return Error type describing the class of the error occurred.
+     * Method called when entries in storage change.
+     * @param changedEntries Changed entries, key-value pairs and new version of the storage.
      */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
-    }
+    void onEntriesChanged(Data changedEntries);
 }

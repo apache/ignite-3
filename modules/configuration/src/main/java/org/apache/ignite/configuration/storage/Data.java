@@ -14,36 +14,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.configuration.storage;
 
-package org.apache.ignite.rest;
+import java.io.Serializable;
+import java.util.Map;
 
 /**
- * Error result represent a tuple of error type and user-friendly error message.
+ * Represents data in configuration storage.
  */
-public class ErrorResult {
-    /** */
-    private final String type;
+public class Data {
+    /** Values. */
+    private final Map<String, Serializable> values;
 
-    /** */
-    private final String message;
+    /** Configuration storage version. */
+    private final int version;
 
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
+    /**
+     * Constructor.
+     * @param values Values.
+     * @param version Version.
+     */
+    public Data(Map<String, Serializable> values, int version) {
+        this.values = values;
+        this.version = version;
     }
 
     /**
-     * @return Error type describing the class of the error occurred.
+     * Get values.
+     * @return Values.
      */
-    public String type() {
-        return type;
+    public Map<String, Serializable> values() {
+        return values;
     }
 
     /**
-     * @return User-friendly error message.
+     * Get version.
+     * @return version.
      */
-    public String message() {
-        return message;
+    public int version() {
+        return version;
     }
 }

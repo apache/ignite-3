@@ -15,35 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.cli.ui;
+
+import java.io.IOException;
+import javax.inject.Singleton;
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 
 /**
- * Error result represent a tuple of error type and user-friendly error message.
+ * Factory for producing JLine {@link Terminal} instances
  */
-public class ErrorResult {
-    /** */
-    private final String type;
-
-    /** */
-    private final String message;
-
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
-
+@Factory
+public class TerminalFactory {
     /**
-     * @return Error type describing the class of the error occurred.
+     * Produce terminal instances.
+     *
+     * Important: It's always must be a singleton bean.
+     * JLine has an issues with building more than 1 terminal instance per process
+     * @return Terminal instance
      */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
+    @Bean(preDestroy = "close")
+    @Singleton
+    public Terminal terminal() throws IOException {
+        return TerminalBuilder.terminal();
     }
 }

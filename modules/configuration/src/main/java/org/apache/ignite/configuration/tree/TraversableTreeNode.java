@@ -15,35 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.configuration.tree;
 
-/**
- * Error result represent a tuple of error type and user-friendly error message.
- */
-public class ErrorResult {
-    /** */
-    private final String type;
-
-    /** */
-    private final String message;
-
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
-
+/** */
+public interface TraversableTreeNode {
     /**
-     * @return Error type describing the class of the error occurred.
+     * @param key Name of the node retrieved from its holder object.
+     * @param visitor Configuration visitor.
      */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
-    }
+    void accept(String key, ConfigurationVisitor visitor);
 }
