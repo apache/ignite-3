@@ -14,36 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.rest;
+package org.apache.ignite.configuration;
 
 /**
- * Error result represent a tuple of error type and user-friendly error message.
+ * Configuration change exception.
  */
-public class ErrorResult {
-    /** */
-    private final String type;
-
-    /** */
-    private final String message;
-
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
+public class ConfigurationChangeException extends RuntimeException {
+    /**
+     * Constructor.
+     * @param message Error message.
+     */
+    public ConfigurationChangeException(String message) {
+        super(message);
     }
 
     /**
-     * @return Error type describing the class of the error occurred.
+     * Constructor.
+     * @param message Error message.
+     * @param cause Cause.
      */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
+    public ConfigurationChangeException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

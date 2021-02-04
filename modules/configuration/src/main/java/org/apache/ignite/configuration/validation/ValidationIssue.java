@@ -14,36 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.configuration.validation;
 
-package org.apache.ignite.rest;
-
-/**
- * Error result represent a tuple of error type and user-friendly error message.
- */
-public class ErrorResult {
-    /** */
-    private final String type;
-
-    /** */
-    private final String message;
-
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
-
-    /**
-     * @return Error type describing the class of the error occurred.
-     */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
-    }
+public class ValidationIssue {
 }

@@ -15,35 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.configuration.tree;
 
-/**
- * Error result represent a tuple of error type and user-friendly error message.
- */
-public class ErrorResult {
-    /** */
-    private final String type;
+import java.util.Set;
 
-    /** */
-    private final String message;
-
-    /** */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
+/** */
+public interface NamedListView<T> {
+    /**
+     * @return Immutable collection of keys contained within this list.
+     */
+    Set<String> namedListKeys();
 
     /**
-     * @return Error type describing the class of the error occurred.
+     * Returns value associated with the passed key.
+     *
+     * @param key Key string.
+     * @return Requested value or {@code null} if it's not found.
      */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
-    }
+    T get(String key);
 }
