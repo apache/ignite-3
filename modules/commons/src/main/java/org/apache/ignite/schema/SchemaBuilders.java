@@ -44,7 +44,7 @@ public final class SchemaBuilders {
      * @return Table descriptor for given key-value pair.
      */
     public static SchemaTable buildSchema(String schemaName, String tableName, Class<?> keyClass, Class<?> valueClass) {
-        // TODO: implement schema generation from classes.
+        // TODO IGNITE-13749: implement schema generation from classes.
 
         return null;
     }
