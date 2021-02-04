@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema.marshaller;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmSerializerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.JavaSerializerFactory;
-import org.apache.ignite.lang.IgniteExperimental;
 
 /**
  * (De)Serializer factory interface.
@@ -37,7 +36,6 @@ public interface SerializerFactory {
     /**
      * @return Reflection-based serializer factory.
      */
-    @IgniteExperimental
     public static SerializerFactory createJavaSerializerFactory() {
         return new JavaSerializerFactory();
     }
