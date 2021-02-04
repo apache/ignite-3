@@ -40,8 +40,8 @@ public class AddLearnersRequestProcessorTest extends AbstractCliRequestProcessor
             setGroupId(groupId). //
             setLeaderId(peerId.toString()). //
             addLearners("learner:8082").
-            addLearners("learner:8182").
-            addLearners("learner:8183").build();
+            addLearners("test:8182").
+            addLearners("test:8183").build();
     }
 
     @Override
