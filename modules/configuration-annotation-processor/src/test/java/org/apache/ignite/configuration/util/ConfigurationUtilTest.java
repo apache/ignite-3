@@ -212,15 +212,15 @@ public class ConfigurationUtilTest {
 
     /** */
     @Test
-    public void merge() {
-        var originalRoot = new ParentNode().changeElements(elements ->
+    public void patch() {
+        var originalRoot = new ParentNode().initElements(elements ->
             elements.put("name1", element ->
-                element.changeChild(child -> child.changeStr("value1"))
+                element.initChild(child -> child.initStr("value1"))
             )
         );
 
         // Updating config.
-        ParentNode updatedRoot = ConfigurationUtil.merge(originalRoot, new ParentNode().changeElements(elements ->
+        ParentNode updatedRoot = ConfigurationUtil.patch(originalRoot, new ParentNode().changeElements(elements ->
             elements.put("name1", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
@@ -235,7 +235,7 @@ public class ConfigurationUtilTest {
         assertEquals("value2", updatedRoot.elements().get("name1").child().str());
 
         // Expanding config.
-        ParentNode expandedRoot = ConfigurationUtil.merge(originalRoot, new ParentNode().changeElements(elements ->
+        ParentNode expandedRoot = ConfigurationUtil.patch(originalRoot, new ParentNode().changeElements(elements ->
             elements.put("name2", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
@@ -251,14 +251,15 @@ public class ConfigurationUtilTest {
         assertEquals("value2", expandedRoot.elements().get("name2").child().str());
 
         // Shrinking config.
-        ParentNode shrinkedRoot = ConfigurationUtil.merge(originalRoot, new ParentNode().changeElements(elements ->
+        ParentNode shrinkedRoot = ConfigurationUtil.patch(expandedRoot, new ParentNode().changeElements(elements ->
             elements.remove("name1")
         ));
 
-        assertNotSame(originalRoot, shrinkedRoot);
-        assertNotSame(originalRoot.elements(), shrinkedRoot.elements());
+        assertNotSame(expandedRoot, shrinkedRoot);
+        assertNotSame(expandedRoot.elements(), shrinkedRoot.elements());
 
-        assertNotNull(originalRoot.elements().get("name1"));
+        assertNotNull(expandedRoot.elements().get("name1"));
         assertNull(shrinkedRoot.elements().get("name1"));
+        assertNotNull(shrinkedRoot.elements().get("name2"));
     }
 }
