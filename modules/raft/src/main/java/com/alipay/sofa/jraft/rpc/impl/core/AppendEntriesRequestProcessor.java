@@ -66,9 +66,9 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             super();
         }
 
-        @Override
+        @Override // TODO asch should be select(Message msg)
         public Executor select(final String reqClass, final Object reqHeader) {
-            final AppendEntriesRequestHeader header = (AppendEntriesRequestHeader) reqHeader;
+            final AppendEntriesRequest header = (AppendEntriesRequest) reqHeader;
             final String groupId = header.getGroupId();
             final String peerId = header.getPeerId();
             final String serverId = header.getServerId();

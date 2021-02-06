@@ -2121,6 +2121,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
+    // TODO asch TBD how follower notifies about catchup.
     private void onCaughtUp(final PeerId peer, final long term, final long version, final Status st) {
         this.writeLock.lock();
         try {

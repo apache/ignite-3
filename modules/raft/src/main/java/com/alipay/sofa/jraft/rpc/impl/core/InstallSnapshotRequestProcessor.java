@@ -30,6 +30,7 @@ import com.alipay.sofa.jraft.rpc.Message;
  * @author boyan (boyan@alibaba-inc.com)
  *
  * 2018-Apr-08 6:09:34 PM
+ * TODO asch use dedicated executor for potentially long jobs ?
  */
 public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<InstallSnapshotRequest> {
 

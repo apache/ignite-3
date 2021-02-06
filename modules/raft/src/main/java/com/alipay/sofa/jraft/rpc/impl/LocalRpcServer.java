@@ -22,6 +22,7 @@ import com.alipay.sofa.jraft.rpc.RpcContext;
 import com.alipay.sofa.jraft.rpc.RpcProcessor;
 import com.alipay.sofa.jraft.rpc.RpcServer;
 import com.alipay.sofa.jraft.util.Endpoint;
+import com.alipay.sofa.jraft.util.NamedThreadFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -29,8 +30,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Local RPC server impl.
@@ -38,6 +45,8 @@ import java.util.function.Consumer;
  * @author ascherbakov.
  */
 public class LocalRpcServer implements RpcServer {
+    private static final Logger LOG                    = LoggerFactory.getLogger(LocalRpcServer.class);
+
     /** Running servers. */
     public static ConcurrentMap<Endpoint, LocalRpcServer> servers = new ConcurrentHashMap<>();
 
@@ -54,7 +63,9 @@ public class LocalRpcServer implements RpcServer {
 
     private List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
 
-    BlockingQueue<Object[]> incoming = new LinkedBlockingDeque<>(); // TODO asch use some kind of MPSC queue.
+    BlockingQueue<Object[]> incoming = new LinkedBlockingDeque<>(); // TODO asch OOM is possible, handle that.
+
+    private ExecutorService defaultExecutor;
 
     public LocalRpcServer(Endpoint local) {
         this.local = local;
@@ -142,20 +153,34 @@ public class LocalRpcServer implements RpcServer {
                             }
                         }
 
-                        prc.handleRequest(new RpcContext() {
-                            @Override public void sendResponse(Object responseObj) {
-                                fut.complete(responseObj);
-                            }
+                        RpcProcessor.ExecutorSelector selector = prc.executorSelector();
 
-                            @Override public Connection getConnection() {
-                                return conn;
-                            }
+                        Executor executor = null;
 
-                            @Override public String getRemoteAddress() {
-                                return sender.toString();
-                            }
-                        }, msg);
+                        if (selector != null) {
+                            executor = selector.select(null, msg);
+                        }
 
+                        if (executor == null)
+                            executor = defaultExecutor;
+
+                        RpcProcessor finalPrc = prc;
+
+                        executor.execute(() -> {
+                            finalPrc.handleRequest(new RpcContext() {
+                                @Override public void sendResponse(Object responseObj) {
+                                    fut.complete(responseObj);
+                                }
+
+                                @Override public Connection getConnection() {
+                                    return conn;
+                                }
+
+                                @Override public String getRemoteAddress() {
+                                    return sender.toString();
+                                }
+                            }, msg);
+                        });
                     } catch (InterruptedException e) {
                         return;
                     }
@@ -163,7 +188,9 @@ public class LocalRpcServer implements RpcServer {
             }
         });
 
-        worker.setName("LocalRPCServer-Thread: "  + local.toString());
+        defaultExecutor = Executors.newCachedThreadPool(new NamedThreadFactory("LocalRPCServer-Default-Executor-Thread: " + local.toString()));
+
+        worker.setName("LocalRPCServer-Dispatch-Thread: "  + local.toString());
         worker.start();
 
         servers.put(local, this);
@@ -178,9 +205,21 @@ public class LocalRpcServer implements RpcServer {
             return;
 
         started = false;
+
         worker.interrupt();
         try {
             worker.join();
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Interrupted while waiting for RPC server to stop " + local);
+        }
+
+        defaultExecutor.shutdownNow();
+
+        try {
+            boolean stopped = defaultExecutor.awaitTermination(60_000, TimeUnit.MILLISECONDS);
+
+            if (!stopped) // TODO asch make thread dump.
+                LOG.error("Failed to wait for graceful executor shutdown, probably some task is hanging.");
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while waiting for RPC server to stop " + local);
         }

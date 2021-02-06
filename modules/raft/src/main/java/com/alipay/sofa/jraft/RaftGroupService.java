@@ -159,7 +159,7 @@ public class RaftGroupService {
                     this.rpcServer.shutdown();
                 }
             } catch (final Exception ignored) {
-                // ignore
+                // ignore TODO asch not good to ignore ?
             }
             this.rpcServer = null;
         }
