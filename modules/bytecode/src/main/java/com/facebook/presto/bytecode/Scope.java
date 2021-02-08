@@ -84,7 +84,7 @@ public class Scope {
         requireNonNull(type, "type is null");
         requireNonNull(variableName, "variableName is null");
         checkArgument(!variables.containsKey(variableName), "There is already a variable named %s", variableName);
-        checkArgument(!variableName.equals("this"), "The 'this' variable can not be declared");
+        checkArgument(!"this".equals(variableName), "The 'this' variable can not be declared");
 
         Variable variable = new Variable(variableName, type);
 

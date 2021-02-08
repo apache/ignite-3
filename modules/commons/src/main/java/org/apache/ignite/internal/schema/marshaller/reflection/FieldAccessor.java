@@ -68,6 +68,8 @@ abstract class FieldAccessor {
 
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
+            assert mode != null : "Invalid mode for type: " + field.getType();
+
             switch (mode) {
                 case P_BYTE:
                     return new BytePrimitiveAccessor(varHandle, colIdx);
@@ -300,13 +302,11 @@ abstract class FieldAccessor {
      * @param mode Binary mode;
      */
     protected FieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
-        assert varHandle != null;
         assert colIdx >= 0;
-        assert mode != null;
 
         this.colIdx = colIdx;
-        this.mode = mode;
-        this.varHandle = varHandle;
+        this.mode = Objects.requireNonNull(mode);
+        this.varHandle = Objects.requireNonNull(varHandle);
     }
 
     /**
@@ -379,7 +379,7 @@ abstract class FieldAccessor {
      * @param reader Tuple reader.
      * @return Object.
      */
-    public Object read(Tuple reader) throws SerializationException {
+    public Object read(Tuple reader) {
         throw new UnsupportedOperationException();
     }
 
@@ -403,7 +403,7 @@ abstract class FieldAccessor {
          * @param colIdx Column index.
          * @param mode Binary mode.
          */
-        public IdentityAccessor(int colIdx, BinaryMode mode) {
+        IdentityAccessor(int colIdx, BinaryMode mode) {
             super(colIdx, mode);
         }
 
@@ -438,7 +438,7 @@ abstract class FieldAccessor {
          * @param varHandle VarHandle.
          * @param colIdx Column index.
          */
-        public BytePrimitiveAccessor(VarHandle varHandle, int colIdx) {
+        BytePrimitiveAccessor(VarHandle varHandle, int colIdx) {
             super(varHandle, colIdx, BinaryMode.P_BYTE);
         }
 
@@ -467,7 +467,7 @@ abstract class FieldAccessor {
          * @param varHandle VarHandle.
          * @param colIdx Column index.
          */
-        public ShortPrimitiveAccessor(VarHandle varHandle, int colIdx) {
+        ShortPrimitiveAccessor(VarHandle varHandle, int colIdx) {
             super(varHandle, colIdx, BinaryMode.P_SHORT);
         }
 
@@ -496,7 +496,7 @@ abstract class FieldAccessor {
          * @param varHandle VarHandle.
          * @param colIdx Column index.
          */
-        public IntPrimitiveAccessor(VarHandle varHandle, int colIdx) {
+        IntPrimitiveAccessor(VarHandle varHandle, int colIdx) {
             super(varHandle, colIdx, BinaryMode.P_INT);
         }
 
@@ -525,7 +525,7 @@ abstract class FieldAccessor {
          * @param varHandle VarHandle.
          * @param colIdx Column index.
          */
-        public LongPrimitiveAccessor(VarHandle varHandle, int colIdx) {
+        LongPrimitiveAccessor(VarHandle varHandle, int colIdx) {
             super(varHandle, colIdx, BinaryMode.P_LONG);
         }
 
@@ -554,7 +554,7 @@ abstract class FieldAccessor {
          * @param varHandle VarHandle.
          * @param colIdx Column index.
          */
-        public FloatPrimitiveAccessor(VarHandle varHandle, int colIdx) {
+        FloatPrimitiveAccessor(VarHandle varHandle, int colIdx) {
             super(varHandle, colIdx, BinaryMode.P_FLOAT);
         }
 
@@ -583,7 +583,7 @@ abstract class FieldAccessor {
          * @param varHandle VarHandle.
          * @param colIdx Column index.
          */
-        public DoublePrimitiveAccessor(VarHandle varHandle, int colIdx) {
+        DoublePrimitiveAccessor(VarHandle varHandle, int colIdx) {
             super(varHandle, colIdx, BinaryMode.P_DOUBLE);
         }
 

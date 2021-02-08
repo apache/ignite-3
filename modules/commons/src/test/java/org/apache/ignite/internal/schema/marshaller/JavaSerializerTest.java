@@ -646,13 +646,13 @@ public class JavaSerializerTest {
         private long pLongCol;
 
         /** Contructor. */
-        public PrivateTestObject() {
+        PrivateTestObject() {
         }
 
         /**
          * Private constructor.
          */
-        public PrivateTestObject(long val) {
+        PrivateTestObject(long val) {
             pLongCol = val;
         }
 

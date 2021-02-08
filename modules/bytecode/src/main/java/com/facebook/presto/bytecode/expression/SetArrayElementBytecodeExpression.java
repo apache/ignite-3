@@ -32,7 +32,7 @@ class SetArrayElementBytecodeExpression
     private final BytecodeExpression value;
     private final InstructionNode arrayStoreInstruction;
 
-    public SetArrayElementBytecodeExpression(BytecodeExpression instance, BytecodeExpression index,
+    SetArrayElementBytecodeExpression(BytecodeExpression instance, BytecodeExpression index,
         BytecodeExpression value) {
         super(type(void.class));
 

@@ -36,15 +36,15 @@ class NewArrayBytecodeExpression
     @Nullable
     private final List<BytecodeExpression> elements;
 
-    public NewArrayBytecodeExpression(ParameterizedType type, int length) {
+    NewArrayBytecodeExpression(ParameterizedType type, int length) {
         this(type, constantInt(length));
     }
 
-    public NewArrayBytecodeExpression(ParameterizedType type, BytecodeExpression length) {
+    NewArrayBytecodeExpression(ParameterizedType type, BytecodeExpression length) {
         this(type, length, null);
     }
 
-    public NewArrayBytecodeExpression(ParameterizedType type, Collection<BytecodeExpression> elements) {
+    NewArrayBytecodeExpression(ParameterizedType type, Collection<BytecodeExpression> elements) {
         this(type, constantInt(elements.size()), elements);
     }
 

@@ -97,7 +97,7 @@ class Marshaller {
      *
      * @param fieldAccessor Identity field accessor for object of basic type.
      */
-    public Marshaller(FieldAccessor fieldAccessor) {
+     Marshaller(FieldAccessor fieldAccessor) {
         fieldAccessors = new FieldAccessor[] {fieldAccessor};
         factory = null;
     }

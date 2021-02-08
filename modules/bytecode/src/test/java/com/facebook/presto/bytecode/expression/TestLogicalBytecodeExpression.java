@@ -22,6 +22,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
 
+@SuppressWarnings({"PointlessBooleanExpression", "DuplicateCondition"})
 public class TestLogicalBytecodeExpression {
     @Test
     public void testAnd()

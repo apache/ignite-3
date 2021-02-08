@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestPopBytecodeExpression {
     @Test
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     public void testGetField()
         throws Exception {
         intCount = 0;

@@ -47,7 +47,7 @@ public interface MarshallerCodeGenerator {
 
     /**
      * @param serializerClass Serializer type
-     * @param asm Tuple assempler.
+     * @param asm Tuple assembler.
      * @param obj Target object variable.
      * @return Unmarshall object code.
      */

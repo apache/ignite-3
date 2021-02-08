@@ -130,6 +130,7 @@ public class AnnotationDefinition {
         return values;
     }
 
+    @SuppressWarnings("OverlyStrongTypeCast")
     private static void isValidType(Object value) {
         if (value instanceof List) {
             // todo verify list contains single type
@@ -177,6 +178,7 @@ public class AnnotationDefinition {
         }
     }
 
+    @SuppressWarnings("OverlyStrongTypeCast")
     private static void visit(AnnotationVisitor visitor, String name, Object value) {
         if (value instanceof AnnotationDefinition) {
             AnnotationDefinition annotation = (AnnotationDefinition)value;

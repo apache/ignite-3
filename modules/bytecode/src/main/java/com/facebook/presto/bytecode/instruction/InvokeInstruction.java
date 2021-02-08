@@ -396,7 +396,7 @@ public class InvokeInstruction
         // JVM Specification 4.2.2 Unqualified Names
         requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
-        if (name.equals("<init>") || name.equals("<clinit>")) {
+        if ("<init>".equals(name) || "<clinit>".equals(name)) {
             return;
         }
 

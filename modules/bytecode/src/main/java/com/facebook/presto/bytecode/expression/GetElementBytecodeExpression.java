@@ -30,7 +30,7 @@ class GetElementBytecodeExpression
     private final BytecodeExpression index;
     private final InstructionNode arrayLoadInstruction;
 
-    public GetElementBytecodeExpression(BytecodeExpression instance, BytecodeExpression index)
+    GetElementBytecodeExpression(BytecodeExpression instance, BytecodeExpression index)
     {
         super(instance.getType().getArrayComponentType());
         this.instance = requireNonNull(instance, "instance is null");

@@ -25,7 +25,7 @@ class AddFakeLineNumberClassVisitor
 {
     int methodCount;
 
-    public AddFakeLineNumberClassVisitor(ClassVisitor cv)
+    AddFakeLineNumberClassVisitor(ClassVisitor cv)
     {
         super(ASM5, cv);
         super.visitSource("FakeSource.java", null);
@@ -50,7 +50,7 @@ class AddFakeLineNumberClassVisitor
     {
         private int count;
 
-        public AddFakeLineNumberMethodVisitor(MethodVisitor mv, int startLineNumber)
+        AddFakeLineNumberMethodVisitor(MethodVisitor mv, int startLineNumber)
         {
             super(ASM5, mv);
             this.count = startLineNumber;

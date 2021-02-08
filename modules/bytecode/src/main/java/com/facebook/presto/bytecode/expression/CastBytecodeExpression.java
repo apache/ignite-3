@@ -33,7 +33,7 @@ class CastBytecodeExpression
 
     private final BytecodeExpression instance;
 
-    public CastBytecodeExpression(BytecodeExpression instance, ParameterizedType type)
+    CastBytecodeExpression(BytecodeExpression instance, ParameterizedType type)
     {
         super(type);
 

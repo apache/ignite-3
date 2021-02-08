@@ -33,6 +33,7 @@ public class TestCastBytecodeExpression {
     public static final double DOUBLE_FIELD = 4.4;
 
     @Test
+    @SuppressWarnings("OverlyStrongTypeCast")
     public void testDownCastObject()
         throws Exception {
         assertBytecodeExpression(getStatic(getClass(), "OBJECT_FIELD").cast(String.class).invoke("length", int.class),

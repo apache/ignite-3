@@ -27,7 +27,7 @@ class InstanceOfBytecodeExpression
     private final BytecodeExpression instance;
     private final Class<?> type;
 
-    public InstanceOfBytecodeExpression(BytecodeExpression instance, Class<?> type)
+    InstanceOfBytecodeExpression(BytecodeExpression instance, Class<?> type)
     {
         super(type(boolean.class));
 

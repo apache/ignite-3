@@ -29,7 +29,7 @@ class NewInstanceBytecodeExpression
     private final List<BytecodeExpression> parameters;
     private final List<ParameterizedType> parameterTypes;
 
-    public NewInstanceBytecodeExpression(
+    NewInstanceBytecodeExpression(
             ParameterizedType type,
             Collection<ParameterizedType> parameterTypes,
             Collection<? extends BytecodeExpression> parameters)

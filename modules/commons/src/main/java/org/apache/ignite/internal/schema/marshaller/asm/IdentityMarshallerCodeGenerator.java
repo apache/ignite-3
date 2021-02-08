@@ -39,7 +39,7 @@ class IdentityMarshallerCodeGenerator implements MarshallerCodeGenerator {
      * @param tClass Target class.
      * @param columnAccessor Tuple column code generator.
      */
-    public IdentityMarshallerCodeGenerator(Class<?> tClass, TupleColumnAccessCodeGenerator columnAccessor) {
+    IdentityMarshallerCodeGenerator(Class<?> tClass, TupleColumnAccessCodeGenerator columnAccessor) {
         this.tClass = tClass;
         this.columnAccessor = columnAccessor;
     }

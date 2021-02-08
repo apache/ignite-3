@@ -37,12 +37,12 @@ class SetFieldBytecodeExpression
     private final BytecodeExpression value;
     private final ParameterizedType fieldType;
 
-    public SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Class<?> declaringClass, String name,
+    SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Class<?> declaringClass, String name,
         BytecodeExpression value) {
         this(instance, getDeclaredField(declaringClass, name), value);
     }
 
-    public SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Field field, BytecodeExpression value) {
+    SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Field field, BytecodeExpression value) {
         this(instance, type(requireNonNull(field, "field is null").getDeclaringClass()), field.getName(), value, type(field.getType()));
 
         boolean isStatic = Modifier.isStatic(field.getModifiers());
@@ -54,7 +54,7 @@ class SetFieldBytecodeExpression
         }
     }
 
-    public SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, FieldDefinition field,
+    SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, FieldDefinition field,
         BytecodeExpression value) {
         this(instance, requireNonNull(field, "field is null").getDeclaringClass().getType(), field.getName(), value, field.getType());
         if (instance == null) {
@@ -65,12 +65,12 @@ class SetFieldBytecodeExpression
         }
     }
 
-    public SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, ParameterizedType declaringClass,
+    SetFieldBytecodeExpression(@Nullable BytecodeExpression instance, ParameterizedType declaringClass,
         String name, BytecodeExpression value) {
         this(instance, declaringClass, name, value, value.getType());
     }
 
-    public SetFieldBytecodeExpression(@Nullable BytecodeExpression instance,
+    SetFieldBytecodeExpression(@Nullable BytecodeExpression instance,
         ParameterizedType declaringClass,
         String name,
         BytecodeExpression value,

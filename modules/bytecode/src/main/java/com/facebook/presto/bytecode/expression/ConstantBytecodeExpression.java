@@ -25,11 +25,11 @@ class ConstantBytecodeExpression
     extends BytecodeExpression {
     private final Constant value;
 
-    public ConstantBytecodeExpression(Class<?> type, Constant value) {
+    ConstantBytecodeExpression(Class<?> type, Constant value) {
         this(type(type), value);
     }
 
-    public ConstantBytecodeExpression(ParameterizedType type, Constant value) {
+    ConstantBytecodeExpression(ParameterizedType type, Constant value) {
         super(type);
         this.value = value;
     }

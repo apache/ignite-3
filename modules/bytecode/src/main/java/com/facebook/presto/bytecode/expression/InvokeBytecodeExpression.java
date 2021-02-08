@@ -52,7 +52,7 @@ class InvokeBytecodeExpression
     private final List<BytecodeExpression> parameters;
     private final List<ParameterizedType> parameterTypes;
 
-    public InvokeBytecodeExpression(
+    InvokeBytecodeExpression(
         @Nullable BytecodeExpression instance,
         ParameterizedType methodTargetType,
         String methodName,

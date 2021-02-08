@@ -58,6 +58,7 @@
         <jansi.version>1.18</jansi.version>
         <javalin.version>3.12.0</javalin.version>
         <javapoet.version>1.13.0</javapoet.version>
+        <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <javax.validation.version>2.0.1.Final</javax.validation.version>
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
         <jmh.framework.version>1.13</jmh.framework.version>

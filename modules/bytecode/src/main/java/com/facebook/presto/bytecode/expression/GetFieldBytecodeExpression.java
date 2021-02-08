@@ -36,11 +36,11 @@ class GetFieldBytecodeExpression
     private final ParameterizedType declaringClass;
     private final String name;
 
-    public GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Class<?> declaringClass, String name) {
+    GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Class<?> declaringClass, String name) {
         this(instance, getDeclaredField(declaringClass, name));
     }
 
-    public GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Field field) {
+    GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, Field field) {
         this(instance, type(requireNonNull(field, "field is null").getDeclaringClass()), field.getName(), type(field.getType()));
 
         boolean isStatic = Modifier.isStatic(field.getModifiers());
@@ -52,7 +52,7 @@ class GetFieldBytecodeExpression
         }
     }
 
-    public GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, FieldDefinition field) {
+    GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, FieldDefinition field) {
         this(instance, requireNonNull(field, "field is null").getDeclaringClass().getType(), field.getName(), field.getType());
         if (instance == null) {
             checkArgument(field.getAccess().contains(STATIC), "Field is not static: %s", field);
@@ -62,7 +62,7 @@ class GetFieldBytecodeExpression
         }
     }
 
-    public GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, ParameterizedType declaringClass,
+    GetFieldBytecodeExpression(@Nullable BytecodeExpression instance, ParameterizedType declaringClass,
         String name, ParameterizedType type) {
         super(type);
         checkArgument(instance == null || !instance.getType().isPrimitive(), "Type %s does not have fields", getType());

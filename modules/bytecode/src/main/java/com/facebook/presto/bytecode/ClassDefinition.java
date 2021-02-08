@@ -29,7 +29,6 @@ import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V11;
-import static org.objectweb.asm.Opcodes.V1_8;
 
 public class ClassDefinition {
     private final EnumSet<Access> access;

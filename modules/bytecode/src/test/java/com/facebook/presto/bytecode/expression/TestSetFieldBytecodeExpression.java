@@ -66,6 +66,7 @@ public class TestSetFieldBytecodeExpression {
         assertSetStaticField(setStatic(type(getClass()), "testField", constantString("testValue")));
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     public void assertSetStaticField(BytecodeExpression setStaticField)
         throws Exception {
         testField = "fail";

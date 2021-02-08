@@ -27,7 +27,7 @@ class ArrayLengthBytecodeExpression
 {
     private final BytecodeExpression instance;
 
-    public ArrayLengthBytecodeExpression(BytecodeExpression instance)
+    ArrayLengthBytecodeExpression(BytecodeExpression instance)
     {
         super(type(int.class));
         this.instance = requireNonNull(instance, "instance is null");

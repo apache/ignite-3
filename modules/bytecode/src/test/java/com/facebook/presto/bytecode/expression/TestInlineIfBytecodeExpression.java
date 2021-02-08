@@ -23,6 +23,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.inline
 
 public class TestInlineIfBytecodeExpression {
     @Test
+    @SuppressWarnings("ConstantConditionalExpression")
     public void testInlineIf()
         throws Exception {
         assertBytecodeExpression(inlineIf(constantTrue(), constantString("T"), constantString("F")), true ? "T" : "F", "(true ? \"T\" : \"F\")");

@@ -98,7 +98,7 @@ public class MethodGenerationContext {
         private final LabelNode startLabel = new LabelNode("VariableStart");
         private final LabelNode endLabel = new LabelNode("VariableEnd");
 
-        public ScopeContext(Scope scope) {
+        ScopeContext(Scope scope) {
             this.scope = scope;
             this.variables = List.copyOf(scope.getVariables());
         }

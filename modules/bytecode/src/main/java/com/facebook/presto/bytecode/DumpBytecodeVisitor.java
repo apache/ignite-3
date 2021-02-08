@@ -34,7 +34,6 @@ import com.facebook.presto.bytecode.instruction.Constant.FloatConstant;
 import com.facebook.presto.bytecode.instruction.Constant.IntConstant;
 import com.facebook.presto.bytecode.instruction.Constant.LongConstant;
 import com.facebook.presto.bytecode.instruction.Constant.StringConstant;
-import com.facebook.presto.bytecode.instruction.InstructionNode;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction.InvokeDynamicInstruction;
 import com.facebook.presto.bytecode.instruction.JumpInstruction;
@@ -62,6 +61,7 @@ public class DumpBytecodeVisitor
     public DumpBytecodeVisitor(Writer out)
     {
         this.out = new PrintWriter(out);
+        indentLevel = 0;
     }
 
     @Override
@@ -414,12 +414,6 @@ public class DumpBytecodeVisitor
     // Instructions
     //
 
-    @Override
-    public Void visitInstruction(BytecodeNode parent, InstructionNode node)
-    {
-        return super.visitInstruction(parent, node);
-    }
-
     //
     // Constants
     //
@@ -567,11 +561,6 @@ public class DumpBytecodeVisitor
         return new Line();
     }
 
-    private Line line(String separator)
-    {
-        return new Line(separator);
-    }
-
     private class Line
     {
         private final String separator;
@@ -580,11 +569,6 @@ public class DumpBytecodeVisitor
         private Line()
         {
             separator = " ";
-        }
-
-        private Line(String separator)
-        {
-            this.separator = separator;
         }
 
         public Line add(Object element)

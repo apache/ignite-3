@@ -129,9 +129,6 @@ public final class BytecodeExpressionAssertions {
             return;
         }
 
-        if (null == expected)
-            fail("expected a null array, but not null found");
-
         if (null == actual) {
             fail("expected not null array, but null found");
         }

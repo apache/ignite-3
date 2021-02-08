@@ -63,7 +63,7 @@ public class Variable
         private final Variable variable;
         private final BytecodeExpression value;
 
-        public SetVariableBytecodeExpression(Variable variable, BytecodeExpression value) {
+        SetVariableBytecodeExpression(Variable variable, BytecodeExpression value) {
             super(type(void.class));
             this.variable = requireNonNull(variable, "variable is null");
             this.value = requireNonNull(value, "value is null");
