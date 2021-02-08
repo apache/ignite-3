@@ -16,6 +16,10 @@
  */
 package com.alipay.sofa.jraft.core;
 
+import com.alipay.sofa.jraft.rpc.impl.LocalConnection;
+import com.alipay.sofa.jraft.rpc.impl.LocalRpcClient;
+import com.alipay.sofa.jraft.rpc.impl.core.DefaultRaftClientService;
+import com.alipay.sofa.jraft.util.concurrent.ConcurrentHashSet;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -33,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -3387,6 +3392,37 @@ public class NodeTest {
         } finally {
             cluster.stopAll();
         }
+    }
+
+    @Test
+    public void testClusterWithMessageRecording() throws Exception {
+        Set<LocalConnection> conns = new ConcurrentHashSet<>();
+
+        LocalRpcClient.onCreated = conn -> {
+            conns.add(conn);
+            conn.recordMessages(msg -> true);
+        };
+
+        final List<PeerId> peers = TestUtils.generatePeers(3);
+        final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
+
+        for (final PeerId peer : peers) {
+            assertTrue(cluster.start(peer.getEndpoint()));
+        }
+
+        cluster.waitLeader();
+
+        Thread.sleep(2_000);
+
+        NodeImpl leader = (NodeImpl) cluster.getLeader();
+        DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcService();
+        LocalRpcClient localRpcClient = (LocalRpcClient) rpcService.getRpcClient();
+
+        List<LocalConnection> leaderConns = conns.stream().filter(loc -> loc.client == localRpcClient).collect(Collectors.toList());
+
+        assertEquals(2, leaderConns.size());
+
+        cluster.stopAll();
     }
 
     private NodeOptions createNodeOptionsWithSharedTimer() {

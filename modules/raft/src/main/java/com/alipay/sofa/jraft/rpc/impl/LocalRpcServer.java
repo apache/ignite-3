@@ -65,6 +65,7 @@ public class LocalRpcServer implements RpcServer {
 
     BlockingQueue<Object[]> incoming = new LinkedBlockingDeque<>(); // TODO asch OOM is possible, handle that.
 
+    // TODO FIXME asch Or better use com.alipay.sofa.jraft.rpc.RpcUtils.RPC_CLOSURE_EXECUTOR ?
     private ExecutorService defaultExecutor;
 
     public LocalRpcServer(Endpoint local) {
@@ -75,7 +76,7 @@ public class LocalRpcServer implements RpcServer {
         LocalRpcServer locSrv = servers.get(srv);
 
         if (locSrv == null)
-            return false; // Server is dead.
+            return false; // Server is not ready.
 
         LocalConnection conn = locSrv.conns.get(client);
 
@@ -83,7 +84,7 @@ public class LocalRpcServer implements RpcServer {
             if (!createIfAbsent)
                 return false;
 
-            conn = new LocalConnection(client, srv);
+            conn = new LocalConnection(client, locSrv);
 
             LocalConnection oldConn = locSrv.conns.putIfAbsent(client, conn);
 

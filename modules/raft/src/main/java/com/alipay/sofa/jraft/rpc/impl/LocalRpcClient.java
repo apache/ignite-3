@@ -21,18 +21,19 @@ import com.alipay.sofa.jraft.entity.PeerId;
 import com.alipay.sofa.jraft.error.InvokeTimeoutException;
 import com.alipay.sofa.jraft.error.RemotingException;
 import com.alipay.sofa.jraft.option.RpcOptions;
-import com.alipay.sofa.jraft.rpc.Connection;
 import com.alipay.sofa.jraft.rpc.InvokeCallback;
 import com.alipay.sofa.jraft.rpc.InvokeContext;
+import com.alipay.sofa.jraft.rpc.Message;
 import com.alipay.sofa.jraft.rpc.RpcClient;
 import com.alipay.sofa.jraft.rpc.RpcUtils;
 import com.alipay.sofa.jraft.util.Endpoint;
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Local rpc client impl.
@@ -40,7 +41,11 @@ import java.util.function.BiConsumer;
  * @author ascherbakov.
  */
 public class LocalRpcClient implements RpcClient {
-    private volatile ReplicatorGroup replicatorGroup = null;
+    private static final Logger LOG                    = LoggerFactory.getLogger(LocalRpcClient.class);
+
+    public volatile ReplicatorGroup replicatorGroup = null;
+
+    public static Consumer<LocalConnection> onCreated = null;
 
     @Override public boolean checkConnection(Endpoint endpoint) {
         return LocalRpcServer.connect(this, endpoint, false, null);
@@ -61,12 +66,15 @@ public class LocalRpcClient implements RpcClient {
     private void onCreated(LocalConnection conn) {
         if (replicatorGroup != null) {
             final PeerId peer = new PeerId();
-            if (peer.parse(conn.srv.toString())) {
+            if (peer.parse(conn.srv.local.toString())) {
                 RpcUtils.runInThread(() -> replicatorGroup.checkReplicator(peer, true)); // Avoid deadlock.
             }
             else
-                System.out.println("Fail to parse peer: {}" + peer); // TODO asch
+                LOG.warn("Failed to parse peer: {}", peer); // TODO asch how to handle ?
         }
+
+        if (onCreated != null)
+            onCreated.accept(conn);
     }
 
     @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {
@@ -77,13 +85,16 @@ public class LocalRpcClient implements RpcClient {
         if (srv == null)
             throw new RemotingException("Server is dead " + endpoint);
 
-        CompletableFuture fut = new CompletableFuture();
+        LocalConnection locConn = srv.conns.get(this);
+        if (locConn == null)
+            throw new RemotingException("Server is dead " + endpoint);
 
-        Object[] tuple = {this, request, fut};
-        assert srv.incoming.offer(tuple); // Should never fail because server uses unbounded queue.
+        CompletableFuture<Object> fut = new CompletableFuture();
+
+        locConn.onBeforeRequestSend((Message) request, fut);
 
         try {
-            return fut.get(timeoutMs, TimeUnit.MILLISECONDS);
+            return fut.whenComplete((res, err) -> locConn.onAfterResponseSend((Message) res, err)).get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
             throw new RemotingException(e);
         } catch (TimeoutException e) {
@@ -99,18 +110,22 @@ public class LocalRpcClient implements RpcClient {
         if (srv == null)
             throw new RemotingException("Server is dead " + endpoint);
 
-        CompletableFuture fut = new CompletableFuture();
+        LocalConnection locConn = srv.conns.get(this);
+        if (locConn == null)
+            throw new RemotingException("Server is dead " + endpoint);
 
-        Object[] tuple = {this, request, fut};
-        assert srv.incoming.offer(tuple);
+        CompletableFuture<Object> fut = new CompletableFuture<>();
 
-        fut.whenComplete((BiConsumer<Object, Throwable>) (res, err) -> {
+        locConn.onBeforeRequestSend((Message) request, fut);
+
+        fut.whenComplete((res, err) -> {
+            locConn.onAfterResponseSend((Message) res, err);
             RpcUtils.runInThread(() -> callback.complete(res, err)); // Avoid deadlocks if a closure has completed in the same thread.
         }).orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override public boolean init(RpcOptions opts) {
-        return false;
+        return true;
     }
 
     @Override public void shutdown() {

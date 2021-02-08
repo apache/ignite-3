@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -157,6 +158,13 @@ public final class Utils {
      * Run a task in thread pool,returns the future object.
      */
     public static Future<?> runInThread(final Runnable runnable) {
+        return CLOSURE_EXECUTOR.submit(runnable);
+    }
+
+    /**
+     * Run a callable in thread pool,returns the future object.
+     */
+    public static <V> Future<V> runInThread(final Callable<V> runnable) {
         return CLOSURE_EXECUTOR.submit(runnable);
     }
 

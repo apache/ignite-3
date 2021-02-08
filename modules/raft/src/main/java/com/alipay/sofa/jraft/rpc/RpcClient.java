@@ -41,6 +41,7 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      * @param endpoint       target address
      * @param createIfAbsent create a new one if there is no connection
      * @return true if there is a connection and the connection is active and writable.
+     * TODO asch it probably should return com.alipay.sofa.jraft.rpc.Connection.
      */
     boolean checkConnection(final Endpoint endpoint, final boolean createIfAbsent);
 
