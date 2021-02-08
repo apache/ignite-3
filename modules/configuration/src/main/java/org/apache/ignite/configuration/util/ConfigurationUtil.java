@@ -229,11 +229,11 @@ public class ConfigurationUtil {
             ConfigurationSource src;
 
             @Override public void visitInnerNode(String key, InnerNode node) {
-                src = new MergeInnerConfigurationSource(node);
+                src = new PatchInnerConfigurationSource(node);
             }
 
             @Override public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
-                src = new MergeNamedListConfigurationSource(node);
+                src = new PatchNamedListConfigurationSource(node);
             }
         };
 
@@ -249,14 +249,14 @@ public class ConfigurationUtil {
     }
 
     /** */
-    private static class MergeLeafConfigurationSource implements ConfigurationSource {
+    private static class PatchLeafConfigurationSource implements ConfigurationSource {
         /** */
         private final Serializable val;
 
         /**
          * @param val Value.
          */
-        MergeLeafConfigurationSource(Serializable val) {
+        PatchLeafConfigurationSource(Serializable val) {
             this.val = val;
         }
 
@@ -274,14 +274,14 @@ public class ConfigurationUtil {
     }
 
     /** */
-    private static class MergeInnerConfigurationSource implements ConfigurationSource {
+    private static class PatchInnerConfigurationSource implements ConfigurationSource {
         /** */
         private final InnerNode srcNode;
 
         /**
          * @param srcNode Inner node.
          */
-        MergeInnerConfigurationSource(InnerNode srcNode) {
+        PatchInnerConfigurationSource(InnerNode srcNode) {
             this.srcNode = srcNode;
         }
 
@@ -297,31 +297,31 @@ public class ConfigurationUtil {
             srcNode.traverseChildren(new ConfigurationVisitor() {
                 @Override public void visitLeafNode(String key, Serializable val) {
                     if (val != null)
-                        dstNode.construct(key, new MergeLeafConfigurationSource(val));
+                        dstNode.construct(key, new PatchLeafConfigurationSource(val));
                 }
 
                 @Override public void visitInnerNode(String key, InnerNode node) {
                     if (node != null)
-                        dstNode.construct(key, new MergeInnerConfigurationSource(node));
+                        dstNode.construct(key, new PatchInnerConfigurationSource(node));
                 }
 
                 @Override public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
                     if (node != null)
-                        dstNode.construct(key, new MergeNamedListConfigurationSource(node));
+                        dstNode.construct(key, new PatchNamedListConfigurationSource(node));
                 }
             });
         }
     }
 
     /** */
-    private static class MergeNamedListConfigurationSource implements ConfigurationSource {
+    private static class PatchNamedListConfigurationSource implements ConfigurationSource {
         /** */
         private final NamedListNode<?> srcNode;
 
         /**
          * @param srcNode Named list node.
          */
-        MergeNamedListConfigurationSource(NamedListNode<?> srcNode) {
+        PatchNamedListConfigurationSource(NamedListNode<?> srcNode) {
             this.srcNode = srcNode;
         }
 
@@ -337,7 +337,7 @@ public class ConfigurationUtil {
             for (String key : srcNode.namedListKeys()) {
                 InnerNode node = srcNode.get(key);
 
-                dstNode.construct(key, node == null ? null : new MergeInnerConfigurationSource(node));
+                dstNode.construct(key, node == null ? null : new PatchInnerConfigurationSource(node));
             }
         }
     }
