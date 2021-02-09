@@ -54,8 +54,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
     }
 
     /** {@inheritDoc} */
-    @Override public void accept(String key, ConfigurationVisitor visitor) {
-        visitor.visitNamedListNode(key, this);
+    @Override public <T> T accept(String key, ConfigurationVisitor<T> visitor) {
+        return visitor.visitNamedListNode(key, this);
     }
 
     /** {@inheritDoc} */

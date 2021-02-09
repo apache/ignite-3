@@ -160,19 +160,21 @@ public class ConfigurationChanger {
     private Map<String, Serializable> convertChangesToMap(RootKey<?> rootKey, TraversableTreeNode node) {
         Map<String, Serializable> values = new HashMap<>();
 
-        node.accept(rootKey.key(), new ConfigurationVisitor() {
+        node.accept(rootKey.key(), new ConfigurationVisitor<>() {
             /** Current key, aggregated by visitor. */
             StringBuilder currentKey = new StringBuilder();
 
             /** {@inheritDoc} */
-            @Override public void visitLeafNode(String key, Serializable val) {
+            @Override public Void visitLeafNode(String key, Serializable val) {
                 values.put(currentKey.toString() + key, val);
+
+                return null;
             }
 
             /** {@inheritDoc} */
-            @Override public void visitInnerNode(String key, InnerNode node) {
+            @Override public Void visitInnerNode(String key, InnerNode node) {
                 if (node == null)
-                    return;
+                    return null;
 
                 int previousKeyLength = currentKey.length();
 
@@ -181,10 +183,12 @@ public class ConfigurationChanger {
                 node.traverseChildren(this);
 
                 currentKey.setLength(previousKeyLength);
+
+                return null;
             }
 
             /** {@inheritDoc} */
-            @Override public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
+            @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
                 int previousKeyLength = currentKey.length();
 
                 if (key != null)
@@ -201,6 +205,8 @@ public class ConfigurationChanger {
                 }
 
                 currentKey.setLength(previousKeyLength);
+
+                return null;
             }
         });
         return values;

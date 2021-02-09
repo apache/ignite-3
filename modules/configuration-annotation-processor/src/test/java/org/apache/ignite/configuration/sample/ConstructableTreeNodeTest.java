@@ -89,7 +89,7 @@ public class ConstructableTreeNodeTest {
 
         /** {@inheritDoc} */
         @Override public <T> T unwrap(Class<T> clazz) {
-            return (T)constant;
+            return clazz.cast(constant);
         }
     }
 

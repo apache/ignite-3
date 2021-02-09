@@ -248,8 +248,8 @@ public class TraversableTreeNodeTest {
         var parentNode = new ParentNode();
 
         assertThrows(VisitException.class, () ->
-            parentNode.accept("root", new ConfigurationVisitor() {
-                @Override public void visitInnerNode(String key, InnerNode node) {
+            parentNode.accept("root", new ConfigurationVisitor<Void>() {
+                @Override public Void visitInnerNode(String key, InnerNode node) {
                     throw new VisitException();
                 }
             })
@@ -264,8 +264,8 @@ public class TraversableTreeNodeTest {
         var elementsNode = new NamedListNode<>(NamedElementNode::new);
 
         assertThrows(VisitException.class, () ->
-            elementsNode.accept("root", new ConfigurationVisitor() {
-                @Override public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
+            elementsNode.accept("root", new ConfigurationVisitor<Void>() {
+                @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
                     throw new VisitException();
                 }
             })
@@ -281,19 +281,19 @@ public class TraversableTreeNodeTest {
 
         List<String> keys = new ArrayList<>(2);
 
-        parentNode.traverseChildren(new ConfigurationVisitor() {
-            @Override public void visitInnerNode(String key, InnerNode node) {
+        parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
+            @Override public Object visitInnerNode(String key, InnerNode node) {
                 assertNull(node);
 
                 assertEquals("child", key);
 
-                keys.add(key);
+                return keys.add(key);
             }
 
-            @Override public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
+            @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> node) {
                 assertEquals("elements", key);
 
-                keys.add(key);
+                return keys.add(key);
             }
         });
 
@@ -304,9 +304,9 @@ public class TraversableTreeNodeTest {
 
         ChildNode childNode = new ChildNode();
 
-        childNode.traverseChildren(new ConfigurationVisitor() {
-            @Override public void visitLeafNode(String key, Serializable val) {
-                keys.add(key);
+        childNode.traverseChildren(new ConfigurationVisitor<Object>() {
+            @Override public Object visitLeafNode(String key, Serializable val) {
+                return keys.add(key);
             }
         });
 
@@ -323,8 +323,8 @@ public class TraversableTreeNodeTest {
 
         // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
-            parentNode.traverseChild("child", new ConfigurationVisitor() {
-                @Override public void visitInnerNode(String key, InnerNode node) {
+            parentNode.traverseChild("child", new ConfigurationVisitor<Void>() {
+                @Override public Void visitInnerNode(String key, InnerNode node) {
                     assertEquals("child", key);
 
                     throw new VisitException();
@@ -334,9 +334,9 @@ public class TraversableTreeNodeTest {
 
         // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
-            parentNode.traverseChild("elements", new ConfigurationVisitor() {
+            parentNode.traverseChild("elements", new ConfigurationVisitor<Void>() {
                 @Override
-                public <N extends InnerNode> void visitNamedListNode(String key, NamedListNode<N> node) {
+                public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
                     assertEquals("elements", key);
 
                     throw new VisitException();
@@ -348,8 +348,8 @@ public class TraversableTreeNodeTest {
 
         // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
-            childNode.traverseChild("intCfg", new ConfigurationVisitor() {
-                @Override public void visitLeafNode(String key, Serializable val) {
+            childNode.traverseChild("intCfg", new ConfigurationVisitor<Void>() {
+                @Override public Void visitLeafNode(String key, Serializable val) {
                     assertEquals("intCfg", key);
 
                     throw new VisitException();
@@ -359,7 +359,7 @@ public class TraversableTreeNodeTest {
 
         // Assert that traversing inexistent field leads to exception.
         assertThrows(NoSuchElementException.class, () ->
-            childNode.traverseChild("foo", new ConfigurationVisitor() {})
+            childNode.traverseChild("foo", new ConfigurationVisitor<>() {})
         );
     }
 }

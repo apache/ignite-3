@@ -26,13 +26,13 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,6 +62,7 @@ import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
@@ -145,7 +146,8 @@ public class Processor extends AbstractProcessor {
         String packageForUtil = "";
 
         // All classes annotated with @Config
-        final Set<TypeElement> annotatedConfigs = roundEnvironment.getElementsAnnotatedWith(Config.class).stream()
+        final Set<TypeElement> annotatedConfigs = roundEnvironment
+            .getElementsAnnotatedWithAny(Set.of(ConfigurationRoot.class, Config.class)).stream()
             .filter(element -> element.getKind() == ElementKind.CLASS)
             .map(TypeElement.class::cast)
             .collect(Collectors.toSet());
@@ -164,12 +166,13 @@ public class Processor extends AbstractProcessor {
                 .map(VariableElement.class::cast)
                 .collect(Collectors.toList());
 
-            final Config classConfigAnnotation = clazz.getAnnotation(Config.class);
+            ConfigurationRoot rootAnnotation = clazz.getAnnotation(ConfigurationRoot.class);
 
-            // Configuration name
-            final String configName = classConfigAnnotation.value();
             // Is root of the configuration
-            final boolean isRoot = classConfigAnnotation.root();
+            final boolean isRoot = rootAnnotation != null;
+            // Configuration name
+            final String configName = isRoot ? rootAnnotation.rootName() : null;
+
             final ClassName schemaClassName = ClassName.get(packageName, clazz.getSimpleName().toString());
 
             // Get name for generated configuration class and it's interface
@@ -866,14 +869,17 @@ public class Processor extends AbstractProcessor {
             .returns(TypeName.VOID)
             .addParameter(ClassName.get(ConfigurationVisitor.class), "visitor");
 
+        TypeVariableName t = TypeVariableName.get("T");
+
         MethodSpec.Builder traverseChildBuilder = MethodSpec.methodBuilder("traverseChild")
             .addAnnotation(Override.class)
             .addJavadoc("{@inheritDoc}")
             .addModifiers(PUBLIC)
-            .returns(TypeName.VOID)
+            .addTypeVariable(t)
+            .returns(t)
             .addException(NoSuchElementException.class)
             .addParameter(ClassName.get(String.class), "key")
-            .addParameter(ClassName.get(ConfigurationVisitor.class), "visitor")
+            .addParameter(ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), t), "visitor")
             .beginControlFlow("switch (key)");
 
         MethodSpec.Builder constructBuilder = MethodSpec.methodBuilder("construct")
@@ -1080,22 +1086,19 @@ public class Processor extends AbstractProcessor {
                     traverseChildrenBuilder.addStatement("visitor.visitLeafNode($S, $L)", fieldName, fieldName);
 
                     traverseChildBuilder
-                        .addStatement("case $S: visitor.visitLeafNode($S, $L)", fieldName, fieldName, fieldName)
-                        .addStatement(INDENT + "break");
+                        .addStatement("case $S: return visitor.visitLeafNode($S, $L)", fieldName, fieldName, fieldName);
                 }
                 else if (namedListField) {
                     traverseChildrenBuilder.addStatement("visitor.visitNamedListNode($S, $L)", fieldName, fieldName);
 
                     traverseChildBuilder
-                        .addStatement("case $S: visitor.visitNamedListNode($S, $L)", fieldName, fieldName, fieldName)
-                        .addStatement(INDENT + "break");
+                        .addStatement("case $S: return visitor.visitNamedListNode($S, $L)", fieldName, fieldName, fieldName);
                 }
                 else {
                     traverseChildrenBuilder.addStatement("visitor.visitInnerNode($S, $L)", fieldName, fieldName);
 
                     traverseChildBuilder
-                        .addStatement("case $S: visitor.visitInnerNode($S, $L)", fieldName, fieldName, fieldName)
-                        .addStatement(INDENT + "break");
+                        .addStatement("case $S: return visitor.visitInnerNode($S, $L)", fieldName, fieldName, fieldName);
                 }
             }
 
@@ -1337,7 +1340,7 @@ public class Processor extends AbstractProcessor {
 
     /** {@inheritDoc} */
     @Override public Set<String> getSupportedAnnotationTypes() {
-        return Collections.singleton(Config.class.getCanonicalName());
+        return Set.of(Config.class.getCanonicalName(), ConfigurationRoot.class.getCanonicalName());
     }
 
     /** {@inheritDoc} */
