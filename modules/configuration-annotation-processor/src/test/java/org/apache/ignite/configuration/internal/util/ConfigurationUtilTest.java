@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.util;
+package org.apache.ignite.configuration.internal.util;
 
 import java.util.List;
 import java.util.Map;
@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.util.impl.ParentNode;
+import org.apache.ignite.configuration.internal.util.impl.ParentNode;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.singletonMap;

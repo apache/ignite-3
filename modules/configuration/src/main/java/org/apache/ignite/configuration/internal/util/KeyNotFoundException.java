@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.util;
+package org.apache.ignite.configuration.internal.util;
 
 /** */
 public class KeyNotFoundException extends RuntimeException {
