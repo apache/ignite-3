@@ -141,11 +141,11 @@ public class LocalRpcTest {
         Response1 resp1 = (Response1) client1.invokeSync(endpoint, new Request1(), 500);
         Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
 
-        Queue<Message> recorded = connRef.get().recordedMessages();
+        Queue<Object[]> recorded = connRef.get().recordedMessages();
 
         assertEquals(2, recorded.size());
-        assertTrue(recorded.poll() instanceof Request1);
-        assertTrue(recorded.poll() instanceof Response1);
+        assertTrue(recorded.poll()[1] instanceof Request1);
+        assertTrue(recorded.poll()[1] instanceof Response1);
     }
 
     @Test
@@ -171,10 +171,10 @@ public class LocalRpcTest {
             // Expected.
         }
 
-        Queue<Message> recorded = connRef.get().recordedMessages();
+        Queue<Object[]> recorded = connRef.get().recordedMessages();
 
         assertEquals(1, recorded.size());
-        assertTrue(recorded.poll() instanceof Request1);
+        assertTrue(recorded.poll()[1] instanceof Request1);
     }
 
     @Test
@@ -197,11 +197,11 @@ public class LocalRpcTest {
 
         l.await();
 
-        Queue<Message> recorded = connRef.get().recordedMessages();
+        Queue<Object[]> recorded = connRef.get().recordedMessages();
 
         assertEquals(2, recorded.size());
-        assertTrue(recorded.poll() instanceof Request1);
-        assertTrue(recorded.poll() instanceof Response1);
+        assertTrue(recorded.poll()[1] instanceof Request1);
+        assertTrue(recorded.poll()[1] instanceof Response1);
     }
 
     @Test
@@ -233,10 +233,10 @@ public class LocalRpcTest {
             // Expected.
         }
 
-        Queue<Message> recorded = connRef.get().recordedMessages();
+        Queue<Object[]> recorded = connRef.get().recordedMessages();
 
         assertEquals(1, recorded.size());
-        assertTrue(recorded.poll() instanceof Request1);
+        assertTrue(recorded.poll()[1] instanceof Request1);
     }
 
     @Test

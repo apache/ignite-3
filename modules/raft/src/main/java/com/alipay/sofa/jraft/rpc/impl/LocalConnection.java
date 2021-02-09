@@ -2,6 +2,7 @@ package com.alipay.sofa.jraft.rpc.impl;
 
 import com.alipay.sofa.jraft.rpc.Connection;
 import com.alipay.sofa.jraft.rpc.Message;
+import com.alipay.sofa.jraft.rpc.RpcRequests;
 import com.alipay.sofa.jraft.util.Endpoint;
 import java.util.Collection;
 import java.util.Map;
@@ -23,7 +24,7 @@ public class LocalConnection implements Connection {
     private volatile Predicate<Message> blockPred;
 
     private LinkedBlockingQueue<Object[]> blockedMsgs = new LinkedBlockingQueue<>();
-    private LinkedBlockingQueue<Message> recordedMsgs = new LinkedBlockingQueue<>();
+    private LinkedBlockingQueue<Object[]> recordedMsgs = new LinkedBlockingQueue<>();
 
     public LocalConnection(LocalRpcClient client, LocalRpcServer srv) {
         this.client = client;
@@ -45,7 +46,7 @@ public class LocalConnection implements Connection {
 
     public void onBeforeRequestSend(Message request, Future fut) {
         if (RECORD_ALL_MESSAGES || recordPred != null && recordPred.test(request))
-            recordedMsgs.add(request);
+            recordedMsgs.add(new Object[]{System.currentTimeMillis(), request});
 
         if (blockPred != null && blockPred.test(request)) {
             blockedMsgs.add(new Object[]{request, fut});
@@ -64,7 +65,7 @@ public class LocalConnection implements Connection {
         assert err == null : err;
 
         if (RECORD_ALL_MESSAGES || recordPred != null && recordPred.test(msg))
-            recordedMsgs.add(msg);
+            recordedMsgs.add(new Object[] {System.currentTimeMillis(), msg});
     }
 
     @Override public Object getAttribute(String key) {
@@ -83,7 +84,7 @@ public class LocalConnection implements Connection {
         LocalRpcServer.closeConnection(client, srv.local);
     }
 
-    public Queue<Message> recordedMessages() {
+    public Queue<Object[]> recordedMessages() {
         return recordedMsgs;
     }
 
