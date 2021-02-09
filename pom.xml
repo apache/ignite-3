@@ -43,5 +43,6 @@
         <module>modules/ignite-runner</module>
         <module>modules/cli-demo</module>
         <module>modules/raft</module>
+        <module>modules/raft-client</module>
     </modules>
 </project>
