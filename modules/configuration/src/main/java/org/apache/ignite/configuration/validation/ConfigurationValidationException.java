@@ -17,14 +17,25 @@
 
 package org.apache.ignite.configuration.validation;
 
+import java.util.List;
+
 /**
  * Configuration validation exception.
  */
 public class ConfigurationValidationException extends RuntimeException {
+    /** List of configuration validation issues. */
+    private List<ValidationIssue> issues;
 
     /** Constructor. */
     public ConfigurationValidationException(String message) {
         super(message);
     }
 
+    public ConfigurationValidationException(List<ValidationIssue> issues) {
+        this.issues = issues;
+    }
+
+    public List<ValidationIssue> getIssues() {
+        return issues;
+    }
 }

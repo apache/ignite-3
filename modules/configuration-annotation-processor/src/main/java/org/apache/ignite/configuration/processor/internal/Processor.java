@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.processor.internal;
 
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -38,7 +39,9 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.processing.AbstractProcessor;
@@ -46,6 +49,7 @@ import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
@@ -55,6 +59,7 @@ import javax.lang.model.util.Elements;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.Configurator;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -69,6 +74,12 @@ import org.apache.ignite.configuration.processor.internal.pojo.ChangeClassGenera
 import org.apache.ignite.configuration.processor.internal.pojo.InitClassGenerator;
 import org.apache.ignite.configuration.processor.internal.pojo.ViewClassGenerator;
 import org.apache.ignite.configuration.processor.internal.validation.ValidationGenerator;
+import org.apache.ignite.configuration.tree.ConfigurationSource;
+import org.apache.ignite.configuration.tree.ConfigurationVisitor;
+import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.configuration.tree.NamedListChange;
+import org.apache.ignite.configuration.tree.NamedListNode;
+import org.apache.ignite.configuration.tree.NamedListView;
 
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -80,6 +91,9 @@ import static javax.lang.model.element.Modifier.STATIC;
  * Annotation processor that produces configuration classes.
  */
 public class Processor extends AbstractProcessor {
+    /** Java file padding. */
+    private static final String INDENT = "    ";
+
     /** Wildcard (?) TypeName. */
     private static final TypeName WILDCARD = WildcardTypeName.subtypeOf(Object.class);
 
@@ -187,6 +201,8 @@ public class Processor extends AbstractProcessor {
             CodeBlock.Builder copyConstructorBodyBuilder = CodeBlock.builder();
 
             for (VariableElement field : fields) {
+                Element fieldTypeElement = processingEnv.getTypeUtils().asElement(field.asType());
+
                 // Get original field type (must be another configuration schema or "primitive" like String or long)
                 final TypeName baseType = TypeName.get(field.asType());
 
@@ -202,6 +218,13 @@ public class Processor extends AbstractProcessor {
 
                 final ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
                 if (confAnnotation != null) {
+                    if (fieldTypeElement.getAnnotation(Config.class) == null) {
+                        throw new ProcessorException(
+                            "Class for @ConfigValue field must be defined as @Config: " +
+                                clazz.getQualifiedName() + "." + field.getSimpleName()
+                        );
+                    }
+
                     // Create DynamicConfiguration (descendant) field
                     final FieldSpec nestedConfigField =
                         FieldSpec
@@ -219,6 +242,13 @@ public class Processor extends AbstractProcessor {
 
                 final NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
                 if (namedConfigAnnotation != null) {
+                    if (fieldTypeElement.getAnnotation(Config.class) == null) {
+                        throw new ProcessorException(
+                            "Class for @NamedConfigValue field must be defined as @Config: " +
+                                clazz.getQualifiedName() + "." + field.getSimpleName()
+                        );
+                    }
+
                     ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
 
                     // Create NamedListConfiguration<> field
@@ -246,6 +276,21 @@ public class Processor extends AbstractProcessor {
 
                 final Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
+                    switch (baseType.toString()) {
+                        case "boolean":
+                        case "int":
+                        case "long":
+                        case "double":
+                        case "java.lang.String":
+                            break;
+
+                        default:
+                            throw new ProcessorException(
+                                "@Value " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must" +
+                                    " have one of the following types: boolean, int, long, double, String."
+                            );
+                    }
+
                     // Create value (DynamicProperty<>) field
                     final FieldSpec generatedField = FieldSpec.builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL).build();
 
@@ -272,6 +317,9 @@ public class Processor extends AbstractProcessor {
 
             // Create VIEW, INIT and CHANGE classes
             createPojoBindings(packageName, fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
+
+            if (isRoot)
+                createRootKeyField(configInterface, configurationInterfaceBuilder, configDesc);
 
             // Create constructors for configuration class
             createConstructors(configClass, configName, configurationClassBuilder, CONFIGURATOR_TYPE, constructorBodyBuilder, copyConstructorBodyBuilder);
@@ -311,6 +359,31 @@ public class Processor extends AbstractProcessor {
         createSelectorsClass(packageForUtil, flattenConfig);
 
         return true;
+    }
+
+    /** */
+    private void createRootKeyField(ClassName configInterface,
+        TypeSpec.Builder configurationClassBuilder,
+        ConfigurationDescription configDesc) {
+
+        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ClassName.get(RootKey.class), configInterface);
+
+        TypeSpec anonymousClass = TypeSpec.anonymousClassBuilder("")
+            .addSuperinterface(fieldTypeName)
+            .addMethod(MethodSpec
+                .methodBuilder("key")
+                .addAnnotation(Override.class)
+                .addModifiers(PUBLIC)
+                .returns(TypeName.get(String.class))
+                .addStatement("return $S", configDesc.getName())
+                .build()).build();
+
+        FieldSpec keyField = FieldSpec.builder(
+            fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
+            .initializer("$L", anonymousClass)
+            .build();
+
+        configurationClassBuilder.addField(keyField);
     }
 
     /**
@@ -432,7 +505,7 @@ public class Processor extends AbstractProcessor {
         /** Get method type for public interface. */
         private final TypeName interfaceGetMethodType;
 
-        public ConfigurationFieldTypes(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
+        private ConfigurationFieldTypes(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
             this.getMethodType = getMethodType;
             this.unwrappedType = unwrappedType;
             this.viewClassType = viewClassType;
@@ -530,10 +603,10 @@ public class Processor extends AbstractProcessor {
         configurationClassBuilder.addMethod(copyConstructor);
 
         final MethodSpec emptyConstructor = MethodSpec.constructorBuilder()
-                .addModifiers(PUBLIC)
-                .addParameter(configuratorClassName, "configurator")
-                .addStatement("this($S, $S, false, configurator, null)", "", configName)
-                .build();
+            .addModifiers(PUBLIC)
+            .addParameter(configuratorClassName, "configurator")
+            .addStatement("this($S, $S, false, configurator, null)", "", configName)
+            .build();
 
         configurationClassBuilder.addMethod(emptyConstructor);
     }
@@ -589,7 +662,6 @@ public class Processor extends AbstractProcessor {
 
                 if (current.getParent() != null) {
                     String newMethodCall = "." + current.getOriginalName() + "()";
-
                     // if config is named, then create a call with name parameter
                     if (isNamed)
                         newMethodCall += ".get(name" + (namedCount - 1) + ")";
@@ -617,7 +689,6 @@ public class Processor extends AbstractProcessor {
                         .addStatement("return (root) -> root$L", methodCall.toString())
                         .build()
                 );
-
 
                 // Build a list of parameters for statement
                 List<Object> params = new ArrayList<>();
@@ -748,6 +819,372 @@ public class Processor extends AbstractProcessor {
         catch (IOException e) {
             throw new ProcessorException("Failed to write class " + initClassName.toString(), e);
         }
+
+        // This code will be refactored in the future. Right now I don't want to entangle it with existing code
+        // generation. It has only a few considerable problems - hardcode and a lack of proper arrays handling.
+        // Clone method should be used to guarantee data integrity.
+        ClassName viewClsName = ClassName.get(
+            schemaClassName.packageName(),
+            schemaClassName.simpleName().replace("ConfigurationSchema", "View")
+        );
+
+        ClassName changeClsName = ClassName.get(
+            schemaClassName.packageName(),
+            schemaClassName.simpleName().replace("ConfigurationSchema", "Change")
+        );
+
+        ClassName initClsName = ClassName.get(
+            schemaClassName.packageName(),
+            schemaClassName.simpleName().replace("ConfigurationSchema", "Init")
+        );
+
+        ClassName nodeClsName = ClassName.get(
+            schemaClassName.packageName() + ".impl",
+            schemaClassName.simpleName().replace("ConfigurationSchema", "Node")
+        );
+
+        TypeSpec.Builder viewClsBuilder = TypeSpec.interfaceBuilder(viewClsName)
+            .addModifiers(PUBLIC);
+
+        TypeSpec.Builder changeClsBuilder = TypeSpec.interfaceBuilder(changeClsName)
+            .addModifiers(PUBLIC);
+
+        TypeSpec.Builder initClsBuilder = TypeSpec.interfaceBuilder(initClsName)
+            .addModifiers(PUBLIC);
+
+        TypeSpec.Builder nodeClsBuilder = TypeSpec.classBuilder(nodeClsName)
+            .addModifiers(PUBLIC, FINAL)
+            .superclass(ClassName.get(InnerNode.class))
+            .addSuperinterface(viewClsName)
+            .addSuperinterface(changeClsName)
+            .addSuperinterface(initClsName);
+
+        MethodSpec.Builder traverseChildrenBuilder = MethodSpec.methodBuilder("traverseChildren")
+            .addAnnotation(Override.class)
+            .addJavadoc("{@inheritDoc}")
+            .addModifiers(PUBLIC)
+            .returns(TypeName.VOID)
+            .addParameter(ClassName.get(ConfigurationVisitor.class), "visitor");
+
+        MethodSpec.Builder traverseChildBuilder = MethodSpec.methodBuilder("traverseChild")
+            .addAnnotation(Override.class)
+            .addJavadoc("{@inheritDoc}")
+            .addModifiers(PUBLIC)
+            .returns(TypeName.VOID)
+            .addException(NoSuchElementException.class)
+            .addParameter(ClassName.get(String.class), "key")
+            .addParameter(ClassName.get(ConfigurationVisitor.class), "visitor")
+            .beginControlFlow("switch (key)");
+
+        MethodSpec.Builder constructBuilder = MethodSpec.methodBuilder("construct")
+            .addAnnotation(Override.class)
+            .addJavadoc("{@inheritDoc}")
+            .addModifiers(PUBLIC)
+            .returns(TypeName.VOID)
+            .addParameter(ClassName.get(String.class), "key")
+            .addParameter(ClassName.get(ConfigurationSource.class), "src")
+            .beginControlFlow("switch (key)");
+
+        ClassName consumerClsName = ClassName.get(Consumer.class);
+
+        for (VariableElement field : fields) {
+            Value valAnnotation = field.getAnnotation(Value.class);
+            boolean mutable = valAnnotation == null || !valAnnotation.immutable();
+
+            String fieldName = field.getSimpleName().toString();
+            TypeName schemaFieldType = TypeName.get(field.asType());
+
+            boolean leafField = schemaFieldType.isPrimitive() || !((ClassName)schemaFieldType).simpleName().contains("ConfigurationSchema");
+            boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
+
+            TypeName viewFieldType = schemaFieldType.isPrimitive() ? schemaFieldType : ClassName.get(
+                ((ClassName)schemaFieldType).packageName(),
+                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "View")
+            );
+
+            TypeName changeFieldType = schemaFieldType.isPrimitive() ? schemaFieldType : ClassName.get(
+                ((ClassName)schemaFieldType).packageName(),
+                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Change")
+            );
+
+            TypeName initFieldType = schemaFieldType.isPrimitive() ? schemaFieldType : ClassName.get(
+                ((ClassName)schemaFieldType).packageName(),
+                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Init")
+            );
+
+            TypeName nodeFieldType = schemaFieldType.isPrimitive() ? schemaFieldType.box() : ClassName.get(
+                ((ClassName)schemaFieldType).packageName() + (leafField ? "" : ".impl"),
+                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Node")
+            );
+
+            TypeName namedListParamType = nodeFieldType;
+
+            if (namedListField) {
+                viewFieldType = ParameterizedTypeName.get(ClassName.get(NamedListView.class), WildcardTypeName.subtypeOf(viewFieldType));
+
+                changeFieldType = ParameterizedTypeName.get(ClassName.get(NamedListChange.class), changeFieldType);
+
+                initFieldType = ParameterizedTypeName.get(ClassName.get(NamedListChange.class), initFieldType);
+
+                nodeFieldType = ParameterizedTypeName.get(ClassName.get(NamedListNode.class), nodeFieldType);
+            }
+
+            {
+                FieldSpec.Builder nodeFieldBuilder = FieldSpec.builder(nodeFieldType, fieldName, PRIVATE);
+
+                if (namedListField)
+                    nodeFieldBuilder.initializer("new $T<>($T::new)", NamedListNode.class, namedListParamType);
+
+                nodeClsBuilder.addField(nodeFieldBuilder.build());
+            }
+
+            {
+                {
+                    MethodSpec.Builder getMtdBuilder = MethodSpec.methodBuilder(fieldName)
+                        .addModifiers(PUBLIC, ABSTRACT)
+                        .returns(viewFieldType);
+
+                    viewClsBuilder.addMethod(getMtdBuilder.build());
+                }
+
+                {
+                    MethodSpec.Builder nodeGetMtdBuilder = MethodSpec.methodBuilder(fieldName)
+                        .addAnnotation(Override.class)
+                        .addModifiers(PUBLIC)
+                        .returns(leafField ? viewFieldType : nodeFieldType)
+                        .addStatement("return $L", fieldName);
+
+                    nodeClsBuilder.addMethod(nodeGetMtdBuilder.build());
+                }
+            }
+
+            if (mutable) {
+                String changeMtdName = "change" + capitalize(fieldName);
+
+                {
+                    MethodSpec.Builder changeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
+                        .addModifiers(PUBLIC, ABSTRACT)
+                        .returns(changeClsName);
+
+                    if (valAnnotation != null)
+                        changeMtdBuilder.addParameter(changeFieldType, fieldName);
+                    else
+                        changeMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, changeFieldType), fieldName);
+
+                    changeClsBuilder.addMethod(changeMtdBuilder.build());
+                }
+
+                {
+                    MethodSpec.Builder nodeChangeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
+                        .addAnnotation(Override.class)
+                        .addModifiers(PUBLIC)
+                        .returns(nodeClsName);
+
+                    if (valAnnotation != null) {
+                        nodeChangeMtdBuilder
+                            .addParameter(changeFieldType, fieldName)
+                            .addStatement("this.$L = $L", fieldName, fieldName);
+                    }
+                    else {
+                        String paramName = fieldName + "Consumer";
+                        nodeChangeMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, changeFieldType), paramName);
+
+                        if (!namedListField) {
+                            nodeChangeMtdBuilder.addStatement(
+                                "$L = $L == null ? new $T() : $L",
+                                fieldName,
+                                fieldName,
+                                nodeFieldType,
+                                fieldName
+                            );
+                            nodeChangeMtdBuilder.addStatement("$L.accept($L)", paramName, fieldName);
+                        }
+                        else {
+                            nodeChangeMtdBuilder.addAnnotation(
+                                AnnotationSpec.builder(SuppressWarnings.class)
+                                    .addMember("value", "$S", "unchecked")
+                                    .build()
+                            );
+
+                            nodeChangeMtdBuilder.addStatement("$L.accept((NamedListChange)$L)", paramName, fieldName);
+                        }
+                    }
+
+                    nodeChangeMtdBuilder.addStatement("return this");
+
+                    nodeClsBuilder.addMethod(nodeChangeMtdBuilder.build());
+                }
+            }
+
+            {
+                String initMtdName = "init" + capitalize(fieldName);
+
+                {
+                    MethodSpec.Builder initMtdBuilder = MethodSpec.methodBuilder(initMtdName)
+                        .addModifiers(PUBLIC, ABSTRACT)
+                        .returns(initClsName);
+
+                    if (valAnnotation != null)
+                        initMtdBuilder.addParameter(changeFieldType, fieldName);
+                    else
+                        initMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, initFieldType), fieldName);
+
+                    initClsBuilder.addMethod(initMtdBuilder.build());
+                }
+
+                {
+                    MethodSpec.Builder nodeInitMtdBuilder = MethodSpec.methodBuilder(initMtdName)
+                        .addAnnotation(Override.class)
+                        .addModifiers(PUBLIC)
+                        .returns(nodeClsName);
+
+                    if (valAnnotation != null) {
+                        nodeInitMtdBuilder
+                            .addParameter(initFieldType, fieldName)
+                            .addStatement("this.$L = $L", fieldName, fieldName);
+                    }
+                    else {
+                        String paramName = fieldName + "Consumer";
+                        nodeInitMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, initFieldType), paramName);
+
+                        if (!namedListField) {
+                            nodeInitMtdBuilder.addStatement(
+                                "$L = $L == null ? new $T() : $L",
+                                fieldName,
+                                fieldName,
+                                nodeFieldType,
+                                fieldName
+                            );
+
+                            nodeInitMtdBuilder.addStatement("$L.accept($L)", paramName, fieldName);
+                        }
+                        else {
+                            nodeInitMtdBuilder.addAnnotation(
+                                AnnotationSpec.builder(SuppressWarnings.class)
+                                    .addMember("value", "$S", "unchecked")
+                                    .build()
+                            );
+
+                            nodeInitMtdBuilder.addStatement("$L.accept((NamedListChange)$L)", paramName, fieldName);
+                        }
+                    }
+
+                    nodeInitMtdBuilder.addStatement("return this");
+
+                    nodeClsBuilder.addMethod(nodeInitMtdBuilder.build());
+                }
+            }
+
+            {
+                if (leafField) {
+                    traverseChildrenBuilder.addStatement("visitor.visitLeafNode($S, $L)", fieldName, fieldName);
+
+                    traverseChildBuilder
+                        .addStatement("case $S: visitor.visitLeafNode($S, $L)", fieldName, fieldName, fieldName)
+                        .addStatement(INDENT + "break");
+                }
+                else if (namedListField) {
+                    traverseChildrenBuilder.addStatement("visitor.visitNamedListNode($S, $L)", fieldName, fieldName);
+
+                    traverseChildBuilder
+                        .addStatement("case $S: visitor.visitNamedListNode($S, $L)", fieldName, fieldName, fieldName)
+                        .addStatement(INDENT + "break");
+                }
+                else {
+                    traverseChildrenBuilder.addStatement("visitor.visitInnerNode($S, $L)", fieldName, fieldName);
+
+                    traverseChildBuilder
+                        .addStatement("case $S: visitor.visitInnerNode($S, $L)", fieldName, fieldName, fieldName)
+                        .addStatement(INDENT + "break");
+                }
+            }
+
+            {
+                if (leafField) {
+                    constructBuilder.addStatement(
+                        "case $S: $L = src == null ? null : src.unwrap($T.class)",
+                        fieldName,
+                        fieldName,
+                        schemaFieldType.box()
+                    )
+                    .addStatement(INDENT + "break");
+                }
+                else if (namedListField) {
+                    constructBuilder
+                        .addStatement(
+                            "case $S: if (src == null) $L = new $T<>($T::new)",
+                            fieldName,
+                            fieldName,
+                            NamedListNode.class,
+                            namedListParamType
+                        )
+                        .addStatement(
+                            INDENT + "else src.descend($L = $L.copy())",
+                            fieldName,
+                            fieldName
+                        )
+                        .addStatement(INDENT + "break");
+                }
+                else {
+                    constructBuilder
+                        .addStatement(
+                            "case $S: if (src == null) $L = null",
+                            fieldName,
+                            fieldName
+                        )
+                        .addStatement(
+                            INDENT + "else src.descend($L = ($L == null ? new $T() : ($T)$L.copy()))",
+                            fieldName,
+                            fieldName,
+                            nodeFieldType,
+                            nodeFieldType,
+                            fieldName
+                        )
+                        .addStatement(INDENT + "break");
+                }
+            }
+        }
+
+        traverseChildBuilder
+            .addStatement("default: throw new $T(key)", NoSuchElementException.class)
+            .endControlFlow();
+
+        constructBuilder
+            .addStatement("default: throw new $T(key)", NoSuchElementException.class)
+            .endControlFlow();
+
+        nodeClsBuilder
+            .addMethod(traverseChildrenBuilder.build())
+            .addMethod(traverseChildBuilder.build())
+            .addMethod(constructBuilder.build());
+
+        TypeSpec viewCls = viewClsBuilder.build();
+        TypeSpec changeCls = changeClsBuilder.build();
+        TypeSpec initCls = initClsBuilder.build();
+        TypeSpec nodeCls = nodeClsBuilder.build();
+
+        try {
+            buildClass(viewClsName, viewCls);
+            buildClass(changeClsName, changeCls);
+            buildClass(initClsName, initCls);
+            buildClass(nodeClsName, nodeCls);
+        }
+        catch (IOException e) {
+            throw new ProcessorException("Failed to generate classes", e);
+        }
+    }
+
+    /** */
+    private void buildClass(ClassName viewClsName, TypeSpec viewCls) throws IOException {
+        JavaFile.builder(viewClsName.packageName(), viewCls)
+            .indent(INDENT)
+            .build()
+            .writeTo(filer);
+    }
+
+    /** */
+    private static String capitalize(String name) {
+        return name.substring(0, 1).toUpperCase() + name.substring(1);
     }
 
     /**
@@ -905,6 +1342,6 @@ public class Processor extends AbstractProcessor {
 
     /** {@inheritDoc} */
     @Override public SourceVersion getSupportedSourceVersion() {
-        return SourceVersion.RELEASE_8;
+        return SourceVersion.RELEASE_11;
     }
 }
