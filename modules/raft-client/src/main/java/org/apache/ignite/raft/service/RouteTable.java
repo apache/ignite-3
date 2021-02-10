@@ -82,7 +82,7 @@ public class RouteTable {
 
     /**
      * Get the cached leader of the group, return it when found, null otherwise.
-     * Make sure calls {@link #refreshLeader(CliClientService, String, int)} already
+     * Make sure calls {@link #refreshLeader(RaftGroupClientService, String, int)} already
      * before invoke this method.
      *
      * @param groupId raft group id
@@ -174,7 +174,7 @@ public class RouteTable {
      * @param timeoutMs timeout millis
      * @return operation status
      */
-    public Status refreshLeader(final CliClientService cliClientService, final String groupId, final int timeoutMs)
+    public Status refreshLeader(final RaftGroupClientService raftGroupClientService, final String groupId, final int timeoutMs)
         throws InterruptedException,
         TimeoutException {
         final Configuration conf = getConfiguration(groupId);
@@ -188,7 +188,7 @@ public class RouteTable {
         final CliRequests.GetLeaderRequest request = rb.build();
         TimeoutException timeoutException = null;
         for (final PeerId peer : conf) {
-            if (!cliClientService.connect(peer.getEndpoint())) {
+            if (!raftGroupClientService.connect(peer.getEndpoint())) {
                 if (st.isOk()) {
                     st.setError(-1, "Fail to init channel to %s", peer);
                 } else {
@@ -197,7 +197,7 @@ public class RouteTable {
                 }
                 continue;
             }
-            final Future<Message> result = cliClientService.getLeader(peer.getEndpoint(), request, null);
+            final Future<Message> result = raftGroupClientService.getLeader(peer.getEndpoint(), request, null);
             try {
                 final Message msg = result.get(timeoutMs, TimeUnit.MILLISECONDS);
                 if (msg instanceof RpcRequests.ErrorResponse) {
@@ -230,7 +230,7 @@ public class RouteTable {
         return st;
     }
 
-    public Status refreshConfiguration(final CliClientService cliClientService, final String groupId,
+    public Status refreshConfiguration(final RaftGroupClientService raftGroupClientService, final String groupId,
                                        final int timeoutMs) throws InterruptedException, TimeoutException {
         final Configuration conf = getConfiguration(groupId);
         if (conf == null) {
@@ -240,14 +240,14 @@ public class RouteTable {
         final Status st = Status.OK();
         PeerId leaderId = selectLeader(groupId);
         if (leaderId == null) {
-            refreshLeader(cliClientService, groupId, timeoutMs);
+            refreshLeader(raftGroupClientService, groupId, timeoutMs);
             leaderId = selectLeader(groupId);
         }
         if (leaderId == null) {
             st.setError(-1, "Fail to get leader of group %s", groupId);
             return st;
         }
-        if (!cliClientService.connect(leaderId.getEndpoint())) {
+        if (!raftGroupClientService.connect(leaderId.getEndpoint())) {
             st.setError(-1, "Fail to init channel to %s", leaderId);
             return st;
         }
@@ -255,7 +255,7 @@ public class RouteTable {
         rb.setGroupId(groupId);
         rb.setLeaderId(leaderId.toString());
         try {
-            final Message result = cliClientService.getPeers(leaderId.getEndpoint(), rb.build(), null).get(timeoutMs,
+            final Message result = raftGroupClientService.getPeers(leaderId.getEndpoint(), rb.build(), null).get(timeoutMs,
                 TimeUnit.MILLISECONDS);
             if (result instanceof CliRequests.GetPeersResponse) {
                 final CliRequests.GetPeersResponse resp = (CliRequests.GetPeersResponse) result;

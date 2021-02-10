@@ -16,20 +16,9 @@
  */
 package org.apache.ignite.raft.rpc;
 
-
-import org.apache.ignite.raft.rpc.CliRequests.GetLeaderRequest;
-
 /**
- * Get leader request processor.
+ *
  */
-public class TestGetLeaderRequestProcessor implements RpcProcessor<GetLeaderRequest> {
-    @Override public void handleRequest(RpcContext rpcCtx, GetLeaderRequest request) {
-        CliRequests.GetLeaderResponse.Builder resp = MessageBuilderFactory.DEFAULT.createGetLeaderResponse();
-        resp.setLeaderId("127.0.0.1:8081");
-        rpcCtx.sendResponse(resp.build());
-    }
-
-    @Override public String interest() {
-        return GetLeaderRequest.class.getName();
-    }
+public interface ConnectionOpenedEventListener {
+    void onOpened(final String remoteAddress, final Connection conn);
 }

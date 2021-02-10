@@ -17,19 +17,17 @@
 package org.apache.ignite.raft.rpc;
 
 
-import org.apache.ignite.raft.rpc.CliRequests.GetLeaderRequest;
-
 /**
- * Get leader request processor.
+ * Ping request processor.
  */
-public class TestGetLeaderRequestProcessor implements RpcProcessor<GetLeaderRequest> {
-    @Override public void handleRequest(RpcContext rpcCtx, GetLeaderRequest request) {
-        CliRequests.GetLeaderResponse.Builder resp = MessageBuilderFactory.DEFAULT.createGetLeaderResponse();
-        resp.setLeaderId("127.0.0.1:8081");
-        rpcCtx.sendResponse(resp.build());
+public class TestCustomRequestProcessor implements RpcProcessor<CustomRequest> {
+    @Override
+    public void handleRequest(final RpcContext rpcCtx, final CustomRequest request) {
+        rpcCtx.sendResponse(new CustomResponse());
     }
 
-    @Override public String interest() {
-        return GetLeaderRequest.class.getName();
+    @Override
+    public String interest() {
+        return CustomRequest.class.getName();
     }
 }

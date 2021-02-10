@@ -22,11 +22,12 @@ import org.apache.ignite.raft.closure.RpcResponseClosure;
 import org.apache.ignite.raft.rpc.CliRequests;
 import org.apache.ignite.raft.rpc.Message;
 import org.apache.ignite.raft.rpc.RpcRequests;
+import org.apache.ignite.raft.rpc.RpcRequests.PingRequest;
 
 /**
- * Cli RPC client service.
+ * Raft group RPC client service.
  */
-public interface CliClientService extends ClientService {
+public interface RaftGroupClientService extends ClientService {
     /**
      * Ping a node.
      *
@@ -35,7 +36,7 @@ public interface CliClientService extends ClientService {
      * @param done      callback
      * @return a future with result
      */
-    Future<Message> ping(Endpoint endpoint, RpcRequests.PingRequest request,
+    Future<Message> ping(Endpoint endpoint, PingRequest request,
                             RpcResponseClosure<RpcRequests.ErrorResponse> done);
 
     /**
@@ -161,4 +162,15 @@ public interface CliClientService extends ClientService {
      */
     Future<Message> getPeers(Endpoint endpoint, CliRequests.GetPeersRequest request,
                              RpcResponseClosure<CliRequests.GetPeersResponse> done);
+
+    /**
+     * Send custom request.
+     *
+     * @param endpoint  server address
+     * @param request   request data
+     * @param done      callback
+     * @return a future with result
+     */
+    Future<Message> sendCustom(Endpoint endpoint, Message request,
+                             RpcResponseClosure<Message> done);
 }

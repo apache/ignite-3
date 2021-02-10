@@ -44,10 +44,6 @@ public abstract class AbstractClientService implements ClientService {
     protected volatile RpcClient rpcClient;
     protected RpcOptions rpcOptions;
 
-    public RpcClient getRpcClient() {
-        return this.rpcClient;
-    }
-
     @Override
     public boolean isConnected(final Endpoint endpoint) {
         final RpcClient rc = this.rpcClient;
@@ -160,12 +156,12 @@ public abstract class AbstractClientService implements ClientService {
 
                     if (err == null) {
                         Status status = Status.OK();
-                        Message msg;
+                        T msg;
                         if (result instanceof ErrorResponse) {
                             status = handleErrorResponse((ErrorResponse) result);
-                            msg = (Message) result;
+                            msg = (T) result;
                         } else {
-                            msg = (Message) result;
+                            msg = (T) result;
                         }
                         if (done != null) {
                             try {
@@ -203,12 +199,12 @@ public abstract class AbstractClientService implements ClientService {
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             future.completeExceptionally(e);
-            // should be in another thread to avoid dead locking.
+            // Should be in another thread to avoid deadlocking.
             RpcUtils.runClosureInExecutor(currExecutor, done,
                 new Status(RaftError.EINTR, "Sending rpc was interrupted"));
         } catch (final RemotingException e) {
             future.completeExceptionally(e);
-            // should be in another thread to avoid dead locking.
+            // Should be in another thread to avoid deadlocking.
             RpcUtils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
                 "Fail to send a RPC request:" + e.getMessage()));
 

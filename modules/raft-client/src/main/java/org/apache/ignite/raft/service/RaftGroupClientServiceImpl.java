@@ -43,7 +43,7 @@ import org.apache.ignite.raft.rpc.RpcRequests.ErrorResponse;
 /**
  *
  */
-public class CliClientServiceImpl extends AbstractClientService implements CliClientService {
+public class RaftGroupClientServiceImpl extends AbstractClientService implements RaftGroupClientService {
     @Override public Future<Message> ping(Endpoint endpoint, RpcRequests.PingRequest request,
                                           final RpcResponseClosure<ErrorResponse> done) {
         return invokeWithDone(endpoint, request, done, this.rpcOptions.getRpcDefaultTimeout());
@@ -112,6 +112,10 @@ public class CliClientServiceImpl extends AbstractClientService implements CliCl
     @Override
     public Future<Message> getPeers(final Endpoint endpoint, final GetPeersRequest request,
                                     final RpcResponseClosure<GetPeersResponse> done) {
+        return invokeWithDone(endpoint, request, done, this.rpcOptions.getRpcDefaultTimeout());
+    }
+
+    @Override public Future<Message> sendCustom(Endpoint endpoint, Message request, RpcResponseClosure<Message> done) {
         return invokeWithDone(endpoint, request, done, this.rpcOptions.getRpcDefaultTimeout());
     }
 }
