@@ -154,7 +154,7 @@ public class TraversableTreeNodeTest {
         // Named list node must always be instantiated.
         assertNotNull(elementsNode);
 
-        parentNode.changeElements(elements -> elements.put("key", element -> {}));
+        parentNode.changeElements(elements -> elements.update("key", element -> {}));
 
         // Assert that change method applied its closure to the same object instead of creating a new one.
         assertSame(elementsNode, parentNode.elements());
@@ -194,7 +194,7 @@ public class TraversableTreeNodeTest {
 
         NamedListNode<NamedElementNode> elementsNode = parentNode.elements();
 
-        parentNode.initElements(elements -> elements.put("key", element -> {}));
+        parentNode.initElements(elements -> elements.create("key", element -> {}));
 
         // Assert that change method applied its closure to the same object instead of creating a new one.
         assertSame(elementsNode, parentNode.elements());
@@ -209,7 +209,7 @@ public class TraversableTreeNodeTest {
 
         assertEquals(emptySet(), elementsNode.namedListKeys());
 
-        elementsNode.put("keyPut", element -> {});
+        elementsNode.update("keyPut", element -> {});
 
         assertThat(elementsNode.namedListKeys(), hasItem("keyPut"));
 
@@ -219,7 +219,7 @@ public class TraversableTreeNodeTest {
 
         assertNull(elementNode.strCfg());
 
-        elementsNode.put("keyPut", element -> element.changeStrCfg("val"));
+        elementsNode.update("keyPut", element -> element.changeStrCfg("val"));
 
         // Assert that consecutive put methods don't create new object every time.
         assertSame(elementNode, elementsNode.get("keyPut"));
@@ -227,9 +227,9 @@ public class TraversableTreeNodeTest {
         assertEquals("val", elementNode.strCfg());
 
         // Assert that once you put something into list, removing it makes no sense and hence prohibited.
-        assertThrows(IllegalStateException.class, () -> elementsNode.remove("keyPut"));
+        assertThrows(IllegalStateException.class, () -> elementsNode.delete("keyPut"));
 
-        elementsNode.remove("keyRemove");
+        elementsNode.delete("keyRemove");
 
         // Assert that "remove" method creates null element inside of the node.
         assertThat(elementsNode.namedListKeys(), hasItem("keyRemove"));
@@ -237,7 +237,7 @@ public class TraversableTreeNodeTest {
         assertNull(elementsNode.get("keyRemove"));
 
         // Assert that once you remove something from list, you can't put it back again with different set of fields.
-        assertThrows(IllegalStateException.class, () -> elementsNode.put("keyRemove", element -> {}));
+        assertThrows(IllegalStateException.class, () -> elementsNode.update("keyRemove", element -> {}));
     }
 
     /**

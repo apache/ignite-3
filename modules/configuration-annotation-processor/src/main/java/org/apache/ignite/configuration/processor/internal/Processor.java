@@ -79,6 +79,7 @@ import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListChange;
+import org.apache.ignite.configuration.tree.NamedListInit;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.apache.ignite.configuration.tree.NamedListView;
 
@@ -928,11 +929,11 @@ public class Processor extends AbstractProcessor {
             if (namedListField) {
                 viewFieldType = ParameterizedTypeName.get(ClassName.get(NamedListView.class), WildcardTypeName.subtypeOf(viewFieldType));
 
-                changeFieldType = ParameterizedTypeName.get(ClassName.get(NamedListChange.class), changeFieldType);
-
-                initFieldType = ParameterizedTypeName.get(ClassName.get(NamedListChange.class), initFieldType);
-
                 nodeFieldType = ParameterizedTypeName.get(ClassName.get(NamedListNode.class), nodeFieldType);
+
+                changeFieldType = ParameterizedTypeName.get(ClassName.get(NamedListChange.class), changeFieldType, initFieldType);
+
+                initFieldType = ParameterizedTypeName.get(ClassName.get(NamedListInit.class), initFieldType);
             }
 
             {

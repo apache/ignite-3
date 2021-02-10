@@ -50,7 +50,7 @@ public class ConstructableTreeNodeTest {
             child.initStrCfg("value")
         )
         .initElements(elements ->
-            elements.put("name", element -> {})
+            elements.create("name", element -> {})
         );
 
         // Named list node.
