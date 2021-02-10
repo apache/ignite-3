@@ -14,15 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alipay.sofa.jraft.rpc.impl;
+package org.apache.ignite.raft.rpc.impl;
 
-import com.alipay.sofa.jraft.rpc.Connection;
-import com.alipay.sofa.jraft.rpc.Message;
-import com.alipay.sofa.jraft.rpc.RpcContext;
-import com.alipay.sofa.jraft.rpc.RpcProcessor;
-import com.alipay.sofa.jraft.rpc.RpcServer;
-import com.alipay.sofa.jraft.util.Endpoint;
-import com.alipay.sofa.jraft.util.NamedThreadFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -31,13 +24,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.raft.Endpoint;
+import org.apache.ignite.raft.rpc.Connection;
+import org.apache.ignite.raft.rpc.ConnectionClosedEventListener;
+import org.apache.ignite.raft.rpc.Message;
+import org.apache.ignite.raft.rpc.RpcContext;
+import org.apache.ignite.raft.rpc.RpcOptions;
+import org.apache.ignite.raft.rpc.RpcProcessor;
+import org.apache.ignite.raft.rpc.RpcServer;
+import org.apache.ignite.raft.rpc.RpcUtils;
 
 /**
  * Local RPC server impl.
@@ -45,8 +42,6 @@ import org.slf4j.LoggerFactory;
  * @author ascherbakov.
  */
 public class LocalRpcServer implements RpcServer {
-    private static final Logger LOG                    = LoggerFactory.getLogger(LocalRpcServer.class);
-
     /** Running servers. */
     public static ConcurrentMap<Endpoint, LocalRpcServer> servers = new ConcurrentHashMap<>();
 
@@ -64,9 +59,6 @@ public class LocalRpcServer implements RpcServer {
     private List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
 
     BlockingQueue<Object[]> incoming = new LinkedBlockingDeque<>(); // TODO asch OOM is possible, handle that.
-
-    // TODO FIXME asch Or better use com.alipay.sofa.jraft.rpc.RpcUtils.RPC_CLOSURE_EXECUTOR ?
-    private ExecutorService defaultExecutor;
 
     public LocalRpcServer(Endpoint local) {
         this.local = local;
@@ -122,7 +114,7 @@ public class LocalRpcServer implements RpcServer {
         return local.getPort();
     }
 
-    @Override public synchronized boolean init(Void opts) {
+    @Override public synchronized boolean init(RpcOptions opts) {
         if (started)
             return false;
 
@@ -154,16 +146,10 @@ public class LocalRpcServer implements RpcServer {
                             }
                         }
 
-                        RpcProcessor.ExecutorSelector selector = prc.executorSelector();
-
-                        Executor executor = null;
-
-                        if (selector != null) {
-                            executor = selector.select(null, msg);
-                        }
+                        Executor executor = prc.executor();
 
                         if (executor == null)
-                            executor = defaultExecutor;
+                            executor = RpcUtils.RPC_CLOSURE_EXECUTOR;
 
                         RpcProcessor finalPrc = prc;
 
@@ -189,14 +175,14 @@ public class LocalRpcServer implements RpcServer {
             }
         });
 
-        defaultExecutor = Executors.newCachedThreadPool(new NamedThreadFactory("LocalRPCServer-Default-Executor-Thread: " + local.toString()));
-
         started = true;
 
-        worker.setName("LocalRPCServer-Dispatch-Thread: "  + local.toString());
+        worker.setName("LocalRPCServer-Dispatch-Thread: "  + local.toString()); // TODO asch use MPSC pattern ?
         worker.start();
 
         servers.put(local, this);
+
+
 
         return true;
     }
@@ -210,17 +196,6 @@ public class LocalRpcServer implements RpcServer {
         worker.interrupt();
         try {
             worker.join();
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Interrupted while waiting for RPC server to stop " + local);
-        }
-
-        defaultExecutor.shutdownNow();
-
-        try {
-            boolean stopped = defaultExecutor.awaitTermination(60_000, TimeUnit.MILLISECONDS);
-
-            if (!stopped) // TODO asch make thread dump.
-                LOG.error("Failed to wait for graceful executor shutdown, probably some task is hanging.");
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while waiting for RPC server to stop " + local);
         }

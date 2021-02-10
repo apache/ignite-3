@@ -1,16 +1,13 @@
-package com.alipay.sofa.jraft.rpc.impl;
+package org.apache.ignite.raft.rpc.impl;
 
-import com.alipay.sofa.jraft.rpc.Connection;
-import com.alipay.sofa.jraft.rpc.Message;
-import com.alipay.sofa.jraft.rpc.RpcRequests;
-import com.alipay.sofa.jraft.util.Endpoint;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Predicate;
+import org.apache.ignite.raft.rpc.Connection;
+import org.apache.ignite.raft.rpc.Message;
 
 public class LocalConnection implements Connection {
     private static boolean RECORD_ALL_MESSAGES = false;
@@ -41,6 +38,7 @@ public class LocalConnection implements Connection {
 
     private void send(Message request, Future fut) {
         Object[] tuple = {client, request, fut};
+
         srv.incoming.offer(tuple);
     }
 
@@ -62,10 +60,11 @@ public class LocalConnection implements Connection {
     }
 
     public void onAfterResponseSend(Message msg, Throwable err) {
-        assert err == null : err;
+        if (msg == null) // Ignore timeouts.
+            return;
 
         if (RECORD_ALL_MESSAGES || recordPred != null && recordPred.test(msg))
-            recordedMsgs.add(new Object[] {System.currentTimeMillis(), msg});
+            recordedMsgs.add(new Object[] {System.currentTimeMillis(), msg, err});
     }
 
     @Override public Object getAttribute(String key) {
