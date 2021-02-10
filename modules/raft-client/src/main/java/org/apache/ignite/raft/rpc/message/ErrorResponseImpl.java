@@ -3,23 +3,30 @@ package org.apache.ignite.raft.rpc.message;
 import org.apache.ignite.raft.rpc.RpcRequests;
 
 class ErrorResponseImpl implements RpcRequests.ErrorResponse, RpcRequests.ErrorResponse.Builder {
+    private int errorCode;
+    private String errorMsg = "";
+
     @Override public int getErrorCode() {
-        return 0;
+        return errorCode;
+    }
+
+    @Override public Builder setErrorCode(int errorCode) {
+        this.errorCode = errorCode;
+
+        return this;
     }
 
     @Override public String getErrorMsg() {
-        return null;
+        return errorMsg;
     }
 
-    @Override public Builder setErrorCode(int code) {
-        return null;
-    }
+    @Override public Builder setErrorMsg(String errorMsg) {
+        this.errorMsg = errorMsg;
 
-    @Override public Builder setErrorMsg(String msg) {
-        return null;
+        return this;
     }
 
     @Override public RpcRequests.ErrorResponse build() {
-        return null;
+        return this;
     }
 }

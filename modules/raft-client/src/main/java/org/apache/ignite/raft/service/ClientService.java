@@ -25,7 +25,6 @@ import org.apache.ignite.raft.rpc.RpcOptions;
 
 /**
  * RPC client service.
- * TODO not needed
  */
 public interface ClientService extends Lifecycle<RpcOptions> {
 

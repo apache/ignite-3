@@ -106,6 +106,15 @@ public final class RpcUtils {
         });
     }
 
+    public static Message newResponse(final int code, final String fmt, final Object... args) {
+        final RpcRequests.ErrorResponse.Builder eBuilder = RpcRequests.ErrorResponse.newBuilder();
+        eBuilder.setErrorCode(code);
+        if (fmt != null) {
+            eBuilder.setErrorMsg(String.format(fmt, args));
+        }
+        return eBuilder.build();
+    }
+
     private RpcUtils() {
     }
 }

@@ -37,12 +37,18 @@ import org.apache.ignite.raft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.rpc.CliRequests.ResetPeerRequest;
 import org.apache.ignite.raft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.rpc.Message;
+import org.apache.ignite.raft.rpc.RpcRequests;
 import org.apache.ignite.raft.rpc.RpcRequests.ErrorResponse;
 
 /**
  *
  */
 public class CliClientServiceImpl extends AbstractClientService implements CliClientService {
+    @Override public Future<Message> ping(Endpoint endpoint, RpcRequests.PingRequest request,
+                                          final RpcResponseClosure<ErrorResponse> done) {
+        return invokeWithDone(endpoint, request, done, this.rpcOptions.getRpcDefaultTimeout());
+    }
+
     @Override
     public Future<Message> addPeer(final Endpoint endpoint, final AddPeerRequest request,
                                    final RpcResponseClosure<AddPeerResponse> done) {

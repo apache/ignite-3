@@ -28,6 +28,17 @@ import org.apache.ignite.raft.rpc.RpcRequests;
  */
 public interface CliClientService extends ClientService {
     /**
+     * Ping a node.
+     *
+     * @param endpoint  server address
+     * @param request   request data
+     * @param done      callback
+     * @return a future with result
+     */
+    Future<Message> ping(Endpoint endpoint, RpcRequests.PingRequest request,
+                            RpcResponseClosure<RpcRequests.ErrorResponse> done);
+
+    /**
      * Adds a peer.
      *
      * @param endpoint  server address
