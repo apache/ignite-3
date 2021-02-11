@@ -24,7 +24,7 @@ import static org.junit.Assert.fail;
  */
 public class LocalRpcTest {
     private Endpoint endpoint;
-    private LocalRpcServer server;
+    private RpcServer server;
 
     @Before
     public void setup() {

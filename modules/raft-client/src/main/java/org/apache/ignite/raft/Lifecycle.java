@@ -18,10 +18,6 @@ package org.apache.ignite.raft;
 
 /**
  * Service life cycle mark interface.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:47:04 PM
  */
 public interface Lifecycle<T> {
 
