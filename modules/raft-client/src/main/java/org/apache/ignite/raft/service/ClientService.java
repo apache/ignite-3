@@ -65,7 +65,7 @@ public interface ClientService extends Lifecycle<RpcOptions> {
      *
      * @param endpoint  server address
      * @param request   request data
-     * @param done      callback
+     * @param done      callback TODO asch Add @nullable.
      * @param timeoutMs timeout millis
      * @return a future with operation result
      */

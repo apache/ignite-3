@@ -16,32 +16,33 @@
  */
 package org.apache.ignite.raft;
 
-//A Status encapsulates the result of an operation. It may indicate success,
-
-//or it may indicate an error with an associated error message. It's suitable
-//for passing status of functions with richer information than just error_code
-//in exception-forbidden code. This utility is inspired by leveldb::Status.
-//
-//Multiple threads can invoke const methods on a Status without
-//external synchronization, but if any of the threads may call a
-//non-const method, all threads accessing the same Status must use
-//external synchronization.
-//
-//Since failed status needs to allocate memory, you should be careful when
-//failed status is frequent.
+/**
+ * A Status encapsulates the result of an operation. It may indicate success,
+ * <p>
+ * or it may indicate an error with an associated error message. It's suitable
+ * for passing status of functions with richer information than just error_code
+ * in exception-forbidden code. This utility is inspired by leveldb::Status.
+ * <p>
+ * Multiple threads can invoke const methods on a Status without
+ * external synchronization, but if any of the threads may call a
+ * non-const method, all threads accessing the same Status must use
+ * external synchronization.
+ * <p>
+ * Since failed status needs to allocate memory, you should be careful when
+ * failed status is frequent.
+ */
 public class Status {
-
     /**
      * Status internal state.
-     *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-03 11:17:51 AM
      */
     private static class State {
-        /** error code */
-        int    code;
-        /** error msg*/
+        /**
+         * error code
+         */
+        int code;
+        /**
+         * error msg
+         */
         String msg;
 
         State(int code, String msg) {
@@ -212,7 +213,7 @@ public class Status {
             return "Status[OK]";
         } else {
             return "Status[" + RaftError.describeCode(this.state.code) + "<" + this.state.code + ">: " + this.state.msg
-                   + "]";
+                + "]";
         }
     }
 
