@@ -18,10 +18,11 @@ package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
@@ -29,6 +30,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
+import org.apache.ignite.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
@@ -39,6 +41,9 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
  * Class that handles configuration changes, by validating them, passing to storage and listening to storage updates.
  */
 public class ConfigurationChanger {
+    /** */
+    private final ForkJoinPool pool = new ForkJoinPool(2);
+
     /** Map of configurations' configurators. */
     private Map<RootKey<?>, Configurator<?>> registry = new HashMap<>();
 
@@ -86,37 +91,43 @@ public class ConfigurationChanger {
      * Change configuration.
      * @param changes Map of changes by root key.
      */
-    public void change(Map<RootKey<?>, TraversableTreeNode> changes) throws ConfigurationChangeException,
-        ConfigurationValidationException {
+    public CompletableFuture<?> change(Map<RootKey<?>, TraversableTreeNode> changes) {
+        CompletableFuture<?> fut = new CompletableFuture<>();
+
+        pool.execute(() -> change0(changes, fut));
+
+        return fut;
+    }
+
+    /** */
+    private void change0(Map<RootKey<?>, TraversableTreeNode> changes, CompletableFuture<?> fut) {
         Map<String, Serializable> allChanges = changes.entrySet().stream()
             .map((Map.Entry<RootKey<?>, TraversableTreeNode> change) -> convertChangesToMap(change.getKey(), change.getValue()))
             .flatMap(map -> map.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        boolean writing = true;
+        final ValidationResult validationResult = validate(changes);
 
-        List<ValidationIssue> validationIssues = Collections.emptyList();
+        List<ValidationIssue> validationIssues = validationResult.issues();
 
-        while (writing) {
-            final ValidationResult validationResult = validate(changes);
+        if (!validationIssues.isEmpty()) {
+            fut.completeExceptionally(new ConfigurationValidationException(validationIssues));
 
-            validationIssues = validationResult.issues();
-
-            final int version = validationResult.version();
-
-            if (validationIssues.isEmpty())
-                try {
-                    writing = !configurationStorage.write(allChanges, version);
-                }
-                catch (StorageException e) {
-                    throw new ConfigurationChangeException("Failed to change configuration: " + e.getMessage(), e);
-                }
-            else
-                break;
+            return;
         }
 
-        if (!validationIssues.isEmpty())
-            throw new ConfigurationValidationException(validationIssues);
+        final int version = validationResult.version();
+
+        CompletableFuture<Boolean> writeFut = configurationStorage.write(allChanges, version);
+
+        writeFut.whenCompleteAsync((casResult, throwable) -> {
+            if (throwable != null)
+                fut.completeExceptionally(new ConfigurationChangeException("Failed to change configuration", throwable));
+            else if (casResult)
+                fut.complete(null);
+            else
+                change0(changes, fut);
+        }, pool);
     }
 
     /**
