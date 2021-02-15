@@ -30,7 +30,6 @@ import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
-import org.apache.ignite.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
