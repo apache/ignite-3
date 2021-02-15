@@ -21,8 +21,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
- * @author jiachun.fjc
- * TODO asch
  */
 public final class ThreadHelper {
 
@@ -43,10 +41,9 @@ public final class ThreadHelper {
     }
 
     static class DefaultSpinner extends Spinner {
-
         @Override
         public void onSpinWait() {
-            Thread.yield();
+            Thread.onSpinWait();
         }
     }
 }
