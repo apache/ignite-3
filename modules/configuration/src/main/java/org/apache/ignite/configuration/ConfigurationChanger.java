@@ -90,8 +90,8 @@ public class ConfigurationChanger {
      * Change configuration.
      * @param changes Map of changes by root key.
      */
-    public CompletableFuture<?> change(Map<RootKey<?>, TraversableTreeNode> changes) {
-        CompletableFuture<?> fut = new CompletableFuture<>();
+    public CompletableFuture<Void> change(Map<RootKey<?>, TraversableTreeNode> changes) {
+        CompletableFuture<Void> fut = new CompletableFuture<>();
 
         pool.execute(() -> change0(changes, fut));
 
