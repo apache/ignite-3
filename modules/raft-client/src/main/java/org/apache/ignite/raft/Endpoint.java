@@ -19,7 +19,7 @@ package org.apache.ignite.raft;
 import java.io.Serializable;
 
 /**
- * A IP address with port.
+ * An IP address with a port.
  */
 public class Endpoint implements Serializable {
     public static final String IP_ANY = "0.0.0.0";

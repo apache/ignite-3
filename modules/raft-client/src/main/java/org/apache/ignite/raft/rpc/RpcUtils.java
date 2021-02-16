@@ -23,6 +23,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.raft.Closure;
 import org.apache.ignite.raft.Status;
+import org.apache.ignite.raft.rpc.impl.NamedThreadFactory;
 
 /**
  * RPC utilities.

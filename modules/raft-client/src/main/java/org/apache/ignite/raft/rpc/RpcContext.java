@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.rpc;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public interface RpcContext {
 

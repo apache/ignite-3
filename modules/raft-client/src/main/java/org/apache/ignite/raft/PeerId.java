@@ -19,7 +19,7 @@ package org.apache.ignite.raft;
 import java.io.Serializable;
 
 /**
- * Represent a participant in a replicating group.
+ * Represents a participant in a replicating group.
  */
 public class PeerId implements Serializable {
     private static final long serialVersionUID = 8083529734784884641L;

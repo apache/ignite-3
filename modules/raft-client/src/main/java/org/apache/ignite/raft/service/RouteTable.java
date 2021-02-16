@@ -37,6 +37,7 @@ import org.apache.ignite.raft.rpc.RpcRequests;
 public class RouteTable {
     private static final System.Logger LOG = System.getLogger(RouteTable.class.getName());
 
+    // TODO fixme remove static table.
     private static final RouteTable INSTANCE = new RouteTable();
 
     // Map<groupId, groupConf>

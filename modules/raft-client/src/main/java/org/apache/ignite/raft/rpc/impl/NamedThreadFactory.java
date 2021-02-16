@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.rpc;
+package org.apache.ignite.raft.rpc.impl;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,9 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Named thread factory with prefix.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Mar-21 11:32:02 AM
  */
 public class NamedThreadFactory implements ThreadFactory {
     private static System.Logger LOG = System.getLogger(NamedThreadFactory.class.getName());
