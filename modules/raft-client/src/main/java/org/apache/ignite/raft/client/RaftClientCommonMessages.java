@@ -172,12 +172,12 @@ public final class RaftClientCommonMessages {
     }
 
     public interface GetLeaderResponse extends Message {
-        String getLeaderId();
+        PeerId getLeaderId();
 
         public interface Builder {
             GetLeaderResponse build();
 
-            Builder setLeaderId(String leaderId);
+            Builder setLeaderId(PeerId leaderId);
         }
     }
 

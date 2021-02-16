@@ -61,7 +61,6 @@ public interface RaftGroupRpcClient {
      *
      * @param endpoint  server address
      * @param request   request data
-     * @param done      callback
      * @return a future with result
      */
     Future<RemovePeerResponse> removePeer(RemovePeerRequest request);

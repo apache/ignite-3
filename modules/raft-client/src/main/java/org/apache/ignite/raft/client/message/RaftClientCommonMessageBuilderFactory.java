@@ -53,11 +53,11 @@ public class RaftClientCommonMessageBuilderFactory implements ClientMessageBuild
     }
 
     @Override public RaftClientCommonMessages.GetLeaderRequest.Builder createGetLeaderRequest() {
-        return new CreateGetLeaderRequestImpl();
+        return new GetLeaderRequestImpl();
     }
 
     @Override public RaftClientCommonMessages.GetLeaderResponse.Builder createGetLeaderResponse() {
-        return new CreateGetLeaderResponseImpl();
+        return new GetLeaderResponseImpl();
     }
 
     @Override public RaftClientCommonMessages.GetPeersRequest.Builder createGetPeersRequest() {

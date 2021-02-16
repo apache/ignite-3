@@ -18,6 +18,7 @@ package org.apache.ignite.raft.rpc;
 
 /**
  * An node with an immutable id.
+ * TODO FIXME asch must be elsewhere.
  */
 public class NodeImpl implements Node {
     private final String id;

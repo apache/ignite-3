@@ -30,7 +30,7 @@ public class State implements Iterable<PeerId> {
     /** Mark a leaner peer */
     private static final String LEARNER_POSTFIX = "/learner";
 
-    private PeerId leader;
+    private volatile PeerId leader;
 
     private List<PeerId> peers = new ArrayList<>();
 

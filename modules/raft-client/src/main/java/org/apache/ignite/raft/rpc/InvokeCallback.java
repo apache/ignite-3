@@ -19,6 +19,6 @@ package org.apache.ignite.raft.rpc;
 /**
  *
  */
-public interface InvokeCallback {
-    void complete(final Message response, final Throwable err);
+public interface InvokeCallback<T extends Message> {
+    void complete(final T response, final Throwable err);
 }
