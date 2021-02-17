@@ -33,6 +33,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -154,6 +155,7 @@ public class Processor extends AbstractProcessor {
             .getElementsAnnotatedWithAny(Set.of(ConfigurationRoot.class, Config.class)).stream()
             .filter(element -> element.getKind() == ElementKind.CLASS)
             .map(TypeElement.class::cast)
+            .sorted(Comparator.comparing(element -> element.getQualifiedName().toString()))
             .collect(Collectors.toSet());
 
         if (annotatedConfigs.isEmpty())
@@ -363,14 +365,20 @@ public class Processor extends AbstractProcessor {
             }
         }
 
+        System.out.println("<#>");
+
         // Get all generated configuration nodes
         final List<ConfigurationNode> flattenConfig = roots.stream()
             .map((ConfigurationDescription cfg) -> buildConfigForest(cfg, props))
             .flatMap(Set::stream)
             .collect(Collectors.toList());
 
+        System.out.println("<#> " + flattenConfig.size());
+
         // Generate Keys class
         createKeysClass(packageForUtil, flattenConfig);
+
+        System.out.println("<#> " + packageForUtil);
 
         // Generate Selectors class
         createSelectorsClass(packageForUtil, flattenConfig);
