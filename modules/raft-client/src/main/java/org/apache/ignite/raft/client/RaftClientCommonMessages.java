@@ -256,4 +256,24 @@ public final class RaftClientCommonMessages {
             LearnersOpResponse build();
         }
     }
+
+    public interface UserRequest<T> extends Message {
+        T request();
+
+        public interface Builder<T> {
+            Builder setRequest(T request);
+
+            UserRequest<T> build();
+        }
+    }
+
+    public interface UserResponse<T> extends Message {
+        T response();
+
+        public interface Builder<T> {
+            Builder setResponse(T response);
+
+            UserResponse<T> build();
+        }
+    }
 }

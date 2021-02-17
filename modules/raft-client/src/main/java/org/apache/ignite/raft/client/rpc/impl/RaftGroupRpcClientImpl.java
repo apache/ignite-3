@@ -1,4 +1,4 @@
-package org.apache.ignite.raft.client.impl;
+package org.apache.ignite.raft.client.rpc.impl;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.client.RaftClientCommonMessages;
-import org.apache.ignite.raft.client.RaftGroupRpcClient;
+import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.message.RaftClientCommonMessageBuilderFactory;
 import org.apache.ignite.raft.rpc.InvokeCallback;
 import org.apache.ignite.raft.rpc.Message;
@@ -114,18 +114,20 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
 
         if (state.getLeader() == null) {
             synchronized (state) {
-                CompletableFuture<RaftClientCommonMessages.GetLeaderResponse> fut0 =
-                    refreshLeader(initialCfgNodes.iterator().next(), request.getGroupId()); // TODO asch search all nodes.
+                PeerId leader = state.getLeader();
 
-                try {
-                    RaftClientCommonMessages.GetLeaderResponse resp = fut0.get(defaultTimeout, TimeUnit.MILLISECONDS);
+                if (leader == null) {
+                    CompletableFuture<RaftClientCommonMessages.GetLeaderResponse> fut0 =
+                        refreshLeader(initialCfgNodes.iterator().next(), request.getGroupId()); // TODO asch search all nodes.
 
-                    state.setLeader(resp.getLeaderId());
-                }
-                catch (Exception e) {
-                    fut.completeExceptionally(e);
+                    try {
+                        state.setLeader(fut0.get(defaultTimeout, TimeUnit.MILLISECONDS).getLeaderId());
+                    }
+                    catch (Exception e) {
+                        fut.completeExceptionally(e);
 
-                    return fut;
+                        return fut;
+                    }
                 }
             }
         }

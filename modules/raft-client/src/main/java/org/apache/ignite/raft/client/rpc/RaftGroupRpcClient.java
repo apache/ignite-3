@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.client;
+package org.apache.ignite.raft.client.rpc;
 
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.State;
@@ -38,7 +38,7 @@ import static org.apache.ignite.raft.client.RaftClientCommonMessages.StatusRespo
 import static org.apache.ignite.raft.client.RaftClientCommonMessages.TransferLeaderRequest;
 
 /**
- * Raft group RPC client.
+ * Low-level raft group RPC client.
  */
 public interface RaftGroupRpcClient {
     /**
