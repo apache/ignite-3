@@ -83,7 +83,7 @@ public class ConfigurationChanger {
      * Initialize changer.
      */
     // ConfigurationChangeException, really?
-    public void init(RootKey<?> ...rootKeys) throws ConfigurationChangeException {
+    public void init(RootKey<?>... rootKeys) throws ConfigurationChangeException {
         Map<Class<? extends ConfigurationStorage>, Set<RootKey<?>>> rootsByStorage = new HashMap<>();
 
         for (RootKey<?> rootKey : rootKeys) {
