@@ -36,6 +36,7 @@ import org.mockito.Mockito;
 
 import static org.apache.ignite.configuration.sample.storage.AConfiguration.KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -203,7 +204,7 @@ public class ConfigurationChangerTest {
         final ConfiguratorController configuratorController = new ConfiguratorController();
         final Configurator<?> configurator = configuratorController.configurator();
 
-        ANode data = new ANode();
+        ANode data = new ANode().initChild(child -> child.initIntCfg(1));
 
         final ConfigurationChanger changer = new ConfigurationChanger(storage);
 
@@ -227,6 +228,9 @@ public class ConfigurationChangerTest {
         final Map<String, Serializable> dataMap = dataFromStorage.values();
 
         assertEquals(0, dataMap.size());
+
+        ANode newRoot = (ANode)changer.getRootNode(KEY);
+        assertNull(newRoot.child());
     }
 
     /**
