@@ -56,13 +56,13 @@ public class ConfigurationChanger {
     /** */
     public static class StorageRoots {
         /** */
-        private final Map<RootKey<?>, TraversableTreeNode> roots;
+        private final Map<RootKey<?>, InnerNode> roots;
 
         /** */
         private final int version;
 
         /** */
-        private StorageRoots(Map<RootKey<?>, TraversableTreeNode> roots, int version) {
+        private StorageRoots(Map<RootKey<?>, InnerNode> roots, int version) {
             this.roots = Collections.unmodifiableMap(roots);
             this.version = version;
         }
@@ -105,7 +105,7 @@ public class ConfigurationChanger {
                 throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
             }
 
-            Map<RootKey<?>, TraversableTreeNode> storageRootsMap = new HashMap<>();
+            Map<RootKey<?>, InnerNode> storageRootsMap = new HashMap<>();
 
             Map<String, ?> dataValuesPrefixMap = ConfigurationUtil.toPrefixMap(data.values());
 
@@ -114,6 +114,7 @@ public class ConfigurationChanger {
 
                 if (rootPrefixMap == null) {
                     //TODO IGNITE-14193 Init with defaults.
+                    storageRootsMap.put(rootKey, rootKey.createRootNode());
                 }
                 else {
                     InnerNode rootNode = rootKey.createRootNode();
@@ -143,6 +144,15 @@ public class ConfigurationChanger {
     //TODO IGNITE-14183 Refactor, get rid of configurator and create some "validator".
     public void registerConfiguration(RootKey<?> key, Configurator<?> configurator) {
         configurators.put(key, configurator);
+    }
+
+    /**
+     * Get root node by root key. Subject to revisiting.
+     *
+     * @param rootKey Root key.
+     */
+    public TraversableTreeNode getRootNode(RootKey<?> rootKey) {
+        return this.storagesRootsMap.get(rootKey.getStorageType()).roots.get(rootKey);
     }
 
     /**
@@ -221,10 +231,30 @@ public class ConfigurationChanger {
         Class<? extends ConfigurationStorage> storageType,
         Data changedEntries
     ) {
-        // TODO: IGNITE-14118 add tree update
-        StorageRoots storageRoots = new StorageRoots(new HashMap<>(), changedEntries.version());
+        StorageRoots oldStorageRoots = this.storagesRootsMap.get(storageType);
+
+        Map<RootKey<?>, InnerNode> storageRootsMap = new HashMap<>(oldStorageRoots.roots);
+
+        Map<String, ?> dataValuesPrefixMap = ConfigurationUtil.toPrefixMap(changedEntries.values());
+
+        for (RootKey<?> rootKey : oldStorageRoots.roots.keySet()) {
+            //TODO IGNITE-14182 Remove is not yet supported here.
+            Map<String, ?> rootPrefixMap = (Map<String, ?>)dataValuesPrefixMap.get(rootKey.key());
+
+            if (rootPrefixMap != null) {
+                InnerNode rootNode = oldStorageRoots.roots.get(rootKey).copy();
+
+                ConfigurationUtil.fillFromPrefixMap(rootNode, rootPrefixMap);
+
+                storageRootsMap.put(rootKey, rootNode);
+            }
+        }
+
+        StorageRoots storageRoots = new StorageRoots(storageRootsMap, changedEntries.version());
 
         storagesRootsMap.put(storageType, storageRoots);
+
+        // Notify listeners.
     }
 
     /**
