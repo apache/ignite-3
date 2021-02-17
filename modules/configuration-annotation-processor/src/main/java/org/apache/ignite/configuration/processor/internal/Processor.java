@@ -55,7 +55,10 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.MirroredTypesException;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.Configurator;
@@ -322,8 +325,18 @@ public class Processor extends AbstractProcessor {
             // Create VIEW, INIT and CHANGE classes
             createPojoBindings(packageName, fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
 
-            if (isRoot)
-                createRootKeyField(configInterface, configurationInterfaceBuilder, configDesc);
+            if (isRoot) {
+                TypeMirror storageType = null;
+
+                try {
+                    rootAnnotation.storage();
+                }
+                catch (MirroredTypesException e) {
+                    storageType = e.getTypeMirrors().get(0);
+                }
+
+                createRootKeyField(configInterface, configurationInterfaceBuilder, configDesc, storageType, schemaClassName);
+            }
 
             // Create constructors for configuration class
             createConstructors(configClass, configName, configurationClassBuilder, CONFIGURATOR_TYPE, constructorBodyBuilder, copyConstructorBodyBuilder);
@@ -368,23 +381,20 @@ public class Processor extends AbstractProcessor {
     /** */
     private void createRootKeyField(ClassName configInterface,
         TypeSpec.Builder configurationClassBuilder,
-        ConfigurationDescription configDesc) {
-
+        ConfigurationDescription configDesc,
+        TypeMirror storageType,
+        ClassName schemaClassName
+    ) {
         ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ClassName.get(RootKey.class), configInterface);
 
-        TypeSpec anonymousClass = TypeSpec.anonymousClassBuilder("")
-            .addSuperinterface(fieldTypeName)
-            .addMethod(MethodSpec
-                .methodBuilder("key")
-                .addAnnotation(Override.class)
-                .addModifiers(PUBLIC)
-                .returns(TypeName.get(String.class))
-                .addStatement("return $S", configDesc.getName())
-                .build()).build();
+        ClassName nodeClassName = ClassName.get(
+            schemaClassName.packageName() + ".impl",
+            schemaClassName.simpleName().replace("ConfigurationSchema", "Node")
+        );
 
         FieldSpec keyField = FieldSpec.builder(
             fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
-            .initializer("$L", anonymousClass)
+            .initializer("$T.newRootKey($S, $T.class, $T::new)", ConfigurationRegistry.class, configDesc.getName(), storageType, nodeClassName)
             .build();
 
         configurationClassBuilder.addField(keyField);
@@ -863,14 +873,15 @@ public class Processor extends AbstractProcessor {
             .addSuperinterface(changeClsName)
             .addSuperinterface(initClsName);
 
+        TypeVariableName t = TypeVariableName.get("T");
+
         MethodSpec.Builder traverseChildrenBuilder = MethodSpec.methodBuilder("traverseChildren")
             .addAnnotation(Override.class)
             .addJavadoc("{@inheritDoc}")
             .addModifiers(PUBLIC)
+            .addTypeVariable(t)
             .returns(TypeName.VOID)
-            .addParameter(ClassName.get(ConfigurationVisitor.class), "visitor");
-
-        TypeVariableName t = TypeVariableName.get("T");
+            .addParameter(ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), t), "visitor");
 
         MethodSpec.Builder traverseChildBuilder = MethodSpec.methodBuilder("traverseChild")
             .addAnnotation(Override.class)

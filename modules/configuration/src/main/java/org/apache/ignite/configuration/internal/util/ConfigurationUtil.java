@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.internal.util;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -57,7 +58,7 @@ public class ConfigurationUtil {
      * Splits string using unescaped {@code .} character as a separator.
      *
      * @param keys Qualified key where escaped subkeys are joined with dots.
-     * @return List of unescaped subkeys.
+     * @return Random access list of unescaped subkeys.
      * @see #unescape(String)
      * @see #join(List)
      */
@@ -134,6 +135,51 @@ public class ConfigurationUtil {
     }
 
     /**
+     *
+     */
+    public static Map<String, ?> toPrefixMap(Map<String, Serializable> rawConfig) {
+        Map<String, Object> res = new HashMap<>();
+
+        for (Map.Entry<String, Serializable> entry : rawConfig.entrySet()) {
+            List<String> keys = split(entry.getKey());
+
+            insert(res, keys, 0, entry.getValue());
+        }
+
+        return res;
+    }
+
+    /** */
+    @SuppressWarnings("unchecked")
+    private static void insert(Map<String, Object> map, List<String> keys, int idx, Serializable val) {
+        String key = keys.get(idx);
+
+        if (keys.size() == idx + 1) {
+            assert !map.containsKey(key) : map.get(key);
+
+            map.put(key, val);
+        }
+        else {
+            Object node = map.get(key);
+
+            Map<String, Object> submap;
+
+            if (node == null) {
+                submap = new HashMap<>();
+
+                map.put(key, submap);
+            }
+            else {
+                assert node instanceof Map : node;
+
+                submap = (Map<String, Object>)node;
+            }
+
+            insert(submap, keys, idx + 1, val);
+        }
+    }
+
+    /**
      * Convert Map tree to configuration tree. No error handling here.
      *
      * @param node Node to fill. Not necessarily empty.
@@ -142,7 +188,7 @@ public class ConfigurationUtil {
      * @throws UnsupportedOperationException if prefix map structure doesn't correspond to actual tree structure.
      *      This will be fixed when method is actually used in configuration storage intergration.
      */
-    public static void fillFromSuffixMap(ConstructableTreeNode node, Map<String, ?> prefixMap) {
+    public static void fillFromPrefixMap(ConstructableTreeNode node, Map<String, ?> prefixMap) {
         assert node instanceof InnerNode;
 
         /** */
@@ -188,6 +234,7 @@ public class ConfigurationUtil {
             }
 
             /** {@inheritDoc} */
+            @SuppressWarnings("unchecked")
             @Override public void descend(ConstructableTreeNode node) {
                 for (Map.Entry<String, ?> entry : map.entrySet()) {
                     String key = entry.getKey();
@@ -199,8 +246,11 @@ public class ConfigurationUtil {
                         node.construct(key, null);
                     else if (val instanceof Map)
                         node.construct(key, new InnerConfigurationSource((Map<String, ?>)val));
-                    else
+                    else {
+                        assert val instanceof Serializable;
+
                         node.construct(key, new LeafConfigurationSource((Serializable)val));
+                    }
                 }
             }
         }
@@ -217,6 +267,7 @@ public class ConfigurationUtil {
      * @param root Immutable configuration node.
      * @param changes Change or Init object to be applied.
      */
+    @SuppressWarnings("unchecked")
     public static <C extends ConstructableTreeNode> C patch(C root, TraversableTreeNode changes) {
         assert root.getClass() == changes.getClass(); // Yes.
 

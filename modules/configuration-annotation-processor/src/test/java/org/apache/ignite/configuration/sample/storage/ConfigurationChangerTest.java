@@ -23,9 +23,9 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.sample.storage.impl.ANode;
@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import static org.apache.ignite.configuration.sample.storage.AConfiguration.KEY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.collection.IsMapContaining.hasEntry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,11 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Test configuration changer.
  */
 public class ConfigurationChangerTest {
-    /** Root configuration key. */
-    private static final RootKey<?> KEY = () -> "key";
-
     /** */
-    @Config
+    @ConfigurationRoot(rootName = "key", storage = TestConfigurationStorage.class)
     public static class AConfigurationSchema {
         /** */
         @ConfigValue
@@ -93,7 +91,7 @@ public class ConfigurationChangerTest {
             .initElements(change -> change.create("a", init -> init.initStrCfg("1")));
 
         final ConfigurationChanger changer = new ConfigurationChanger(storage);
-        changer.init();
+        changer.init(KEY);
 
         changer.registerConfiguration(KEY, configurator);
 
@@ -130,10 +128,10 @@ public class ConfigurationChangerTest {
             );
 
         final ConfigurationChanger changer1 = new ConfigurationChanger(storage);
-        changer1.init();
+        changer1.init(KEY);
 
         final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
-        changer2.init();
+        changer2.init(KEY);
 
         changer1.registerConfiguration(KEY, configurator);
         changer2.registerConfiguration(KEY, configurator);
@@ -173,10 +171,10 @@ public class ConfigurationChangerTest {
             );
 
         final ConfigurationChanger changer1 = new ConfigurationChanger(storage);
-        changer1.init();
+        changer1.init(KEY);
 
         final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
-        changer2.init();
+        changer2.init(KEY);
 
         changer1.registerConfiguration(KEY, configurator);
         changer2.registerConfiguration(KEY, configurator);
@@ -212,11 +210,11 @@ public class ConfigurationChangerTest {
 
         storage.fail(true);
 
-        assertThrows(ConfigurationChangeException.class, changer::init);
+        assertThrows(ConfigurationChangeException.class, () -> changer.init(KEY));
 
         storage.fail(false);
 
-        changer.init();
+        changer.init(KEY);
 
         changer.registerConfiguration(KEY, configurator);
 

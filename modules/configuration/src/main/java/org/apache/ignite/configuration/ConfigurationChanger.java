@@ -18,12 +18,15 @@ package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
@@ -44,37 +47,91 @@ public class ConfigurationChanger {
     private final ForkJoinPool pool = new ForkJoinPool(2);
 
     /** Map of configurations' configurators. */
-    private Map<RootKey<?>, Configurator<?>> registry = new HashMap<>();
+    private Map<RootKey<?>, Configurator<?>> configurators = new HashMap<>();
 
-    /** Storage. */
-    private ConfigurationStorage configurationStorage;
+    /** */
+    private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesMap = new ConcurrentHashMap<>();
 
-    /** Changer's last known version of storage. */
-    private final AtomicInteger version = new AtomicInteger(0);
+    /** */
+    public static class StorageRoots {
+        /** */
+        private final Map<RootKey<?>, TraversableTreeNode> roots;
+
+        /** */
+        private final int version;
+
+        /** */
+        private StorageRoots(Map<RootKey<?>, TraversableTreeNode> roots, int version) {
+            this.roots = Collections.unmodifiableMap(roots);
+            this.version = version;
+        }
+    }
+
+    /** */
+    private final Map<RootKey<?>, ConfigurationStorage> storages = new HashMap<>();
+
+    /** */
+    private final Map<Class<? extends ConfigurationStorage>, ConfigurationStorage> storageInstances = new HashMap<>();
 
     /** Constructor. */
-    public ConfigurationChanger(ConfigurationStorage configurationStorage) {
-        this.configurationStorage = configurationStorage;
+    public ConfigurationChanger(ConfigurationStorage... configurationStorages) {
+        for (ConfigurationStorage storage : configurationStorages)
+            storageInstances.put(storage.getClass(), storage);
     }
 
     /**
      * Initialize changer.
      */
-    public void init() throws ConfigurationChangeException {
-        final Data data;
+    // ConfigurationChangeException, really?
+    public void init(RootKey<?> ...rootKeys) throws ConfigurationChangeException {
+        Map<Class<? extends ConfigurationStorage>, Set<RootKey<?>>> rootsByStorage = new HashMap<>();
 
-        try {
-            data = configurationStorage.readAll();
+        for (RootKey<?> rootKey : rootKeys) {
+            Class<? extends ConfigurationStorage> storageType = rootKey.getStorageType();
+
+            storages.put(rootKey, storageInstances.get(storageType));
+
+            rootsByStorage.computeIfAbsent(storageType, c -> new HashSet<>()).add(rootKey);
         }
-        catch (StorageException e) {
-            throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
+
+        for (ConfigurationStorage configurationStorage : storageInstances.values()) {
+            Data data;
+
+            try {
+                data = configurationStorage.readAll();
+            }
+            catch (StorageException e) {
+                throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
+            }
+
+            Map<RootKey<?>, TraversableTreeNode> storageRootsMap = new HashMap<>();
+
+            Map<String, ?> dataValuesPrefixMap = ConfigurationUtil.toPrefixMap(data.values());
+
+            for (RootKey<?> rootKey : rootsByStorage.get(configurationStorage.getClass())) {
+                Map<String, ?> rootPrefixMap = (Map<String, ?>)dataValuesPrefixMap.get(rootKey.key());
+
+                if (rootPrefixMap == null) {
+                    //TODO IGNITE-14193 Init with defaults.
+                }
+                else {
+                    InnerNode rootNode = rootKey.createRootNode();
+
+                    ConfigurationUtil.fillFromPrefixMap(rootNode, rootPrefixMap);
+
+                    storageRootsMap.put(rootKey, rootNode);
+                }
+            }
+
+            storagesMap.put(configurationStorage.getClass(), new StorageRoots(storageRootsMap, data.version()));
+
+            configurationStorage.addListener(changedEntries -> updateFromListener(
+                configurationStorage.getClass(),
+                changedEntries
+            ));
+
+            // TODO: IGNITE-14118 iterate over data and fill Configurators
         }
-
-        version.set(data.version());
-
-        configurationStorage.addListener(this::updateFromListener);
-
-        // TODO: IGNITE-14118 iterate over data and fill Configurators
     }
 
     /**
@@ -82,30 +139,53 @@ public class ConfigurationChanger {
      * @param key Root configuration key of the configurator.
      * @param configurator Configuration's configurator.
      */
+    //TODO IGNITE-14183 Refactor, get rid of configurator and create some "validator".
     public void registerConfiguration(RootKey<?> key, Configurator<?> configurator) {
-        registry.put(key, configurator);
+        configurators.put(key, configurator);
     }
 
     /**
      * Change configuration.
      * @param changes Map of changes by root key.
+     * @param storagesType
      */
     public CompletableFuture<Void> change(Map<RootKey<?>, TraversableTreeNode> changes) {
+        if (changes.isEmpty())
+            return CompletableFuture.completedFuture(null);
+
+        Set<Class<? extends ConfigurationStorage>> storagesTypes = changes.keySet().stream()
+            .map(RootKey::getStorageType)
+            .distinct()
+            .collect(Collectors.toSet());
+
+        assert !storagesTypes.isEmpty();
+
+        if (storagesTypes.size() != 1)
+            return CompletableFuture.failedFuture(new ConfigurationChangeException("Fuck that"));
+
+        Class<? extends ConfigurationStorage> storageType = storagesTypes.iterator().next();
+
         CompletableFuture<Void> fut = new CompletableFuture<>();
 
-        pool.execute(() -> change0(changes, fut));
+        pool.execute(() -> change0(changes, storageType, fut));
 
         return fut;
     }
 
     /** */
-    private void change0(Map<RootKey<?>, TraversableTreeNode> changes, CompletableFuture<?> fut) {
+    private void change0(
+        Map<RootKey<?>, TraversableTreeNode> changes,
+        Class<? extends ConfigurationStorage> storageType,
+        CompletableFuture<?> fut
+    ) {
         Map<String, Serializable> allChanges = changes.entrySet().stream()
             .map((Map.Entry<RootKey<?>, TraversableTreeNode> change) -> convertChangesToMap(change.getKey(), change.getValue()))
             .flatMap(map -> map.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        final ValidationResult validationResult = validate(changes);
+        StorageRoots roots = storagesMap.get(storageType);
+
+        final ValidationResult validationResult = validate(roots, changes);
 
         List<ValidationIssue> validationIssues = validationResult.issues();
 
@@ -117,7 +197,7 @@ public class ConfigurationChanger {
 
         final int version = validationResult.version();
 
-        CompletableFuture<Boolean> writeFut = configurationStorage.write(allChanges, version);
+        CompletableFuture<Boolean> writeFut = storageInstances.get(storageType).write(allChanges, version);
 
         writeFut.whenCompleteAsync((casResult, throwable) -> {
             if (throwable != null)
@@ -125,40 +205,50 @@ public class ConfigurationChanger {
             else if (casResult)
                 fut.complete(null);
             else
-                change0(changes, fut);
+                change0(changes, storageType, fut);
         }, pool);
     }
 
     /**
      * Update configuration from storage listener.
+     * @param storageType
      * @param changedEntries Changed data.
      */
-    private synchronized void updateFromListener(Data changedEntries) {
+    private void updateFromListener(
+        Class<? extends ConfigurationStorage> storageType,
+        Data changedEntries
+    ) {
         // TODO: IGNITE-14118 add tree update
-        version.set(changedEntries.version());
+        StorageRoots storageRoots = new StorageRoots(new HashMap<>(), changedEntries.version());
+
+        storagesMap.put(storageType, storageRoots);
     }
 
     /**
      * Validate configuration changes.
+     *
+     * @param storageRoots Storage roots.
      * @param changes Configuration changes.
      * @return Validation results.
      */
-    private synchronized ValidationResult validate(Map<RootKey<?>, TraversableTreeNode> changes) {
-        final int version = this.version.get();
-
+    private ValidationResult validate(
+        StorageRoots storageRoots,
+        Map<RootKey<?>, TraversableTreeNode> changes
+    ) {
         List<ValidationIssue> issues = new ArrayList<>();
 
         for (Map.Entry<RootKey<?>, TraversableTreeNode> entry : changes.entrySet()) {
             RootKey<?> rootKey = entry.getKey();
             TraversableTreeNode changesForRoot = entry.getValue();
 
-            final Configurator<?> configurator = registry.get(rootKey);
+            final Configurator<?> configurator = configurators.get(rootKey);
 
             List<ValidationIssue> list = configurator.validateChanges(changesForRoot);
             issues.addAll(list);
         }
 
-        return new ValidationResult(issues, version);
+        // Why would I put a version into a validation result? Makes no sense.
+        return new ValidationResult(issues, storageRoots.version);
     }
 
     /**

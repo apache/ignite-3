@@ -17,17 +17,40 @@
 
 package org.apache.ignite.configuration;
 
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.tree.InnerNode;
 
 /** */
-public abstract class RootKey<T extends ConfigurationTree<?, ?>> {
+class RootKeyImpl<T extends ConfigurationTree<?, ?>> extends RootKey<T> {
     /** */
-    public abstract String key();
+    private final String rootName;
 
     /** */
-    protected abstract Class<? extends ConfigurationStorage> getStorageType();
+    private final Class<? extends ConfigurationStorage> storageType;
 
     /** */
-    protected abstract InnerNode createRootNode();
+    private final Supplier<InnerNode> rootSupplier;
+
+    /** */
+    RootKeyImpl(String rootName, Class<? extends ConfigurationStorage> storageType, Supplier<InnerNode> rootSupplier) {
+        this.rootName = rootName;
+        this.storageType = storageType;
+        this.rootSupplier = rootSupplier;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String key() {
+        return rootName;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Class<? extends ConfigurationStorage> getStorageType() {
+        return storageType;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected InnerNode createRootNode() {
+        return rootSupplier.get();
+    }
 }
