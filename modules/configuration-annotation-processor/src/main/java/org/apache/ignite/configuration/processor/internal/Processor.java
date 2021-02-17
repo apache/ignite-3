@@ -151,12 +151,12 @@ public class Processor extends AbstractProcessor {
         String packageForUtil = "";
 
         // All classes annotated with @Config
-        final Set<TypeElement> annotatedConfigs = roundEnvironment
+        final List<TypeElement> annotatedConfigs = roundEnvironment
             .getElementsAnnotatedWithAny(Set.of(ConfigurationRoot.class, Config.class)).stream()
             .filter(element -> element.getKind() == ElementKind.CLASS)
             .map(TypeElement.class::cast)
-            .sorted(Comparator.comparing(element -> element.getQualifiedName().toString()))
-            .collect(Collectors.toSet());
+            .sorted(Comparator.comparing((TypeElement element) -> element.getQualifiedName().toString()).reversed())
+            .collect(Collectors.toList());
 
         if (annotatedConfigs.isEmpty())
             return false;
@@ -365,20 +365,14 @@ public class Processor extends AbstractProcessor {
             }
         }
 
-        System.out.println("<#>");
-
         // Get all generated configuration nodes
         final List<ConfigurationNode> flattenConfig = roots.stream()
             .map((ConfigurationDescription cfg) -> buildConfigForest(cfg, props))
             .flatMap(Set::stream)
             .collect(Collectors.toList());
 
-        System.out.println("<#> " + flattenConfig.size());
-
         // Generate Keys class
         createKeysClass(packageForUtil, flattenConfig);
-
-        System.out.println("<#> " + packageForUtil);
 
         // Generate Selectors class
         createSelectorsClass(packageForUtil, flattenConfig);
