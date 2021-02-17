@@ -10,8 +10,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.raft.PeerId;
+import org.apache.ignite.raft.RaftException;
 import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientCommonMessages.StatusResponse;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.message.RaftClientCommonMessageBuilderFactory;
 import org.apache.ignite.raft.rpc.InvokeCallback;
@@ -55,11 +57,11 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.StatusResponse> resetPeers(PeerId peerId, RaftClientCommonMessages.ResetPeerRequest request) {
+    @Override public Future<StatusResponse> resetPeers(PeerId peerId, RaftClientCommonMessages.ResetPeerRequest request) {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.StatusResponse> snapshot(PeerId peerId, RaftClientCommonMessages.SnapshotRequest request) {
+    @Override public Future<StatusResponse> snapshot(PeerId peerId, RaftClientCommonMessages.SnapshotRequest request) {
         return null;
     }
 
@@ -79,7 +81,7 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.StatusResponse> transferLeader(RaftClientCommonMessages.TransferLeaderRequest request) {
+    @Override public Future<StatusResponse> transferLeader(RaftClientCommonMessages.TransferLeaderRequest request) {
         return null;
     }
 
@@ -136,8 +138,19 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
             @Override public void complete(R response, Throwable err) {
                 if (err != null)
                     fut.completeExceptionally(err);
-                else
-                    fut.complete(response);
+                else {
+                    if (response instanceof StatusResponse) {
+                        StatusResponse resp = (StatusResponse) response;
+
+                        // Translate error response to exception with the code.
+                        if (resp.getStatusCode() != 0)
+                            fut.completeExceptionally(new RaftException(resp.getStatusCode(), resp.getStatusMsg()));
+                        else
+                            fut.complete(response);
+                    }
+                    else
+                        fut.complete(response);
+                }
             }
         }, executor, defaultTimeout);
 
