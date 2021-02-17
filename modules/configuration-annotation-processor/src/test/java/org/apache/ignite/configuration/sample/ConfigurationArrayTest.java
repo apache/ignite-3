@@ -41,6 +41,9 @@ public class ConfigurationArrayTest {
         private String[] array;
     }
 
+    /**
+     * Test array node init operation.
+     */
     @Test
     public void testInit() {
         var arrayNode = new TestArrayNode();
@@ -62,6 +65,9 @@ public class ConfigurationArrayTest {
         assertNotSame(getArray(arrayNode), arrayNode.array());
     }
 
+    /**
+     * Test array node change operation.
+     */
     @Test
     public void testChange() {
         var arrayNode = new TestArrayNode();
