@@ -150,7 +150,6 @@ public class ConfigurationUtil {
     }
 
     /** */
-    @SuppressWarnings("unchecked")
     private static void insert(Map<String, Object> map, List<String> keys, int idx, Serializable val) {
         String key = keys.get(idx);
 
@@ -234,7 +233,6 @@ public class ConfigurationUtil {
             }
 
             /** {@inheritDoc} */
-            @SuppressWarnings("unchecked")
             @Override public void descend(ConstructableTreeNode node) {
                 for (Map.Entry<String, ?> entry : map.entrySet()) {
                     String key = entry.getKey();
@@ -267,7 +265,6 @@ public class ConfigurationUtil {
      * @param root Immutable configuration node.
      * @param changes Change or Init object to be applied.
      */
-    @SuppressWarnings("unchecked")
     public static <C extends ConstructableTreeNode> C patch(C root, TraversableTreeNode changes) {
         assert root.getClass() == changes.getClass(); // Yes.
 
