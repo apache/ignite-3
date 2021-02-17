@@ -325,8 +325,7 @@ public class ConfigurationChanger {
             @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
                 int previousKeyLength = currentKey.length();
 
-                if (key != null)
-                    currentKey.append(key).append('.');
+                currentKey.append(key).append('.');
 
                 for (String namedListKey : node.namedListKeys()) {
                     int loopPreviousKeyLength = currentKey.length();
