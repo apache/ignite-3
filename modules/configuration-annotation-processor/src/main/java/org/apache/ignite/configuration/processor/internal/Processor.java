@@ -282,25 +282,12 @@ public class Processor extends AbstractProcessor {
                 final Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
                     // Must be a primitive or an array of the primitives (including java.lang.String)
-                    String type = baseType.toString();
-
-                    if (baseType instanceof ArrayTypeName)
-                        type = ((ArrayTypeName) baseType).componentType.toString();
-
-                    switch (type) {
-                        case "boolean":
-                        case "int":
-                        case "long":
-                        case "double":
-                        case "java.lang.String":
-                            break;
-
-                        default:
-                            throw new ProcessorException(
-                                "@Value " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must" +
-                                    " have one of the following types: boolean, int, long, double, String or an array of " +
-                                    "aforementioned type."
-                            );
+                    if (!isPrimitiveOrArrayOfPrimitives(baseType)) {
+                        throw new ProcessorException(
+                            "@Value " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must" +
+                                " have one of the following types: boolean, int, long, double, String or an array of " +
+                                "aforementioned type."
+                        );
                     }
 
                     // Create value (DynamicProperty<>) field
@@ -909,9 +896,8 @@ public class Processor extends AbstractProcessor {
             String fieldName = field.getSimpleName().toString();
             TypeName schemaFieldType = TypeName.get(field.asType());
 
-            boolean isPrimitive = schemaFieldType.isPrimitive();
             boolean isArray = schemaFieldType instanceof ArrayTypeName;
-            boolean isPrimitiveOrArray = isPrimitive || isArray;
+            boolean isPrimitiveOrArray = isPrimitiveOrArrayOfPrimitives(schemaFieldType);
 
             boolean leafField = isPrimitiveOrArray || !((ClassName)schemaFieldType).simpleName().contains("ConfigurationSchema");
             boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
@@ -1370,6 +1356,31 @@ public class Processor extends AbstractProcessor {
             .addParameter(type, "changes")
             .addCode(builder.build())
             .build();
+    }
+
+    /**
+     * Checks whether TypeName is a primitive (or String) or an array of primitives (or Strings)
+     * @param typeName TypeName.
+     * @return {@code true} if type is primitive or array.
+     */
+    private boolean isPrimitiveOrArrayOfPrimitives(TypeName typeName) {
+        String type = typeName.toString();
+
+        if (typeName instanceof ArrayTypeName)
+            type = ((ArrayTypeName) typeName).componentType.toString();
+
+        switch (type) {
+            case "boolean":
+            case "int":
+            case "long":
+            case "double":
+            case "java.lang.String":
+                return true;
+
+            default:
+                return false;
+
+        }
     }
 
     /** {@inheritDoc} */

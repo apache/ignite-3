@@ -17,16 +17,17 @@
 
 package org.apache.ignite.configuration.sample;
 
-import java.lang.reflect.Field;
-import java.util.Arrays;
+import java.io.Serializable;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.sample.impl.TestArrayNode;
+import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 /**
  * Test configuration with array of primitive type (or {@link String}) fields.
@@ -41,7 +42,7 @@ public class ConfigurationArrayTest {
     }
 
     @Test
-    public void test() {
+    public void testInit() {
         var arrayNode = new TestArrayNode();
 
         Supplier<String[]> initialSupplier = () -> {
@@ -51,14 +52,19 @@ public class ConfigurationArrayTest {
         final String[] initialValue = initialSupplier.get();
         arrayNode.initArray(initialValue);
 
-        // change value in initial array
-        initialValue[0] = "doesn't matter";
+        // test that field is not the same as initialValue
+        assertNotSame(getArray(arrayNode), initialValue);
 
-        // test that changing value in initial array doesn't change value of array in arrayNode
-        assertTrue(Arrays.equals(initialSupplier.get(), arrayNode.array()));
+        // test that init method set values successfully
+        assertThat(arrayNode.array(), is(initialSupplier.get()));
 
         // test that returned array is a copy of the field
-        assertNotEquals(getField(arrayNode, "array"), arrayNode.array(), "Must be a copy of an array");
+        assertNotSame(getArray(arrayNode), arrayNode.array());
+    }
+
+    @Test
+    public void testChange() {
+        var arrayNode = new TestArrayNode();
 
         Supplier<String[]> changeSupplier = () -> {
             return new String[]{"foo", "bar"};
@@ -67,30 +73,27 @@ public class ConfigurationArrayTest {
         final String[] changeValue = changeSupplier.get();
         arrayNode.changeArray(changeValue);
 
-        // change value in change array
-        changeValue[0] = "doesn't matter";
+        // test that field is not the same as initialValue
+        assertNotSame(getArray(arrayNode), changeValue);
 
-        // test that changing value in change array doesn't change value of array in arrayNode
-        assertTrue(Arrays.equals(changeSupplier.get(), arrayNode.array()));
+        // test that change method set values successfully
+        assertThat(arrayNode.array(), is(changeSupplier.get()));
 
         // test that returned array is a copy of the field
-        assertNotEquals(getField(arrayNode, "array"), arrayNode.array(), "Must be a copy of an array");
+        assertNotSame(getArray(arrayNode), arrayNode.array());
     }
 
     /**
-     * Get field value via reflection.
-     * @param object Object to get field from.
-     * @param fieldName Field name.
-     * @param <T> Type of the field.
-     * @return Value of the field.
+     * Get array field from ArrayNode
+     * @param arrayNode ArrayNode.
+     * @return Array field value.
      */
-    private <T> T getField(Object object, String fieldName) {
-        try {
-            final Field field = object.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return (T) field.get(object);
-        } catch (IllegalAccessException | NoSuchFieldException e) {
-            throw new RuntimeException(e);
-        }
+    private String[] getArray(TestArrayNode arrayNode) {
+        return arrayNode.traverseChild("array", new ConfigurationVisitor<String[]>() {
+            /** {@inheritDoc} */
+            @Override public String[] visitLeafNode(String key, Serializable val) {
+                return (String[]) val;
+            }
+        });
     }
 }
