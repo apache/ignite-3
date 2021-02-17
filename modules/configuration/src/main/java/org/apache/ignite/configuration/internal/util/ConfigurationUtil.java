@@ -135,13 +135,19 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Converts raw map with dot-separated keys into a prefix map.
      *
+     * @param rawConfig Original map.
+     * @return Prefix map.
+     * @see #split(String)
      */
     public static Map<String, ?> toPrefixMap(Map<String, Serializable> rawConfig) {
         Map<String, Object> res = new HashMap<>();
 
         for (Map.Entry<String, Serializable> entry : rawConfig.entrySet()) {
             List<String> keys = split(entry.getKey());
+
+            assert keys instanceof RandomAccess : keys.getClass();
 
             insert(res, keys, 0, entry.getValue());
         }

@@ -47,10 +47,11 @@ public class ConfigurationChanger {
     private final ForkJoinPool pool = new ForkJoinPool(2);
 
     /** Map of configurations' configurators. */
+    @Deprecated
     private Map<RootKey<?>, Configurator<?>> configurators = new HashMap<>();
 
     /** */
-    private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesMap = new ConcurrentHashMap<>();
+    private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
 
     /** */
     public static class StorageRoots {
@@ -123,7 +124,7 @@ public class ConfigurationChanger {
                 }
             }
 
-            storagesMap.put(configurationStorage.getClass(), new StorageRoots(storageRootsMap, data.version()));
+            storagesRootsMap.put(configurationStorage.getClass(), new StorageRoots(storageRootsMap, data.version()));
 
             configurationStorage.addListener(changedEntries -> updateFromListener(
                 configurationStorage.getClass(),
@@ -155,13 +156,15 @@ public class ConfigurationChanger {
 
         Set<Class<? extends ConfigurationStorage>> storagesTypes = changes.keySet().stream()
             .map(RootKey::getStorageType)
-            .distinct()
             .collect(Collectors.toSet());
 
         assert !storagesTypes.isEmpty();
 
-        if (storagesTypes.size() != 1)
-            return CompletableFuture.failedFuture(new ConfigurationChangeException("Fuck that"));
+        if (storagesTypes.size() != 1) {
+            return CompletableFuture.failedFuture(
+                new ConfigurationChangeException("Cannot change configurations belonging to different roots")
+            );
+        }
 
         Class<? extends ConfigurationStorage> storageType = storagesTypes.iterator().next();
 
@@ -183,7 +186,7 @@ public class ConfigurationChanger {
             .flatMap(map -> map.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        StorageRoots roots = storagesMap.get(storageType);
+        StorageRoots roots = storagesRootsMap.get(storageType);
 
         final ValidationResult validationResult = validate(roots, changes);
 
@@ -221,7 +224,7 @@ public class ConfigurationChanger {
         // TODO: IGNITE-14118 add tree update
         StorageRoots storageRoots = new StorageRoots(new HashMap<>(), changedEntries.version());
 
-        storagesMap.put(storageType, storageRoots);
+        storagesRootsMap.put(storageType, storageRoots);
     }
 
     /**
