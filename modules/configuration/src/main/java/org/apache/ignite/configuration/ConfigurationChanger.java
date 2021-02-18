@@ -48,30 +48,29 @@ public class ConfigurationChanger {
 
     /** Map of configurations' configurators. */
     @Deprecated
-    private Map<RootKey<?>, Configurator<?>> configurators = new HashMap<>();
+    private final Map<RootKey<?>, Configurator<?>> configurators = new HashMap<>();
 
-    /** */
+    /** Map that has all the trees in accordance to their storages. */
     private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
 
-    /** */
+    /**
+     * Immutable data container to store version and all roots associated with the specific storage.
+     */
     public static class StorageRoots {
-        /** */
+        /** Immutable forest, so to say. */
         private final Map<RootKey<?>, InnerNode> roots;
 
-        /** */
-        private final int version;
+        /** Version associated with the currently known storage state. */
+        private final long version;
 
         /** */
-        private StorageRoots(Map<RootKey<?>, InnerNode> roots, int version) {
+        private StorageRoots(Map<RootKey<?>, InnerNode> roots, long version) {
             this.roots = Collections.unmodifiableMap(roots);
             this.version = version;
         }
     }
 
-    /** */
-    private final Map<RootKey<?>, ConfigurationStorage> storages = new HashMap<>();
-
-    /** */
+    /** Storage instances by their classes. Comes in handy when all you have is {@link RootKey}. */
     private final Map<Class<? extends ConfigurationStorage>, ConfigurationStorage> storageInstances = new HashMap<>();
 
     /** Constructor. */
@@ -89,8 +88,6 @@ public class ConfigurationChanger {
 
         for (RootKey<?> rootKey : rootKeys) {
             Class<? extends ConfigurationStorage> storageType = rootKey.getStorageType();
-
-            storages.put(rootKey, storageInstances.get(storageType));
 
             rootsByStorage.computeIfAbsent(storageType, c -> new HashSet<>()).add(rootKey);
         }
@@ -142,6 +139,7 @@ public class ConfigurationChanger {
      * @param configurator Configuration's configurator.
      */
     //TODO IGNITE-14183 Refactor, get rid of configurator and create some "validator".
+    @Deprecated
     public void registerConfiguration(RootKey<?> key, Configurator<?> configurator) {
         configurators.put(key, configurator);
     }
@@ -198,7 +196,7 @@ public class ConfigurationChanger {
 
         StorageRoots roots = storagesRootsMap.get(storageType);
 
-        final ValidationResult validationResult = validate(roots, changes);
+        ValidationResult validationResult = validate(roots, changes);
 
         List<ValidationIssue> validationIssues = validationResult.issues();
 
@@ -208,9 +206,7 @@ public class ConfigurationChanger {
             return;
         }
 
-        final int version = validationResult.version();
-
-        CompletableFuture<Boolean> writeFut = storageInstances.get(storageType).write(allChanges, version);
+        CompletableFuture<Boolean> writeFut = storageInstances.get(storageType).write(allChanges, roots.version);
 
         writeFut.whenCompleteAsync((casResult, throwable) -> {
             if (throwable != null)
@@ -224,7 +220,7 @@ public class ConfigurationChanger {
 
     /**
      * Update configuration from storage listener.
-     * @param storageType
+     * @param storageType Type of the storage that propagated these changes.
      * @param changedEntries Changed data.
      */
     private void updateFromListener(
@@ -264,6 +260,7 @@ public class ConfigurationChanger {
      * @param changes Configuration changes.
      * @return Validation results.
      */
+    @SuppressWarnings("unused") // Will be used in the future, I promise (IGNITE-14183).
     private ValidationResult validate(
         StorageRoots storageRoots,
         Map<RootKey<?>, TraversableTreeNode> changes
@@ -280,8 +277,7 @@ public class ConfigurationChanger {
             issues.addAll(list);
         }
 
-        // Why would I put a version into a validation result? Makes no sense.
-        return new ValidationResult(issues, storageRoots.version);
+        return new ValidationResult(issues);
     }
 
     /**
@@ -353,17 +349,12 @@ public class ConfigurationChanger {
         /** List of issues. */
         private final List<ValidationIssue> issues;
 
-        /** Version of configuration that changes were validated against. */
-        private final int version;
-
         /**
          * Constructor.
          * @param issues List of issues.
-         * @param version Version.
          */
-        private ValidationResult(List<ValidationIssue> issues, int version) {
+        private ValidationResult(List<ValidationIssue> issues) {
             this.issues = issues;
-            this.version = version;
         }
 
         /**
@@ -372,14 +363,6 @@ public class ConfigurationChanger {
          */
         public List<ValidationIssue> issues() {
             return issues;
-        }
-
-        /**
-         * Get version.
-         * @return Version.
-         */
-        public int version() {
-            return version;
         }
     }
 }
