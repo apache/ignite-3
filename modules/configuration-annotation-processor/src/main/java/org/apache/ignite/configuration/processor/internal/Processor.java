@@ -897,27 +897,28 @@ public class Processor extends AbstractProcessor {
             TypeName schemaFieldType = TypeName.get(field.asType());
 
             boolean isArray = schemaFieldType instanceof ArrayTypeName;
-            boolean isPrimitiveOrArray = isPrimitiveOrArrayOfPrimitives(schemaFieldType);
 
-            boolean leafField = isPrimitiveOrArray || !((ClassName)schemaFieldType).simpleName().contains("ConfigurationSchema");
+            boolean leafField = isPrimitiveOrArrayOfPrimitives(schemaFieldType)
+                || !((ClassName)schemaFieldType).simpleName().contains("ConfigurationSchema");
+
             boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
 
-            TypeName viewFieldType = isPrimitiveOrArray ? schemaFieldType : ClassName.get(
+            TypeName viewFieldType = leafField ? schemaFieldType : ClassName.get(
                 ((ClassName)schemaFieldType).packageName(),
                 ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "View")
             );
 
-            TypeName changeFieldType = isPrimitiveOrArray ? schemaFieldType : ClassName.get(
+            TypeName changeFieldType = leafField ? schemaFieldType : ClassName.get(
                 ((ClassName)schemaFieldType).packageName(),
                 ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Change")
             );
 
-            TypeName initFieldType = isPrimitiveOrArray ? schemaFieldType : ClassName.get(
+            TypeName initFieldType = leafField ? schemaFieldType : ClassName.get(
                 ((ClassName)schemaFieldType).packageName(),
                 ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Init")
             );
 
-            TypeName nodeFieldType = isPrimitiveOrArray ? schemaFieldType.box() : ClassName.get(
+            TypeName nodeFieldType = leafField ? schemaFieldType.box() : ClassName.get(
                 ((ClassName)schemaFieldType).packageName() + (leafField ? "" : ".impl"),
                 ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Node")
             );
