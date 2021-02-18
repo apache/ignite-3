@@ -176,9 +176,11 @@ public class ConfigurationChanger {
 
         Class<? extends ConfigurationStorage> storageType = storagesTypes.iterator().next();
 
+        ConfigurationStorage storage = storageInstances.get(storageType);
+
         CompletableFuture<Void> fut = new CompletableFuture<>();
 
-        pool.execute(() -> change0(changes, storageType, fut));
+        pool.execute(() -> change0(changes, storage, fut));
 
         return fut;
     }
@@ -186,7 +188,7 @@ public class ConfigurationChanger {
     /** */
     private void change0(
         Map<RootKey<?>, TraversableTreeNode> changes,
-        Class<? extends ConfigurationStorage> storageType,
+        ConfigurationStorage storage,
         CompletableFuture<?> fut
     ) {
         Map<String, Serializable> allChanges = changes.entrySet().stream()
@@ -194,7 +196,7 @@ public class ConfigurationChanger {
             .flatMap(map -> map.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        StorageRoots roots = storagesRootsMap.get(storageType);
+        StorageRoots roots = storagesRootsMap.get(storage.getClass());
 
         ValidationResult validationResult = validate(roots, changes);
 
@@ -206,7 +208,7 @@ public class ConfigurationChanger {
             return;
         }
 
-        CompletableFuture<Boolean> writeFut = storageInstances.get(storageType).write(allChanges, roots.version);
+        CompletableFuture<Boolean> writeFut = storage.write(allChanges, roots.version);
 
         writeFut.whenCompleteAsync((casResult, throwable) -> {
             if (throwable != null)
@@ -214,7 +216,7 @@ public class ConfigurationChanger {
             else if (casResult)
                 fut.complete(null);
             else
-                change0(changes, storageType, fut);
+                change0(changes, storage, fut);
         }, pool);
     }
 
