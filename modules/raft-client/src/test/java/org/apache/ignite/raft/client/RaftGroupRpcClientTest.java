@@ -47,9 +47,10 @@ public class RaftGroupRpcClientTest {
 
         Future<Message> fut = client.sendCustom(req);
 
-        State state = client.state(groupId, false);
+        State state = client.state(groupId);
 
         // Expecting raft group state to be transparently loaded on first request.
+        // TODO FIXME broken
         assertEquals(leader, state.getLeader());
 
         assertTrue(fut.get() instanceof JunkResponse);

@@ -16,11 +16,12 @@
  */
 package org.apache.ignite.raft.client.rpc;
 
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.rpc.Message;
 import org.apache.ignite.raft.rpc.RaftGroupMessage;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.raft.client.RaftClientCommonMessages.AddLearnersRequest;
 import static org.apache.ignite.raft.client.RaftClientCommonMessages.AddPeerRequest;
@@ -39,14 +40,22 @@ import static org.apache.ignite.raft.client.RaftClientCommonMessages.TransferLea
 
 /**
  * Low-level raft group RPC client.
+ * <p>
+ * Additionally maintains raft group state.
  */
 public interface RaftGroupRpcClient {
     /**
      * @param groupId Group id.
-     * @param refresh Refresh state.
-     * @return Current group state.
+     * @return Current group state or null if state is not yet initalized.
      */
-    State state(String groupId, boolean refresh);
+    @Nullable State state(String groupId);
+
+    /**
+     * Refreshes a state of initialized group.
+     * @param groupId Group id.
+     * @return A future.
+     */
+    CompletableFuture<PeerId> refreshLeader(String groupId);
 
     /**
      * Adds a voring peer to the raft group.
@@ -54,7 +63,7 @@ public interface RaftGroupRpcClient {
      * @param request   request data
      * @return A future with the result
      */
-    Future<AddPeerResponse> addPeer(AddPeerRequest request);
+    CompletableFuture<AddPeerResponse> addPeer(AddPeerRequest request);
 
     /**
      * Removes a peer from the raft group.
@@ -63,7 +72,7 @@ public interface RaftGroupRpcClient {
      * @param request   request data
      * @return a future with result
      */
-    Future<RemovePeerResponse> removePeer(RemovePeerRequest request);
+    CompletableFuture<RemovePeerResponse> removePeer(RemovePeerRequest request);
 
     /**
      * Locally resets raft group peers. Intended for recovering from a group unavailability at the price of consistency.
@@ -72,7 +81,7 @@ public interface RaftGroupRpcClient {
      * @param request   request data
      * @return A future with result.
      */
-    Future<StatusResponse> resetPeers(PeerId peerId, ResetPeerRequest request);
+    CompletableFuture<StatusResponse> resetPeers(PeerId peerId, ResetPeerRequest request);
 
     /**
      * Takes a local snapshot.
@@ -82,7 +91,7 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    Future<StatusResponse> snapshot(PeerId peerId, SnapshotRequest request);
+    CompletableFuture<StatusResponse> snapshot(PeerId peerId, SnapshotRequest request);
 
     /**
      * Change peers.
@@ -92,7 +101,7 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    Future<ChangePeersResponse> changePeers(ChangePeersRequest request);
+    CompletableFuture<ChangePeersResponse> changePeers(ChangePeersRequest request);
 
     /**
      * Adds learners.
@@ -102,7 +111,7 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    Future<LearnersOpResponse> addLearners(AddLearnersRequest request);
+    CompletableFuture<LearnersOpResponse> addLearners(AddLearnersRequest request);
 
     /**
      * Removes learners.
@@ -112,7 +121,7 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    Future<LearnersOpResponse> removeLearners(RemoveLearnersRequest request);
+    CompletableFuture<LearnersOpResponse> removeLearners(RemoveLearnersRequest request);
 
     /**
      * Resets learners to new set.
@@ -122,7 +131,7 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    Future<LearnersOpResponse> resetLearners(ResetLearnersRequest request);
+    CompletableFuture<LearnersOpResponse> resetLearners(ResetLearnersRequest request);
 
     /**
      * Transfer leadership to other peer.
@@ -132,7 +141,7 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    Future<StatusResponse> transferLeader(TransferLeaderRequest request);
+    CompletableFuture<StatusResponse> transferLeader(TransferLeaderRequest request);
 
     /**
      * Performs a custom action defined by specific request on the raft group leader.
@@ -142,5 +151,5 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    <R extends Message> Future<R> sendCustom(RaftGroupMessage request);
+    <R extends Message> CompletableFuture<R> sendCustom(RaftGroupMessage request);
 }

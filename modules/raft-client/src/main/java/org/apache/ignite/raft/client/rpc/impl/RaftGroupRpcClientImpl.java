@@ -7,8 +7,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.RaftException;
 import org.apache.ignite.raft.State;
@@ -45,43 +46,75 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         executor = Executors.newWorkStealingPool();
     }
 
-    @Override public State state(String groupId, boolean refresh) {
-        return states.get(groupId);
+    @Override public State state(String groupId) {
+        State newState = new State();
+
+        State state = states.putIfAbsent(groupId, newState);
+
+        if (state == null)
+            state = newState;
+
+        return state;
     }
 
-    @Override public Future<RaftClientCommonMessages.AddPeerResponse> addPeer(RaftClientCommonMessages.AddPeerRequest request) {
+    @Override public CompletableFuture<PeerId> refreshLeader(String groupId) {
+        State state = state(groupId);
+
+        if (state.getLeader() == null) {
+            synchronized (state) {
+                PeerId leader = state.getLeader();
+
+                if (leader == null) {
+                    return refreshLeader(initialCfgNodes.iterator().next(), groupId).
+                        thenApply(new Function<RaftClientCommonMessages.GetLeaderResponse, PeerId>() {
+                            @Override public PeerId apply(RaftClientCommonMessages.GetLeaderResponse getLeaderResponse) {
+                                PeerId leaderId = getLeaderResponse.getLeaderId();
+
+                                state.setLeader(leaderId);
+
+                                return leaderId;
+                            }
+                        });
+                }
+            }
+        }
+
+        return CompletableFuture.completedFuture(state.getLeader());
+    }
+
+    @Override public CompletableFuture<RaftClientCommonMessages.AddPeerResponse> addPeer(RaftClientCommonMessages.AddPeerRequest request) {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.RemovePeerResponse> removePeer(RaftClientCommonMessages.RemovePeerRequest request) {
+    @Override public CompletableFuture<RaftClientCommonMessages.RemovePeerResponse> removePeer(RaftClientCommonMessages.RemovePeerRequest request) {
         return null;
     }
 
-    @Override public Future<StatusResponse> resetPeers(PeerId peerId, RaftClientCommonMessages.ResetPeerRequest request) {
+    @Override public CompletableFuture<StatusResponse> resetPeers(PeerId peerId, RaftClientCommonMessages.ResetPeerRequest request) {
         return null;
     }
 
-    @Override public Future<StatusResponse> snapshot(PeerId peerId, RaftClientCommonMessages.SnapshotRequest request) {
+    @Override public CompletableFuture<StatusResponse> snapshot(PeerId peerId, RaftClientCommonMessages.SnapshotRequest request) {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.ChangePeersResponse> changePeers(RaftClientCommonMessages.ChangePeersRequest request) {
+    @Override public CompletableFuture<RaftClientCommonMessages.ChangePeersResponse> changePeers(RaftClientCommonMessages.ChangePeersRequest request) {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.LearnersOpResponse> addLearners(RaftClientCommonMessages.AddLearnersRequest request) {
+    @Override public CompletableFuture<RaftClientCommonMessages.LearnersOpResponse> addLearners(RaftClientCommonMessages.AddLearnersRequest request) {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.LearnersOpResponse> removeLearners(RaftClientCommonMessages.RemoveLearnersRequest request) {
+    @Override public CompletableFuture<RaftClientCommonMessages.LearnersOpResponse> removeLearners(RaftClientCommonMessages.RemoveLearnersRequest request) {
         return null;
     }
 
-    @Override public Future<RaftClientCommonMessages.LearnersOpResponse> resetLearners(RaftClientCommonMessages.ResetLearnersRequest request) {
+    @Override public CompletableFuture<RaftClientCommonMessages.LearnersOpResponse> resetLearners(RaftClientCommonMessages.ResetLearnersRequest request) {
         return null;
     }
 
-    @Override public Future<StatusResponse> transferLeader(RaftClientCommonMessages.TransferLeaderRequest request) {
+    @Override public CompletableFuture<StatusResponse> transferLeader(RaftClientCommonMessages.TransferLeaderRequest request) {
         return null;
     }
 
@@ -102,57 +135,43 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return fut;
     }
 
-    @Override public <R extends Message> Future<R> sendCustom(RaftGroupMessage request) {
-        State newState = new State();
-
-        State state = states.putIfAbsent(request.getGroupId(), newState);
-
-        if (state == null)
-            state = newState;
+    @Override public <R extends Message> CompletableFuture<R> sendCustom(RaftGroupMessage request) {
+        State state = state(request.getGroupId());
 
         CompletableFuture<R> fut = new CompletableFuture<>();
 
         fut.orTimeout(defaultTimeout, TimeUnit.MILLISECONDS);
 
-        if (state.getLeader() == null) {
-            synchronized (state) {
-                PeerId leader = state.getLeader();
+        CompletableFuture<PeerId> fut0 = refreshLeader(request.getGroupId());
 
-                if (leader == null) {
-                    CompletableFuture<RaftClientCommonMessages.GetLeaderResponse> fut0 =
-                        refreshLeader(initialCfgNodes.iterator().next(), request.getGroupId()); // TODO asch search all nodes.
+        // TODO implement clean chaining.
+        fut0.whenComplete(new BiConsumer<PeerId, Throwable>() {
+            @Override public void accept(PeerId peerId, Throwable error) {
+                if (error == null) {
+                    rpcClient.invokeAsync(state.getLeader().getNode(), request, new InvokeCallback<R>() {
+                        @Override public void complete(R response, Throwable err) {
+                            if (err != null)
+                                fut.completeExceptionally(err);
+                            else {
+                                if (response instanceof StatusResponse) {
+                                    StatusResponse resp = (StatusResponse) response;
 
-                    try {
-                        state.setLeader(fut0.get(defaultTimeout, TimeUnit.MILLISECONDS).getLeaderId());
-                    }
-                    catch (Exception e) {
-                        fut.completeExceptionally(e);
-
-                        return fut;
-                    }
+                                    // Translate error response to exception with the code.
+                                    if (resp.getStatusCode() != 0)
+                                        fut.completeExceptionally(new RaftException(resp.getStatusCode(), resp.getStatusMsg()));
+                                    else
+                                        fut.complete(response);
+                                } else
+                                    fut.complete(response);
+                            }
+                        }
+                    }, executor, defaultTimeout);
                 }
-            }
-        }
-
-        rpcClient.invokeAsync(state.getLeader().getNode(), request, new InvokeCallback<R>() {
-            @Override public void complete(R response, Throwable err) {
-                if (err != null)
-                    fut.completeExceptionally(err);
                 else {
-                    if (response instanceof StatusResponse) {
-                        StatusResponse resp = (StatusResponse) response;
-
-                        // Translate error response to exception with the code.
-                        if (resp.getStatusCode() != 0)
-                            fut.completeExceptionally(new RaftException(resp.getStatusCode(), resp.getStatusMsg()));
-                        else
-                            fut.complete(response);
-                    }
-                    else
-                        fut.complete(response);
+                    fut.completeExceptionally(error);
                 }
             }
-        }, executor, defaultTimeout);
+        });
 
         return fut;
     }
