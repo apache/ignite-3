@@ -45,12 +45,12 @@ class RootKeyImpl<T extends ConfigurationTree<?, ?>> extends RootKey<T> {
     }
 
     /** {@inheritDoc} */
-    @Override public Class<? extends ConfigurationStorage> getStorageType() {
+    @Override Class<? extends ConfigurationStorage> getStorageType() {
         return storageType;
     }
 
     /** {@inheritDoc} */
-    @Override protected InnerNode createRootNode() {
+    @Override InnerNode createRootNode() {
         return rootSupplier.get();
     }
 }
