@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.ConstructableTreeNode;
@@ -262,6 +263,67 @@ public class ConfigurationUtil {
         var src = new InnerConfigurationSource(prefixMap);
 
         src.descend(node);
+    }
+
+    /**
+     * Convert a traversable tree to a map of qualified keys to values.
+     * @param rootKey Root configuration key.
+     * @param node Tree.
+     * @return Map of changes.
+     */
+    public static Map<String, Serializable> nodeToFlatMap(RootKey<?> rootKey, TraversableTreeNode node) {
+        Map<String, Serializable> values = new HashMap<>();
+
+        node.accept(rootKey.key(), new ConfigurationVisitor<>() {
+            /** Current key, aggregated by visitor. */
+            StringBuilder currentKey = new StringBuilder();
+
+            /** {@inheritDoc} */
+            @Override public Void visitLeafNode(String key, Serializable val) {
+                values.put(currentKey.toString() + key, val);
+
+                return null;
+            }
+
+            /** {@inheritDoc} */
+            @Override public Void visitInnerNode(String key, InnerNode node) {
+                if (node == null)
+                    return null;
+
+                int previousKeyLength = currentKey.length();
+
+                currentKey.append(key).append('.');
+
+                node.traverseChildren(this);
+
+                currentKey.setLength(previousKeyLength);
+
+                return null;
+            }
+
+            /** {@inheritDoc} */
+            @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
+                int previousKeyLength = currentKey.length();
+
+                if (key != null)
+                    currentKey.append(key).append('.');
+
+                for (String namedListKey : node.namedListKeys()) {
+                    int loopPreviousKeyLength = currentKey.length();
+
+                    currentKey.append(ConfigurationUtil.escape(namedListKey)).append('.');
+
+                    node.get(namedListKey).traverseChildren(this);
+
+                    currentKey.setLength(loopPreviousKeyLength);
+                }
+
+                currentKey.setLength(previousKeyLength);
+
+                return null;
+            }
+        });
+        return values;
     }
 
     /**
