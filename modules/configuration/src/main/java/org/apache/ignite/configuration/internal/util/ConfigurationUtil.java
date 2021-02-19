@@ -280,7 +280,8 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override public Void visitLeafNode(String key, Serializable val) {
-                values.put(currentKey.toString() + key, val);
+                if (val != null)
+                    values.put(currentKey.toString() + key, val);
 
                 return null;
             }
