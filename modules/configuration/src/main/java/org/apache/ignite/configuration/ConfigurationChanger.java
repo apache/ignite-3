@@ -156,7 +156,6 @@ public class ConfigurationChanger {
     /**
      * Change configuration.
      * @param changes Map of changes by root key.
-     * @param storagesType
      */
     public CompletableFuture<Void> change(Map<RootKey<?>, TraversableTreeNode> changes) {
         if (changes.isEmpty())
@@ -257,7 +256,7 @@ public class ConfigurationChanger {
 
         storagesRootsMap.put(storageType, storageRoots);
 
-        // Notify listeners.
+        //TODO IGNITE-14180 Notify listeners.
     }
 
     /**

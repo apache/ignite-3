@@ -156,7 +156,14 @@ public class ConfigurationUtil {
         return res;
     }
 
-    /** */
+    /**
+     * Inserts value into the prefix by a given "path".
+     *
+     * @param map Output map.
+     * @param keys List of keys.
+     * @param idx Starting position in the {@code keys} list.
+     * @param val Value to be inserted.
+     */
     private static void insert(Map<String, Object> map, List<String> keys, int idx, Serializable val) {
         String key = keys.get(idx);
 
