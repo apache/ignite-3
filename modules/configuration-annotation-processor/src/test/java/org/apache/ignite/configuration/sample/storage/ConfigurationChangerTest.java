@@ -89,8 +89,8 @@ public class ConfigurationChangerTest {
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
             .initElements(change -> change.create("a", init -> init.initStrCfg("1")));
 
-        final ConfigurationChanger changer = new ConfigurationChanger(storage);
-        changer.init(KEY);
+        final ConfigurationChanger changer = new ConfigurationChanger(KEY);
+        changer.init(storage);
 
         changer.registerConfiguration(KEY, configurator);
 
@@ -124,11 +124,11 @@ public class ConfigurationChangerTest {
                 .create("b", init -> init.initStrCfg("2"))
             );
 
-        final ConfigurationChanger changer1 = new ConfigurationChanger(storage);
-        changer1.init(KEY);
+        final ConfigurationChanger changer1 = new ConfigurationChanger(KEY);
+        changer1.init(storage);
 
-        final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
-        changer2.init(KEY);
+        final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
+        changer2.init(storage);
 
         changer1.registerConfiguration(KEY, configurator);
         changer2.registerConfiguration(KEY, configurator);
@@ -172,11 +172,11 @@ public class ConfigurationChangerTest {
                 .create("b", init -> init.initStrCfg("2"))
             );
 
-        final ConfigurationChanger changer1 = new ConfigurationChanger(storage);
-        changer1.init(KEY);
+        final ConfigurationChanger changer1 = new ConfigurationChanger(KEY);
+        changer1.init(storage);
 
-        final ConfigurationChanger changer2 = new ConfigurationChanger(storage);
-        changer2.init(KEY);
+        final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
+        changer2.init(storage);
 
         changer1.registerConfiguration(KEY, configurator);
         changer2.registerConfiguration(KEY, configurator);
@@ -206,15 +206,15 @@ public class ConfigurationChangerTest {
 
         ANode data = new ANode().initChild(child -> child.initIntCfg(1));
 
-        final ConfigurationChanger changer = new ConfigurationChanger(storage);
+        final ConfigurationChanger changer = new ConfigurationChanger(KEY);
 
         storage.fail(true);
 
-        assertThrows(ConfigurationChangeException.class, () -> changer.init(KEY));
+        assertThrows(ConfigurationChangeException.class, () -> changer.init(storage));
 
         storage.fail(false);
 
-        changer.init(KEY);
+        changer.init(storage);
 
         changer.registerConfiguration(KEY, configurator);
 

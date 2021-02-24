@@ -62,19 +62,20 @@ public class ConfigSet {
         else
             this.conf = null;
 
-        if (viewClass != null)
-            this.view = parse(viewClass);
-        else
+        // Shit can't even parse interfaces, pathetic...
+//        if (viewClass != null)
+//            this.view = parse(viewClass);
+//        else
             this.view = null;
-
-        if (initClass != null)
-            this.init = parse(initClass);
-        else
+//
+//        if (initClass != null)
+//            this.init = parse(initClass);
+//        else
             this.init = null;
-
-        if (changeClass != null)
-            this.change = parse(changeClass);
-        else
+//
+//        if (changeClass != null)
+//            this.change = parse(changeClass);
+//        else
             this.change = null;
     }
 

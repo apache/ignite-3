@@ -18,30 +18,10 @@
 package org.apache.ignite.configuration.internal;
 
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
  * Interface for configuration nodes and leaves.
  */
+@Deprecated
 public interface Modifier<VIEW, INIT, CHANGE> extends ConfigurationProperty<VIEW, CHANGE> {
-    /**
-     * Change this configuration node value, but without validation.
-     * @param change CHANGE object.
-     */
-    void changeWithoutValidation(CHANGE change);
-
-    /**
-     * Initialize this configuration node with value.
-     * @param init INIT object.
-     * @throws ConfigurationValidationException If validation failed.
-     */
-    void init(INIT init) throws ConfigurationValidationException;
-
-    /**
-     * Validate this configuration node against old configuration root thus comparing new configuration "snapshot"
-     * with a previous one.
-     * @param oldRoot Old configuration root.
-     * @throws ConfigurationValidationException If validation failed.
-     */
-    void validate(DynamicConfiguration<?, ?, ?> oldRoot) throws ConfigurationValidationException;
 }

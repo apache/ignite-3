@@ -17,9 +17,20 @@
 
 package org.apache.ignite.configuration;
 
+import java.util.concurrent.Future;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+
 /**
  * Configuration value.
  * @param <VALUE> Type of the value.
  */
 public interface ConfigurationValue<VALUE> extends ConfigurationProperty<VALUE, VALUE> {
+
+    /**
+     * Change this configuration node value.
+     * @param change CHANGE object.
+     * @throws ConfigurationValidationException If validation failed.
+     */
+    //TODO Rename.
+    Future<Void> change(VALUE change) throws ConfigurationValidationException;
 }

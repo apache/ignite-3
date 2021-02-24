@@ -18,72 +18,49 @@
 package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
-import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.tree.ConfigurationSource;
+import org.apache.ignite.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
+
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.find;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.join;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
 
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifier<VIEW, INIT, CHANGE>, ConfigurationTree<VIEW, CHANGE> {
-    /** Fully qualified name of the configuration. */
-    protected final String qualifiedName;
-
-    /** Configuration key. */
-    protected final String key;
-
-    /** Configuration prefix. */
-    protected final String prefix;
+public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends ConfigurationNode<VIEW> implements Modifier<VIEW, INIT, CHANGE>, ConfigurationTree<VIEW, CHANGE> {
 
     /** Configuration members (leaves and nodes). */
     protected final Map<String, Modifier<?, ?, ?>> members = new HashMap<>();
-
-    /** Root configuration node. */
-    protected final DynamicConfiguration<?, ?, ?> root;
-
-    /** {@code true} if this is a member of {@link NamedListConfiguration}. */
-    protected final boolean isNamed;
-
-    /** Configurator that this configuration is attached to. */
-    protected final Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator;
 
     /**
      * Constructor.
      * @param prefix Configuration prefix.
      * @param key Configuration key.
-     * @param isNamed Is this a part of named configuration.
-     * @param configurator Configurator that this object is attached to.
-     * @param root Root configuration.
      */
     protected DynamicConfiguration(
-        String prefix,
+        List<String> prefix,
         String key,
-        boolean isNamed,
-        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
-        DynamicConfiguration<?, ?, ?> root
+        RootKey<?> rootKey,
+        ConfigurationChanger changer
     ) {
-        this.prefix = prefix;
-        this.isNamed = isNamed;
-        this.configurator = configurator;
-
-        this.key = key;
-        if (root == null)
-            this.qualifiedName = key;
-        else {
-            if (isNamed)
-                qualifiedName = String.format("%s[%s]", prefix, key);
-            else
-                qualifiedName = String.format("%s.%s", prefix, key);
-        }
-
-        this.root = root != null ? root : this;
+        super(prefix, key, rootKey, changer);
     }
 
     /**
@@ -108,12 +85,31 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
     ) {
         members.put(member.key(), member);
 
-        configurator.addValidations((Class<? extends ConfigurationTree<?, ?>>) getClass(), member.key(), validators);
+//        configurator.addValidations((Class<? extends ConfigurationTree<?, ?>>) getClass(), member.key(), validators);
     }
 
     /** {@inheritDoc} */
-    @Override public void change(CHANGE change) throws ConfigurationValidationException {
-        configurator.set(BaseSelectors.find(qualifiedName), change);
+    @Override public Future<Void> change(Consumer<CHANGE> change) throws ConfigurationValidationException {
+        Objects.requireNonNull(change, "Configuration consumer cannot be null.");
+
+        InnerNode rootNodeChange = ((RootKeyImpl)rootKey).createRootNode();
+
+        if (keys.size() == 1)
+            change.accept((CHANGE)rootNodeChange);
+        else {
+            // TODO Not optimal, can be improved. Do it when tests are ready.
+            fillFromPrefixMap(rootNodeChange, toPrefixMap(Collections.singletonMap(join(keys), null)));
+
+            ConstructableTreeNode parent = (ConstructableTreeNode)find(keys.subList(0, keys.size() - 1), rootNodeChange);
+
+            parent.construct(key, new ConfigurationSource() {
+                @Override public void descend(ConstructableTreeNode node) {
+                    change.accept((CHANGE)node);
+                }
+            });
+        }
+
+        return changer.change(Map.of(rootKey, rootNodeChange));
     }
 
     /** {@inheritDoc} */
@@ -121,30 +117,18 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> implements Modifi
         return key;
     }
 
-    /**
-     * Create a deep copy of this DynamicConfiguration, but attaching it to another configuration root.
-     * @param root New configuration root.
-     * @return Copy of this configuration.
-     */
-    public abstract DynamicConfiguration<VIEW, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root);
-
-    /**
-     * Create a deep copy of this DynamicConfiguration, making it root configuration (so this method must be called
-     * only on root configuration object).
-     * @return Copy of this configuration.
-     */
-    public final DynamicConfiguration<VIEW, INIT, CHANGE> copy() {
-        return copy(null);
-    }
-
     /** {@inheritDoc} */
-    @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) throws ConfigurationValidationException {
-        for (Modifier<?, ?, ?> member : members.values())
-            member.validate(oldRoot);
+    @Override public VIEW value() {
+        return viewValue();
     }
 
     /** {@inheritDoc} */
     @Override public Map<String, ConfigurationProperty<?, ?>> members() {
         return members.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void refresh0(VIEW val) {
+        // No-op.
     }
 }

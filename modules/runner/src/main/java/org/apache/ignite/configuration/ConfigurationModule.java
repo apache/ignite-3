@@ -18,9 +18,6 @@
 package org.apache.ignite.configuration;
 
 import java.io.Reader;
-import org.apache.ignite.configuration.extended.InitLocal;
-import org.apache.ignite.configuration.extended.LocalConfigurationImpl;
-import org.apache.ignite.configuration.extended.Selectors;
 import org.apache.ignite.rest.presentation.FormatConverter;
 import org.apache.ignite.rest.presentation.json.JsonConverter;
 
@@ -31,17 +28,8 @@ import org.apache.ignite.rest.presentation.json.JsonConverter;
  * {@link Configurator} object.
  */
 public class ConfigurationModule {
-    static {
-        try {
-            Selectors.LOCAL_BASELINE.select(null);
-        }
-        catch (Throwable ignored) {
-            // No-op.
-        }
-    }
-
-    /** */
-    private Configurator<LocalConfigurationImpl> localConfigurator;
+//    /** */
+//    private Configurator<LocalConfigurationImpl> localConfigurator;
 
     /** */
     private final ConfigurationRegistry confRegistry = new ConfigurationRegistry();
@@ -50,17 +38,10 @@ public class ConfigurationModule {
     public void bootstrap(Reader confReader) {
         FormatConverter converter = new JsonConverter();
 
-        Configurator<LocalConfigurationImpl> configurator =
-            Configurator.create(LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
+//        Configurator<LocalConfigurationImpl> configurator =
+//            Configurator.create(LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
 
-        localConfigurator = configurator;
-
-        confRegistry.registerConfigurator(configurator);
-    }
-
-    /** */
-    public Configurator<LocalConfigurationImpl> localConfigurator() {
-        return localConfigurator;
+//        confRegistry.registerConfigurator(configurator);
     }
 
     /** */

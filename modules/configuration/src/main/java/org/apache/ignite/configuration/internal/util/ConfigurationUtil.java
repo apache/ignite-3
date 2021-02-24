@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.internal.util;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -363,6 +364,18 @@ public class ConfigurationUtil {
         src.descend(copy);
 
         return copy;
+    }
+
+    /** */
+    public static List<String> appendKey(List<String> prefix, String key) {
+        if (prefix.isEmpty())
+            return List.of(key);
+
+        List<String> res = new ArrayList<>(prefix.size() + 1);
+        res.addAll(prefix);
+        res.add(key);
+
+        return res;
     }
 
     /** */
