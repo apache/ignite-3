@@ -185,9 +185,12 @@ chmod +x %{buildroot}%{_bindir}/ignite
 
 # Install ignite-cli configuraton file
 touch %{buildroot}%{_sysconfdir}/%{name}/cfg
-ln -sfv %{_sysconfdir}/%{name}/cfg %{buildroot}%{_datadir}/%{name}/.ignitecfg
 echo "bin=%{_libdir}/%{name}" >> %{buildroot}%{_sysconfdir}/%{name}/cfg
 echo "work=%{_sharedstatedir}/%{name}" >> %{buildroot}%{_sysconfdir}/%{name}/cfg
+echo "config=%{_sysconfdir}/%{name}" >> %{buildroot}%{_sysconfdir}/%{name}/cfg
+echo "log=%{_log}/%{name}" >> %{buildroot}%{_sysconfdir}/%{name}/cfg
+ln -sfv %{_sysconfdir}/%{name}/cfg %{buildroot}%{_datadir}/%{name}/.ignitecfg
+
 
 
 %files

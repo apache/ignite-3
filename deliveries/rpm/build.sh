@@ -14,7 +14,7 @@ RPM_WORK_DIR="/tmp/apache-ignite-rpm"
 mkdir -pv ${RPM_WORK_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cp -rfv ignite ${RPM_WORK_DIR}/BUILD/
 cp -rfv apache-ignite.spec ${RPM_WORK_DIR}/SPECS/
-sed -r "4 i if [ \"\$(whoami)\" != \"ignite\" ]; then echo \"Ignite CLI can only be run by 'ignite' user.\"; echo \"Swith user to ignite by executing 'su ignite'\"; exit 1; fi" \
+sed -r "4 i if [ \"\$(whoami)\" != \"ignite\" ]; then echo \"Ignite CLI can only be run by 'ignite' user.\"; echo \"Swith user to ignite by executing '(sudo) su ignite'\"; exit 1; fi" \
     -i ${RPM_WORK_DIR}/BUILD/ignite
 rpmbuild -bb \
          --define "_topdir ${RPM_WORK_DIR}" \
