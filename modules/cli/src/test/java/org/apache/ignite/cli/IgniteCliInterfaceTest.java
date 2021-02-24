@@ -65,7 +65,7 @@ import static org.mockito.Mockito.when;
 public class IgniteCliInterfaceTest {
 
     /** DI application context. */
-    ApplicationContext applicationCtx;
+    ApplicationContext ctx;
 
     /** stderr. */
     ByteArrayOutputStream err;
@@ -80,9 +80,9 @@ public class IgniteCliInterfaceTest {
     /** */
     @BeforeEach
     void setup() {
-        applicationCtx = ApplicationContext.run(Environment.TEST);
+        ctx = ApplicationContext.run(Environment.TEST);
 
-        applicationCtx.registerSingleton(cliPathsCfgLdr);
+        ctx.registerSingleton(cliPathsCfgLdr);
 
         err = new ByteArrayOutputStream();
         out = new ByteArrayOutputStream();
@@ -90,11 +90,11 @@ public class IgniteCliInterfaceTest {
 
     @AfterEach
     private void tearDown() {
-        applicationCtx.stop();
+        ctx.stop();
     }
 
     /** */
-    CommandLine commandLine(ApplicationContext applicationCtx) {
+    CommandLine cmd(ApplicationContext applicationCtx) {
         CommandLine.IFactory factory = new CommandFactory(applicationCtx);
 
         return new CommandLine(IgniteCliSpec.class, factory)
@@ -119,9 +119,9 @@ public class IgniteCliInterfaceTest {
         void init() {
             var initIgniteCmd = mock(InitIgniteCommand.class);
 
-            applicationCtx.registerSingleton(InitIgniteCommand.class, initIgniteCmd);
+            ctx.registerSingleton(InitIgniteCommand.class, initIgniteCmd);
 
-            CommandLine cli = commandLine(applicationCtx);
+            CommandLine cli = cmd(ctx);
 
             Assertions.assertEquals(0, cli.execute("init"));
             verify(initIgniteCmd).init(any(), any(), any());
@@ -143,8 +143,8 @@ public class IgniteCliInterfaceTest {
         /** */
         @BeforeEach
         void setUp() {
-            applicationCtx.registerSingleton(moduleMgr);
-            applicationCtx.registerSingleton(moduleRegistry);
+            ctx.registerSingleton(moduleMgr);
+            ctx.registerSingleton(moduleRegistry);
         }
 
         /** */
@@ -154,7 +154,7 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(ignitePaths);
 
             var exitCode =
-                commandLine(applicationCtx).execute("module add mvn:groupId:artifactId:version".split(" "));
+                cmd(ctx).execute("module add mvn:groupId:artifactId:version".split(" "));
 
             verify(moduleMgr).addModule("mvn:groupId:artifactId:version", ignitePaths, Collections.emptyList());
             Assertions.assertEquals(0, exitCode);
@@ -169,7 +169,7 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(ignitePaths);
 
             var exitCode =
-                commandLine(applicationCtx)
+                cmd(ctx)
                     .execute("module add mvn:groupId:artifactId:version --repo http://mvnrepo.com/repostiory".split(" "));
 
             verify(moduleMgr).addModule(
@@ -188,7 +188,7 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(ignitePaths);
 
             var exitCode =
-                commandLine(applicationCtx).execute("module add test-module".split(" "));
+                cmd(ctx).execute("module add test-module".split(" "));
 
             verify(moduleMgr).addModule("test-module", ignitePaths, Collections.emptyList());
             Assertions.assertEquals(0, exitCode);
@@ -202,12 +202,13 @@ public class IgniteCliInterfaceTest {
 
             when(moduleMgr.removeModule(moduleName)).thenReturn(true);
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute("module remove builtin-module".split(" "));
+                cmd.execute("module remove builtin-module".split(" "));
 
             verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
-            assertEquals("Module " + moduleName + " was removed successfully.\n", out.toString());
+            assertEquals("Module " + cmd.getColorScheme().parameterText(moduleName) + " was removed successfully.\n", out.toString());
         }
 
         /** */
@@ -218,12 +219,13 @@ public class IgniteCliInterfaceTest {
 
             when(moduleMgr.removeModule(moduleName)).thenReturn(false);
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute("module remove unknown-module".split(" "));
+                cmd(ctx).execute("module remove unknown-module".split(" "));
 
             verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
-            assertEquals("Nothing to do: module " + moduleName + " is not yet added.\n", out.toString());
+            assertEquals("Nothing to do: module " + cmd.getColorScheme().parameterText(moduleName) + " is not yet added.\n", out.toString());
         }
 
         /** */
@@ -259,28 +261,29 @@ public class IgniteCliInterfaceTest {
                             Collections.emptyList(),
                             ModuleRegistry.SourceType.Standard, ""), externalModule)));
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute("module list".split(" "));
+                cmd.execute("module list".split(" "));
 
             verify(moduleMgr).builtinModules();
             Assertions.assertEquals(0, exitCode);
 
-            var expOutput = "Optional Ignite Modules\n" +
+            var expOutput = cmd.getColorScheme().text("@|bold Optional Ignite Modules|@\n" +
                 "+---------+--------------+------------+\n" +
-                "| Name    | Description  | Installed? |\n" +
+                "| @|bold Name|@    | @|bold Description|@  | @|bold Installed?|@ |\n" +
                 "+---------+--------------+------------+\n" +
                 "| module1 | description1 | Yes        |\n" +
                 "+---------+--------------+------------+\n" +
                 "| module2 | description2 | No         |\n" +
                 "+---------+--------------+------------+\n" +
                 "\n" +
-                "Additional Maven Dependencies\n" +
+                "@|bold Additional Maven Dependencies|@\n" +
                 "+-------------------+-------------+---------+\n" +
-                "| Group ID          | Artifact ID | Version |\n" +
+                "| @|bold Group ID|@          | @|bold Artifact ID|@ | @|bold Version|@ |\n" +
                 "+-------------------+-------------+---------+\n" +
                 "| org.apache.ignite | snapshot    | 2.9.0   |\n" +
                 "+-------------------+-------------+---------+\n" +
-                "Type ignite module remove <groupId>:<artifactId>:<version> to remove a dependency.\n";
+                "Type " + cmd.getColorScheme().commandText("ignite module remove") + " " + cmd.getColorScheme().parameterText("<groupId>:<artifactId>:<version>") + " to remove a dependency.\n").toString();
             assertEquals(expOutput, out.toString());
         }
     }
@@ -296,7 +299,7 @@ public class IgniteCliInterfaceTest {
         /** */
         @BeforeEach
         void setUp() {
-            applicationCtx.registerSingleton(nodeMgr);
+            ctx.registerSingleton(nodeMgr);
         }
 
         /** */
@@ -314,19 +317,19 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
-            CommandLine cli = commandLine(applicationCtx);
+            CommandLine cli = cmd(ctx);
 
             var exitCode = cli.execute(("node start " + nodeName + " --config conf.json").split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).start(nodeName, ignitePaths.logDir, ignitePaths.cliPidsDir(), Path.of("conf.json"), cli.getOut());
-            assertEquals("Starting a new Ignite node...\n\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n" +
+            assertEquals("Starting a new Ignite node...\n\nNode is successfully started. To stop, type " + cli.getColorScheme().commandText("ignite node stop ") + cli.getColorScheme().parameterText(nodeName) + "\n\n" +
                 "+---------------+---------+\n" +
-                "| Consistent ID | node1   |\n" +
+                cli.getColorScheme().text("| @|bold Consistent ID|@ | node1   |\n") +
                 "+---------------+---------+\n" +
-                "| PID           | 1       |\n" +
+                cli.getColorScheme().text("| @|bold PID|@           | 1       |\n") +
                 "+---------------+---------+\n" +
-                "| Log File      | logfile |\n" +
+                cli.getColorScheme().text("| @|bold Log File|@      | logfile |\n") +
                 "+---------------+---------+\n",
                 out.toString());
         }
@@ -343,13 +346,14 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute(("node stop " + nodeName).split(" "));
+                cmd.execute(("node stop " + nodeName).split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
             assertEquals(
-                "Stopping locally running node with consistent ID " + nodeName + "... Done!\n",
+                "Stopping locally running node with consistent ID " + cmd.getColorScheme().parameterText(nodeName) + cmd.getColorScheme().text("... @|bold,green Done!|@\n"),
                 out.toString());
         }
 
@@ -365,13 +369,14 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute(("node stop " + nodeName).split(" "));
+                cmd.execute(("node stop " + nodeName).split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
             assertEquals(
-                "Stopping locally running node with consistent ID " + nodeName + "... Failed\n",
+                "Stopping locally running node with consistent ID " + cmd.getColorScheme().parameterText(nodeName) + cmd.getColorScheme().text("... @|bold,red Failed|@\n"),
                 out.toString());
         }
 
@@ -388,14 +393,15 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute("node list".split(" "));
+                cmd.execute("node list".split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertEquals("Currently, there are 2 locally running nodes.\n\n" +
+            assertEquals(cmd.getColorScheme().text("Currently, there are @|bold 2|@ locally running nodes.\n\n") +
                 "+---------------+-----+----------+\n" +
-                "| Consistent ID | PID | Log File |\n" +
+                cmd.getColorScheme().text("| @|bold Consistent ID|@ | @|bold PID|@ | @|bold Log File|@ |\n") +
                 "+---------------+-----+----------+\n" +
                 "| new1          | 1   | logFile1 |\n" +
                 "+---------------+-----+----------+\n" +
@@ -414,13 +420,14 @@ public class IgniteCliInterfaceTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute("node list".split(" "));
+                cmd.execute("node list".split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
             assertEquals("Currently, there are no locally running nodes.\n\n" +
-                "Use the ignite node start command to start a new node.\n", out.toString());
+                "Use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node.\n", out.toString());
         }
 
         /** */
@@ -429,11 +436,14 @@ public class IgniteCliInterfaceTest {
         void classpath() throws IOException {
             when(nodeMgr.classpathItems()).thenReturn(Arrays.asList("item1", "item2"));
 
-            var exitCode = commandLine(applicationCtx).execute("node classpath".split(" "));
+            var cmd = cmd(ctx);
+            var exitCode = cmd.execute("node classpath".split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).classpathItems();
-            assertEquals("Current Ignite node classpath:\n    item1\n    item2\n", out.toString());
+            assertEquals(
+                cmd.getColorScheme().text("@|bold Current Ignite node classpath:|@\n    item1\n    item2\n").toString(),
+                out.toString());
         }
     }
 
@@ -452,7 +462,7 @@ public class IgniteCliInterfaceTest {
         /** */
         @BeforeEach
         void setUp() {
-            applicationCtx.registerSingleton(httpClient);
+            ctx.registerSingleton(httpClient);
         }
 
         /** */
@@ -464,7 +474,7 @@ public class IgniteCliInterfaceTest {
             when(httpClient.<String>send(any(), any())).thenReturn(res);
 
             var exitCode =
-                commandLine(applicationCtx).execute("config get --node-endpoint localhost:8081".split(" "));
+                cmd(ctx).execute("config get --node-endpoint localhost:8081".split(" "));
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
@@ -489,7 +499,7 @@ public class IgniteCliInterfaceTest {
             when(httpClient.<String>send(any(), any())).thenReturn(res);
 
             var exitCode =
-                commandLine(applicationCtx).execute(("config get --node-endpoint localhost:8081 " +
+                cmd(ctx).execute(("config get --node-endpoint localhost:8081 " +
                     "--selector local.baseline").split(" "));
 
             Assertions.assertEquals(0, exitCode);
@@ -513,8 +523,9 @@ public class IgniteCliInterfaceTest {
 
             var expSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute(("config set --node-endpoint localhost:8081 " +
+                cmd.execute(("config set --node-endpoint localhost:8081 " +
                     "local.baseline.autoAdjust.enabled=true"
                     ).split(" "));
 
@@ -526,7 +537,7 @@ public class IgniteCliInterfaceTest {
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
-                "Use the ignite config get command to view the updated configuration.\n", out.toString());
+                "Use the " + cmd.getColorScheme().commandText("ignite config get") + " command to view the updated configuration.\n", out.toString());
         }
 
         /** */
@@ -538,8 +549,9 @@ public class IgniteCliInterfaceTest {
 
             var expSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
 
+            var cmd = cmd(ctx);
             var exitCode =
-                commandLine(applicationCtx).execute(("config set --node-endpoint localhost:8081 " +
+                cmd.execute(("config set --node-endpoint localhost:8081 " +
                     "local.baseline.autoAdjust.enabled=true"
                 ).split(" "));
 
@@ -551,7 +563,7 @@ public class IgniteCliInterfaceTest {
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
-                "Use the ignite config get command to view the updated configuration.\n", out.toString());
+                "Use the " + cmd.getColorScheme().commandText("ignite config get") + " command to view the updated configuration.\n", out.toString());
         }
     }
 

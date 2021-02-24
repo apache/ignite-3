@@ -23,8 +23,10 @@ import java.io.PrintWriter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import picocli.CommandLine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static picocli.CommandLine.Help.Ansi.AUTO;
 
 /** */
 public class ProgressBarTest {
@@ -68,11 +70,11 @@ public class ProgressBarTest {
         progressBar.step();
         progressBar.step();
         progressBar.step();
-        assertEquals(
+        assertEquals(AUTO.string(
             "\r|========================>                                                 | 33%" +
                 "\r|================================================>                         | 66%" +
-                "\r|==========================================================================|Done!" +
-                "\r|==========================================================================|Done!",
+                "\r|==========================================================================|@|green,bold Done!|@" +
+                "\r|==========================================================================|@|green,bold Done!|@"),
             outputStream.toString()
         );
     }
