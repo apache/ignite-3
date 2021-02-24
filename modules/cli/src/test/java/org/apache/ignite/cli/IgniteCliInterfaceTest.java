@@ -170,7 +170,8 @@ public class IgniteCliInterfaceTest {
 
             var exitCode =
                 cmd(ctx)
-                    .execute("module add mvn:groupId:artifactId:version --repo http://mvnrepo.com/repostiory".split(" "));
+                    .execute(
+                        "module add mvn:groupId:artifactId:version --repo http://mvnrepo.com/repostiory".split(" "));
 
             verify(moduleMgr).addModule(
                 "mvn:groupId:artifactId:version",
@@ -208,7 +209,8 @@ public class IgniteCliInterfaceTest {
 
             verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
-            assertEquals("Module " + cmd.getColorScheme().parameterText(moduleName) + " was removed successfully.\n", out.toString());
+            assertEquals("Module " + cmd.getColorScheme().parameterText(moduleName) +
+                " was removed successfully.\n", out.toString());
         }
 
         /** */
@@ -225,7 +227,8 @@ public class IgniteCliInterfaceTest {
 
             verify(moduleMgr).removeModule(moduleName);
             Assertions.assertEquals(0, exitCode);
-            assertEquals("Nothing to do: module " + cmd.getColorScheme().parameterText(moduleName) + " is not yet added.\n", out.toString());
+            assertEquals("Nothing to do: module " + cmd.getColorScheme().parameterText(moduleName) +
+                " is not yet added.\n", out.toString());
         }
 
         /** */
@@ -283,7 +286,10 @@ public class IgniteCliInterfaceTest {
                 "+-------------------+-------------+---------+\n" +
                 "| org.apache.ignite | snapshot    | 2.9.0   |\n" +
                 "+-------------------+-------------+---------+\n" +
-                "Type " + cmd.getColorScheme().commandText("ignite module remove") + " " + cmd.getColorScheme().parameterText("<groupId>:<artifactId>:<version>") + " to remove a dependency.\n").toString();
+                "Type " + cmd.getColorScheme().commandText("ignite module remove") + " " +
+                cmd.getColorScheme().parameterText("<groupId>:<artifactId>:<version>") +
+                " to remove a dependency.\n"
+            ).toString();
             assertEquals(expOutput, out.toString());
         }
     }
@@ -306,13 +312,13 @@ public class IgniteCliInterfaceTest {
         @Test
         @DisplayName("start node1 --config conf.json")
         void start() {
-           var nodeName = "node1";
+            var nodeName = "node1";
 
-           var node =
-               new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
+            var node =
+                new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-           when(nodeMgr.start(any(), any(), any(), any(), any()))
-               .thenReturn(node);
+            when(nodeMgr.start(any(), any(), any(), any(), any()))
+                .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                 .thenReturn(ignitePaths);
@@ -322,15 +328,18 @@ public class IgniteCliInterfaceTest {
             var exitCode = cli.execute(("node start " + nodeName + " --config conf.json").split(" "));
 
             Assertions.assertEquals(0, exitCode);
-            verify(nodeMgr).start(nodeName, ignitePaths.logDir, ignitePaths.cliPidsDir(), Path.of("conf.json"), cli.getOut());
-            assertEquals("Starting a new Ignite node...\n\nNode is successfully started. To stop, type " + cli.getColorScheme().commandText("ignite node stop ") + cli.getColorScheme().parameterText(nodeName) + "\n\n" +
-                "+---------------+---------+\n" +
-                cli.getColorScheme().text("| @|bold Consistent ID|@ | node1   |\n") +
-                "+---------------+---------+\n" +
-                cli.getColorScheme().text("| @|bold PID|@           | 1       |\n") +
-                "+---------------+---------+\n" +
-                cli.getColorScheme().text("| @|bold Log File|@      | logfile |\n") +
-                "+---------------+---------+\n",
+            verify(nodeMgr).start(nodeName, ignitePaths.logDir, ignitePaths.cliPidsDir(), Path.of("conf.json"),
+                cli.getOut());
+            assertEquals("Starting a new Ignite node...\n\nNode is successfully started. To stop, type " +
+                    cli.getColorScheme().commandText("ignite node stop ") +
+                    cli.getColorScheme().parameterText(nodeName) + "\n\n" +
+                    "+---------------+---------+\n" +
+                    cli.getColorScheme().text("| @|bold Consistent ID|@ | node1   |\n") +
+                    "+---------------+---------+\n" +
+                    cli.getColorScheme().text("| @|bold PID|@           | 1       |\n") +
+                    "+---------------+---------+\n" +
+                    cli.getColorScheme().text("| @|bold Log File|@      | logfile |\n") +
+                    "+---------------+---------+\n",
                 out.toString());
         }
 
@@ -353,7 +362,9 @@ public class IgniteCliInterfaceTest {
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
             assertEquals(
-                "Stopping locally running node with consistent ID " + cmd.getColorScheme().parameterText(nodeName) + cmd.getColorScheme().text("... @|bold,green Done!|@\n"),
+                "Stopping locally running node with consistent ID " +
+                    cmd.getColorScheme().parameterText(nodeName) +
+                    cmd.getColorScheme().text("... @|bold,green Done!|@\n"),
                 out.toString());
         }
 
@@ -376,7 +387,9 @@ public class IgniteCliInterfaceTest {
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
             assertEquals(
-                "Stopping locally running node with consistent ID " + cmd.getColorScheme().parameterText(nodeName) + cmd.getColorScheme().text("... @|bold,red Failed|@\n"),
+                "Stopping locally running node with consistent ID " +
+                    cmd.getColorScheme().parameterText(nodeName) +
+                    cmd.getColorScheme().text("... @|bold,red Failed|@\n"),
                 out.toString());
         }
 
@@ -427,7 +440,8 @@ public class IgniteCliInterfaceTest {
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
             assertEquals("Currently, there are no locally running nodes.\n\n" +
-                "Use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node.\n", out.toString());
+                "Use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node.\n",
+                out.toString());
         }
 
         /** */
@@ -442,7 +456,8 @@ public class IgniteCliInterfaceTest {
             Assertions.assertEquals(0, exitCode);
             verify(nodeMgr).classpathItems();
             assertEquals(
-                cmd.getColorScheme().text("@|bold Current Ignite node classpath:|@\n    item1\n    item2\n").toString(),
+                cmd.getColorScheme().text(
+                    "@|bold Current Ignite node classpath:|@\n    item1\n    item2\n").toString(),
                 out.toString());
         }
     }
@@ -504,7 +519,8 @@ public class IgniteCliInterfaceTest {
 
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
-                argThat(r -> "http://localhost:8081/management/v1/configuration/local.baseline".equals(r.uri().toString()) &&
+                argThat(r ->
+                    "http://localhost:8081/management/v1/configuration/local.baseline".equals(r.uri().toString()) &&
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("{\n" +
@@ -537,7 +553,8 @@ public class IgniteCliInterfaceTest {
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
-                "Use the " + cmd.getColorScheme().commandText("ignite config get") + " command to view the updated configuration.\n", out.toString());
+                "Use the " + cmd.getColorScheme().commandText("ignite config get") +
+                " command to view the updated configuration.\n", out.toString());
         }
 
         /** */
@@ -563,7 +580,8 @@ public class IgniteCliInterfaceTest {
                     "application/json".equals(r.headers().firstValue("Content-Type").get())),
                 any());
             assertEquals("Configuration was updated successfully.\n\n" +
-                "Use the " + cmd.getColorScheme().commandText("ignite config get") + " command to view the updated configuration.\n", out.toString());
+                "Use the " + cmd.getColorScheme().commandText("ignite config get") +
+                " command to view the updated configuration.\n", out.toString());
         }
     }
 
