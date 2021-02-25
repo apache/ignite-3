@@ -55,28 +55,30 @@ public class ITProcessorTest extends AbstractProcessorTest {
         assertThat(
             classSet.getNodeClass(),
             hasFields(
-                "value1", Types.STRING,
-                "primitiveLong", Types.LONG,
-                "primitiveInt", Types.INT,
-                "stringArray", Types.STRING_ARRAY
+                "value1", String.class.getCanonicalName(),
+                "primitiveLong", Long.class.getCanonicalName(),
+                "primitiveInt", Integer.class.getCanonicalName(),
+                "stringArray", String[].class.getCanonicalName()
             )
         );
+
+        String nodeClassName = classSet.getNodeClass().getClassName();
 
         assertThat(
             classSet.getNodeClass(),
             hasMethods(
-                "value1()", Types.STRING,
-                "primitiveLong()", "long",
-                "primitiveInt()", "int",
-                "stringArray()", Types.STRING_ARRAY,
-                "initValue1(java.lang.String)", classSet.getNodeClass().getClassName(),
-                "initPrimitiveLong(long)", classSet.getNodeClass().getClassName(),
-                "initPrimitiveInt(int)", classSet.getNodeClass().getClassName(),
-                "initStringArray(java.lang.String[])", classSet.getNodeClass().getClassName(),
-                "changeValue1(java.lang.String)", classSet.getNodeClass().getClassName(),
-                "changePrimitiveLong(long)", classSet.getNodeClass().getClassName(),
-                "changePrimitiveInt(int)", classSet.getNodeClass().getClassName(),
-                "changeStringArray(java.lang.String[])", classSet.getNodeClass().getClassName()
+                "value1()", String.class.getCanonicalName(),
+                "primitiveLong()", long.class.getCanonicalName(),
+                "primitiveInt()", int.class.getCanonicalName(),
+                "stringArray()", String[].class.getCanonicalName(),
+                "initValue1(java.lang.String)", nodeClassName,
+                "initPrimitiveLong(long)", nodeClassName,
+                "initPrimitiveInt(int)", nodeClassName,
+                "initStringArray(java.lang.String[])", nodeClassName,
+                "changeValue1(java.lang.String)", nodeClassName,
+                "changePrimitiveLong(long)", nodeClassName,
+                "changePrimitiveInt(int)", nodeClassName,
+                "changeStringArray(java.lang.String[])", nodeClassName
             )
         );
     }
