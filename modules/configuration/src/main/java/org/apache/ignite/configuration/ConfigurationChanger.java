@@ -135,8 +135,6 @@ public class ConfigurationChanger {
             configurationStorage.getClass(),
             changedEntries
         ));
-
-        // TODO: IGNITE-14118 iterate over data and fill Configurators
     }
 
     /**

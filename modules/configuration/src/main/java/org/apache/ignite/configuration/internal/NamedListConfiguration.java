@@ -44,8 +44,8 @@ public class NamedListConfiguration<VIEW, T extends ConfigurationProperty<VIEW, 
      * Constructor.
      * @param prefix Configuration prefix.
      * @param key Configuration key.
-     * @param configurator Configurator that this object is attached to.
-     * @param root Root configuration.
+     * @param rootKey Root key.
+     * @param changer Configuration changer.
      * @param creator Underlying configuration creator function.
      */
     public NamedListConfiguration(
@@ -64,13 +64,15 @@ public class NamedListConfiguration<VIEW, T extends ConfigurationProperty<VIEW, 
      * @return Configuration.
      */
     public T get(String name) {
-        refresh();
+        refreshValue();
 
         return values.get(name); //TODO Exceptions.
     }
 
-    @Override protected synchronized void refresh0(NamedListView<VIEW> val) {
-        Set<String> newKeys = val.namedListKeys();
+    /** {@inheritDoc} */
+    @Override protected synchronized void refreshValue0(NamedListView<VIEW> newValue) {
+        //TODO Just swap it, we don't need actual concurrent access.
+        Set<String> newKeys = newValue.namedListKeys();
 
         values.keySet().removeIf(key -> !newKeys.contains(key));
 

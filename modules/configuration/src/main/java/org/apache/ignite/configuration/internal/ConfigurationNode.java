@@ -25,22 +25,44 @@ import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 
-/** */
+/**
+ * Super class for dynamic configuration tree nodes. Has all common data and value retrieving algorithm in it.
+ */
 public abstract class ConfigurationNode<VIEW> {
+    /** Full path to the current node. */
     protected final List<String> keys;
 
+    /** Name of the current node. Same as last element of {@link #keys}. */
     protected final String key;
 
-    protected final ConfigurationChanger changer;
-
+    /** Root key instance for the current trees root. */
     protected final RootKey<?> rootKey;
 
+    /** Configuration changer instance to get latest value of the root. */
+    protected final ConfigurationChanger changer;
+
+    /**
+     * Cached value of current trees root. Useful to determine whether you have the latest configuration value or not.
+     */
     private volatile TraversableTreeNode cachedRootNode;
 
-    protected VIEW val;
+    /** Cached configuration value. Immutable. */
+    private VIEW val;
 
+    /**
+     * Validity flag. Configuration is declared invalid if it's a part of named list configuration and corresponding
+     * entry is already removed.
+     */
     private boolean invalid;
 
+    /**
+     * Constructor.
+     *
+     * @param prefix Configuration prefix.
+     * @param key Configuration key.
+     * @param rootKey Root key.
+     * @param changer Configuration changer.
+     */
     protected ConfigurationNode(List<String> prefix, String key, RootKey<?> rootKey, ConfigurationChanger changer) {
         this.keys = ConfigurationUtil.appendKey(prefix, key);
         this.key = key;
@@ -48,9 +70,15 @@ public abstract class ConfigurationNode<VIEW> {
         this.changer = changer;
     }
 
-    /** */
-    protected VIEW refresh() {
-        checkValueValidity();
+    /**
+     * Returns latest value of the configuration or throws exception.
+     *
+     * @return Latest configuration value.
+     * @throws NoSuchElementException If configuration is a part of already deleted named list configuration entry.
+     */
+    protected final VIEW refreshValue() throws NoSuchElementException {
+        if (invalid)
+            throw noSuchElementException();
 
         TraversableTreeNode newRootNode = changer.getRootNode(rootKey);
         TraversableTreeNode oldRootNode = cachedRootNode;
@@ -65,33 +93,40 @@ public abstract class ConfigurationNode<VIEW> {
                 if (cachedRootNode == oldRootNode) {
                     cachedRootNode = newRootNode;
 
-                    refresh0(newVal);
+                    refreshValue0(newVal);
 
                     return val = newVal;
                 }
                 else {
-                    checkValueValidity();
+                    if (invalid)
+                        throw noSuchElementException();
 
                     return val;
                 }
             }
         }
         catch (KeyNotFoundException e) {
-            invalid = true;
+            synchronized (this) {
+                invalid = true;
 
-            throw new NoSuchElementException(ConfigurationUtil.join(keys));
+                cachedRootNode = newRootNode;
+            }
+
+            throw noSuchElementException();
         }
     }
 
-    protected abstract void refresh0(VIEW val);
-
-    private void checkValueValidity() {
-        if (invalid)
-            throw new NoSuchElementException(ConfigurationUtil.join(keys));
+    /**
+     * @return Exception instance with a proper error message.
+     */
+    private NoSuchElementException noSuchElementException() {
+        return new NoSuchElementException(ConfigurationUtil.join(keys));
     }
 
-    /** */
-    public final VIEW viewValue() {
-        return refresh();
-    }
+    /**
+     * Callback from {@link #refreshValue()} that's called right before the update. Synchronized.
+     *
+     * @param newValue New configuration value.
+     */
+    protected abstract void refreshValue0(VIEW newValue);
 }

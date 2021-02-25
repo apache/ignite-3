@@ -39,5 +39,6 @@ public @interface ConfigurationRoot {
     String rootName();
 
     /** @return Class of storage where to store configuration of the given root. */
+    //TODO remove default value.
     Class<? extends ConfigurationStorage> storage() default ConfigurationStorage.class;
 }

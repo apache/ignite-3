@@ -18,11 +18,11 @@
 package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.RandomAccess;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -36,23 +36,20 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.FieldValidator;
 
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.find;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.join;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
-
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends ConfigurationNode<VIEW> implements Modifier<VIEW, INIT, CHANGE>, ConfigurationTree<VIEW, CHANGE> {
+public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends ConfigurationNode<VIEW> implements ConfigurationProperty<VIEW, CHANGE>, ConfigurationTree<VIEW, CHANGE> {
 
     /** Configuration members (leaves and nodes). */
-    protected final Map<String, Modifier<?, ?, ?>> members = new HashMap<>();
+    protected final Map<String, ConfigurationProperty<?, ?>> members = new HashMap<>();
 
     /**
      * Constructor.
      * @param prefix Configuration prefix.
      * @param key Configuration key.
+     * @param rootKey Root key.
+     * @param changer Configuration changer.
      */
     protected DynamicConfiguration(
         List<String> prefix,
@@ -66,9 +63,9 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     /**
      * Add new configuration member.
      * @param member Configuration member (leaf or node).
-     * @param <M> Type of member.
+     * @param <P> Type of member.
      */
-    protected <M extends Modifier<?, ?, ?>> void add(M member) {
+    protected <P extends ConfigurationProperty<?, ?>> void add(P member) {
         members.put(member.key(), member);
     }
 
@@ -97,14 +94,16 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
         if (keys.size() == 1)
             change.accept((CHANGE)rootNodeChange);
         else {
-            // TODO Not optimal, can be improved. Do it when tests are ready.
-            fillFromPrefixMap(rootNodeChange, toPrefixMap(Collections.singletonMap(join(keys), null)));
+            assert keys instanceof RandomAccess;
 
-            ConstructableTreeNode parent = (ConstructableTreeNode)find(keys.subList(0, keys.size() - 1), rootNodeChange);
+            rootNodeChange.construct(keys.get(1), new ConfigurationSource() {
+                private int i = 1;
 
-            parent.construct(key, new ConfigurationSource() {
                 @Override public void descend(ConstructableTreeNode node) {
-                    change.accept((CHANGE)node);
+                    if (++i == keys.size())
+                        change.accept((CHANGE)node);
+                    else
+                        node.construct(keys.get(i), this);
                 }
             });
         }
@@ -113,13 +112,13 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     }
 
     /** {@inheritDoc} */
-    @Override public String key() {
+    @Override public final String key() {
         return key;
     }
 
     /** {@inheritDoc} */
-    @Override public VIEW value() {
-        return viewValue();
+    @Override public final VIEW value() {
+        return refreshValue();
     }
 
     /** {@inheritDoc} */
@@ -128,7 +127,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     }
 
     /** {@inheritDoc} */
-    @Override protected void refresh0(VIEW val) {
+    @Override protected void refreshValue0(VIEW newValue) {
         // No-op.
     }
 }

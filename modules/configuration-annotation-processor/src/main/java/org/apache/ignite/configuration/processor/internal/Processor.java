@@ -360,21 +360,13 @@ public class Processor extends AbstractProcessor {
         configurationInterfaceBuilder.addMethod(interfaceGetMethod);
 
         MethodSpec getMethod = MethodSpec.methodBuilder(fieldName)
+            .addAnnotation(Override.class)
+            .addJavadoc("{@inheritDoc}")
             .addModifiers(PUBLIC, FINAL)
             .returns(types.getGetMethodType())
             .addStatement("return $L", fieldName)
             .build();
         configurationClassBuilder.addMethod(getMethod);
-
-        if (valueAnnotation != null) {
-            MethodSpec setMethod = MethodSpec
-                .methodBuilder(fieldName)
-                .addModifiers(PUBLIC, FINAL)
-                .addParameter(types.getUnwrappedType(), fieldName)
-                .addStatement("this.$L.change($L)", fieldName, fieldName)
-                .build();
-            configurationClassBuilder.addMethod(setMethod);
-        }
     }
 
     /**
@@ -522,14 +514,6 @@ public class Processor extends AbstractProcessor {
             .addCode(constructorBodyBuilder.build())
             .build();
         configurationClassBuilder.addMethod(constructorWithName);
-
-//        final MethodSpec emptyConstructor = MethodSpec.constructorBuilder()
-//            .addModifiers(PUBLIC)
-//            .addParameter(configuratorClassName, "configurator")
-//            .addStatement("this($T.emptyList(), $S, configurator, null)", Collections.class, configName)
-//            .build();
-//
-//        configurationClassBuilder.addMethod(emptyConstructor);
     }
 
     /**
@@ -557,12 +541,6 @@ public class Processor extends AbstractProcessor {
         TypeName confTreeParameterized = ParameterizedTypeName.get(confTreeInterface, viewClassTypeName, changeClassName);
 
         configurationInterfaceBuilder.addSuperinterface(confTreeParameterized);
-
-        final MethodSpec toViewMethod = createToViewMethod(viewClassTypeName, fields);
-        configurationClassBuilder.addMethod(toViewMethod);
-
-//        final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
-//        configurationClassBuilder.addMethod(changeMethod);
 
         // This code will be refactored in the future. Right now I don't want to entangle it with existing code
         // generation. It has only a few considerable problems - hardcode and a lack of proper arrays handling.
@@ -941,30 +919,6 @@ public class Processor extends AbstractProcessor {
     /** */
     private static String capitalize(String name) {
         return name.substring(0, 1).toUpperCase() + name.substring(1);
-    }
-
-    /**
-     * Create {@link org.apache.ignite.configuration.ConfigurationProperty#value} method for configuration class.
-     *
-     * @param type VIEW method type.
-     * @param variables List of VIEW object's fields.
-     * @return toView() method.
-     */
-    public MethodSpec createToViewMethod(TypeName type, List<VariableElement> variables) {
-//        String args = variables.stream()
-//            .map(v -> v.getSimpleName().toString() + ".value()")
-//            .collect(Collectors.joining(", "));
-
-        final CodeBlock returnBlock = CodeBlock.builder()
-            .add("return null"/*"return new $T($L)", type, args*/)
-            .build();
-
-        return MethodSpec.methodBuilder("value")
-            .addModifiers(PUBLIC)
-            .addAnnotation(Override.class)
-            .returns(type)
-            .addStatement(returnBlock)
-            .build();
     }
 
     /**

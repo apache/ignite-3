@@ -336,6 +336,24 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Creates new list that is a conjunction of given list and element.
+     *
+     * @param prefix Head of the new list.
+     * @param key Tail element of the new list.
+     * @return New list.
+     */
+    public static List<String> appendKey(List<String> prefix, String key) {
+        if (prefix.isEmpty())
+            return List.of(key);
+
+        List<String> res = new ArrayList<>(prefix.size() + 1);
+        res.addAll(prefix);
+        res.add(key);
+
+        return res;
+    }
+
+    /**
      * Apply changes on top of existing node. Creates completely new object while reusing parts of the original tree
      * that weren't modified.
      *
@@ -364,18 +382,6 @@ public class ConfigurationUtil {
         src.descend(copy);
 
         return copy;
-    }
-
-    /** */
-    public static List<String> appendKey(List<String> prefix, String key) {
-        if (prefix.isEmpty())
-            return List.of(key);
-
-        List<String> res = new ArrayList<>(prefix.size() + 1);
-        res.addAll(prefix);
-        res.add(key);
-
-        return res;
     }
 
     /** */

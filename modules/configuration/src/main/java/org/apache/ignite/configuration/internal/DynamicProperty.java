@@ -22,29 +22,31 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.RandomAccess;
 import java.util.concurrent.Future;
 import org.apache.ignite.configuration.ConfigurationChanger;
+import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.PropertyListener;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.tree.ConfigurationSource;
+import org.apache.ignite.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.join;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
 
 /**
  * Holder for property value. Expected to be used with numbers, strings and other immutable objects, e.g. IP addresses.
  */
-public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T> implements Modifier<T, T, T>, ConfigurationValue<T> {
+public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T> implements ConfigurationProperty<T, T>, ConfigurationValue<T> {
     /** Listeners of property update. */
     private final List<PropertyListener<T, T>> updateListeners = new ArrayList<>();
 
     /**
      * Constructor.
      * @param prefix Property prefix.
-     * @param name Property name.
+     * @param key Property name.
+     * @param rootKey Root key.
+     * @param changer Configuration changer.
      */
     public DynamicProperty(
         List<String> prefix,
@@ -65,20 +67,36 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
 
     /** {@inheritDoc} */
     @Override public T value() {
-        return viewValue();
+        return refreshValue();
     }
 
     /** {@inheritDoc} */
     @Override public Future<Void> change(T newValue) throws ConfigurationValidationException {
-        // TODO Message.
-        Objects.requireNonNull(newValue);
+        Objects.requireNonNull(newValue, "Configuration value cannot be null.");
 
-        InnerNode rootNode = ((RootKeyImpl)rootKey).createRootNode();
+        InnerNode rootNodeChange = ((RootKeyImpl)rootKey).createRootNode();
 
-        // TODO Not optimal, can be improved. Do it when tests are ready.
-        fillFromPrefixMap(rootNode, toPrefixMap(Map.of(join(keys.subList(1, keys.size())), newValue)));
+        assert keys instanceof RandomAccess;
 
-        return changer.change(Map.of(rootKey, rootNode));
+        rootNodeChange.construct(keys.get(1), new ConfigurationSource() {
+            private int i = 1;
+
+            @Override public void descend(ConstructableTreeNode node) {
+                ++i;
+
+                assert i < keys.size();
+
+                node.construct(keys.get(i), this);
+            }
+
+            @Override public <T> T unwrap(Class<T> clazz) {
+                assert i == keys.size() - 1;
+
+                return (T)newValue;
+            }
+        });
+
+        return changer.change(Map.of(rootKey, rootNodeChange));
     }
 
     /** {@inheritDoc} */
@@ -87,7 +105,7 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     }
 
     /** {@inheritDoc} */
-    @Override protected void refresh0(T val) {
+    @Override protected void refreshValue0(T newValue) {
         // No-op.
     }
 }
