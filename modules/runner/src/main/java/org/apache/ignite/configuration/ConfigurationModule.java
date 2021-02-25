@@ -18,8 +18,6 @@
 package org.apache.ignite.configuration;
 
 import java.io.Reader;
-import org.apache.ignite.rest.presentation.FormatConverter;
-import org.apache.ignite.rest.presentation.json.JsonConverter;
 
 /**
  * Module is responsible for preparing configuration when module is started.
@@ -36,11 +34,11 @@ public class ConfigurationModule {
 
     /** */
     public void bootstrap(Reader confReader) {
-        FormatConverter converter = new JsonConverter();
-
+//        FormatConverter converter = new JsonConverter();
+//
 //        Configurator<LocalConfigurationImpl> configurator =
 //            Configurator.create(LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
-
+//
 //        confRegistry.registerConfigurator(configurator);
     }
 

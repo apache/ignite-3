@@ -51,13 +51,14 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
         if (path == null || path.isEmpty())
             return represent();
 
-        String root = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
-
-        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator = configsMap.get(root);
-
+//        String root = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
+//
+//        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator = configsMap.get(root);
+//
 //        ConfigurationProperty<Object, Object> prop = configurator.getInternal(BaseSelectors.find(path));
-
-        return ""; //converter.convertTo(prop.value());
+//
+//        return converter.convertTo(prop.value());
+        return "";
     }
 
     /** {@inheritDoc} */

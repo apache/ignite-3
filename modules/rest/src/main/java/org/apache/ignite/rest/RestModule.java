@@ -65,8 +65,8 @@ public class RestModule {
 
         presentation = new JsonPresentation(sysConfig.getConfigurators());
 
-        FormatConverter converter = new JsonConverter();
-
+//        FormatConverter converter = new JsonConverter();
+//
 //        Configurator<RestConfigurationImpl> restConf = Configurator.create(RestConfigurationImpl::new,
 //            converter.convertFrom(moduleConfReader, "rest", InitRest.class));
 //

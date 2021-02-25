@@ -187,7 +187,6 @@ public class Processor extends AbstractProcessor {
                 TypeName viewClassType = types.getViewClassType();
                 TypeName initClassType = types.getInitClassType();
                 TypeName changeClassType = types.getChangeClassType();
-                TypeName getInterfaceMethodType = types.getInterfaceGetMethodType();
 
                 final ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
                 if (confAnnotation != null) {
@@ -399,8 +398,8 @@ public class Processor extends AbstractProcessor {
         final NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
         if (namedConfigAnnotation != null) {
             ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
-            // BULLSHIT!
-            ClassName interfaceFieldType = Utils.getConfigurationName((ClassName) baseType);//Interface
+            //TODO IGNITE-14182 This is BS, interface name must be used instead.
+            ClassName interfaceFieldType = Utils.getConfigurationName((ClassName) baseType);
 
             viewClassType = Utils.getViewName((ClassName) baseType);
             initClassType = Utils.getInitName((ClassName) baseType);
@@ -508,7 +507,7 @@ public class Processor extends AbstractProcessor {
             .addModifiers(PUBLIC)
             .addParameter(ParameterizedTypeName.get(List.class, String.class), "prefix")
             .addParameter(String.class, "key")
-            .addParameter(ParameterizedTypeName.get(ClassName.get(RootKey.class), WildcardTypeName.subtypeOf(Object.class)), "rootKey")
+            .addParameter(ParameterizedTypeName.get(ClassName.get(RootKey.class), WILDCARD), "rootKey")
             .addParameter(ConfigurationChanger.class, "changer")
             .addStatement("super(prefix, key, rootKey, changer)")
             .addCode(constructorBodyBuilder.build())
