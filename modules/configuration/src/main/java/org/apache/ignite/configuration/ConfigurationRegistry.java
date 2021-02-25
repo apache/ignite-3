@@ -42,7 +42,7 @@ public class ConfigurationRegistry {
 
         configs.put(rootKey.key(), (DynamicConfiguration<?, ?, ?>)rootKey.createPublicRoot(changer));
 
-        // TODO link these two entities.
+        //TODO IGNITE-14180 link these two entities.
     }
 
     /** */

@@ -27,10 +27,11 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 public interface ConfigurationValue<VALUE> extends ConfigurationProperty<VALUE, VALUE> {
 
     /**
-     * Change this configuration node value.
-     * @param change CHANGE object.
-     * @throws ConfigurationValidationException If validation failed.
+     * Update this configuration node value.
+     *
+     * @param change New value for the configuration. Must not be null.
+     * @returns Future that signifies end of the update operation. Can also be completed with
+     *      {@link ConfigurationValidationException} and {@link ConfigurationChangeException}.
      */
-    //TODO Rename.
-    Future<Void> change(VALUE change) throws ConfigurationValidationException;
+    Future<Void> update(VALUE change) throws ConfigurationValidationException;
 }

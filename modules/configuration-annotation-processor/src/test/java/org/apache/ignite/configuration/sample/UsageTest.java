@@ -55,14 +55,14 @@ public class UsageTest {
         ).get();
         assertTrue(root.baseline().autoAdjust().enabled().value());
 
-        root.baseline().autoAdjust().enabled().change(false).get();
+        root.baseline().autoAdjust().enabled().update(false).get();
 
         assertFalse(root.value().baseline().autoAdjust().enabled());
         assertFalse(root.baseline().value().autoAdjust().enabled());
         assertFalse(root.baseline().autoAdjust().value().enabled());
         assertFalse(root.baseline().autoAdjust().enabled().value());
 
-        root.baseline().nodes().get("node1").autoAdjustEnabled().change(true).get();
+        root.baseline().nodes().get("node1").autoAdjustEnabled().update(true).get();
 
         assertTrue(root.value().baseline().nodes().get("node1").autoAdjustEnabled());
         assertTrue(root.baseline().value().nodes().get("node1").autoAdjustEnabled());

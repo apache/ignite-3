@@ -20,7 +20,6 @@ package org.apache.ignite.configuration.internal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.ConfigurationProperty;
@@ -38,7 +37,7 @@ public class NamedListConfiguration<VIEW, T extends ConfigurationProperty<VIEW, 
     private final BiFunction<List<String>, String, T> creator;
 
     /** Named configurations. */
-    private final Map<String, T> values = new HashMap<>();
+    private volatile Map<String, T> values = new HashMap<>();
 
     /**
      * Constructor.
@@ -66,19 +65,24 @@ public class NamedListConfiguration<VIEW, T extends ConfigurationProperty<VIEW, 
     public T get(String name) {
         refreshValue();
 
-        return values.get(name); //TODO Exceptions.
+        //TODO IGNITE-14182 Exceptions.
+        return values.get(name);
     }
 
     /** {@inheritDoc} */
     @Override protected synchronized void refreshValue0(NamedListView<VIEW> newValue) {
-        //TODO Just swap it, we don't need actual concurrent access.
-        Set<String> newKeys = newValue.namedListKeys();
+        Map<String, T> oldValues = this.values;
+        Map<String, T> newValues = new HashMap<>();
 
-        values.keySet().removeIf(key -> !newKeys.contains(key));
+        for (String key : newValue.namedListKeys()) {
+            T oldElement = oldValues.get(key);
 
-        for (String newKey : newKeys) {
-            if (!values.containsKey(newKey))
-                values.put(newKey, creator.apply(keys, newKey));
+            if (oldElement != null)
+                newValues.put(key, oldElement);
+            else
+                newValues.put(key, creator.apply(keys, key));
         }
+
+        this.values = newValues;
     }
 }
