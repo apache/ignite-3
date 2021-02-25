@@ -62,7 +62,6 @@ public class ITProcessorTest extends AbstractProcessorTest {
             )
         );
 
-        System.out.println(classSet.getNodeClass().getMethods());
         assertThat(
             classSet.getNodeClass(),
             hasMethods(
