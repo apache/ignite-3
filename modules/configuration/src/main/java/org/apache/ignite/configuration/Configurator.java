@@ -54,24 +54,7 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     public static <VIEW, INIT, CHANGE, CONF extends DynamicConfiguration<VIEW, INIT, CHANGE>> Configurator<CONF> create(
         Function<Configurator<CONF>, CONF> rootBuilder
     ) {
-        return new Configurator<>(rootBuilder, null);
-    }
-
-    /**
-     *
-     * @param rootBuilder
-     * @param init
-     * @param <VIEW>
-     * @param <INIT>
-     * @param <CHANGE>
-     * @param <CONF>
-     * @return
-     */
-    public static <VIEW, INIT, CHANGE, CONF extends DynamicConfiguration<VIEW, INIT, CHANGE>> Configurator<CONF> create(
-        Function<Configurator<CONF>, CONF> rootBuilder,
-        INIT init
-    ) {
-        return new Configurator<>(rootBuilder, init);
+        return new Configurator<>(rootBuilder);
     }
 
     /**
@@ -79,8 +62,7 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
      * @param rootBuilder Function, that creates configuration root.
      */
     private <VIEW, INIT, CHANGE, CONF extends DynamicConfiguration<VIEW, INIT, CHANGE>> Configurator(
-        Function<Configurator<CONF>, CONF> rootBuilder,
-        INIT init
+        Function<Configurator<CONF>, CONF> rootBuilder
     ) {
         final CONF built = rootBuilder.apply((Configurator<CONF>) this);
 

@@ -267,7 +267,7 @@ public class Processor extends AbstractProcessor {
 
                 configDesc.getFields().add(new ConfigurationElement(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
 
-                createGettersAndSetter(configurationClassBuilder, configurationInterfaceBuilder, fieldName, types, valueAnnotation);
+                createGettersAndSetter(configurationClassBuilder, configurationInterfaceBuilder, fieldName, types);
             }
 
             props.put(configClass, configDesc);
@@ -289,7 +289,7 @@ public class Processor extends AbstractProcessor {
             }
 
             // Create constructors for configuration class
-            createConstructors(configName, configurationClassBuilder, constructorBodyBuilder);
+            createConstructors(configurationClassBuilder, constructorBodyBuilder);
 
             // Write configuration interface
             JavaFile interfaceFile = JavaFile.builder(packageName, configurationInterfaceBuilder.build()).build();
@@ -343,14 +343,12 @@ public class Processor extends AbstractProcessor {
      * @param configurationInterfaceBuilder
      * @param fieldName
      * @param types
-     * @param valueAnnotation
      */
     private void createGettersAndSetter(
         TypeSpec.Builder configurationClassBuilder,
         TypeSpec.Builder configurationInterfaceBuilder,
         String fieldName,
-        ConfigurationFieldTypes types,
-        Value valueAnnotation
+        ConfigurationFieldTypes types
     ) {
         MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
             .addModifiers(PUBLIC, ABSTRACT)
@@ -492,14 +490,12 @@ public class Processor extends AbstractProcessor {
     /**
      * Create configuration class constructors.
      *
-     * @param configName Configuration name.
-     * @param configurationClassBuilder Configuration class builder.
      * @param configuratorClassName Configurator (configuration wrapper) class name.
-     * @param constructorBodyBuilder Constructor body.
      * @param copyConstructorBodyBuilder Copy constructor body.
+     * @param configurationClassBuilder Configuration class builder.
+     * @param constructorBodyBuilder Constructor body.
      */
     private void createConstructors(
-        String configName,
         TypeSpec.Builder configurationClassBuilder,
         CodeBlock.Builder constructorBodyBuilder
     ) {
