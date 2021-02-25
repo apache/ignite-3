@@ -92,7 +92,9 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
             @Override public <T> T unwrap(Class<T> clazz) {
                 assert i == keys.size() - 1;
 
-                return (T)newValue;
+                assert clazz.isInstance(newValue);
+
+                return clazz.cast(newValue);
             }
         });
 
