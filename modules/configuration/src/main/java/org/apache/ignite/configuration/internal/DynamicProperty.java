@@ -77,16 +77,15 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
         InnerNode rootNodeChange = ((RootKeyImpl)rootKey).createRootNode();
 
         assert keys instanceof RandomAccess;
+        assert !keys.isEmpty();
 
         rootNodeChange.construct(keys.get(1), new ConfigurationSource() {
             private int i = 1;
 
             @Override public void descend(ConstructableTreeNode node) {
-                ++i;
+                assert i < keys.size() - 1;
 
-                assert i < keys.size();
-
-                node.construct(keys.get(i), this);
+                node.construct(keys.get(++i), this);
             }
 
             @Override public <T> T unwrap(Class<T> clazz) {

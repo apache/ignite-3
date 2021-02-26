@@ -92,8 +92,10 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
 
         InnerNode rootNodeChange = ((RootKeyImpl)rootKey).createRootNode();
 
-        if (keys.size() == 1)
+        if (keys.size() == 1) {
+            // Current node is a root.
             change.accept((CHANGE)rootNodeChange);
+        }
         else {
             assert keys instanceof RandomAccess;
 
