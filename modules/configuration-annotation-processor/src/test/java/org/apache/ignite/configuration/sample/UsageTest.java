@@ -21,6 +21,7 @@ import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.sample.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.Test;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,17 +53,17 @@ public class UsageTest {
                     autoAdjust.changeEnabled(true).changeTimeout(100_000L)
                 )
             )
-        ).get();
+        ).get(1, SECONDS);
         assertTrue(root.baseline().autoAdjust().enabled().value());
 
-        root.baseline().autoAdjust().enabled().update(false).get();
+        root.baseline().autoAdjust().enabled().update(false).get(1, SECONDS);
 
         assertFalse(root.value().baseline().autoAdjust().enabled());
         assertFalse(root.baseline().value().autoAdjust().enabled());
         assertFalse(root.baseline().autoAdjust().value().enabled());
         assertFalse(root.baseline().autoAdjust().enabled().value());
 
-        root.baseline().nodes().get("node1").autoAdjustEnabled().update(true).get();
+        root.baseline().nodes().get("node1").autoAdjustEnabled().update(true).get(1, SECONDS);
 
         assertTrue(root.value().baseline().nodes().get("node1").autoAdjustEnabled());
         assertTrue(root.baseline().value().nodes().get("node1").autoAdjustEnabled());
@@ -70,7 +71,7 @@ public class UsageTest {
         assertTrue(root.baseline().nodes().get("node1").value().autoAdjustEnabled());
         assertTrue(root.baseline().nodes().get("node1").autoAdjustEnabled().value());
 
-        root.baseline().nodes().get("node1").change(node -> node.changeAutoAdjustEnabled(false)).get();
+        root.baseline().nodes().get("node1").change(node -> node.changeAutoAdjustEnabled(false)).get(1, SECONDS);
         assertFalse(root.value().baseline().nodes().get("node1").autoAdjustEnabled());
     }
 
@@ -97,7 +98,7 @@ public class UsageTest {
                     autoAdjust.changeEnabled(true).changeTimeout(autoAdjustTimeout)
                 )
             )
-        ).get();
+        ).get(1, SECONDS);
 
         registry.getConfiguration(NetworkConfiguration.KEY).change(network ->
             network.changeDiscovery(discovery ->
@@ -105,7 +106,7 @@ public class UsageTest {
                     .changeFailureDetectionTimeout(failureDetectionTimeout)
                     .changeJoinTimeout(joinTimeout)
             )
-        ).get();
+        ).get(1, SECONDS);
 
         assertEquals(
             failureDetectionTimeout,
