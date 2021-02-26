@@ -32,7 +32,6 @@ import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,7 +120,6 @@ public class Processor extends AbstractProcessor {
             .getElementsAnnotatedWithAny(Set.of(ConfigurationRoot.class, Config.class)).stream()
             .filter(element -> element.getKind() == ElementKind.CLASS)
             .map(TypeElement.class::cast)
-            .sorted(Comparator.comparing((TypeElement element) -> element.getQualifiedName().toString()).reversed())
             .collect(Collectors.toList());
 
         if (annotatedConfigs.isEmpty())
@@ -267,7 +265,7 @@ public class Processor extends AbstractProcessor {
 
                 configDesc.getFields().add(new ConfigurationElement(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
 
-                createGettersAndSetter(configurationClassBuilder, configurationInterfaceBuilder, fieldName, types);
+                createGetters(configurationClassBuilder, configurationInterfaceBuilder, fieldName, types);
             }
 
             props.put(configClass, configDesc);
@@ -292,22 +290,9 @@ public class Processor extends AbstractProcessor {
             createConstructors(configurationClassBuilder, constructorBodyBuilder);
 
             // Write configuration interface
-            JavaFile interfaceFile = JavaFile.builder(packageName, configurationInterfaceBuilder.build()).build();
+            buildClass(packageName, configurationInterfaceBuilder.build());
 
-            try {
-                interfaceFile.writeTo(filer);
-            } catch (IOException e) {
-                throw new ProcessorException("Failed to create configuration class " + configClass.toString(), e);
-            }
-
-            // Write configuration
-            JavaFile classFile = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
-
-            try {
-                classFile.writeTo(filer);
-            } catch (IOException e) {
-                throw new ProcessorException("Failed to create configuration class " + configClass.toString(), e);
-            }
+            buildClass(packageName, configurationClassBuilder.build());
         }
 
         return true;
@@ -337,14 +322,14 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Create getters and setters for configuration class.
+     * Create getters for configuration class.
      *
      * @param configurationClassBuilder
      * @param configurationInterfaceBuilder
      * @param fieldName
      * @param types
      */
-    private void createGettersAndSetter(
+    private void createGetters(
         TypeSpec.Builder configurationClassBuilder,
         TypeSpec.Builder configurationInterfaceBuilder,
         String fieldName,
@@ -892,23 +877,23 @@ public class Processor extends AbstractProcessor {
         TypeSpec initCls = initClsBuilder.build();
         TypeSpec nodeCls = nodeClsBuilder.build();
 
-        try {
-            buildClass(viewClsName, viewCls);
-            buildClass(changeClsName, changeCls);
-            buildClass(initClsName, initCls);
-            buildClass(nodeClsName, nodeCls);
-        }
-        catch (IOException e) {
-            throw new ProcessorException("Failed to generate classes", e);
-        }
+        buildClass(viewClsName.packageName(), viewCls);
+        buildClass(changeClsName.packageName(), changeCls);
+        buildClass(initClsName.packageName(), initCls);
+        buildClass(nodeClsName.packageName(), nodeCls);
     }
 
     /** */
-    private void buildClass(ClassName viewClsName, TypeSpec viewCls) throws IOException {
-        JavaFile.builder(viewClsName.packageName(), viewCls)
-            .indent(INDENT)
-            .build()
-            .writeTo(filer);
+    private void buildClass(String packageName, TypeSpec cls) {
+        try {
+            JavaFile.builder(packageName, cls)
+                .indent(INDENT)
+                .build()
+                .writeTo(filer);
+        }
+        catch (IOException e) {
+            throw new ProcessorException("Failed to generate class " + packageName + "." + cls.name, e);
+        }
     }
 
     /** */

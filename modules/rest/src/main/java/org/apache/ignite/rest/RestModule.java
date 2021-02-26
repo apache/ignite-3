@@ -20,6 +20,7 @@ package org.apache.ignite.rest;
 import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import java.io.Reader;
+import java.util.Collections;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.rest.configuration.RestConfigurationImpl;
@@ -63,7 +64,7 @@ public class RestModule {
     public void prepareStart(ConfigurationRegistry sysConfig, Reader moduleConfReader) {
         sysConf = sysConfig;
 
-        presentation = new JsonPresentation(sysConfig.getConfigurators());
+        presentation = new JsonPresentation(Collections.emptyMap());
 
 //        FormatConverter converter = new JsonConverter();
 //

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -52,13 +51,7 @@ public class ConfigurationRegistry {
 
     /** */
     public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T> rootKey) {
-        return (T) configs.get(rootKey.key());
-    }
-
-    /** */
-    @Deprecated
-    public Map<String, Configurator<? extends DynamicConfiguration<?, ?, ?>>> getConfigurators() {
-        return Collections.emptyMap();
+        return (T)configs.get(rootKey.key());
     }
 
     /**
