@@ -4,7 +4,7 @@ import org.apache.ignite.raft.client.RaftClientCommonMessages;
 
 /** */
 public interface ClientMessageBuilderFactory {
-    public static ClientMessageBuilderFactory DEFAULT = new RaftClientCommonMessageBuilderFactory();
+    public static ClientMessageBuilderFactory DEFAULT_MESSAGE_BUILDER_FACTORY = new RaftClientCommonMessageBuilderFactory();
 
     RaftClientCommonMessages.PingRequest.Builder createPingRequest();
 
@@ -43,4 +43,6 @@ public interface ClientMessageBuilderFactory {
     RaftClientCommonMessages.ResetLearnersRequest.Builder createResetLearnersRequest();
 
     RaftClientCommonMessages.LearnersOpResponse.Builder createLearnersOpResponse();
+
+    RaftClientCommonMessages.UserRequest.Builder createUserRequest();
 }

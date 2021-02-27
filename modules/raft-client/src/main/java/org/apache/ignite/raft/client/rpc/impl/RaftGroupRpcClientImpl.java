@@ -27,7 +27,6 @@ import org.apache.ignite.raft.rpc.RpcClient;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.raft.client.message.RaftClientCommonMessageBuilderFactory.DEFAULT;
 
 public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
     private final ExecutorService executor;
@@ -84,6 +83,10 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
             });
     }
 
+    @Override public CompletableFuture<State> refreshMembers(String groupId) {
+        return null;
+    }
+
     @Override public CompletableFuture<RaftClientCommonMessages.AddPeerResponse> addPeer(RaftClientCommonMessages.AddPeerRequest request) {
         return null;
     }
@@ -130,7 +133,7 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
                 return fut;
 
             if (state.updateFutRef.compareAndSet(null, (fut = new CompletableFuture<>()))) {
-                RaftClientCommonMessages.GetLeaderRequest req = DEFAULT.createGetLeaderRequest().setGroupId(groupId).build();
+                RaftClientCommonMessages.GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
 
                 CompletableFuture<GetLeaderResponse> finalFut = fut;
 
@@ -189,6 +192,10 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         });
 
         return fut;
+    }
+
+    @Override public ClientMessageBuilderFactory factory() {
+        return this.factory;
     }
 
     private static class StateImpl implements State {

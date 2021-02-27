@@ -19,6 +19,7 @@ package org.apache.ignite.raft.client.rpc;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.PeerId;
+import org.apache.ignite.raft.client.message.ClientMessageBuilderFactory;
 import org.apache.ignite.raft.rpc.Message;
 import org.apache.ignite.raft.rpc.RaftGroupMessage;
 import org.jetbrains.annotations.Nullable;
@@ -56,6 +57,13 @@ public interface RaftGroupRpcClient {
      * @return A future.
      */
     CompletableFuture<PeerId> refreshLeader(String groupId);
+
+    /**
+     * Refreshes group members (but without a leader).
+     * @param groupId Group id.
+     * @return A future.
+     */
+    CompletableFuture<State> refreshMembers(String groupId);
 
     /**
      * Adds a voring peer to the raft group.
@@ -152,4 +160,6 @@ public interface RaftGroupRpcClient {
      * @return a future with result
      */
     <R extends Message> CompletableFuture<R> sendCustom(RaftGroupMessage request);
+
+    ClientMessageBuilderFactory factory();
 }

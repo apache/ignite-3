@@ -5,12 +5,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.client.RaftClientCommonMessages.GetLeaderRequest;
 import org.apache.ignite.raft.client.rpc.impl.RaftGroupRpcClientImpl;
-import org.apache.ignite.raft.client.message.RaftClientCommonMessageBuilderFactory;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.rpc.InvokeCallback;
 import org.apache.ignite.raft.rpc.Message;
@@ -19,13 +17,13 @@ import org.apache.ignite.raft.rpc.RaftGroupMessage;
 import org.apache.ignite.raft.rpc.RpcClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.parallel.Execution;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 
+import static org.apache.ignite.raft.client.message.ClientMessageBuilderFactory.DEFAULT_MESSAGE_BUILDER_FACTORY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -46,7 +44,7 @@ public class RaftGroupRpcClientTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, new RaftClientCommonMessageBuilderFactory(),
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, DEFAULT_MESSAGE_BUILDER_FACTORY,
             5_000, Collections.singleton(leader.getNode()));
 
         PeerId leaderId = client.refreshLeader(groupId).get();
@@ -61,7 +59,7 @@ public class RaftGroupRpcClientTest {
 
         mockLeaderRequest(false);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, new RaftClientCommonMessageBuilderFactory(),
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, DEFAULT_MESSAGE_BUILDER_FACTORY,
             5_000, Collections.singleton(leader.getNode()));
 
         int cnt = 20;
@@ -106,7 +104,7 @@ public class RaftGroupRpcClientTest {
 
         mockLeaderRequest(true);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, new RaftClientCommonMessageBuilderFactory(),
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, DEFAULT_MESSAGE_BUILDER_FACTORY,
             5_000, Collections.singleton(leader.getNode()));
 
         try {
@@ -126,7 +124,7 @@ public class RaftGroupRpcClientTest {
         mockLeaderRequest(false);
         mockCustomRequest();
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, new RaftClientCommonMessageBuilderFactory(),
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, DEFAULT_MESSAGE_BUILDER_FACTORY,
             5_000, Collections.singleton(leader.getNode()));
 
         JunkRequest req = new JunkRequest(groupId);
@@ -178,7 +176,7 @@ public class RaftGroupRpcClientTest {
                     if (timeout)
                         callback.complete(null, new TimeoutException());
                     else
-                        callback.complete(RaftClientCommonMessageBuilderFactory.DEFAULT.createGetLeaderResponse().setLeaderId(leader).build(), null);
+                        callback.complete(DEFAULT_MESSAGE_BUILDER_FACTORY.createGetLeaderResponse().setLeaderId(leader).build(), null);
                 });
 
                 return null;
