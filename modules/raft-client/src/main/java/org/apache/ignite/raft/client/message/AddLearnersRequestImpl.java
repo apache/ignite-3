@@ -24,7 +24,6 @@ public class AddLearnersRequestImpl implements RaftClientMessages.AddLearnersReq
         return this;
     }
 
-
     @Override public Builder addLearners(PeerId learnerId) {
         learnersList.add(learnerId);
 
