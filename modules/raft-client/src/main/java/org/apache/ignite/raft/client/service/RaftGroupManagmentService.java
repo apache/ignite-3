@@ -9,24 +9,24 @@ import org.jetbrains.annotations.Nullable;
 public interface RaftGroupManagmentService {
     /**
      * @param groupId
-     * @return Peer id.
+     * @return Leader id or null if it has not been yet initialized.
      */
     @Nullable PeerId getLeader(String groupId);
 
     /**
      * @param groupId
-     * @return List of peers.
+     * @return List of peers or null if it has not been yet initialized.
      */
     @Nullable List<PeerId> getPeers(String groupId);
 
     /**
      * @param groupId
-     * @return List of peers.
+     * @return List of peers or null if it has not been yet initialized.
      */
     @Nullable List<PeerId> getLearners(String groupId);
 
     /**
-     * Adds a voring peer to the raft group.
+     * Adds a voting peer to the raft group.
      *
      * @param request   request data
      * @return A future with the result

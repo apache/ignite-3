@@ -14,9 +14,9 @@ import java.util.function.BiConsumer;
 import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.RaftException;
 import org.apache.ignite.raft.State;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
-import org.apache.ignite.raft.client.RaftClientCommonMessages.GetLeaderResponse;
-import org.apache.ignite.raft.client.RaftClientCommonMessages.StatusResponse;
+import org.apache.ignite.raft.client.RaftClientMessages;
+import org.apache.ignite.raft.client.RaftClientMessages.GetLeaderResponse;
+import org.apache.ignite.raft.client.RaftClientMessages.StatusResponse;
 import org.apache.ignite.raft.client.message.ClientMessageBuilderFactory;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.rpc.InvokeCallback;
@@ -87,39 +87,39 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientCommonMessages.AddPeerResponse> addPeer(RaftClientCommonMessages.AddPeerRequest request) {
+    @Override public CompletableFuture<RaftClientMessages.AddPeerResponse> addPeer(RaftClientMessages.AddPeerRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientCommonMessages.RemovePeerResponse> removePeer(RaftClientCommonMessages.RemovePeerRequest request) {
+    @Override public CompletableFuture<RaftClientMessages.RemovePeerResponse> removePeer(RaftClientMessages.RemovePeerRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<StatusResponse> resetPeers(PeerId peerId, RaftClientCommonMessages.ResetPeerRequest request) {
+    @Override public CompletableFuture<StatusResponse> resetPeers(PeerId peerId, RaftClientMessages.ResetPeerRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<StatusResponse> snapshot(PeerId peerId, RaftClientCommonMessages.SnapshotRequest request) {
+    @Override public CompletableFuture<StatusResponse> snapshot(PeerId peerId, RaftClientMessages.SnapshotRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientCommonMessages.ChangePeersResponse> changePeers(RaftClientCommonMessages.ChangePeersRequest request) {
+    @Override public CompletableFuture<RaftClientMessages.ChangePeersResponse> changePeers(RaftClientMessages.ChangePeersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientCommonMessages.LearnersOpResponse> addLearners(RaftClientCommonMessages.AddLearnersRequest request) {
+    @Override public CompletableFuture<RaftClientMessages.LearnersOpResponse> addLearners(RaftClientMessages.AddLearnersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientCommonMessages.LearnersOpResponse> removeLearners(RaftClientCommonMessages.RemoveLearnersRequest request) {
+    @Override public CompletableFuture<RaftClientMessages.LearnersOpResponse> removeLearners(RaftClientMessages.RemoveLearnersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientCommonMessages.LearnersOpResponse> resetLearners(RaftClientCommonMessages.ResetLearnersRequest request) {
+    @Override public CompletableFuture<RaftClientMessages.LearnersOpResponse> resetLearners(RaftClientMessages.ResetLearnersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<StatusResponse> transferLeader(RaftClientCommonMessages.TransferLeaderRequest request) {
+    @Override public CompletableFuture<StatusResponse> transferLeader(RaftClientMessages.TransferLeaderRequest request) {
         return null;
     }
 
@@ -133,7 +133,7 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
                 return fut;
 
             if (state.updateFutRef.compareAndSet(null, (fut = new CompletableFuture<>()))) {
-                RaftClientCommonMessages.GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
+                RaftClientMessages.GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
 
                 CompletableFuture<GetLeaderResponse> finalFut = fut;
 

@@ -3,9 +3,9 @@ package org.apache.ignite.raft.client.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class RemoveLearnersRequestImpl implements RaftClientCommonMessages.RemoveLearnersRequest, RaftClientCommonMessages.RemoveLearnersRequest.Builder {
+class RemoveLearnersRequestImpl implements RaftClientMessages.RemoveLearnersRequest, RaftClientMessages.RemoveLearnersRequest.Builder {
     private String groupId;
     private List<PeerId> learnersList = new ArrayList<>();
 
@@ -29,7 +29,7 @@ class RemoveLearnersRequestImpl implements RaftClientCommonMessages.RemoveLearne
         return this;
     }
 
-    @Override public RaftClientCommonMessages.RemoveLearnersRequest build() {
+    @Override public RaftClientMessages.RemoveLearnersRequest build() {
         return this;
     }
 }

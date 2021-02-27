@@ -1,9 +1,9 @@
 package org.apache.ignite.raft.client.message;
 
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class TransferLeaderRequestImpl implements RaftClientCommonMessages.TransferLeaderRequest, RaftClientCommonMessages.TransferLeaderRequest.Builder {
+class TransferLeaderRequestImpl implements RaftClientMessages.TransferLeaderRequest, RaftClientMessages.TransferLeaderRequest.Builder {
     private String groupId;
     private PeerId peerId;
 
@@ -21,7 +21,7 @@ class TransferLeaderRequestImpl implements RaftClientCommonMessages.TransferLead
         return this;
     }
 
-    @Override public RaftClientCommonMessages.TransferLeaderRequest build() {
+    @Override public RaftClientMessages.TransferLeaderRequest build() {
         return this;
     }
 }

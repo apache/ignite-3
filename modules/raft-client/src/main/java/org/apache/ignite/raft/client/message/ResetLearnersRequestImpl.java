@@ -3,9 +3,9 @@ package org.apache.ignite.raft.client.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class ResetLearnersRequestImpl implements RaftClientCommonMessages.ResetLearnersRequest, RaftClientCommonMessages.ResetLearnersRequest.Builder {
+class ResetLearnersRequestImpl implements RaftClientMessages.ResetLearnersRequest, RaftClientMessages.ResetLearnersRequest.Builder {
     private String groupId;
     private List<PeerId> learnersList = new ArrayList<>();
 
@@ -29,7 +29,7 @@ class ResetLearnersRequestImpl implements RaftClientCommonMessages.ResetLearners
         return this;
     }
 
-    @Override public RaftClientCommonMessages.ResetLearnersRequest build() {
+    @Override public RaftClientMessages.ResetLearnersRequest build() {
         return this;
     }
 }

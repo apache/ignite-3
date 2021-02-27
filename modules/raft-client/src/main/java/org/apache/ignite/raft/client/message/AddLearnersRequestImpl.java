@@ -3,9 +3,9 @@ package org.apache.ignite.raft.client.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-public class AddLearnersRequestImpl implements RaftClientCommonMessages.AddLearnersRequest, RaftClientCommonMessages.AddLearnersRequest.Builder {
+public class AddLearnersRequestImpl implements RaftClientMessages.AddLearnersRequest, RaftClientMessages.AddLearnersRequest.Builder {
     private String groupId;
     private PeerId leaderId;
     private List<PeerId> learnersList = new ArrayList<>();
@@ -31,7 +31,7 @@ public class AddLearnersRequestImpl implements RaftClientCommonMessages.AddLearn
         return this;
     }
 
-    @Override public RaftClientCommonMessages.AddLearnersRequest build() {
+    @Override public RaftClientMessages.AddLearnersRequest build() {
         return this;
     }
 }

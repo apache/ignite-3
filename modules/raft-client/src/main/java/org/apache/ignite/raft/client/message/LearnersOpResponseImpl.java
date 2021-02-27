@@ -3,9 +3,9 @@ package org.apache.ignite.raft.client.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class LearnersOpResponseImpl implements RaftClientCommonMessages.LearnersOpResponse, RaftClientCommonMessages.LearnersOpResponse.Builder {
+class LearnersOpResponseImpl implements RaftClientMessages.LearnersOpResponse, RaftClientMessages.LearnersOpResponse.Builder {
     private List<PeerId> oldLearnersList = new ArrayList<>();
     private List<PeerId> newLearnersList = new ArrayList<>();
 
@@ -29,7 +29,7 @@ class LearnersOpResponseImpl implements RaftClientCommonMessages.LearnersOpRespo
         return this;
     }
 
-    @Override public RaftClientCommonMessages.LearnersOpResponse build() {
+    @Override public RaftClientMessages.LearnersOpResponse build() {
         return this;
     }
 }

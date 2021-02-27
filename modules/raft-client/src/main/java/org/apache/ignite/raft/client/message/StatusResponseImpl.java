@@ -1,8 +1,8 @@
 package org.apache.ignite.raft.client.message;
 
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class StatusResponseImpl implements RaftClientCommonMessages.StatusResponse, RaftClientCommonMessages.StatusResponse.Builder {
+class StatusResponseImpl implements RaftClientMessages.StatusResponse, RaftClientMessages.StatusResponse.Builder {
     private int errorCode;
     private String errorMsg = "";
 
@@ -26,7 +26,7 @@ class StatusResponseImpl implements RaftClientCommonMessages.StatusResponse, Raf
         return this;
     }
 
-    @Override public RaftClientCommonMessages.StatusResponse build() {
+    @Override public RaftClientMessages.StatusResponse build() {
         return this;
     }
 }

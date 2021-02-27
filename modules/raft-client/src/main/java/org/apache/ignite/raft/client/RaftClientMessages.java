@@ -27,8 +27,8 @@ import org.apache.ignite.raft.rpc.RaftGroupMessage;
 /**
  *
  */
-public final class RaftClientCommonMessages {
-    private RaftClientCommonMessages() {
+public final class RaftClientMessages {
+    private RaftClientMessages() {
     }
 
     public interface StatusResponse extends Message {
@@ -262,6 +262,8 @@ public final class RaftClientCommonMessages {
 
         public interface Builder<T> {
             Builder setRequest(T request);
+
+            Builder setGroupId(String groupId);
 
             UserRequest<T> build();
         }

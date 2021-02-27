@@ -22,22 +22,21 @@ import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.client.message.ClientMessageBuilderFactory;
 import org.apache.ignite.raft.rpc.Message;
 import org.apache.ignite.raft.rpc.RaftGroupMessage;
-import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.AddLearnersRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.AddPeerRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.AddPeerResponse;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.ChangePeersRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.ChangePeersResponse;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.LearnersOpResponse;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.RemoveLearnersRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.RemovePeerRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.RemovePeerResponse;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.ResetLearnersRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.ResetPeerRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.SnapshotRequest;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.StatusResponse;
-import static org.apache.ignite.raft.client.RaftClientCommonMessages.TransferLeaderRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.AddLearnersRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.AddPeerRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.AddPeerResponse;
+import static org.apache.ignite.raft.client.RaftClientMessages.ChangePeersRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.ChangePeersResponse;
+import static org.apache.ignite.raft.client.RaftClientMessages.LearnersOpResponse;
+import static org.apache.ignite.raft.client.RaftClientMessages.RemoveLearnersRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.RemovePeerRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.RemovePeerResponse;
+import static org.apache.ignite.raft.client.RaftClientMessages.ResetLearnersRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.ResetPeerRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.SnapshotRequest;
+import static org.apache.ignite.raft.client.RaftClientMessages.StatusResponse;
+import static org.apache.ignite.raft.client.RaftClientMessages.TransferLeaderRequest;
 
 /**
  * Low-level raft group RPC client.
@@ -161,5 +160,8 @@ public interface RaftGroupRpcClient {
      */
     <R extends Message> CompletableFuture<R> sendCustom(RaftGroupMessage request);
 
+    /**
+     * @return A message builder factory.
+     */
     ClientMessageBuilderFactory factory();
 }

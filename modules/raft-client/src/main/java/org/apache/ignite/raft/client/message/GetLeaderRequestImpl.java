@@ -1,9 +1,9 @@
 package org.apache.ignite.raft.client.message;
 
 
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-public class GetLeaderRequestImpl implements RaftClientCommonMessages.GetLeaderRequest, RaftClientCommonMessages.GetLeaderRequest.Builder {
+public class GetLeaderRequestImpl implements RaftClientMessages.GetLeaderRequest, RaftClientMessages.GetLeaderRequest.Builder {
     private String groupId;
 
     @Override public String getGroupId() {
@@ -16,7 +16,7 @@ public class GetLeaderRequestImpl implements RaftClientCommonMessages.GetLeaderR
         return this;
     }
 
-    @Override public RaftClientCommonMessages.GetLeaderRequest build() {
+    @Override public RaftClientMessages.GetLeaderRequest build() {
         return this;
     }
 }

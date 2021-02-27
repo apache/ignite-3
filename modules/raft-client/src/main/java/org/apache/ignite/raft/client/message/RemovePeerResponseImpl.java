@@ -3,9 +3,9 @@ package org.apache.ignite.raft.client.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class RemovePeerResponseImpl implements RaftClientCommonMessages.RemovePeerResponse, RaftClientCommonMessages.RemovePeerResponse.Builder {
+class RemovePeerResponseImpl implements RaftClientMessages.RemovePeerResponse, RaftClientMessages.RemovePeerResponse.Builder {
     private List<PeerId> oldPeersList = new ArrayList<>();
     private List<PeerId> newPeersList = new ArrayList<>();
 
@@ -29,7 +29,7 @@ class RemovePeerResponseImpl implements RaftClientCommonMessages.RemovePeerRespo
         return this;
     }
 
-    @Override public RaftClientCommonMessages.RemovePeerResponse build() {
+    @Override public RaftClientMessages.RemovePeerResponse build() {
         return this;
     }
 }

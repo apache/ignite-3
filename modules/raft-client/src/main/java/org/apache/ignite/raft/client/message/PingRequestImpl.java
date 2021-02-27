@@ -1,8 +1,8 @@
 package org.apache.ignite.raft.client.message;
 
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class PingRequestImpl implements RaftClientCommonMessages.PingRequest, RaftClientCommonMessages.PingRequest.Builder {
+class PingRequestImpl implements RaftClientMessages.PingRequest, RaftClientMessages.PingRequest.Builder {
     private long sendTimestamp;
 
     @Override public long getSendTimestamp() {
@@ -15,7 +15,7 @@ class PingRequestImpl implements RaftClientCommonMessages.PingRequest, RaftClien
         return this;
     }
 
-    @Override public RaftClientCommonMessages.PingRequest build() {
+    @Override public RaftClientMessages.PingRequest build() {
         return this;
     }
 }

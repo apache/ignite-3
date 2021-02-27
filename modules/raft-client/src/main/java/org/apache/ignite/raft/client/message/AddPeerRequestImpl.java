@@ -1,9 +1,9 @@
 package org.apache.ignite.raft.client.message;
 
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class AddPeerRequestImpl implements RaftClientCommonMessages.AddPeerRequest, RaftClientCommonMessages.AddPeerRequest.Builder {
+class AddPeerRequestImpl implements RaftClientMessages.AddPeerRequest, RaftClientMessages.AddPeerRequest.Builder {
     private String groupId;
     private PeerId leaderId;
     private PeerId peerId;
@@ -28,7 +28,7 @@ class AddPeerRequestImpl implements RaftClientCommonMessages.AddPeerRequest, Raf
         return this;
     }
 
-    @Override public RaftClientCommonMessages.AddPeerRequest build() {
+    @Override public RaftClientMessages.AddPeerRequest build() {
         return this;
     }
 }

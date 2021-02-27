@@ -3,9 +3,9 @@ package org.apache.ignite.raft.client.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class AddPeerResponseImpl implements RaftClientCommonMessages.AddPeerResponse, RaftClientCommonMessages.AddPeerResponse.Builder {
+class AddPeerResponseImpl implements RaftClientMessages.AddPeerResponse, RaftClientMessages.AddPeerResponse.Builder {
     private List<PeerId> oldPeersList = new ArrayList<>();
     private List<PeerId> newPeersList = new ArrayList<>();
 
@@ -29,7 +29,7 @@ class AddPeerResponseImpl implements RaftClientCommonMessages.AddPeerResponse, R
         return this;
     }
 
-    @Override public RaftClientCommonMessages.AddPeerResponse build() {
+    @Override public RaftClientMessages.AddPeerResponse build() {
         return this;
     }
 }

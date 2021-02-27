@@ -1,8 +1,8 @@
 package org.apache.ignite.raft.client.message;
 
-import org.apache.ignite.raft.client.RaftClientCommonMessages;
+import org.apache.ignite.raft.client.RaftClientMessages;
 
-class GetPeersRequestImpl implements RaftClientCommonMessages.GetPeersRequest, RaftClientCommonMessages.GetPeersRequest.Builder {
+class GetPeersRequestImpl implements RaftClientMessages.GetPeersRequest, RaftClientMessages.GetPeersRequest.Builder {
     private String groupId;
     private boolean onlyAlive;
 
@@ -26,7 +26,7 @@ class GetPeersRequestImpl implements RaftClientCommonMessages.GetPeersRequest, R
         return this;
     }
 
-    @Override public RaftClientCommonMessages.GetPeersRequest build() {
+    @Override public RaftClientMessages.GetPeersRequest build() {
         return this;
     }
 }
