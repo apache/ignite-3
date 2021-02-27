@@ -3,10 +3,8 @@ package org.apache.ignite.raft.client.service.impl;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.service.RaftGroupManagmentService;
-import org.apache.ignite.raft.rpc.Node;
 import org.jetbrains.annotations.Nullable;
 
 public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService {
@@ -17,15 +15,15 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
     }
 
     @Override public @Nullable PeerId getLeader(String groupId) {
-        return rpcClient.state(groupId).getLeader();
+        return rpcClient.state(groupId).leader();
     }
 
     @Override public @Nullable List<PeerId> getPeers(String groupId) {
-        return rpcClient.state(groupId).getPeers();
+        return rpcClient.state(groupId).peers();
     }
 
     @Override public @Nullable List<PeerId> getLearners(String groupId) {
-        return rpcClient.state(groupId).getLearners();
+        return rpcClient.state(groupId).learners();
     }
 
     @Override public CompletableFuture<PeersChangeState> addPeer(PeerId peerId) {

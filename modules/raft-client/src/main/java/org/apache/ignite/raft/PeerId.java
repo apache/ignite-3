@@ -75,4 +75,8 @@ public class PeerId implements Serializable {
         result = 31 * result + priority;
         return result;
     }
+
+    @Override public String toString() {
+        return node.id() + ":" + priority;
+    }
 }

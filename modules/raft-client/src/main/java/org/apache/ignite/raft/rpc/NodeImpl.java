@@ -29,7 +29,7 @@ public class NodeImpl implements Node {
     }
 
     @Override public String id() {
-        return null;
+        return id;
     }
 
     @Override public boolean equals(Object o) {

@@ -46,12 +46,12 @@ import static org.apache.ignite.raft.client.RaftClientCommonMessages.TransferLea
 public interface RaftGroupRpcClient {
     /**
      * @param groupId Group id.
-     * @return Current group state or null if state is not yet initalized.
+     * @return Group state snapshot.
      */
-    @Nullable State state(String groupId);
+    State state(String groupId);
 
     /**
-     * Refreshes a state of initialized group.
+     * Refreshes a group leader.
      * @param groupId Group id.
      * @return A future.
      */

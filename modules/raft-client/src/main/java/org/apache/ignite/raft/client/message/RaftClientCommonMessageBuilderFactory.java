@@ -6,8 +6,6 @@ import org.apache.ignite.raft.client.RaftClientCommonMessages;
  * Raft client message builders factory.
  */
 public class RaftClientCommonMessageBuilderFactory implements ClientMessageBuilderFactory {
-    public static RaftClientCommonMessageBuilderFactory DEFAULT = new RaftClientCommonMessageBuilderFactory();
-
     @Override public RaftClientCommonMessages.PingRequest.Builder createPingRequest() {
         return new PingRequestImpl();
     }

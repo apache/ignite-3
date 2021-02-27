@@ -257,7 +257,7 @@ public final class RaftClientCommonMessages {
         }
     }
 
-    public interface UserRequest<T> extends Message {
+    public interface UserRequest<T> extends RaftGroupMessage {
         T request();
 
         public interface Builder<T> {

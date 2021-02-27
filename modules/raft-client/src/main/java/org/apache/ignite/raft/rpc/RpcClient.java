@@ -28,7 +28,7 @@ public interface RpcClient {
      * @param node target address
      * @return true if there is a connection and the connection is active and writable.
      */
-    boolean checkConnection(final NodeImpl node);
+    boolean checkConnection(final Node node);
 
     /**
      * Check connection for given address and async to create a new one if there is no connection.
@@ -37,14 +37,14 @@ public interface RpcClient {
      * @param createIfAbsent create a new one if there is no connection
      * @return true if there is a connection and the connection is active and writable.
      */
-    boolean checkConnection(final NodeImpl node, final boolean createIfAbsent);
+    boolean checkConnection(final Node node, final boolean createIfAbsent);
 
     /**
      * Close all connections of a address.
      *
      * @param node target address
      */
-    void closeConnection(final NodeImpl node);
+    void closeConnection(final Node node);
 
     /**
      * Asynchronous invocation with a callback.
@@ -53,7 +53,7 @@ public interface RpcClient {
      * @param request   Request object
      * @param callback  Invoke callback.
      * @param executor  Executor to run invoke callback.
-     * @param timeoutMs Timeout millisecond
+     * @param timeoutMs Timeout millisecond.
      */
     void invokeAsync(final Node node, final Message request, InvokeCallback callback, Executor executor, final long timeoutMs);
 }
