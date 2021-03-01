@@ -32,7 +32,7 @@ public final class PeerId implements Serializable {
     private final NetworkMember node;
 
     /**
-     * Peer's local priority value, if node don't support priority election, this value is -1.
+     * Peer's local priority value, if node don't support priority election, this value is {@link ElectionPriority#DISABLED}.
      */
     private final int priority;
 
