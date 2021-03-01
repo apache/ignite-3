@@ -19,7 +19,7 @@ package org.apache.ignite.raft.client.message.impl;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.raft.PeerId;
+import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.message.RaftClientMessages;
 
 class AddPeerResponseImpl implements RaftClientMessages.AddPeerResponse, RaftClientMessages.AddPeerResponse.Builder {

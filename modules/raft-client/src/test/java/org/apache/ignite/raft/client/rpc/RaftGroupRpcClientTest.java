@@ -21,7 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.raft.PeerId;
+import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.MockUtils.TestInput1;
 import org.apache.ignite.raft.client.MockUtils.TestInput2;
 import org.apache.ignite.raft.client.MockUtils.TestOutput1;
@@ -137,12 +137,12 @@ public class RaftGroupRpcClientTest {
         RaftClientMessages.UserRequest req1 =
             client.factory().createUserRequest().setGroupId(groupId).setRequest(new TestInput1()).build();
 
-        assertTrue(client.sendUserRequest(req1).get().response() instanceof TestOutput1);
+        assertTrue(client.submit(req1).get().response() instanceof TestOutput1);
 
         RaftClientMessages.UserRequest req2 =
             client.factory().createUserRequest().setGroupId(groupId).setRequest(new TestInput2()).build();
 
-        assertTrue(client.sendUserRequest(req2).get().response() instanceof TestOutput2);
+        assertTrue(client.submit(req2).get().response() instanceof TestOutput2);
 
         // Expecting raft group state to be transparently loaded on first request.
         assertEquals(LEADER, client.state(groupId).leader());

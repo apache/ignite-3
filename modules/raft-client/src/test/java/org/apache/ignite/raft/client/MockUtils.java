@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.client.message.RaftClientMessages;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;

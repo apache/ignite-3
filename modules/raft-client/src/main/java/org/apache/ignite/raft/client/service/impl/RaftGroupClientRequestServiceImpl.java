@@ -36,7 +36,7 @@ public class RaftGroupClientRequestServiceImpl implements RaftGroupClientRequest
         RaftClientMessages.UserRequest r =
             rpcClient.factory().createUserRequest().setRequest(request).setGroupId(groupId).build();
 
-        CompletableFuture<RaftClientMessages.UserResponse<R>> completableFuture = rpcClient.sendUserRequest(r);
+        CompletableFuture<RaftClientMessages.UserResponse<R>> completableFuture = rpcClient.submit(r);
 
         return completableFuture.thenApply(resp -> resp.response());
     }

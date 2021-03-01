@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft;
+package org.apache.ignite.raft.client;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMember;

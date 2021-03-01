@@ -19,27 +19,31 @@ package org.apache.ignite.raft.client.service.impl;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.raft.PeerId;
+import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.service.RaftGroupManagmentService;
-import org.jetbrains.annotations.Nullable;
 
 public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService {
+    /** */
     private final RaftGroupRpcClient rpcClient;
 
-    public RaftGroupManagementServiceImpl(RaftGroupRpcClient rpcClient) {
+    /** */
+    private final String groupId;
+
+    public RaftGroupManagementServiceImpl(RaftGroupRpcClient rpcClient, String groupId) {
         this.rpcClient = rpcClient;
+        this.groupId = groupId;
     }
 
-    @Override public @Nullable PeerId getLeader(String groupId) {
+    @Override public PeerId getLeader() {
         return rpcClient.state(groupId).leader();
     }
 
-    @Override public @Nullable List<PeerId> getPeers(String groupId) {
+    @Override public List<PeerId> getPeers() {
         return rpcClient.state(groupId).peers();
     }
 
-    @Override public @Nullable List<PeerId> getLearners(String groupId) {
+    @Override public List<PeerId> getLearners() {
         return rpcClient.state(groupId).learners();
     }
 
@@ -63,7 +67,7 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
         return null;
     }
 
-    @Override public CompletableFuture<PeersChangeState> addLearners(List<PeerId> peers) {
+    @Override public CompletableFuture<PeersChangeState> addLearners(List<PeerId> learners) {
         return null;
     }
 
@@ -71,7 +75,7 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
         return null;
     }
 
-    @Override public CompletableFuture<PeersChangeState> resetLearners(List<PeerId> peers) {
+    @Override public CompletableFuture<PeersChangeState> resetLearners(List<PeerId> learners) {
         return null;
     }
 

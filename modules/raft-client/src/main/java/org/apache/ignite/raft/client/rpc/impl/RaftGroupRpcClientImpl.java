@@ -25,8 +25,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.State;
+import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.State;
 import org.apache.ignite.raft.client.message.RaftClientMessages;
 import org.apache.ignite.raft.client.message.RaftClientMessages.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
@@ -35,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+/**
+ * Replicating group RPC client implementation.
+ */
 public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
     /** */
     private final NetworkCluster cluster;
@@ -122,7 +125,7 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.UserResponse> sendUserRequest(RaftClientMessages.UserRequest request) {
+    @Override public CompletableFuture<RaftClientMessages.UserResponse> submit(RaftClientMessages.UserRequest request) {
         if (request.getGroupId() == null)
             throw new IllegalArgumentException("groupId is required");
 

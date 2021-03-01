@@ -19,10 +19,8 @@ package org.apache.ignite.raft.client.rpc;
 
 import java.util.concurrent.CompletableFuture;
 import javax.validation.constraints.NotNull;
-import org.apache.ignite.raft.State;
-import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.message.RaftClientMessages.UserRequest;
-import org.apache.ignite.raft.client.message.RaftClientMessages.UserResponse;
+import org.apache.ignite.raft.client.State;
+import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 
 import static org.apache.ignite.raft.client.message.RaftClientMessages.AddLearnersRequest;
@@ -38,6 +36,8 @@ import static org.apache.ignite.raft.client.message.RaftClientMessages.ResetLear
 import static org.apache.ignite.raft.client.message.RaftClientMessages.ResetPeerRequest;
 import static org.apache.ignite.raft.client.message.RaftClientMessages.SnapshotRequest;
 import static org.apache.ignite.raft.client.message.RaftClientMessages.TransferLeaderRequest;
+import static org.apache.ignite.raft.client.message.RaftClientMessages.UserRequest;
+import static org.apache.ignite.raft.client.message.RaftClientMessages.UserResponse;
 
 /**
  * Replicating group RPC client.
@@ -52,31 +52,30 @@ public interface RaftGroupRpcClient {
     /**
      * Refreshes a replicating group leader.
      * @param groupId Group id.
-     * @return A future.
+     * @return A future with the result.
      */
     CompletableFuture<PeerId> refreshLeader(String groupId);
 
     /**
      * Refreshes a replicating group members (except a leader).
      * @param groupId Group id.
-     * @return A future.
+     * @return A future with the result.
      */
     CompletableFuture<State> refreshMembers(String groupId);
 
     /**
      * Adds a voring peer to the raft group.
      *
-     * @param request   request data
-     * @return A future with the result
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<AddPeerResponse> addPeer(AddPeerRequest request);
 
     /**
      * Removes a peer from the raft group.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @return a future with result
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<RemovePeerResponse> removePeer(RemovePeerRequest request);
 
@@ -84,7 +83,7 @@ public interface RaftGroupRpcClient {
      * Locally resets raft group peers. Intended for recovering from a group unavailability at the price of consistency.
      *
      * @param peerId Node to execute the configuration reset.
-     * @param request   request data
+     * @param request Request data.
      * @return A future with result.
      */
     CompletableFuture<Void> resetPeers(PeerId peerId, ResetPeerRequest request);
@@ -92,72 +91,61 @@ public interface RaftGroupRpcClient {
     /**
      * Takes a local snapshot.
      *
-     * @param peerId  Peer id.
-     * @param request   request data
-     * @param done      callback
-     * @return a future with result
+     * @param peerId Peer id.
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<Void> snapshot(PeerId peerId, SnapshotRequest request);
 
     /**
      * Change peers.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @param done      callback
-     * @return a future with result
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<ChangePeersResponse> changePeers(ChangePeersRequest request);
 
     /**
      * Adds learners.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @param done      callback
-     * @return a future with result
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<LearnersOpResponse> addLearners(AddLearnersRequest request);
 
     /**
      * Removes learners.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @param done      callback
-     * @return a future with result
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<LearnersOpResponse> removeLearners(RemoveLearnersRequest request);
 
     /**
      * Resets learners to new set.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @param done      callback
-     * @return a future with result
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<LearnersOpResponse> resetLearners(ResetLearnersRequest request);
 
     /**
      * Transfer leadership to other peer.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @param done      callback
-     * @return a future with result
+     * @param request Request data.
+     * @return A future with the result.
      */
     CompletableFuture<Void> transferLeader(TransferLeaderRequest request);
 
     /**
-     * Performs a user action defined by specific request to the raft group leader.
+     * Submits a user request to the replication group leader.
      *
      * @param endpoint  server address
      * @param request   request data
      * @param done      callback
      * @return a future with result
      */
-    <R> CompletableFuture<UserResponse<R>> sendUserRequest(UserRequest request);
+    <R> CompletableFuture<UserResponse<R>> submit(UserRequest request);
 
     /**
      * @return A message builder factory.

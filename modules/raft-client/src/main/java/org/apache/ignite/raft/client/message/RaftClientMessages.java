@@ -18,23 +18,13 @@
 package org.apache.ignite.raft.client.message;
 
 import java.util.List;
-import org.apache.ignite.raft.PeerId;
+import org.apache.ignite.raft.client.PeerId;
 
 /**
- *
+ * Raft client messages.
  */
 public final class RaftClientMessages {
     private RaftClientMessages() {
-    }
-
-    public interface PingRequest {
-        long getSendTimestamp();
-
-        interface Builder {
-            Builder setSendTimestamp(long timestamp);
-
-            PingRequest build();
-        }
     }
 
     public interface AddPeerRequest {

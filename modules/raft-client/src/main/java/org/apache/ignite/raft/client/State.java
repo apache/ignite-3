@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft;
+package org.apache.ignite.raft.client;
 
 import java.util.List;
+import org.apache.ignite.raft.client.PeerId;
 import org.jetbrains.annotations.Nullable;
 
 /**

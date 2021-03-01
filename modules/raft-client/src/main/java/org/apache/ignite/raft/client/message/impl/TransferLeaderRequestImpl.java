@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.PeerId;
+import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.message.RaftClientMessages;
 
 class TransferLeaderRequestImpl implements RaftClientMessages.TransferLeaderRequest, RaftClientMessages.TransferLeaderRequest.Builder {
