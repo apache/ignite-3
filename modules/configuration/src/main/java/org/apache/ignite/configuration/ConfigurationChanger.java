@@ -173,7 +173,7 @@ public class ConfigurationChanger {
 
         if (storagesTypes.size() != 1) {
             return CompletableFuture.failedFuture(
-                new ConfigurationChangeException("Cannot change configurations belonging to different roots")
+                new ConfigurationChangeException("Cannot change configurations belonging to different storages.")
             );
         }
 
@@ -266,9 +266,10 @@ public class ConfigurationChanger {
 
     /** */
     private void compressDeletedEntries(Map<String, ?> prefixMap) {
-        Set<String> keysForRemoval = prefixMap.entrySet()
-            .stream()
-            .filter(entry -> entry.getValue() instanceof Map && ((Map<?, ?>)entry.getValue()).containsValue(null))
+        Set<String> keysForRemoval = prefixMap.entrySet().stream()
+            .filter(entry ->
+                entry.getValue() instanceof Map && ((Map<?, ?>)entry.getValue()).containsValue(null)
+            )
             .map(Map.Entry::getKey)
             .collect(Collectors.toSet());
 

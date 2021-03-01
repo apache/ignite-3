@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.processor.internal;
 
-import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -80,6 +79,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
+import static org.apache.ignite.configuration.processor.internal.Utils.suppressWarningsUnchecked;
 
 /**
  * Annotation processor that produces configuration classes.
@@ -341,14 +341,20 @@ public class Processor extends AbstractProcessor {
             .build();
         configurationInterfaceBuilder.addMethod(interfaceGetMethod);
 
-        MethodSpec getMethod = MethodSpec.methodBuilder(fieldName)
+        MethodSpec.Builder getMethodBuilder = MethodSpec.methodBuilder(fieldName)
             .addAnnotation(Override.class)
             .addJavadoc("{@inheritDoc}")
             .addModifiers(PUBLIC, FINAL)
-            .returns(types.getGetMethodType())
-            .addStatement("return $L", fieldName)
-            .build();
-        configurationClassBuilder.addMethod(getMethod);
+            .returns(types.getGetMethodType());
+
+        if (Utils.isNamedConfiguration(types.getGetMethodType())) {
+            getMethodBuilder.addAnnotation(suppressWarningsUnchecked())
+                .addStatement("return ($T)$L", NamedListConfiguration.class, fieldName);
+        }
+        else
+            getMethodBuilder.addStatement("return $L", fieldName);
+
+        configurationClassBuilder.addMethod(getMethodBuilder.build());
     }
 
     /**
@@ -380,16 +386,14 @@ public class Processor extends AbstractProcessor {
 
         final NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
         if (namedConfigAnnotation != null) {
-            ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
-            //TODO IGNITE-14182 This is BS, interface name must be used instead.
-            ClassName interfaceFieldType = Utils.getConfigurationName((ClassName) baseType);
+            ClassName interfaceGetType = Utils.getConfigurationInterfaceName((ClassName) baseType);
 
             viewClassType = Utils.getViewName((ClassName) baseType);
             initClassType = Utils.getInitName((ClassName) baseType);
             changeClassType = Utils.getChangeName((ClassName) baseType);
 
-            getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), fieldType, viewClassType, initClassType, changeClassType);
-            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), interfaceFieldType, viewClassType, initClassType, changeClassType);
+            getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), interfaceGetType, viewClassType, initClassType, changeClassType);
+            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), interfaceGetType, viewClassType, initClassType, changeClassType);
         }
 
         final Value valueAnnotation = field.getAnnotation(Value.class);
@@ -711,11 +715,7 @@ public class Processor extends AbstractProcessor {
                             nodeChangeMtdBuilder.addStatement("$L.accept($L)", paramName, fieldName);
                         }
                         else {
-                            nodeChangeMtdBuilder.addAnnotation(
-                                AnnotationSpec.builder(SuppressWarnings.class)
-                                    .addMember("value", "$S", "unchecked")
-                                    .build()
-                            );
+                            nodeChangeMtdBuilder.addAnnotation(suppressWarningsUnchecked());
 
                             nodeChangeMtdBuilder.addStatement("$L.accept((NamedListChange)$L)", paramName, fieldName);
                         }
@@ -776,11 +776,7 @@ public class Processor extends AbstractProcessor {
                             nodeInitMtdBuilder.addStatement("$L.accept($L)", paramName, fieldName);
                         }
                         else {
-                            nodeInitMtdBuilder.addAnnotation(
-                                AnnotationSpec.builder(SuppressWarnings.class)
-                                    .addMember("value", "$S", "unchecked")
-                                    .build()
-                            );
+                            nodeInitMtdBuilder.addAnnotation(suppressWarningsUnchecked());
 
                             nodeInitMtdBuilder.addStatement("$L.accept((NamedListChange)$L)", paramName, fieldName);
                         }
