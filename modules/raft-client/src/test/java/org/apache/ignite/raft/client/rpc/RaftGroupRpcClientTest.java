@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.raft.client.rpc;
 
 import java.util.concurrent.CountDownLatch;
@@ -9,7 +26,7 @@ import org.apache.ignite.raft.client.MockUtils.TestInput1;
 import org.apache.ignite.raft.client.MockUtils.TestInput2;
 import org.apache.ignite.raft.client.MockUtils.TestOutput1;
 import org.apache.ignite.raft.client.MockUtils.TestOutput2;
-import org.apache.ignite.raft.client.RaftClientMessages;
+import org.apache.ignite.raft.client.message.RaftClientMessages;
 import org.apache.ignite.raft.client.rpc.impl.RaftGroupRpcClientImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +38,7 @@ import static org.apache.ignite.raft.client.MockUtils.LEADER;
 import static org.apache.ignite.raft.client.MockUtils.mockLeaderRequest;
 import static org.apache.ignite.raft.client.MockUtils.mockUserInput1;
 import static org.apache.ignite.raft.client.MockUtils.mockUserInput2;
-import static org.apache.ignite.raft.client.message.RaftClientMessageFactoryImpl.INSTANCE;
+import static org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl.INSTANCE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;

@@ -16,12 +16,9 @@
  */
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.transport.api.Message;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import io.scalecube.cluster.Cluster;
 import org.apache.ignite.network.NetworkCluster;

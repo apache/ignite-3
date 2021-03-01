@@ -15,20 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.service;
+package org.apache.ignite.raft.client.message.impl;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.raft.client.message.RaftClientMessages;
 
-/**
- *
- */
-public interface RaftGroupClientRequestService {
-    /**
-     * Submits a custom request to a raft group leader. If a leader is not initialized yet, will try to resolve it.
-     * @param request
-     * @param <T> Request.
-     * @param <R> Response.
-     * @return A future.
-     */
-    <R> CompletableFuture<R> submit(Object request);
+public class UserRequestImpl<T> implements RaftClientMessages.UserRequest, RaftClientMessages.UserRequest.Builder {
+    private Object request;
+
+    private String groupId;
+
+    @Override public Object request() {
+        return request;
+    }
+
+    @Override public String getGroupId() {
+        return groupId;
+    }
+
+    @Override public Builder setGroupId(String groupId) {
+        this.groupId = groupId;
+
+        return this;
+    }
+
+    @Override public Builder setRequest(Object request) {
+        this.request = request;
+
+        return this;
+    }
+
+    @Override public RaftClientMessages.UserRequest build() {
+        return this;
+    }
 }

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.raft.client.rpc.impl;
 
 import java.util.HashSet;
@@ -10,15 +27,16 @@ import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.PeerId;
 import org.apache.ignite.raft.State;
-import org.apache.ignite.raft.client.RaftClientMessages;
-import org.apache.ignite.raft.client.RaftClientMessages.GetLeaderResponse;
-import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
+import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.RaftClientMessages.GetLeaderResponse;
+import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
+    /** */
     private final NetworkCluster cluster;
 
     /** Where to ask for initial configuration. */
@@ -30,11 +48,12 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
     /** */
     private final int defaultTimeout;
 
-    private Map<String, StateImpl> states = new ConcurrentHashMap<>();
+    /** */
+    private final Map<String, StateImpl> states = new ConcurrentHashMap<>();
 
     /**
-     * Accepts dependencies in constructor.
      * @param cluster Cluster.
+     * @param factory Factory.
      * @param defaultTimeout Default request timeout.
      * @param initialCfgNode Initial configuration nodes.
      */
@@ -119,6 +138,7 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return this.factory;
     }
 
+    /** */
     private static class StateImpl implements State {
         private volatile PeerId leader;
 
