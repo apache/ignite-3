@@ -41,6 +41,7 @@
         <module>modules/rest</module>
         <module>modules/runner</module>
         <module>modules/raft-client</module>
+        <module>modules/network</module>
     </modules>
 
     <build>

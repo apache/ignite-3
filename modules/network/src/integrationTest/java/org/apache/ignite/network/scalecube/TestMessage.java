@@ -14,44 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.storage;
+
+
+package org.apache.ignite.network.scalecube;
 
 import java.io.Serializable;
-import java.util.Map;
+import java.util.Objects;
 
-/**
- * Represents data in configuration storage.
- */
-public class Data {
-    /** Values. */
-    private final Map<String, Serializable> values;
+/** */
+class TestMessage implements Serializable {
+    /** */
+    private final String msg;
 
-    /** Configuration storage version. */
-    private final long version;
-
-    /**
-     * Constructor.
-     * @param values Values.
-     * @param version Version.
-     */
-    public Data(Map<String, Serializable> values, long version) {
-        this.values = values;
-        this.version = version;
+    /** */
+    TestMessage(String msg) {
+        this.msg = msg;
     }
 
-    /**
-     * Get values.
-     * @return Values.
-     */
-    public Map<String, Serializable> values() {
-        return values;
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        TestMessage message = (TestMessage)o;
+        return Objects.equals(msg, message.msg);
     }
 
-    /**
-     * Get version.
-     * @return version.
-     */
-    public long version() {
-        return version;
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Objects.hash(msg);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "TestMessage{" +
+            "msg='" + msg + '\'' +
+            '}';
     }
 }

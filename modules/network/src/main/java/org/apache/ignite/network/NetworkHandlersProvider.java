@@ -14,44 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.storage;
-
-import java.io.Serializable;
-import java.util.Map;
+package org.apache.ignite.network;
 
 /**
- * Represents data in configuration storage.
+ * Provider of handlers of different cluster events.
  */
-public class Data {
-    /** Values. */
-    private final Map<String, Serializable> values;
-
-    /** Configuration storage version. */
-    private final long version;
-
+public interface NetworkHandlersProvider {
     /**
-     * Constructor.
-     * @param values Values.
-     * @param version Version.
+     * @return Handler for processing the received messages from the cluster.
      */
-    public Data(Map<String, Serializable> values, long version) {
-        this.values = values;
-        this.version = version;
+    default NetworkMessageHandler messageHandler() {
+        return null;
     }
 
     /**
-     * Get values.
-     * @return Values.
+     * @return Handler for processing the different cluster events.
      */
-    public Map<String, Serializable> values() {
-        return values;
-    }
-
-    /**
-     * Get version.
-     * @return version.
-     */
-    public long version() {
-        return version;
+    default NetworkClusterEventHandler clusterEventHandler() {
+        return null;
     }
 }

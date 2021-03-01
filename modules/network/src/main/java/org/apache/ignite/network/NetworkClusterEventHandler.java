@@ -14,44 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.storage;
-
-import java.io.Serializable;
-import java.util.Map;
+package org.apache.ignite.network;
 
 /**
- * Represents data in configuration storage.
+ * Interface for handling events related to cluster changes.
  */
-public class Data {
-    /** Values. */
-    private final Map<String, Serializable> values;
-
-    /** Configuration storage version. */
-    private final long version;
+public interface NetworkClusterEventHandler {
+    /**
+     * Event which happened when one new member was detected in cluster.
+     *
+     * @param member New network member.
+     */
+    void onAppeared(NetworkMember member);
 
     /**
-     * Constructor.
-     * @param values Values.
-     * @param version Version.
+     * Event which happened when one member leave the cluster. It means the member leaves the cluster permanently. If
+     * the connection lost but it is possible to reestablish it, nothing happens here.
+     *
+     * @param member The network member which leaves the cluster.
      */
-    public Data(Map<String, Serializable> values, long version) {
-        this.values = values;
-        this.version = version;
-    }
-
-    /**
-     * Get values.
-     * @return Values.
-     */
-    public Map<String, Serializable> values() {
-        return values;
-    }
-
-    /**
-     * Get version.
-     * @return version.
-     */
-    public long version() {
-        return version;
-    }
+    void onDisappeared(NetworkMember member);
 }
