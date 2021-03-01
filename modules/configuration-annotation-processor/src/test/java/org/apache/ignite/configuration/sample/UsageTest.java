@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -73,6 +74,11 @@ public class UsageTest {
 
         root.baseline().nodes().get("node1").change(node -> node.changeAutoAdjustEnabled(false)).get(1, SECONDS);
         assertFalse(root.value().baseline().nodes().get("node1").autoAdjustEnabled());
+
+        root.baseline().nodes().change(nodes -> nodes.delete("node1")).get(1, SECONDS);
+
+        assertNull(root.baseline().nodes().get("node1"));
+        assertNull(root.value().baseline().nodes().get("node1"));
     }
 
     /**

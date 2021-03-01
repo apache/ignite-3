@@ -31,7 +31,7 @@ import org.apache.ignite.configuration.tree.NamedListView;
 /**
  * Named configuration wrapper.
  */
-public class NamedListConfiguration<VIEW, T extends ConfigurationProperty<VIEW, CHANGE>, INIT, CHANGE>
+public class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE>, VIEW, INIT, CHANGE>
     extends DynamicConfiguration<NamedListView<VIEW>, NamedListInit<INIT>, NamedListChange<CHANGE, INIT>> {
     /** Creator of named configuration. */
     private final BiFunction<List<String>, String, T> creator;
@@ -70,7 +70,7 @@ public class NamedListConfiguration<VIEW, T extends ConfigurationProperty<VIEW, 
     }
 
     /** {@inheritDoc} */
-    @Override protected synchronized void refreshValue0(NamedListView<VIEW> newValue) {
+    @Override protected synchronized void beforeRefreshValue(NamedListView<VIEW> newValue) {
         Map<String, T> oldValues = this.values;
         Map<String, T> newValues = new HashMap<>();
 

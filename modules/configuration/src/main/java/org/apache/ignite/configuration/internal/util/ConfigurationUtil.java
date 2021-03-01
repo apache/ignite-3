@@ -275,21 +275,33 @@ public class ConfigurationUtil {
 
     /**
      * Convert a traversable tree to a map of qualified keys to values.
+     *
      * @param rootKey Root configuration key.
-     * @param node Tree.
+     * @param curRoot Current root tree.
+     * @param updates Tree with updates.
      * @return Map of changes.
      */
-    public static Map<String, Serializable> nodeToFlatMap(RootKey<?> rootKey, TraversableTreeNode node) {
+    public static Map<String, Serializable> nodeToFlatMap(
+        RootKey<?> rootKey,
+        TraversableTreeNode curRoot,
+        TraversableTreeNode updates
+    ) {
         Map<String, Serializable> values = new HashMap<>();
 
-        node.accept(rootKey.key(), new ConfigurationVisitor<>() {
+        updates.accept(rootKey.key(), new ConfigurationVisitor<>() {
             /** Current key, aggregated by visitor. */
-            StringBuilder currentKey = new StringBuilder();
+            private StringBuilder currentKey = new StringBuilder();
+
+            /** Current keys list, almost the same as {@link #currentKey}. */
+            private List<String> currentPath = new ArrayList<>();
+
+            /** Write nulls instead of actual values. Makes sense for deletions from named lists. */
+            private boolean writeNulls;
 
             /** {@inheritDoc} */
             @Override public Void visitLeafNode(String key, Serializable val) {
                 if (val != null)
-                    values.put(currentKey.toString() + key, val);
+                    values.put(currentKey.toString() + key, writeNulls ? null : val);
 
                 return null;
             }
@@ -302,9 +314,11 @@ public class ConfigurationUtil {
                 int previousKeyLength = currentKey.length();
 
                 currentKey.append(key).append('.');
+                if (!writeNulls) currentPath.add(key);
 
                 node.traverseChildren(this);
 
+                if (!writeNulls) currentPath.remove(currentPath.size() - 1);
                 currentKey.setLength(previousKeyLength);
 
                 return null;
@@ -314,24 +328,56 @@ public class ConfigurationUtil {
             @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
                 int previousKeyLength = currentKey.length();
 
-                if (key != null)
-                    currentKey.append(key).append('.');
+                currentKey.append(key).append('.');
+                if (!writeNulls) currentPath.add(key);
 
                 for (String namedListKey : node.namedListKeys()) {
                     int loopPreviousKeyLength = currentKey.length();
 
                     currentKey.append(ConfigurationUtil.escape(namedListKey)).append('.');
+                    if (!writeNulls) currentPath.add(namedListKey);
 
-                    node.get(namedListKey).traverseChildren(this);
+                    N namedElement = node.get(namedListKey);
+
+                    if (namedElement == null) {
+                        assert !writeNulls;
+
+                        Object originalNamedElement = null;
+
+                        try {
+                            // This code can in fact be better optimized for deletion scenario,
+                            // but there's no point in doing that, since the operation is so rare and it will
+                            // complicate code even more.
+                            originalNamedElement = find(currentPath.subList(1, currentPath.size()), curRoot);
+                        }
+                        catch (KeyNotFoundException ignore) {
+                            // May happen, not a big deal.
+                        }
+
+                        if (originalNamedElement != null) {
+                            assert originalNamedElement instanceof InnerNode : currentPath;
+
+                            writeNulls = true;
+
+                            ((InnerNode)originalNamedElement).traverseChildren(this);
+
+                            writeNulls = false;
+                        }
+                    }
+                    else
+                        namedElement.traverseChildren(this);
 
                     currentKey.setLength(loopPreviousKeyLength);
+                    if (!writeNulls) currentPath.remove(currentPath.size() - 1);
                 }
 
                 currentKey.setLength(previousKeyLength);
+                if (!writeNulls) currentPath.remove(currentPath.size() - 1);
 
                 return null;
             }
         });
+
         return values;
     }
 

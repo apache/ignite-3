@@ -199,10 +199,10 @@ public class ConfigurationChanger {
         ConfigurationStorage storage,
         CompletableFuture<?> fut
     ) {
-        Map<String, Serializable> allChanges = changes.entrySet().stream()
-            .map((Map.Entry<RootKey<?>, TraversableTreeNode> change) -> nodeToFlatMap(change.getKey(), change.getValue()))
-            .flatMap(map -> map.entrySet().stream())
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Serializable> allChanges = new HashMap<>();
+
+        for (Map.Entry<RootKey<?>, TraversableTreeNode> change : changes.entrySet())
+            allChanges.putAll(nodeToFlatMap(change.getKey(), getRootNode(change.getKey()), change.getValue()));
 
         StorageRoots roots = storagesRootsMap.get(storage.getClass());
 
@@ -243,8 +243,9 @@ public class ConfigurationChanger {
 
         Map<String, ?> dataValuesPrefixMap = ConfigurationUtil.toPrefixMap(changedEntries.values());
 
+        compressDeletedEntries(dataValuesPrefixMap);
+
         for (RootKey<?> rootKey : oldStorageRoots.roots.keySet()) {
-            //TODO IGNITE-14182 Remove is not yet supported here.
             Map<String, ?> rootPrefixMap = (Map<String, ?>)dataValuesPrefixMap.get(rootKey.key());
 
             if (rootPrefixMap != null) {
@@ -261,6 +262,23 @@ public class ConfigurationChanger {
         storagesRootsMap.put(storageType, storageRoots);
 
         //TODO IGNITE-14180 Notify listeners.
+    }
+
+    /** */
+    private void compressDeletedEntries(Map<String, ?> prefixMap) {
+        Set<String> keysForRemoval = prefixMap.entrySet()
+            .stream()
+            .filter(entry -> entry.getValue() instanceof Map && ((Map<?, ?>)entry.getValue()).containsValue(null))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toSet());
+
+        for (String key : keysForRemoval)
+            prefixMap.put(key, null);
+
+        for (Object value : prefixMap.values()) {
+            if (value instanceof Map)
+                compressDeletedEntries((Map<String, ?>)value);
+        }
     }
 
     /**

@@ -388,8 +388,8 @@ public class Processor extends AbstractProcessor {
             initClassType = Utils.getInitName((ClassName) baseType);
             changeClassType = Utils.getChangeName((ClassName) baseType);
 
-            getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
-            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, interfaceFieldType, initClassType, changeClassType);
+            getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), fieldType, viewClassType, initClassType, changeClassType);
+            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), interfaceFieldType, viewClassType, initClassType, changeClassType);
         }
 
         final Value valueAnnotation = field.getAnnotation(Value.class);
