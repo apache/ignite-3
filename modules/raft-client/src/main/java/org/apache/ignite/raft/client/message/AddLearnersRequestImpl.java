@@ -10,7 +10,7 @@ public class AddLearnersRequestImpl implements RaftClientMessages.AddLearnersReq
     private PeerId leaderId;
     private List<PeerId> learnersList = new ArrayList<>();
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

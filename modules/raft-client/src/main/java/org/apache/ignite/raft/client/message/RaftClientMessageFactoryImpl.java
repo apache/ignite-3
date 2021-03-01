@@ -3,18 +3,10 @@ package org.apache.ignite.raft.client.message;
 import org.apache.ignite.raft.client.RaftClientMessages;
 
 /**
- * Raft client message builders factory.
+ * Raft client message factory.
  */
-public class RaftClientMessageBuilderFactory implements ClientMessageBuilderFactory {
-    public static RaftClientMessageBuilderFactory INSTANCE = new RaftClientMessageBuilderFactory();
-
-    @Override public RaftClientMessages.PingRequest.Builder createPingRequest() {
-        return new PingRequestImpl();
-    }
-
-    @Override public RaftClientMessages.StatusResponse.Builder createStatusResponse() {
-        return new StatusResponseImpl();
-    }
+public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
+    public static RaftClientMessageFactoryImpl INSTANCE = new RaftClientMessageFactoryImpl();
 
     @Override public RaftClientMessages.AddPeerRequest.Builder createAddPeerRequest() {
         return new AddPeerRequestImpl();

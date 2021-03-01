@@ -7,7 +7,7 @@ class RemovePeerRequestImpl implements RaftClientMessages.RemovePeerRequest, Raf
     private String groupId;
     private PeerId peerId;
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

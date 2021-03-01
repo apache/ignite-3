@@ -17,11 +17,12 @@
 package org.apache.ignite.raft.client.rpc;
 
 import java.util.concurrent.CompletableFuture;
+import javax.validation.constraints.NotNull;
 import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.client.message.ClientMessageBuilderFactory;
-import org.apache.ignite.raft.rpc.Message;
-import org.apache.ignite.raft.rpc.RaftGroupMessage;
+import org.apache.ignite.raft.client.RaftClientMessages.UserRequest;
+import org.apache.ignite.raft.client.RaftClientMessages.UserResponse;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 
 import static org.apache.ignite.raft.client.RaftClientMessages.AddLearnersRequest;
 import static org.apache.ignite.raft.client.RaftClientMessages.AddPeerRequest;
@@ -35,30 +36,27 @@ import static org.apache.ignite.raft.client.RaftClientMessages.RemovePeerRespons
 import static org.apache.ignite.raft.client.RaftClientMessages.ResetLearnersRequest;
 import static org.apache.ignite.raft.client.RaftClientMessages.ResetPeerRequest;
 import static org.apache.ignite.raft.client.RaftClientMessages.SnapshotRequest;
-import static org.apache.ignite.raft.client.RaftClientMessages.StatusResponse;
 import static org.apache.ignite.raft.client.RaftClientMessages.TransferLeaderRequest;
 
 /**
- * Low-level raft group RPC client.
- * <p>
- * Additionally maintains raft group state.
+ * Replicating group RPC client.
  */
 public interface RaftGroupRpcClient {
     /**
      * @param groupId Group id.
      * @return Group state snapshot.
      */
-    State state(String groupId);
+    @NotNull State state(String groupId);
 
     /**
-     * Refreshes a group leader.
+     * Refreshes a replicating group leader.
      * @param groupId Group id.
      * @return A future.
      */
     CompletableFuture<PeerId> refreshLeader(String groupId);
 
     /**
-     * Refreshes group members (but without a leader).
+     * Refreshes a replicating group members (except a leader).
      * @param groupId Group id.
      * @return A future.
      */
@@ -88,7 +86,7 @@ public interface RaftGroupRpcClient {
      * @param request   request data
      * @return A future with result.
      */
-    CompletableFuture<StatusResponse> resetPeers(PeerId peerId, ResetPeerRequest request);
+    CompletableFuture<Void> resetPeers(PeerId peerId, ResetPeerRequest request);
 
     /**
      * Takes a local snapshot.
@@ -98,7 +96,7 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    CompletableFuture<StatusResponse> snapshot(PeerId peerId, SnapshotRequest request);
+    CompletableFuture<Void> snapshot(PeerId peerId, SnapshotRequest request);
 
     /**
      * Change peers.
@@ -148,20 +146,20 @@ public interface RaftGroupRpcClient {
      * @param done      callback
      * @return a future with result
      */
-    CompletableFuture<StatusResponse> transferLeader(TransferLeaderRequest request);
+    CompletableFuture<Void> transferLeader(TransferLeaderRequest request);
 
     /**
-     * Performs a custom action defined by specific request on the raft group leader.
+     * Performs a user action defined by specific request to the raft group leader.
      *
      * @param endpoint  server address
      * @param request   request data
      * @param done      callback
      * @return a future with result
      */
-    <R extends Message> CompletableFuture<R> sendCustom(RaftGroupMessage request);
+    <R> CompletableFuture<UserResponse<R>> sendUserRequest(UserRequest request);
 
     /**
      * @return A message builder factory.
      */
-    ClientMessageBuilderFactory factory();
+    RaftClientMessageFactory factory();
 }

@@ -3,11 +3,7 @@ package org.apache.ignite.raft.client.message;
 import org.apache.ignite.raft.client.RaftClientMessages;
 
 /** */
-public interface ClientMessageBuilderFactory {
-    RaftClientMessages.PingRequest.Builder createPingRequest();
-
-    RaftClientMessages.StatusResponse.Builder createStatusResponse();
-
+public interface RaftClientMessageFactory {
     RaftClientMessages.AddPeerRequest.Builder createAddPeerRequest();
 
     RaftClientMessages.AddPeerResponse.Builder createAddPeerResponse();

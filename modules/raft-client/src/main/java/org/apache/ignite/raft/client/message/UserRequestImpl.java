@@ -2,11 +2,11 @@ package org.apache.ignite.raft.client.message;
 
 import org.apache.ignite.raft.client.RaftClientMessages;
 
-public class UserRequestImpl<T> implements RaftClientMessages.UserRequest<T>, RaftClientMessages.UserRequest.Builder<T> {
-    private T request;
+public class UserRequestImpl<T> implements RaftClientMessages.UserRequest, RaftClientMessages.UserRequest.Builder {
+    private Object request;
     private String groupId;
 
-    @Override public T request() {
+    @Override public Object request() {
         return request;
     }
 
@@ -16,13 +16,13 @@ public class UserRequestImpl<T> implements RaftClientMessages.UserRequest<T>, Ra
         return this;
     }
 
-    @Override public Builder setRequest(T request) {
+    @Override public Builder setRequest(Object request) {
         this.request = request;
 
         return this;
     }
 
-    @Override public RaftClientMessages.UserRequest<T> build() {
+    @Override public RaftClientMessages.UserRequest build() {
         return this;
     }
 

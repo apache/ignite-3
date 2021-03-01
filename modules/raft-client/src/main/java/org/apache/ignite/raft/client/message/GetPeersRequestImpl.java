@@ -6,7 +6,7 @@ class GetPeersRequestImpl implements RaftClientMessages.GetPeersRequest, RaftCli
     private String groupId;
     private boolean onlyAlive;
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

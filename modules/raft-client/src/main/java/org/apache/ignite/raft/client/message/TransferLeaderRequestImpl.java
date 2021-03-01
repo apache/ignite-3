@@ -7,7 +7,7 @@ class TransferLeaderRequestImpl implements RaftClientMessages.TransferLeaderRequ
     private String groupId;
     private PeerId peerId;
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

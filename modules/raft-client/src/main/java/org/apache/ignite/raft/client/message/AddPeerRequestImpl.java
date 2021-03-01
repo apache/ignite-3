@@ -8,7 +8,7 @@ class AddPeerRequestImpl implements RaftClientMessages.AddPeerRequest, RaftClien
     private PeerId leaderId;
     private PeerId peerId;
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

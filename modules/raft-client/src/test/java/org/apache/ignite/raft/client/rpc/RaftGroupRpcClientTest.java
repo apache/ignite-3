@@ -2,62 +2,56 @@ package org.apache.ignite.raft.client.rpc;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.State;
-import org.apache.ignite.raft.client.RaftClientMessages.GetLeaderRequest;
+import org.apache.ignite.raft.client.MockUtils.TestInput1;
+import org.apache.ignite.raft.client.MockUtils.TestInput2;
+import org.apache.ignite.raft.client.MockUtils.TestOutput1;
+import org.apache.ignite.raft.client.MockUtils.TestOutput2;
+import org.apache.ignite.raft.client.RaftClientMessages;
 import org.apache.ignite.raft.client.rpc.impl.RaftGroupRpcClientImpl;
-import org.apache.ignite.raft.rpc.InvokeCallback;
-import org.apache.ignite.raft.rpc.Message;
-import org.apache.ignite.raft.rpc.NodeImpl;
-import org.apache.ignite.raft.rpc.RaftGroupMessage;
-import org.apache.ignite.raft.rpc.RpcClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.stubbing.Answer;
 
 import static java.util.Collections.singleton;
-import static org.apache.ignite.raft.client.message.RaftClientMessageBuilderFactory.INSTANCE;
+import static org.apache.ignite.raft.client.MockUtils.LEADER;
+import static org.apache.ignite.raft.client.MockUtils.mockLeaderRequest;
+import static org.apache.ignite.raft.client.MockUtils.mockUserInput1;
+import static org.apache.ignite.raft.client.MockUtils.mockUserInput2;
+import static org.apache.ignite.raft.client.message.RaftClientMessageFactoryImpl.INSTANCE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupRpcClientTest {
     @Mock
-    private RpcClient rpcClient;
-
-    private static PeerId leader = new PeerId(new NodeImpl("test"));
+    private NetworkCluster cluster;
 
     @Test
     public void testRefreshLeader() throws Exception {
         String groupId = "test";
 
-        mockLeaderRequest(false);
+        mockLeaderRequest(cluster, false);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, INSTANCE, 5_000, singleton(leader.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
 
         PeerId leaderId = client.refreshLeader(groupId).get();
 
-        assertEquals(leader, client.state(groupId).leader());
-        assertEquals(leader, leaderId);
+        assertEquals(LEADER, client.state(groupId).leader());
+        assertEquals(LEADER, leaderId);
     }
 
     @Test
     public void testRefreshLeaderMultithreaded() throws Exception {
         String groupId = "test";
 
-        mockLeaderRequest(false);
+        mockLeaderRequest(cluster, false);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, INSTANCE, 5_000, singleton(leader.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
 
         int cnt = 20;
 
@@ -79,8 +73,8 @@ public class RaftGroupRpcClientTest {
                     try {
                         PeerId leaderId = client.refreshLeader(groupId).get();
 
-                        assertEquals(leader, client.state(groupId).leader());
-                        assertEquals(leader, leaderId);
+                        assertEquals(LEADER, client.state(groupId).leader());
+                        assertEquals(LEADER, leaderId);
                     }
                     catch (Exception e) {
                         fail(e);
@@ -99,10 +93,9 @@ public class RaftGroupRpcClientTest {
     public void testRefreshLeaderTimeout() throws Exception {
         String groupId = "test";
 
-        mockLeaderRequest(true);
+        mockLeaderRequest(cluster, true);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, INSTANCE,
-            5_000, singleton(leader.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
 
         try {
             client.refreshLeader(groupId).get();
@@ -118,66 +111,23 @@ public class RaftGroupRpcClientTest {
     public void testCustomMessage() throws Exception {
         String groupId = "test";
 
-        mockLeaderRequest(false);
-        mockCustomRequest();
+        mockLeaderRequest(cluster, false);
+        mockUserInput1(cluster);
+        mockUserInput2(cluster);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(rpcClient, INSTANCE,
-            5_000, singleton(leader.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
 
-        JunkRequest req = new JunkRequest(groupId);
+        RaftClientMessages.UserRequest req1 =
+            client.factory().createUserRequest().setGroupId(groupId).setRequest(new TestInput1()).build();
 
-        Message resp = client.sendCustom(req).get();
+        assertTrue(client.sendUserRequest(req1).get().response() instanceof TestOutput1);
 
-        State state = client.state(groupId);
+        RaftClientMessages.UserRequest req2 =
+            client.factory().createUserRequest().setGroupId(groupId).setRequest(new TestInput2()).build();
+
+        assertTrue(client.sendUserRequest(req2).get().response() instanceof TestOutput2);
 
         // Expecting raft group state to be transparently loaded on first request.
-        assertEquals(leader, state.leader());
-
-        assertTrue(resp instanceof JunkResponse);
-    }
-
-    private static class JunkRequest implements RaftGroupMessage {
-        private final String groupId;
-
-        JunkRequest(String groupId) {
-            this.groupId = groupId;
-        }
-
-        @Override public String getGroupId() {
-            return groupId;
-        }
-    }
-
-    private static class JunkResponse implements Message {}
-
-    private void mockCustomRequest() {
-        Mockito.doAnswer(new Answer() {
-            @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                InvokeCallback callback = invocation.getArgument(2);
-                Executor executor = invocation.getArgument(3);
-
-                executor.execute(() -> callback.complete(new JunkResponse(), null));
-
-                return null;
-            }
-        }).when(rpcClient).invokeAsync(eq(leader.getNode()), any(JunkRequest.class), any(), any(), anyLong());
-    }
-
-    private void mockLeaderRequest(boolean timeout) {
-        Mockito.doAnswer(new Answer() {
-            @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                InvokeCallback callback = invocation.getArgument(2);
-                Executor executor = invocation.getArgument(3);
-
-                executor.execute(() -> {
-                    if (timeout)
-                        callback.complete(null, new TimeoutException());
-                    else
-                        callback.complete(INSTANCE.createGetLeaderResponse().setLeaderId(leader).build(), null);
-                });
-
-                return null;
-            }
-        }).when(rpcClient).invokeAsync(eq(leader.getNode()), any(GetLeaderRequest.class), any(), any(), anyLong());
+        assertEquals(LEADER, client.state(groupId).leader());
     }
 }

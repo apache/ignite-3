@@ -6,7 +6,7 @@ import org.apache.ignite.raft.client.RaftClientMessages;
 public class GetLeaderRequestImpl implements RaftClientMessages.GetLeaderRequest, RaftClientMessages.GetLeaderRequest.Builder {
     private String groupId;
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

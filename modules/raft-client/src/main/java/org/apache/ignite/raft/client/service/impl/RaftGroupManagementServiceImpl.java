@@ -8,7 +8,7 @@ import org.apache.ignite.raft.client.service.RaftGroupManagmentService;
 import org.jetbrains.annotations.Nullable;
 
 public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService {
-    private RaftGroupRpcClient rpcClient;
+    private final RaftGroupRpcClient rpcClient;
 
     public RaftGroupManagementServiceImpl(RaftGroupRpcClient rpcClient) {
         this.rpcClient = rpcClient;

@@ -9,7 +9,7 @@ class ChangePeerRequestImpl implements RaftClientMessages.ChangePeersRequest, Ra
     private String groupId;
     private List<PeerId> newPeersList = new ArrayList<>();
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

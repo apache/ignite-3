@@ -5,7 +5,7 @@ import org.apache.ignite.raft.client.RaftClientMessages;
 class SnapshotRequestImpl implements RaftClientMessages.SnapshotRequest, RaftClientMessages.SnapshotRequest.Builder {
     private String groupId;
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

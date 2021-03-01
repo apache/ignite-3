@@ -9,7 +9,7 @@ class RemoveLearnersRequestImpl implements RaftClientMessages.RemoveLearnersRequ
     private String groupId;
     private List<PeerId> learnersList = new ArrayList<>();
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 

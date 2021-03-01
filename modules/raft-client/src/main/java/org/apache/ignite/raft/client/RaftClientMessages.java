@@ -21,8 +21,6 @@ package org.apache.ignite.raft.client;
 
 import java.util.List;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.rpc.Message;
-import org.apache.ignite.raft.rpc.RaftGroupMessage;
 
 /**
  *
@@ -31,21 +29,7 @@ public final class RaftClientMessages {
     private RaftClientMessages() {
     }
 
-    public interface StatusResponse extends Message {
-        int getStatusCode();
-
-        String getStatusMsg();
-
-        interface Builder {
-            Builder setStatusCode(int code);
-
-            Builder setStatusMsg(String msg);
-
-            StatusResponse build();
-        }
-    }
-
-    public interface PingRequest extends Message {
+    public interface PingRequest {
         long getSendTimestamp();
 
         interface Builder {
@@ -55,7 +39,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface AddPeerRequest extends RaftGroupMessage {
+    public interface AddPeerRequest {
         PeerId getPeerId();
 
         interface Builder {
@@ -67,7 +51,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface AddPeerResponse extends Message {
+    public interface AddPeerResponse {
         List<PeerId> getOldPeersList();
 
         List<PeerId> getNewPeersList();
@@ -81,7 +65,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface RemovePeerRequest extends RaftGroupMessage {
+    public interface RemovePeerRequest {
         PeerId getPeerId();
 
         interface Builder {
@@ -93,7 +77,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface RemovePeerResponse extends Message {
+    public interface RemovePeerResponse {
         List<PeerId> getOldPeersList();
 
         List<PeerId> getNewPeersList();
@@ -107,7 +91,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface ChangePeersRequest extends RaftGroupMessage {
+    public interface ChangePeersRequest {
         List<PeerId> getNewPeersList();
 
         public interface Builder {
@@ -119,7 +103,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface ChangePeersResponse extends Message {
+    public interface ChangePeersResponse {
         List<PeerId> getOldPeersList();
 
         List<PeerId> getNewPeersList();
@@ -133,7 +117,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface SnapshotRequest extends RaftGroupMessage {
+    public interface SnapshotRequest {
         public interface Builder {
             Builder setGroupId(String groupId);
 
@@ -141,7 +125,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface ResetPeerRequest extends RaftGroupMessage {
+    public interface ResetPeerRequest {
         List<PeerId> getNewPeersList();
 
         public interface Builder {
@@ -153,7 +137,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface TransferLeaderRequest extends RaftGroupMessage {
+    public interface TransferLeaderRequest {
         PeerId getPeerId();
 
         public interface Builder {
@@ -163,7 +147,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface GetLeaderRequest extends RaftGroupMessage {
+    public interface GetLeaderRequest {
         public interface Builder {
             Builder setGroupId(String groupId);
 
@@ -171,7 +155,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface GetLeaderResponse extends Message {
+    public interface GetLeaderResponse {
         PeerId getLeaderId();
 
         public interface Builder {
@@ -181,7 +165,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface GetPeersRequest extends RaftGroupMessage {
+    public interface GetPeersRequest {
         boolean getOnlyAlive();
 
         public interface Builder {
@@ -193,7 +177,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface GetPeersResponse extends Message {
+    public interface GetPeersResponse {
         List<PeerId> getPeersList();
 
         List<PeerId> getLearnersList();
@@ -207,7 +191,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface AddLearnersRequest extends RaftGroupMessage {
+    public interface AddLearnersRequest {
         List<PeerId> getLearnersList();
 
         public interface Builder {
@@ -219,7 +203,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface RemoveLearnersRequest extends RaftGroupMessage {
+    public interface RemoveLearnersRequest {
         List<PeerId> getLearnersList();
 
         public interface Builder {
@@ -231,7 +215,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface ResetLearnersRequest extends RaftGroupMessage {
+    public interface ResetLearnersRequest {
         List<PeerId> getLearnersList();
 
         public interface Builder {
@@ -243,7 +227,7 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface LearnersOpResponse extends Message {
+    public interface LearnersOpResponse  {
         List<PeerId> getOldLearnersList();
 
         List<PeerId> getNewLearnersList();
@@ -257,19 +241,21 @@ public final class RaftClientMessages {
         }
     }
 
-    public interface UserRequest<T> extends RaftGroupMessage {
-        T request();
+    public interface UserRequest {
+        Object request();
 
-        public interface Builder<T> {
-            Builder setRequest(T request);
+        String getGroupId();
+
+        public interface Builder {
+            Builder setRequest(Object request);
 
             Builder setGroupId(String groupId);
 
-            UserRequest<T> build();
+            UserRequest build();
         }
     }
 
-    public interface UserResponse<T> extends Message {
+    public interface UserResponse<T> {
         T response();
 
         public interface Builder<T> {

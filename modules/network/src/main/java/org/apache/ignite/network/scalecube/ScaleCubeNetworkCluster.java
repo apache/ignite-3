@@ -16,9 +16,12 @@
  */
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.transport.api.Message;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import io.scalecube.cluster.Cluster;
 import org.apache.ignite.network.NetworkCluster;
@@ -29,6 +32,7 @@ import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.MessageHandlerHolder;
 
 import static io.scalecube.cluster.transport.api.Message.fromData;
+import static java.time.Duration.ofMillis;
 
 /**
  * Implementation of {@link NetworkCluster} based on ScaleCube.
@@ -84,15 +88,14 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
     }
 
     /** {@inheritDoc} */
-    @Override public Future<?> guaranteedSend(NetworkMember member, Object msg) {
-        cluster.send(memberResolver.resolveMember(member), fromData(msg))
-            .block();
+    @Override public Future<?> send(NetworkMember member, Object msg) {
+        return cluster.send(memberResolver.resolveMember(member), fromData(msg)).toFuture();
+    }
 
-        CompletableFuture<Object> future = new CompletableFuture<>();
-
-        future.complete(null);
-
-        return future;
+    /** {@inheritDoc} */
+    @Override public <R> CompletableFuture<R> sendWithResponse(NetworkMember member, Object msg, long timeout) {
+        return cluster.requestResponse(memberResolver.resolveMember(member), fromData(msg))
+            .timeout(ofMillis(timeout)).toFuture().thenApply(m -> m.data());
     }
 
     /** {@inheritDoc} */

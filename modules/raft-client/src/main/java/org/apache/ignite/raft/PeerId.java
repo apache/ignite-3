@@ -17,21 +17,21 @@
 package org.apache.ignite.raft;
 
 import java.io.Serializable;
-import org.apache.ignite.raft.rpc.Node;
+import org.apache.ignite.network.NetworkMember;
 
 /**
  * Represents a participant in a replicating group.
  */
-public class PeerId implements Serializable {
+public final class PeerId implements Serializable {
     private static final long serialVersionUID = 8083529734784884641L;
 
     /**
-     * Owning node.
+     * Cluster node for peer.
      */
-    private final Node node;
+    private final NetworkMember node;
 
     /**
-     * Node's local priority value, if node don't support priority election, this value is -1.
+     * Peer's local priority value, if node don't support priority election, this value is -1.
      */
     private final int priority;
 
@@ -40,17 +40,17 @@ public class PeerId implements Serializable {
         this.priority = peer.getPriority();
     }
 
-    public PeerId(Node node) {
+    public PeerId(NetworkMember node) {
         this(node, ElectionPriority.DISABLED);
     }
 
-    public PeerId(final Node node, final int priority) {
+    public PeerId(final NetworkMember node, final int priority) {
         super();
         this.node = node;
         this.priority = priority;
     }
 
-    public Node getNode() {
+    public NetworkMember getNode() {
         return this.node;
     }
 
@@ -77,6 +77,6 @@ public class PeerId implements Serializable {
     }
 
     @Override public String toString() {
-        return node.id() + ":" + priority;
+        return node.name() + ":" + priority;
     }
 }

@@ -13,5 +13,5 @@ public interface RaftGroupClientRequestService {
      * @param <R> Response.
      * @return A future.
      */
-    <T, R> CompletableFuture<R> submit(T request);
+    <R> CompletableFuture<R> submit(Object request);
 }

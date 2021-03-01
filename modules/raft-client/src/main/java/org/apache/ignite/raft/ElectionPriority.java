@@ -21,7 +21,7 @@ package org.apache.ignite.raft;
  */
 public class ElectionPriority {
     /**
-     * Priority -1 represents this node disabled the priority election function.
+     * Priority -1 means this node has disabled the priority election function.
      */
     public static final int DISABLED = -1;
 

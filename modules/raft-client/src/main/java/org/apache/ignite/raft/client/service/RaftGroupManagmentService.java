@@ -57,7 +57,7 @@ public interface RaftGroupManagmentService {
      * @param peerId  Peer id.
      * @param request   request data
      * @param done      callback
-     * @return a future with result
+     * @return a future with result.
      */
     CompletableFuture<Void> snapshot(PeerId peerId);
 
@@ -77,7 +77,7 @@ public interface RaftGroupManagmentService {
      * @param endpoint  server address
      * @param request   request data
      * @param done      callback
-     * @return a future with result
+     * @return a future with result.
      */
     CompletableFuture<PeersChangeState> addLearners(List<PeerId> peers);
 
@@ -97,7 +97,7 @@ public interface RaftGroupManagmentService {
      * @param endpoint  server address
      * @param request   request data
      * @param done      callback
-     * @return a future with result
+     * @return a future with result.
      */
     CompletableFuture<PeersChangeState> resetLearners(List<PeerId> peers);
 
@@ -107,7 +107,7 @@ public interface RaftGroupManagmentService {
      * @param endpoint  server address
      * @param request   request data
      * @param done      callback
-     * @return a future with result
+     * @return a future with result.
      */
     CompletableFuture<Void> transferLeader(PeerId newLeader);
 

@@ -6,53 +6,43 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
+import org.apache.ignite.network.NetworkCluster;
+import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.PeerId;
-import org.apache.ignite.raft.RaftException;
 import org.apache.ignite.raft.State;
 import org.apache.ignite.raft.client.RaftClientMessages;
 import org.apache.ignite.raft.client.RaftClientMessages.GetLeaderResponse;
-import org.apache.ignite.raft.client.RaftClientMessages.StatusResponse;
-import org.apache.ignite.raft.client.message.ClientMessageBuilderFactory;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
-import org.apache.ignite.raft.rpc.InvokeCallback;
-import org.apache.ignite.raft.rpc.Message;
-import org.apache.ignite.raft.rpc.Node;
-import org.apache.ignite.raft.rpc.RaftGroupMessage;
-import org.apache.ignite.raft.rpc.RpcClient;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
-    private final ExecutorService executor;
-    private final int defaultTimeout;
-    private final RpcClient rpcClient;
+    private final NetworkCluster cluster;
 
     /** Where to ask for initial configuration. */
-    private final Set<Node> initialCfgNodes;
+    private final Set<NetworkMember> initialCfgNodes;
 
     /** */
-    private final ClientMessageBuilderFactory factory;
+    private final RaftClientMessageFactory factory;
+
+    /** */
+    private final int defaultTimeout;
 
     private Map<String, StateImpl> states = new ConcurrentHashMap<>();
 
     /**
      * Accepts dependencies in constructor.
-     * @param rpcClient
-     * @param defaultTimeout
+     * @param cluster Cluster.
+     * @param defaultTimeout Default request timeout.
      * @param initialCfgNode Initial configuration nodes.
      */
-    public RaftGroupRpcClientImpl(RpcClient rpcClient, ClientMessageBuilderFactory factory, int defaultTimeout, Set<Node> initialCfgNodes) {
+    public RaftGroupRpcClientImpl(NetworkCluster cluster, RaftClientMessageFactory factory, int defaultTimeout, Set<NetworkMember> initialCfgNodes) {
         this.defaultTimeout = defaultTimeout;
-        this.rpcClient = rpcClient;
+        this.cluster = cluster;
         this.factory = factory;
         this.initialCfgNodes = new HashSet<>(initialCfgNodes);
-        executor = Executors.newWorkStealingPool();
     }
 
     @Override public State state(String groupId) {
@@ -60,27 +50,17 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
     }
 
     private StateImpl getState(String groupId) {
-        StateImpl newState = new StateImpl();
-
-        StateImpl state = states.putIfAbsent(groupId, newState);
-
-        if (state == null)
-            state = newState;
-
-        return state;
+        return states.computeIfAbsent(groupId, k -> new StateImpl());
     }
 
     @Override public CompletableFuture<PeerId> refreshLeader(String groupId) {
         StateImpl state = getState(groupId);
 
-        return refreshLeader(initialCfgNodes.iterator().next(), groupId).
-            thenApply(resp -> {
-                PeerId leaderId = resp.getLeaderId();
+        RaftClientMessages.GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
 
-                state.leader = leaderId;
+        CompletableFuture<GetLeaderResponse> fut = cluster.sendWithResponse(initialCfgNodes.iterator().next(), req, defaultTimeout);
 
-                return leaderId;
-            });
+        return fut.thenApply(resp -> state.leader = resp.getLeaderId());
     }
 
     @Override public CompletableFuture<State> refreshMembers(String groupId) {
@@ -95,11 +75,11 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return null;
     }
 
-    @Override public CompletableFuture<StatusResponse> resetPeers(PeerId peerId, RaftClientMessages.ResetPeerRequest request) {
+    @Override public CompletableFuture<Void> resetPeers(PeerId peerId, RaftClientMessages.ResetPeerRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<StatusResponse> snapshot(PeerId peerId, RaftClientMessages.SnapshotRequest request) {
+    @Override public CompletableFuture<Void> snapshot(PeerId peerId, RaftClientMessages.SnapshotRequest request) {
         return null;
     }
 
@@ -119,82 +99,23 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return null;
     }
 
-    @Override public CompletableFuture<StatusResponse> transferLeader(RaftClientMessages.TransferLeaderRequest request) {
+    @Override public CompletableFuture<Void> transferLeader(RaftClientMessages.TransferLeaderRequest request) {
         return null;
     }
 
-    private CompletableFuture<GetLeaderResponse> refreshLeader(Node node, String groupId) {
-        StateImpl state = getState(groupId);
+    @Override public CompletableFuture<RaftClientMessages.UserResponse> sendUserRequest(RaftClientMessages.UserRequest request) {
+        if (request.getGroupId() == null)
+            throw new IllegalArgumentException("groupId is required");
 
-        while(true) {
-            CompletableFuture<GetLeaderResponse> fut = state.updateFutRef.get();
-
-            if (fut != null)
-                return fut;
-
-            if (state.updateFutRef.compareAndSet(null, (fut = new CompletableFuture<>()))) {
-                RaftClientMessages.GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
-
-                CompletableFuture<GetLeaderResponse> finalFut = fut;
-
-                rpcClient.invokeAsync(node, req, new InvokeCallback<GetLeaderResponse>() {
-                    @Override public void complete(GetLeaderResponse response, Throwable err) {
-                        if (err != null)
-                            finalFut.completeExceptionally(err);
-                        else
-                            finalFut.complete(response);
-
-                        state.updateFutRef.set(null);
-                    }
-                }, executor, defaultTimeout);
-
-                return fut;
-            }
-        }
-    }
-
-    @Override public <R extends Message> CompletableFuture<R> sendCustom(RaftGroupMessage request) {
         State state = state(request.getGroupId());
-
-        CompletableFuture<R> fut = new CompletableFuture<>();
-
-        fut.orTimeout(defaultTimeout, TimeUnit.MILLISECONDS);
 
         CompletableFuture<PeerId> fut0 = state.leader() == null ?
             refreshLeader(request.getGroupId()) : completedFuture(state.leader());
 
-        fut0.whenComplete(new BiConsumer<PeerId, Throwable>() {
-            @Override public void accept(PeerId peerId, Throwable error) {
-                if (error == null) {
-                    rpcClient.invokeAsync(peerId.getNode(), request, new InvokeCallback<R>() {
-                        @Override public void complete(R response, Throwable err) {
-                            if (err != null)
-                                fut.completeExceptionally(err);
-                            else {
-                                if (response instanceof StatusResponse) {
-                                    StatusResponse resp = (StatusResponse) response;
-
-                                    // Translate error response to exception with the code.
-                                    if (resp.getStatusCode() != 0)
-                                        fut.completeExceptionally(new RaftException(resp.getStatusCode(), resp.getStatusMsg()));
-                                    else
-                                        fut.complete(response);
-                                } else
-                                    fut.complete(response);
-                            }
-                        }
-                    }, executor, defaultTimeout);
-                }
-                else {
-                    fut.completeExceptionally(error);
-                }
-            }
-        });
-
-        return fut;
+        return fut0.thenCompose(peerId -> cluster.sendWithResponse(peerId.getNode(), request, defaultTimeout));
     }
 
-    @Override public ClientMessageBuilderFactory factory() {
+    @Override public RaftClientMessageFactory factory() {
         return this.factory;
     }
 
@@ -204,8 +125,6 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         private volatile List<PeerId> peers;
 
         private volatile List<PeerId> learners;
-
-        private AtomicReference<CompletableFuture<GetLeaderResponse>> updateFutRef = new AtomicReference<>();
 
         @Override public @Nullable PeerId leader() {
             return leader;

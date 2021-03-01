@@ -9,7 +9,7 @@ class ResetPeerRequestImpl implements RaftClientMessages.ResetPeerRequest, RaftC
     private String groupId;
     private List<PeerId> newPeersList = new ArrayList<>();
 
-    @Override public String getGroupId() {
+    public String getGroupId() {
         return groupId;
     }
 
