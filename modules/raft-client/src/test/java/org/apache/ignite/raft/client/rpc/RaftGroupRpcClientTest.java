@@ -38,7 +38,7 @@ import static org.apache.ignite.raft.client.MockUtils.LEADER;
 import static org.apache.ignite.raft.client.MockUtils.mockLeaderRequest;
 import static org.apache.ignite.raft.client.MockUtils.mockUserInput1;
 import static org.apache.ignite.raft.client.MockUtils.mockUserInput2;
-import static org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl.INSTANCE;
+import static org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl.MESSAGE_FACTORY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -54,7 +54,7 @@ public class RaftGroupRpcClientTest {
 
         mockLeaderRequest(cluster, false);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, MESSAGE_FACTORY, 5_000, singleton(LEADER.getNode()));
 
         PeerId leaderId = client.refreshLeader(groupId).get();
 
@@ -68,7 +68,7 @@ public class RaftGroupRpcClientTest {
 
         mockLeaderRequest(cluster, false);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, MESSAGE_FACTORY, 5_000, singleton(LEADER.getNode()));
 
         int cnt = 20;
 
@@ -112,7 +112,7 @@ public class RaftGroupRpcClientTest {
 
         mockLeaderRequest(cluster, true);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, MESSAGE_FACTORY, 5_000, singleton(LEADER.getNode()));
 
         try {
             client.refreshLeader(groupId).get();
@@ -132,7 +132,7 @@ public class RaftGroupRpcClientTest {
         mockUserInput1(cluster);
         mockUserInput2(cluster);
 
-        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, INSTANCE, 5_000, singleton(LEADER.getNode()));
+        RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, MESSAGE_FACTORY, 5_000, singleton(LEADER.getNode()));
 
         RaftClientMessages.UserRequest req1 =
             client.factory().createUserRequest().setGroupId(groupId).setRequest(new TestInput1()).build();

@@ -24,10 +24,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface RaftGroupClientRequestService {
     /**
-     * Submits a custom request to a raft group leader. If a leader is not initialized yet will try to resolve it.
-     * @param request
+     * Submits a custom request to a replication group leader. If a leader is not initialized yet will try to resolve it.
+     * @param request User request.
      * @param <R> Response type.
-     * @return A future.
+     * @return A future with the result.
      */
     <R> CompletableFuture<R> submit(Object request);
 }

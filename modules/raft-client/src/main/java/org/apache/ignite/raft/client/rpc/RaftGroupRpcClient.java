@@ -148,7 +148,7 @@ public interface RaftGroupRpcClient {
     <R> CompletableFuture<UserResponse<R>> submit(UserRequest request);
 
     /**
-     * @return A message builder factory.
+     * @return An underlying message builder factory.
      */
     RaftClientMessageFactory factory();
 }

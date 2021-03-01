@@ -23,7 +23,8 @@ import org.apache.ignite.raft.client.message.RaftClientMessages;
  * Raft client message factory.
  */
 public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
-    public static RaftClientMessageFactoryImpl INSTANCE = new RaftClientMessageFactoryImpl();
+    /** */
+    public static RaftClientMessageFactoryImpl MESSAGE_FACTORY = new RaftClientMessageFactoryImpl();
 
     @Override public RaftClientMessages.AddPeerRequest.Builder createAddPeerRequest() {
         return new AddPeerRequestImpl();

@@ -27,7 +27,7 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import static org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl.INSTANCE;
+import static org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl.MESSAGE_FACTORY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -51,7 +51,7 @@ public class MockUtils {
     public static void mockUserInput1(NetworkCluster cluster) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                RaftClientMessages.UserResponse resp = INSTANCE.createUserResponse().setResponse(new TestOutput1()).build();
+                RaftClientMessages.UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput1()).build();
 
                 return CompletableFuture.completedFuture(resp);
             }
@@ -65,7 +65,7 @@ public class MockUtils {
     public static void mockUserInput2(NetworkCluster cluster) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                RaftClientMessages.UserResponse resp = INSTANCE.createUserResponse().setResponse(new TestOutput2()).build();
+                RaftClientMessages.UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput2()).build();
 
                 return CompletableFuture.completedFuture(resp);
             }
@@ -79,7 +79,7 @@ public class MockUtils {
     public static void mockLeaderRequest(NetworkCluster cluster, boolean timeout) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                RaftClientMessages.GetLeaderResponse resp = INSTANCE.createGetLeaderResponse().setLeaderId(LEADER).build();
+                RaftClientMessages.GetLeaderResponse resp = MESSAGE_FACTORY.createGetLeaderResponse().setLeaderId(LEADER).build();
 
                 return timeout ? CompletableFuture.failedFuture(new TimeoutException()) : CompletableFuture.completedFuture(resp);
             }
