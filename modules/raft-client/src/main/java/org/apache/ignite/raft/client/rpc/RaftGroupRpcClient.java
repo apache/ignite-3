@@ -40,7 +40,7 @@ import static org.apache.ignite.raft.client.message.RaftClientMessages.UserReque
 import static org.apache.ignite.raft.client.message.RaftClientMessages.UserResponse;
 
 /**
- * Replicating group RPC client.
+ * Replication group RPC client.
  */
 public interface RaftGroupRpcClient {
     /**
@@ -50,14 +50,16 @@ public interface RaftGroupRpcClient {
     @NotNull State state(String groupId);
 
     /**
-     * Refreshes a replicating group leader.
+     * Refreshes a replication group leader.
+     *
      * @param groupId Group id.
      * @return A future with the result.
      */
     CompletableFuture<PeerId> refreshLeader(String groupId);
 
     /**
-     * Refreshes a replicating group members (except a leader).
+     * Refreshes a replication group members (excluding a leader).
+     *
      * @param groupId Group id.
      * @return A future with the result.
      */

@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
- * Replicating group RPC client implementation.
+ * Replication group RPC client implementation.
  */
 public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
     /** */

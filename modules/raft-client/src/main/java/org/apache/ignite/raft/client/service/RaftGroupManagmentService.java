@@ -23,7 +23,7 @@ import org.apache.ignite.raft.client.PeerId;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Replicating group management service.
+ * Replication group management service.
  */
 public interface RaftGroupManagmentService {
     /**

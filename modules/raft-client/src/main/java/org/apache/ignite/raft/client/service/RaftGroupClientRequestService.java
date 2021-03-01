@@ -20,7 +20,7 @@ package org.apache.ignite.raft.client.service;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Replicating group client service.
+ * Replication group client service.
  */
 public interface RaftGroupClientRequestService {
     /**

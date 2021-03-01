@@ -22,7 +22,7 @@ import org.apache.ignite.raft.client.PeerId;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft group state.
+ * Replication group state.
  */
 public interface State {
     @Nullable PeerId leader();
