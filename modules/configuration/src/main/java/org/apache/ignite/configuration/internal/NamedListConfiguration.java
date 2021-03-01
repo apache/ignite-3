@@ -65,7 +65,6 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE
     public T get(String name) {
         refreshValue();
 
-        //TODO IGNITE-14182 Exceptions.
         return values.get(name);
     }
 
