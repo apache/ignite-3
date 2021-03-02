@@ -17,8 +17,20 @@
 
 package org.apache.ignite.configuration;
 
+import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.tree.InnerNode;
+
 /** */
-public interface RootKey<T extends ConfigurationTree<?, ?>> {
+public abstract class RootKey<T extends ConfigurationTree<?, ?>> {
     /** */
-    public String key();
+    public abstract String key();
+
+    /** */
+    protected abstract Class<? extends ConfigurationStorage> getStorageType();
+
+    /** */
+    protected abstract InnerNode createRootNode();
+
+    /** */
+    protected abstract T createPublicRoot(ConfigurationChanger changer);
 }
