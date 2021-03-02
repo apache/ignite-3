@@ -49,7 +49,6 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  *
  *      {@literal @}ConfigValue
  *      private SomeOtherConfiguration someOther;
- *
  * }
  * </pre>
  */
@@ -57,13 +56,4 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 @Retention(SOURCE)
 @Documented
 public @interface Config {
-    /**
-     * @return The name of the configuration.
-     */
-    String value() default "";
-
-    /**
-     * @return {@code true } if marked class is the root of the configuration schema.
-     */
-    boolean root() default false;
 }
