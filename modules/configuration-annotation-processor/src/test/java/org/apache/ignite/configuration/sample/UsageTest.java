@@ -55,6 +55,7 @@ public class UsageTest {
                 )
             )
         ).get(1, SECONDS);
+
         assertTrue(root.baseline().autoAdjust().enabled().value());
 
         root.baseline().autoAdjust().enabled().update(false).get(1, SECONDS);

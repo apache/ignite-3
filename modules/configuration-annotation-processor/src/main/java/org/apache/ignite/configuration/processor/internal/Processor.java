@@ -56,6 +56,7 @@ import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -181,7 +182,7 @@ public class Processor extends AbstractProcessor {
                 // Get configuration types (VIEW, INIT, CHANGE and so on)
                 final ConfigurationFieldTypes types = getTypes(field);
 
-                TypeName getMethodType = types.getGetMethodType();
+                TypeName getMethodType = types.getFieldType();
                 TypeName viewClassType = types.getViewClassType();
                 TypeName initClassType = types.getInitClassType();
                 TypeName changeClassType = types.getChangeClassType();
@@ -345,11 +346,11 @@ public class Processor extends AbstractProcessor {
             .addAnnotation(Override.class)
             .addJavadoc("{@inheritDoc}")
             .addModifiers(PUBLIC, FINAL)
-            .returns(types.getGetMethodType());
+            .returns(types.getInterfaceGetMethodType());
 
-        if (Utils.isNamedConfiguration(types.getGetMethodType())) {
+        if (Utils.isNamedConfiguration(types.getFieldType())) {
             getMethodBuilder.addAnnotation(suppressWarningsUnchecked())
-                .addStatement("return ($T)$L", NamedListConfiguration.class, fieldName);
+                .addStatement("return ($T)$L", NamedConfigurationTree.class, fieldName);
         }
         else
             getMethodBuilder.addStatement("return $L", fieldName);
@@ -363,7 +364,7 @@ public class Processor extends AbstractProcessor {
      * @return Bundle with all types for configuration
      */
     private ConfigurationFieldTypes getTypes(final VariableElement field) {
-        TypeName getMethodType = null;
+        TypeName fieldType = null;
         TypeName interfaceGetMethodType = null;
 
         final TypeName baseType = TypeName.get(field.asType());
@@ -375,10 +376,10 @@ public class Processor extends AbstractProcessor {
 
         final ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
         if (confAnnotation != null) {
-            getMethodType = Utils.getConfigurationName((ClassName) baseType);
+            fieldType = Utils.getConfigurationName((ClassName) baseType);
             interfaceGetMethodType = Utils.getConfigurationInterfaceName((ClassName) baseType);
 
-            unwrappedType = getMethodType;
+            unwrappedType = fieldType;
             viewClassType = Utils.getViewName((ClassName) baseType);
             initClassType = Utils.getInitName((ClassName) baseType);
             changeClassType = Utils.getChangeName((ClassName) baseType);
@@ -392,8 +393,8 @@ public class Processor extends AbstractProcessor {
             initClassType = Utils.getInitName((ClassName) baseType);
             changeClassType = Utils.getChangeName((ClassName) baseType);
 
-            getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), interfaceGetType, viewClassType, initClassType, changeClassType);
-            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), interfaceGetType, viewClassType, initClassType, changeClassType);
+            fieldType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), interfaceGetType, viewClassType, changeClassType, initClassType);
+            interfaceGetMethodType = ParameterizedTypeName.get(ClassName.get(NamedConfigurationTree.class), interfaceGetType, viewClassType, changeClassType, initClassType);
         }
 
         final Value valueAnnotation = field.getAnnotation(Value.class);
@@ -407,11 +408,11 @@ public class Processor extends AbstractProcessor {
                 genericType = genericType.box();
             }
 
-            getMethodType = ParameterizedTypeName.get(dynPropClass, genericType);
+            fieldType = ParameterizedTypeName.get(dynPropClass, genericType);
             interfaceGetMethodType = ParameterizedTypeName.get(confValueClass, genericType);
         }
 
-        return new ConfigurationFieldTypes(getMethodType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
+        return new ConfigurationFieldTypes(fieldType, unwrappedType, viewClassType, initClassType, changeClassType, interfaceGetMethodType);
     }
 
     /**
@@ -419,7 +420,7 @@ public class Processor extends AbstractProcessor {
      */
     private static class ConfigurationFieldTypes {
         /** Field get method type. */
-        private final TypeName getMethodType;
+        private final TypeName fieldType;
 
         /** Configuration type (if marked with @ConfigValue or @NamedConfig), or original type (if marked with @Value) */
         private final TypeName unwrappedType;
@@ -436,8 +437,8 @@ public class Processor extends AbstractProcessor {
         /** Get method type for public interface. */
         private final TypeName interfaceGetMethodType;
 
-        private ConfigurationFieldTypes(TypeName getMethodType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
-            this.getMethodType = getMethodType;
+        private ConfigurationFieldTypes(TypeName fieldType, TypeName unwrappedType, TypeName viewClassType, TypeName initClassType, TypeName changeClassType, TypeName interfaceGetMethodType) {
+            this.fieldType = fieldType;
             this.unwrappedType = unwrappedType;
             this.viewClassType = viewClassType;
             this.initClassType = initClassType;
@@ -451,8 +452,8 @@ public class Processor extends AbstractProcessor {
         }
 
         /** */
-        public TypeName getGetMethodType() {
-            return getMethodType;
+        public TypeName getFieldType() {
+            return fieldType;
         }
 
         /** */

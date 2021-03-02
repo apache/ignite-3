@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,6 @@ import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
@@ -128,7 +128,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
 
     /** {@inheritDoc} */
     @Override public Map<String, ConfigurationProperty<?, ?>> members() {
-        return members.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return Collections.unmodifiableMap(members);
     }
 
     /** {@inheritDoc} */
