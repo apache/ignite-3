@@ -311,70 +311,97 @@ public class ConfigurationUtil {
                 if (node == null)
                     return null;
 
-                int previousKeyLength = currentKey.length();
-
-                currentKey.append(key).append('.');
-                if (!writeNulls) currentPath.add(key);
+                int previousKeyLength = startVisit(key, false);
 
                 node.traverseChildren(this);
 
-                if (!writeNulls) currentPath.remove(currentPath.size() - 1);
-                currentKey.setLength(previousKeyLength);
+                endVisit(previousKeyLength);
 
                 return null;
             }
 
             /** {@inheritDoc} */
             @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
-                int previousKeyLength = currentKey.length();
-
-                currentKey.append(key).append('.');
-                if (!writeNulls) currentPath.add(key);
+                int previousKeyLength = startVisit(key, false);
 
                 for (String namedListKey : node.namedListKeys()) {
-                    int loopPreviousKeyLength = currentKey.length();
-
-                    currentKey.append(ConfigurationUtil.escape(namedListKey)).append('.');
-                    if (!writeNulls) currentPath.add(namedListKey);
+                    int loopPreviousKeyLength = startVisit(namedListKey, true);
 
                     N namedElement = node.get(namedListKey);
 
-                    if (namedElement == null) {
-                        assert !writeNulls;
-
-                        Object originalNamedElement = null;
-
-                        try {
-                            // This code can in fact be better optimized for deletion scenario,
-                            // but there's no point in doing that, since the operation is so rare and it will
-                            // complicate code even more.
-                            originalNamedElement = find(currentPath.subList(1, currentPath.size()), curRoot);
-                        }
-                        catch (KeyNotFoundException ignore) {
-                            // May happen, not a big deal.
-                        }
-
-                        if (originalNamedElement != null) {
-                            assert originalNamedElement instanceof InnerNode : currentPath;
-
-                            writeNulls = true;
-
-                            ((InnerNode)originalNamedElement).traverseChildren(this);
-
-                            writeNulls = false;
-                        }
-                    }
+                    if (namedElement == null)
+                        visitDeletedNamedListElement();
                     else
                         namedElement.traverseChildren(this);
 
-                    currentKey.setLength(loopPreviousKeyLength);
-                    if (!writeNulls) currentPath.remove(currentPath.size() - 1);
+                    endVisit(loopPreviousKeyLength);
                 }
 
-                currentKey.setLength(previousKeyLength);
-                if (!writeNulls) currentPath.remove(currentPath.size() - 1);
+                endVisit(previousKeyLength);
 
                 return null;
+            }
+
+            /**
+             * Prepares values of {@link #currentKey} and {@link #currentPath} for further processing.
+             *
+             * @param key Key.
+             * @param escape Whether we need to escape the key before appending it to {@link #currentKey}.
+             * @return Previous length of {@link #currentKey} so it can be passed to {@link #endVisit(int)} later.
+             */
+            private int startVisit(String key, boolean escape) {
+                int previousKeyLength = currentKey.length();
+
+                currentKey.append(escape ? ConfigurationUtil.escape(key) : key).append('.');
+
+                if (!writeNulls)
+                    currentPath.add(key);
+
+                return previousKeyLength;
+            }
+
+            /**
+             * Puts {@link #currentKey} and {@link #currentPath} in the same state as they were before
+             * {@link #startVisit(String, boolean)}.
+             *
+             * @param previousKeyLength Value return by corresponding {@link #startVisit(String, boolean)} invocation.
+             */
+            private void endVisit(int previousKeyLength) {
+                currentKey.setLength(previousKeyLength);
+
+                if (!writeNulls)
+                    currentPath.remove(currentPath.size() - 1);
+            }
+
+            /**
+             * Here we must list all joined keys belonging to deleted element. The only way to do it is to traverse
+             * cached configuration tree and write {@code null} into all values.
+             */
+            private void visitDeletedNamedListElement() {
+                // It must be impossible to delete something inside of the element that we're currently deleting.
+                assert !writeNulls;
+
+                Object originalNamedElement = null;
+
+                try {
+                    // This code can in fact be better optimized for deletion scenario,
+                    // but there's no point in doing that, since the operation is so rare and it will
+                    // complicate code even more.
+                    originalNamedElement = find(currentPath.subList(1, currentPath.size()), curRoot);
+                }
+                catch (KeyNotFoundException ignore) {
+                    // May happen, not a big deal. This means that element never existed in the first place.
+                }
+
+                if (originalNamedElement != null) {
+                    assert originalNamedElement instanceof InnerNode : currentPath;
+
+                    writeNulls = true;
+
+                    ((InnerNode)originalNamedElement).traverseChildren(this);
+
+                    writeNulls = false;
+                }
             }
         });
 
