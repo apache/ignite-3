@@ -182,7 +182,7 @@ public class Processor extends AbstractProcessor {
                 // Get configuration types (VIEW, INIT, CHANGE and so on)
                 final ConfigurationFieldTypes types = getTypes(field);
 
-                TypeName getMethodType = types.getFieldType();
+                TypeName fieldType = types.getFieldType();
                 TypeName viewClassType = types.getViewClassType();
                 TypeName initClassType = types.getInitClassType();
                 TypeName changeClassType = types.getChangeClassType();
@@ -199,13 +199,13 @@ public class Processor extends AbstractProcessor {
                     // Create DynamicConfiguration (descendant) field
                     final FieldSpec nestedConfigField =
                         FieldSpec
-                            .builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL)
+                            .builder(fieldType, fieldName, Modifier.PRIVATE, FINAL)
                             .build();
 
                     configurationClassBuilder.addField(nestedConfigField);
 
                     // Constructor statement
-                    constructorBodyBuilder.addStatement("add($L = new $T(keys, $S, rootKey, changer))", fieldName, getMethodType, fieldName);
+                    constructorBodyBuilder.addStatement("add($L = new $T(keys, $S, rootKey, changer))", fieldName, fieldType, fieldName);
                 }
 
                 final NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
@@ -217,11 +217,9 @@ public class Processor extends AbstractProcessor {
                         );
                     }
 
-                    ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
-
                     // Create NamedListConfiguration<> field
                     final FieldSpec nestedConfigField = FieldSpec.builder(
-                        getMethodType,
+                        fieldType,
                         fieldName,
                         Modifier.PRIVATE,
                         FINAL
@@ -233,9 +231,9 @@ public class Processor extends AbstractProcessor {
                     constructorBodyBuilder.addStatement(
                         "add($L = new $T(keys, $S, rootKey, changer, (p, k) -> new $T(p, k, rootKey, changer)))",
                         fieldName,
-                        getMethodType,
+                        fieldType,
                         fieldName,
-                        fieldType
+                        Utils.getConfigurationName((ClassName) baseType)
                     );
                 }
 
@@ -251,7 +249,7 @@ public class Processor extends AbstractProcessor {
                     }
 
                     // Create value (DynamicProperty<>) field
-                    final FieldSpec generatedField = FieldSpec.builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL).build();
+                    final FieldSpec generatedField = FieldSpec.builder(fieldType, fieldName, Modifier.PRIVATE, FINAL).build();
 
                     configurationClassBuilder.addField(generatedField);
 
@@ -260,11 +258,11 @@ public class Processor extends AbstractProcessor {
                     // Constructor statement
                     constructorBodyBuilder.addStatement(
                         "add($L = new $T(keys, $S, rootKey, changer), $L)",
-                        fieldName, getMethodType, fieldName, validatorsBlock
+                        fieldName, fieldType, fieldName, validatorsBlock
                     );
                 }
 
-                configDesc.getFields().add(new ConfigurationElement(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
+                configDesc.getFields().add(new ConfigurationElement(fieldType, fieldName, viewClassType, initClassType, changeClassType));
 
                 createGetters(configurationClassBuilder, configurationInterfaceBuilder, fieldName, types);
             }
