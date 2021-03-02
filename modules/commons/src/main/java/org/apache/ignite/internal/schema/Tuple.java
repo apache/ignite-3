@@ -53,7 +53,7 @@ public abstract class Tuple {
     public byte byteValue(int col) {
         long off = findColumn(col, NativeTypeSpec.BYTE);
 
-        return off < 0 ? 0 : (byte)readByte(offset(off));
+        return off < 0 ? 0 : readByte(offset(off));
     }
 
     /**
@@ -61,7 +61,7 @@ public abstract class Tuple {
     public Byte byteValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.BYTE);
 
-        return off < 0 ? null : (byte)readByte(offset(off));
+        return off < 0 ? null : readByte(offset(off));
     }
 
     /**
@@ -69,7 +69,7 @@ public abstract class Tuple {
     public short shortValue(int col) {
         long off = findColumn(col, NativeTypeSpec.SHORT);
 
-        return off < 0 ? 0 : (short)readShort(offset(off));
+        return off < 0 ? 0 : readShort(offset(off));
     }
 
     /**
@@ -77,7 +77,7 @@ public abstract class Tuple {
     public Short shortValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.SHORT);
 
-        return off < 0 ? null : (short)readShort(offset(off));
+        return off < 0 ? null : readShort(offset(off));
     }
 
     /**
@@ -221,7 +221,7 @@ public abstract class Tuple {
     private long findColumn(int colIdx, NativeTypeSpec type) {
         // Get base offset (key start or value start) for the given column.
         boolean keyCol = schema.keyColumn(colIdx);
-        Columns cols = schema.columns(colIdx);
+        Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
 
         int off = SCHEMA_VERSION_FIELD_SIZE + KEY_HASH_FIELD_SIZE;
 
@@ -248,7 +248,7 @@ public abstract class Tuple {
     }
 
     /**
-     * Checks the typle null map for the given column index in the chunk.
+     * Checks the tuple's null map for the given column index in the chunk.
      *
      * @param baseOff Offset of the chunk start in the tuple.
      * @param idx Offset of the column in the chunk.
@@ -278,7 +278,7 @@ public abstract class Tuple {
 
     /**
      * Utility method to extract the column length from the {@link #findColumn(int, NativeTypeSpec)} result for
-     * varlength columns.
+     * varlen columns.
      *
      * @param offLen {@code findColumn} invocation result.
      * @return Length of the column or {@code 0} if the column is fixed-length.
@@ -289,7 +289,7 @@ public abstract class Tuple {
 
     /**
      * Calculates the offset and length of varlen column. First, it calculates the number of non-null columns
-     * preceeding the requested column by folding the null map bits. This number is used to adjust the column index
+     * preceding the requested column by folding the null map bits. This number is used to adjust the column index
      * and find the corresponding entry in the varlen table. The length of the column is calculated either by
      * subtracting two adjacent varlen table offsets, or by subtracting the last varlen table offset from the chunk
      * length.
@@ -310,7 +310,7 @@ public abstract class Tuple {
         int numNullsBefore = 0;
 
         for (int i = nullStartByte; i <= nullEndByte; i++) {
-            int nullmapByte = readByte(nullMapOff + i);
+            byte nullmapByte = readByte(nullMapOff + i);
 
             if (i == nullStartByte)
                 // We need to clear startBitInByte least significant bits
@@ -341,7 +341,7 @@ public abstract class Tuple {
 
     /**
      * Calculates the offset of the fixlen column with the given index in the tuple. It essentially folds the null map
-     * with the column lengths to calculate the size of non-null columns preceeding the requested column.
+     * with the column lengths to calculate the size of non-null columns preceding the requested column.
      *
      * @param cols Columns chunk.
      * @param baseOff Chunk base offset.
@@ -388,11 +388,11 @@ public abstract class Tuple {
 
     /**
      */
-    protected abstract int readByte(int off);
+    protected abstract byte readByte(int off);
 
     /**
      */
-    protected abstract int readShort(int off);
+    protected abstract short readShort(int off);
 
     /**
      */

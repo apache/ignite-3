@@ -125,7 +125,7 @@ public class TupleAssembler {
 
         buf = new ExpandableByteBuf(size);
 
-        curCols = schema.columns(0);
+        curCols = schema.keyColumns();
 
         initOffsets(Tuple.SCHEMA_VERSION_FIELD_SIZE + Tuple.KEY_HASH_FIELD_SIZE, nonNullVarsizeKeyCols);
 
@@ -368,16 +368,14 @@ public class TupleAssembler {
             curVarlenTblEntry++;
 
         if (curCol == curCols.length()) {
-            Columns cols = schema.columns(curCol);
-
             int keyLen = curOff - baseOff;
 
             buf.putShort(baseOff, (short)keyLen);
 
-            if (cols == curCols)
-                return;
+            if (schema.valueColumns() == curCols)
+                return; // No more columns.
 
-            curCols = cols;
+            curCols = schema.valueColumns(); // Switch key->value columns.
 
             initOffsets(baseOff + keyLen, nonNullVarlenValCols);
         }

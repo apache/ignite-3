@@ -52,7 +52,7 @@ public class NativeType implements Comparable<NativeType> {
     private final NativeTypeSpec typeSpec;
 
     /** Type length. */
-    private int len;
+    private final int len;
 
     /**
      */
@@ -75,6 +75,7 @@ public class NativeType implements Comparable<NativeType> {
                 "length-aware constructor: " + typeSpec);
 
         this.typeSpec = typeSpec;
+        this.len = 0;
     }
 
     /**
@@ -136,9 +137,6 @@ public class NativeType implements Comparable<NativeType> {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "NativeType{" +
-            "typeSpec=" + typeSpec +
-            ", len=" + len +
-            '}';
+        return "NativeType [typeSpec=" + typeSpec + ", len=" + len + ']';
     }
 }

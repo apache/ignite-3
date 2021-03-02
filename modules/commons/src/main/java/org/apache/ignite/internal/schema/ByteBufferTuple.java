@@ -39,13 +39,13 @@ public class ByteBufferTuple extends Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override protected int readByte(int off) {
-        return buf.get(off) & 0xFF;
+    @Override protected byte readByte(int off) {
+        return (byte)(buf.get(off) & 0xFF);
     }
 
     /** {@inheritDoc} */
-    @Override protected int readShort(int off) {
-        return buf.getShort(off) & 0xFFFF;
+    @Override protected short readShort(int off) {
+        return (short)(buf.getShort(off) & 0xFFFF);
     }
 
     /** {@inheritDoc} */

@@ -61,14 +61,6 @@ public class SchemaDescriptor {
     }
 
     /**
-     * @param col Column index.
-     * @return Column chunk for the given column index.
-     */
-    public Columns columns(int col) {
-        return keyColumn(col) ? keyCols : valCols;
-    }
-
-    /**
      * @param colIdx Column index.
      * @return Column instance.
      */

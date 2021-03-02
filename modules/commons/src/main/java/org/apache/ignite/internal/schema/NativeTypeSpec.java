@@ -161,7 +161,7 @@ public enum NativeTypeSpec {
 
     /**
      * Indirection method for getting an Object representation of the given type from the tuple. This method
-     * does do any type conversions and will throw an exception if tuple schema column type differs from this
+     * does any type conversions and will throw an exception if tuple schema column type differs from this
      * type.
      *
      * @param tup Tuple to read the value from.
@@ -173,6 +173,6 @@ public enum NativeTypeSpec {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "NativeType [desc=" + desc + ", size=" + (fixedLength() ? fixedSize : "varlen") + ']';
+        return "NativeTypeSpec [desc=" + desc + ", fixedSize=" + fixedSize + ']';
     }
 }
