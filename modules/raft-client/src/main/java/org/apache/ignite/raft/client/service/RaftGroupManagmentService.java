@@ -45,18 +45,16 @@ public interface RaftGroupManagmentService {
     /**
      * Refreshes a replication group leader.
      *
-     * @param groupId Group id.
      * @return A future with the result.
      */
-    CompletableFuture<PeerId> refreshLeader(String groupId);
+    CompletableFuture<PeerId> refreshLeader();
 
     /**
      * Refreshes a replication group members (excluding a leader).
      *
-     * @param groupId Group id.
      * @return A future with the result.
      */
-    CompletableFuture<State> refreshMembers(String groupId);
+    CompletableFuture<State> refreshMembers();
 
     /**
      * Adds a voting peer to the raft group.

@@ -52,11 +52,11 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
         return rpcClient.state(groupId).learners();
     }
 
-    @Override public CompletableFuture<PeerId> refreshLeader(String groupId) {
+    @Override public CompletableFuture<PeerId> refreshLeader() {
         return null;
     }
 
-    @Override public CompletableFuture<State> refreshMembers(String groupId) {
+    @Override public CompletableFuture<State> refreshMembers() {
         return null;
     }
 
