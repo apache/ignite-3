@@ -60,11 +60,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE
         this.creator = creator;
     }
 
-    /**
-     * Get named configuration by name.
-     * @param name Name.
-     * @return Configuration.
-     */
+    /** {@inheritDoc} */
     @Override public T get(String name) {
         refreshValue();
 

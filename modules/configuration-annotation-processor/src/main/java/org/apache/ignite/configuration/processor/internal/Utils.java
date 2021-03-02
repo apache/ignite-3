@@ -223,7 +223,9 @@ public class Utils {
         throw new ProcessorException(type + " is not a NamedListConfiguration class");
     }
 
-    /** */
+    /**
+     * @return {@code @SuppressWarnings("unchecked")} annotation spec object.
+     */
     public static AnnotationSpec suppressWarningsUnchecked() {
         return AnnotationSpec.builder(SuppressWarnings.class)
             .addMember("value", "$S", "unchecked")

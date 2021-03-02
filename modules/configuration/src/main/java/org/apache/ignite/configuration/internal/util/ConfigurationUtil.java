@@ -286,9 +286,10 @@ public class ConfigurationUtil {
         TraversableTreeNode curRoot,
         TraversableTreeNode updates
     ) {
-        Map<String, Serializable> values = new HashMap<>();
+        return updates.accept(rootKey.key(), new ConfigurationVisitor<>() {
+            /** Resulting flat map. */
+            private Map<String, Serializable> values = new HashMap<>();
 
-        updates.accept(rootKey.key(), new ConfigurationVisitor<>() {
             /** Current key, aggregated by visitor. */
             private StringBuilder currentKey = new StringBuilder();
 
@@ -299,15 +300,15 @@ public class ConfigurationUtil {
             private boolean writeNulls;
 
             /** {@inheritDoc} */
-            @Override public Void visitLeafNode(String key, Serializable val) {
+            @Override public Map<String, Serializable> visitLeafNode(String key, Serializable val) {
                 if (val != null)
                     values.put(currentKey.toString() + key, writeNulls ? null : val);
 
-                return null;
+                return values;
             }
 
             /** {@inheritDoc} */
-            @Override public Void visitInnerNode(String key, InnerNode node) {
+            @Override public Map<String, Serializable> visitInnerNode(String key, InnerNode node) {
                 if (node == null)
                     return null;
 
@@ -317,11 +318,11 @@ public class ConfigurationUtil {
 
                 endVisit(previousKeyLength);
 
-                return null;
+                return values;
             }
 
             /** {@inheritDoc} */
-            @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> node) {
+            @Override public <N extends InnerNode> Map<String, Serializable> visitNamedListNode(String key, NamedListNode<N> node) {
                 int previousKeyLength = startVisit(key, false);
 
                 for (String namedListKey : node.namedListKeys()) {
@@ -339,7 +340,7 @@ public class ConfigurationUtil {
 
                 endVisit(previousKeyLength);
 
-                return null;
+                return values;
             }
 
             /**
@@ -404,8 +405,6 @@ public class ConfigurationUtil {
                 }
             }
         });
-
-        return values;
     }
 
     /**

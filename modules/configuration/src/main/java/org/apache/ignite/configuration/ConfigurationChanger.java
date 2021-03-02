@@ -264,8 +264,14 @@ public class ConfigurationChanger {
         //TODO IGNITE-14180 Notify listeners.
     }
 
-    /** */
+    /**
+     * "Compress" prefix map - this means that deleted named list elements will be represented as a single {@code null}
+     * objects instead of a number of nullified configuration leaves.
+     *
+     * @param prefixMap Prefix map, constructed from the storage notification data or its subtree.
+     */
     private void compressDeletedEntries(Map<String, ?> prefixMap) {
+        // Here we basically assume that if prefix subtree contains single null child then all its childrens are nulls.
         Set<String> keysForRemoval = prefixMap.entrySet().stream()
             .filter(entry ->
                 entry.getValue() instanceof Map && ((Map<?, ?>)entry.getValue()).containsValue(null)
@@ -273,9 +279,11 @@ public class ConfigurationChanger {
             .map(Map.Entry::getKey)
             .collect(Collectors.toSet());
 
+        // Replace all such elements will nulls, signifying that these are deleted named list elements.
         for (String key : keysForRemoval)
             prefixMap.put(key, null);
 
+        // Continue recursively.
         for (Object value : prefixMap.values()) {
             if (value instanceof Map)
                 compressDeletedEntries((Map<String, ?>)value);

@@ -20,8 +20,20 @@ package org.apache.ignite.configuration;
 import org.apache.ignite.configuration.tree.NamedListChange;
 import org.apache.ignite.configuration.tree.NamedListView;
 
+/**
+ * Configuration tree representing arbitrary set of named underlying configuration tree of the same type.
+ *
+ * @param <T> Type of the underlying configuration tree.
+ * @param <VALUE> Value type of the underlying node.
+ * @param <CHANGE> Type of the object that changes underlying nodes values.
+ */
 public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW, CHANGE>, VIEW, CHANGE, INIT>
     extends ConfigurationTree<NamedListView<VIEW>, NamedListChange<CHANGE, INIT>>
 {
+    /**
+     * Get named configuration by name.
+     * @param name Name.
+     * @return Configuration.
+     */
     T get(String name);
 }
