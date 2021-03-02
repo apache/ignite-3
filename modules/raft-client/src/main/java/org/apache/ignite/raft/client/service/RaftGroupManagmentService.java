@@ -20,6 +20,7 @@ package org.apache.ignite.raft.client.service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.State;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,9 +38,25 @@ public interface RaftGroupManagmentService {
     @Nullable List<PeerId> getPeers();
 
     /**
-     * @return List of peers or null if it has not been yet initialized.
+     * @return List of leaners or null if it has not been yet initialized.
      */
     @Nullable List<PeerId> getLearners();
+
+    /**
+     * Refreshes a replication group leader.
+     *
+     * @param groupId Group id.
+     * @return A future with the result.
+     */
+    CompletableFuture<PeerId> refreshLeader(String groupId);
+
+    /**
+     * Refreshes a replication group members (excluding a leader).
+     *
+     * @param groupId Group id.
+     * @return A future with the result.
+     */
+    CompletableFuture<State> refreshMembers(String groupId);
 
     /**
      * Adds a voting peer to the raft group.

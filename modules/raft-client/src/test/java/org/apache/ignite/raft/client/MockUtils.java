@@ -27,6 +27,8 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl.MESSAGE_FACTORY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -53,7 +55,7 @@ public class MockUtils {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
                 RaftClientMessages.UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput1()).build();
 
-                return CompletableFuture.completedFuture(resp);
+                return completedFuture(resp);
             }
         }).when(cluster).sendWithResponse(eq(LEADER.getNode()), argThat(new ArgumentMatcher<RaftClientMessages.UserRequest>() {
             @Override public boolean matches(RaftClientMessages.UserRequest arg) {
@@ -67,7 +69,7 @@ public class MockUtils {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
                 RaftClientMessages.UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput2()).build();
 
-                return CompletableFuture.completedFuture(resp);
+                return completedFuture(resp);
             }
         }).when(cluster).sendWithResponse(eq(LEADER.getNode()), argThat(new ArgumentMatcher<RaftClientMessages.UserRequest>() {
             @Override public boolean matches(RaftClientMessages.UserRequest arg) {
@@ -81,7 +83,7 @@ public class MockUtils {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
                 RaftClientMessages.GetLeaderResponse resp = MESSAGE_FACTORY.createGetLeaderResponse().setLeaderId(LEADER).build();
 
-                return timeout ? CompletableFuture.failedFuture(new TimeoutException()) : CompletableFuture.completedFuture(resp);
+                return timeout ? failedFuture(new TimeoutException()) : completedFuture(resp);
             }
         }).when(cluster).sendWithResponse(eq(LEADER.getNode()), any(RaftClientMessages.GetLeaderRequest.class), anyLong());
     }

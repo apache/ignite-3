@@ -20,6 +20,7 @@ package org.apache.ignite.raft.client.service.impl;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.State;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.service.RaftGroupManagmentService;
 
@@ -49,6 +50,14 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
 
     @Override public List<PeerId> getLearners() {
         return rpcClient.state(groupId).learners();
+    }
+
+    @Override public CompletableFuture<PeerId> refreshLeader(String groupId) {
+        return null;
+    }
+
+    @Override public CompletableFuture<State> refreshMembers(String groupId) {
+        return null;
     }
 
     @Override public CompletableFuture<PeersChangeState> addPeer(PeerId peerId) {

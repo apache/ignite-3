@@ -125,7 +125,7 @@ public class RaftGroupRpcClientTest {
     }
 
     @Test
-    public void testCustomMessage() throws Exception {
+    public void testUserRequest() throws Exception {
         String groupId = "test";
 
         mockLeaderRequest(cluster, false);
