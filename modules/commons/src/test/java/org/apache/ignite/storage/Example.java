@@ -18,15 +18,31 @@
 package org.apache.ignite.storage;
 
 import java.math.BigDecimal;
+import org.apache.ignite.internal.storage.DummyTableStorageImpl;
+import org.apache.ignite.internal.storage.TableViewImpl;
 import org.apache.ignite.storage.binary.BinaryObject;
 import org.apache.ignite.storage.binary.BinaryObjects;
 import org.apache.ignite.storage.mapper.Mappers;
+import org.junit.jupiter.api.Test;
 
 /**
  *
  */
 @SuppressWarnings({"unused", "UnusedAssignment"})
 public class Example {
+    @Test
+    public void testCases(){
+        TableViewImpl tbl = new TableViewImpl(new DummyTableStorageImpl());
+
+        useCase1(tbl);
+        useCase2(tbl);
+        useCase3(tbl);
+        useCase4(tbl);
+        useCase5(tbl);
+        useCase6(tbl);
+        useCase7(tbl);
+    }
+
     /**
      * Use case 1: a simple one. The table has the structure
      * [

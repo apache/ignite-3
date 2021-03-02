@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.internal.storage.KeyObject;
+import org.apache.ignite.internal.storage.TableRow;
 
 public interface Marshaller {
+    <K> TableRow toKeyRow(K key);
 
-    <K> KeyObject toKeyObject(K obj);
+    <V> V unmarshallValue(TableRow row);
 
+    <R> R unmarshallToRecord(R record, TableRow tableRow);
 }

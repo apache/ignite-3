@@ -17,37 +17,20 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.storage.RecordView;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.schema.TableSchemaManager;
 import org.apache.ignite.storage.TableStorage;
-import org.apache.ignite.storage.mapper.RowMapper;
 
-public class RecordViewImpl<R> implements RecordView<R> {
 
-    private final TableStorage table;
-    private final RowMapper<R> rowMapper;
-    Marshaller marsh;
+public class DummyTableStorageImpl implements TableStorage {
+    private final Map<byte[], byte[]> store = new ConcurrentHashMap<>();
 
-    public RecordViewImpl(TableStorage table, RowMapper<R> mapper) {
-        this.table = table;
-        rowMapper = mapper;
-    }
+    private TableSchemaManager schemaMgr;
 
-    @Override public R get(R record) {
-        //        marsh = table.schemaManager().marshaller();
+    @Override public TableRow get(TableRow obj) {
+        final byte[] rowBytes = store.get(obj.getKeyBytes());
 
-        TableRow kRow = marsh.toKeyRow(record);
-
-        TableRow tRow = table.get(kRow);
-
-        return marsh.unmarshallToRecord(record, tRow);
-    }
-
-    @Override public boolean upsert(R row) {
-        return false;
-    }
-
-    @Override public boolean insert(R row) {
-        return false;
+        return new DummyTableRowImpl(rowBytes);
     }
 }

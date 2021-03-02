@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.storage.KVView;
-import org.apache.ignite.storage.Row;
 import org.apache.ignite.storage.TableStorage;
 import org.apache.ignite.storage.mapper.KeyMapper;
 import org.apache.ignite.storage.mapper.ValueMapper;
@@ -27,22 +26,24 @@ import org.apache.ignite.storage.mapper.ValueMapper;
 public class KVViewImpl<K, V> implements KVView<K, V> {
 
     private final TableStorage table;
+    private final KeyMapper<K> keyMapper;
+    private final ValueMapper<V> valueMapper;
     Marshaller marsh;
 
-    public KVViewImpl(TableStorage table, KeyMapper<K> mapper, ValueMapper<V> mapper1) {
+    public KVViewImpl(TableStorage table, KeyMapper<K> keyMapper, ValueMapper<V> valueMapper) {
         this.table = table;
+        this.keyMapper = keyMapper;
+        this.valueMapper = valueMapper;
     }
 
     @Override public V get(K key) {
 //        marsh = table.schemaManager().marshaller();
 
-        KeyObject kObj = marsh.toKeyObject(key);
+        TableRow kRow = marsh.toKeyRow(key);
 
-        Row row = table.get(kObj);
+        TableRow row = table.get(kRow);
 
-//       return marsh.unmarshallValue(row);
-
-        return null;
+       return marsh.unmarshallValue(row);
     }
 
     @Override public boolean containsKey(K key) {

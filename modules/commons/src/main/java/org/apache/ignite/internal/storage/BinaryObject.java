@@ -17,6 +17,5 @@
 
 package org.apache.ignite.internal.storage;
 
-public interface KeyObject {
-    byte[] getBytes();
+public class BinaryObject {
 }

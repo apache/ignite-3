@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage;
+package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.TableRow;
+import java.nio.ByteBuffer;
 
-public interface TableStorage {
-    public TableRow get(TableRow obj);
+public interface TableRow {
+    ByteBuffer getKeyBytes();
 }

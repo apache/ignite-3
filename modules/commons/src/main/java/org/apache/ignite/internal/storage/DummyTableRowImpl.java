@@ -17,21 +17,29 @@
 
 package org.apache.ignite.internal.storage;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.schema.TableSchemaManager;
-import org.apache.ignite.storage.Row;
-import org.apache.ignite.storage.TableStorage;
+import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
 
-public class TableStorageImpl implements TableStorage {
-    private final Map<byte[], byte[]> store = new ConcurrentHashMap<>();
+public class DummyTableRowImpl implements TableRow {
+    //TODO: Replace with Tuple layout constants.
+    private final int SCHEMA_VERSION_OFFSET = 0;
+    private final int FLAGS_OFFSET = SCHEMA_VERSION_OFFSET + 2;
+    private final int KEY_HASH_OFFSET = FLAGS_OFFSET + 2;
+    private final int KEY_OFFSET = KEY_HASH_OFFSET + 4;
 
-    private TableSchemaManager schemaMgr;
 
-    @Override public Row get(KeyObject obj) {
-        final byte[] valBytes = store.get(obj.getBytes());
+    // TODO: Wrap tuple.
+    private final byte[] bytes;
 
-//        return schemaMgr.toRow(valBytes);
-        return null;
+    public DummyTableRowImpl(byte[] rowBytes) {
+        bytes = rowBytes;
+    }
+
+    @Override public ByteBuffer getKeyBytes() {
+        final ByteBuffer buf = ByteBuffer.wrap(bytes);
+
+        final int keyLen = buf.getInt(KEY_HASH_OFFSET);
+
+        return buf.limit(keyLen).position(KEY_OFFSET).slice();
     }
 }
