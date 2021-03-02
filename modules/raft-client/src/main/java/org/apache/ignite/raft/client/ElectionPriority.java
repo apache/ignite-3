@@ -18,7 +18,7 @@
 package org.apache.ignite.raft.client;
 
 /**
- * Election Priority.
+ * Election priority constants.
  */
 public class ElectionPriority {
     /**

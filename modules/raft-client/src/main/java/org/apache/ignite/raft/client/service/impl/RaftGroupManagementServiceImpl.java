@@ -30,6 +30,10 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
     /** */
     private final String groupId;
 
+    /**
+     * @param rpcClient Client.
+     * @param groupId Group id.
+     */
     public RaftGroupManagementServiceImpl(RaftGroupRpcClient rpcClient, String groupId) {
         this.rpcClient = rpcClient;
         this.groupId = groupId;
@@ -71,7 +75,7 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
         return null;
     }
 
-    @Override public CompletableFuture<PeersChangeState> removeLearners(List<PeerId> peers) {
+    @Override public CompletableFuture<PeersChangeState> removeLearners(List<PeerId> learners) {
         return null;
     }
 

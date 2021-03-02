@@ -22,22 +22,32 @@ import org.apache.ignite.raft.client.message.RaftClientMessages;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.service.RaftGroupClientRequestService;
 
+/**
+ * Replication group client service implementation.
+ */
 public class RaftGroupClientRequestServiceImpl implements RaftGroupClientRequestService {
+    /** */
     private final RaftGroupRpcClient rpcClient;
 
+    /** */
     private final String groupId;
 
+    /**
+     * @param rpcClient Client.
+     * @param groupId Group id.
+     */
     public RaftGroupClientRequestServiceImpl(RaftGroupRpcClient rpcClient, String groupId) {
         this.rpcClient = rpcClient;
         this.groupId = groupId;
     }
 
+    /** {@inheritDoc} */
     @Override public <R> CompletableFuture<R> submit(Object request) {
         RaftClientMessages.UserRequest r =
             rpcClient.factory().createUserRequest().setRequest(request).setGroupId(groupId).build();
 
-        CompletableFuture<RaftClientMessages.UserResponse<R>> completableFuture = rpcClient.submit(r);
+        CompletableFuture<RaftClientMessages.UserResponse<R>> fut = rpcClient.submit(r);
 
-        return completableFuture.thenApply(resp -> resp.response());
+        return fut.thenApply(resp -> resp.response());
     }
 }

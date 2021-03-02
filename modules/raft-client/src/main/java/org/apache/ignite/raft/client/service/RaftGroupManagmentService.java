@@ -93,12 +93,10 @@ public interface RaftGroupManagmentService {
     /**
      * Removes learners.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @param done      callback
+     * @param learners List of learners.
      * @return A future with the result.
      */
-    CompletableFuture<PeersChangeState> removeLearners(List<PeerId> peers);
+    CompletableFuture<PeersChangeState> removeLearners(List<PeerId> learners);
 
     /**
      * Resets learners to new set.
