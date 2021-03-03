@@ -26,9 +26,9 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /** */
-public final class NamedListNode<N extends InnerNode> implements NamedListView<N>, NamedListChange<N>, TraversableTreeNode, Cloneable {
+public final class NamedListNode<N extends InnerNode> implements NamedListView<N>, NamedListChange<N, N>, TraversableTreeNode, ConstructableTreeNode {
     /** */
-    private final Supplier<N> valSupplier;
+    public final Supplier<N> valSupplier;
 
     /** */
     private final Map<String, N> map;
@@ -54,8 +54,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
     }
 
     /** {@inheritDoc} */
-    @Override public void accept(String key, ConfigurationVisitor visitor) {
-        visitor.visitNamedListNode(key, this);
+    @Override public <T> T accept(String key, ConfigurationVisitor<T> visitor) {
+        return visitor.visitNamedListNode(key, this);
     }
 
     /** {@inheritDoc} */
@@ -69,7 +69,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
     }
 
     /** {@inheritDoc} */
-    @Override public final NamedListChange<N> put(String key, Consumer<N> valConsumer) {
+    @Override public final NamedListChange<N, N> update(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(valConsumer, "valConsumer");
 
         if (map.containsKey(key) && map.get(key) == null)
@@ -86,7 +86,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
     }
 
     /** {@inheritDoc} */
-    @Override public NamedListChange<N> remove(String key) {
+    @Override public NamedListChange<N, N> delete(String key) {
         if (map.containsKey(key) && map.get(key) != null)
             throw new IllegalStateException("You can't add entity that has just been modified [key=" + key + ']');
 
@@ -95,13 +95,36 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
         return this;
     }
 
-    /** */
-    public void delete(String key) {
-        map.remove(key);
+    @Override public NamedListInit<N> create(String key, Consumer<N> valConsumer) {
+        Objects.requireNonNull(valConsumer, "valConsumer");
+
+        N val = map.get(key);
+
+        if (val == null)
+            map.put(key, val = valSupplier.get());
+
+        valConsumer.accept(val);
+
+        return this;
     }
 
     /** {@inheritDoc} */
-    @Override public Object clone() {
+    @Override public void construct(String key, ConfigurationSource src) {
+        if (src == null)
+            map.remove(key);
+        else {
+            N val = map.get(key);
+
+            val = val == null ? valSupplier.get() : (N)val.copy();
+
+            map.put(key, val);
+
+            src.descend(val);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public NamedListNode<N> copy() {
         return new NamedListNode<>(this);
     }
 }
