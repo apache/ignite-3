@@ -79,11 +79,11 @@ public class Columns {
      * Gets a number of null columns for the given byte from the nullability map (essentially, the number of non-zero
      * bits in the given byte).
      *
-     * @param nullMapByte Byte from a nullability map.
+     * @param nullMap Byte from a nullability map.
      * @return Number of null columns for the given byte.
      */
-    public static int numberOfNullColumns(byte nullMapByte) {
-        return NULL_COLUMNS_LOOKUP[nullMapByte];
+    public static int numberOfNullColumns(byte nullMap) {
+        return NULL_COLUMNS_LOOKUP[nullMap & 0xFF];
     }
 
     /**
