@@ -18,29 +18,26 @@
 package org.apache.ignite.storage;
 
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.internal.storage.DummyTableStorageImpl;
 import org.apache.ignite.internal.storage.TableViewImpl;
 import org.apache.ignite.storage.binary.BinaryObject;
 import org.apache.ignite.storage.binary.BinaryObjects;
 import org.apache.ignite.storage.mapper.Mappers;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  *
  */
 @SuppressWarnings({"unused", "UnusedAssignment"})
-public class Example {
-    @Test
-    public void testCases(){
-        TableViewImpl tbl = new TableViewImpl(new DummyTableStorageImpl());
-
-        useCase1(tbl);
-        useCase2(tbl);
-        useCase3(tbl);
-        useCase4(tbl);
-        useCase5(tbl);
-        useCase6(tbl);
-        useCase7(tbl);
+public class ExampleTest {
+    /**
+     * @return Table implementation.
+     */
+    private static List<Table> tableFactory() {
+        return Collections.singletonList(new TableViewImpl(new DummyTableStorageImpl()));
     }
 
     /**
@@ -51,6 +48,8 @@ public class Example {
      * ]
      * We show how to use the raw TableRow and a mapped class.
      */
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
         Row res = t.get(t.createSearchRow(1, 1));
@@ -111,6 +110,8 @@ public class Example {
      * [name varchar, lastName varchar, decimal salary, int department] // value
      * ]
      */
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase2(Table t) {
         class EmployeeKey {
             final int id;
@@ -152,6 +153,8 @@ public class Example {
      * [owner varchar, cardNumber long, expYear int, expMonth int, accountNum long, bankName varchar] // value
      * ]
      */
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase3(Table t) {
         class BillingDetails {
             String owner;
@@ -213,6 +216,8 @@ public class Example {
      * [owner varchar, type int, conditionalDetails byte[]] // value
      * ]
      */
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase4(Table t) {
         class OrderKey {
             final int id;
@@ -298,6 +303,8 @@ public class Example {
      * Where {@code originalObject} is some value that was originally put to the column,
      * {@code upgradedObject} is a version 2 of the object, and department is extracted field.
      */
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase5(Table t) {
         Row res = t.get(t.createSearchRow(1, 1));
 
@@ -376,6 +383,8 @@ public class Example {
      * ]
      * We show how to use the raw TableRow and a mapped class.
      */
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
         Row res = t.get(t.createSearchRow(1L));
@@ -413,6 +422,8 @@ public class Example {
      * ]
      * We show how to use the raw TableRow and a mapped class.
      */
+    @ParameterizedTest
+    @MethodSource("tableFactory")
     public void useCase7(Table t) {
         // Note that schema itself already defined which fields are key field.
         class Employee {
