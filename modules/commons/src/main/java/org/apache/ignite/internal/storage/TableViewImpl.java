@@ -23,41 +23,65 @@ import org.apache.ignite.storage.Row;
 import org.apache.ignite.storage.TableStorage;
 import org.apache.ignite.storage.Table;
 import org.apache.ignite.storage.mapper.KeyMapper;
-import org.apache.ignite.storage.mapper.RowMapper;
+import org.apache.ignite.storage.mapper.RecordMapper;
 import org.apache.ignite.storage.mapper.ValueMapper;
 
+/**
+ * Table view implementation provides functionality to access binary rows.
+ */
 public class TableViewImpl implements Table {
+    /** Table. */
     private TableStorage table;
 
+    /**
+     * Constructor.
+     *
+     * @param table Table.
+     */
     public TableViewImpl(TableStorage table) {
         this.table = table;
     }
 
-    @Override public <R> RecordView<R> recordView(RowMapper<R> rowMapper) {
-        return new RecordViewImpl<>(table, rowMapper);
+    /** {@inheritDoc} */
+    @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
+        return new RecordViewImpl<>(table, recMapper);
     }
 
+    /** {@inheritDoc} */
     @Override public <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
         return new KVViewImpl<>(table, keyMapper, valMapper);
     }
 
+    /** {@inheritDoc} */
     @Override public Row get(Row keyRow) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public Iterable<Row> find(Row template) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean upsert(Row row) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean insert(Row row) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public Row createSearchRow(Object... args) {
-        return null;
+        Row row = null;
+
+//        TableSchema schema = table.schemaManager().schema();
+//        assert args.length == schema.keyColumns().length();
+
+//        for (int i = 0; i < args.length; i++)
+//            row.setColumn(i, args[i]);
+
+        return row;
     }
 }

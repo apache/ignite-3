@@ -20,7 +20,7 @@ package org.apache.ignite.storage;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.storage.DummyTableStorageImpl;
+import org.apache.ignite.storage.impl.DummyTableStorageImpl;
 import org.apache.ignite.internal.storage.TableViewImpl;
 import org.apache.ignite.storage.binary.BinaryObject;
 import org.apache.ignite.storage.binary.BinaryObjects;
@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  */
 @SuppressWarnings({"unused", "UnusedAssignment"})
-public class ExampleTest {
+public class Example {
     /**
      * @return Table implementation.
      */

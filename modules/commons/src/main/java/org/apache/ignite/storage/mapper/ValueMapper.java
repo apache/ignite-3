@@ -25,7 +25,6 @@ import org.apache.ignite.storage.Row;
  */
 public interface ValueMapper<V> {
 
-
     public interface Builder<V> {
         public Builder<V> deserializeTo(Class<?> cls);
 

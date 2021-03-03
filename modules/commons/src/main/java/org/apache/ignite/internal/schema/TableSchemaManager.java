@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.List;
-import java.util.SortedMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-
 /**
  * Table schema manager.
  */

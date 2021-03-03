@@ -105,8 +105,23 @@ public interface KVView<K, V> {
      */
     public boolean replace(K key, V val);
 
-    //TODO: Add support for exact value.
-//    public boolean replace(K key, V oldVal, V newVal);
+    /**
+     * Atomically replaces the entry for a key only if currently mapped to some value. This is equivalent to
+     * <pre><code>
+     * if (cache.get(key) == oldVal) {
+     *   cache.put(key, newVal);
+     *   return true;
+     * } else {
+     *   return false;
+     * }</code></pre>
+     * except that the action is performed atomically.
+     *
+     * @param key Key with which the specified value is associated.
+     * @param oldVal Expected value associated with the specified key.
+     * @param newVal Value to be associated with the specified key.
+     * @return {@code True} if an old value was replaced, {@code false} otherwise.
+     */
+    public boolean replace(K key, V oldVal, V newVal);
 
     /**
      * Atomically replaces the value for a given key if and only if there is a value currently mapped by the key.

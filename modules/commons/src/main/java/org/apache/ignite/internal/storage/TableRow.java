@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage;
 
-import java.nio.ByteBuffer;
-
 public interface TableRow {
-    ByteBuffer getKeyBytes();
+    byte[] getKeyBytes();
+
+    byte[] getBytes();
 }

@@ -19,6 +19,11 @@ package org.apache.ignite.storage;
 
 import org.apache.ignite.internal.storage.TableRow;
 
+/**
+ * Table storage.
+ */
 public interface TableStorage {
-    public TableRow get(TableRow obj);
+    public TableRow get(TableRow keyRow);
+
+    TableRow put(TableRow row);
 }

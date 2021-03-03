@@ -19,23 +19,49 @@ package org.apache.ignite.storage;
 
 import org.apache.ignite.storage.mapper.KeyMapper;
 import org.apache.ignite.storage.mapper.Mappers;
-import org.apache.ignite.storage.mapper.RowMapper;
+import org.apache.ignite.storage.mapper.RecordMapper;
 import org.apache.ignite.storage.mapper.ValueMapper;
 
 /**
- *
+ * Table.
  */
 public interface Table {
-    public <R> RecordView<R> recordView(RowMapper<R> rowMapper);
+    /**
+     * Creates record view of table for record class mapper provided.
+     *
+     * @param recMapper Record class mapper.
+     * @return Table record view.
+     */
+    public <R> RecordView<R> recordView(RecordMapper<R> recMapper);
 
+    /**
+     * Creates key-value view of table for key-value class mappers provided.
+     *
+     * @param keyMapper Key class mapper.
+     * @param valMapper Value class mapper.
+     * @return Table key-value view.
+     */
     public <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
-    public default <R> RecordView<R> recordView(Class<R> rowClass) {
-        return recordView(Mappers.ofRowClass(rowClass));
+    /**
+     * Creates record view of table for record class provided.
+     *
+     * @param recCls Record class.
+     * @return Table record view.
+     */
+    public default <R> RecordView<R> recordView(Class<R> recCls) {
+        return recordView(Mappers.ofRowClass(recCls));
     }
 
-    public default <K, V> KVView<K, V> kvView(Class<K> kCls, Class<V> vCls) {
-        return kvView(Mappers.ofKeyClass(kCls), Mappers.ofValueClass(vCls));
+    /**
+     * Creates key-value view of table for key and value classes provided.
+     *
+     * @param keyCls Key class.
+     * @param valCls Value class.
+     * @return Table key-value view.
+     */
+    public default <K, V> KVView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
+        return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
     public Row get(Row keyRow);

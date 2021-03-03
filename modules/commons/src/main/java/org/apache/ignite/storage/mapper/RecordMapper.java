@@ -15,31 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.storage.mapper;
 
-import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
+import java.util.function.Function;
+import org.apache.ignite.storage.Row;
 
-public class DummyTableRowImpl implements TableRow {
-    //TODO: Replace with Tuple layout constants.
-    private final int SCHEMA_VERSION_OFFSET = 0;
-    private final int FLAGS_OFFSET = SCHEMA_VERSION_OFFSET + 2;
-    private final int KEY_HASH_OFFSET = FLAGS_OFFSET + 2;
-    private final int KEY_OFFSET = KEY_HASH_OFFSET + 4;
+/**
+ *
+ */
+public interface RecordMapper<R> {
+    public interface Builder<R> {
+        public Builder<R> map(String fieldName, Class<?> targetClass);
 
+        public Builder<R> map(String fieldName, Function<Row, Object> mapping);
 
-    // TODO: Wrap tuple.
-    private final byte[] bytes;
-
-    public DummyTableRowImpl(byte[] rowBytes) {
-        bytes = rowBytes;
-    }
-
-    @Override public ByteBuffer getKeyBytes() {
-        final ByteBuffer buf = ByteBuffer.wrap(bytes);
-
-        final int keyLen = buf.getInt(KEY_HASH_OFFSET);
-
-        return buf.limit(keyLen).position(KEY_OFFSET).slice();
+        public <R> RecordMapper<R> build();
     }
 }

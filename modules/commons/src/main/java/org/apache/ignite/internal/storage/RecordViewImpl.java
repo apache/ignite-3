@@ -20,21 +20,35 @@ package org.apache.ignite.internal.storage;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.storage.RecordView;
 import org.apache.ignite.storage.TableStorage;
-import org.apache.ignite.storage.mapper.RowMapper;
+import org.apache.ignite.storage.mapper.RecordMapper;
 
+/**
+ * Record view implementation provides functionality to access table
+ * transparently map user defined class to binary row and vice versa.
+ *
+ * @param <R> Record type.
+ */
 public class RecordViewImpl<R> implements RecordView<R> {
-
+    /** Table */
     private final TableStorage table;
-    private final RowMapper<R> rowMapper;
-    Marshaller marsh;
 
-    public RecordViewImpl(TableStorage table, RowMapper<R> mapper) {
+    /** Record class mapper. */
+    private final RecordMapper<R> mapper;
+
+    /**
+     * Constructor.
+     *
+     * @param table Table.
+     * @param mapper Record class mapper.
+     */
+    public RecordViewImpl(TableStorage table, RecordMapper<R> mapper) {
         this.table = table;
-        rowMapper = mapper;
+        this.mapper = mapper;
     }
 
+    /** {@inheritDoc} */
     @Override public R get(R record) {
-        //        marsh = table.schemaManager().marshaller();
+        Marshaller marsh = marshaller();
 
         TableRow kRow = marsh.toKeyRow(record);
 
@@ -43,11 +57,20 @@ public class RecordViewImpl<R> implements RecordView<R> {
         return marsh.unmarshallToRecord(record, tRow);
     }
 
+    /** {@inheritDoc} */
     @Override public boolean upsert(R row) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean insert(R row) {
         return false;
+    }
+
+    /**
+     * @return Marshaller.
+     */
+    private Marshaller marshaller() {
+        return null;        // table.schemaManager().marshaller();
     }
 }

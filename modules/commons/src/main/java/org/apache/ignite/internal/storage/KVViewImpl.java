@@ -23,62 +23,101 @@ import org.apache.ignite.storage.TableStorage;
 import org.apache.ignite.storage.mapper.KeyMapper;
 import org.apache.ignite.storage.mapper.ValueMapper;
 
+/**
+ * Key-value view implementation provides functionality to access table
+ * transparently map user defined classes to binary row and vice versa.
+ *
+ * @param <K> Key type.
+ * @param <V> Value type.
+ */
 public class KVViewImpl<K, V> implements KVView<K, V> {
-
+    /** Table. */
     private final TableStorage table;
-    private final KeyMapper<K> keyMapper;
-    private final ValueMapper<V> valueMapper;
-    Marshaller marsh;
 
+    /** Key class mapper. */
+    private final KeyMapper<K> keyMapper;
+
+    /** Value class mapper. */
+    private final ValueMapper<V> valueMapper;
+
+    /**
+     * Constructor.
+     *
+     * @param table Table.
+     * @param keyMapper Key class mapper.
+     * @param valueMapper Value class mapper.
+     */
     public KVViewImpl(TableStorage table, KeyMapper<K> keyMapper, ValueMapper<V> valueMapper) {
         this.table = table;
         this.keyMapper = keyMapper;
         this.valueMapper = valueMapper;
     }
 
+    /** {@inheritDoc} */
     @Override public V get(K key) {
-//        marsh = table.schemaManager().marshaller();
+        final Marshaller marsh = marshaller();
 
         TableRow kRow = marsh.toKeyRow(key);
 
         TableRow row = table.get(kRow);
 
-       return marsh.unmarshallValue(row);
+        return marsh.unmarshallValue(row);
     }
 
+    /** {@inheritDoc} */
     @Override public boolean containsKey(K key) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public void put(K key, V val) {
 
     }
 
+    /** {@inheritDoc} */
     @Override public boolean putIfAbsent(K key, V val) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public V getAndPut(K key, V val) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean remove(K key) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean remove(K key, V val) {
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public V getAndRemove(K key) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean replace(K key, V val) {
         return false;
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean replace(K key, V oldVal, V newVal) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean getAndReplace(K key, V val) {
         return false;
+    }
+
+    /**
+     * @return Marshaller.
+     */
+    private Marshaller marshaller() {
+        return null;        // table.schemaManager().marshaller();
     }
 }

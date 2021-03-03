@@ -37,11 +37,11 @@ public class Mappers {
         return null;
     }
 
-    public static <R> RowMapper<R> ofRowClass(Class<R> rowCls) {
+    public static <R> RecordMapper<R> ofRowClass(Class<R> rowCls) {
         return null;
     }
 
-    public static <R> RowMapper.Builder<R> ofRowClassBuilder(Class<R> targetClass) {
+    public static <R> RecordMapper.Builder<R> ofRowClassBuilder(Class<R> targetClass) {
         return null;
     }
 }
