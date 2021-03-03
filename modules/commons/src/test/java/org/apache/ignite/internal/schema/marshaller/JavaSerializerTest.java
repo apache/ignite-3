@@ -71,9 +71,6 @@ import static org.junit.jupiter.api.DynamicTest.dynamicTest;
  * Serializer test.
  */
 public class JavaSerializerTest {
-
-    private DynamicClassLoader cl;
-
     /**
      * @return List of serializers for test.
      */
@@ -97,7 +94,6 @@ public class JavaSerializerTest {
         System.out.println("Using seed: " + seed + "L;");
 
         rnd = new Random(seed);
-        cl = new DynamicClassLoader(getClass().getClassLoader());
     }
 
     /**

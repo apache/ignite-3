@@ -33,10 +33,13 @@ public abstract class Tuple {
     public static final int KEY_HASH_FIELD_SIZE = 4;
 
     /** */
-    public static final int TOTAL_LEN_FIELD_SIZE = 2;
+    public static final int TOTAL_LEN_FIELD_SIZE = 4;
 
     /** */
-    public static final int VARSIZE_TABLE_LEN_FIELD_SIZE = 2;
+    public static final int VARLEN_TABLE_SIZE_FIELD_SIZE = 2;
+
+    /** */
+    public static final int VARLEN_COLUMN_OFFSET_FIELD_SIZE = 2;
 
     /** Schema descriptor for which this tuple was created. */
     private final SchemaDescriptor schema;
@@ -227,7 +230,7 @@ public abstract class Tuple {
 
         if (!keyCol) {
             // Jump to the next chunk, the size of the first chunk is written at the chunk start.
-            off += readShort(off);
+            off += readInteger(off);
 
             // Adjust the column index according to the number of key columns.
             colIdx -= schema.keyColumns().length();
@@ -328,13 +331,13 @@ public abstract class Tuple {
 
         int vartableOff = vartableOffset(baseOff);
         // Offset of idx-th column is from base offset.
-        int resOff = readShort(vartableOff + 2 * idx);
+        int resOff = readShort(vartableOff + VARLEN_COLUMN_OFFSET_FIELD_SIZE * idx);
 
         long len = idx == vartableSize - 1 ?
             // totalLength - columnStartOffset
-            readShort(baseOff) - resOff :
+            readInteger(baseOff) - resOff :
             // nextColumnStartOffset - columnStartOffset
-            readShort(vartableOff + 2 * (idx + 1)) - resOff;
+            readShort(vartableOff + VARLEN_COLUMN_OFFSET_FIELD_SIZE * (idx + 1)) - resOff;
 
         return (len << 32) | (resOff + baseOff);
     }
@@ -373,9 +376,9 @@ public abstract class Tuple {
      * @return Null map offset from the tuple start for the chunk with the given base.
      */
     private int nullMapOffset(int baseOff) {
-        int varlenTblLen = readShort(baseOff + TOTAL_LEN_FIELD_SIZE) * 2;
+        int varlenTblSize = readShort(baseOff + TOTAL_LEN_FIELD_SIZE);
 
-        return vartableOffset(baseOff) + varlenTblLen;
+        return vartableOffset(baseOff) + varlenTblSize * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
     }
 
     /**
@@ -383,7 +386,7 @@ public abstract class Tuple {
      * @return Offset of the varlen table from the tuple start for the chunk with the given base.
      */
     private int vartableOffset(int baseOff) {
-        return baseOff + TOTAL_LEN_FIELD_SIZE + VARSIZE_TABLE_LEN_FIELD_SIZE;
+        return baseOff + TOTAL_LEN_FIELD_SIZE + VARLEN_TABLE_SIZE_FIELD_SIZE;
     }
 
     /**

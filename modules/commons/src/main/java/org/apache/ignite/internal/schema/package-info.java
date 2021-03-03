@@ -49,7 +49,7 @@
  * |   Total | Vartable |  Varlen | Null | Fixlen | Varlen |
  * |  Length |   Length | Offsets |  Map |  Bytes |  Bytes |
  * +---------+----------+---------+------+--------+--------+
- * | 2 bytes |  2 bytes |                                  |
+ * | 4 bytes |  2 bytes |                                  |
  * +---------+---------------------------------------------+
  * </pre>
  * To assemble a tuple with some schema, an instance of {@link org.apache.ignite.internal.schema.TupleAssembler}

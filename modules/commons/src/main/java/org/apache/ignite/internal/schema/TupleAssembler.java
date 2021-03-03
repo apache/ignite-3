@@ -29,7 +29,9 @@ import java.util.UUID;
  * Additionally, the user of this class must pre-calculate the
  */
 public class TupleAssembler {
-    /** */
+    /**
+     *
+     */
     private final SchemaDescriptor schema;
 
     /** The number of non-null varlen columns in values chunk. */
@@ -63,11 +65,11 @@ public class TupleAssembler {
     private CharsetEncoder strEncoder;
 
     /**
-     * @param nonNullVarsizeCols Number of non-null varlen columns.
+     * @param nonNullVarlenCols Number of non-null varlen columns.
      * @return Total size of the varlen table.
      */
-    public static int varlenTableSize(int nonNullVarsizeCols) {
-        return nonNullVarsizeCols * 2;
+    public static int varlenTableSize(int nonNullVarlenCols) {
+        return nonNullVarlenCols * 2;
     }
 
     /**
@@ -95,28 +97,32 @@ public class TupleAssembler {
     }
 
     /**
+     * @param cols Columns.
+     * @param nonNullVarlenCols Number of non-null varlen columns in chunk.
+     * @param nonNullVarlenSize Size of non-null varlen columns in chunk.
+     * @return Tuple's chunk size.
      */
-    public static int tupleChunkSize(Columns cols, int nonNullVarsizeCols, int nonNullVarsizeSize) {
-        int size = Tuple.TOTAL_LEN_FIELD_SIZE + Tuple.VARSIZE_TABLE_LEN_FIELD_SIZE +
-            varlenTableSize(nonNullVarsizeCols) + cols.nullMapSize();
+    public static int tupleChunkSize(Columns cols, int nonNullVarlenCols, int nonNullVarlenSize) {
+        int size = Tuple.TOTAL_LEN_FIELD_SIZE + Tuple.VARLEN_TABLE_SIZE_FIELD_SIZE +
+            varlenTableSize(nonNullVarlenCols) + cols.nullMapSize();
 
         for (int i = 0; i < cols.numberOfFixsizeColumns(); i++)
             size += cols.column(i).type().length();
 
-        return size + nonNullVarsizeSize;
+        return size + nonNullVarlenSize;
     }
 
     /**
      * @param schema Tuple schema.
      * @param size Target tuple size. If the tuple size is known in advance, it should be provided upfront to avoid
-     *      unnccessary arrays copy.
-     * @param nonNullVarsizeKeyCols Number of null varlen columns in key chunk.
-     * @param nonNullVarlenValCols Number of null varlen columns in value chunk.
+     * unnecessary arrays copy.
+     * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
+     * @param nonNullVarlenValCols Number of non-null varlen columns in value chunk.
      */
     public TupleAssembler(
         SchemaDescriptor schema,
         int size,
-        int nonNullVarsizeKeyCols,
+        int nonNullVarlenKeyCols,
         int nonNullVarlenValCols
     ) {
         this.schema = schema;
@@ -127,27 +133,35 @@ public class TupleAssembler {
 
         curCols = schema.keyColumns();
 
-        initOffsets(Tuple.SCHEMA_VERSION_FIELD_SIZE + Tuple.KEY_HASH_FIELD_SIZE, nonNullVarsizeKeyCols);
+        initOffsets(Tuple.SCHEMA_VERSION_FIELD_SIZE + Tuple.KEY_HASH_FIELD_SIZE, nonNullVarlenKeyCols);
 
         buf.putShort(0, (short)schema.version());
     }
 
     /**
+     * @param keyCols Key columns.
+     * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
+     * @param nonNullVarlenKeySize Size of non-null varlen columns in key chunk.
+     * @param valCols Value columns.
+     * @param nonNullVarlenValCols Number of non-null varlen columns in value chunk.
+     * @param nonNullVarlenValSize Size of non-null varlen columns in value chunk.
+     * @return Total tuple size.
      */
     public static int tupleSize(
         Columns keyCols,
-        int nonNullVarsizeKeyCols,
-        int nonNullVarsizeKeySize,
+        int nonNullVarlenKeyCols,
+        int nonNullVarlenKeySize,
         Columns valCols,
-        int nonNullVarsizeValCols,
-        int nonNullVarsizeValSize
+        int nonNullVarlenValCols,
+        int nonNullVarlenValSize
     ) {
         return Tuple.SCHEMA_VERSION_FIELD_SIZE + Tuple.KEY_HASH_FIELD_SIZE +
-            tupleChunkSize(keyCols, nonNullVarsizeKeyCols, nonNullVarsizeKeySize) +
-            tupleChunkSize(valCols, nonNullVarsizeValCols, nonNullVarsizeValSize);
+            tupleChunkSize(keyCols, nonNullVarlenKeyCols, nonNullVarlenKeySize) +
+            tupleChunkSize(valCols, nonNullVarlenValCols, nonNullVarlenValSize);
     }
 
     /**
+     * Appends {@code null} value for the current column to the chunk.
      */
     public void appendNull() {
         Column col = curCols.column(curCol);
@@ -162,6 +176,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends byte value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendByte(byte val) {
         checkType(NativeType.BYTE);
@@ -172,6 +189,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends short value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendShort(short val) {
         checkType(NativeType.SHORT);
@@ -182,6 +202,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends int value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendInt(int val) {
         checkType(NativeType.INTEGER);
@@ -192,6 +215,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends long value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendLong(long val) {
         checkType(NativeType.LONG);
@@ -202,6 +228,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends float value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendFloat(float val) {
         checkType(NativeType.FLOAT);
@@ -212,6 +241,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends double value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendDouble(double val) {
         checkType(NativeType.DOUBLE);
@@ -222,6 +254,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends UUID value for the current column to the chunk.
+     *
+     * @param uuid Column value.
      */
     public void appendUuid(UUID uuid) {
         checkType(NativeType.UUID);
@@ -233,6 +268,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends String value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendString(String val) {
         checkType(NativeType.STRING);
@@ -250,6 +288,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends byte[] value for the current column to the chunk.
+     *
+     * @param val Column value.
      */
     public void appendBytes(byte[] val) {
         checkType(NativeType.BYTES);
@@ -262,6 +303,9 @@ public class TupleAssembler {
     }
 
     /**
+     * Appends BitSet value for the current column to the chunk.
+     *
+     * @param bitSet Column value.
      */
     public void appendBitmask(BitSet bitSet) {
         Column col = curCols.column(curCol);
@@ -285,6 +329,7 @@ public class TupleAssembler {
     }
 
     /**
+     * @return Serialized tuple.
      */
     public byte[] build() {
         return buf.toArray();
@@ -334,6 +379,7 @@ public class TupleAssembler {
 
     /**
      * Sets null flag in the null map for the given column.
+     *
      * @param colIdx Column index.
      */
     private void setNull(int colIdx) {
@@ -345,6 +391,7 @@ public class TupleAssembler {
 
     /**
      * Must be called after an append of fixlen column.
+     *
      * @param type Type of the appended column.
      */
     private void shiftColumn(NativeType type) {
@@ -393,7 +440,7 @@ public class TupleAssembler {
 
         buf.putShort(baseOff + Tuple.TOTAL_LEN_FIELD_SIZE, (short)nonNullVarlenCols);
 
-        varlenTblOff = baseOff + Tuple.TOTAL_LEN_FIELD_SIZE + Tuple.VARSIZE_TABLE_LEN_FIELD_SIZE;
+        varlenTblOff = baseOff + Tuple.TOTAL_LEN_FIELD_SIZE + Tuple.VARLEN_TABLE_SIZE_FIELD_SIZE;
         nullMapOff = varlenTblOff + varlenTableSize(nonNullVarlenCols);
         curOff = nullMapOff + curCols.nullMapSize();
     }

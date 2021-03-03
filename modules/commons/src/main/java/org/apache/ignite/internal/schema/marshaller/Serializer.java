@@ -42,5 +42,8 @@ public interface Serializer {
      */
     <V> V deserializeValue(byte[] data) throws SerializationException;
 
+    /**
+     * @return Key-value pair.
+     */
     <K, V> Pair<K,V> deserialize(byte[] data) throws SerializationException;
 }

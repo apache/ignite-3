@@ -24,14 +24,10 @@ public class SchemaDescriptor {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
-    /**
-     * Key columns in serialization order.
-     */
+    /** Key columns in serialization order. */
     private final Columns keyCols;
 
-    /**
-     * Value columns in serialization order.
-     */
+    /** Value columns in serialization order. */
     private final Columns valCols;
 
     /**
