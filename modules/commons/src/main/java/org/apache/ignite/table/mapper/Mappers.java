@@ -15,10 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.table.mapper;
 
-public interface TableRow {
-    byte[] getKeyBytes();
+/**
+ *
+ */
+public class Mappers {
+    public static <K> KeyMapper<K> ofKeyClass(Class<K> keyCls) {
+        return null;
+    }
 
-    byte[] getBytes();
+    public static <V> ValueMapper<V> ofValueClass(Class<V> keyCls) {
+        return null;
+    }
+
+    public static <V> ValueMapper.Builder<V> ofValueClassBuilder(Class<V> valCls) {
+        return null;
+    }
+
+    public static <R> KeyMapper<R> identity() {
+        return null;
+    }
+
+    public static <R> RecordMapper<R> ofRowClass(Class<R> rowCls) {
+        return null;
+    }
+
+    public static <R> RecordMapper.Builder<R> ofRowClassBuilder(Class<R> targetClass) {
+        return null;
+    }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage;
+package org.apache.ignite.table;
 
 import java.util.Collection;
 import java.util.Map;

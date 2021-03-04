@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.binary;
+package org.apache.ignite.internal.table;
 
-/**
- *
- */
-public interface BinaryObject {
-    Object deserialize(Class<?> targetCls);
+public interface TableRow {
+    byte[] getKeyBytes();
+
+    byte[] getBytes();
 }

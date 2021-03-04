@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.internal.storage.TableRow;
+import org.apache.ignite.internal.table.TableRow;
 
 public interface Marshaller {
     <K> TableRow toKeyRow(K key);

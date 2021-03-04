@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.table;
 
 import java.util.Collection;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.storage.RecordView;
-import org.apache.ignite.storage.TableStorage;
-import org.apache.ignite.storage.mapper.RecordMapper;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.storage.TableStorage;
+import org.apache.ignite.table.mapper.RecordMapper;
 
 /**
  * Record view implementation provides functionality to access table

@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.table;
 
 import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.storage.KVView;
-import org.apache.ignite.storage.TableStorage;
-import org.apache.ignite.storage.mapper.KeyMapper;
-import org.apache.ignite.storage.mapper.ValueMapper;
+import org.apache.ignite.table.KVView;
+import org.apache.ignite.table.storage.TableStorage;
+import org.apache.ignite.table.mapper.KeyMapper;
+import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
  * Key-value view implementation provides functionality to access table

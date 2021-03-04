@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage;
+package org.apache.ignite.table;
 
-import org.apache.ignite.storage.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryObject;
 
 /**
  * Binary row interface.
  */
-public interface Row { //TODO: Extends BinaryObject interface?
+public interface BinaryRow { //TODO: Extends BinaryObject interface?
     /**
      * Gets column value for given column name.
      *

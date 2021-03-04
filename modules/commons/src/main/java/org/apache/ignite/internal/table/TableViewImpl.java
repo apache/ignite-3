@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.table;
 
-import org.apache.ignite.storage.KVView;
-import org.apache.ignite.storage.RecordView;
-import org.apache.ignite.storage.Row;
-import org.apache.ignite.storage.TableStorage;
-import org.apache.ignite.storage.Table;
-import org.apache.ignite.storage.mapper.KeyMapper;
-import org.apache.ignite.storage.mapper.RecordMapper;
-import org.apache.ignite.storage.mapper.ValueMapper;
+import java.util.function.Predicate;
+import org.apache.ignite.table.KVView;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.BinaryRow;
+import org.apache.ignite.table.storage.TableStorage;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.mapper.KeyMapper;
+import org.apache.ignite.table.mapper.RecordMapper;
+import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
  * Table view implementation provides functionality to access binary rows.
@@ -53,28 +54,28 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Row get(Row keyRow) {
+    @Override public BinaryRow get(BinaryRow keyRow) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Iterable<Row> find(Row template) {
+    @Override public Iterable<BinaryRow> find(Predicate<BinaryRow> template) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean upsert(Row row) {
+    @Override public boolean upsert(BinaryRow row) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean insert(Row row) {
+    @Override public boolean insert(BinaryRow row) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public Row createSearchRow(Object... args) {
-        Row row = null;
+    @Override public BinaryRow createSearchRow(Object... args) {
+        BinaryRow row = null;
 
 //        TableSchema schema = table.schemaManager().schema();
 //        assert args.length == schema.keyColumns().length();

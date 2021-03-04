@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
+package org.apache.ignite.table.binary;
 
 /**
  *
  */
-public interface KeyMapper<T> {
+public interface BinaryObject {
+    Object deserialize(Class<?> targetCls);
 }

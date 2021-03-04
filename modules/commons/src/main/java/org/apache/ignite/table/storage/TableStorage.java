@@ -15,7 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.table.storage;
 
-public class BinaryObject {
+import org.apache.ignite.internal.table.TableRow;
+
+/**
+ * Table storage.
+ */
+public interface TableStorage {
+    public TableRow get(TableRow keyRow);
+
+    TableRow put(TableRow row);
 }

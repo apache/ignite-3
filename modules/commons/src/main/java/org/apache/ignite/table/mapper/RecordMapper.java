@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage;
+package org.apache.ignite.table.mapper;
 
-import org.apache.ignite.internal.storage.TableRow;
+import java.util.function.Function;
+import org.apache.ignite.table.BinaryRow;
 
 /**
- * Table storage.
+ *
  */
-public interface TableStorage {
-    public TableRow get(TableRow keyRow);
+public interface RecordMapper<R> {
+    public interface Builder<R> {
+        public Builder<R> map(String fieldName, Class<?> targetClass);
 
-    TableRow put(TableRow row);
+        public Builder<R> map(String fieldName, Function<BinaryRow, Object> mapping);
+
+        public <R> RecordMapper<R> build();
+    }
 }

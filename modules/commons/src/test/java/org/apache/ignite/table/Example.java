@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage;
+package org.apache.ignite.table;
 
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.storage.impl.DummyTableStorageImpl;
-import org.apache.ignite.internal.storage.TableViewImpl;
-import org.apache.ignite.storage.binary.BinaryObject;
-import org.apache.ignite.storage.binary.BinaryObjects;
-import org.apache.ignite.storage.mapper.Mappers;
+import org.apache.ignite.table.impl.DummyTableStorageImpl;
+import org.apache.ignite.internal.table.TableViewImpl;
+import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryObjects;
+import org.apache.ignite.table.mapper.Mappers;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -52,7 +52,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Row res = t.get(t.createSearchRow(1, 1));
+        BinaryRow res = t.get(t.createSearchRow(1, 1));
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -258,7 +258,7 @@ public class Example {
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        Row res = t.get(t.createSearchRow(1, 1));
+        BinaryRow res = t.get(t.createSearchRow(1, 1));
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -306,7 +306,7 @@ public class Example {
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        Row res = t.get(t.createSearchRow(1, 1));
+        BinaryRow res = t.get(t.createSearchRow(1, 1));
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -387,7 +387,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Row res = t.get(t.createSearchRow(1L));
+        BinaryRow res = t.get(t.createSearchRow(1L));
 
         String name = res.value("name");
         String lastName = res.value("latName");

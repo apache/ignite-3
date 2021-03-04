@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.impl;
+package org.apache.ignite.table.impl;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.schema.TableSchemaManager;
-import org.apache.ignite.internal.storage.TableRow;
-import org.apache.ignite.storage.TableStorage;
+import org.apache.ignite.internal.table.TableRow;
+import org.apache.ignite.table.storage.TableStorage;
 
 /**
  * Dummy table implementation.

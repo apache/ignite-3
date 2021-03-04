@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage;
+package org.apache.ignite.table;
 
-import org.apache.ignite.storage.mapper.KeyMapper;
-import org.apache.ignite.storage.mapper.Mappers;
-import org.apache.ignite.storage.mapper.RecordMapper;
-import org.apache.ignite.storage.mapper.ValueMapper;
+import java.util.function.Predicate;
+import org.apache.ignite.table.mapper.KeyMapper;
+import org.apache.ignite.table.mapper.Mappers;
+import org.apache.ignite.table.mapper.RecordMapper;
+import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
  * Table.
@@ -64,13 +65,14 @@ public interface Table {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
-    public Row get(Row keyRow);
+    public BinaryRow get(BinaryRow keyRow);
 
-    public Iterable<Row> find(Row template);
+    //TODO: replace Predicate with some Serializable class.
+    public Iterable<BinaryRow> find(Predicate<BinaryRow> filter);
 
-    public boolean upsert(Row row);
+    public boolean upsert(BinaryRow row);
 
-    public boolean insert(Row row);
+    public boolean insert(BinaryRow row);
 
-    Row createSearchRow(Object... args);
+    BinaryRow createSearchRow(Object... args);
 }

@@ -15,23 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
+package org.apache.ignite.internal.table;
 
-import java.util.function.Function;
-import org.apache.ignite.storage.Row;
-
-/**
- *
- */
-public interface ValueMapper<V> {
-
-    public interface Builder<V> {
-        public Builder<V> deserializeTo(Class<?> cls);
-
-        public Builder<V> map(String fieldName, Class<?> cls);
-
-        public Builder<V> map(String fieldName, Function<Row, Object> mapper);
-
-        public ValueMapper<V> build();
-    }
+public class BinaryObject {
 }

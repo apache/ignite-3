@@ -15,20 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
-
-import java.util.function.Function;
-import org.apache.ignite.storage.Row;
+package org.apache.ignite.table.mapper;
 
 /**
  *
  */
-public interface RecordMapper<R> {
-    public interface Builder<R> {
-        public Builder<R> map(String fieldName, Class<?> targetClass);
-
-        public Builder<R> map(String fieldName, Function<Row, Object> mapping);
-
-        public <R> RecordMapper<R> build();
-    }
+public interface KeyMapper<T> {
 }

@@ -15,33 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.mapper;
+package org.apache.ignite.table.binary;
 
 /**
  *
  */
-public class Mappers {
-    public static <K> KeyMapper<K> ofKeyClass(Class<K> keyCls) {
-        return null;
-    }
-
-    public static <V> ValueMapper<V> ofValueClass(Class<V> keyCls) {
-        return null;
-    }
-
-    public static <V> ValueMapper.Builder<V> ofValueClassBuilder(Class<V> valCls) {
-        return null;
-    }
-
-    public static <R> KeyMapper<R> identity() {
-        return null;
-    }
-
-    public static <R> RecordMapper<R> ofRowClass(Class<R> rowCls) {
-        return null;
-    }
-
-    public static <R> RecordMapper.Builder<R> ofRowClassBuilder(Class<R> targetClass) {
+public class BinaryObjects {
+    public static BinaryObject wrap(byte[] objData) {
         return null;
     }
 }

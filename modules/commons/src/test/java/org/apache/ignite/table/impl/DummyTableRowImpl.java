@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.impl;
+package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.storage.TableRow;
+import org.apache.ignite.internal.table.TableRow;
 
 public class DummyTableRowImpl implements TableRow, Cloneable {
     //TODO: Replace with Tuple layout constants.

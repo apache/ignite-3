@@ -15,13 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.binary;
+package org.apache.ignite.table.mapper;
+
+import java.util.function.Function;
+import org.apache.ignite.table.BinaryRow;
 
 /**
  *
  */
-public class BinaryObjects {
-    public static BinaryObject wrap(byte[] objData) {
-        return null;
+public interface ValueMapper<V> {
+
+    public interface Builder<V> {
+        public Builder<V> deserializeTo(Class<?> cls);
+
+        public Builder<V> map(String fieldName, Class<?> cls);
+
+        public Builder<V> map(String fieldName, Function<BinaryRow, Object> mapper);
+
+        public ValueMapper<V> build();
     }
 }
