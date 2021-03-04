@@ -47,7 +47,8 @@ public @interface Value {
     boolean immutable() default false;
 
     /**
-     *
+     * Indicator that current cpnfoguration value has default value. Value itself is derived from instantiated object
+     * of corresponding schema type. This means that default is not necessarily a constant value.
      */
     boolean hasDefault() default false;
 }
