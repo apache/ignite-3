@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.storage;
-
-import org.apache.ignite.internal.table.TableRow;
+package org.apache.ignite.internal.table;
 
 /**
  * Table storage facade.

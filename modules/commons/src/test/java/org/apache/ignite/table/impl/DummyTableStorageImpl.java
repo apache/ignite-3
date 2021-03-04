@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.schema.TableSchemaManager;
 import org.apache.ignite.internal.table.TableRow;
-import org.apache.ignite.table.storage.TableStorage;
+import org.apache.ignite.internal.table.TableStorage;
 
 /**
  * Dummy table implementation.

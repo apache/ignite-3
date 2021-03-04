@@ -25,7 +25,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
-import org.apache.ignite.table.storage.TableStorage;
 
 /**
  * Table view implementation provides functionality to access binary rows.
