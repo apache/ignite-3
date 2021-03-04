@@ -21,6 +21,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.BinaryRow;
+import org.apache.ignite.table.RowFilter;
 import org.apache.ignite.table.storage.TableStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.KeyMapper;
@@ -59,7 +60,7 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Iterable<BinaryRow> find(Predicate<BinaryRow> template) {
+    @Override public Iterable<BinaryRow> find(RowFilter template) {
         return null;
     }
 

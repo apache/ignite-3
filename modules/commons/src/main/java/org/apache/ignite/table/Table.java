@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table;
 
-import java.util.function.Predicate;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -65,14 +64,20 @@ public interface Table {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
-    public BinaryRow get(BinaryRow keyRow);
+    //TODO: Should this method be here or be a part of ScanQuery API?
+    public Iterable<BinaryRow> find(RowFilter filter);
 
-    //TODO: replace Predicate with some Serializable class.
-    public Iterable<BinaryRow> find(Predicate<BinaryRow> filter);
+    //TODO: Below there should be table access methods similar to in RecordView, but using BinaryRows concept.
+    public BinaryRow get(BinaryRow keyRow);
 
     public boolean upsert(BinaryRow row);
 
     public boolean insert(BinaryRow row);
 
+    //TODO: 'SearchRow' = 'KeyRow'.
+    // Now ('args') arguments order is unclear:
+    // - should user be aware of native column order here,
+    // - or we should treat 'args' in order defined in SchemaConfiguration (what schema version?)
+    // - or smth else?
     BinaryRow createSearchRow(Object... args);
 }
