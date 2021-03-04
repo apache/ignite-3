@@ -92,6 +92,9 @@ public class Processor extends AbstractProcessor {
     /** Wildcard (?) TypeName. */
     private static final TypeName WILDCARD = WildcardTypeName.subtypeOf(Object.class);
 
+    /** Inherit doc javadoc. */
+    private static final String INHERIT_DOC = "{@inheritDoc}";
+
     /** Class file writer. */
     private Filer filer;
 
@@ -344,7 +347,7 @@ public class Processor extends AbstractProcessor {
 
         MethodSpec.Builder getMethodBuilder = MethodSpec.methodBuilder(fieldName)
             .addAnnotation(Override.class)
-            .addJavadoc("{@inheritDoc}")
+            .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC, FINAL)
             .returns(types.getInterfaceGetMethodType());
 
@@ -565,7 +568,7 @@ public class Processor extends AbstractProcessor {
 
         MethodSpec.Builder traverseChildrenBuilder = MethodSpec.methodBuilder("traverseChildren")
             .addAnnotation(Override.class)
-            .addJavadoc("{@inheritDoc}")
+            .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
             .addTypeVariable(t)
             .returns(TypeName.VOID)
@@ -573,7 +576,7 @@ public class Processor extends AbstractProcessor {
 
         MethodSpec.Builder traverseChildBuilder = MethodSpec.methodBuilder("traverseChild")
             .addAnnotation(Override.class)
-            .addJavadoc("{@inheritDoc}")
+            .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
             .addTypeVariable(t)
             .returns(t)
@@ -584,7 +587,7 @@ public class Processor extends AbstractProcessor {
 
         MethodSpec.Builder constructBuilder = MethodSpec.methodBuilder("construct")
             .addAnnotation(Override.class)
-            .addJavadoc("{@inheritDoc}")
+            .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
             .returns(TypeName.VOID)
             .addParameter(ClassName.get(String.class), "key")
@@ -593,7 +596,7 @@ public class Processor extends AbstractProcessor {
 
         MethodSpec.Builder constructDefaultBuilder = MethodSpec.methodBuilder("constructDefault")
             .addAnnotation(Override.class)
-            .addJavadoc("{@inheritDoc}")
+            .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
             .returns(TypeName.BOOLEAN)
             .addParameter(ClassName.get(String.class), "key")
