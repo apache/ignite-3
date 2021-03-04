@@ -68,6 +68,8 @@ public abstract class ConfigurationNode<VIEW> {
         this.key = key;
         this.rootKey = rootKey;
         this.changer = changer;
+
+        assert rootKey.key().equals(this.keys.get(0));
     }
 
     /**

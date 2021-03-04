@@ -45,4 +45,9 @@ public @interface Value {
      * @return {@code true} if this value can only be initialized and can't be changed afterwards.
      */
     boolean immutable() default false;
+
+    /**
+     *
+     */
+    boolean hasDefault() default false;
 }

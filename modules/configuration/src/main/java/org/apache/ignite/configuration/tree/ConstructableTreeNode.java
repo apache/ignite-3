@@ -32,6 +32,12 @@ public interface ConstructableTreeNode {
     void construct(String key,/* boolean canMutate, */ ConfigurationSource src) throws NoSuchElementException;
 
     /**
+     *
+     * @param key Field name to be initialized.
+     */
+    boolean constructDefault(String key) throws NoSuchElementException;
+
+    /**
      * Public equivalent of {@link Object#clone()} method. Creates a copy with effectively the same content.
      * Helps to preserve trees immutability after construction is completed.
      *

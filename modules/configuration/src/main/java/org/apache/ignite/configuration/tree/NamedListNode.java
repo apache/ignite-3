@@ -20,6 +20,7 @@ package org.apache.ignite.configuration.tree;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -95,7 +96,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
         return this;
     }
 
-    @Override public NamedListInit<N> create(String key, Consumer<N> valConsumer) {
+    @Override public NamedListInit/*???*/<N> create(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(valConsumer, "valConsumer");
 
         N val = map.get(key);
@@ -104,6 +105,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
             map.put(key, val = valSupplier.get());
 
         valConsumer.accept(val);
+
+
 
         return this;
     }
@@ -121,6 +124,11 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
 
             src.descend(val);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean constructDefault(String key) throws NoSuchElementException {
+        throw new UnsupportedOperationException("constructDefault");
     }
 
     /** {@inheritDoc} */

@@ -172,6 +172,8 @@ public class Processor extends AbstractProcessor {
             CodeBlock.Builder constructorBodyBuilder = CodeBlock.builder();
 
             for (VariableElement field : fields) {
+                assert field.getModifiers().contains(PUBLIC) : clazz.getQualifiedName() + "#" + field.getSimpleName();
+
                 Element fieldTypeElement = processingEnv.getTypeUtils().asElement(field.asType());
 
                 // Get original field type (must be another configuration schema or "primitive" like String or long)
@@ -270,7 +272,7 @@ public class Processor extends AbstractProcessor {
             props.put(configClass, configDesc);
 
             // Create VIEW, INIT and CHANGE classes
-            createPojoBindings(fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
+            createPojoBindings(clazz, fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
 
             if (isRoot) {
                 TypeMirror storageType = null;
@@ -501,11 +503,13 @@ public class Processor extends AbstractProcessor {
 
     /**
      * Create VIEW, INIT and CHANGE classes and methods.
+     * @param clazz Original class for the schema.
      * @param fields List of configuration fields.
      * @param schemaClassName Class name of schema.
      * @param configurationClassBuilder Configuration class builder.
      */
     private void createPojoBindings(
+        TypeElement clazz,
         List<VariableElement> fields,
         ClassName schemaClassName,
         TypeSpec.Builder configurationClassBuilder,
@@ -550,7 +554,12 @@ public class Processor extends AbstractProcessor {
             .superclass(ClassName.get(InnerNode.class))
             .addSuperinterface(viewClsName)
             .addSuperinterface(changeClsName)
-            .addSuperinterface(initClsName);
+            .addSuperinterface(initClsName)
+            // Cannot use "schemaClassName" here because it can't handle inner static classes.
+            .addField(FieldSpec.builder(ClassName.get(clazz), "_spec", PRIVATE, FINAL)
+                .initializer("new $T()", ClassName.get(clazz))
+                .build()
+            );
 
         TypeVariableName t = TypeVariableName.get("T");
 
@@ -580,6 +589,14 @@ public class Processor extends AbstractProcessor {
             .returns(TypeName.VOID)
             .addParameter(ClassName.get(String.class), "key")
             .addParameter(ClassName.get(ConfigurationSource.class), "src")
+            .beginControlFlow("switch (key)");
+
+        MethodSpec.Builder constructDefaultBuilder = MethodSpec.methodBuilder("constructDefault")
+            .addAnnotation(Override.class)
+            .addJavadoc("{@inheritDoc}")
+            .addModifiers(PUBLIC)
+            .returns(TypeName.BOOLEAN)
+            .addParameter(ClassName.get(String.class), "key")
             .beginControlFlow("switch (key)");
 
         ClassName consumerClsName = ClassName.get(Consumer.class);
@@ -817,6 +834,14 @@ public class Processor extends AbstractProcessor {
                         schemaFieldType.box()
                     )
                     .addStatement(INDENT + "break");
+
+                    if (valAnnotation.hasDefault()) {
+                        constructDefaultBuilder
+                            .addStatement("case $S: $L = _spec.$L", fieldName, fieldName, fieldName)
+                            .addStatement(INDENT + "return true");
+                    }
+                    else
+                        constructDefaultBuilder.addStatement("case $S: return false", fieldName);
                 }
                 else if (namedListField) {
                     constructBuilder
@@ -862,10 +887,15 @@ public class Processor extends AbstractProcessor {
             .addStatement("default: throw new $T(key)", NoSuchElementException.class)
             .endControlFlow();
 
+        constructDefaultBuilder
+            .addStatement("default: throw new $T(key)", NoSuchElementException.class)
+            .endControlFlow();
+
         nodeClsBuilder
             .addMethod(traverseChildrenBuilder.build())
             .addMethod(traverseChildBuilder.build())
-            .addMethod(constructBuilder.build());
+            .addMethod(constructBuilder.build())
+            .addMethod(constructDefaultBuilder.build());
 
         TypeSpec viewCls = viewClsBuilder.build();
         TypeSpec changeCls = changeClsBuilder.build();
