@@ -24,7 +24,6 @@ import org.apache.ignite.table.BinaryRow;
  *
  */
 public interface ValueMapper<V> {
-
     public interface Builder<V> {
         public Builder<V> deserializeTo(Class<?> cls);
 

@@ -20,7 +20,7 @@ package org.apache.ignite.table.storage;
 import org.apache.ignite.internal.table.TableRow;
 
 /**
- * Table storage.
+ * Table storage facade.
  */
 public interface TableStorage {
     public TableRow get(TableRow keyRow);

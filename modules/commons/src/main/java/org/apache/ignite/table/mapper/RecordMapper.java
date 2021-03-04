@@ -29,6 +29,6 @@ public interface RecordMapper<R> {
 
         public Builder<R> map(String fieldName, Function<BinaryRow, Object> mapping);
 
-        public <R> RecordMapper<R> build();
+        public RecordMapper<R> build();
     }
 }

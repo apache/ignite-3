@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 /**
- * Table schema manager.
+ * Table schema manager stub.
  */
 public class TableSchemaManager {
 

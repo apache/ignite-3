@@ -17,23 +17,22 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.function.Predicate;
+import org.apache.ignite.table.BinaryRow;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.BinaryRow;
 import org.apache.ignite.table.RowFilter;
-import org.apache.ignite.table.storage.TableStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
+import org.apache.ignite.table.storage.TableStorage;
 
 /**
  * Table view implementation provides functionality to access binary rows.
  */
 public class TableViewImpl implements Table {
     /** Table. */
-    private TableStorage table;
+    private final TableStorage table;
 
     /**
      * Constructor.
@@ -76,7 +75,7 @@ public class TableViewImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public BinaryRow createSearchRow(Object... args) {
-        BinaryRow row = null;
+//        BinaryRow row = null;
 
 //        TableSchema schema = table.schemaManager().schema();
 //        assert args.length == schema.keyColumns().length();
@@ -84,6 +83,8 @@ public class TableViewImpl implements Table {
 //        for (int i = 0; i < args.length; i++)
 //            row.setColumn(i, args[i]);
 
-        return row;
+//        return row;
+
+        return null;
     }
 }

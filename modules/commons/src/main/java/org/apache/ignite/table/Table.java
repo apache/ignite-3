@@ -68,14 +68,13 @@ public interface Table {
     public Iterable<BinaryRow> find(RowFilter filter);
 
     //TODO: Below there should be table access methods similar to in RecordView, but using BinaryRows concept.
+
     public BinaryRow get(BinaryRow keyRow);
-
     public boolean upsert(BinaryRow row);
-
     public boolean insert(BinaryRow row);
 
     //TODO: 'SearchRow' = 'KeyRow'.
-    // Now ('args') arguments order is unclear:
+    // Now method arguments order is unclear:
     // - should user be aware of native column order here,
     // - or we should treat 'args' in order defined in SchemaConfiguration (what schema version?)
     // - or smth else?

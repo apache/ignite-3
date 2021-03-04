@@ -18,9 +18,9 @@
 package org.apache.ignite.table.mapper;
 
 /**
- *
+ * Mappers shortcut methods.
  */
-public class Mappers {
+public final class Mappers {
     public static <K> KeyMapper<K> ofKeyClass(Class<K> keyCls) {
         return null;
     }
@@ -43,5 +43,11 @@ public class Mappers {
 
     public static <R> RecordMapper.Builder<R> ofRowClassBuilder(Class<R> targetClass) {
         return null;
+    }
+
+    /**
+     * Stub.
+     */
+    private Mappers() {
     }
 }
