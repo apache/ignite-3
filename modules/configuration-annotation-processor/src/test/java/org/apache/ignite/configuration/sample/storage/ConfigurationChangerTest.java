@@ -61,11 +61,11 @@ public class ConfigurationChangerTest {
     public static class BConfigurationSchema {
         /** */
         @Value(immutable = true)
-        private int intCfg;
+        public int intCfg;
 
         /** */
         @Value
-        private String strCfg;
+        public String strCfg;
     }
 
     /** */
@@ -73,7 +73,7 @@ public class ConfigurationChangerTest {
     public static class CConfigurationSchema {
         /** */
         @Value
-        private String strCfg;
+        public String strCfg;
     }
 
     /**
