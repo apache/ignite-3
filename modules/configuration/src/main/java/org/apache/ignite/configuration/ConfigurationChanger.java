@@ -142,6 +142,7 @@ public class ConfigurationChanger {
         ));
 
         try {
+            //TODO IGNITE-14183 Do not write defaults that have not been validated. This can ruin everything.
             change(storageDefaultsMap).get();
         }
         catch (InterruptedException | ExecutionException e) {
@@ -163,8 +164,8 @@ public class ConfigurationChanger {
                 dst.construct(key, new ConfigurationSource() {});
 
                 InnerNode dstNode = dst.traverseChild(key, new ConfigurationVisitor<InnerNode>() {
-                    @Override public InnerNode visitInnerNode(String key, InnerNode dstNode0) {
-                        return dstNode0;
+                    @Override public InnerNode visitInnerNode(String key, InnerNode dstNode) {
+                        return dstNode;
                     }
                 });
 

@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.internal;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
@@ -69,7 +70,7 @@ public abstract class ConfigurationNode<VIEW> {
         this.rootKey = rootKey;
         this.changer = changer;
 
-        assert rootKey.key().equals(this.keys.get(0));
+        assert Objects.equals(rootKey.key(), keys.get(0));
     }
 
     /**

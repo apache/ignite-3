@@ -96,7 +96,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
         return this;
     }
 
-    @Override public NamedListInit/*???*/<N> create(String key, Consumer<N> valConsumer) {
+    @Override public NamedListChange<N, N> create(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(valConsumer, "valConsumer");
 
         N val = map.get(key);
