@@ -106,8 +106,6 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
 
         valConsumer.accept(val);
 
-
-
         return this;
     }
 
