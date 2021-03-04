@@ -20,12 +20,79 @@ package org.apache.ignite.storage;
 import org.apache.ignite.storage.binary.BinaryObject;
 
 /**
- *
+ * Binary row interface.
  */
-public interface Row {
-    public <T> T field(String name);
+public interface Row { //TODO: Extends BinaryObject interface?
+    /**
+     * Gets column value for given column name.
+     *
+     * @param colName Column name.
+     * @param <T> Value type.
+     * @return Column value.
+     */
+    public <T> T value(String colName);
 
-    public BinaryObject binaryObjectField(String fieldName);
+    /**
+     * Gets binary object column.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    public BinaryObject binaryObjectField(String colName);
 
-    int intField(String fieldName);
+    /**
+     * Gets {@code byte} object column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    byte byteValue(String colName);
+
+    /**
+     * Gets {@code short} object column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    short shortValue(String colName);
+
+    /**
+     * Gets {@code int} object column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    int intValue(String colName);
+
+    /**
+     * Gets {@code long} object column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    long longValue(String colName);
+
+    /**
+     * Gets {@code float} object column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    float floatValue(String colName);
+
+    /**
+     * Gets {@code double} object column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    double doubleValue(String colName);
+
+    /**
+     * Gets {@code String} object column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    String stringValue(String colName);
 }

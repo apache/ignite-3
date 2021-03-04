@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.Collection;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.storage.RecordView;
 import org.apache.ignite.storage.TableStorage;
@@ -47,24 +48,74 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public R get(R record) {
+    @Override public R get(R keyRec) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.toKeyRow(record);
+        TableRow kRow = marsh.toKeyRow(keyRec);
 
         TableRow tRow = table.get(kRow);
 
-        return marsh.unmarshallToRecord(record, tRow);
+        return marsh.unmarshallToRecord(keyRec, tRow);
     }
 
     /** {@inheritDoc} */
-    @Override public boolean upsert(R row) {
+    @Override public boolean put(R rec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean insert(R row) {
+    @Override public boolean putIfAbsent(R row) {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<R> getAll(Collection<R> keyRecs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void putAll(Collection<R> recs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public R getAndPut(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean replace(R rec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean replace(R oldRec, R newRec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public R getAndReplace(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean remove(R keyRec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean removeExact(R oldRec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public R getAndRemove(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void removeAll(Collection<R> recs) {
+
     }
 
     /**

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.storage;
 
+import java.util.Collection;
+import java.util.Map;
+
 /**
  * Key-Value adapter for Table.
  */
@@ -28,6 +31,14 @@ public interface KVView<K, V> {
      * @return Value or {@code null}, if it does not exist.
      */
     public V get(K key);
+
+    /**
+     * Gets values associated with given keys.
+     *
+     * @param keys The keys whose associated values are to be returned.
+     * @return Values associated with given keys.
+     */
+    public Collection<V> getAll(Collection<K> keys);
 
     /**
      * Determines if the table contains an entry for the specified key.
@@ -44,6 +55,13 @@ public interface KVView<K, V> {
      * @param val Value to be associated with the specified key.
      */
     public void put(K key, V val);
+
+    /**
+     * Put associated key-value pairs.
+     *
+     * @param pairs Key-value pairs.
+     */
+    public void putAll(Map<K, V> pairs);
 
     /**
      * Puts value associated with given key into the table if it is not exists.
@@ -79,6 +97,13 @@ public interface KVView<K, V> {
      * @return {@code True} if the value associated with the specified key was successfully removed, {@code false} otherwise.
      */
     public boolean remove(K key, V val);
+
+    /**
+     * Removes values associated with given keys from the table.
+     *
+     * @param keys Keys whose mapping is to be removed from the table.
+     */
+    public void removeAll(Collection<K> keys);
 
     /**
      * Removes and returns value associated with given key from the table.

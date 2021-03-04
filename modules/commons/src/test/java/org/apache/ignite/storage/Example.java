@@ -54,13 +54,13 @@ public class Example {
         // Search row will allow nulls even in non-null columns.
         Row res = t.get(t.createSearchRow(1, 1));
 
-        String name = res.field("name");
-        String lastName = res.field("latName");
-        BigDecimal salary = res.field("salary");
-        Integer department = res.field("department");
+        String name = res.value("name");
+        String lastName = res.value("latName");
+        BigDecimal salary = res.value("salary");
+        Integer department = res.value("department");
 
         // We may have primitive-returning methods if needed.
-        int departmentPrimitive = res.intField("department");
+        int departmentPrimitive = res.intValue("department");
 
         // Note that schema itself already defined which fields are key field.
         class Employee {
@@ -250,7 +250,7 @@ public class Example {
             Mappers.ofValueClassBuilder(OrderValue.class)
                 .map("billingDetails", (row) -> {
                     BinaryObject bObj = row.binaryObjectField("conditionalDetails");
-                    int type = row.intField("type");
+                    int type = row.intValue("type");
 
                     return bObj.deserialize(type == 0 ? CreditCard.class : BankAccount.class);
                 }).build());
@@ -260,7 +260,7 @@ public class Example {
         // Same with direct Row access and BinaryObject wrapper.
         Row res = t.get(t.createSearchRow(1, 1));
 
-        byte[] objData = res.field("billingDetails");
+        byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
         // Work with the binary object as in Ignite 2.x
 
@@ -308,7 +308,7 @@ public class Example {
     public void useCase5(Table t) {
         Row res = t.get(t.createSearchRow(1, 1));
 
-        byte[] objData = res.field("originalObject");
+        byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
         // Work with the binary object as in Ignite 2.x
 
@@ -369,7 +369,7 @@ public class Example {
             Mappers.ofRowClassBuilder(TruncatedRecord.class)
                 .map("upgradedObject", (row) -> {
                     BinaryObject bObj = row.binaryObjectField("upgradedObject");
-                    int dept = row.intField("department");
+                    int dept = row.intValue("department");
 
                     return dept == 0 ? bObj.deserialize(JavaPerson.class) : bObj.deserialize(JavaPersonV2.class);
                 }).build());
@@ -389,13 +389,13 @@ public class Example {
         // Search row will allow nulls even in non-null columns.
         Row res = t.get(t.createSearchRow(1L));
 
-        String name = res.field("name");
-        String lastName = res.field("latName");
-        BigDecimal salary = res.field("salary");
-        Integer department = res.field("department");
+        String name = res.value("name");
+        String lastName = res.value("latName");
+        BigDecimal salary = res.value("salary");
+        Integer department = res.value("department");
 
         // We may have primitive-returning methods if needed.
-        int departmentPrimitive = res.intField("department");
+        int departmentPrimitive = res.intValue("department");
 
         // Note that schema itself already defined which fields are key field.
         class Employee {

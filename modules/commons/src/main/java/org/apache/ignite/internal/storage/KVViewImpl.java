@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.Collection;
+import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.storage.KVView;
 import org.apache.ignite.storage.TableStorage;
@@ -65,12 +67,22 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
+    @Override public Collection<V> getAll(Collection<K> keys) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean containsKey(K key) {
         return false;
     }
 
     /** {@inheritDoc} */
     @Override public void put(K key, V val) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public void putAll(Map<K, V> pairs) {
 
     }
 
@@ -87,6 +99,11 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     /** {@inheritDoc} */
     @Override public boolean remove(K key) {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void removeAll(Collection<K> keys) {
+
     }
 
     /** {@inheritDoc} */
