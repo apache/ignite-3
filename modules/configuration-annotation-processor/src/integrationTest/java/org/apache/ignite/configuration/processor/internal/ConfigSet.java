@@ -105,7 +105,7 @@ public class ConfigSet {
     }
 
     /**
-     * Butchered version of {@link Launcher#parseClass(String)} because {@spoon} is such a garbage it can't even parse
+     * Butchered version of {@link Launcher#parseClass(String)}, because {@spoon} is such a garbage it can't even parse
      * valid classes without issues.
      *
      * @param code Code.
@@ -118,6 +118,7 @@ public class ConfigSet {
         launcher.getEnvironment().setAutoImports(true);
         Collection<CtType<?>> allTypes = launcher.buildModel().getAllTypes();
 
+        // This is how we do "getLast" for streams. Pretty bad, I know.
         return (CtClass)allTypes.stream().reduce((fst, snd) -> snd).orElseThrow(SpoonException::new);
     }
 }
