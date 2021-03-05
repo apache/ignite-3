@@ -29,8 +29,28 @@ public interface RecordView<T> {
      * @param keyRec Record with key fields set.
      * @return Record with all fields filled from the table.
      */
-    public T get(T keyRec);
+    public T get(T objToFill);
+    public Collection<T> select(Template template);
 
+
+    public <K> boolean remove(K row); // Remove by key
+    public boolean removeExact(T row);// Remove exact value
+
+    public void remove(Template template);
+
+
+    class Template{
+    String[] fld;
+    Object[] obj;
+
+}
+
+    class Person {
+        int keyFld1;
+        int keyFld2;
+
+        String name;
+    }
     /**
      * Fills given records with the values from the table.
      *
@@ -45,7 +65,7 @@ public interface RecordView<T> {
      * @param rec Record to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean put(T rec);
+    public boolean upsert(T rec);
 
     /**
      * Inserts new record into the table if it is not exists or replace existed one.
@@ -60,7 +80,7 @@ public interface RecordView<T> {
      * @param rec Record to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean putIfAbsent(T rec);
+    public boolean insert(T rec);
 
     /**
      * Insert record into the table and return previous record.
@@ -68,7 +88,7 @@ public interface RecordView<T> {
      * @param rec Record to be inserted into table.
      * @return Record that was replaced, {@code null} otherwise.
      */
-    public T getAndPut(T rec);
+    public T getAndUpsert(T rec);
 
     /**
      * Replaces an existed record in the table with the given one.
@@ -101,7 +121,8 @@ public interface RecordView<T> {
      * @param keyRec Record with key fields set.
      * @return {@code True} if record was successfully removed, {@code  false} otherwise.
      */
-    public boolean remove(T keyRec);
+    public boolean delete(T keyRec);
+    public boolean delete(T template, Criteria c); //TODO: Hibernate CriteriaAPI, + Hazelcast
 
     /**
      * Remove exact record from table.

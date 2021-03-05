@@ -65,11 +65,15 @@ public interface Table {
     }
 
     //TODO: Should this method be here or be a part of ScanQuery API?
-    public Iterable<BinaryRow> find(RowFilter filter);
+    public Iterable<BinaryRow> find(RowFilter filter); //TODO: use Criteria
 
     //TODO: Below there should be table access methods similar to in RecordView, but using BinaryRows concept.
+//TODO: Builder<BinaryRow> builder();
+    public BinaryRow get(BinaryRow keyRow) {
+        get(keyRow, Criteria.PK);
+    }
+    public BinaryRow get(BinaryRow template, Criteria c);
 
-    public BinaryRow get(BinaryRow keyRow);
     public boolean upsert(BinaryRow row);
     public boolean insert(BinaryRow row);
 
