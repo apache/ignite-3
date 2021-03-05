@@ -590,6 +590,7 @@ public class Processor extends AbstractProcessor {
             .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
             .returns(TypeName.VOID)
+            .addException(NoSuchElementException.class)
             .addParameter(ClassName.get(String.class), "key")
             .addParameter(ClassName.get(ConfigurationSource.class), "src")
             .beginControlFlow("switch (key)");
@@ -599,6 +600,7 @@ public class Processor extends AbstractProcessor {
             .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
             .returns(TypeName.BOOLEAN)
+            .addException(NoSuchElementException.class)
             .addParameter(ClassName.get(String.class), "key")
             .beginControlFlow("switch (key)");
 

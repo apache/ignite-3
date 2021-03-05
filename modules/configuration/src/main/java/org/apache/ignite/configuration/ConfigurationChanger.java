@@ -150,10 +150,18 @@ public class ConfigurationChanger {
         }
     }
 
-    /** */
+    /**
+     * Fill {@code dst} node with default values, required to complete {@code src} node.
+     * These two objects can be the same, this would mean that all {@code null} values of {@code scr} will be
+     * replaced with defaults if it's possible.
+     *
+     * @param src Source node.
+     * @param dst Destination node.
+     */
     private void addDefaults(InnerNode src, InnerNode dst) {
         src.traverseChildren(new ConfigurationVisitor<>() {
             @Override public Object visitLeafNode(String key, Serializable val) {
+                // If source value is null then inititalise the same value on the destination node.
                 if (val == null)
                     dst.constructDefault(key);
 
@@ -161,27 +169,36 @@ public class ConfigurationChanger {
             }
 
             @Override public Object visitInnerNode(String key, InnerNode srcNode) {
+                // Instantiate field in destination node before doing something else.
+                // Not a big deal if it wasn't null.
                 dst.construct(key, new ConfigurationSource() {});
 
-                InnerNode dstNode = dst.traverseChild(key, new ConfigurationVisitor<InnerNode>() {
+                // Get that inner node from destination to continue the processing.
+                InnerNode dstNode = dst.traverseChild(key, new ConfigurationVisitor<>() {
                     @Override public InnerNode visitInnerNode(String key, InnerNode dstNode) {
                         return dstNode;
                     }
                 });
 
+                // "dstNode" is guaranteed to not be null even if "src" and "dst" match.
+                // Null in "srcNode" means that we should initialize everything that we can in "dstNode"
+                // unconditionally. It's only possible if we pass it as a source as well.
                 addDefaults(srcNode == null ? dstNode : srcNode, dstNode);
 
                 return null;
             }
 
             @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> srcNamedList) {
-                NamedListNode<?> dstNamedList = dst.traverseChild(key, new ConfigurationVisitor<NamedListNode<?>>() {
+                // Here we don't need to preemptively initialise corresponsing field, because it can never be null.
+                NamedListNode<?> dstNamedList = dst.traverseChild(key, new ConfigurationVisitor<>() {
                     @Override public <N extends InnerNode> NamedListNode<?> visitNamedListNode(String key, NamedListNode<N> dstNode) {
                         return dstNode;
                     }
                 });
 
                 for (String namedListKey : srcNamedList.namedListKeys()) {
+                    // But, in order to get non-null value from "dstNamedList.get(namedListKey)" we must explicitly
+                    // ensure its existance.
                     dstNamedList.construct(namedListKey, new ConfigurationSource() {});
 
                     addDefaults(srcNamedList.get(namedListKey), dstNamedList.get(namedListKey));
@@ -262,8 +279,10 @@ public class ConfigurationChanger {
             RootKey<?> rootKey = entry.getKey();
             TraversableTreeNode change = entry.getValue();
 
+            // It's important to get the root from "roots" object rather then "storageRootMap" or "getRootNode(...)".
             InnerNode currentRootNode = roots.roots.get(rootKey);
 
+            // These are changes explicitly provided by the client.
             allChanges.putAll(nodeToFlatMap(rootKey, currentRootNode, change));
 
             // It is necessary to reinitialize default values every time.
@@ -274,10 +293,12 @@ public class ConfigurationChanger {
 
             addDefaults(patchedRootNode, defaultsNode);
 
-            //TODO IGNITE-14183 Take these defaults into account while validation.
+            // These are default values for non-initialized values, required to complete the configuration.
+            //TODO IGNITE-14183 Take these defaults into account during validation.
             allChanges.putAll(nodeToFlatMap(rootKey, patchedRootNode, defaultsNode));
         }
 
+        // Unlikely but still possible.
         if (allChanges.isEmpty()) {
             fut.complete(null);
 
