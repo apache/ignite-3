@@ -105,8 +105,8 @@ public class ConfigSet {
     }
 
     /**
-     * Butchered version of {@link Launcher#parseClass(String)}, because {@code spoon} is such a garbage it can't even parse
-     * valid classes without issues.
+     * Butchered version of {@link Launcher#parseClass(String)}, because {@code spoon} is such a garbage it can't even
+     * parse valid classes without issues.
      *
      * @param code Code.
      * @return AST.
