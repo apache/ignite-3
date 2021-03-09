@@ -25,7 +25,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
 /**
  * Table.
  */
-public interface Table extends RecordView<BinaryRow> {
+public interface Table extends TableView<BinaryRow> {
     /**
      * Creates record view of table for record class mapper provided.
      *
@@ -64,10 +64,7 @@ public interface Table extends RecordView<BinaryRow> {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
-    //TODO: 'SearchRow' = 'KeyRow'.
-    // Now method arguments order is unclear:
-    // - should user be aware of native column order here,
-    // - or we should treat 'args' in order defined in SchemaConfiguration (what schema version?)
-    // - or smth else?
+
+    //TODO: Provide a BinaryRowBuilder for the purpose.
     BinaryRow createSearchRow(Object... args);
 }

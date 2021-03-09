@@ -18,7 +18,7 @@
 package org.apache.ignite.table;
 
 /**
- * Invoke processor.
+ * Invoke processor provide ability to run code against a table row or table view entry on server-side.
  *
  * @param <T> Entry type.
  * @param <R> Processor result type.

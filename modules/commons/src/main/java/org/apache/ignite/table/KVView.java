@@ -173,10 +173,10 @@ public interface KVView<K, V> {
      *
      * @param key Key that associated with the row that invoke processor will be applied to.
      * @param proc Processor to invoke.
-     * @param <R> Result type.
+     * @param <R> Result type. //TODO: Must be serializable or will be implicitly converted to BinaryObject for transportation to remote node?
      * @return Result of the processing.
      */
-    public <R> R invoke(K key, InvokeProcessor<KVViewEntry<K, V>, R> proc);
+    public <R> R invoke(K key, InvokeProcessor<MutableEntry<K, V>, R> proc);
 
     /**
      * Invokes an InvokeProcessor against the rows associated with the provided keys.
@@ -186,7 +186,7 @@ public interface KVView<K, V> {
      * @param <R> Result type.
      * @return Results of the processing.
      */
-    public <R> List<R> invokeAll(List<K> keys, InvokeProcessor<KVViewEntry<K, V>, R> proc);
+    public <R> List<R> invokeAll(List<K> keys, InvokeProcessor<MutableEntry<K, V>, R> proc);
 
     /**
      * Key-value view entry.
@@ -194,7 +194,7 @@ public interface KVView<K, V> {
      * @param <K> Key type.
      * @param <V> Value type.
      */
-    public static interface KVViewEntry<K, V> {
+    public static interface MutableEntry<K, V> {
         /**
          * @return Entry key.
          */

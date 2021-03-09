@@ -133,12 +133,12 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public <R> R invoke(K key, InvokeProcessor<KVViewEntry<K, V>, R> proc) {
+    @Override public <R> R invoke(K key, InvokeProcessor<MutableEntry<K, V>, R> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <R> List<R> invokeAll(List<K> keys, InvokeProcessor<KVViewEntry<K, V>, R> proc) {
+    @Override public <R> List<R> invokeAll(List<K> keys, InvokeProcessor<MutableEntry<K, V>, R> proc) {
         return Collections.emptyList();
     }
 
