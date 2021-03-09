@@ -274,7 +274,7 @@ public class ConfigurationChanger {
         ConfigurationStorage storage,
         CompletableFuture<?> fut
     ) {
-        StorageRoots roots = storagesRootsMap.get(storage.getClass());
+        StorageRoots storageRoots = storagesRootsMap.get(storage.getClass());
 
         Map<String, Serializable> allChanges = new HashMap<>();
 
@@ -283,7 +283,7 @@ public class ConfigurationChanger {
             TraversableTreeNode change = entry.getValue();
 
             // It's important to get the root from "roots" object rather then "storageRootMap" or "getRootNode(...)".
-            InnerNode currentRootNode = roots.roots.get(rootKey);
+            InnerNode currentRootNode = storageRoots.roots.get(rootKey);
 
             // These are changes explicitly provided by the client.
             allChanges.putAll(nodeToFlatMap(rootKey, currentRootNode, change));
@@ -308,7 +308,7 @@ public class ConfigurationChanger {
             return;
         }
 
-        ValidationResult validationResult = validate(roots, changes);
+        ValidationResult validationResult = validate(storageRoots, changes);
 
         List<ValidationIssue> validationIssues = validationResult.issues();
 
@@ -318,7 +318,7 @@ public class ConfigurationChanger {
             return;
         }
 
-        CompletableFuture<Boolean> writeFut = storage.write(allChanges, roots.version);
+        CompletableFuture<Boolean> writeFut = storage.write(allChanges, storageRoots.version);
 
         writeFut.whenCompleteAsync((casResult, throwable) -> {
             if (throwable != null)
