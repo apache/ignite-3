@@ -114,6 +114,7 @@ public class ConfigurationChanger {
         }
 
         Map<RootKey<?>, InnerNode> storageRootsMap = new HashMap<>();
+        // Map to collect defaults for not initialized configurations.
         Map<RootKey<?>, InnerNode> storageDefaultsMap = new HashMap<>();
 
         Map<String, ?> dataValuesPrefixMap = ConfigurationUtil.toPrefixMap(data.values());
@@ -126,6 +127,7 @@ public class ConfigurationChanger {
             if (rootPrefixMap != null)
                 ConfigurationUtil.fillFromPrefixMap(rootNode, rootPrefixMap);
 
+            // Collecting defaults requires fresh new root.
             InnerNode defaultsNode = rootKey.createRootNode();
 
             addDefaults(rootNode, defaultsNode);
@@ -141,6 +143,7 @@ public class ConfigurationChanger {
             changedEntries
         ));
 
+        // Do this strictly after adding listeners, otherwise we can lose these changes.
         try {
             //TODO IGNITE-14183 Do not write defaults that have not been validated. This can ruin everything.
             change(storageDefaultsMap).get();
