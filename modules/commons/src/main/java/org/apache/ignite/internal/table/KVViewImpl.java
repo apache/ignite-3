@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.Collection;
-import java.util.Map;
+import java.util.Collections;
+import java.util.List;
+import java.util.SortedMap;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
@@ -66,7 +68,7 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<V> getAll(Collection<K> keys) {
+    @Override public List<V> getAll(List<K> keys) {
         return null;
     }
 
@@ -81,7 +83,7 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public void putAll(Map<K, V> pairs) {
+    @Override public void putAll(SortedMap<K, V> pairs) {
 
     }
 
@@ -101,7 +103,7 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public void removeAll(Collection<K> keys) {
+    @Override public void removeAll(List<K> keys) {
 
     }
 
@@ -126,8 +128,18 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean getAndReplace(K key, V val) {
-        return false;
+    @Override public V getAndReplace(K key, V val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <R> R invoke(K key, InvokeProcessor<KVViewEntry<K, V>, R> proc) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <R> List<R> invokeAll(List<K> keys, InvokeProcessor<KVViewEntry<K, V>, R> proc) {
+        return Collections.emptyList();
     }
 
     /**

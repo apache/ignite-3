@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.table;
 
-import org.apache.ignite.internal.table.TableRow;
-
-public interface Marshaller {
-    <K> TableRow toKeyRow(K key);
-
-    <V> V unmarshallValue(TableRow row);
-
-    <R> R unmarshallToRecord(TableRow tableRow);
-    <R> R unmarshallToRecord(R record, TableRow tableRow);
+/**
+ * Invoke processor.
+ *
+ * @param <T> Entry type.
+ * @param <R> Processor result type.
+ */
+public interface InvokeProcessor<T, R> {
+    /**
+     * Process entry and return the result.
+     *
+     * @param entry Entry to invoke on.
+     * @param args Invoke processor arguments.
+     * @return Invoke processor result.
+     */
+    R process(T entry, Object... args);
 }

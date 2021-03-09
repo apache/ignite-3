@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.RecordMapper;
 
@@ -47,38 +50,54 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public R get(R keyRec) {
+    @Override public <K> R get(K recObjToFill) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.toKeyRow(keyRec);
+        TableRow kRow = marsh.toKeyRow(recObjToFill);
 
         TableRow tRow = table.get(kRow);
 
-        return marsh.unmarshallToRecord(keyRec, tRow);
+        return marsh.unmarshallToRecord(tRow);
     }
 
     /** {@inheritDoc} */
-    @Override public boolean put(R rec) {
-        return false;
+    @Override public R fill(R recObjToFill) {
+        Marshaller marsh = marshaller();
+
+        TableRow kRow = marsh.toKeyRow(recObjToFill);
+
+        TableRow tRow = table.get(kRow);
+
+        return marsh.unmarshallToRecord(recObjToFill, tRow);
     }
 
     /** {@inheritDoc} */
-    @Override public boolean putIfAbsent(R row) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<R> getAll(Collection<R> keyRecs) {
+    @Override public <K> Collection<R> getAll(List<K> keyRecs) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public void putAll(Collection<R> recs) {
+    @Override public boolean insert(R rec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void insertAll(List<R> recs) {
 
     }
 
     /** {@inheritDoc} */
-    @Override public R getAndPut(R rec) {
+    @Override public boolean upsert(R rec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void upsertAll(List<R> recs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public R getAndUpsert(R rec) {
         return null;
     }
 
@@ -98,23 +117,52 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean remove(R keyRec) {
+    @Override public <K> boolean delete(K keyRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean removeExact(R oldRec) {
+    @Override public boolean deleteExact(R oldRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public R getAndRemove(R rec) {
+    @Override public <K> R getAndDelete(K rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public void removeAll(Collection<R> recs) {
+    @Override public <K> void deleteAll(List<K> recs) {
 
+    }
+
+    /** {@inheritDoc} */
+    @Override public R getAndDeleteExact(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void deleteAllExact(List<R> recs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<R> selectBy(Criteria<R> template) {
+        return Collections.emptyList();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void deleteBy(Criteria<R> c) {
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<R, T> proc) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<R, T> proc) {
+        return null;
     }
 
     /**
@@ -123,4 +171,5 @@ public class RecordViewImpl<R> implements RecordView<R> {
     private Marshaller marshaller() {
         return null;        // table.schemaManager().marshaller();
     }
+
 }

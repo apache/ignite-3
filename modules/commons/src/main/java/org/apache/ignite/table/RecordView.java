@@ -18,46 +18,36 @@
 package org.apache.ignite.table;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Record adapter for Table.
  */
-public interface RecordView<T> {
+public interface RecordView<R> {
     /**
-     * Fills given record with the values from the table.
+     * Return record from table for given key fields.
      *
      * @param keyRec Record with key fields set.
      * @return Record with all fields filled from the table.
      */
-    public T get(T objToFill);
-    public Collection<T> select(Template template);
+    public <K> R get(K keyRec);
 
+    /**
+     * Fills given record with the values from the table.
+     * Similar to {@link #get(Object)}, but return original object with filled value fields.
+     *
+     * @param recObjToFill Record object with key fields to be filled.
+     * @return Record with all fields filled from the table.
+     */
+    public R fill(R recObjToFill);
 
-    public <K> boolean remove(K row); // Remove by key
-    public boolean removeExact(T row);// Remove exact value
-
-    public void remove(Template template);
-
-
-    class Template{
-    String[] fld;
-    Object[] obj;
-
-}
-
-    class Person {
-        int keyFld1;
-        int keyFld2;
-
-        String name;
-    }
     /**
      * Fills given records with the values from the table.
      *
      * @param keyRecs Records with key fields set.
      * @return Records with all fields filled from the table.
      */
-    public Collection<T> getAll(Collection<T> keyRecs);
+    public <K> Collection<R> getAll(List<K> keyRecs);
 
     /**
      * Inserts new record into the table if it is not exists or replace existed one.
@@ -65,14 +55,14 @@ public interface RecordView<T> {
      * @param rec Record to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean upsert(T rec);
+    public boolean upsert(R rec);
 
     /**
      * Inserts new record into the table if it is not exists or replace existed one.
      *
      * @param recs Records to be inserted into table.
      */
-    public void putAll(Collection<T> recs);
+    public void upsertAll(List<R> recs);
 
     /**
      * Inserts record into the table if not exists.
@@ -80,7 +70,14 @@ public interface RecordView<T> {
      * @param rec Record to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean insert(T rec);
+    public boolean insert(R rec);
+
+    /**
+     * Inserts records into the table that are not exists, otherwise skips.
+     *
+     * @param recs Records to be inserted into table.
+     */
+    public void insertAll(List<R> recs);
 
     /**
      * Insert record into the table and return previous record.
@@ -88,7 +85,7 @@ public interface RecordView<T> {
      * @param rec Record to be inserted into table.
      * @return Record that was replaced, {@code null} otherwise.
      */
-    public T getAndUpsert(T rec);
+    public R getAndUpsert(R rec);
 
     /**
      * Replaces an existed record in the table with the given one.
@@ -96,7 +93,7 @@ public interface RecordView<T> {
      * @param rec Record to replace with.
      * @return {@code True} if the record replaced successfully, {@code false} otherwise.
      */
-    public boolean replace(T rec);
+    public boolean replace(R rec);
 
     /**
      * Replaces an expected record in the table with the new one.
@@ -105,7 +102,7 @@ public interface RecordView<T> {
      * @param newRec Record to replace with.
      * @return {@code True} if the record replaced successfully, {@code false} otherwise.
      */
-    public boolean replace(T oldRec, T newRec);
+    public boolean replace(R oldRec, R newRec);
 
     /**
      * Replaces an existed record in the table and return the replaced one.
@@ -113,7 +110,7 @@ public interface RecordView<T> {
      * @param rec Record to be inserted into table.
      * @return Record that was replaced with given one, {@code null} otherwise.
      */
-    public T getAndReplace(T rec);
+    public R getAndReplace(R rec);
 
     /**
      * Remove record from table.
@@ -121,8 +118,7 @@ public interface RecordView<T> {
      * @param keyRec Record with key fields set.
      * @return {@code True} if record was successfully removed, {@code  false} otherwise.
      */
-    public boolean delete(T keyRec);
-    public boolean delete(T template, Criteria c); //TODO: Hibernate CriteriaAPI, + Hazelcast
+    public <K> boolean delete(K keyRec);
 
     /**
      * Remove exact record from table.
@@ -130,9 +126,7 @@ public interface RecordView<T> {
      * @param oldRec Record to be removed.
      * @return {@code True} if record was successfully removed, {@code  false} otherwise.
      */
-    // TODO: Do we need a separate method like this, which semantically equals to 'replace(oldRec, null)'
-    // If no, then how to deal with empty value columns and non-null column defaults?
-    public boolean removeExact(T oldRec);
+    public boolean deleteExact(R oldRec);
 
     /**
      * Remove record from table.
@@ -140,14 +134,54 @@ public interface RecordView<T> {
      * @param rec Record with key fields set.
      * @return Record that was removed, {@code null} otherwise.
      */
-    public T getAndRemove(T rec);
+    public <K> R getAndDelete(K rec);
 
-    // TODO: Do we need a separate method 'getAndRemoveExact(T rec)', which semantically equals to 'getAndReplace(oldRed, null)'?
+    /**
+     * Remove exact record from table.
+     *
+     * @param rec Record.
+     * @return Record that was removed, {@code null} otherwise.
+     */
+    public R getAndDeleteExact(R rec);
 
     /**
      * Remove records from table.
      *
      * @param recs Records with key fields set.
      */
-    public void removeAll(Collection<T> recs);
+    public <K> void deleteAll(List<K> recs);
+
+    /**
+     * Remove exact records from table.
+     *
+     * @param recs Records with key fields set.
+     */
+    public void deleteAllExact(List<R> recs);
+
+    /**
+     * Invokes an InvokeProcessor against the associated row.
+     *
+     * @param keyRec Record with key fields set.
+     * @return Results of the processing.
+     */
+    public <K, T> T invoke(K keyRec, InvokeProcessor<R, T> proc);
+
+    /**
+     * Invokes an InvokeProcessor against the associated rows.
+     *
+     * @param keyRecs Sorted collection of records with key fields set.
+     * @return Results of the processing.
+     */
+    public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<R, T> proc);
+
+    //TODO: Hibernate CriteriaAPI, + Hazelcast
+    public Collection<R> selectBy(Criteria<R> c);
+    public void deleteBy(Criteria<R> c);
+
+    /**
+     * Criteria API.
+     */
+    interface Criteria<R> {
+
+    }
 }

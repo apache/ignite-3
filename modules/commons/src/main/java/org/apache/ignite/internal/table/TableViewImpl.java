@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.table.BinaryRow;
+import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.RowFilter;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -53,12 +55,17 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRow get(BinaryRow keyRow) {
+    @Override public <K> BinaryRow get(K keyRec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Iterable<BinaryRow> find(RowFilter template) {
+    @Override public BinaryRow fill(BinaryRow recObjToFill) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K> Collection<BinaryRow> getAll(List<K> keyRecs) {
         return null;
     }
 
@@ -68,8 +75,88 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
+    @Override public void upsertAll(List<BinaryRow> recs) {
+
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean insert(BinaryRow row) {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void insertAll(List<BinaryRow> recs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryRow getAndUpsert(BinaryRow rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean replace(BinaryRow rec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean replace(BinaryRow oldRec, BinaryRow newRec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryRow getAndReplace(BinaryRow rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K> boolean delete(K keyRec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean deleteExact(BinaryRow oldRec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K> BinaryRow getAndDelete(K rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryRow getAndDeleteExact(BinaryRow rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K> void deleteAll(List<K> recs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public void deleteAllExact(List<BinaryRow> recs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<BinaryRow> selectBy(Criteria<BinaryRow> c) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void deleteBy(Criteria<BinaryRow> c) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<BinaryRow, T> proc) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<BinaryRow, T> proc) {
+        return null;
     }
 
     /** {@inheritDoc} */

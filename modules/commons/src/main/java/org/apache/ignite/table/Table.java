@@ -25,7 +25,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
 /**
  * Table.
  */
-public interface Table {
+public interface Table extends RecordView<BinaryRow> {
     /**
      * Creates record view of table for record class mapper provided.
      *
@@ -63,19 +63,6 @@ public interface Table {
     public default <K, V> KVView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
-
-    //TODO: Should this method be here or be a part of ScanQuery API?
-    public Iterable<BinaryRow> find(RowFilter filter); //TODO: use Criteria
-
-    //TODO: Below there should be table access methods similar to in RecordView, but using BinaryRows concept.
-//TODO: Builder<BinaryRow> builder();
-    public BinaryRow get(BinaryRow keyRow) {
-        get(keyRow, Criteria.PK);
-    }
-    public BinaryRow get(BinaryRow template, Criteria c);
-
-    public boolean upsert(BinaryRow row);
-    public boolean insert(BinaryRow row);
 
     //TODO: 'SearchRow' = 'KeyRow'.
     // Now method arguments order is unclear:
