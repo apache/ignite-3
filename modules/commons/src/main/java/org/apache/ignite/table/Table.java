@@ -17,13 +17,14 @@
 
 package org.apache.ignite.table;
 
+import org.apache.ignite.table.binary.BinaryRowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
- * Table.
+ * Table binary projection.
  */
 public interface Table extends TableView<BinaryRow> {
     /**
@@ -64,7 +65,11 @@ public interface Table extends TableView<BinaryRow> {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
-
-    //TODO: Provide a BinaryRowBuilder for the purpose.
-    BinaryRow createSearchRow(Object... args);
+    /**
+     * Creates builder for BinaryRow.
+     *
+     * @param args TODO: drop.
+     * @return BinaryRow builder for table.
+     */
+    BinaryRowBuilder binaryRowBuilder(Object... args);
 }

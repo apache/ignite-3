@@ -24,6 +24,7 @@ import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.binary.BinaryRowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
@@ -56,11 +57,6 @@ public class TableViewImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public <K> BinaryRow get(K keyRec) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public BinaryRow fill(BinaryRow recObjToFill) {
         return null;
     }
 
@@ -160,7 +156,7 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRow createSearchRow(Object... args) {
+    @Override public BinaryRowBuilder binaryRowBuilder(Object... args) {
 //        BinaryRow row = null;
 
 //        TableSchema schema = table.schemaManager().schema();

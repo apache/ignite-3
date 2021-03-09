@@ -22,6 +22,13 @@ package org.apache.ignite.table;
  *
  * Note: Some methods expects a truncated record with key fields only defined can be used {@code <K>} as parameter,
  * and any value field will be ignored.
+ *
+ * @param <R> Record type.
+ *
+ * TODO: Record view is created with certain mapper.
+ * TODO: What mapper should be used for keyRecord as truncated record (see #get(K keyRow)) ?
+ * TODO: Should K be a supertype of R? Table.get(BinaryRow k) expects BinaryRow only.
+ * TODO: Should K be a generic? Table.get(BinaryRow k) expects BinaryRow only.
  */
 public interface RecordView<R> extends TableView<R> {
     /**

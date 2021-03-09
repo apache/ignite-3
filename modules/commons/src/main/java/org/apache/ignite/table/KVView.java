@@ -22,6 +22,9 @@ import java.util.SortedMap;
 
 /**
  * Key-Value adapter for Table.
+ *
+ * @param <K> Key type.
+ * @param <V> Value type.
  */
 public interface KVView<K, V> {
     /**

@@ -52,7 +52,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        BinaryRow res = t.get(t.createSearchRow(1, 1));
+        BinaryRow res = t.get(t.binaryRowBuilder(1, 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -258,7 +258,7 @@ public class Example {
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        BinaryRow res = t.get(t.createSearchRow(1, 1));
+        BinaryRow res = t.get(t.binaryRowBuilder(1, 1).build());
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -306,7 +306,7 @@ public class Example {
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        BinaryRow res = t.get(t.createSearchRow(1, 1));
+        BinaryRow res = t.get(t.binaryRowBuilder(1, 1).build());
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -387,7 +387,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        BinaryRow res = t.get(t.createSearchRow(1L));
+        BinaryRow res = t.get(t.binaryRowBuilder(1L).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");
