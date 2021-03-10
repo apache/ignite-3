@@ -92,8 +92,8 @@ public class Columns {
      *
      * @param cols Array of columns.
      */
-    public Columns(Column... cols) {
-        this.cols = sortedCopy(cols);
+    Columns(int baseSchemaIdx, Column... cols) {
+        this.cols = sortedCopy(baseSchemaIdx, cols);
 
         firstVarlenColIdx = findFirstVarlenColumn();
 
@@ -167,13 +167,20 @@ public class Columns {
     }
 
     /**
+     * @param schemaBaseIdx Base index of this columns object in its schema.
      * @param cols User columns.
      * @return A copy of user columns array sorted in column order.
      */
-    private Column[] sortedCopy(Column[] cols) {
+    private Column[] sortedCopy(int schemaBaseIdx, Column[] cols) {
         Column[] cp = Arrays.copyOf(cols, cols.length);
 
         Arrays.sort(cp);
+
+        for (int i = 0; i < cp.length; i++) {
+            Column c = cp[i];
+
+            cp[i] = new Column(schemaBaseIdx + i, c.name(), c.type(), c.nullable());
+        }
 
         return cp;
     }

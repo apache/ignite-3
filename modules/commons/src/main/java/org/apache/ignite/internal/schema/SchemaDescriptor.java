@@ -35,10 +35,10 @@ public class SchemaDescriptor {
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Columns keyCols, Columns valCols) {
+    public SchemaDescriptor(int ver, Column[] keyCols, Column[] valCols) {
         this.ver = ver;
-        this.keyCols = keyCols;
-        this.valCols = valCols;
+        this.keyCols = new Columns(0, keyCols);
+        this.valCols = new Columns(keyCols.length, valCols);
     }
 
     /**

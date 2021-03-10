@@ -33,6 +33,7 @@ public class ColumnsTest {
     @Test
     public void testFixsizeIndex() {
         Columns cols = new Columns(
+            0,
             new Column("intCol2", NativeType.INTEGER, false),
             new Column("intCol1", NativeType.INTEGER, false),
             new Column("uuidCol", NativeType.UUID, false)
@@ -54,6 +55,7 @@ public class ColumnsTest {
     @Test
     public void testVarsizeIndex() {
         Columns cols = new Columns(
+            0,
             new Column("stringCol3", NativeType.STRING, false),
             new Column("stringCol2", NativeType.STRING, false),
             new Column("stringCol1", NativeType.STRING, false)
@@ -75,6 +77,7 @@ public class ColumnsTest {
     @Test
     public void testMixedIndex() {
         Columns cols = new Columns(
+            0,
             new Column("stringCol", NativeType.STRING, false),
             new Column("intCol2", NativeType.INTEGER, false),
             new Column("intCol1", NativeType.INTEGER, false),
@@ -100,19 +103,57 @@ public class ColumnsTest {
      */
     @Test
     public void testNullMapSize() {
-        assertEquals(1, new Columns(columns(1)).nullMapSize());
-        assertEquals(1, new Columns(columns(7)).nullMapSize());
-        assertEquals(1, new Columns(columns(8)).nullMapSize());
+        assertEquals(1, new Columns(0, columns(1)).nullMapSize());
+        assertEquals(1, new Columns(0, columns(7)).nullMapSize());
+        assertEquals(1, new Columns(0, columns(8)).nullMapSize());
 
-        assertEquals(2, new Columns(columns(9)).nullMapSize());
-        assertEquals(2, new Columns(columns(10)).nullMapSize());
-        assertEquals(2, new Columns(columns(15)).nullMapSize());
-        assertEquals(2, new Columns(columns(16)).nullMapSize());
+        assertEquals(2, new Columns(0, columns(9)).nullMapSize());
+        assertEquals(2, new Columns(0, columns(10)).nullMapSize());
+        assertEquals(2, new Columns(0, columns(15)).nullMapSize());
+        assertEquals(2, new Columns(0, columns(16)).nullMapSize());
 
-        assertEquals(3, new Columns(columns(17)).nullMapSize());
-        assertEquals(3, new Columns(columns(18)).nullMapSize());
-        assertEquals(3, new Columns(columns(23)).nullMapSize());
-        assertEquals(3, new Columns(columns(24)).nullMapSize());
+        assertEquals(3, new Columns(0, columns(17)).nullMapSize());
+        assertEquals(3, new Columns(0, columns(18)).nullMapSize());
+        assertEquals(3, new Columns(0, columns(23)).nullMapSize());
+        assertEquals(3, new Columns(0, columns(24)).nullMapSize());
+    }
+
+    @Test
+    public void testColumnSchemaIndex() {
+        {
+            Columns cols = new Columns(
+                0,
+                new Column("uuidCol", NativeType.UUID, false),
+                new Column("intCol2", NativeType.INTEGER, false),
+                new Column("intCol1", NativeType.INTEGER, false)
+            );
+
+            assertEquals("intCol1", cols.column(0).name());
+            assertEquals(0, cols.column(0).schemaIndex());
+
+            assertEquals("intCol2", cols.column(1).name());
+            assertEquals(1, cols.column(1).schemaIndex());
+
+            assertEquals("uuidCol", cols.column(2).name());
+            assertEquals(2, cols.column(2).schemaIndex());
+        }
+        {
+            Columns cols = new Columns(
+                3,
+                new Column("uuidCol", NativeType.UUID, false),
+                new Column("intCol2", NativeType.INTEGER, false),
+                new Column("intCol1", NativeType.INTEGER, false)
+            );
+
+            assertEquals("intCol1", cols.column(0).name());
+            assertEquals(3, cols.column(0).schemaIndex());
+
+            assertEquals("intCol2", cols.column(1).name());
+            assertEquals(4, cols.column(1).schemaIndex());
+
+            assertEquals("uuidCol", cols.column(2).name());
+            assertEquals(5, cols.column(2).schemaIndex());
+        }
     }
 
     /**
@@ -332,7 +373,7 @@ public class ColumnsTest {
      *
      */
     private void checkColumnFolding(Column[] colDef) {
-        Columns cols = new Columns(colDef);
+        Columns cols = new Columns(0, colDef);
 
         boolean[] nullMasks = new boolean[cols.numberOfFixsizeColumns()];
 

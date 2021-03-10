@@ -147,7 +147,7 @@ public class TupleTest {
      *
      */
     private void checkSchemaShuffled(Column[] keyCols, Column[] valCols) {
-        SchemaDescriptor sch = new SchemaDescriptor(1, new Columns(keyCols), new Columns(valCols));
+        SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
 
         Object[] checkArr = sequence(sch);
 

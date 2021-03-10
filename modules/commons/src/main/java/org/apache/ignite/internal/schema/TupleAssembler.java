@@ -26,7 +26,13 @@ import java.util.UUID;
 /**
  * Utility class to build tuples using column appending pattern. The external user of this class must consult
  * with the schema and provide the columns in strict internal column sort order during the tuple construction.
- * Additionally, the user of this class must pre-calculate the
+ * Additionally, the user of this class should pre-calculate the resulting tuple size when possible to avoid
+ * unnecessary data copies. The assembler provides some utility methods to calculate the resulting tuple size
+ * based on the number of null columns and size calculation for strings.
+ *
+ * @see #tupleSize(Columns, int, int, Columns, int, int)
+ * @see #tupleChunkSize(Columns, int, int)
+ * @see #utf8EncodedLength(CharSequence)
  */
 public class TupleAssembler {
     /**

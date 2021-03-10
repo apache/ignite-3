@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import java.lang.reflect.Field;
+import java.util.EnumSet;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.processing.Generated;
 import com.facebook.presto.bytecode.Access;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -25,13 +30,7 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
-import java.lang.reflect.Field;
-import java.util.EnumSet;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.processing.Generated;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
@@ -114,8 +113,8 @@ public class SerializerBenchmarkTest {
             objectFactory = new ObjectFactory<>(valClass);
         }
 
-        Columns keyCols = new Columns(new Column("key", LONG, true));
-        Columns valCols = mapFieldsToColumns(valClass);
+        Column[] keyCols = new Column[] {new Column("key", LONG, true)};
+        Column[] valCols = mapFieldsToColumns(valClass);
         final SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
         if ("Java".equals(serializerName))
@@ -150,9 +149,9 @@ public class SerializerBenchmarkTest {
      * @param aClass Object class.
      * @return Columns for schema
      */
-    private Columns mapFieldsToColumns(Class<?> aClass) {
+    private Column[] mapFieldsToColumns(Class<?> aClass) {
         if (aClass == Long.class)
-            return new Columns(new Column("col0", LONG, true));
+            return new Column[] {new Column("col0", LONG, true)};
 
         final Field[] fields = aClass.getDeclaredFields();
         final Column[] cols = new Column[fields.length];
@@ -163,7 +162,7 @@ public class SerializerBenchmarkTest {
             cols[i] = new Column("col" + i, LONG, false);
         }
 
-        return new Columns(cols);
+        return cols;
     }
 
     /**

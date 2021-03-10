@@ -24,6 +24,9 @@ package org.apache.ignite.internal.schema;
  * flag is not taken into account when columns are compared.
  */
 public class Column implements Comparable<Column> {
+    /** Absolute index in schema descriptor. */
+    private final int schemaIndex;
+
     /**
      * Column name.
      */
@@ -49,9 +52,32 @@ public class Column implements Comparable<Column> {
         NativeType type,
         boolean nullable
     ) {
+        this(-1, name, type, nullable);
+    }
+
+    /**
+     * @param schemaIndex Absolute index of this column in its schema descriptor.
+     * @param name Column name.
+     * @param type An instance of column data type.
+     * @param nullable If {@code false}, null values will not be allowed for this column.
+     */
+    Column(
+        int schemaIndex,
+        String name,
+        NativeType type,
+        boolean nullable
+    ) {
+        this.schemaIndex = schemaIndex;
         this.name = name;
         this.type = type;
         this.nullable = nullable;
+    }
+
+    /**
+     * @return Absolute index of this column in its schema descriptor.
+     */
+    public int schemaIndex() {
+        return schemaIndex;
     }
 
     /**
@@ -106,6 +132,6 @@ public class Column implements Comparable<Column> {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "Column [name=" + name + ", type=" + type + ", nullable=" + nullable + ']';
+        return "Column [idx=" + schemaIndex + ", name=" + name + ", type=" + type + ", nullable=" + nullable + ']';
     }
 }
