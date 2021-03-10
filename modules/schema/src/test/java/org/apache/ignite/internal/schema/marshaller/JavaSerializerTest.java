@@ -37,7 +37,6 @@ import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
 import org.apache.ignite.internal.schema.Bitmask;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
