@@ -37,7 +37,6 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     /** Table. */
     private final TableStorage table;
 
-
     /**
      * Constructor.
      *
