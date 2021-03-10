@@ -15,39 +15,17 @@
  * limitations under the License.
  */
 
-package table.mapper;
+package org.apache.ignite.table.binary;
 
 /**
- * Mappers shortcut methods.
+ *
  */
-public final class Mappers {
-    public static <K> KeyMapper<K> ofKeyClass(Class<K> keyCls) {
-        return null;
-    }
-
-    public static <V> ValueMapper<V> ofValueClass(Class<V> keyCls) {
-        return null;
-    }
-
-    public static <V> ValueMapper.Builder<V> ofValueClassBuilder(Class<V> valCls) {
-        return null;
-    }
-
-    public static <R> KeyMapper<R> identity() {
-        return null;
-    }
-
-    public static <R> RecordMapper<R> ofRowClass(Class<R> rowCls) {
-        return null;
-    }
-
-    public static <R> RecordMapper.Builder<R> ofRowClassBuilder(Class<R> targetClass) {
-        return null;
-    }
-
+public interface BinaryObject {
     /**
-     * Stub.
+     * Deserializes binary object.
+     *
+     * @param targetCls Target class.
+     * @return Deserialized object.
      */
-    private Mappers() {
-    }
+    Object deserialize(Class<?> targetCls);
 }

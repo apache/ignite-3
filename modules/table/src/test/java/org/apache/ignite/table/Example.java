@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package table;
+package org.apache.ignite.table;
 
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.table.TableViewImpl;
 import org.junit.jupiter.api.Disabled;
-import table.binary.BinaryObject;
-import table.binary.BinaryObjects;
-import table.impl.DummyTableStorageImpl;
-import table.mapper.Mappers;
+import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.impl.DummyTableStorageImpl;
+import org.apache.ignite.table.mapper.Mappers;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 

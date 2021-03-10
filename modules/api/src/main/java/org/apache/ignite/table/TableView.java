@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package table;
+package org.apache.ignite.table;
 
 import java.util.Collection;
 import java.util.List;

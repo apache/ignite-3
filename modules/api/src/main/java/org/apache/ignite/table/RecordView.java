@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package table;
+package org.apache.ignite.table;
 
 /**
  * Record adapter for Table.

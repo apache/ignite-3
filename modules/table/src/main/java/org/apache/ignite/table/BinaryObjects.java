@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package table.mapper;
+package org.apache.ignite.table;
 
-import java.util.function.Function;
-import table.BinaryRow;
+import org.apache.ignite.table.binary.BinaryObject;
 
 /**
  *
  */
-public interface RecordMapper<R> {
-    public interface Builder<R> {
-        public Builder<R> map(String fieldName, Class<?> targetClass);
-
-        public Builder<R> map(String fieldName, Function<BinaryRow, Object> mapping);
-
-        public RecordMapper<R> build();
+public final class BinaryObjects {
+    /**
+     * Wraps byte array to BinaryObject.
+     * @param data Object data.
+     * @return Binary object.
+     */
+    public static BinaryObject wrap(byte[] data) {
+        return null;
     }
 }

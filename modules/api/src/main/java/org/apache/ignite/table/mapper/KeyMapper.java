@@ -15,21 +15,10 @@
  * limitations under the License.
  */
 
-package table;
+package org.apache.ignite.table.mapper;
 
 /**
- * Invoke processor provide ability to run code against a table row or table view entry on server-side.
  *
- * @param <T> Entry type.
- * @param <R> Processor result type.
  */
-public interface InvokeProcessor<T, R> {
-    /**
-     * Process entry and return the result.
-     *
-     * @param entry Entry to invoke on.
-     * @param args Invoke processor arguments.
-     * @return Invoke processor result.
-     */
-    R process(T entry, Object... args);
+public interface KeyMapper<T> {
 }

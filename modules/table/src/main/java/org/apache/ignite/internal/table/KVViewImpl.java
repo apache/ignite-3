@@ -21,10 +21,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.SortedMap;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import table.InvokeProcessor;
-import table.KVView;
-import table.mapper.KeyMapper;
-import table.mapper.ValueMapper;
+import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.KVView;
+import org.apache.ignite.table.mapper.KeyMapper;
+import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
  * Key-value view implementation provides functionality to access table

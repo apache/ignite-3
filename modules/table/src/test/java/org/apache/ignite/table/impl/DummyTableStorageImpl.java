@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package table.impl;
+package org.apache.ignite.table.impl;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.schema.TableSchemaManager;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.table.TableStorage;
 
 /**
- * Dummy table implementation.
+ * Table storage stub.
  */
 public class DummyTableStorageImpl implements TableStorage {
     /** In-memory dummy store. */
     private final Map<BinaryObjWrapper, BinaryObjWrapper> store = new ConcurrentHashMap<>();
-
-    /** Schema manager. */
-    private TableSchemaManager schemaMgr;
 
     /** {@inheritDoc} */
     @Override public TableRow get(TableRow obj) {

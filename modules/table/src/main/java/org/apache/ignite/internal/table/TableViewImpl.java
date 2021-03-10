@@ -19,15 +19,15 @@ package org.apache.ignite.internal.table;
 
 import java.util.Collection;
 import java.util.List;
-import table.BinaryRow;
-import table.InvokeProcessor;
-import table.KVView;
-import table.RecordView;
-import table.Table;
-import table.binary.BinaryRowBuilder;
-import table.mapper.KeyMapper;
-import table.mapper.RecordMapper;
-import table.mapper.ValueMapper;
+import org.apache.ignite.table.BinaryRow;
+import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.KVView;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.binary.BinaryRowBuilder;
+import org.apache.ignite.table.mapper.KeyMapper;
+import org.apache.ignite.table.mapper.RecordMapper;
+import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
  * Table view implementation provides functionality to access binary rows.

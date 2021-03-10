@@ -21,9 +21,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import table.InvokeProcessor;
-import table.RecordView;
-import table.mapper.RecordMapper;
+import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.mapper.RecordMapper;
 
 /**
  * Record view implementation provides functionality to access table

@@ -15,27 +15,38 @@
  * limitations under the License.
  */
 
-package table.impl;
+package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.table.TableRow;
 
-public class DummyTableRowImpl implements TableRow, Cloneable {
+/**
+ * Stub class.
+ */
+public class DummyTableRowImpl implements TableRow {
     //TODO: Replace with Tuple layout constants.
-    private final int SCHEMA_VERSION_OFFSET = 0;
-    private final int FLAGS_OFFSET = SCHEMA_VERSION_OFFSET + 2;
-    private final int KEY_HASH_OFFSET = FLAGS_OFFSET + 2;
-    private final int KEY_OFFSET = KEY_HASH_OFFSET + 4;
+    /** */
+    private static final int SCHEMA_VERSION_OFFSET = 0;
 
-    // TODO: Wrap tuple.
+    /** */
+    private static final int FLAGS_OFFSET = SCHEMA_VERSION_OFFSET + 2;
+
+    /** */
+    private static final int KEY_HASH_OFFSET = FLAGS_OFFSET + 2;
+
+    /** */
+    private static final int KEY_OFFSET = KEY_HASH_OFFSET + 4;
+
+    /** */
     private final byte[] bytes;
 
-    public DummyTableRowImpl(byte[] rowBytes) {
-        bytes = rowBytes;
-    }
-
-    public DummyTableRowImpl(DummyTableRowImpl row) {
-        this.bytes = row.bytes.clone();
+    /**
+     * Constructor.
+     *
+     * @param bytes Bytes to wrap.
+     */
+    public DummyTableRowImpl(byte[] bytes) {
+        this.bytes = bytes.clone();
     }
 
     /** {@inheritDoc} */
@@ -47,6 +58,7 @@ public class DummyTableRowImpl implements TableRow, Cloneable {
         return buf.limit(keyLen).position(KEY_OFFSET).slice().array();
     }
 
+    /** {@inheritDoc} */
     @Override public byte[] getBytes() {
         return bytes.clone();
     }

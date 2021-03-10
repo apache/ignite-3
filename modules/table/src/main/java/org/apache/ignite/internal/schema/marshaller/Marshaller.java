@@ -25,5 +25,6 @@ public interface Marshaller {
     <V> V unmarshallValue(TableRow row);
 
     <R> R unmarshallToRecord(TableRow tableRow);
+
     <R> R unmarshallToRecord(R record, TableRow tableRow);
 }

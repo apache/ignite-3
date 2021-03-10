@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package table;
+package org.apache.ignite.table;
 
-import table.binary.BinaryRowBuilder;
-import table.mapper.KeyMapper;
-import table.mapper.Mappers;
-import table.mapper.RecordMapper;
-import table.mapper.ValueMapper;
+import org.apache.ignite.table.binary.BinaryRowBuilder;
+import org.apache.ignite.table.mapper.KeyMapper;
+import org.apache.ignite.table.mapper.Mappers;
+import org.apache.ignite.table.mapper.RecordMapper;
+import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
  * Table binary projection.

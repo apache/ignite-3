@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package table;
+package org.apache.ignite.table;
 
-import table.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryObject;
 
 /**
  * Binary row interface.

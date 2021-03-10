@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package table.binary;
+package org.apache.ignite.table.binary;
 
-import table.BinaryRow;
+import org.apache.ignite.table.BinaryRow;
 
 /**
  * Binary row builder.
