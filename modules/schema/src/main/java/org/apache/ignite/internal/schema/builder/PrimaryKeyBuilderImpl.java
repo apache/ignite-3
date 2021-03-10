@@ -32,8 +32,12 @@ import static org.apache.ignite.schema.PrimaryIndex.PRIMARY_KEY_INDEX_NAME;
  * Primary index builder.
  */
 public class PrimaryKeyBuilderImpl extends SortedIndexBuilderImpl implements PrimaryIndexBuilder {
+    /** */
     private List<String> affCols;
 
+    /**
+     * Constructor.
+     */
     public PrimaryKeyBuilderImpl() {
         super(PRIMARY_KEY_INDEX_NAME);
 

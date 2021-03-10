@@ -44,7 +44,7 @@ public abstract class AbstractSchemaObject implements SchemaObject {
     @Override public String toString() {
         return "SchemaObject[" +
             "name='" + name + '\'' +
-            "class=" + this.getClass().getName() +
+            "class=" + getClass().getName() +
             ']';
     }
 }

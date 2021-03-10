@@ -72,19 +72,18 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
         super(tableName);
 
         this.schemaName = schemaName;
+        this.cols = cols;
+        this.indices = indices;
 
         final PrimaryIndex pkIndex = (PrimaryIndex)indices.get(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
+        final Set<String> pkColNames = pkIndex.columns().stream().map(IndexColumn::name).collect(Collectors.toSet());
 
         assert pkIndex != null;
 
-        this.cols = cols;
-        this.keyCols = pkIndex.columns().stream().map(c -> cols.get(c.name())).collect(Collectors.toUnmodifiableList());
-        this.affCols = pkIndex.affinityColumns().stream().map(cols::get).collect(Collectors.toUnmodifiableList());
+        keyCols = pkIndex.columns().stream().map(c -> cols.get(c.name())).collect(Collectors.toUnmodifiableList());
+        affCols = pkIndex.affinityColumns().stream().map(cols::get).collect(Collectors.toUnmodifiableList());
+        valCols = cols.values().stream().filter(c -> !pkColNames.contains(c.name())).collect(Collectors.toUnmodifiableList());
 
-        final Set<String> pkColNames = pkIndex.columns().stream().map(IndexColumn::name).collect(Collectors.toSet());
-        this.valCols = cols.values().stream().filter(c -> !pkColNames.contains(c.name())).collect(Collectors.toUnmodifiableList());
-
-        this.indices = indices;
     }
 
     /** {@inheritDoc} */

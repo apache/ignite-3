@@ -24,7 +24,13 @@ import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.junit.jupiter.api.Test;
 
+/**
+ *
+ */
 public class SchemaConfigurationTest {
+    /**
+     *
+     */
     @Test
     public void testInitialSchema() {
         final SchemaTableBuilder builder = SchemaBuilders.tableBuilder(SchemaTable.DEFAULT_SCHEMA_NAME, "table1");
@@ -76,6 +82,9 @@ public class SchemaConfigurationTest {
             .build();
     }
 
+    /**
+     *
+     */
     @Test
     public void testSchemaModification() {
         final SchemaTable table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
