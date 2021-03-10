@@ -35,9 +35,6 @@ public class RecordViewImpl<R> implements RecordView<R> {
     /** Table */
     private final TableStorage table;
 
-    /** Record class mapper. */
-    private final RecordMapper<R> mapper;
-
     /**
      * Constructor.
      *
@@ -46,7 +43,6 @@ public class RecordViewImpl<R> implements RecordView<R> {
      */
     public RecordViewImpl(TableStorage table, RecordMapper<R> mapper) {
         this.table = table;
-        this.mapper = mapper;
     }
 
     /** {@inheritDoc} */

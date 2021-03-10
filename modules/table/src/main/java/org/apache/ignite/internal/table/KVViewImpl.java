@@ -37,11 +37,6 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     /** Table. */
     private final TableStorage table;
 
-    /** Key class mapper. */
-    private final KeyMapper<K> keyMapper;
-
-    /** Value class mapper. */
-    private final ValueMapper<V> valueMapper;
 
     /**
      * Constructor.
@@ -52,8 +47,6 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
      */
     public KVViewImpl(TableStorage table, KeyMapper<K> keyMapper, ValueMapper<V> valueMapper) {
         this.table = table;
-        this.keyMapper = keyMapper;
-        this.valueMapper = valueMapper;
     }
 
     /** {@inheritDoc} */
