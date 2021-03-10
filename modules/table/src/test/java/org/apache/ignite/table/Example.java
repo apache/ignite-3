@@ -31,7 +31,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  *
  */
-@SuppressWarnings({"unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized", "PMD.EmptyLineSeparatorCheck", "JoinDeclarationAndAssignmentJava"})
+@SuppressWarnings({"PMD", "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized","JoinDeclarationAndAssignmentJava"})
 public class Example {
     /**
      * @return Table implementation.
