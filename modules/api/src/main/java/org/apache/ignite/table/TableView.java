@@ -169,6 +169,7 @@ public interface TableView<R> {
 
     // TODO: Do we expect operations over undefined scope using Criteria API in RecordView/Table or move next to ScanQueryAPI?
     public Collection<R> selectBy(Criteria<R> c);
+
     public void deleteBy(Criteria<R> c);
 
     /**
