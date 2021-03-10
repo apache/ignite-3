@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
@@ -39,7 +40,9 @@ public class SchemaDescriptorTest {
             }
         );
 
+        assertEquals(6, desc.length());
+
         for (int i = 0; i < desc.length(); i++)
-            Assertions.assertEquals(i, desc.column(i).schemaIndex());
+            assertEquals(i, desc.column(i).schemaIndex());
     }
 }
