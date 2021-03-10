@@ -187,16 +187,16 @@ public class SerializerBenchmarkTest {
             classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
 
         { // Build constructor.
-            final MethodDefinition constr = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
-            final Variable rnd = constr.getScope().declareVariable(Random.class, "rnd");
+            final MethodDefinition methodDef = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
+            final Variable rnd = methodDef.getScope().declareVariable(Random.class, "rnd");
 
-            final BytecodeBlock body = constr.getBody()
-                .append(constr.getThis())
+            final BytecodeBlock body = methodDef.getBody()
+                .append(methodDef.getThis())
                 .invokeConstructor(classDef.getSuperClass())
                 .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
 
             for (int i = 0; i < maxFields; i++)
-                body.append(constr.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
+                body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
 
             body.ret();
         }

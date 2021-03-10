@@ -97,7 +97,7 @@ public enum NativeTypeSpec {
     },
 
     /**
-     * Native type respresenting a string.
+     * Native type representing a string.
      */
     STRING("string") {
         /** {@inheritDoc} */

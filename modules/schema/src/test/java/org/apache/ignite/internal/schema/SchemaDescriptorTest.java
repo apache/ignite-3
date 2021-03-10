@@ -25,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  */
 public class SchemaDescriptorTest {
+    /**
+     *
+     */
     @Test
     public void testColumnIndexedAccess() {
         SchemaDescriptor desc = new SchemaDescriptor(1,

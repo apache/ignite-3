@@ -22,7 +22,7 @@ import java.util.UUID;
 
 /**
  * The class contains non-generic methods to read boxed and unboxed primitives based on the schema column types.
- * Any type conversions and coersions should be implemented outside of the tuple by the key-value or query runtime.
+ * Any type conversions and coercions should be implemented outside of the tuple by the key-value or query runtime.
  * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
  */
 public abstract class Tuple {

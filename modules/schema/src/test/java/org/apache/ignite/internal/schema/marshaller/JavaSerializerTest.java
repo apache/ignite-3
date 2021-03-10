@@ -234,8 +234,8 @@ public class JavaSerializerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        final Object key = PrivateContructorTestObject.randomObject(rnd);
-        final Object val = PrivateContructorTestObject.randomObject(rnd);
+        final Object key = TestObjectWithPrivateConstructor.randomObject(rnd);
+        final Object val = TestObjectWithPrivateConstructor.randomObject(rnd);
 
         Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 
@@ -385,7 +385,7 @@ public class JavaSerializerTest {
     }
 
     /**
-     * Generates randon value of given type.
+     * Generates random value of given type.
      *
      * @param type Type.
      */
@@ -414,16 +414,16 @@ public class JavaSerializerTest {
             classDef.declareField(EnumSet.of(Access.PRIVATE), "col" + i, ParameterizedType.type(fieldType));
 
         { // Build constructor.
-            final MethodDefinition constr = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
-            final Variable rnd = constr.getScope().declareVariable(Random.class, "rnd");
+            final MethodDefinition methodDef = classDef.declareConstructor(EnumSet.of(Access.PUBLIC));
+            final Variable rnd = methodDef.getScope().declareVariable(Random.class, "rnd");
 
-            BytecodeBlock body = constr.getBody()
-                .append(constr.getThis())
+            BytecodeBlock body = methodDef.getBody()
+                .append(methodDef.getThis())
                 .invokeConstructor(classDef.getSuperClass())
                 .append(rnd.set(BytecodeExpressions.newInstance(Random.class)));
 
             for (int i = 0; i < 3; i++)
-                body.append(constr.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
+                body.append(methodDef.getThis().setField("col" + i, rnd.invoke("nextLong", long.class).cast(fieldType)));
 
             body.ret();
         }
@@ -438,6 +438,7 @@ public class JavaSerializerTest {
     /**
      * Test object.
      */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     public static class TestObject {
         /**
          * @return Random TestObject.
@@ -546,12 +547,13 @@ public class JavaSerializerTest {
     /**
      * Test object with private constructor.
      */
-    public static class PrivateContructorTestObject {
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    public static class TestObjectWithPrivateConstructor {
         /**
          * @return Random TestObject.
          */
-        static PrivateContructorTestObject randomObject(Random rnd) {
-            final PrivateContructorTestObject obj = new PrivateContructorTestObject();
+        static TestObjectWithPrivateConstructor randomObject(Random rnd) {
+            final TestObjectWithPrivateConstructor obj = new TestObjectWithPrivateConstructor();
 
             obj.pLongCol = rnd.nextLong();
 
@@ -564,7 +566,7 @@ public class JavaSerializerTest {
         /**
          * Private constructor.
          */
-        private PrivateContructorTestObject() {
+        private TestObjectWithPrivateConstructor() {
         }
 
         /** {@inheritDoc} */
@@ -575,7 +577,7 @@ public class JavaSerializerTest {
             if (o == null || getClass() != o.getClass())
                 return false;
 
-            PrivateContructorTestObject object = (PrivateContructorTestObject)o;
+            TestObjectWithPrivateConstructor object = (TestObjectWithPrivateConstructor)o;
 
             return pLongCol == object.pLongCol;
         }
@@ -629,6 +631,7 @@ public class JavaSerializerTest {
     /**
      * Test object without default constructor.
      */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private static class PrivateTestObject {
         /**
          * @return Random TestObject.
@@ -640,7 +643,7 @@ public class JavaSerializerTest {
         /** Value. */
         private long pLongCol;
 
-        /** Contructor. */
+        /** Constructor. */
         PrivateTestObject() {
         }
 

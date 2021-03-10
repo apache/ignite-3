@@ -24,7 +24,7 @@ package org.apache.ignite.internal.util;
  * @param <V> Second object.
  */
 public class Pair<T, V> {
-    /** Fisrt obj. */
+    /** First obj. */
     private final T first;
 
     /** Second obj. */

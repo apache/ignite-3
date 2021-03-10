@@ -29,7 +29,7 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareFixlenVarlen() {
+    public void testCompareFixlenTypesVsVarlenTypes() {
         assertTrue(NativeType.BYTE.compareTo(NativeType.STRING) < 0);
         assertTrue(NativeType.BYTE.compareTo(NativeType.BYTES) < 0);
 
@@ -47,7 +47,7 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareFixlenBySize() {
+    public void testCompareFixlenTypesBySize() {
         assertTrue(NativeType.SHORT.compareTo(NativeType.INTEGER) < 0);
         assertTrue(NativeType.INTEGER.compareTo(NativeType.LONG) < 0);
         assertTrue(NativeType.LONG.compareTo(NativeType.UUID) < 0);
@@ -57,7 +57,7 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareFixlenByDesc() {
+    public void testCompareFixlenTypesByDesc() {
         assertTrue(NativeType.FLOAT.compareTo(NativeType.INTEGER) < 0);
     }
 
@@ -65,7 +65,7 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareVarlenByDesc() {
+    public void testCompareVarlenTypesByDesc() {
         assertTrue(NativeType.BYTES.compareTo(NativeType.STRING) < 0);
     }
 }

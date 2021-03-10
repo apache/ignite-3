@@ -31,7 +31,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFixsizeIndex() {
+    public void testFixSizedColumnsIndex() {
         Columns cols = new Columns(
             0,
             new Column("intCol2", NativeType.INTEGER, false),
@@ -53,7 +53,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testVarsizeIndex() {
+    public void testVarlenColumnsIndex() {
         Columns cols = new Columns(
             0,
             new Column("stringCol3", NativeType.STRING, false),
@@ -75,7 +75,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testMixedIndex() {
+    public void testMixedColumnsIndex() {
         Columns cols = new Columns(
             0,
             new Column("stringCol", NativeType.STRING, false),
@@ -118,6 +118,9 @@ public class ColumnsTest {
         assertEquals(3, new Columns(0, columns(24)).nullMapSize());
     }
 
+    /**
+     *
+     */
     @Test
     public void testColumnSchemaIndex() {
         {

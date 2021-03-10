@@ -23,9 +23,9 @@ import java.util.Random;
 /**
  * Test utility class.
  */
-public class TestUtils {
+public final class TestUtils {
     /**
-     * Generates randon value of given type.
+     * Generates random value of given type.
      *
      * @param rnd Random generator.
      * @param type Type.
@@ -90,7 +90,7 @@ public class TestUtils {
     /**
      * @param rnd Random generator.
      * @param len Byte array length.
-     * @return Radmon byte array.
+     * @return Random byte array.
      */
     public static byte[] randomBytes(Random rnd, int len) {
         byte[] data = new byte[len];
@@ -102,7 +102,7 @@ public class TestUtils {
     /**
      * @param rnd Random generator.
      * @param len String length.
-     * @return Randon string.
+     * @return Random string.
      */
     public static String randomString(Random rnd, int len) {
         StringBuilder sb = new StringBuilder();
@@ -117,5 +117,11 @@ public class TestUtils {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Stub.
+     */
+    private TestUtils() {
     }
 }

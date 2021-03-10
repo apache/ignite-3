@@ -29,15 +29,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  */
 public class ExpandableByteBufTest {
-    /** */
-    private ExpandableByteBuf buf;
-
     /**
      *
      */
     @Test
     public void testAllTypesDirectOrder() throws Exception {
-        buf = new ExpandableByteBuf(5);
+        ExpandableByteBuf buf = new ExpandableByteBuf(5);
 
         byte[] targetBytes = {1, 2, 3, 4, 5, 6, 7};
         String targetStr = "abcdefg";
@@ -81,7 +78,7 @@ public class ExpandableByteBufTest {
      */
     @Test
     public void testAllTypesReverseOrder() throws Exception {
-        buf = new ExpandableByteBuf(5);
+        ExpandableByteBuf buf = new ExpandableByteBuf(5);
 
         byte[] targetBytes = {1, 2, 3, 4, 5, 6, 7};
         String targetStr = "abcdefg";
@@ -139,7 +136,7 @@ public class ExpandableByteBufTest {
     @Test
     public void testStringExpandMultipleTimes() throws Exception {
         // Expansion chain 1->2->4->8->16->32.
-        buf = new ExpandableByteBuf(1);
+        ExpandableByteBuf buf = new ExpandableByteBuf(1);
 
         String str = "abcdefghijklmnopq";
 

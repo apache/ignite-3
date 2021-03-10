@@ -198,10 +198,10 @@ public class FieldAccessorTest {
     }
 
     /**
-     * @throws Exception If failed.
+     *
      */
     @Test
-    public void testWrongIdentityAccessor() throws Exception {
+    public void testWrongIdentityAccessor() {
         final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
             new Column("col0", STRING, true),
             42,
@@ -229,7 +229,7 @@ public class FieldAccessorTest {
         final TupleAssembler mockedAsm = Mockito.mock(TupleAssembler.class);
         final Tuple mockedTuple = Mockito.mock(Tuple.class);
 
-        final Answer<Void> asmAnswer = new Answer<Void>() {
+        final Answer<Void> asmAnswer = new Answer<>() {
             @Override public Void answer(InvocationOnMock invocation) {
                 if ("appendNull".equals(invocation.getMethod().getName()))
                     vals.add(null);
@@ -240,7 +240,7 @@ public class FieldAccessorTest {
             }
         };
 
-        final Answer<Object> tupleAnswer = new Answer<Object>() {
+        final Answer<Object> tupleAnswer = new Answer<>() {
             @Override public Object answer(InvocationOnMock invocation) {
                 final int idx = invocation.getArgument(0, Integer.class);
 
@@ -285,6 +285,7 @@ public class FieldAccessorTest {
     /**
      * Test object.
      */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private static class TestObject {
         /**
          * @return Random TestObject.
@@ -382,6 +383,7 @@ public class FieldAccessorTest {
     /**
      * Test object.
      */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private static class TestSimpleObject {
         Long longCol;
 

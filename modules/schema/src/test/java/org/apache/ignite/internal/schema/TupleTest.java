@@ -200,10 +200,10 @@ public class TupleTest {
     private void checkValues(SchemaDescriptor schema, Object... vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.length);
 
-        int nonNullVarsizeKeyCols = 0;
-        int nonNullVarsizeValCols = 0;
-        int nonNullVarsizeKeySize = 0;
-        int nonNullVarsizeValSize = 0;
+        int nonNullVarLenKeyCols = 0;
+        int nonNullVarLenValCols = 0;
+        int nonNullVarLenKeySize = 0;
+        int nonNullVarLenValSize = 0;
 
         for (int i = 0; i < vals.length; i++) {
             NativeTypeSpec type = schema.column(i).type().spec();
@@ -212,34 +212,34 @@ public class TupleTest {
                 if (type == NativeTypeSpec.BYTES) {
                     byte[] val = (byte[])vals[i];
                     if (schema.keyColumn(i)) {
-                        nonNullVarsizeKeyCols++;
-                        nonNullVarsizeKeySize += val.length;
+                        nonNullVarLenKeyCols++;
+                        nonNullVarLenKeySize += val.length;
                     }
                     else {
-                        nonNullVarsizeValCols++;
-                        nonNullVarsizeValSize += val.length;
+                        nonNullVarLenValCols++;
+                        nonNullVarLenValSize += val.length;
                     }
                 }
                 else if (type == NativeTypeSpec.STRING) {
                     if (schema.keyColumn(i)) {
-                        nonNullVarsizeKeyCols++;
-                        nonNullVarsizeKeySize += TupleAssembler.utf8EncodedLength((CharSequence)vals[i]);
+                        nonNullVarLenKeyCols++;
+                        nonNullVarLenKeySize += TupleAssembler.utf8EncodedLength((CharSequence)vals[i]);
                     }
                     else {
-                        nonNullVarsizeValCols++;
-                        nonNullVarsizeValSize += TupleAssembler.utf8EncodedLength((CharSequence)vals[i]);
+                        nonNullVarLenValCols++;
+                        nonNullVarLenValSize += TupleAssembler.utf8EncodedLength((CharSequence)vals[i]);
                     }
                 }
                 else
-                    throw new IllegalStateException("Unsupported test varsize type: " + type);
+                    throw new IllegalStateException("Unsupported test varlen type: " + type);
             }
         }
 
         int size = TupleAssembler.tupleSize(
-            schema.keyColumns(), nonNullVarsizeKeyCols, nonNullVarsizeKeySize,
-            schema.valueColumns(), nonNullVarsizeValCols, nonNullVarsizeValSize);
+            schema.keyColumns(), nonNullVarLenKeyCols, nonNullVarLenKeySize,
+            schema.valueColumns(), nonNullVarLenValCols, nonNullVarLenValSize);
 
-        TupleAssembler asm = new TupleAssembler(schema, size, nonNullVarsizeKeyCols, nonNullVarsizeValCols);
+        TupleAssembler asm = new TupleAssembler(schema, size, nonNullVarLenKeyCols, nonNullVarLenValCols);
 
         for (int i = 0; i < vals.length; i++) {
             if (vals[i] == null)
