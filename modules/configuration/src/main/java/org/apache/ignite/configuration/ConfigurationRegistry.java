@@ -42,6 +42,7 @@ public class ConfigurationRegistry {
     private final ConfigurationChanger changer = new ConfigurationChanger();
 
     {
+        // Default vaildators implemented in current module.
         changer.addValidator(Min.class, new MinValidator());
         changer.addValidator(Max.class, new MaxValidator());
     }

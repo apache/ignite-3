@@ -548,12 +548,25 @@ public class ConfigurationChanger {
     }
 
     private class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
+        /** */
         private final StorageRoots storageRoots;
+
+        /** */
         private final RootKey<?, ?> rootKey;
+
+        /** */
         private final VIEW val;
+
+        /** */
         private final Map<RootKey<?, ?>, ? extends TraversableTreeNode> newRoots;
+
+        /** */
         private final List<ValidationIssue> issues;
+
+        /** */
         private final String currentKey;
+
+        /** */
         private final List<String> currentPath;
 
         ValidationContextImpl(StorageRoots storageRoots, RootKey<?, ?> rootKey, VIEW val,
