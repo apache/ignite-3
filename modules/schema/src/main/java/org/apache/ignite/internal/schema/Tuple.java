@@ -30,7 +30,13 @@ public abstract class Tuple {
     public static final int SCHEMA_VERSION_FIELD_SIZE = 2;
 
     /** */
+    public static final int FLAGS_FIELD_SIZE = 2;
+
+    /** */
     public static final int KEY_HASH_FIELD_SIZE = 4;
+
+    /** */
+    public static final int TUPLE_HEADER_SIZE = SCHEMA_VERSION_FIELD_SIZE + FLAGS_FIELD_SIZE + KEY_HASH_FIELD_SIZE;
 
     /** */
     public static final int TOTAL_LEN_FIELD_SIZE = 4;
@@ -226,7 +232,7 @@ public abstract class Tuple {
         boolean keyCol = schema.keyColumn(colIdx);
         Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
 
-        int off = SCHEMA_VERSION_FIELD_SIZE + KEY_HASH_FIELD_SIZE;
+        int off = TUPLE_HEADER_SIZE;
 
         if (!keyCol) {
             // Jump to the next chunk, the size of the first chunk is written at the chunk start.

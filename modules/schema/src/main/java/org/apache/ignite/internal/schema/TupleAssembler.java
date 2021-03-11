@@ -139,7 +139,7 @@ public class TupleAssembler {
 
         curCols = schema.keyColumns();
 
-        initOffsets(Tuple.SCHEMA_VERSION_FIELD_SIZE + Tuple.KEY_HASH_FIELD_SIZE, nonNullVarlenKeyCols);
+        initOffsets(Tuple.TUPLE_HEADER_SIZE, nonNullVarlenKeyCols);
 
         buf.putShort(0, (short)schema.version());
     }
@@ -161,7 +161,7 @@ public class TupleAssembler {
         int nonNullVarlenValCols,
         int nonNullVarlenValSize
     ) {
-        return Tuple.SCHEMA_VERSION_FIELD_SIZE + Tuple.KEY_HASH_FIELD_SIZE +
+        return Tuple.TUPLE_HEADER_SIZE +
             tupleChunkSize(keyCols, nonNullVarlenKeyCols, nonNullVarlenKeySize) +
             tupleChunkSize(valCols, nonNullVarlenValCols, nonNullVarlenValSize);
     }
