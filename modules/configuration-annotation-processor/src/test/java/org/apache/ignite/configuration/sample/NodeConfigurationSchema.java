@@ -19,9 +19,7 @@ package org.apache.ignite.configuration.sample;
 
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Validate;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.sample.validation.NodeValidator;
 
 /**
  * Test node configuration schema.
@@ -39,6 +37,5 @@ public class NodeConfigurationSchema {
 
     /** Auto adjust enabled. */
     @Value(hasDefault = true)
-    @Validate(NodeValidator.class)
     public boolean autoAdjustEnabled = true;
 }
