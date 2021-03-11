@@ -63,7 +63,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
      * @param member Configuration member (leaf or node).
      * @param <P> Type of member.
      */
-    protected <P extends ConfigurationProperty<?, ?>> void add(P member) {
+    protected final <P extends ConfigurationProperty<?, ?>> void add(P member) {
         members.put(member.key(), member);
     }
 
@@ -73,12 +73,12 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
      * @param validators Validators for new member.
      * @param <M> Type of member.
      */
-    protected <M extends DynamicProperty<?>> void add(M member) {
+    protected final <M extends DynamicProperty<?>> void add(M member) {
         members.put(member.key(), member);
     }
 
     /** {@inheritDoc} */
-    @Override public Future<Void> change(Consumer<CHANGE> change) throws ConfigurationValidationException {
+    @Override public final Future<Void> change(Consumer<CHANGE> change) throws ConfigurationValidationException {
         Objects.requireNonNull(change, "Configuration consumer cannot be null.");
 
         InnerNode rootNodeChange = ((RootKeyImpl)rootKey).createRootNode();
@@ -118,7 +118,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     }
 
     /** {@inheritDoc} */
-    @Override public Map<String, ConfigurationProperty<?, ?>> members() {
+    @Override public final Map<String, ConfigurationProperty<?, ?>> members() {
         return Collections.unmodifiableMap(members);
     }
 }
