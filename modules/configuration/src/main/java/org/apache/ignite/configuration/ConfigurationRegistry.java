@@ -80,11 +80,11 @@ public class ConfigurationRegistry {
      * @param rootSupplier Closure to instantiate internal configuration tree roots.
      * @param publicRootCreator Function to create public user-facing tree instance.
      */
-    public static <T extends ConfigurationTree<VIEW, ?>, VIEW> RootKey<T, VIEW> newRootKey(
+    public static <T extends ConfigurationTree<V, ?>, V> RootKey<T, V> newRootKey(
         String rootName,
         Class<? extends ConfigurationStorage> storageType,
         Supplier<InnerNode> rootSupplier,
-        BiFunction<RootKey<T, VIEW>, ConfigurationChanger, T> publicRootCreator
+        BiFunction<RootKey<T, V>, ConfigurationChanger, T> publicRootCreator
     ) {
         return new RootKeyImpl<>(rootName, storageType, rootSupplier, publicRootCreator);
     }

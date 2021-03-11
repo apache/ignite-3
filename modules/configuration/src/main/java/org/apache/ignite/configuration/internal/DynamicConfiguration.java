@@ -79,9 +79,6 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
         M member
     ) {
         members.put(member.key(), member);
-
-        //TODO IGNITE-14183
-//        configurator.addValidations((Class<? extends ConfigurationTree<?, ?>>) getClass(), member.key(), validators);
     }
 
     /** {@inheritDoc} */

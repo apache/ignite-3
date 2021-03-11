@@ -159,7 +159,9 @@ public class ConfigurationChanger {
             storageDefaultsMap.put(rootKey, defaultsNode);
         }
 
-        storagesRootsMap.put(configurationStorage.getClass(), new StorageRoots(storageRootsMap, data.version()));
+        StorageRoots storageRoots = new StorageRoots(storageRootsMap, data.version());
+
+        storagesRootsMap.put(configurationStorage.getClass(), storageRoots);
 
         configurationStorage.addListener(changedEntries -> updateFromListener(
             configurationStorage.getClass(),
@@ -168,7 +170,6 @@ public class ConfigurationChanger {
 
         // Do this strictly after adding listeners, otherwise we can lose these changes.
         try {
-            //TODO IGNITE-14183 Do not write defaults that have not been validated. This can ruin everything.
             change(storageDefaultsMap).get();
         }
         catch (InterruptedException | ExecutionException e) {
