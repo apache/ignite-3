@@ -39,8 +39,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Filer;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -94,20 +92,17 @@ public class Processor extends AbstractProcessor {
     /** Inherit doc javadoc. */
     private static final String INHERIT_DOC = "{@inheritDoc}";
 
-    /** Class file writer. */
-    private Filer filer;
+    /** Type variable name for T generic type parameter. */
+    private static final TypeVariableName T_TYPE_VARIABLE = TypeVariableName.get("T");
+
+    /** Type name for {@code ConfigurationVisitor<T>}. */
+    private static final ParameterizedTypeName CONFIGURATION_VISITOR_T =
+        ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), T_TYPE_VARIABLE);
 
     /**
      * Constructor.
      */
     public Processor() {
-    }
-
-    /** {@inheritDoc} */
-    @Override public synchronized void init(ProcessingEnvironment processingEnv) {
-        super.init(processingEnv);
-
-        filer = processingEnv.getFiler();
     }
 
     /** {@inheritDoc} */
@@ -294,7 +289,7 @@ public class Processor extends AbstractProcessor {
             }
 
             // Create constructors for configuration class
-            createConstructors(isRoot, configurationClassBuilder, constructorBodyBuilder);
+            createConstructors(isRoot, configName, configurationClassBuilder, constructorBodyBuilder);
 
             // Write configuration interface
             buildClass(packageName, configurationInterfaceBuilder.build());
@@ -306,7 +301,8 @@ public class Processor extends AbstractProcessor {
     }
 
     /** */
-    private void createRootKeyField(ClassName configInterface,
+    private void createRootKeyField(
+        ClassName configInterface,
         TypeSpec.Builder configurationClassBuilder,
         ConfigurationDescription configDesc,
         TypeMirror storageType,
@@ -317,12 +313,11 @@ public class Processor extends AbstractProcessor {
 
         ClassName nodeClassName = Utils.getNodeName(schemaClassName);
 
-        FieldSpec keyField = FieldSpec.builder(
-            fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
+        FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
             .initializer(
-                "$T.newRootKey($S, $T.class, $T::new, (rootKey, changer) -> new $T($S, rootKey, changer))",
+                "$T.newRootKey($S, $T.class, $T::new, $T::new)",
                 ConfigurationRegistry.class, configDesc.getName(), storageType, nodeClassName,
-                Utils.getConfigurationName(schemaClassName), configDesc.getName()
+                Utils.getConfigurationName(schemaClassName)
             )
             .build();
 
@@ -487,29 +482,31 @@ public class Processor extends AbstractProcessor {
     /**
      * Create configuration class constructors.
      *
-     * @param configuratorClassName Configurator (configuration wrapper) class name.
-     * @param copyConstructorBodyBuilder Copy constructor body.
-     * @param isRoot
+     * @param isRoot Flag that indincates whether current configuration is root or not.
+     * @param configName Name of the root if configuration is root, {@code null} otherwise.
      * @param configurationClassBuilder Configuration class builder.
      * @param constructorBodyBuilder Constructor body.
      */
     private void createConstructors(
         boolean isRoot,
+        String configName,
         TypeSpec.Builder configurationClassBuilder,
         CodeBlock.Builder constructorBodyBuilder
     ) {
         MethodSpec.Builder builder = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
 
-        if (!isRoot)
-            builder.addParameter(ParameterizedTypeName.get(List.class, String.class), "prefix");
+        if (!isRoot) {
+            builder
+                .addParameter(ParameterizedTypeName.get(List.class, String.class), "prefix")
+                .addParameter(String.class, "key");
+        }
 
         builder
-            .addParameter(String.class, "key")
             .addParameter(ParameterizedTypeName.get(ClassName.get(RootKey.class), WILDCARD, WILDCARD), "rootKey")
             .addParameter(ConfigurationChanger.class, "changer");
 
         if (isRoot)
-            builder.addStatement("super($T.emptyList(), key, rootKey, changer)", Collections.class);
+            builder.addStatement("super($T.emptyList(), $S, rootKey, changer)", Collections.class, configName);
         else
             builder.addStatement("super(prefix, key, rootKey, changer)");
 
@@ -580,25 +577,23 @@ public class Processor extends AbstractProcessor {
                 .build()
             );
 
-        TypeVariableName t = TypeVariableName.get("T");
-
         MethodSpec.Builder traverseChildrenBuilder = MethodSpec.methodBuilder("traverseChildren")
             .addAnnotation(Override.class)
             .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
-            .addTypeVariable(t)
+            .addTypeVariable(T_TYPE_VARIABLE)
             .returns(TypeName.VOID)
-            .addParameter(ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), t), "visitor");
+            .addParameter(CONFIGURATION_VISITOR_T, "visitor");
 
         MethodSpec.Builder traverseChildBuilder = MethodSpec.methodBuilder("traverseChild")
             .addAnnotation(Override.class)
             .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
-            .addTypeVariable(t)
-            .returns(t)
+            .addTypeVariable(T_TYPE_VARIABLE)
+            .returns(T_TYPE_VARIABLE)
             .addException(NoSuchElementException.class)
             .addParameter(ClassName.get(String.class), "key")
-            .addParameter(ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), t), "visitor")
+            .addParameter(CONFIGURATION_VISITOR_T, "visitor")
             .beginControlFlow("switch (key)");
 
         MethodSpec.Builder constructBuilder = MethodSpec.methodBuilder("construct")
@@ -943,7 +938,7 @@ public class Processor extends AbstractProcessor {
             JavaFile.builder(packageName, cls)
                 .indent(INDENT)
                 .build()
-                .writeTo(filer);
+                .writeTo(processingEnv.getFiler());
         }
         catch (IOException e) {
             throw new ProcessorException("Failed to generate class " + packageName + "." + cls.name, e);

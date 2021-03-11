@@ -106,9 +106,4 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
     @Override public String key() {
         return key;
     }
-
-    /** {@inheritDoc} */
-    @Override protected void beforeRefreshValue(T newValue) {
-        // No-op.
-    }
 }

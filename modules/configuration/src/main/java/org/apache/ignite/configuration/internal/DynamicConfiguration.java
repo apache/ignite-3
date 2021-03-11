@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.internal;
 
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -72,12 +71,9 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
      * Add new configuration member with validators.
      * @param member Configuration member (leaf or node).
      * @param validators Validators for new member.
-     * @param <PROP> Type of {@link DynamicProperty}.
      * @param <M> Type of member.
      */
-    protected <PROP extends Serializable, M extends DynamicProperty<PROP>> void add(
-        M member
-    ) {
+    protected <M extends DynamicProperty<?>> void add(M member) {
         members.put(member.key(), member);
     }
 
@@ -124,10 +120,5 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     /** {@inheritDoc} */
     @Override public Map<String, ConfigurationProperty<?, ?>> members() {
         return Collections.unmodifiableMap(members);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void beforeRefreshValue(VIEW newValue) {
-        // No-op.
     }
 }

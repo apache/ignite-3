@@ -131,5 +131,7 @@ public abstract class ConfigurationNode<VIEW> {
      *
      * @param newValue New configuration value.
      */
-    protected abstract void beforeRefreshValue(VIEW newValue);
+    protected void beforeRefreshValue(VIEW newValue) {
+        // No-op.
+    }
 }
