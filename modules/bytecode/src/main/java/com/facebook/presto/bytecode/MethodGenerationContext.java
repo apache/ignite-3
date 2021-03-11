@@ -91,7 +91,7 @@ public class MethodGenerationContext {
         return true;
     }
 
-    private final class ScopeContext {
+    private static final class ScopeContext {
         private final Scope scope;
         private final List<Variable> variables;
 

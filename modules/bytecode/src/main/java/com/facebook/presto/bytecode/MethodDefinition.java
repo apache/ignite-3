@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.bytecode;
 
 import java.util.ArrayList;
@@ -67,12 +68,7 @@ public class MethodDefinition {
 
         this.access = access;
         this.name = name;
-        if (returnType != null) {
-            this.returnType = returnType;
-        }
-        else {
-            this.returnType = type(void.class);
-        }
+        this.returnType = returnType != null ? returnType : type(void.class);
         this.parameters = List.copyOf(parameters);
         this.parameterTypes = parameters.stream().map(Parameter::getType).collect(Collectors.toList());
         this.parameterAnnotations = parameters.stream().map(p -> new ArrayList<AnnotationDefinition>()).collect(Collectors.toList());
