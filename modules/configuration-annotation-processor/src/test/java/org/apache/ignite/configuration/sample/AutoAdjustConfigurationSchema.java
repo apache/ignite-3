@@ -30,13 +30,13 @@ import org.apache.ignite.configuration.sample.validation.AutoAdjustValidator2;
 @Config
 public class AutoAdjustConfigurationSchema {
     /** Timeout. */
-    @Value
+    @Value(hasDefault = true)
     @Min(value = 0, message = "Minimal is 0")
     @Validate(value = AutoAdjustValidator.class, message = "a")
     @Validate(value = AutoAdjustValidator2.class, message = "b")
-    public long timeout;
+    public long timeout = 0L;
 
     /** Enabled. */
-    @Value
-    public boolean enabled;
+    @Value(hasDefault = true)
+    public boolean enabled = true;
 }

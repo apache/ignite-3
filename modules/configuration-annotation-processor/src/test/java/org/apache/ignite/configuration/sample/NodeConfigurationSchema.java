@@ -38,7 +38,7 @@ public class NodeConfigurationSchema {
     public int port;
 
     /** Auto adjust enabled. */
-    @Value
+    @Value(hasDefault = true)
     @Validate(NodeValidator.class)
-    public boolean autoAdjustEnabled;
+    public boolean autoAdjustEnabled = true;
 }
