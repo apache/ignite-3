@@ -17,12 +17,19 @@
 
 package org.apache.ignite.table.binary;
 
-import org.apache.ignite.table.BinaryRow;
-
 /**
  * Binary row builder.
  */
 public interface BinaryRowBuilder {
+    /**
+     * Sets column value.
+     *
+     * @param colName Column name.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
+     */
+    BinaryRowBuilder set(String colName, Object value);
+
     /**
      * @return Binary row.
      */

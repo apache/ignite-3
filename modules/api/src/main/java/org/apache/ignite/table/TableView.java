@@ -22,6 +22,7 @@ import java.util.List;
 
 /**
  * Table view interface.
+ *
  * @param <R> Table row type.
  */
 public interface TableView<R> {
@@ -39,7 +40,7 @@ public interface TableView<R> {
      * @param keyRecs Rows with key fields set.
      * @return Rows with all fields filled from the table.
      */
-    public <K> Collection<R> getAll(List<K> keyRecs);
+    public <K> List<R> getAll(List<K> keyRecs);
 
     /**
      * Inserts new row into the table if it is not exists or replace existed one.
@@ -157,7 +158,7 @@ public interface TableView<R> {
      * @param <T> //TODO: Must be serializable or will be implicitly converted to BinaryObject for transportation to remote node?
      * @return Results of the processing.
      */
-    public <K, T> T invoke(K keyRec, InvokeProcessor<R, T> proc);
+    public <K, T> T invoke(K keyRec, InvokeProcessor<K, R, T> proc);
 
     /**
      * Invokes an InvokeProcessor against the associated rows.
@@ -165,7 +166,7 @@ public interface TableView<R> {
      * @param keyRecs Sorted collection of rows with key fields set.
      * @return Results of the processing.
      */
-    public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<R, T> proc);
+    public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<K, R, T> proc);
 
     // TODO: Do we expect operations over undefined scope using Criteria API in RecordView/Table or move next to ScanQueryAPI?
     public Collection<R> selectBy(Criteria<R> c);

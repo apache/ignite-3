@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.internal.table.TableRow;
+import org.apache.ignite.table.binary.BinaryRow;
 
 public interface Marshaller {
-    <K> TableRow toKeyRow(K key);
+    <K> BinaryRow toKeyRow(K key);
 
-    <V> V unmarshallValue(TableRow row);
+    <V> V unmarshallValue(BinaryRow row);
 
-    <R> R unmarshallToRecord(TableRow tableRow);
+    <R> R unmarshallToRecord(BinaryRow tableRow);
 
-    <R> R unmarshallToRecord(R record, TableRow tableRow);
+    <R> R unmarshallToRecord(R record, BinaryRow tableRow);
 }

@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
+/**
+ * Table access API implementation.
+ */
 package org.apache.ignite.internal.table;
-
-public interface TableRow {
-    byte[] getKeyBytes();
-
-    byte[] getBytes();
-}

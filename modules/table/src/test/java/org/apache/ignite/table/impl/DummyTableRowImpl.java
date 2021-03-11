@@ -18,12 +18,13 @@
 package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.table.TableRow;
+import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryRow;
 
 /**
  * Stub class.
  */
-public class DummyTableRowImpl implements TableRow {
+public class DummyTableRowImpl implements BinaryRow {
     //TODO: Replace with Tuple layout constants.
     /** */
     private static final int SCHEMA_VERSION_OFFSET = 0;
@@ -51,15 +52,74 @@ public class DummyTableRowImpl implements TableRow {
 
     /** {@inheritDoc} */
     @Override public byte[] getKeyBytes() {
-        final ByteBuffer buf = ByteBuffer.wrap(bytes);
+        ByteBuffer buf = ByteBuffer.wrap(bytes);
 
-        final int keyLen = buf.getInt(KEY_HASH_OFFSET);
+        int keyLen = buf.getInt(KEY_OFFSET);
 
-        return buf.limit(keyLen).position(KEY_OFFSET).slice().array();
+        return buf.position(KEY_OFFSET).limit(keyLen).slice().array();
     }
 
     /** {@inheritDoc} */
     @Override public byte[] getBytes() {
         return bytes.clone();
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] getValueBytes() {
+        ByteBuffer buf = ByteBuffer.wrap(bytes);
+
+        int valOffset = KEY_OFFSET + buf.getInt(KEY_OFFSET);
+
+        return buf.position(valOffset).slice().array();
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T> T value(String colName) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryObject binaryObjectField(String colName) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte byteValue(String colName) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public short shortValue(String colName) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int intValue(String colName) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long longValue(String colName) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public float floatValue(String colName) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public double doubleValue(String colName) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String stringValue(String colName) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long schemaVersion() {
+        return 0;
     }
 }

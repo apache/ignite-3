@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.binary.BinaryRow;
 import org.apache.ignite.table.mapper.RecordMapper;
 
 /**
@@ -49,9 +50,9 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public <K> R get(K recObjToFill) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.toKeyRow(recObjToFill);
+        BinaryRow kRow = marsh.toKeyRow(recObjToFill);
 
-        TableRow tRow = table.get(kRow);
+        BinaryRow tRow = table.get(kRow);
 
         return marsh.unmarshallToRecord(tRow);
     }
@@ -60,15 +61,15 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public R fill(R recObjToFill) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.toKeyRow(recObjToFill);
+        BinaryRow kRow = marsh.toKeyRow(recObjToFill);
 
-        TableRow tRow = table.get(kRow);
+        BinaryRow tRow = table.get(kRow);
 
         return marsh.unmarshallToRecord(recObjToFill, tRow);
     }
 
     /** {@inheritDoc} */
-    @Override public <K> Collection<R> getAll(List<K> keyRecs) {
+    @Override public <K> List<R> getAll(List<K> keyRecs) {
         return null;
     }
 
@@ -152,12 +153,12 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<R, T> proc) {
+    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<K, R, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<R, T> proc) {
+    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<K, R, T> proc) {
         return null;
     }
 

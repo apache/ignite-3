@@ -18,18 +18,48 @@
 package org.apache.ignite.table;
 
 /**
- * Invoke processor provide ability to run code against a table row or table view entry on server-side.
+ * Invoke processor provide ability to run code against a value associated with a target on server-side.
  *
- * @param <T> Entry type.
+ * @param <T> Target object type.
+ * @param <V> Value type.
  * @param <R> Processor result type.
  */
-public interface InvokeProcessor<T, R> {
+public interface InvokeProcessor<T, V, R> {
     /**
      * Process entry and return the result.
      *
-     * @param entry Entry to invoke on.
-     * @param args Invoke processor arguments.
+     * @param ctx Invocation context.
      * @return Invoke processor result.
      */
-    R process(T entry, Object... args);
+    R process(InvocationContext<T, V> ctx);
+
+    /**
+     * Invocation context.
+     *
+     * @param <T> Target object type.
+     * @param <V> Value type.
+     */
+    interface InvocationContext<T, V> {
+        /**
+         * @return Invocation arguments.
+         */
+        Object[] args();
+
+        /**
+         * @return Target object.
+         */
+        T target();
+
+        /**
+         * @return Current value.
+         */
+        V value();
+
+        /**
+         * Sets new value.
+         *
+         * @param val Value object to set.
+         */
+        void value(V val);
+    }
 }

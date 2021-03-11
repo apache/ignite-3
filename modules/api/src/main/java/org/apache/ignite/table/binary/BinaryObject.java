@@ -18,8 +18,10 @@
 package org.apache.ignite.table.binary;
 
 /**
- *
+ * Binary object interface represents non-versioned types which are not managed with schema manager.
+ * Instances are self-described objects and incorporates a schema for direct field access.
  */
+//TODO: create binary object builder.
 public interface BinaryObject {
     /**
      * Deserializes binary object.

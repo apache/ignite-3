@@ -19,11 +19,11 @@ package org.apache.ignite.internal.table;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.table.BinaryRow;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.binary.BinaryRow;
 import org.apache.ignite.table.binary.BinaryRowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -61,7 +61,7 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <K> Collection<BinaryRow> getAll(List<K> keyRecs) {
+    @Override public <K> List<BinaryRow> getAll(List<K> keyRecs) {
         return null;
     }
 
@@ -146,27 +146,17 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<BinaryRow, T> proc) {
+    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<K, BinaryRow, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<BinaryRow, T> proc) {
+    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<K, BinaryRow, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRowBuilder binaryRowBuilder(Object... args) {
-//        BinaryRow row = null;
-
-//        TableSchema schema = table.schemaManager().schema();
-//        assert args.length == schema.keyColumns().length();
-
-//        for (int i = 0; i < args.length; i++)
-//            row.setColumn(i, args[i]);
-
-//        return row;
-
+    @Override public BinaryRowBuilder binaryRowBuilder() {
         return null;
     }
 }

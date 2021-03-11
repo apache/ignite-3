@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
-
-import org.apache.ignite.table.binary.BinaryObject;
+package org.apache.ignite.table.binary;
 
 /**
  * Binary row interface.
@@ -30,7 +28,7 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
      * @param <T> Value type.
      * @return Column value.
      */
-    public <T> T value(String colName);
+    <T> T value(String colName);
 
     /**
      * Gets binary object column.
@@ -38,10 +36,10 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
      * @param colName Column name.
      * @return Column value.
      */
-    public BinaryObject binaryObjectField(String colName);
+    BinaryObject binaryObjectField(String colName);
 
     /**
-     * Gets {@code byte} object column value.
+     * Gets {@code byte} column value.
      *
      * @param colName Column name.
      * @return Column value.
@@ -49,7 +47,7 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
     byte byteValue(String colName);
 
     /**
-     * Gets {@code short} object column value.
+     * Gets {@code short} column value.
      *
      * @param colName Column name.
      * @return Column value.
@@ -57,7 +55,7 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
     short shortValue(String colName);
 
     /**
-     * Gets {@code int} object column value.
+     * Gets {@code int} column value.
      *
      * @param colName Column name.
      * @return Column value.
@@ -65,7 +63,7 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
     int intValue(String colName);
 
     /**
-     * Gets {@code long} object column value.
+     * Gets {@code long} column value.
      *
      * @param colName Column name.
      * @return Column value.
@@ -73,7 +71,7 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
     long longValue(String colName);
 
     /**
-     * Gets {@code float} object column value.
+     * Gets {@code float} column value.
      *
      * @param colName Column name.
      * @return Column value.
@@ -81,7 +79,7 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
     float floatValue(String colName);
 
     /**
-     * Gets {@code double} object column value.
+     * Gets {@code double} column value.
      *
      * @param colName Column name.
      * @return Column value.
@@ -89,10 +87,30 @@ public interface BinaryRow { //TODO: Extends BinaryObject interface?
     double doubleValue(String colName);
 
     /**
-     * Gets {@code String} object column value.
+     * Gets {@code String} column value.
      *
      * @param colName Column name.
      * @return Column value.
      */
     String stringValue(String colName);
+
+    /**
+     * @return Schema version.
+     */
+    long schemaVersion();
+    
+    /**
+     * @return Row bytes.
+     */
+    byte[] getBytes();
+
+    /**
+     * @return Key chunk bytes.
+     */
+    byte[] getKeyBytes();
+
+    /**
+     * @return Value chunk bytes.
+     */
+    byte[] getValueBytes();
 }

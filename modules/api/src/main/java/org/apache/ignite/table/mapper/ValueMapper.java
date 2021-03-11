@@ -18,7 +18,7 @@
 package org.apache.ignite.table.mapper;
 
 import java.util.function.Function;
-import org.apache.ignite.table.BinaryRow;
+import org.apache.ignite.table.binary.BinaryRow;
 
 /**
  *

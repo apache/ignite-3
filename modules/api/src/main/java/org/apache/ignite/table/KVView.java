@@ -17,8 +17,9 @@
 
 package org.apache.ignite.table;
 
+import java.io.Serializable;
 import java.util.List;
-import java.util.SortedMap;
+import java.util.Map;
 
 /**
  * Key-Value adapter for Table.
@@ -38,7 +39,7 @@ public interface KVView<K, V> {
     /**
      * Gets values associated with given keys.
      *
-     * @param keys Sorted collection of keys whose associated values are to be returned.
+     * @param keys Ordered collection of keys whose associated values are to be returned.
      * @return Values associated with given keys.
      */
     public List<V> getAll(List<K> keys);
@@ -62,9 +63,9 @@ public interface KVView<K, V> {
     /**
      * Put associated key-value pairs.
      *
-     * @param pairs Sorted collection of key-value pairs.
+     * @param pairs Ordered collection of key-value pairs.
      */
-    public void putAll(SortedMap<K, V> pairs);
+    public void putAll(Map<K, V> pairs); // TODO: SortedMap? or List of pairs?
 
     /**
      * Puts and return value associated with given key into the table.
@@ -104,7 +105,7 @@ public interface KVView<K, V> {
     /**
      * Removes values associated with given keys from the table.
      *
-     * @param keys Sorted collection of keys whose mapping is to be removed from the table.
+     * @param keys Ordered collection of keys whose mapping is to be removed from the table.
      */
     public void removeAll(List<K> keys);
 
@@ -175,42 +176,21 @@ public interface KVView<K, V> {
      * Invokes an InvokeProcessor against the row associated with the provided key.
      *
      * @param key Key that associated with the row that invoke processor will be applied to.
-     * @param proc Processor to invoke.
-     * @param <R> Result type. //TODO: Must be serializable or will be implicitly converted to BinaryObject for transportation to remote node?
+     * @param proc Invoke processor.
+     * @param args Invoke processor arguments.
+     * @param <R> Result type.
      * @return Result of the processing.
      */
-    public <R> R invoke(K key, InvokeProcessor<MutableEntry<K, V>, R> proc);
+    public <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args);
 
     /**
      * Invokes an InvokeProcessor against the rows associated with the provided keys.
      *
      * @param keys Sorted collection of key associated with table row.
-     * @param proc Processor to invoke.
+     * @param proc Invoke processor.
+     * @param args Invoke processor arguments.
      * @param <R> Result type.
      * @return Results of the processing.
      */
-    public <R> List<R> invokeAll(List<K> keys, InvokeProcessor<MutableEntry<K, V>, R> proc);
-
-    /**
-     * Key-value view entry.
-     *
-     * @param <K> Key type.
-     * @param <V> Value type.
-     */
-    public static interface MutableEntry<K, V> {
-        /**
-         * @return Entry key.
-         */
-        K key();
-
-        /**
-         * @return Entry value.
-         */
-        V value();
-
-        /**
-         * Sets new value to entry.
-         */
-        void setValue(V value);
-    }
+    public <R extends Serializable> List<R> invokeAll(List<K> keys, InvokeProcessor<K, V, R> proc, Serializable... args);
 }

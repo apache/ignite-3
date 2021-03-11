@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import org.apache.ignite.table.binary.BinaryRow;
 import org.apache.ignite.table.binary.BinaryRowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
@@ -33,7 +34,7 @@ public interface Table extends TableView<BinaryRow> {
      * @param recMapper Record class mapper.
      * @return Table record view.
      */
-    public <R> RecordView<R> recordView(RecordMapper<R> recMapper);
+    <R> RecordView<R> recordView(RecordMapper<R> recMapper);
 
     /**
      * Creates key-value view of table for key-value class mappers provided.
@@ -42,7 +43,7 @@ public interface Table extends TableView<BinaryRow> {
      * @param valMapper Value class mapper.
      * @return Table key-value view.
      */
-    public <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
+    <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
     /**
      * Creates record view of table for record class provided.
@@ -50,7 +51,7 @@ public interface Table extends TableView<BinaryRow> {
      * @param recCls Record class.
      * @return Table record view.
      */
-    public default <R> RecordView<R> recordView(Class<R> recCls) {
+    default <R> RecordView<R> recordView(Class<R> recCls) {
         return recordView(Mappers.ofRowClass(recCls));
     }
 
@@ -61,15 +62,14 @@ public interface Table extends TableView<BinaryRow> {
      * @param valCls Value class.
      * @return Table key-value view.
      */
-    public default <K, V> KVView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
+    default <K, V> KVView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
     /**
      * Creates builder for BinaryRow.
      *
-     * @param args TODO: drop.
      * @return BinaryRow builder for table.
      */
-    BinaryRowBuilder binaryRowBuilder(Object... args);
+    BinaryRowBuilder binaryRowBuilder();
 }
