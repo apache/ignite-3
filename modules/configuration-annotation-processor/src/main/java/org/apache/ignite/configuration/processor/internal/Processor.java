@@ -566,7 +566,7 @@ public class Processor extends AbstractProcessor {
             .addModifiers(PUBLIC);
 
         TypeSpec.Builder nodeClsBuilder = TypeSpec.classBuilder(nodeClsName)
-            .addModifiers(PUBLIC, FINAL)
+            .addModifiers(FINAL)
             .superclass(ClassName.get(InnerNode.class))
             .addSuperinterface(viewClsName)
             .addSuperinterface(changeClsName)
@@ -638,25 +638,13 @@ public class Processor extends AbstractProcessor {
 
             boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
 
-            TypeName viewFieldType = leafField ? schemaFieldType : ClassName.get(
-                ((ClassName)schemaFieldType).packageName(),
-                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "View")
-            );
+            TypeName viewFieldType = leafField ? schemaFieldType : Utils.getViewName((ClassName)schemaFieldType);
 
-            TypeName changeFieldType = leafField ? schemaFieldType : ClassName.get(
-                ((ClassName)schemaFieldType).packageName(),
-                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Change")
-            );
+            TypeName changeFieldType = leafField ? schemaFieldType : Utils.getChangeName((ClassName)schemaFieldType);
 
-            TypeName initFieldType = leafField ? schemaFieldType : ClassName.get(
-                ((ClassName)schemaFieldType).packageName(),
-                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Init")
-            );
+            TypeName initFieldType = leafField ? schemaFieldType : Utils.getInitName((ClassName)schemaFieldType);
 
-            TypeName nodeFieldType = leafField ? schemaFieldType.box() : ClassName.get(
-                ((ClassName)schemaFieldType).packageName() + (leafField ? "" : ".impl"),
-                ((ClassName)schemaFieldType).simpleName().replace("ConfigurationSchema", "Node")
-            );
+            TypeName nodeFieldType = leafField ? schemaFieldType.box() : Utils.getNodeName((ClassName)schemaFieldType);
 
             TypeName namedListParamType = nodeFieldType;
 

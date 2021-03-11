@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.sample.impl.TestArrayNode;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.junit.jupiter.api.Test;
 
