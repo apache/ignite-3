@@ -17,3 +17,5 @@ Module Name | Description
 [rest](rest/README.md)|REST management endpoint bindings and command handlers
 [cli-common](cli-common/README.md)|Shared interfaces definitions for pluggable CLI
 [cli](cli/README.md)|Ignite CLI implementation
+[api](api/README.md)|Ignite public API
+[schema](schema/README.md)|Ignite versioned schema management.
