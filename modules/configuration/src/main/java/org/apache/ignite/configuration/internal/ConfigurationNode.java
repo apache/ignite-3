@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.internal;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
@@ -68,6 +69,8 @@ public abstract class ConfigurationNode<VIEW> {
         this.key = key;
         this.rootKey = rootKey;
         this.changer = changer;
+
+        assert Objects.equals(rootKey.key(), keys.get(0));
     }
 
     /**
@@ -93,7 +96,7 @@ public abstract class ConfigurationNode<VIEW> {
                 if (cachedRootNode == oldRootNode) {
                     cachedRootNode = newRootNode;
 
-                    refreshValue0(newVal);
+                    beforeRefreshValue(newVal);
 
                     return val = newVal;
                 }
@@ -128,5 +131,5 @@ public abstract class ConfigurationNode<VIEW> {
      *
      * @param newValue New configuration value.
      */
-    protected abstract void refreshValue0(VIEW newValue);
+    protected abstract void beforeRefreshValue(VIEW newValue);
 }
