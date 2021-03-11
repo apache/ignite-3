@@ -53,7 +53,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE
     public NamedListConfiguration(
         List<String> prefix,
         String key,
-        RootKey<?> rootKey,
+        RootKey<?, ?> rootKey,
         ConfigurationChanger changer,
         BiFunction<List<String>, String, T> creator) {
         super(prefix, key, rootKey, changer);

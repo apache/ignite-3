@@ -17,12 +17,15 @@
 package org.apache.ignite.configuration.sample.storage;
 
 import java.io.Serializable;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationChanger;
-import org.apache.ignite.configuration.Configurator;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -31,10 +34,13 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.sample.storage.impl.ANode;
 import org.apache.ignite.configuration.sample.storage.impl.DefaultsNode;
 import org.apache.ignite.configuration.storage.Data;
+import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.apache.ignite.configuration.validation.Validator;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.sample.storage.AConfiguration.KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,11 +51,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Test configuration changer.
  */
 public class ConfigurationChangerTest {
+    /** Annotation used to test failing validation. */
+    @Target(FIELD)
+    @Retention(RUNTIME)
+    @interface MaybeInvalid {
+    }
+
     /** */
     @ConfigurationRoot(rootName = "key", storage = TestConfigurationStorage.class)
     public static class AConfigurationSchema {
         /** */
         @ConfigValue
+        @MaybeInvalid
         private BConfigurationSchema child;
 
         /** */
@@ -84,17 +97,12 @@ public class ConfigurationChangerTest {
     public void testSimpleConfigurationChange() throws Exception {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController configuratorController = new ConfiguratorController();
-        final Configurator<?> configurator = configuratorController.configurator();
-
         ANode data = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
             .initElements(change -> change.create("a", init -> init.initStrCfg("1")));
 
         final ConfigurationChanger changer = new ConfigurationChanger(KEY);
         changer.init(storage);
-
-        changer.registerConfiguration(KEY, configurator);
 
         changer.change(Collections.singletonMap(KEY, data)).get(1, SECONDS);
 
@@ -112,9 +120,6 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorage() throws Exception {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController configuratorController = new ConfiguratorController();
-        final Configurator<?> configurator = configuratorController.configurator();
-
         ANode data1 = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
             .initElements(change -> change.create("a", init -> init.initStrCfg("1")));
@@ -131,9 +136,6 @@ public class ConfigurationChangerTest {
 
         final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
         changer2.init(storage);
-
-        changer1.registerConfiguration(KEY, configurator);
-        changer2.registerConfiguration(KEY, configurator);
 
         changer1.change(Collections.singletonMap(KEY, data1)).get(1, SECONDS);
         changer2.change(Collections.singletonMap(KEY, data2)).get(1, SECONDS);
@@ -160,9 +162,6 @@ public class ConfigurationChangerTest {
     public void testModifiedFromAnotherStorageWithIncompatibleChanges() throws Exception {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController configuratorController = new ConfiguratorController();
-        final Configurator<?> configurator = configuratorController.configurator();
-
         ANode data1 = new ANode()
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
             .initElements(change -> change.create("a", init -> init.initStrCfg("1")));
@@ -180,12 +179,13 @@ public class ConfigurationChangerTest {
         final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
         changer2.init(storage);
 
-        changer1.registerConfiguration(KEY, configurator);
-        changer2.registerConfiguration(KEY, configurator);
-
         changer1.change(Collections.singletonMap(KEY, data1)).get(1, SECONDS);
 
-        configuratorController.hasIssues(true);
+        changer2.addValidator(MaybeInvalid.class, new Validator<MaybeInvalid, Object>() {
+            @Override public void validate(MaybeInvalid annotation, ValidationContext<Object> ctx) {
+                ctx.addIssue(new ValidationIssue("foo"));
+            }
+        });
 
         assertThrows(ExecutionException.class, () -> changer2.change(Collections.singletonMap(KEY, data2)).get(1, SECONDS));
 
@@ -203,9 +203,6 @@ public class ConfigurationChangerTest {
     public void testFailedToWrite() {
         final TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        final ConfiguratorController configuratorController = new ConfiguratorController();
-        final Configurator<?> configurator = configuratorController.configurator();
-
         ANode data = new ANode().initChild(child -> child.initIntCfg(1));
 
         final ConfigurationChanger changer = new ConfigurationChanger(KEY);
@@ -217,8 +214,6 @@ public class ConfigurationChangerTest {
         storage.fail(false);
 
         changer.init(storage);
-
-        changer.registerConfiguration(KEY, configurator);
 
         storage.fail(true);
 
@@ -257,6 +252,10 @@ public class ConfigurationChangerTest {
         /** */
         @Value(hasDefault = true)
         public String defStr = "bar";
+
+        /** */
+        @Value(hasDefault = true)
+        public String[] arr = {"xyz"};
     }
 
     @Test
@@ -271,6 +270,7 @@ public class ConfigurationChangerTest {
 
         assertEquals("foo", root.defStr());
         assertEquals("bar", root.child().defStr());
+        assertEquals(List.of("xyz"), Arrays.asList(root.child().arr()));
 
         // This is not init, move it to another test =(
         changer.change(Map.of(DefaultsConfiguration.KEY, new DefaultsNode().changeChildsList(childs ->
@@ -280,51 +280,5 @@ public class ConfigurationChangerTest {
         root = (DefaultsNode)changer.getRootNode(DefaultsConfiguration.KEY);
 
         assertEquals("bar", root.childsList().get("name").defStr());
-    }
-
-    /**
-     * Wrapper for Configurator mock to control validation.
-     */
-    private static class ConfiguratorController {
-        /** Configurator. */
-        final Configurator<?> configurator;
-
-        /** Whether validate method should return issues. */
-        private boolean hasIssues;
-
-        /** Constructor. */
-        private ConfiguratorController() {
-            this(false);
-        }
-
-        /** Constructor. */
-        private ConfiguratorController(boolean hasIssues) {
-            this.hasIssues = hasIssues;
-
-            configurator = Mockito.mock(Configurator.class);
-
-            Mockito.when(configurator.validateChanges(Mockito.any())).then(mock -> {
-                if (this.hasIssues)
-                    return Collections.singletonList(new ValidationIssue());
-
-                return Collections.emptyList();
-            });
-        }
-
-        /**
-         * Set has issues flag.
-         * @param hasIssues Has issues flag.
-         */
-        public void hasIssues(boolean hasIssues) {
-            this.hasIssues = hasIssues;
-        }
-
-        /**
-         * Get configurator.
-         * @return Configurator.
-         */
-        public Configurator<?> configurator() {
-            return configurator;
-        }
     }
 }

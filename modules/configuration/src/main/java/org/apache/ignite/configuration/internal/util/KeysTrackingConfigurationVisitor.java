@@ -1,0 +1,154 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.configuration.internal.util;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Supplier;
+import org.apache.ignite.configuration.tree.ConfigurationVisitor;
+import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.configuration.tree.NamedListNode;
+
+/** */
+public abstract class KeysTrackingConfigurationVisitor<T> implements ConfigurationVisitor<T> {
+    /** Current key, aggregated by visitor. */
+    private StringBuilder currentKey = new StringBuilder();
+
+    /** Current keys list, almost the same as {@link #currentKey}. */
+    private List<String> currentPath = new ArrayList<>();
+
+    /** {@inheritDoc} */
+    @Override public final T visitLeafNode(String key, Serializable val) {
+        int prevPos = startVisit(key, false, true);
+
+        try {
+            return visitLeafNode0(key, val);
+        }
+        finally {
+            endVisit(prevPos);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public final T visitInnerNode(String key, InnerNode node) {
+        int prevPos = startVisit(key, false, false);
+
+        try {
+            return visitInnerNode0(key, node);
+        }
+        finally {
+            endVisit(prevPos);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public final <N extends InnerNode> T visitNamedListNode(String key, NamedListNode<N> node) {
+        int prevPos = startVisit(key, false, false);
+
+        try {
+            return visitNamedListNode0(key, node);
+        }
+        finally {
+            endVisit(prevPos);
+        }
+    }
+
+    /** */
+    protected abstract T visitLeafNode0(String key, Serializable val);
+
+    /** */
+    protected T visitInnerNode0(String key, InnerNode node) {
+        node.traverseChildren(this);
+
+        return null;
+    }
+
+    /** */
+    protected <N extends InnerNode> T visitNamedListNode0(String key, NamedListNode<N> node) {
+        for (String namedListKey : node.namedListKeys()) {
+            int prevPos = startVisit(namedListKey, true, false);
+
+            try {
+                visitInnerNode0(namedListKey, node.get(namedListKey));
+            }
+            finally {
+                endVisit(prevPos);
+            }
+        }
+
+        return null;
+    }
+
+    /** */
+    protected final T visitNode(String key, boolean escape, boolean leaf, Supplier<T> closure) {
+        int prevPos = startVisit(key, escape, leaf);
+
+        try {
+            return closure.get();
+        }
+        finally {
+            endVisit(prevPos);
+        }
+    }
+
+    /**
+     * For leaves only.
+     */
+    protected final String currentKey() {
+        return currentKey.toString();
+    }
+
+    /** */
+    protected final List<String> currentPath() {
+        return Collections.unmodifiableList(currentPath);
+    }
+
+    /**
+     * Prepares values of {@link #currentKey} and {@link #currentPath} for further processing.
+     *
+     * @param key Key.
+     * @param escape Whether we need to escape the key before appending it to {@link #currentKey}.
+     * @return Previous length of {@link #currentKey} so it can be passed to {@link #endVisit(int)} later.
+     */
+    private int startVisit(String key, boolean escape, boolean leaf) {
+        int previousKeyLength = currentKey.length();
+
+        currentKey.append(escape ? ConfigurationUtil.escape(key) : key);
+
+        if (!leaf)
+            currentKey.append('.');
+
+        currentPath.add(key);
+
+        return previousKeyLength;
+    }
+
+    /**
+     * Puts {@link #currentKey} and {@link #currentPath} in the same state as they were before
+     * {@link #startVisit(String, boolean)}.
+     *
+     * @param previousKeyLength Value return by corresponding {@link #startVisit(String, boolean)} invocation.
+     */
+    private void endVisit(int previousKeyLength) {
+        currentKey.setLength(previousKeyLength);
+
+        currentPath.remove(currentPath.size() - 1);
+    }
+}

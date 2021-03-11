@@ -17,9 +17,15 @@
 package org.apache.ignite.configuration;
 
 import java.io.Serializable;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,7 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
+import org.apache.ignite.configuration.internal.util.KeysTrackingConfigurationVisitor;
+import org.apache.ignite.configuration.internal.validation.MemberKey;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
@@ -40,9 +47,16 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.apache.ignite.configuration.validation.Validator;
 
+import static java.util.Collections.emptySet;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.find;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.nodeToFlatMap;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.patch;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
 
 /**
  * Class that handles configuration changes, by validating them, passing to storage and listening to storage updates.
@@ -51,43 +65,52 @@ public class ConfigurationChanger {
     /** */
     private final ForkJoinPool pool = new ForkJoinPool(2);
 
-    /** Map of configurations' configurators. */
-    @Deprecated
-    private final Map<RootKey<?>, Configurator<?>> configurators = new HashMap<>();
-
     /** */
-    private final Set<RootKey<?>> rootKeys = new HashSet<>();
+    private final Set<RootKey<?, ?>> rootKeys = new HashSet<>();
 
     /** Map that has all the trees in accordance to their storages. */
     private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
+
+    /** */
+    private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
     /**
      * Immutable data container to store version and all roots associated with the specific storage.
      */
     public static class StorageRoots {
         /** Immutable forest, so to say. */
-        private final Map<RootKey<?>, InnerNode> roots;
+        private final Map<RootKey<?, ?>, InnerNode> roots;
 
         /** Version associated with the currently known storage state. */
         private final long version;
 
         /** */
-        private StorageRoots(Map<RootKey<?>, InnerNode> roots, long version) {
+        private StorageRoots(Map<RootKey<?, ?>, InnerNode> roots, long version) {
             this.roots = Collections.unmodifiableMap(roots);
             this.version = version;
         }
     }
 
+    /** */
+    private final Map<MemberKey, Set<Annotation>> cachedAnnotations = new ConcurrentHashMap<>();
+
     /** Storage instances by their classes. Comes in handy when all you have is {@link RootKey}. */
     private final Map<Class<? extends ConfigurationStorage>, ConfigurationStorage> storageInstances = new HashMap<>();
 
     /** Constructor. */
-    public ConfigurationChanger(RootKey<?>... rootKeys) {
+    public ConfigurationChanger(RootKey<?, ?>... rootKeys) {
         this.rootKeys.addAll(Arrays.asList(rootKeys));
     }
 
     /** */
-    public void addRootKey(RootKey<?> rootKey) {
+    public <A extends Annotation> void addValidator(Class<A> annotationType, Validator<A, ?> validator) {
+        validators
+            .computeIfAbsent(annotationType, a -> new HashSet<>())
+            .add(validator);
+    }
+
+    /** */
+    public void addRootKey(RootKey<?, ?> rootKey) {
         assert !storageInstances.containsKey(rootKey.getStorageType());
 
         rootKeys.add(rootKey);
@@ -100,7 +123,7 @@ public class ConfigurationChanger {
     public void init(ConfigurationStorage configurationStorage) throws ConfigurationChangeException {
         storageInstances.put(configurationStorage.getClass(), configurationStorage);
 
-        Set<RootKey<?>> storageRootKeys = rootKeys.stream().filter(
+        Set<RootKey<?, ?>> storageRootKeys = rootKeys.stream().filter(
             rootKey -> configurationStorage.getClass() == rootKey.getStorageType()
         ).collect(Collectors.toSet());
 
@@ -113,19 +136,19 @@ public class ConfigurationChanger {
             throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
         }
 
-        Map<RootKey<?>, InnerNode> storageRootsMap = new HashMap<>();
+        Map<RootKey<?, ?>, InnerNode> storageRootsMap = new HashMap<>();
         // Map to collect defaults for not initialized configurations.
-        Map<RootKey<?>, InnerNode> storageDefaultsMap = new HashMap<>();
+        Map<RootKey<?, ?>, InnerNode> storageDefaultsMap = new HashMap<>();
 
-        Map<String, ?> dataValuesPrefixMap = ConfigurationUtil.toPrefixMap(data.values());
+        Map<String, ?> dataValuesPrefixMap = toPrefixMap(data.values());
 
-        for (RootKey<?> rootKey : storageRootKeys) {
+        for (RootKey<?, ?> rootKey : storageRootKeys) {
             Map<String, ?> rootPrefixMap = (Map<String, ?>)dataValuesPrefixMap.get(rootKey.key());
 
             InnerNode rootNode = rootKey.createRootNode();
 
             if (rootPrefixMap != null)
-                ConfigurationUtil.fillFromPrefixMap(rootNode, rootPrefixMap);
+                fillFromPrefixMap(rootNode, rootPrefixMap);
 
             // Collecting defaults requires fresh new root.
             InnerNode defaultsNode = rootKey.createRootNode();
@@ -213,22 +236,11 @@ public class ConfigurationChanger {
     }
 
     /**
-     * Add configurator.
-     * @param key Root configuration key of the configurator.
-     * @param configurator Configuration's configurator.
-     */
-    //TODO IGNITE-14183 Refactor, get rid of configurator and create some "validator".
-    @Deprecated
-    public void registerConfiguration(RootKey<?> key, Configurator<?> configurator) {
-        configurators.put(key, configurator);
-    }
-
-    /**
      * Get root node by root key. Subject to revisiting.
      *
      * @param rootKey Root key.
      */
-    public TraversableTreeNode getRootNode(RootKey<?> rootKey) {
+    public TraversableTreeNode getRootNode(RootKey<?, ?> rootKey) {
         return this.storagesRootsMap.get(rootKey.getStorageType()).roots.get(rootKey);
     }
 
@@ -236,7 +248,7 @@ public class ConfigurationChanger {
      * Change configuration.
      * @param changes Map of changes by root key.
      */
-    public CompletableFuture<Void> change(Map<RootKey<?>, ? extends TraversableTreeNode> changes) {
+    public CompletableFuture<Void> change(Map<RootKey<?, ?>, ? extends TraversableTreeNode> changes) {
         if (changes.isEmpty())
             return CompletableFuture.completedFuture(null);
 
@@ -270,16 +282,18 @@ public class ConfigurationChanger {
      * @param fut Future, that must be completed after changes are written to the storage.
      */
     private void change0(
-        Map<RootKey<?>, ? extends TraversableTreeNode> changes,
+        Map<RootKey<?, ?>, ? extends TraversableTreeNode> changes,
         ConfigurationStorage storage,
         CompletableFuture<?> fut
     ) {
         StorageRoots storageRoots = storagesRootsMap.get(storage.getClass());
 
+        Map<RootKey<?, ?>, InnerNode> rootsForValidation = new HashMap<>();
+
         Map<String, Serializable> allChanges = new HashMap<>();
 
-        for (Map.Entry<RootKey<?>, ? extends TraversableTreeNode> entry : changes.entrySet()) {
-            RootKey<?> rootKey = entry.getKey();
+        for (Map.Entry<RootKey<?, ?>, ? extends TraversableTreeNode> entry : changes.entrySet()) {
+            RootKey<?, ?> rootKey = entry.getKey();
             TraversableTreeNode change = entry.getValue();
 
             // It's important to get the root from "roots" object rather then "storageRootMap" or "getRootNode(...)".
@@ -291,14 +305,15 @@ public class ConfigurationChanger {
             // It is necessary to reinitialize default values every time.
             // Possible use case that explicitly requires it: creation of the same named list entry with slightly
             // different set of values and different dynamic defaults at the same time.
-            InnerNode patchedRootNode = ConfigurationUtil.patch(currentRootNode, change);
+            InnerNode patchedRootNode = patch(currentRootNode, change);
             InnerNode defaultsNode = rootKey.createRootNode();
 
             addDefaults(patchedRootNode, defaultsNode);
 
             // These are default values for non-initialized values, required to complete the configuration.
-            //TODO IGNITE-14183 Take these defaults into account during validation.
             allChanges.putAll(nodeToFlatMap(rootKey, patchedRootNode, defaultsNode));
+
+            rootsForValidation.put(rootKey, patch(patchedRootNode, defaultsNode));
         }
 
         // Unlikely but still possible.
@@ -308,7 +323,7 @@ public class ConfigurationChanger {
             return;
         }
 
-        ValidationResult validationResult = validate(storageRoots, changes);
+        ValidationResult validationResult = validate(storageRoots, rootsForValidation);
 
         List<ValidationIssue> validationIssues = validationResult.issues();
 
@@ -341,19 +356,19 @@ public class ConfigurationChanger {
     ) {
         StorageRoots oldStorageRoots = this.storagesRootsMap.get(storageType);
 
-        Map<RootKey<?>, InnerNode> storageRootsMap = new HashMap<>(oldStorageRoots.roots);
+        Map<RootKey<?, ?>, InnerNode> storageRootsMap = new HashMap<>(oldStorageRoots.roots);
 
-        Map<String, ?> dataValuesPrefixMap = ConfigurationUtil.toPrefixMap(changedEntries.values());
+        Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
 
         compressDeletedEntries(dataValuesPrefixMap);
 
-        for (RootKey<?> rootKey : oldStorageRoots.roots.keySet()) {
+        for (RootKey<?, ?> rootKey : oldStorageRoots.roots.keySet()) {
             Map<String, ?> rootPrefixMap = (Map<String, ?>)dataValuesPrefixMap.get(rootKey.key());
 
             if (rootPrefixMap != null) {
                 InnerNode rootNode = oldStorageRoots.roots.get(rootKey).copy();
 
-                ConfigurationUtil.fillFromPrefixMap(rootNode, rootPrefixMap);
+                fillFromPrefixMap(rootNode, rootPrefixMap);
 
                 storageRootsMap.put(rootKey, rootNode);
             }
@@ -396,31 +411,116 @@ public class ConfigurationChanger {
      * Validate configuration changes.
      *
      * @param storageRoots Storage roots.
-     * @param changes Configuration changes.
+     * @param newRoots Configuration changes.
      * @return Validation results.
      */
-    // Will be used in the future, I promise (IGNITE-14183).
-    @SuppressWarnings("unused")
     private ValidationResult validate(
         StorageRoots storageRoots,
-        Map<RootKey<?>, ? extends TraversableTreeNode> changes
+        Map<RootKey<?, ?>, ? extends TraversableTreeNode> newRoots
     ) {
         List<ValidationIssue> issues = new ArrayList<>();
 
-        for (Map.Entry<RootKey<?>, ? extends TraversableTreeNode> entry : changes.entrySet()) {
-            RootKey<?> rootKey = entry.getKey();
-            TraversableTreeNode changesForRoot = entry.getValue();
+        for (Map.Entry<RootKey<?, ?>, ? extends TraversableTreeNode> entry : newRoots.entrySet()) {
+            RootKey<?, ?> rootKey = entry.getKey();
+            TraversableTreeNode newRoot = entry.getValue();
 
-            final Configurator<?> configurator = configurators.get(rootKey);
+            newRoot.accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
+                /** Inner nodes, last one always belongs to "current" leaf. */
+                private Deque<InnerNode> innerNodes = new ArrayDeque<>();
 
-            // TODO IGNITE-14183 This will be fixed later
-            if (configurator != null) {
-                List<ValidationIssue> list = configurator.validateChanges(changesForRoot);
-                issues.addAll(list);
-            }
+                /** {@inheritDoc} */
+                @Override protected Object visitInnerNode0(String key, InnerNode node) {
+                    assert node != null;
+
+                    // There cannot be validation annotations on the root itself. Condition is correct.
+                    if (!innerNodes.isEmpty()) {
+                        String currentKey = currentKey();
+
+                        // Last dot should be trimmed.
+                        validate(key, node, currentKey.substring(0, currentKey.length() - 1));
+                    }
+
+                    innerNodes.push(node);
+
+                    try {
+                        return super.visitInnerNode0(key, node);
+                    }
+                    finally {
+                        innerNodes.pop();
+                    }
+                }
+
+                /** {@inheritDoc} */
+                @Override protected Void visitLeafNode0(String key, Serializable val) {
+                    if (val == null) {
+                        String message = "'" + currentKey() + "' configuration value is not initialized.";
+
+                        issues.add(new ValidationIssue(message));
+                    }
+                    else
+                        validate(key, val, currentKey());
+
+                    return null;
+                }
+
+                private void validate(String fieldName, Object val, String currentKey) {
+                    InnerNode lastInnerNode = innerNodes.peek();
+
+                    MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
+
+                    Set<Annotation> annotations = cachedAnnotations.computeIfAbsent(memberKey, k -> {
+                        try {
+                            Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
+
+                            return Arrays.stream(field.getDeclaredAnnotations()).collect(Collectors.toSet());
+                        }
+                        catch (NoSuchFieldException e) {
+                            return emptySet();
+                        }
+                    });
+
+                    for (Annotation annotation : annotations) {
+                        for (Validator<?, ?> validatorX : validators.getOrDefault(annotation.annotationType(), emptySet())) {
+                            // Making this a compile-time check would be too expensive to implement.
+                            assert asserts(validatorX.getClass(), annotation.annotationType(), val);
+
+                            Validator<Annotation, Object> validator = (Validator<Annotation, Object>)validatorX;
+
+                            validator.validate(annotation, new ValidationContextImpl<>(storageRoots, rootKey, val, newRoots, issues, currentKey, currentPath()));
+                        }
+                    }
+                }
+            });
         }
 
         return new ValidationResult(issues);
+    }
+
+    /** */
+    private static boolean asserts(Class<?> validatorClass, Class<? extends Annotation> annotationType, Object val) {
+        if (!Arrays.asList(validatorClass.getInterfaces()).contains(Validator.class))
+            return asserts(validatorClass.getSuperclass(), annotationType, val);
+
+        Type genericSuperClass = Arrays.stream(validatorClass.getGenericInterfaces())
+            .filter(i -> i instanceof ParameterizedType && ((ParameterizedType)i).getRawType() == Validator.class)
+            .findAny()
+            .get();
+
+        assert genericSuperClass instanceof ParameterizedType;
+
+        ParameterizedType parameterizedSuperClass = (ParameterizedType)genericSuperClass;
+
+        Type[] actualTypeParameters = parameterizedSuperClass.getActualTypeArguments();
+
+        assert actualTypeParameters.length == 2;
+
+        assert actualTypeParameters[0] == annotationType;
+
+        assert actualTypeParameters[1] instanceof Class;
+
+        assert val == null || ((Class<?>)actualTypeParameters[1]).isInstance(val);
+
+        return true;
     }
 
     /**
@@ -443,7 +543,58 @@ public class ConfigurationChanger {
          * @return Issues.
          */
         public List<ValidationIssue> issues() {
-            return issues;
+            return Collections.unmodifiableList(issues);
+        }
+    }
+
+    private class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
+        private final StorageRoots storageRoots;
+        private final RootKey<?, ?> rootKey;
+        private final VIEW val;
+        private final Map<RootKey<?, ?>, ? extends TraversableTreeNode> newRoots;
+        private final List<ValidationIssue> issues;
+        private final String currentKey;
+        private final List<String> currentPath;
+
+        ValidationContextImpl(StorageRoots storageRoots, RootKey<?, ?> rootKey, VIEW val,
+            Map<RootKey<?, ?>, ? extends TraversableTreeNode> newRoots, List<ValidationIssue> issues,
+            String currentKey, List<String> currentPath
+        ) {
+            this.storageRoots = storageRoots;
+            this.rootKey = rootKey;
+            this.val = val;
+            this.newRoots = newRoots;
+            this.issues = issues;
+            this.currentKey = currentKey;
+            this.currentPath = currentPath;
+        }
+
+        @Override public String currentKey() {
+            return currentKey;
+        }
+
+        @Override public VIEW getOldValue() {
+            return (VIEW)find(currentPath, storageRoots.roots.get(rootKey));
+        }
+
+        @Override public VIEW getNewValue() {
+            return val;
+        }
+
+        @Override public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
+            InnerNode root = storageRoots.roots.get(rootKey);
+
+            return (ROOT)(root == null ? getRootNode(rootKey) : root);
+        }
+
+        @Override public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
+            TraversableTreeNode root = newRoots.get(rootKey);
+
+            return (ROOT)(root == null ? getRootNode(rootKey) : root);
+        }
+
+        @Override public void addIssue(ValidationIssue issue) {
+            issues.add(issue);
         }
     }
 }

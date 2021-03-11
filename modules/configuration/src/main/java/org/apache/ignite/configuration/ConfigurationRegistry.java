@@ -17,15 +17,21 @@
 
 package org.apache.ignite.configuration;
 
+import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.RootKeyImpl;
+import org.apache.ignite.configuration.internal.validation.MaxValidator;
+import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.configuration.validation.Validator;
 
 /** */
 public class ConfigurationRegistry {
@@ -35,8 +41,13 @@ public class ConfigurationRegistry {
     /** */
     private final ConfigurationChanger changer = new ConfigurationChanger();
 
+    {
+        changer.addValidator(Min.class, new MinValidator());
+        changer.addValidator(Max.class, new MaxValidator());
+    }
+
     /** */
-    public void registerRootKey(RootKey<?> rootKey) {
+    public void registerRootKey(RootKey<?, ?> rootKey) {
         changer.addRootKey(rootKey);
 
         configs.put(rootKey.key(), (DynamicConfiguration<?, ?, ?>)rootKey.createPublicRoot(changer));
@@ -45,12 +56,17 @@ public class ConfigurationRegistry {
     }
 
     /** */
+    public <A extends Annotation> void registerValidator(Class<A> annotationType, Validator<A, ?> validator) {
+        changer.addValidator(annotationType, validator);
+    }
+
+    /** */
     public void registerStorage(ConfigurationStorage configurationStorage) {
         changer.init(configurationStorage);
     }
 
     /** */
-    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T> rootKey) {
+    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
         return (T)configs.get(rootKey.key());
     }
 
@@ -63,11 +79,11 @@ public class ConfigurationRegistry {
      * @param rootSupplier Closure to instantiate internal configuration tree roots.
      * @param publicRootCreator Function to create public user-facing tree instance.
      */
-    public static <T extends ConfigurationTree<?, ?>> RootKey<T> newRootKey(
+    public static <T extends ConfigurationTree<VIEW, ?>, VIEW> RootKey<T, VIEW> newRootKey(
         String rootName,
         Class<? extends ConfigurationStorage> storageType,
         Supplier<InnerNode> rootSupplier,
-        BiFunction<RootKey<T>, ConfigurationChanger, T> publicRootCreator
+        BiFunction<RootKey<T, VIEW>, ConfigurationChanger, T> publicRootCreator
     ) {
         return new RootKeyImpl<>(rootName, storageType, rootSupplier, publicRootCreator);
     }

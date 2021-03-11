@@ -17,30 +17,10 @@
 
 package org.apache.ignite.configuration.validation;
 
-import java.io.Serializable;
-import org.apache.ignite.configuration.ConfigurationTree;
+import java.lang.annotation.Annotation;
 
-/**
- * Base class for field validator. Contains exception message.
- * @param <T> Field type.
- * @param <C> Root configuration type.
- */
-public abstract class FieldValidator<T extends Serializable, C extends ConfigurationTree<?, ?>> {
-    /** Validation error message. */
-    protected final String message;
-
-    /** Constructor. */
-    protected FieldValidator(String message) {
-        this.message = message;
-    }
-
-    /**
-     * Validate field.
-     *
-     * @param value New value.
-     * @param newRoot New configuration root.
-     * @param oldRoot Old configuration root.
-     * @throws ConfigurationValidationException If validation failed.
-     */
-    public abstract void validate(T value, C newRoot, C oldRoot) throws ConfigurationValidationException;
+/** */
+public interface Validator<A extends Annotation, VIEW> {
+    /** */
+    void validate(A annotation, ValidationContext<VIEW> ctx);
 }

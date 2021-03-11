@@ -34,7 +34,6 @@ import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.validation.FieldValidator;
 
 /**
  * This class represents configuration root or node.
@@ -54,7 +53,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     protected DynamicConfiguration(
         List<String> prefix,
         String key,
-        RootKey<?> rootKey,
+        RootKey<?, ?> rootKey,
         ConfigurationChanger changer
     ) {
         super(prefix, key, rootKey, changer);
@@ -77,8 +76,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
      * @param <M> Type of member.
      */
     protected <PROP extends Serializable, M extends DynamicProperty<PROP>> void add(
-        M member,
-        List<FieldValidator<? super PROP, ? extends ConfigurationTree<?, ?>>> validators
+        M member
     ) {
         members.put(member.key(), member);
 

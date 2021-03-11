@@ -66,7 +66,6 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.DynamicProperty;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
-import org.apache.ignite.configuration.processor.internal.validation.ValidationGenerator;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
@@ -258,12 +257,10 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(generatedField);
 
-                    final CodeBlock validatorsBlock = ValidationGenerator.generateValidators(field);
-
                     // Constructor statement
                     constructorBodyBuilder.addStatement(
-                        "add($L = new $T(keys, $S, rootKey, changer), $L)",
-                        fieldName, fieldType, fieldName, validatorsBlock
+                        "add($L = new $T(keys, $S, rootKey, changer))",
+                        fieldName, fieldType, fieldName
                     );
                 }
 
@@ -281,6 +278,12 @@ public class Processor extends AbstractProcessor {
                 TypeMirror storageType = null;
 
                 try {
+                    //  From JavaDocs: The annotation returned by this method could contain an element whose value is of type Class.
+                    //  This value cannot be returned directly: information necessary to locate and load a class
+                    //  (such as the class loader to use) is not available, and the class might not be loadable at all.
+                    //  Attempting to read a Class object by invoking the relevant method on the returned annotation will
+                    //  result in a MirroredTypeException, from which the corresponding TypeMirror may be extracted.
+                    //  Similarly, attempting to read a Class[]-valued element will result in a MirroredTypesException.
                     rootAnnotation.storage();
                 }
                 catch (MirroredTypesException e) {
@@ -291,7 +294,7 @@ public class Processor extends AbstractProcessor {
             }
 
             // Create constructors for configuration class
-            createConstructors(configurationClassBuilder, constructorBodyBuilder);
+            createConstructors(isRoot, configurationClassBuilder, constructorBodyBuilder);
 
             // Write configuration interface
             buildClass(packageName, configurationInterfaceBuilder.build());
@@ -309,16 +312,17 @@ public class Processor extends AbstractProcessor {
         TypeMirror storageType,
         ClassName schemaClassName
     ) {
-        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ClassName.get(RootKey.class), configInterface);
+        ClassName viewClassName = Utils.getViewName(schemaClassName);
+        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ClassName.get(RootKey.class), configInterface, viewClassName);
 
         ClassName nodeClassName = Utils.getNodeName(schemaClassName);
 
         FieldSpec keyField = FieldSpec.builder(
             fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
             .initializer(
-                "$T.newRootKey($S, $T.class, $T::new, (rootKey, changer) -> new $T($T.emptyList(), $S, rootKey, changer))",
+                "$T.newRootKey($S, $T.class, $T::new, (rootKey, changer) -> new $T($S, rootKey, changer))",
                 ConfigurationRegistry.class, configDesc.getName(), storageType, nodeClassName,
-                Utils.getConfigurationName(schemaClassName), Collections.class, configDesc.getName()
+                Utils.getConfigurationName(schemaClassName), configDesc.getName()
             )
             .build();
 
@@ -485,22 +489,34 @@ public class Processor extends AbstractProcessor {
      *
      * @param configuratorClassName Configurator (configuration wrapper) class name.
      * @param copyConstructorBodyBuilder Copy constructor body.
+     * @param isRoot
      * @param configurationClassBuilder Configuration class builder.
      * @param constructorBodyBuilder Constructor body.
      */
     private void createConstructors(
+        boolean isRoot,
         TypeSpec.Builder configurationClassBuilder,
         CodeBlock.Builder constructorBodyBuilder
     ) {
-        final MethodSpec constructorWithName = MethodSpec.constructorBuilder()
-            .addModifiers(PUBLIC)
-            .addParameter(ParameterizedTypeName.get(List.class, String.class), "prefix")
+        MethodSpec.Builder builder = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
+
+        if (!isRoot)
+            builder.addParameter(ParameterizedTypeName.get(List.class, String.class), "prefix");
+
+        builder
             .addParameter(String.class, "key")
-            .addParameter(ParameterizedTypeName.get(ClassName.get(RootKey.class), WILDCARD), "rootKey")
-            .addParameter(ConfigurationChanger.class, "changer")
-            .addStatement("super(prefix, key, rootKey, changer)")
+            .addParameter(ParameterizedTypeName.get(ClassName.get(RootKey.class), WILDCARD, WILDCARD), "rootKey")
+            .addParameter(ConfigurationChanger.class, "changer");
+
+        if (isRoot)
+            builder.addStatement("super($T.emptyList(), key, rootKey, changer)", Collections.class);
+        else
+            builder.addStatement("super(prefix, key, rootKey, changer)");
+
+        MethodSpec constructorWithName = builder
             .addCode(constructorBodyBuilder.build())
             .build();
+
         configurationClassBuilder.addMethod(constructorWithName);
     }
 
@@ -849,7 +865,7 @@ public class Processor extends AbstractProcessor {
 
                     if (valAnnotation.hasDefault()) {
                         constructDefaultBuilder
-                            .addStatement("case $S: $L = _spec.$L", fieldName, fieldName, fieldName)
+                            .addStatement("case $S: $L = _spec.$L" + (isArray ? ".clone()" : ""), fieldName, fieldName, fieldName)
                             .addStatement(INDENT + "return true");
                     }
                     else

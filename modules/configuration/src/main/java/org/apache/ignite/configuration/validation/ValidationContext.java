@@ -15,14 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration;
+package org.apache.ignite.configuration.validation;
 
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.RootKey;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Convenient wrapper for configuration root. Provides access to configuration tree, stores validators, performs actions
- * on configuration such as initialized, change and view.
- * @param <T> Type of configuration root.
- */
-public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
+/** */
+public interface ValidationContext<VIEW> {
+    /** */
+    String currentKey();
+
+    /** */
+    @Nullable VIEW getOldValue();
+
+    /** */
+    @NotNull VIEW getNewValue();
+
+    /** */
+    @Nullable <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey);
+
+    /** */
+    @Nullable <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey);
+
+    /** */
+    void addIssue(ValidationIssue issue);
 }

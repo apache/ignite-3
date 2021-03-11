@@ -282,96 +282,51 @@ public class ConfigurationUtil {
      * @return Map of changes.
      */
     public static Map<String, Serializable> nodeToFlatMap(
-        RootKey<?> rootKey,
+        RootKey<?, ?> rootKey,
         TraversableTreeNode curRoot,
         TraversableTreeNode updates
     ) {
-        return updates.accept(rootKey.key(), new ConfigurationVisitor<>() {
+        return updates.accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
             /** Resulting flat map. */
             private Map<String, Serializable> values = new HashMap<>();
-
-            /** Current key, aggregated by visitor. */
-            private StringBuilder currentKey = new StringBuilder();
-
-            /** Current keys list, almost the same as {@link #currentKey}. */
-            private List<String> currentPath = new ArrayList<>();
 
             /** Write nulls instead of actual values. Makes sense for deletions from named lists. */
             private boolean writeNulls;
 
             /** {@inheritDoc} */
-            @Override public Map<String, Serializable> visitLeafNode(String key, Serializable val) {
+            @Override public Map<String, Serializable> visitLeafNode0(String key, Serializable val) {
                 if (val != null)
-                    values.put(currentKey.toString() + key, writeNulls ? null : val);
+                    values.put(currentKey(), writeNulls ? null : val);
 
                 return values;
             }
 
             /** {@inheritDoc} */
-            @Override public Map<String, Serializable> visitInnerNode(String key, InnerNode node) {
+            @Override public Map<String, Serializable> visitInnerNode0(String key, InnerNode node) {
                 if (node == null)
                     return null;
 
-                int previousKeyLength = startVisit(key, false);
-
                 node.traverseChildren(this);
-
-                endVisit(previousKeyLength);
 
                 return values;
             }
 
             /** {@inheritDoc} */
-            @Override public <N extends InnerNode> Map<String, Serializable> visitNamedListNode(String key, NamedListNode<N> node) {
-                int previousKeyLength = startVisit(key, false);
-
+            @Override public <N extends InnerNode> Map<String, Serializable> visitNamedListNode0(String key, NamedListNode<N> node) {
                 for (String namedListKey : node.namedListKeys()) {
-                    int loopPreviousKeyLength = startVisit(namedListKey, true);
-
                     N namedElement = node.get(namedListKey);
 
-                    if (namedElement == null)
-                        visitDeletedNamedListElement();
-                    else
-                        namedElement.traverseChildren(this);
+                    visitNode(namedListKey, true, false, () -> {
+                        if (namedElement == null)
+                            visitDeletedNamedListElement();
+                        else
+                            namedElement.traverseChildren(this);
 
-                    endVisit(loopPreviousKeyLength);
+                        return null;
+                    });
                 }
 
-                endVisit(previousKeyLength);
-
                 return values;
-            }
-
-            /**
-             * Prepares values of {@link #currentKey} and {@link #currentPath} for further processing.
-             *
-             * @param key Key.
-             * @param escape Whether we need to escape the key before appending it to {@link #currentKey}.
-             * @return Previous length of {@link #currentKey} so it can be passed to {@link #endVisit(int)} later.
-             */
-            private int startVisit(String key, boolean escape) {
-                int previousKeyLength = currentKey.length();
-
-                currentKey.append(escape ? ConfigurationUtil.escape(key) : key).append('.');
-
-                if (!writeNulls)
-                    currentPath.add(key);
-
-                return previousKeyLength;
-            }
-
-            /**
-             * Puts {@link #currentKey} and {@link #currentPath} in the same state as they were before
-             * {@link #startVisit(String, boolean)}.
-             *
-             * @param previousKeyLength Value return by corresponding {@link #startVisit(String, boolean)} invocation.
-             */
-            private void endVisit(int previousKeyLength) {
-                currentKey.setLength(previousKeyLength);
-
-                if (!writeNulls)
-                    currentPath.remove(currentPath.size() - 1);
             }
 
             /**
@@ -383,6 +338,8 @@ public class ConfigurationUtil {
                 assert !writeNulls;
 
                 Object originalNamedElement = null;
+
+                List<String> currentPath = currentPath();
 
                 try {
                     // This code can in fact be better optimized for deletion scenario,
