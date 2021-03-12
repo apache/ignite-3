@@ -154,7 +154,7 @@ public class Processor extends AbstractProcessor {
 
             TypeSpec.Builder configurationClassBuilder = TypeSpec.classBuilder(configClass)
                 .addSuperinterface(configInterface)
-                .addModifiers(/*   PUBLIC, */FINAL);
+                .addModifiers(FINAL);
 
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
                 .addModifiers(PUBLIC);
