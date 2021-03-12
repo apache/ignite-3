@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KVView;
-import org.apache.ignite.table.binary.BinaryRow;
+import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 
@@ -35,34 +37,34 @@ import org.apache.ignite.table.mapper.ValueMapper;
  * @param <V> Value type.
  */
 public class KVViewImpl<K, V> implements KVView<K, V> {
-    /** Table. */
+    /** Underlying storage. */
     private final TableStorage table;
 
     /**
      * Constructor.
      *
-     * @param table Table.
+     * @param tbl Table storage..
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
-    public KVViewImpl(TableStorage table, KeyMapper<K> keyMapper, ValueMapper<V> valueMapper) {
-        this.table = table;
+    public KVViewImpl(TableStorage tbl, KeyMapper<K> keyMapper, ValueMapper<V> valueMapper) {
+        this.table = tbl;
     }
 
     /** {@inheritDoc} */
     @Override public V get(K key) {
         final Marshaller marsh = marshaller();
 
-        BinaryRow kRow = marsh.toKeyRow(key);
+        Row kRow = marsh.toKeyRow(key);
 
-        BinaryRow row = table.get(kRow);
+        Row row = table.get(kRow);
 
         return marsh.unmarshallValue(row);
     }
 
     /** {@inheritDoc} */
-    @Override public List<V> getAll(List<K> keys) {
-        return null;
+    @Override public Collection<V> getAll(Collection<K> keys) {
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -96,8 +98,8 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public void removeAll(List<K> keys) {
-
+    @Override public Collection<K> removeAll(Collection<K> keys) {
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -133,9 +135,12 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public <R extends Serializable> List<R> invokeAll(List<K> keys, InvokeProcessor<K, V, R> proc,
-        Serializable... args) {
-        return null;
+    public <R extends Serializable> List<R> invokeAll(
+        List<K> keys,
+        InvokeProcessor<K, V, R> proc,
+        Serializable... args
+    ) {
+        return Collections.emptyList();
     }
 
     /**

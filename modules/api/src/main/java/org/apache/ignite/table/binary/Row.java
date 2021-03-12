@@ -20,7 +20,7 @@ package org.apache.ignite.table.binary;
 /**
  * Binary row interface.
  */
-public interface BinaryRow { //TODO: Extends BinaryObject interface?
+public interface Row { //TODO: Extends BinaryObject interface?
     /**
      * Gets column value for given column name.
      *

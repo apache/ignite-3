@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.table;
 
+import java.io.Serializable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.KV;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.binary.BinaryRow;
-import org.apache.ignite.table.binary.BinaryRowBuilder;
+import org.apache.ignite.table.binary.Row;
+import org.apache.ignite.table.binary.RowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
@@ -56,107 +60,101 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <K> BinaryRow get(K keyRec) {
+    @Override public KV kvView() {
+        return new KVImpl(table);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Row get(Row keyRec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K> List<BinaryRow> getAll(List<K> keyRecs) {
+    @Override public Collection<Row> getAll(Collection<Row> keyRecs) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean upsert(BinaryRow row) {
+    @Override public boolean upsert(Row row) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void upsertAll(List<BinaryRow> recs) {
-
+    @Override public void upsertAll(Collection<Row> recs) {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean insert(BinaryRow row) {
+    @Override public boolean insert(Row row) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void insertAll(List<BinaryRow> recs) {
-
+    @Override public Collection<Row> insertAll(Collection<Row> recs) {
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRow getAndUpsert(BinaryRow rec) {
+    @Override public Row getAndUpsert(Row rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(BinaryRow rec) {
+    @Override public boolean replace(Row rec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(BinaryRow oldRec, BinaryRow newRec) {
+    @Override public boolean replace(Row oldRec, Row newRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRow getAndReplace(BinaryRow rec) {
+    @Override public Row getAndReplace(Row rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K> boolean delete(K keyRec) {
+    @Override public boolean delete(Row keyRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean deleteExact(BinaryRow oldRec) {
+    @Override public boolean deleteExact(Row oldRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public <K> BinaryRow getAndDelete(K rec) {
+    @Override public Row getAndDelete(Row rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRow getAndDeleteExact(BinaryRow rec) {
+    @Override public Row getAndDeleteExact(Row rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K> void deleteAll(List<K> recs) {
-
+    @Override public Collection<Row> deleteAll(Collection<Row> recs) {
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public void deleteAllExact(List<BinaryRow> recs) {
-
+    @Override public Collection<Row> deleteAllExact(Collection<Row> recs) {
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<BinaryRow> selectBy(Criteria<BinaryRow> c) {
+    @Override public <T extends Serializable> T invoke(Row keyRec, InvokeProcessor<Row, Row, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public void deleteBy(Criteria<BinaryRow> c) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<K, BinaryRow, T> proc) {
+    @Override public <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRecs, InvokeProcessor<Row, Row, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<K, BinaryRow, T> proc) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public BinaryRowBuilder binaryRowBuilder() {
+    @Override public RowBuilder binaryRowBuilder() {
         return null;
     }
 }

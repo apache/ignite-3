@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.table.TableViewImpl;
 import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.table.binary.BinaryRow;
+import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.impl.DummyTableStorageImpl;
 import org.apache.ignite.table.mapper.Mappers;
 import org.junit.jupiter.api.Disabled;
@@ -55,7 +55,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        BinaryRow res = t.get(t.binaryRowBuilder().set("id", 1).set("orgId", 1).build());
+        Row res = t.get(t.binaryRowBuilder().set("id", 1).set("orgId", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -80,7 +80,6 @@ public class Example {
                 this.orgId = orgId;
             }
         }
-
         RecordView<Employee> employeeView = t.recordView(Employee.class);
 
         Employee e = employeeView.get(new Employee(1, 1));
@@ -264,7 +263,7 @@ public class Example {
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        BinaryRow res = t.get(t.binaryRowBuilder().set("id", 1).set("orgId", 1).build());
+        Row res = t.get(t.binaryRowBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -313,7 +312,7 @@ public class Example {
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        BinaryRow res = t.get(t.binaryRowBuilder().set("id", 1).set("orgId", 1).build());
+        Row res = t.get(t.binaryRowBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -395,7 +394,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        BinaryRow res = t.get(t.binaryRowBuilder().set("id", 1).build());
+        Row res = t.get(t.binaryRowBuilder().set("id", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");

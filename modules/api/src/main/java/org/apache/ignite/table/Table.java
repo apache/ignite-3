@@ -17,8 +17,8 @@
 
 package org.apache.ignite.table;
 
-import org.apache.ignite.table.binary.BinaryRow;
-import org.apache.ignite.table.binary.BinaryRowBuilder;
+import org.apache.ignite.table.binary.Row;
+import org.apache.ignite.table.binary.RowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -27,7 +27,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
 /**
  * Table binary projection.
  */
-public interface Table extends TableView<BinaryRow> {
+public interface Table extends TableView<Row> {
     /**
      * Creates record view of table for record class mapper provided.
      *
@@ -44,6 +44,13 @@ public interface Table extends TableView<BinaryRow> {
      * @return Table key-value view.
      */
     <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
+
+    /**
+     * Creates key-value view of table for binary key-value pair.
+     *
+     * @return Table binary key-value view.
+     */
+    KV kvView();
 
     /**
      * Creates record view of table for record class provided.
@@ -71,5 +78,5 @@ public interface Table extends TableView<BinaryRow> {
      *
      * @return BinaryRow builder for table.
      */
-    BinaryRowBuilder binaryRowBuilder();
+    RowBuilder binaryRowBuilder();
 }

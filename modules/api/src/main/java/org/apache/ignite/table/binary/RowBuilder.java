@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.table.binary;
 
-import org.apache.ignite.table.binary.Row;
+/**
+ * Binary row builder.
+ */
+public interface RowBuilder {
+    /**
+     * Sets column value.
+     *
+     * @param colName Column name.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
+     */
+    RowBuilder set(String colName, Object value);
 
-public interface Marshaller {
-    <K> Row toKeyRow(K key);
-
-    <V> V unmarshallValue(Row row);
-
-    <R> R unmarshallToRecord(Row tableRow);
-
-    <R> R unmarshallToRecord(R record, Row tableRow);
+    /**
+     * @return Binary row.
+     */
+    Row build();
 }

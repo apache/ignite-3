@@ -15,23 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.binary;
+package org.apache.ignite.table;
 
-/**
- * Binary row builder.
- */
-public interface BinaryRowBuilder {
-    /**
-     * Sets column value.
-     *
-     * @param colName Column name.
-     * @param value Value to set.
-     * @return {@code this} for chaining.
-     */
-    BinaryRowBuilder set(String colName, Object value);
+import org.apache.ignite.table.binary.Row;
+import org.apache.ignite.table.binary.RowBuilder;
 
-    /**
-     * @return Binary row.
-     */
-    BinaryRow build();
+public interface KV extends KVView<Row, Row> {
+
+    RowBuilder rowKeyBuilder();
+
+    RowBuilder rowValueBuilder();
 }

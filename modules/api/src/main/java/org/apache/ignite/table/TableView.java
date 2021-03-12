@@ -17,8 +17,9 @@
 
 package org.apache.ignite.table;
 
+import java.io.Serializable;
 import java.util.Collection;
-import java.util.List;
+import java.util.Map;
 
 /**
  * Table view interface.
@@ -27,157 +28,146 @@ import java.util.List;
  */
 public interface TableView<R> {
     /**
-     * Return row from table for given key fields.
+     * Return row from table for given key columns.
      *
-     * @param keyRec Row with key fields set.
-     * @return Row with all fields filled from the table.
+     * @param keyRow Row with key columns set.
+     * @return Row with all columns filled from the table.
      */
-    public <K> R get(K keyRec);
+    public R get(R keyRow);
 
     /**
      * Fills given rows with the values from the table.
      *
-     * @param keyRecs Rows with key fields set.
-     * @return Rows with all fields filled from the table.
+     * @param keyRows Rows with key columns set.
+     * @return Rows with all columns filled from the table.
      */
-    public <K> List<R> getAll(List<K> keyRecs);
+    public Collection<R> getAll(Collection<R> keyRows);
 
     /**
      * Inserts new row into the table if it is not exists or replace existed one.
      *
-     * @param rec Row to be inserted into table.
+     * @param row Row to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean upsert(R rec);
+    public boolean upsert(R row);
 
     /**
      * Inserts new row into the table if it is not exists or replace existed one.
      *
-     * @param recs Rows to be inserted into table.
+     * @param rows Rows to be inserted into table.
      */
-    public void upsertAll(List<R> recs);
+    public void upsertAll(Collection<R> rows);
 
     /**
      * Insert row into the table and return previous row.
      *
-     * @param rec Row to be inserted into table.
+     * @param row Row to be inserted into table.
      * @return Row that was replaced, {@code null} otherwise.
      */
-    public R getAndUpsert(R rec);
+    public R getAndUpsert(R row);
 
     /**
      * Inserts row into the table if not exists.
      *
-     * @param rec Row to be inserted into table.
+     * @param row Row to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean insert(R rec);
+    public boolean insert(R row);
 
     /**
      * Inserts rows into the table that are not exists, otherwise skips.
      *
-     * @param recs Rows to be inserted into table.
+     * @param rows Rows to be inserted into table.
+     * @return Rows with key columns set that were not inserted.
      */
-    public void insertAll(List<R> recs);
+    public Collection<R> insertAll(Collection<R> rows);
 
     /**
      * Replaces an existed row in the table with the given one.
      *
-     * @param rec Row to replace with.
+     * @param row Row to replace with.
      * @return {@code True} if the row replaced successfully, {@code false} otherwise.
      */
-    public boolean replace(R rec);
+    public boolean replace(R row);
 
     /**
      * Replaces an expected row in the table with the new one.
      *
-     * @param oldRec Row to be replaced in table.
-     * @param newRec Row to replace with.
+     * @param oldRow Row to be replaced in table.
+     * @param newRow Row to replace with.
      * @return {@code True} if the row replaced successfully, {@code false} otherwise.
      */
-    public boolean replace(R oldRec, R newRec);
+    public boolean replace(R oldRow, R newRow);
 
     /**
      * Replaces an existed row in the table and return the replaced one.
      *
-     * @param rec Row to be inserted into table.
+     * @param row Row to be inserted into table.
      * @return Row that was replaced with given one, {@code null} otherwise.
      */
-    public R getAndReplace(R rec);
+    public R getAndReplace(R row);
 
     /**
      * Remove row from table.
      *
-     * @param keyRec Row with key fields set.
+     * @param keyRow Row with key columns set.
      * @return {@code True} if row was successfully removed, {@code  false} otherwise.
      */
-    public <K> boolean delete(K keyRec);
+    public boolean delete(R keyRow);
 
     /**
      * Remove exact row from table.
      *
-     * @param oldRec Row to be removed.
+     * @param oldRow Row to be removed.
      * @return {@code True} if row was successfully removed, {@code  false} otherwise.
      */
-    public boolean deleteExact(R oldRec);
+    public boolean deleteExact(R oldRow);
 
     /**
      * Remove row from table.
      *
-     * @param rec Row with key fields set.
+     * @param row Row with key columns set.
      * @return Row that was removed, {@code null} otherwise.
      */
-    public <K> R getAndDelete(K rec);
+    public R getAndDelete(R row);
 
     /**
      * Remove exact row from table.
      *
-     * @param rec Row.
+     * @param row Row.
      * @return Row that was removed, {@code null} otherwise.
      */
-    public R getAndDeleteExact(R rec);
+    public R getAndDeleteExact(R row);
 
     /**
      * Remove rows from table.
      *
-     * @param recs Rows with key fields set.
+     * @param rows Rows with key columns set.
+     * @return Rows with key columns set that were not deleted.
      */
-    public <K> void deleteAll(List<K> recs);
+    public Collection<R> deleteAll(Collection<R> rows);
 
     /**
      * Remove exact rows from table.
      *
-     * @param recs Rows with key fields set.
+     * @param rows Rows with all columns set.
+     * @return Rows with key columns set that were not deleted.
      */
-    public void deleteAllExact(List<R> recs);
+    public Collection<R> deleteAllExact(Collection<R> rows);
 
     /**
      * Invokes an InvokeProcessor against the associated row.
      *
-     * @param keyRec Row with key fields set.
-     * @param <T> //TODO: Must be serializable or will be implicitly converted to BinaryObject for transportation to remote node?
+     * @param keyRow Row with key columns set.
      * @return Results of the processing.
      */
-    public <K, T> T invoke(K keyRec, InvokeProcessor<K, R, T> proc);
+    public <T extends Serializable> T invoke(R keyRow, InvokeProcessor<R, R, T> proc);
 
     /**
      * Invokes an InvokeProcessor against the associated rows.
      *
-     * @param keyRecs Sorted collection of rows with key fields set.
+     * @param keyRows Ordered collection of rows with key columns set.
      * @return Results of the processing.
      */
-    public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<K, R, T> proc);
-
-    // TODO: Do we expect operations over undefined scope using Criteria API in RecordView/Table or move next to ScanQueryAPI?
-    public Collection<R> selectBy(Criteria<R> c);
-
-    public void deleteBy(Criteria<R> c);
-
-    /**
-     * Criteria API.
-     *
-     */
-    interface Criteria<R> {
-
-    }
+    public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRows, InvokeProcessor<R, R, T> proc);
 }

@@ -17,14 +17,18 @@
 
 package org.apache.ignite.table;
 
+import java.io.Serializable;
+import org.apache.ignite.table.binary.Row;
+
 /**
  * Invoke processor provide ability to run code against a value associated with a target on server-side.
+ * //TODO: Processor will be always deployed to nodes. Never get IP from classpath.
  *
  * @param <T> Target object type.
  * @param <V> Value type.
  * @param <R> Processor result type.
  */
-public interface InvokeProcessor<T, V, R> {
+public interface InvokeProcessor<T, V, R extends Serializable> extends Serializable {
     /**
      * Process entry and return the result.
      *
@@ -48,7 +52,7 @@ public interface InvokeProcessor<T, V, R> {
         /**
          * @return Target object.
          */
-        T target();
+        T key();
 
         /**
          * @return Current value.
@@ -61,5 +65,7 @@ public interface InvokeProcessor<T, V, R> {
          * @param val Value object to set.
          */
         void value(V val);
+
+        Row rowBuilder();
     }
 }

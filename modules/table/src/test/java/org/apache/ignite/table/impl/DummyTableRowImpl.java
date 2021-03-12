@@ -19,12 +19,12 @@ package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.table.binary.BinaryRow;
+import org.apache.ignite.table.binary.Row;
 
 /**
  * Stub class.
  */
-public class DummyTableRowImpl implements BinaryRow {
+public class DummyTableRowImpl implements Row {
     //TODO: Replace with Tuple layout constants.
     /** */
     private static final int SCHEMA_VERSION_OFFSET = 0;

@@ -21,7 +21,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.table.TableStorage;
-import org.apache.ignite.table.binary.BinaryRow;
+import org.apache.ignite.table.binary.Row;
 
 /**
  * Table storage stub.
@@ -31,14 +31,14 @@ public class DummyTableStorageImpl implements TableStorage {
     private final Map<BinaryObjWrapper, BinaryObjWrapper> store = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
-    @Override public BinaryRow get(BinaryRow obj) {
+    @Override public Row get(Row obj) {
         BinaryObjWrapper row = store.get(new BinaryObjWrapper(obj.getKeyBytes()));
 
         return new DummyTableRowImpl(row.data.clone()); // Clone.
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryRow put(BinaryRow row) {
+    @Override public Row put(Row row) {
         final BinaryObjWrapper old = store.put(new BinaryObjWrapper(row.getKeyBytes()), new BinaryObjWrapper(row.getBytes()));
 
         return old == null ? null : new DummyTableRowImpl(old.data.clone());

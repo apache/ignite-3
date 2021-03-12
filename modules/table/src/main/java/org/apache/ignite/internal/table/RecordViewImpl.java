@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.binary.BinaryRow;
+import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.RecordMapper;
 
 /**
@@ -47,12 +48,12 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public <K> R get(K recObjToFill) {
+    @Override public R get(R recObjToFill) {
         Marshaller marsh = marshaller();
 
-        BinaryRow kRow = marsh.toKeyRow(recObjToFill);
+        Row kRow = marsh.toKeyRow(recObjToFill);
 
-        BinaryRow tRow = table.get(kRow);
+        Row tRow = table.get(kRow);
 
         return marsh.unmarshallToRecord(tRow);
     }
@@ -61,15 +62,15 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public R fill(R recObjToFill) {
         Marshaller marsh = marshaller();
 
-        BinaryRow kRow = marsh.toKeyRow(recObjToFill);
+        Row kRow = marsh.toKeyRow(recObjToFill);
 
-        BinaryRow tRow = table.get(kRow);
+        Row tRow = table.get(kRow);
 
         return marsh.unmarshallToRecord(recObjToFill, tRow);
     }
 
     /** {@inheritDoc} */
-    @Override public <K> List<R> getAll(List<K> keyRecs) {
+    @Override public Collection<R> getAll(Collection<R> keyRecs) {
         return null;
     }
 
@@ -79,8 +80,8 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public void insertAll(List<R> recs) {
-
+    @Override public Collection<R> insertAll(Collection<R> recs) {
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -89,7 +90,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public void upsertAll(List<R> recs) {
+    @Override public void upsertAll(Collection<R> recs) {
 
     }
 
@@ -114,7 +115,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public <K> boolean delete(K keyRec) {
+    @Override public boolean delete(R keyRec) {
         return false;
     }
 
@@ -124,13 +125,13 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public <K> R getAndDelete(K rec) {
+    @Override public R getAndDelete(R rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K> void deleteAll(List<K> recs) {
-
+    @Override public Collection<R> deleteAll(Collection<R> recs) {
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -139,26 +140,18 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public void deleteAllExact(List<R> recs) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<R> selectBy(Criteria<R> template) {
+    @Override public Collection<R> deleteAllExact(Collection<R> recs) {
         return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public void deleteBy(Criteria<R> c) {
-    }
-
-    /** {@inheritDoc} */
-    @Override public <K, T> T invoke(K keyRec, InvokeProcessor<K, R, T> proc) {
+    @Override public <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <K, T> T invokeAll(List<K> keyRecs, InvokeProcessor<K, R, T> proc) {
+    @Override public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs,
+        InvokeProcessor<R, R, T> proc) {
         return null;
     }
 

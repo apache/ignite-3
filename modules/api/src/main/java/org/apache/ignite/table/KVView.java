@@ -18,6 +18,7 @@
 package org.apache.ignite.table;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -42,7 +43,7 @@ public interface KVView<K, V> {
      * @param keys Ordered collection of keys whose associated values are to be returned.
      * @return Values associated with given keys.
      */
-    public List<V> getAll(List<K> keys);
+    public Collection<V> getAll(Collection<K> keys);
 
     /**
      * Determines if the table contains an entry for the specified key.
@@ -65,7 +66,7 @@ public interface KVView<K, V> {
      *
      * @param pairs Ordered collection of key-value pairs.
      */
-    public void putAll(Map<K, V> pairs); // TODO: SortedMap? or List of pairs?
+    public void putAll(Map<K, V> pairs);
 
     /**
      * Puts and return value associated with given key into the table.
@@ -106,8 +107,9 @@ public interface KVView<K, V> {
      * Removes values associated with given keys from the table.
      *
      * @param keys Ordered collection of keys whose mapping is to be removed from the table.
+     * @return Keys that had not been exists and were not removed.
      */
-    public void removeAll(List<K> keys);
+    public Collection<K> removeAll(Collection<K> keys);
 
     /**
      * Removes and returns value associated with given key from the table.
@@ -173,24 +175,28 @@ public interface KVView<K, V> {
     public V getAndReplace(K key, V val);
 
     /**
-     * Invokes an InvokeProcessor against the row associated with the provided key.
+     * Invokes an invoke processor code against the row associated with the provided key.
      *
      * @param key Key that associated with the row that invoke processor will be applied to.
      * @param proc Invoke processor.
-     * @param args Invoke processor arguments.
-     * @param <R> Result type.
+     * @param args Optional invoke processor arguments.
+     * @param <R> Invoke processor result type.
      * @return Result of the processing.
+     *
+     * @see InvokeProcessor
      */
     public <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args);
 
     /**
-     * Invokes an InvokeProcessor against the rows associated with the provided keys.
+     * Invokes an invoke processor code against rows associated with the provided keys.
      *
-     * @param keys Sorted collection of key associated with table row.
+     * @param keys Ordered collection of keys which row associated with should be processed.
      * @param proc Invoke processor.
-     * @param args Invoke processor arguments.
-     * @param <R> Result type.
+     * @param args Optional invoke processor arguments.
+     * @param <R> Invoke processor result type.
      * @return Results of the processing.
+     *
+     * @see InvokeProcessor
      */
     public <R extends Serializable> List<R> invokeAll(List<K> keys, InvokeProcessor<K, V, R> proc, Serializable... args);
 }

@@ -26,9 +26,10 @@ package org.apache.ignite.table;
  * @param <R> Record type.
  *
  * TODO: Record view is created with certain mapper.
- * TODO: What mapper should be used for keyRecord as truncated record (see #get(K keyRow)) ?
- * TODO: Should K be a supertype of R? Table.get(BinaryRow k) expects BinaryRow only.
- * TODO: Should K be a generic? Table.get(BinaryRow k) expects BinaryRow only.
+ * TODO: Actually, it is enough to pass arbitrary object with key fields to "<K> R get(K keyRow)" method.
+ * TODO: But, what mapper should we use? if user do not provide mapper for K class?
+ * TODO: Normally, we cache mapper\serializer for R class.
+ * TODO: Do we need an additional map "user Class->Serializer"?
  */
 public interface RecordView<R> extends TableView<R> {
     /**
