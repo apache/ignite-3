@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.selector;
+package org.apache.ignite.configuration;
+
+import org.apache.ignite.configuration.tree.NamedListChange;
+import org.apache.ignite.configuration.tree.NamedListView;
 
 /**
- * Exception for absence of selector.
+ * Configuration tree representing arbitrary set of named underlying configuration tree of the same type.
+ *
+ * @param <T> Type of the underlying configuration tree.
+ * @param <VALUE> Value type of the underlying node.
+ * @param <CHANGE> Type of the object that changes underlying nodes values.
  */
-public class SelectorNotFoundException extends RuntimeException {
-    /** Constructor. */
-    public SelectorNotFoundException(String message) {
-        super(message);
-    }
-
-    /** Constructor. */
-    public SelectorNotFoundException(String message, Throwable cause) {
-        super(message, cause);
-    }
+public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW, CHANGE>, VIEW, CHANGE, INIT>
+    extends ConfigurationTree<NamedListView<VIEW>, NamedListChange<CHANGE, INIT>>
+{
+    /**
+     * Get named configuration by name.
+     * @param name Name.
+     * @return Configuration.
+     */
+    T get(String name);
 }
