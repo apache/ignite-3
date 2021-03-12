@@ -92,13 +92,6 @@ public class Processor extends AbstractProcessor {
     /** Inherit doc javadoc. */
     private static final String INHERIT_DOC = "{@inheritDoc}";
 
-    /** Type variable name for T generic type parameter. */
-    private static final TypeVariableName T_TYPE_VARIABLE = TypeVariableName.get("T");
-
-    /** Type name for {@code ConfigurationVisitor<T>}. */
-    private static final ParameterizedTypeName CONFIGURATION_VISITOR_T =
-        ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), T_TYPE_VARIABLE);
-
     /**
      * Constructor.
      */
@@ -161,7 +154,7 @@ public class Processor extends AbstractProcessor {
 
             TypeSpec.Builder configurationClassBuilder = TypeSpec.classBuilder(configClass)
                 .addSuperinterface(configInterface)
-                .addModifiers(PUBLIC, FINAL);
+                .addModifiers(/*   PUBLIC, */FINAL);
 
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
                 .addModifiers(PUBLIC);
@@ -577,23 +570,25 @@ public class Processor extends AbstractProcessor {
                 .build()
             );
 
+        TypeVariableName t = TypeVariableName.get("T");
+
         MethodSpec.Builder traverseChildrenBuilder = MethodSpec.methodBuilder("traverseChildren")
             .addAnnotation(Override.class)
             .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
-            .addTypeVariable(T_TYPE_VARIABLE)
+            .addTypeVariable(t)
             .returns(TypeName.VOID)
-            .addParameter(CONFIGURATION_VISITOR_T, "visitor");
+            .addParameter(ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), t), "visitor");
 
         MethodSpec.Builder traverseChildBuilder = MethodSpec.methodBuilder("traverseChild")
             .addAnnotation(Override.class)
             .addJavadoc(INHERIT_DOC)
             .addModifiers(PUBLIC)
-            .addTypeVariable(T_TYPE_VARIABLE)
-            .returns(T_TYPE_VARIABLE)
+            .addTypeVariable(t)
+            .returns(t)
             .addException(NoSuchElementException.class)
             .addParameter(ClassName.get(String.class), "key")
-            .addParameter(CONFIGURATION_VISITOR_T, "visitor")
+            .addParameter(ParameterizedTypeName.get(ClassName.get(ConfigurationVisitor.class), t), "visitor")
             .beginControlFlow("switch (key)");
 
         MethodSpec.Builder constructBuilder = MethodSpec.methodBuilder("construct")
