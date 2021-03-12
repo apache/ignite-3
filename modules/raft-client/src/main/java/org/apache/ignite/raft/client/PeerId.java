@@ -17,15 +17,12 @@
 
 package org.apache.ignite.raft.client;
 
-import java.io.Serializable;
 import org.apache.ignite.network.NetworkMember;
 
 /**
  * Represents a participant in a replication group.
  */
-public final class PeerId implements Serializable {
-    private static final long serialVersionUID = 8083529734784884641L;
-
+public final class PeerId {
     /**
      * Cluster node for peer.
      */

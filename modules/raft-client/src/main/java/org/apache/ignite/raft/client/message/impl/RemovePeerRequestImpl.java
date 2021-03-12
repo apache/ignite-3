@@ -18,9 +18,9 @@
 package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.RemovePeerRequest;
 
-class RemovePeerRequestImpl implements RaftClientMessages.RemovePeerRequest, RaftClientMessages.RemovePeerRequest.Builder {
+class RemovePeerRequestImpl implements RemovePeerRequest, RemovePeerRequest.Builder {
     private String groupId;
 
     private PeerId peerId;
@@ -45,7 +45,7 @@ class RemovePeerRequestImpl implements RaftClientMessages.RemovePeerRequest, Raf
         return this;
     }
 
-    @Override public RaftClientMessages.RemovePeerRequest build() {
+    @Override public RemovePeerRequest build() {
         return this;
     }
 }

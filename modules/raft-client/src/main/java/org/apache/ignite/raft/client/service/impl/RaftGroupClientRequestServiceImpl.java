@@ -18,7 +18,11 @@
 package org.apache.ignite.raft.client.service.impl;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import java.util.concurrent.ExecutionException;
+import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.message.UserRequest;
+import org.apache.ignite.raft.client.message.UserResponse;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.service.RaftGroupClientRequestService;
 
@@ -39,14 +43,20 @@ public class RaftGroupClientRequestServiceImpl implements RaftGroupClientRequest
     public RaftGroupClientRequestServiceImpl(RaftGroupRpcClient rpcClient, String groupId) {
         this.rpcClient = rpcClient;
         this.groupId = groupId;
+
+        try {
+            PeerId peerId = rpcClient.refreshLeader(groupId).get();
+        }
+        catch (Exception e) {
+            // TODO log error.
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public <R> CompletableFuture<R> submit(Object request) {
-        RaftClientMessages.UserRequest r =
-            rpcClient.factory().createUserRequest().setRequest(request).setGroupId(groupId).build();
+    @Override public <R> CompletableFuture<R> submit(Command cmd) {
+        UserRequest r = rpcClient.factory().createUserRequest().setRequest(cmd).setGroupId(groupId).build();
 
-        CompletableFuture<RaftClientMessages.UserResponse<R>> fut = rpcClient.submit(r);
+        CompletableFuture<UserResponse<R>> fut = rpcClient.submit(r);
 
         return fut.thenApply(resp -> resp.response());
     }

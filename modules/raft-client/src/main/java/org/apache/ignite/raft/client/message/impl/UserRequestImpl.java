@@ -17,9 +17,9 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.UserRequest;
 
-public class UserRequestImpl<T> implements RaftClientMessages.UserRequest, RaftClientMessages.UserRequest.Builder {
+public class UserRequestImpl<T> implements UserRequest, UserRequest.Builder {
     private Object request;
 
     private String groupId;
@@ -44,7 +44,7 @@ public class UserRequestImpl<T> implements RaftClientMessages.UserRequest, RaftC
         return this;
     }
 
-    @Override public RaftClientMessages.UserRequest build() {
+    @Override public UserRequest build() {
         return this;
     }
 }

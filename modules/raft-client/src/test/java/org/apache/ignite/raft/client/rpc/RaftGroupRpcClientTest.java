@@ -26,7 +26,7 @@ import org.apache.ignite.raft.client.MockUtils.TestInput1;
 import org.apache.ignite.raft.client.MockUtils.TestInput2;
 import org.apache.ignite.raft.client.MockUtils.TestOutput1;
 import org.apache.ignite.raft.client.MockUtils.TestOutput2;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.UserRequest;
 import org.apache.ignite.raft.client.rpc.impl.RaftGroupRpcClientImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -134,12 +134,12 @@ public class RaftGroupRpcClientTest {
 
         RaftGroupRpcClient client = new RaftGroupRpcClientImpl(cluster, MESSAGE_FACTORY, 5_000, singleton(LEADER.getNode()));
 
-        RaftClientMessages.UserRequest req1 =
+        UserRequest req1 =
             client.factory().createUserRequest().setGroupId(groupId).setRequest(new TestInput1()).build();
 
         assertTrue(client.submit(req1).get().response() instanceof TestOutput1);
 
-        RaftClientMessages.UserRequest req2 =
+        UserRequest req2 =
             client.factory().createUserRequest().setGroupId(groupId).setRequest(new TestInput2()).build();
 
         assertTrue(client.submit(req2).get().response() instanceof TestOutput2);

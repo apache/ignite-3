@@ -18,16 +18,16 @@
 package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.GetLeaderResponse;
 
-public class GetLeaderResponseImpl implements RaftClientMessages.GetLeaderResponse, RaftClientMessages.GetLeaderResponse.Builder {
+public class GetLeaderResponseImpl implements GetLeaderResponse, GetLeaderResponse.Builder {
     private PeerId leaderId;
 
     @Override public PeerId getLeaderId() {
         return leaderId;
     }
 
-    @Override public RaftClientMessages.GetLeaderResponse build() {
+    @Override public GetLeaderResponse build() {
         return this;
     }
 

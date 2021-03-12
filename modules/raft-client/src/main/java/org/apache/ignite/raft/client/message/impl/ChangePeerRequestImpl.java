@@ -20,9 +20,9 @@ package org.apache.ignite.raft.client.message.impl;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.ChangePeersRequest;
 
-class ChangePeerRequestImpl implements RaftClientMessages.ChangePeersRequest, RaftClientMessages.ChangePeersRequest.Builder {
+class ChangePeerRequestImpl implements ChangePeersRequest, ChangePeersRequest.Builder {
     private String groupId;
 
     private List<PeerId> newPeersList = new ArrayList<>();
@@ -47,7 +47,7 @@ class ChangePeerRequestImpl implements RaftClientMessages.ChangePeersRequest, Ra
         return this;
     }
 
-    @Override public RaftClientMessages.ChangePeersRequest build() {
+    @Override public ChangePeersRequest build() {
         return this;
     }
 }

@@ -17,45 +17,63 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.AddLearnersRequest;
+import org.apache.ignite.raft.client.message.AddPeerRequest;
+import org.apache.ignite.raft.client.message.AddPeerResponse;
+import org.apache.ignite.raft.client.message.ChangePeersRequest;
+import org.apache.ignite.raft.client.message.ChangePeersResponse;
+import org.apache.ignite.raft.client.message.GetLeaderRequest;
+import org.apache.ignite.raft.client.message.GetLeaderResponse;
+import org.apache.ignite.raft.client.message.GetPeersRequest;
+import org.apache.ignite.raft.client.message.GetPeersResponse;
+import org.apache.ignite.raft.client.message.LearnersOpResponse;
+import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
+import org.apache.ignite.raft.client.message.RemovePeerRequest;
+import org.apache.ignite.raft.client.message.RemovePeerResponse;
+import org.apache.ignite.raft.client.message.ResetLearnersRequest;
+import org.apache.ignite.raft.client.message.ResetPeerRequest;
+import org.apache.ignite.raft.client.message.SnapshotRequest;
+import org.apache.ignite.raft.client.message.TransferLeaderRequest;
+import org.apache.ignite.raft.client.message.UserRequest;
+import org.apache.ignite.raft.client.message.UserResponse;
 
 /** */
 public interface RaftClientMessageFactory {
-    RaftClientMessages.AddPeerRequest.Builder createAddPeerRequest();
+    AddPeerRequest.Builder createAddPeerRequest();
 
-    RaftClientMessages.AddPeerResponse.Builder createAddPeerResponse();
+    AddPeerResponse.Builder createAddPeerResponse();
 
-    RaftClientMessages.RemovePeerRequest.Builder createRemovePeerRequest();
+    RemovePeerRequest.Builder createRemovePeerRequest();
 
-    RaftClientMessages.RemovePeerResponse.Builder createRemovePeerResponse();
+    RemovePeerResponse.Builder createRemovePeerResponse();
 
-    RaftClientMessages.ChangePeersRequest.Builder createChangePeerRequest();
+    ChangePeersRequest.Builder createChangePeerRequest();
 
-    RaftClientMessages.ChangePeersResponse.Builder createChangePeerResponse();
+    ChangePeersResponse.Builder createChangePeerResponse();
 
-    RaftClientMessages.SnapshotRequest.Builder createSnapshotRequest();
+    SnapshotRequest.Builder createSnapshotRequest();
 
-    RaftClientMessages.ResetPeerRequest.Builder createResetPeerRequest();
+    ResetPeerRequest.Builder createResetPeerRequest();
 
-    RaftClientMessages.TransferLeaderRequest.Builder createTransferLeaderRequest();
+    TransferLeaderRequest.Builder createTransferLeaderRequest();
 
-    RaftClientMessages.GetLeaderRequest.Builder createGetLeaderRequest();
+    GetLeaderRequest.Builder createGetLeaderRequest();
 
-    RaftClientMessages.GetLeaderResponse.Builder createGetLeaderResponse();
+    GetLeaderResponse.Builder createGetLeaderResponse();
 
-    RaftClientMessages.GetPeersRequest.Builder createGetPeersRequest();
+    GetPeersRequest.Builder createGetPeersRequest();
 
-    RaftClientMessages.GetPeersResponse.Builder createGetPeersResponse();
+    GetPeersResponse.Builder createGetPeersResponse();
 
-    RaftClientMessages.AddLearnersRequest.Builder createAddLearnersRequest();
+    AddLearnersRequest.Builder createAddLearnersRequest();
 
-    RaftClientMessages.RemoveLearnersRequest.Builder createRemoveLearnersRequest();
+    RemoveLearnersRequest.Builder createRemoveLearnersRequest();
 
-    RaftClientMessages.ResetLearnersRequest.Builder createResetLearnersRequest();
+    ResetLearnersRequest.Builder createResetLearnersRequest();
 
-    RaftClientMessages.LearnersOpResponse.Builder createLearnersOpResponse();
+    LearnersOpResponse.Builder createLearnersOpResponse();
 
-    RaftClientMessages.UserRequest.Builder createUserRequest();
+    UserRequest.Builder createUserRequest();
 
-    RaftClientMessages.UserResponse.Builder createUserResponse();
+    UserResponse.Builder createUserResponse();
 }

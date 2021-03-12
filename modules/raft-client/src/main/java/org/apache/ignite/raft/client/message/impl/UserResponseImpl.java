@@ -17,9 +17,9 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.UserResponse;
 
-public class UserResponseImpl<T> implements RaftClientMessages.UserResponse<T>, RaftClientMessages.UserResponse.Builder<T> {
+public class UserResponseImpl<T> implements UserResponse<T>, UserResponse.Builder<T> {
     private T response;
 
     @Override public T response() {
@@ -32,7 +32,7 @@ public class UserResponseImpl<T> implements RaftClientMessages.UserResponse<T>, 
         return this;
     }
 
-    @Override public RaftClientMessages.UserResponse build() {
+    @Override public UserResponse build() {
         return this;
     }
 }

@@ -20,9 +20,9 @@ package org.apache.ignite.raft.client.message.impl;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.GetPeersResponse;
 
-class GetPeersResponseImpl implements RaftClientMessages.GetPeersResponse, RaftClientMessages.GetPeersResponse.Builder {
+class GetPeersResponseImpl implements GetPeersResponse, GetPeersResponse.Builder {
     private List<PeerId> peersList = new ArrayList<>();
 
     private List<PeerId> learnersList = new ArrayList<>();
@@ -47,7 +47,7 @@ class GetPeersResponseImpl implements RaftClientMessages.GetPeersResponse, RaftC
         return this;
     }
 
-    @Override public RaftClientMessages.GetPeersResponse build() {
+    @Override public GetPeersResponse build() {
         return this;
     }
 }

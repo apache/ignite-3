@@ -18,9 +18,9 @@
 package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.TransferLeaderRequest;
 
-class TransferLeaderRequestImpl implements RaftClientMessages.TransferLeaderRequest, RaftClientMessages.TransferLeaderRequest.Builder {
+class TransferLeaderRequestImpl implements TransferLeaderRequest, TransferLeaderRequest.Builder {
     private String groupId;
 
     private PeerId peerId;
@@ -39,7 +39,7 @@ class TransferLeaderRequestImpl implements RaftClientMessages.TransferLeaderRequ
         return this;
     }
 
-    @Override public RaftClientMessages.TransferLeaderRequest build() {
+    @Override public TransferLeaderRequest build() {
         return this;
     }
 }

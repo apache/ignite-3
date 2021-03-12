@@ -18,12 +18,14 @@
 package org.apache.ignite.raft.client.service;
 
 import java.util.Iterator;
+import org.apache.ignite.raft.client.ReadCommand;
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * A listener for replication group client requests.
  */
 public interface RaftGroupClientRequestListener {
-    void onReads(Iterator iterator);
+    void onRead(Iterator<ReadCommand> iterator);
 
-    void onWrites(Iterator iterator);
+    void onWrite(Iterator<WriteCommand> iterator);
 }

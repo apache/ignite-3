@@ -18,16 +18,17 @@
 package org.apache.ignite.raft.client.service;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.raft.client.Command;
 
 /**
  * Replication group client service.
  */
 public interface RaftGroupClientRequestService {
     /**
-     * Submits a custom request to a replication group leader. If a leader is not initialized yet will try to resolve it.
-     * @param request User request.
+     * Submits a command to a replication group leader. If a leader is not initialized yet will try to resolve it.
+     * @param cmd Command.
      * @param <R> Response type.
      * @return A future with the result.
      */
-    <R> CompletableFuture<R> submit(Object request);
+    <R> CompletableFuture<R> submit(Command cmd);
 }

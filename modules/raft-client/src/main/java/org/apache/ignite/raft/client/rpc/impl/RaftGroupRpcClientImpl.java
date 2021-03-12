@@ -27,8 +27,23 @@ import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.State;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
-import org.apache.ignite.raft.client.message.RaftClientMessages.GetLeaderResponse;
+import org.apache.ignite.raft.client.message.AddLearnersRequest;
+import org.apache.ignite.raft.client.message.AddPeerRequest;
+import org.apache.ignite.raft.client.message.AddPeerResponse;
+import org.apache.ignite.raft.client.message.ChangePeersRequest;
+import org.apache.ignite.raft.client.message.ChangePeersResponse;
+import org.apache.ignite.raft.client.message.GetLeaderRequest;
+import org.apache.ignite.raft.client.message.LearnersOpResponse;
+import org.apache.ignite.raft.client.message.GetLeaderResponse;
+import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
+import org.apache.ignite.raft.client.message.RemovePeerRequest;
+import org.apache.ignite.raft.client.message.RemovePeerResponse;
+import org.apache.ignite.raft.client.message.ResetLearnersRequest;
+import org.apache.ignite.raft.client.message.ResetPeerRequest;
+import org.apache.ignite.raft.client.message.SnapshotRequest;
+import org.apache.ignite.raft.client.message.TransferLeaderRequest;
+import org.apache.ignite.raft.client.message.UserRequest;
+import org.apache.ignite.raft.client.message.UserResponse;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.jetbrains.annotations.Nullable;
@@ -78,7 +93,7 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
     @Override public CompletableFuture<PeerId> refreshLeader(String groupId) {
         StateImpl state = getState(groupId);
 
-        RaftClientMessages.GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
+        GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
 
         CompletableFuture<GetLeaderResponse> fut = cluster.sendWithResponse(initialCfgNodes.iterator().next(), req, defaultTimeout);
 
@@ -89,43 +104,43 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.AddPeerResponse> addPeer(RaftClientMessages.AddPeerRequest request) {
+    @Override public CompletableFuture<AddPeerResponse> addPeer(AddPeerRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.RemovePeerResponse> removePeer(RaftClientMessages.RemovePeerRequest request) {
+    @Override public CompletableFuture<RemovePeerResponse> removePeer(RemovePeerRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<Void> resetPeers(PeerId peerId, RaftClientMessages.ResetPeerRequest request) {
+    @Override public CompletableFuture<Void> resetPeers(PeerId peerId, ResetPeerRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<Void> snapshot(PeerId peerId, RaftClientMessages.SnapshotRequest request) {
+    @Override public CompletableFuture<Void> snapshot(PeerId peerId, SnapshotRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.ChangePeersResponse> changePeers(RaftClientMessages.ChangePeersRequest request) {
+    @Override public CompletableFuture<ChangePeersResponse> changePeers(ChangePeersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.LearnersOpResponse> addLearners(RaftClientMessages.AddLearnersRequest request) {
+    @Override public CompletableFuture<LearnersOpResponse> addLearners(AddLearnersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.LearnersOpResponse> removeLearners(RaftClientMessages.RemoveLearnersRequest request) {
+    @Override public CompletableFuture<LearnersOpResponse> removeLearners(RemoveLearnersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.LearnersOpResponse> resetLearners(RaftClientMessages.ResetLearnersRequest request) {
+    @Override public CompletableFuture<LearnersOpResponse> resetLearners(ResetLearnersRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<Void> transferLeader(RaftClientMessages.TransferLeaderRequest request) {
+    @Override public CompletableFuture<Void> transferLeader(TransferLeaderRequest request) {
         return null;
     }
 
-    @Override public CompletableFuture<RaftClientMessages.UserResponse> submit(RaftClientMessages.UserRequest request) {
+    @Override public CompletableFuture<UserResponse> submit(UserRequest request) {
         if (request.getGroupId() == null)
             throw new IllegalArgumentException("groupId is required");
 

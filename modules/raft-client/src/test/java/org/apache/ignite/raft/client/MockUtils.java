@@ -17,11 +17,13 @@
 
 package org.apache.ignite.raft.client;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.GetLeaderRequest;
+import org.apache.ignite.raft.client.message.GetLeaderResponse;
+import org.apache.ignite.raft.client.message.UserRequest;
+import org.apache.ignite.raft.client.message.UserResponse;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -38,13 +40,13 @@ import static org.mockito.ArgumentMatchers.eq;
 public class MockUtils {
     public static PeerId LEADER = new PeerId(new NetworkMember("test"));
 
-    public static class TestInput1 {
+    public static class TestInput1 implements WriteCommand {
     }
 
     public static class TestOutput1 {
     }
 
-    public static class TestInput2 {
+    public static class TestInput2 implements ReadCommand {
     }
 
     public static class TestOutput2 {
@@ -53,12 +55,12 @@ public class MockUtils {
     public static void mockUserInput1(NetworkCluster cluster) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                RaftClientMessages.UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput1()).build();
+                UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput1()).build();
 
                 return completedFuture(resp);
             }
-        }).when(cluster).sendWithResponse(eq(LEADER.getNode()), argThat(new ArgumentMatcher<RaftClientMessages.UserRequest>() {
-            @Override public boolean matches(RaftClientMessages.UserRequest arg) {
+        }).when(cluster).sendWithResponse(eq(LEADER.getNode()), argThat(new ArgumentMatcher<UserRequest>() {
+            @Override public boolean matches(UserRequest arg) {
                 return arg.request() instanceof TestInput1;
             }
         }), anyLong());
@@ -67,12 +69,12 @@ public class MockUtils {
     public static void mockUserInput2(NetworkCluster cluster) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                RaftClientMessages.UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput2()).build();
+                UserResponse resp = MESSAGE_FACTORY.createUserResponse().setResponse(new TestOutput2()).build();
 
                 return completedFuture(resp);
             }
-        }).when(cluster).sendWithResponse(eq(LEADER.getNode()), argThat(new ArgumentMatcher<RaftClientMessages.UserRequest>() {
-            @Override public boolean matches(RaftClientMessages.UserRequest arg) {
+        }).when(cluster).sendWithResponse(eq(LEADER.getNode()), argThat(new ArgumentMatcher<UserRequest>() {
+            @Override public boolean matches(UserRequest arg) {
                 return arg.request() instanceof TestInput2;
             }
         }), anyLong());
@@ -81,10 +83,10 @@ public class MockUtils {
     public static void mockLeaderRequest(NetworkCluster cluster, boolean timeout) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                RaftClientMessages.GetLeaderResponse resp = MESSAGE_FACTORY.createGetLeaderResponse().setLeaderId(LEADER).build();
+                GetLeaderResponse resp = MESSAGE_FACTORY.createGetLeaderResponse().setLeaderId(LEADER).build();
 
                 return timeout ? failedFuture(new TimeoutException()) : completedFuture(resp);
             }
-        }).when(cluster).sendWithResponse(eq(LEADER.getNode()), any(RaftClientMessages.GetLeaderRequest.class), anyLong());
+        }).when(cluster).sendWithResponse(eq(LEADER.getNode()), any(GetLeaderRequest.class), anyLong());
     }
 }

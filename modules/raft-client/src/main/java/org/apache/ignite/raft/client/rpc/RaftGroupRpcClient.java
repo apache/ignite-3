@@ -23,21 +23,26 @@ import org.apache.ignite.raft.client.State;
 import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 
-import static org.apache.ignite.raft.client.message.RaftClientMessages.AddLearnersRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.AddPeerRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.AddPeerResponse;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.ChangePeersRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.ChangePeersResponse;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.LearnersOpResponse;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.RemoveLearnersRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.RemovePeerRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.RemovePeerResponse;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.ResetLearnersRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.ResetPeerRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.SnapshotRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.TransferLeaderRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.UserRequest;
-import static org.apache.ignite.raft.client.message.RaftClientMessages.UserResponse;
+import org.apache.ignite.raft.client.message.AddLearnersRequest;
+
+import org.apache.ignite.raft.client.message.AddPeerRequest;
+import org.apache.ignite.raft.client.message.AddPeerResponse;
+import org.apache.ignite.raft.client.message.ChangePeersRequest;
+import org.apache.ignite.raft.client.message.ChangePeersResponse;
+import org.apache.ignite.raft.client.message.LearnersOpResponse;
+
+import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
+
+import org.apache.ignite.raft.client.message.RemovePeerRequest;
+import org.apache.ignite.raft.client.message.RemovePeerResponse;
+import org.apache.ignite.raft.client.message.ResetLearnersRequest;
+
+import org.apache.ignite.raft.client.message.ResetPeerRequest;
+
+import org.apache.ignite.raft.client.message.SnapshotRequest;
+import org.apache.ignite.raft.client.message.TransferLeaderRequest;
+import org.apache.ignite.raft.client.message.UserRequest;
+import org.apache.ignite.raft.client.message.UserResponse;
 
 /**
  * Replication group RPC client.

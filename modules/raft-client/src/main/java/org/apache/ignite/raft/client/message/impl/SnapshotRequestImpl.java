@@ -17,9 +17,9 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.message.RaftClientMessages;
+import org.apache.ignite.raft.client.message.SnapshotRequest;
 
-class SnapshotRequestImpl implements RaftClientMessages.SnapshotRequest, RaftClientMessages.SnapshotRequest.Builder {
+class SnapshotRequestImpl implements SnapshotRequest, SnapshotRequest.Builder {
     private String groupId;
 
     @Override public String getGroupId() {
@@ -32,7 +32,7 @@ class SnapshotRequestImpl implements RaftClientMessages.SnapshotRequest, RaftCli
         return this;
     }
 
-    @Override public RaftClientMessages.SnapshotRequest build() {
+    @Override public SnapshotRequest build() {
         return this;
     }
 }

@@ -60,7 +60,7 @@ public class RaftGroupClientRequestServiceTest {
         RaftGroupClientRequestService reqService = new RaftGroupClientRequestServiceImpl(rpcClient, groupId);
         RaftGroupManagmentService mgmtService = new RaftGroupManagementServiceImpl(rpcClient, groupId);
 
-        assertNull(mgmtService.getLeader());
+        assertEquals(LEADER, mgmtService.getLeader());
 
         CompletableFuture<TestOutput1> fut1 = reqService.submit(new TestInput1());
 
@@ -73,7 +73,5 @@ public class RaftGroupClientRequestServiceTest {
         TestOutput2 output2 = fut2.get();
 
         assertNotNull(output2);
-
-        assertEquals(LEADER, mgmtService.getLeader());
     }
 }
