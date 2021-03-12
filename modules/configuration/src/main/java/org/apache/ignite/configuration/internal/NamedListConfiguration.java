@@ -55,7 +55,8 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEW, CHANGE
         String key,
         RootKey<?, ?> rootKey,
         ConfigurationChanger changer,
-        BiFunction<List<String>, String, T> creator) {
+        BiFunction<List<String>, String, T> creator
+    ) {
         super(prefix, key, rootKey, changer);
         this.creator = creator;
     }

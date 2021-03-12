@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 
-/** */
+/** Visitor that accumulates keys while descending. */
 public abstract class KeysTrackingConfigurationVisitor<T> implements ConfigurationVisitor<T> {
     /** Current key, aggregated by visitor. */
     private StringBuilder currentKey = new StringBuilder();
@@ -115,7 +115,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         return currentKey.toString();
     }
 
-    /** */
+    /** For all nodes. */
     protected final List<String> currentPath() {
         return Collections.unmodifiableList(currentPath);
     }

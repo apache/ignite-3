@@ -71,7 +71,7 @@ public class ConfigurationChanger {
     /** Map that has all the trees in accordance to their storages. */
     private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
 
-    /** */
+    /** Annotation classes mapped to validator objects. */
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
     /**
@@ -91,7 +91,7 @@ public class ConfigurationChanger {
         }
     }
 
-    /** */
+    /** Lazy annotations cache for configuration schema fields. */
     private final Map<MemberKey, Set<Annotation>> cachedAnnotations = new ConcurrentHashMap<>();
 
     /** Storage instances by their classes. Comes in handy when all you have is {@link RootKey}. */
@@ -173,7 +173,9 @@ public class ConfigurationChanger {
             change(storageDefaultsMap).get();
         }
         catch (InterruptedException | ExecutionException e) {
-            throw new ConfigurationChangeException("too bad", e);
+            throw new ConfigurationChangeException(
+                "Failed to write defalut configuration values into the storage " + configurationStorage.getClass(), e
+            );
         }
     }
 
@@ -300,6 +302,7 @@ public class ConfigurationChanger {
             // It's important to get the root from "roots" object rather then "storageRootMap" or "getRootNode(...)".
             InnerNode currentRootNode = storageRoots.roots.get(rootKey);
 
+            //TODO single putAll + remove matching value, this way "allChanges" will be fair.
             // These are changes explicitly provided by the client.
             allChanges.putAll(nodeToFlatMap(rootKey, currentRootNode, change));
 
@@ -438,7 +441,7 @@ public class ConfigurationChanger {
                         String currentKey = currentKey();
 
                         // Last dot should be trimmed.
-                        validate(key, node, currentKey.substring(0, currentKey.length() - 1));
+                        validate(innerNodes.peek(), key, node, currentKey.substring(0, currentKey.length() - 1));
                     }
 
                     innerNodes.push(node);
@@ -459,14 +462,20 @@ public class ConfigurationChanger {
                         issues.add(new ValidationIssue(message));
                     }
                     else
-                        validate(key, val, currentKey());
+                        validate(innerNodes.peek(), key, val, currentKey());
 
                     return null;
                 }
 
-                private void validate(String fieldName, Object val, String currentKey) {
-                    InnerNode lastInnerNode = innerNodes.peek();
-
+                /**
+                 * Perform validation on the node's subnode.
+                 *
+                 * @param lastInnerNode Inner node that contains validated field.
+                 * @param fieldName Name of the field.
+                 * @param val Value of the field.
+                 * @param currentKey Fully qualified key for the field.
+                 */
+                private void validate(InnerNode lastInnerNode, String fieldName, Object val, String currentKey) {
                     MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
 
                     Set<Annotation> annotations = cachedAnnotations.computeIfAbsent(memberKey, k -> {
@@ -476,6 +485,7 @@ public class ConfigurationChanger {
                             return Arrays.stream(field.getDeclaredAnnotations()).collect(Collectors.toSet());
                         }
                         catch (NoSuchFieldException e) {
+                            // Should be impossible.
                             return emptySet();
                         }
                     });
@@ -548,6 +558,7 @@ public class ConfigurationChanger {
         }
     }
 
+    /** */
     private class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
         /** */
         private final StorageRoots storageRoots;
@@ -583,30 +594,36 @@ public class ConfigurationChanger {
             this.currentPath = currentPath;
         }
 
+        /** {@inheritDoc} */
         @Override public String currentKey() {
             return currentKey;
         }
 
+        /** {@inheritDoc} */
         @Override public VIEW getOldValue() {
             return (VIEW)find(currentPath, storageRoots.roots.get(rootKey));
         }
 
+        /** {@inheritDoc} */
         @Override public VIEW getNewValue() {
             return val;
         }
 
+        /** {@inheritDoc} */
         @Override public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
             InnerNode root = storageRoots.roots.get(rootKey);
 
             return (ROOT)(root == null ? getRootNode(rootKey) : root);
         }
 
+        /** {@inheritDoc} */
         @Override public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
             TraversableTreeNode root = newRoots.get(rootKey);
 
             return (ROOT)(root == null ? getRootNode(rootKey) : root);
         }
 
+        /** {@inheritDoc} */
         @Override public void addIssue(ValidationIssue issue) {
             issues.add(issue);
         }

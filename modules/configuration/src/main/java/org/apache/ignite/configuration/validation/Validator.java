@@ -18,9 +18,23 @@
 package org.apache.ignite.configuration.validation;
 
 import java.lang.annotation.Annotation;
+import org.apache.ignite.configuration.ConfigurationRegistry;
 
-/** */
+/**
+ * Interface for all configuration validators class. Recommended to be a stateless class.
+ *
+ * It is mandatory that all direct implementations of the interface explicitly specify types {@code A} and {@code VIEW}.
+ *
+ * @param <A> Type of the annotation that puts current validator to the field.
+ * @param <VIEW> Upper bound for field types that can be validated with this validator.
+ * @see ConfigurationRegistry#registerValidator(Class, Validator)
+ */
 public interface Validator<A extends Annotation, VIEW> {
-    /** */
+    /**
+     * Perform validation. All validation issues must be put into {@link ValidationContext#addIssue(ValidationIssue)}.
+     *
+     * @param annotation Specific annotation from currently validated value.
+     * @param ctx Validation context.
+     */
     void validate(A annotation, ValidationContext<VIEW> ctx);
 }

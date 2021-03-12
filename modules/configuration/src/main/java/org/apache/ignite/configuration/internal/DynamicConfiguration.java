@@ -68,9 +68,9 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     }
 
     /**
-     * Add new configuration member with validators.
+     * Add new configuration member.
+     *
      * @param member Configuration member (leaf or node).
-     * @param validators Validators for new member.
      * @param <M> Type of member.
      */
     protected final <M extends DynamicProperty<?>> void add(M member) {
