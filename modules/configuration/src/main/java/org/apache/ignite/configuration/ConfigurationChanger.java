@@ -18,14 +18,8 @@ package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,8 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.internal.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
+import org.apache.ignite.configuration.internal.validation.ValidationUtil;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
@@ -47,13 +41,10 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
-import static java.util.Collections.emptySet;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.find;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.nodeToFlatMap;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.patch;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
@@ -243,7 +234,7 @@ public class ConfigurationChanger {
      *
      * @param rootKey Root key.
      */
-    public TraversableTreeNode getRootNode(RootKey<?, ?> rootKey) {
+    public InnerNode getRootNode(RootKey<?, ?> rootKey) {
         return this.storagesRootsMap.get(rootKey.getStorageType()).roots.get(rootKey);
     }
 
@@ -327,9 +318,11 @@ public class ConfigurationChanger {
             return;
         }
 
-        ValidationResult validationResult = validate(storageRoots, rootsForValidation);
-
-        List<ValidationIssue> validationIssues = validationResult.issues();
+        List<ValidationIssue> validationIssues = ValidationUtil.validate(
+            storageRoots.roots,
+            rootsForValidation,
+            this::getRootNode, cachedAnnotations, validators
+        );
 
         if (!validationIssues.isEmpty()) {
             fut.completeExceptionally(new ConfigurationValidationException(validationIssues));
@@ -408,224 +401,6 @@ public class ConfigurationChanger {
         for (Object value : prefixMap.values()) {
             if (value instanceof Map)
                 compressDeletedEntries((Map<String, ?>)value);
-        }
-    }
-
-    /**
-     * Validate configuration changes.
-     *
-     * @param storageRoots Storage roots.
-     * @param newRoots Configuration changes.
-     * @return Validation results.
-     */
-    private ValidationResult validate(
-        StorageRoots storageRoots,
-        Map<RootKey<?, ?>, ? extends TraversableTreeNode> newRoots
-    ) {
-        List<ValidationIssue> issues = new ArrayList<>();
-
-        for (Map.Entry<RootKey<?, ?>, ? extends TraversableTreeNode> entry : newRoots.entrySet()) {
-            RootKey<?, ?> rootKey = entry.getKey();
-            TraversableTreeNode newRoot = entry.getValue();
-
-            newRoot.accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
-                /** Inner nodes, last one always belongs to "current" leaf. */
-                private Deque<InnerNode> innerNodes = new ArrayDeque<>();
-
-                /** {@inheritDoc} */
-                @Override protected Object visitInnerNode0(String key, InnerNode node) {
-                    assert node != null;
-
-                    // There cannot be validation annotations on the root itself. Condition is correct.
-                    if (!innerNodes.isEmpty()) {
-                        String currentKey = currentKey();
-
-                        // Last dot should be trimmed.
-                        validate(innerNodes.peek(), key, node, currentKey.substring(0, currentKey.length() - 1));
-                    }
-
-                    innerNodes.push(node);
-
-                    try {
-                        return super.visitInnerNode0(key, node);
-                    }
-                    finally {
-                        innerNodes.pop();
-                    }
-                }
-
-                /** {@inheritDoc} */
-                @Override protected Void visitLeafNode0(String key, Serializable val) {
-                    if (val == null) {
-                        String message = "'" + currentKey() + "' configuration value is not initialized.";
-
-                        issues.add(new ValidationIssue(message));
-                    }
-                    else
-                        validate(innerNodes.peek(), key, val, currentKey());
-
-                    return null;
-                }
-
-                /**
-                 * Perform validation on the node's subnode.
-                 *
-                 * @param lastInnerNode Inner node that contains validated field.
-                 * @param fieldName Name of the field.
-                 * @param val Value of the field.
-                 * @param currentKey Fully qualified key for the field.
-                 */
-                private void validate(InnerNode lastInnerNode, String fieldName, Object val, String currentKey) {
-                    MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
-
-                    Set<Annotation> annotations = cachedAnnotations.computeIfAbsent(memberKey, k -> {
-                        try {
-                            Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
-
-                            return Arrays.stream(field.getDeclaredAnnotations()).collect(Collectors.toSet());
-                        }
-                        catch (NoSuchFieldException e) {
-                            // Should be impossible.
-                            return emptySet();
-                        }
-                    });
-
-                    for (Annotation annotation : annotations) {
-                        for (Validator<?, ?> validatorX : validators.getOrDefault(annotation.annotationType(), emptySet())) {
-                            // Making this a compile-time check would be too expensive to implement.
-                            assert asserts(validatorX.getClass(), annotation.annotationType(), val);
-
-                            Validator<Annotation, Object> validator = (Validator<Annotation, Object>)validatorX;
-
-                            validator.validate(annotation, new ValidationContextImpl<>(storageRoots, rootKey, val, newRoots, issues, currentKey, currentPath()));
-                        }
-                    }
-                }
-            });
-        }
-
-        return new ValidationResult(issues);
-    }
-
-    /** */
-    private static boolean asserts(Class<?> validatorClass, Class<? extends Annotation> annotationType, Object val) {
-        if (!Arrays.asList(validatorClass.getInterfaces()).contains(Validator.class))
-            return asserts(validatorClass.getSuperclass(), annotationType, val);
-
-        Type genericSuperClass = Arrays.stream(validatorClass.getGenericInterfaces())
-            .filter(i -> i instanceof ParameterizedType && ((ParameterizedType)i).getRawType() == Validator.class)
-            .findAny()
-            .get();
-
-        assert genericSuperClass instanceof ParameterizedType;
-
-        ParameterizedType parameterizedSuperClass = (ParameterizedType)genericSuperClass;
-
-        Type[] actualTypeParameters = parameterizedSuperClass.getActualTypeArguments();
-
-        assert actualTypeParameters.length == 2;
-
-        assert actualTypeParameters[0] == annotationType;
-
-        assert actualTypeParameters[1] instanceof Class;
-
-        assert val == null || ((Class<?>)actualTypeParameters[1]).isInstance(val);
-
-        return true;
-    }
-
-    /**
-     * Results of the validation.
-     */
-    private static final class ValidationResult {
-        /** List of issues. */
-        private final List<ValidationIssue> issues;
-
-        /**
-         * Constructor.
-         * @param issues List of issues.
-         */
-        private ValidationResult(List<ValidationIssue> issues) {
-            this.issues = issues;
-        }
-
-        /**
-         * Get issues.
-         * @return Issues.
-         */
-        public List<ValidationIssue> issues() {
-            return Collections.unmodifiableList(issues);
-        }
-    }
-
-    /** */
-    private class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
-        /** */
-        private final StorageRoots storageRoots;
-
-        /** */
-        private final RootKey<?, ?> rootKey;
-
-        /** */
-        private final VIEW val;
-
-        /** */
-        private final Map<RootKey<?, ?>, ? extends TraversableTreeNode> newRoots;
-
-        /** */
-        private final List<ValidationIssue> issues;
-
-        /** */
-        private final String currentKey;
-
-        /** */
-        private final List<String> currentPath;
-
-        ValidationContextImpl(StorageRoots storageRoots, RootKey<?, ?> rootKey, VIEW val,
-            Map<RootKey<?, ?>, ? extends TraversableTreeNode> newRoots, List<ValidationIssue> issues,
-            String currentKey, List<String> currentPath
-        ) {
-            this.storageRoots = storageRoots;
-            this.rootKey = rootKey;
-            this.val = val;
-            this.newRoots = newRoots;
-            this.issues = issues;
-            this.currentKey = currentKey;
-            this.currentPath = currentPath;
-        }
-
-        /** {@inheritDoc} */
-        @Override public String currentKey() {
-            return currentKey;
-        }
-
-        /** {@inheritDoc} */
-        @Override public VIEW getOldValue() {
-            return (VIEW)find(currentPath, storageRoots.roots.get(rootKey));
-        }
-
-        /** {@inheritDoc} */
-        @Override public VIEW getNewValue() {
-            return val;
-        }
-
-        /** {@inheritDoc} */
-        @Override public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
-            InnerNode root = storageRoots.roots.get(rootKey);
-
-            return (ROOT)(root == null ? getRootNode(rootKey) : root);
-        }
-
-        /** {@inheritDoc} */
-        @Override public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
-            TraversableTreeNode root = newRoots.get(rootKey);
-
-            return (ROOT)(root == null ? getRootNode(rootKey) : root);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void addIssue(ValidationIssue issue) {
-            issues.add(issue);
         }
     }
 }
