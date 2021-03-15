@@ -32,8 +32,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  *
  */
-@SuppressWarnings({"PMD.EmptyLineSeparatorCheck","checkstyle:emptyLineSeparator",
-    "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized","JoinDeclarationAndAssignmentJava"})
+@SuppressWarnings({"PMD.EmptyLineSeparatorCheck", "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized",
+    "JoinDeclarationAndAssignmentJava"})
 public class Example {
     /**
      * @return Table implementation.
@@ -450,5 +450,3 @@ public class Example {
             Mappers.ofValueClassBuilder(BinaryObject.class).deserializeTo(Employee.class).build());
     }
 }
-
-
