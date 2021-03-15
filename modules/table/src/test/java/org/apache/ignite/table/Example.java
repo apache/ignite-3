@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  *
  */
-@SuppressWarnings({"PMD.EmptyLineSeparatorCheck","checkstyle:EmptyLineSeparator",
+@SuppressWarnings({"PMD.EmptyLineSeparatorCheck","checkstyle:emptyLineSeparator",
     "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized","JoinDeclarationAndAssignmentJava"})
 public class Example {
     /**

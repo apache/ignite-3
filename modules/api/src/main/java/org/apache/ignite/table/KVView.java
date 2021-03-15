@@ -62,7 +62,7 @@ public interface KVView<K, V> extends KVFacade<K, V> {
      * @param <V> Value type.
      * @param <R> Processor result type.
      */
-    interface KVInvokeProcessor<T, V, R extends Serializable> extends Serializable {
+    public interface KVInvokeProcessor<T, V, R extends Serializable> extends Serializable {
         /**
          * Process entry and return the result.
          *
@@ -78,7 +78,7 @@ public interface KVView<K, V> extends KVFacade<K, V> {
      * @param <T> Target object type.
      * @param <V> Value type.
      */
-    interface InvocationContext<T, V> {
+    public interface InvocationContext<T, V> {
         /**
          * @return Invocation arguments.
          */

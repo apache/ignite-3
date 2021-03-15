@@ -82,7 +82,7 @@ public interface Table extends TableView<Row> {
      * @param keyRow Row with key columns set.
      * @return Results of the processing.
      */
-     <T extends Serializable> T invoke(Row keyRow, InvokeProcessor<T> proc);
+    <T extends Serializable> T invoke(Row keyRow, InvokeProcessor<T> proc);
 
     /**
      * Invokes an InvokeProcessor against the associated rows.
@@ -90,7 +90,7 @@ public interface Table extends TableView<Row> {
      * @param keyRows Ordered collection of rows with key columns set.
      * @return Results of the processing.
      */
-     <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRows, InvokeProcessor<T> proc);
+    <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRows, InvokeProcessor<T> proc);
 
     /**
      * Creates builder for BinaryRow.
@@ -105,15 +105,37 @@ public interface Table extends TableView<Row> {
      *
      * @param <R> Processor result type.
      */
-    public interface InvokeProcessor<R extends Serializable> extends RecordView.InvokeProcessor<Row, R> {
-       /** {@inheritDoc} */
-        R process(Table.InvocationContext ctx);
+    public interface InvokeProcessor<R extends Serializable> extends Serializable {
+        /**
+         * Process entry and return the result.
+         *
+         * @param ctx Invocation context.
+         * @return Invoke processor result.
+         */
+        R process(InvocationContext ctx);
     }
 
     /**
      * Invocation context.
      */
-    public interface InvocationContext extends RecordView.InvocationContext<Row> {
+    public interface InvocationContext {
+        /**
+         * @return Invocation arguments.
+         */
+        Object[] args();
+
+        /**
+         * @return Current row.
+         */
+        Row row();
+
+        /**
+         * Sets new row.
+         *
+         * @param row Object to set.
+         */
+        void row(Row row);
+
         /**
          * @return Row builder.
          */

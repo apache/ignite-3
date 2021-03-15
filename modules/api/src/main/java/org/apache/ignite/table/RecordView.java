@@ -87,20 +87,15 @@ public interface RecordView<R> extends TableView<R> {
         Object[] args();
 
         /**
-         * @return Requested row.
+         * @return Current record.
          */
-        T key();
+        T value();
 
         /**
-         * @return Current row.
-         */
-        T row();
-
-        /**
-         * Sets new row.
+         * Sets new record.
          *
-         * @param row Object to set.
+         * @param rec Object to set.
          */
-        void row(T row);
+        void value(T rec);
     }
 }

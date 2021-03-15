@@ -65,15 +65,42 @@ public interface KV extends KVFacade<ColSpan, ColSpan> {
      *
      * @param <R> Processor result type.
      */
-    interface InvokeProcessor<R extends Serializable> extends KVView.KVInvokeProcessor<ColSpan, ColSpan, R> {
-       /** {@inheritDoc} */
-        R process(KV.InvocationContext ctx);
+    public interface InvokeProcessor<R extends Serializable> extends Serializable {
+        /**
+         * Process entry and return the result.
+         *
+         * @param ctx Invocation context.
+         * @return Invoke processor result.
+         */
+        R process(InvocationContext ctx);
     }
 
     /**
      * Invocation context.
      */
-    interface InvocationContext extends KVView.InvocationContext<ColSpan, ColSpan> {
+    public interface InvocationContext {
+        /**
+         * @return Invocation arguments.
+         */
+        Object[] args();
+
+        /**
+         * @return Key object.
+         */
+        ColSpan key();
+
+        /**
+         * @return Current value.
+         */
+        ColSpan value();
+
+        /**
+         * Sets new value.
+         *
+         * @param val Value object to set.
+         */
+        void value(ColSpan val);
+
         /**
          * @return ColSpan builder.
          */
