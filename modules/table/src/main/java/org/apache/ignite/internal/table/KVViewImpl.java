@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.table.KVInvokeProcessor;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.KeyMapper;

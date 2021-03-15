@@ -21,9 +21,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-import org.apache.ignite.table.BinaryInvokeProcessor;
-import org.apache.ignite.table.KVBinaryView;
-import org.apache.ignite.table.KVFacade;
+import org.apache.ignite.table.KV;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -60,7 +58,7 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public KVBinaryView kvView() {
+    @Override public KV kvView() {
         return new KVBinaryImpl(table);
     }
 
@@ -144,13 +142,13 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> R invoke(Row keyRec, BinaryInvokeProcessor<R> proc) {
+    @Override public <R extends Serializable> R invoke(Row keyRec, InvokeProcessor<R> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public <R extends Serializable> Map<Row, R> invokeAll(Collection<Row> keyRecs,
-        BinaryInvokeProcessor<R> proc) {
+        InvokeProcessor<R> proc) {
         return null;
     }
 

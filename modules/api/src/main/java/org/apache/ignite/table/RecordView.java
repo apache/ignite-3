@@ -56,4 +56,51 @@ public interface RecordView<R> extends TableView<R> {
      * @return Results of the processing.
      */
     <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs, InvokeProcessor<R, T> proc);
+
+    /**
+     * Invoke processor provide ability to run code against a record on server-side.
+     *
+     * Note: Processor will be always deployed to nodes and will never got from a classpath.
+     *
+     * @param <T> Record object type.
+     * @param <R> Processor result type.
+     */
+    public interface InvokeProcessor<T, R extends Serializable> extends Serializable {
+        /**
+         * Process entry and return the result.
+         *
+         * @param ctx Invocation context.
+         * @return Invoke processor result.
+         */
+        R process(InvocationContext<T> ctx);
+    }
+
+    /**
+     * Invocation context.
+     *
+     * @param <T> Record type.
+     */
+    public interface InvocationContext<T> {
+        /**
+         * @return Invocation arguments.
+         */
+        Object[] args();
+
+        /**
+         * @return Requested row.
+         */
+        T key();
+
+        /**
+         * @return Current row.
+         */
+        T row();
+
+        /**
+         * Sets new row.
+         *
+         * @param row Object to set.
+         */
+        void row(T row);
+    }
 }

@@ -22,13 +22,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.table.BinaryKVInvokeProcessor;
-import org.apache.ignite.table.KVBinaryView;
-import org.apache.ignite.table.KVFacade;
+import org.apache.ignite.table.KV;
 import org.apache.ignite.table.binary.ColSpan;
 import org.apache.ignite.table.binary.ColSpanBuilder;
 
-public class KVBinaryImpl implements KVBinaryView {
+public class KVBinaryImpl implements KV {
     /**
      * Constructor.
      *
@@ -110,7 +108,7 @@ public class KVBinaryImpl implements KVBinaryView {
     /** {@inheritDoc} */
     @Override public <R extends Serializable> R invoke(
         ColSpan key,
-        BinaryKVInvokeProcessor<R> proc,
+        InvokeProcessor<R> proc,
         Serializable... args
     ) {
         return null;
@@ -119,7 +117,7 @@ public class KVBinaryImpl implements KVBinaryView {
     /** {@inheritDoc} */
     @Override public <R extends Serializable> List<R> invokeAll(
         List<ColSpan> keys,
-        BinaryKVInvokeProcessor<R> proc,
+        InvokeProcessor<R> proc,
         Serializable... args
     ) {
         return null;

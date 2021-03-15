@@ -53,7 +53,7 @@ public interface Table extends TableView<Row> {
      *
      * @return Table key-value view.
      */
-    KVBinaryView kvView();
+    KV kvView();
 
     /**
      * Creates record view of table for record class provided.
@@ -82,7 +82,7 @@ public interface Table extends TableView<Row> {
      * @param keyRow Row with key columns set.
      * @return Results of the processing.
      */
-     <T extends Serializable> T invoke(Row keyRow, BinaryInvokeProcessor<T> proc);
+     <T extends Serializable> T invoke(Row keyRow, InvokeProcessor<T> proc);
 
     /**
      * Invokes an InvokeProcessor against the associated rows.
@@ -90,7 +90,7 @@ public interface Table extends TableView<Row> {
      * @param keyRows Ordered collection of rows with key columns set.
      * @return Results of the processing.
      */
-     <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRows, BinaryInvokeProcessor<T> proc);
+     <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRows, InvokeProcessor<T> proc);
 
     /**
      * Creates builder for BinaryRow.
@@ -98,4 +98,25 @@ public interface Table extends TableView<Row> {
      * @return BinaryRow builder for table.
      */
     RowBuilder rowBuilder();
+
+    /**
+     * Invoke processor provide ability to run code against requested table row on server-side
+     * regarding the BinaryObject concept.
+     *
+     * @param <R> Processor result type.
+     */
+    public interface InvokeProcessor<R extends Serializable> extends RecordView.InvokeProcessor<Row, R> {
+       /** {@inheritDoc} */
+        R process(Table.InvocationContext ctx);
+    }
+
+    /**
+     * Invocation context.
+     */
+    public interface InvocationContext extends RecordView.InvocationContext<Row> {
+        /**
+         * @return Row builder.
+         */
+        Row rowBuilder();
+    }
 }

@@ -28,7 +28,7 @@ import org.apache.ignite.table.binary.ColSpanBuilder;
  * Keys and values are wrappers over corresponding column spans
  * and implement the BinaryObject concept.
  */
-public interface KVBinaryView extends KVFacade<ColSpan, ColSpan> {
+public interface KV extends KVFacade<ColSpan, ColSpan> {
     /**
      * Invokes an invoke processor code against the value associated with the provided key.
      *
@@ -37,9 +37,9 @@ public interface KVBinaryView extends KVFacade<ColSpan, ColSpan> {
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
      * @return Result of the processing.
-     * @see InvokeProcessor
+     * @see RecordView.InvokeProcessor
      */
-    <R extends Serializable> R invoke(ColSpan key, BinaryKVInvokeProcessor<R> proc, Serializable... args);
+    <R extends Serializable> R invoke(ColSpan key, InvokeProcessor<R> proc, Serializable... args);
 
     /**
      * Invokes an invoke processor code against values associated with the provided keys.
@@ -49,13 +49,34 @@ public interface KVBinaryView extends KVFacade<ColSpan, ColSpan> {
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
      * @return Results of the processing.
-     * @see InvokeProcessor
+     * @see RecordView.InvokeProcessor
      */
-    <R extends Serializable> List<R> invokeAll(List<ColSpan> keys, BinaryKVInvokeProcessor<R> proc,
+    <R extends Serializable> List<R> invokeAll(List<ColSpan> keys, InvokeProcessor<R> proc,
         Serializable... args);
 
     /**
      * @return Column span builder.
      */
     ColSpanBuilder colSpanBuilder();
+
+    /**
+     * Invoke processor provide ability to run code against a value associated
+     * with given key on server-side regarding the BinaryObject concept.
+     *
+     * @param <R> Processor result type.
+     */
+    interface InvokeProcessor<R extends Serializable> extends KVView.KVInvokeProcessor<ColSpan, ColSpan, R> {
+       /** {@inheritDoc} */
+        R process(KV.InvocationContext ctx);
+    }
+
+    /**
+     * Invocation context.
+     */
+    interface InvocationContext extends KVView.InvocationContext<ColSpan, ColSpan> {
+        /**
+         * @return ColSpan builder.
+         */
+        ColSpan colSpanBuilder();
+    }
 }
