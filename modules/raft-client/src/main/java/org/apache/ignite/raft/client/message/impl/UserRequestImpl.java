@@ -17,14 +17,15 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
+import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.message.UserRequest;
 
 public class UserRequestImpl<T> implements UserRequest, UserRequest.Builder {
-    private Object request;
+    private Command request;
 
     private String groupId;
 
-    @Override public Object request() {
+    @Override public Command request() {
         return request;
     }
 
@@ -38,7 +39,7 @@ public class UserRequestImpl<T> implements UserRequest, UserRequest.Builder {
         return this;
     }
 
-    @Override public Builder setRequest(Object request) {
+    @Override public Builder setRequest(Command request) {
         this.request = request;
 
         return this;
