@@ -19,6 +19,7 @@ package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.binary.ColSpan;
 import org.apache.ignite.table.binary.Row;
 
 /**
@@ -26,19 +27,29 @@ import org.apache.ignite.table.binary.Row;
  */
 public class DummyTableRowImpl implements Row {
     //TODO: Replace with Tuple layout constants.
-    /** */
+    /**
+     *
+     */
     private static final int SCHEMA_VERSION_OFFSET = 0;
 
-    /** */
+    /**
+     *
+     */
     private static final int FLAGS_OFFSET = SCHEMA_VERSION_OFFSET + 2;
 
-    /** */
+    /**
+     *
+     */
     private static final int KEY_HASH_OFFSET = FLAGS_OFFSET + 2;
 
-    /** */
+    /**
+     *
+     */
     private static final int KEY_OFFSET = KEY_HASH_OFFSET + 4;
 
-    /** */
+    /**
+     *
+     */
     private final byte[] bytes;
 
     /**
@@ -51,26 +62,34 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] getKeyBytes() {
-        ByteBuffer buf = ByteBuffer.wrap(bytes);
-
-        int keyLen = buf.getInt(KEY_OFFSET);
-
-        return buf.position(KEY_OFFSET).limit(keyLen).slice().array();
-    }
-
-    /** {@inheritDoc} */
     @Override public byte[] toBytes() {
         return bytes.clone();
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] getValueBytes() {
-        ByteBuffer buf = ByteBuffer.wrap(bytes);
+    @Override public ColSpan keySpan() {
+        return new DummyTableRowImpl(this.bytes) {
+            @Override public byte[] toBytes() {
+                ByteBuffer buf = ByteBuffer.wrap(bytes);
 
-        int valOffset = KEY_OFFSET + buf.getInt(KEY_OFFSET);
+                int keyLen = buf.getInt(KEY_OFFSET);
 
-        return buf.position(valOffset).slice().array();
+                return buf.position(KEY_OFFSET).limit(keyLen).slice().array();
+            }
+        };
+    }
+
+    /** {@inheritDoc} */
+    @Override public ColSpan valueSpan() {
+        return new DummyTableRowImpl(this.bytes) {
+            @Override public byte[] toBytes() {
+                ByteBuffer buf = ByteBuffer.wrap(bytes);
+
+                int valOffset = KEY_OFFSET + buf.getInt(KEY_OFFSET);
+
+                return buf.position(valOffset).slice().array();
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -118,8 +137,4 @@ public class DummyTableRowImpl implements Row {
         return null;
     }
 
-    /** {@inheritDoc} */
-    @Override public long schemaVersion() {
-        return 0;
-    }
 }
