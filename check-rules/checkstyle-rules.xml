@@ -29,7 +29,13 @@
         <property name="eachLine" value="true"/>
     </module>
 
+    <!-- SuppressWarning Filter. https://checkstyle.sourceforge.io/config_filters.html#SuppressWarningsFilter -->
+    <module name="SuppressWarningsFilter" />
+
     <module name="TreeWalker">
+        <!-- Handler for SuppressWarning Filter. https://checkstyle.sourceforge.io/config_filters.html#SuppressWarningsFilter -->
+        <module name="SuppressWarningsHolder" />
+
         <!-- Coding Checks. See: https://checkstyle.sourceforge.io/config_coding.html -->
         <module name="SimplifyBooleanExpression"/>
 
