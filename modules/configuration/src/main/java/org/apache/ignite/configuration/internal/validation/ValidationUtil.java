@@ -164,6 +164,7 @@ public class ValidationUtil {
         Class<? extends Annotation> annotationType,
         Object val
     ) {
+        // Find superclass that directly extends Validator.
         if (!Arrays.asList(validatorClass.getInterfaces()).contains(Validator.class))
             return assertTypesCoherence(validatorClass.getSuperclass(), annotationType, val);
 
@@ -172,20 +173,22 @@ public class ValidationUtil {
             .findAny()
             .get();
 
-        assert genericSuperClass instanceof ParameterizedType;
+        if (!(genericSuperClass instanceof ParameterizedType))
+            return false;
 
         ParameterizedType parameterizedSuperClass = (ParameterizedType)genericSuperClass;
 
         Type[] actualTypeParameters = parameterizedSuperClass.getActualTypeArguments();
 
-        assert actualTypeParameters.length == 2;
+        if (actualTypeParameters.length != 2)
+            return false;
 
-        assert actualTypeParameters[0] == annotationType;
+        if (actualTypeParameters[0] != annotationType)
+            return false;
 
-        assert actualTypeParameters[1] instanceof Class;
+        if (!(actualTypeParameters[1] instanceof Class))
+            return false;
 
-        assert val == null || ((Class<?>)actualTypeParameters[1]).isInstance(val);
-
-        return true;
+        return val == null || ((Class<?>)actualTypeParameters[1]).isInstance(val);
     }
 }

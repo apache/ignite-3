@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.sample;
+package org.apache.ignite.configuration.internal.validation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -32,38 +32,37 @@ import org.junit.jupiter.api.Test;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static org.apache.ignite.configuration.sample.storage.AConfiguration.KEY;
 
 /** */
 public class ValidatorsTest {
     /** */
     @Target(FIELD)
     @Retention(RUNTIME)
-    @interface LeafValiation {
+    @interface LeafValidation {
     }
 
     /** */
     @Target(FIELD)
     @Retention(RUNTIME)
-    @interface InnerValiation {
+    @interface InnerValidation {
     }
 
     /** */
     @Target(FIELD)
     @Retention(RUNTIME)
-    @interface NamedListValiation {
+    @interface NamedListValidation {
     }
 
     /** */
     @ConfigurationRoot(rootName = "root", storage = TestConfigurationStorage.class)
     public static class ValidatedRootConfigurationSchema {
         /** */
-        @InnerValiation
+        @InnerValidation
         @ConfigValue
         public ValidatedChildConfigurationSchema child;
 
         /** */
-        @NamedListValiation
+        @NamedListValidation
         @NamedConfigValue
         public ValidatedChildConfigurationSchema elements;
     }
@@ -72,7 +71,7 @@ public class ValidatorsTest {
     @Config
     public static class ValidatedChildConfigurationSchema {
         /** */
-        @LeafValiation
+        @LeafValidation
         @Value(hasDefault = true)
         public String str = "foo";
     }
@@ -83,7 +82,7 @@ public class ValidatorsTest {
     /** */
     @BeforeEach
     public void before() {
-        changer = new ConfigurationChanger(KEY);
+        changer = new ConfigurationChanger(ValidatedRootConfiguration.KEY);
 
         changer.init(new TestConfigurationStorage());
     }
