@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.KeyMapper;
@@ -36,7 +37,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
  */
 public class KVViewImpl<K, V> implements KVView<K, V> {
     /** Underlying storage. */
-    private final TableStorage table;
+    private final TableStorage tbl;
 
     /**
      * Constructor.
@@ -46,7 +47,7 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
      * @param valueMapper Value class mapper.
      */
     public KVViewImpl(TableStorage tbl, KeyMapper<K> keyMapper, ValueMapper<V> valueMapper) {
-        this.table = tbl;
+        this.tbl = tbl;
     }
 
     /** {@inheritDoc} */
@@ -55,7 +56,7 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
 
         Row kRow = marsh.toKeyRow(key);
 
-        Row row = table.get(kRow);
+        Row row = tbl.get(kRow);
 
         return marsh.unmarshallValue(row);
     }
@@ -127,14 +128,14 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public <R extends Serializable> R invoke(K key, KVInvokeProcessor<K, V, R> proc, Serializable... args) {
+    public <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public <R extends Serializable> Map<K, R> invokeAll(
         Collection<K> keys,
-        KVInvokeProcessor<K, V, R> proc,
+        InvokeProcessor<K, V, R> proc,
         Serializable... args
     ) {
         return Collections.emptyMap();

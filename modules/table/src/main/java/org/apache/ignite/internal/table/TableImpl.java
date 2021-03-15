@@ -21,139 +21,155 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KV;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryObjectBuilder;
 import org.apache.ignite.table.binary.Row;
-import org.apache.ignite.table.binary.RowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
- * Table view implementation provides functionality to access binary rows.
+ * Table view implementation provides functionality to access binary BinaryObjects.
  */
-public class TableViewImpl implements Table {
+public class TableImpl implements Table {
     /** Table. */
-    private final TableStorage table;
+    private final TableStorage tbl;
 
     /**
      * Constructor.
      *
-     * @param table Table.
+     * @param tbl Table.
      */
-    public TableViewImpl(TableStorage table) {
-        this.table = table;
+    public TableImpl(TableStorage tbl) {
+        this.tbl = tbl;
     }
 
     /** {@inheritDoc} */
     @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
-        return new RecordViewImpl<>(table, recMapper);
+        return new RecordViewImpl<>(tbl, recMapper);
     }
 
     /** {@inheritDoc} */
     @Override public <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
-        return new KVViewImpl<>(table, keyMapper, valMapper);
+        return new KVViewImpl<>(tbl, keyMapper, valMapper);
     }
 
     /** {@inheritDoc} */
     @Override public KV kvView() {
-        return new KVBinaryImpl(table);
+        return new KVImpl(tbl);
     }
 
     /** {@inheritDoc} */
-    @Override public Row get(Row keyRec) {
+    @Override public BinaryObject get(BinaryObject keyRec) {
+        Row kRow = toKeyRow(keyRec);
+
+        return tbl.get(kRow);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<BinaryObject> getAll(Collection<BinaryObject> keyRecs) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Row> getAll(Collection<Row> keyRecs) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean upsert(Row row) {
+    @Override public boolean upsert(BinaryObject BinaryObject) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void upsertAll(Collection<Row> recs) {
+    @Override public void upsertAll(Collection<BinaryObject> recs) {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean insert(Row row) {
+    @Override public boolean insert(BinaryObject BinaryObject) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Row> insertAll(Collection<Row> recs) {
+    @Override public Collection<BinaryObject> insertAll(Collection<BinaryObject> recs) {
         return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public Row getAndUpsert(Row rec) {
+    @Override public BinaryObject getAndUpsert(BinaryObject rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(Row rec) {
+    @Override public boolean replace(BinaryObject rec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(Row oldRec, Row newRec) {
+    @Override public boolean replace(BinaryObject oldRec, BinaryObject newRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public Row getAndReplace(Row rec) {
+    @Override public BinaryObject getAndReplace(BinaryObject rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean delete(Row keyRec) {
+    @Override public boolean delete(BinaryObject keyRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean deleteExact(Row oldRec) {
+    @Override public boolean deleteExact(BinaryObject oldRec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public Row getAndDelete(Row rec) {
+    @Override public BinaryObject getAndDelete(BinaryObject rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Row getAndDeleteExact(Row rec) {
+    @Override public BinaryObject getAndDeleteExact(BinaryObject rec) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Row> deleteAll(Collection<Row> recs) {
+    @Override public Collection<BinaryObject> deleteAll(Collection<BinaryObject> recs) {
         return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Row> deleteAllExact(Collection<Row> recs) {
+    @Override public Collection<BinaryObject> deleteAllExact(Collection<BinaryObject> recs) {
         return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> R invoke(Row keyRec, InvokeProcessor<R> proc) {
+    @Override public <R extends Serializable> R invoke(BinaryObject keyRec, InvokeProcessor<BinaryObject, BinaryObject, R> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> Map<Row, R> invokeAll(Collection<Row> keyRecs,
-        InvokeProcessor<R> proc) {
+    @Override public <R extends Serializable> Map<BinaryObject, R> invokeAll(
+        Collection<BinaryObject> keyRecs,
+        InvokeProcessor<BinaryObject, BinaryObject, R> proc
+    ) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public RowBuilder rowBuilder() {
+    @Override public BinaryObjectBuilder binaryBuilder() {
+        return null;
+    }
+
+    /**
+     * Converts user binary object to row.
+     *
+     * @param o Binary object.
+     * @return Row.
+     */
+    private Row toKeyRow(BinaryObject o) {
         return null;
     }
 }

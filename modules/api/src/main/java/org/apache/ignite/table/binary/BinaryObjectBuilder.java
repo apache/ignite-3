@@ -18,20 +18,20 @@
 package org.apache.ignite.table.binary;
 
 /**
- * Column span builder.
+ * BinaryObject builder.
  */
-public interface ColSpanBuilder {
+public interface BinaryObjectBuilder {
     /**
-     * Sets column value.
+     * Sets field value.
      *
      * @param colName Column name.
      * @param value Value to set.
      * @return {@code this} for chaining.
      */
-    ColSpanBuilder set(String colName, Object value);
+    BinaryObjectBuilder set(String colName, Object value);
 
     /**
      * @return Column span.
      */
-    ColSpan build();
+    BinaryObject build();
 }

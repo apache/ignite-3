@@ -24,10 +24,10 @@ public interface Row extends ColSpan {
     /**
      * @return Column span over key columns.
      */
-    ColSpan keySpan();
+    BinaryObject keySpan();
 
     /**
      * @return Column span over value columns.
      */
-    ColSpan valueSpan();
+    BinaryObject valueSpan();
 }

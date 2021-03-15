@@ -20,9 +20,8 @@ package org.apache.ignite.table;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.table.TableViewImpl;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.impl.DummyTableStorageImpl;
 import org.apache.ignite.table.mapper.Mappers;
 import org.junit.jupiter.api.Disabled;
@@ -39,7 +38,7 @@ public class Example {
      * @return Table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableViewImpl(new DummyTableStorageImpl()));
+        return Collections.singletonList(new TableImpl(new DummyTableStorageImpl()));
     }
 
     /**
@@ -55,7 +54,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Row res = t.get(t.rowBuilder().set("id", 1).set("orgId", 1).build());
+        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -263,7 +262,7 @@ public class Example {
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        Row res = t.get(t.rowBuilder().set("id", 1).set("orgId", 1).build());
+        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -312,7 +311,7 @@ public class Example {
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        Row res = t.get(t.rowBuilder().set("id", 1).set("orgId", 1).build());
+        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -394,7 +393,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        Row res = t.get(t.rowBuilder().set("id", 1).build());
+        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");

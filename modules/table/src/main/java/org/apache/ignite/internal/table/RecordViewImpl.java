@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -34,16 +35,16 @@ import org.apache.ignite.table.mapper.RecordMapper;
  */
 public class RecordViewImpl<R> implements RecordView<R> {
     /** Table */
-    private final TableStorage table;
+    private final TableStorage tbl;
 
     /**
      * Constructor.
      *
-     * @param table Table.
+     * @param tbl Table.
      * @param mapper Record class mapper.
      */
-    public RecordViewImpl(TableStorage table, RecordMapper<R> mapper) {
-        this.table = table;
+    public RecordViewImpl(TableStorage tbl, RecordMapper<R> mapper) {
+        this.tbl = tbl;
     }
 
     /** {@inheritDoc} */
@@ -52,7 +53,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
 
         Row kRow = marsh.toKeyRow(recObjToFill);
 
-        Row tRow = table.get(kRow);
+        Row tRow = tbl.get(kRow);
 
         return marsh.unmarshallToRecord(tRow);
     }
@@ -63,7 +64,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
 
         Row kRow = marsh.toKeyRow(recObjToFill);
 
-        Row tRow = table.get(kRow);
+        Row tRow = tbl.get(kRow);
 
         return marsh.unmarshallToRecord(recObjToFill, tRow);
     }
@@ -144,12 +145,13 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, T> proc) {
+    @Override public <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs, InvokeProcessor<R, T> proc) {
+    @Override public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs,
+        InvokeProcessor<R, R, T> proc) {
         return Collections.emptyMap();
     }
 

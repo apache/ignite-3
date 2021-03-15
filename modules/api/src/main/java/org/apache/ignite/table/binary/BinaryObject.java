@@ -28,5 +28,86 @@ public interface BinaryObject {
      * @param targetCls Target class.
      * @return Deserialized object.
      */
-    Object deserialize(Class<?> targetCls);
+    //TODO: remove
+    default Object deserialize(Class<?> targetCls) {
+        return null;
+    }
+
+    /**
+     * Gets column value for given column name.
+     *
+     * @param colName Column name.
+     * @param <T> Value type.
+     * @return Column value.
+     */
+    <T> T value(String colName);
+
+    /**
+     * Gets binary object column.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    BinaryObject binaryObjectField(String colName);
+
+    /**
+     * Gets {@code byte} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    byte byteValue(String colName);
+
+    /**
+     * Gets {@code short} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    short shortValue(String colName);
+
+    /**
+     * Gets {@code int} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    int intValue(String colName);
+
+    /**
+     * Gets {@code long} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    long longValue(String colName);
+
+    /**
+     * Gets {@code float} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    float floatValue(String colName);
+
+    /**
+     * Gets {@code double} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    double doubleValue(String colName);
+
+    /**
+     * Gets {@code String} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    String stringValue(String colName);
+
+    /**
+     * @return Serialized data.
+     */
+    byte[] toBytes();
 }

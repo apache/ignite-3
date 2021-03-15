@@ -19,7 +19,6 @@ package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.table.binary.ColSpan;
 import org.apache.ignite.table.binary.Row;
 
 /**
@@ -27,29 +26,19 @@ import org.apache.ignite.table.binary.Row;
  */
 public class DummyTableRowImpl implements Row {
     //TODO: Replace with Tuple layout constants.
-    /**
-     *
-     */
+    /** */
     private static final int SCHEMA_VERSION_OFFSET = 0;
 
-    /**
-     *
-     */
+    /** */
     private static final int FLAGS_OFFSET = SCHEMA_VERSION_OFFSET + 2;
 
-    /**
-     *
-     */
+    /** */
     private static final int KEY_HASH_OFFSET = FLAGS_OFFSET + 2;
 
-    /**
-     *
-     */
+    /** */
     private static final int KEY_OFFSET = KEY_HASH_OFFSET + 4;
 
-    /**
-     *
-     */
+    /** */
     private final byte[] bytes;
 
     /**
@@ -67,7 +56,7 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpan keySpan() {
+    @Override public BinaryObject keySpan() {
         return new DummyTableRowImpl(this.bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes);
@@ -80,7 +69,7 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpan valueSpan() {
+    @Override public BinaryObject valueSpan() {
         return new DummyTableRowImpl(this.bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes);

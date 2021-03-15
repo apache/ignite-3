@@ -20,111 +20,128 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
+import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KV;
-import org.apache.ignite.table.binary.ColSpan;
-import org.apache.ignite.table.binary.ColSpanBuilder;
+import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryObjectBuilder;
+import org.apache.ignite.table.binary.Row;
 
-public class KVBinaryImpl implements KV {
+public class KVImpl implements KV {
+    /** Underlying storage. */
+    private final TableStorage tbl;
+
     /**
      * Constructor.
      *
      * @param tbl Table storage.
      */
-    public KVBinaryImpl(TableStorage tbl) {
+    public KVImpl(TableStorage tbl) {
+        this.tbl = tbl;
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpan get(ColSpan key) {
+    @Override public BinaryObject get(BinaryObject key) {
+        Row kRow = toKeyRow(key);
+
+        return tbl.get(kRow);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<BinaryObject> getAll(Collection<BinaryObject> keys) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<ColSpan> getAll(Collection<ColSpan> keys) {
+    @Override public boolean containsKey(BinaryObject key) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void put(BinaryObject key, BinaryObject val) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public void putAll(Map<BinaryObject, BinaryObject> pairs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryObject getAndPut(BinaryObject key, BinaryObject val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean containsKey(ColSpan key) {
+    @Override public boolean putIfAbsent(BinaryObject key, BinaryObject val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void put(ColSpan key, ColSpan val) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override public void putAll(Map<ColSpan, ColSpan> pairs) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override public ColSpan getAndPut(ColSpan key, ColSpan val) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean putIfAbsent(ColSpan key, ColSpan val) {
+    @Override public boolean remove(BinaryObject key) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean remove(ColSpan key) {
+    @Override public boolean remove(BinaryObject key, BinaryObject val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean remove(ColSpan key, ColSpan val) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<ColSpan> removeAll(Collection<ColSpan> keys) {
+    @Override public Collection<BinaryObject> removeAll(Collection<BinaryObject> keys) {
         return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpan getAndRemove(ColSpan key) {
+    @Override public BinaryObject getAndRemove(BinaryObject key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(ColSpan key, ColSpan val) {
+    @Override public boolean replace(BinaryObject key, BinaryObject val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(ColSpan key, ColSpan oldVal, ColSpan newVal) {
+    @Override public boolean replace(BinaryObject key, BinaryObject oldVal, BinaryObject newVal) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpan getAndReplace(ColSpan key, ColSpan val) {
+    @Override public BinaryObject getAndReplace(BinaryObject key, BinaryObject val) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public <R extends Serializable> R invoke(
-        ColSpan key,
-        InvokeProcessor<R> proc,
+        BinaryObject key,
+        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
         Serializable... args
     ) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> List<R> invokeAll(
-        List<ColSpan> keys,
-        InvokeProcessor<R> proc,
+    @Override public <R extends Serializable> Map<BinaryObject, R> invokeAll(
+        Collection<BinaryObject> keys,
+        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
         Serializable... args
     ) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpanBuilder colSpanBuilder() {
+    @Override public BinaryObjectBuilder binaryBuilder() {
+        return null;
+    }
+
+    /**
+     * Converts user binary object to row.
+     *
+     * @param o Binary object.
+     * @return Row.
+     */
+    private Row toKeyRow(BinaryObject o) {
         return null;
     }
 }

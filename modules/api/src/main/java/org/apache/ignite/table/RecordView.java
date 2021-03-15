@@ -17,10 +17,6 @@
 
 package org.apache.ignite.table;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
-
 /**
  * Record adapter for Table.
  * <p>
@@ -40,62 +36,4 @@ public interface RecordView<R> extends TableView<R> {
      * @return Record with all fields filled from the table.
      */
     R fill(R recObjToFill);
-
-    /**
-     * Invokes an InvokeProcessor against the associated record.
-     *
-     * @param keyRec Row with key columns set.
-     * @return Results of the processing.
-     */
-    <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, T> proc);
-
-    /**
-     * Invokes an InvokeProcessor against the associated records.
-     *
-     * @param keyRecs Ordered collection of records with key columns set.
-     * @return Results of the processing.
-     */
-    <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs, InvokeProcessor<R, T> proc);
-
-    /**
-     * Invoke processor provide ability to run code against a record on server-side.
-     *
-     * Note: Processor will be always deployed to nodes and will never got from a classpath.
-     *
-     * @param <T> Record object type.
-     * @param <R> Processor result type.
-     */
-    public interface InvokeProcessor<T, R extends Serializable> extends Serializable {
-        /**
-         * Process entry and return the result.
-         *
-         * @param ctx Invocation context.
-         * @return Invoke processor result.
-         */
-        R process(InvocationContext<T> ctx);
-    }
-
-    /**
-     * Invocation context.
-     *
-     * @param <T> Record type.
-     */
-    public interface InvocationContext<T> {
-        /**
-         * @return Invocation arguments.
-         */
-        Object[] args();
-
-        /**
-         * @return Current record.
-         */
-        T value();
-
-        /**
-         * Sets new record.
-         *
-         * @param rec Object to set.
-         */
-        void value(T rec);
-    }
 }

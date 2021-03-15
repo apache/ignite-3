@@ -17,10 +17,8 @@
 
 package org.apache.ignite.table;
 
-import java.io.Serializable;
-import java.util.List;
-import org.apache.ignite.table.binary.ColSpan;
-import org.apache.ignite.table.binary.ColSpanBuilder;
+import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryObjectBuilder;
 
 /**
  * Key-value like facade over table.
@@ -28,82 +26,10 @@ import org.apache.ignite.table.binary.ColSpanBuilder;
  * Keys and values are wrappers over corresponding column spans
  * and implement the BinaryObject concept.
  */
-public interface KV extends KVFacade<ColSpan, ColSpan> {
-    /**
-     * Invokes an invoke processor code against the value associated with the provided key.
-     *
-     * @param key Key that associated with the value that invoke processor will be applied to.
-     * @param proc Invoke processor.
-     * @param args Optional invoke processor arguments.
-     * @param <R> Invoke processor result type.
-     * @return Result of the processing.
-     * @see RecordView.InvokeProcessor
-     */
-    <R extends Serializable> R invoke(ColSpan key, InvokeProcessor<R> proc, Serializable... args);
-
-    /**
-     * Invokes an invoke processor code against values associated with the provided keys.
-     *
-     * @param keys Ordered collection of keys which values associated with should be processed.
-     * @param proc Invoke processor.
-     * @param args Optional invoke processor arguments.
-     * @param <R> Invoke processor result type.
-     * @return Results of the processing.
-     * @see RecordView.InvokeProcessor
-     */
-    <R extends Serializable> List<R> invokeAll(List<ColSpan> keys, InvokeProcessor<R> proc,
-        Serializable... args);
-
+public interface KV extends KVView<BinaryObject, BinaryObject> {
     /**
      * @return Column span builder.
      */
-    ColSpanBuilder colSpanBuilder();
+    BinaryObjectBuilder binaryBuilder();
 
-    /**
-     * Invoke processor provide ability to run code against a value associated
-     * with given key on server-side regarding the BinaryObject concept.
-     *
-     * @param <R> Processor result type.
-     */
-    public interface InvokeProcessor<R extends Serializable> extends Serializable {
-        /**
-         * Process entry and return the result.
-         *
-         * @param ctx Invocation context.
-         * @return Invoke processor result.
-         */
-        R process(InvocationContext ctx);
-    }
-
-    /**
-     * Invocation context.
-     */
-    public interface InvocationContext {
-        /**
-         * @return Invocation arguments.
-         */
-        Object[] args();
-
-        /**
-         * @return Key object.
-         */
-        ColSpan key();
-
-        /**
-         * @return Current value.
-         */
-        ColSpan value();
-
-        /**
-         * Sets new value.
-         *
-         * @param val Value object to set.
-         */
-        void value(ColSpan val);
-
-        /**
-         * @return ColSpan builder.
-         */
-        ColSpan colSpanBuilder();
-    }
 }

@@ -17,10 +17,8 @@
 
 package org.apache.ignite.table;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
-import org.apache.ignite.table.binary.Row;
+import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.binary.BinaryObjectBuilder;
 import org.apache.ignite.table.binary.RowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
@@ -30,7 +28,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
 /**
  * Table binary view.
  */
-public interface Table extends TableView<Row> {
+public interface Table extends TableView<BinaryObject> {
     /**
      * Creates record view of table for record class mapper provided.
      *
@@ -77,68 +75,9 @@ public interface Table extends TableView<Row> {
     }
 
     /**
-     * Invokes an InvokeProcessor against the associated row.
-     *
-     * @param keyRow Row with key columns set.
-     * @return Results of the processing.
-     */
-    <T extends Serializable> T invoke(Row keyRow, InvokeProcessor<T> proc);
-
-    /**
-     * Invokes an InvokeProcessor against the associated rows.
-     *
-     * @param keyRows Ordered collection of rows with key columns set.
-     * @return Results of the processing.
-     */
-    <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRows, InvokeProcessor<T> proc);
-
-    /**
      * Creates builder for BinaryRow.
      *
      * @return BinaryRow builder for table.
      */
-    RowBuilder rowBuilder();
-
-    /**
-     * Invoke processor provide ability to run code against requested table row on server-side
-     * regarding the BinaryObject concept.
-     *
-     * @param <R> Processor result type.
-     */
-    public interface InvokeProcessor<R extends Serializable> extends Serializable {
-        /**
-         * Process entry and return the result.
-         *
-         * @param ctx Invocation context.
-         * @return Invoke processor result.
-         */
-        R process(InvocationContext ctx);
-    }
-
-    /**
-     * Invocation context.
-     */
-    public interface InvocationContext {
-        /**
-         * @return Invocation arguments.
-         */
-        Object[] args();
-
-        /**
-         * @return Current row.
-         */
-        Row row();
-
-        /**
-         * Sets new row.
-         *
-         * @param row Object to set.
-         */
-        void row(Row row);
-
-        /**
-         * @return Row builder.
-         */
-        Row rowBuilder();
-    }
+    BinaryObjectBuilder binaryBuilder();
 }

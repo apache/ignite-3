@@ -17,7 +17,9 @@
 
 package org.apache.ignite.table;
 
+import java.io.Serializable;
 import java.util.Collection;
+import java.util.Map;
 
 /**
  * Table view interface.
@@ -31,7 +33,7 @@ public interface TableView<R> {
      * @param keyRow Row with key columns set.
      * @return Row with all columns filled from the table.
      */
-    public R get(R keyRow);
+    R get(R keyRow);
 
     /**
      * Fills given rows with the values from the table.
@@ -39,7 +41,7 @@ public interface TableView<R> {
      * @param keyRows Rows with key columns set.
      * @return Rows with all columns filled from the table.
      */
-    public Collection<R> getAll(Collection<R> keyRows);
+    Collection<R> getAll(Collection<R> keyRows);
 
     /**
      * Inserts new row into the table if it is not exists or replace existed one.
@@ -47,14 +49,14 @@ public interface TableView<R> {
      * @param row Row to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean upsert(R row);
+    boolean upsert(R row);
 
     /**
      * Inserts new row into the table if it is not exists or replace existed one.
      *
      * @param rows Rows to be inserted into table.
      */
-    public void upsertAll(Collection<R> rows);
+    void upsertAll(Collection<R> rows);
 
     /**
      * Insert row into the table and return previous row.
@@ -62,7 +64,7 @@ public interface TableView<R> {
      * @param row Row to be inserted into table.
      * @return Row that was replaced, {@code null} otherwise.
      */
-    public R getAndUpsert(R row);
+    R getAndUpsert(R row);
 
     /**
      * Inserts row into the table if not exists.
@@ -70,7 +72,7 @@ public interface TableView<R> {
      * @param row Row to be inserted into table.
      * @return {@code True} if was successful, {@code false} otherwise.
      */
-    public boolean insert(R row);
+    boolean insert(R row);
 
     /**
      * Inserts rows into the table that are not exists, otherwise skips.
@@ -78,7 +80,7 @@ public interface TableView<R> {
      * @param rows Rows to be inserted into table.
      * @return Rows with key columns set that were not inserted.
      */
-    public Collection<R> insertAll(Collection<R> rows);
+    Collection<R> insertAll(Collection<R> rows);
 
     /**
      * Replaces an existed row in the table with the given one.
@@ -86,7 +88,7 @@ public interface TableView<R> {
      * @param row Row to replace with.
      * @return {@code True} if the row replaced successfully, {@code false} otherwise.
      */
-    public boolean replace(R row);
+    boolean replace(R row);
 
     /**
      * Replaces an expected row in the table with the new one.
@@ -95,7 +97,7 @@ public interface TableView<R> {
      * @param newRow Row to replace with.
      * @return {@code True} if the row replaced successfully, {@code false} otherwise.
      */
-    public boolean replace(R oldRow, R newRow);
+    boolean replace(R oldRow, R newRow);
 
     /**
      * Replaces an existed row in the table and return the replaced one.
@@ -103,7 +105,7 @@ public interface TableView<R> {
      * @param row Row to be inserted into table.
      * @return Row that was replaced with given one, {@code null} otherwise.
      */
-    public R getAndReplace(R row);
+    R getAndReplace(R row);
 
     /**
      * Remove row from table.
@@ -111,7 +113,7 @@ public interface TableView<R> {
      * @param keyRow Row with key columns set.
      * @return {@code True} if row was successfully removed, {@code  false} otherwise.
      */
-    public boolean delete(R keyRow);
+    boolean delete(R keyRow);
 
     /**
      * Remove exact row from table.
@@ -119,7 +121,7 @@ public interface TableView<R> {
      * @param oldRow Row to be removed.
      * @return {@code True} if row was successfully removed, {@code  false} otherwise.
      */
-    public boolean deleteExact(R oldRow);
+    boolean deleteExact(R oldRow);
 
     /**
      * Remove row from table.
@@ -127,7 +129,7 @@ public interface TableView<R> {
      * @param row Row with key columns set.
      * @return Row that was removed, {@code null} otherwise.
      */
-    public R getAndDelete(R row);
+    R getAndDelete(R row);
 
     /**
      * Remove exact row from table.
@@ -135,7 +137,7 @@ public interface TableView<R> {
      * @param row Row.
      * @return Row that was removed, {@code null} otherwise.
      */
-    public R getAndDeleteExact(R row);
+    R getAndDeleteExact(R row);
 
     /**
      * Remove rows from table.
@@ -143,7 +145,7 @@ public interface TableView<R> {
      * @param rows Rows with key columns set.
      * @return Rows with key columns set that were not deleted.
      */
-    public Collection<R> deleteAll(Collection<R> rows);
+    Collection<R> deleteAll(Collection<R> rows);
 
     /**
      * Remove exact rows from table.
@@ -151,5 +153,21 @@ public interface TableView<R> {
      * @param rows Rows with all columns set.
      * @return Rows with key columns set that were not deleted.
      */
-    public Collection<R> deleteAllExact(Collection<R> rows);
+    Collection<R> deleteAllExact(Collection<R> rows);
+
+    /**
+     * Invokes an InvokeProcessor against the associated row.
+     *
+     * @param keyRow Row with key columns set.
+     * @return Results of the processing.
+     */
+    <T extends Serializable> T invoke(R keyRow, InvokeProcessor<R, R, T> proc);
+
+    /**
+     * Invokes an InvokeProcessor against the associated rows.
+     *
+     * @param keyRows Ordered collection of rows with key columns set.
+     * @return Results of the processing.
+     */
+    <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRows, InvokeProcessor<R, R, T> proc);
 }
