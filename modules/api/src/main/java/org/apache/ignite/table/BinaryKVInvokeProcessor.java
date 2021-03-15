@@ -18,50 +18,25 @@
 package org.apache.ignite.table;
 
 import java.io.Serializable;
+import org.apache.ignite.table.binary.ColSpan;
 
 /**
- * Invoke processor provide ability to run code against a record on server-side.
+ * Invoke processor provide ability to run code against a value associated
+ * with given key on server-side regarding the BinaryObject concept.
  *
- * Note: Processor will be always deployed to nodes and will never got from a classpath.
- *
- * @param <T> Record object type.
  * @param <R> Processor result type.
  */
-public interface InvokeProcessor<T, R extends Serializable> extends Serializable {
-    /**
-     * Process entry and return the result.
-     *
-     * @param ctx Invocation context.
-     * @return Invoke processor result.
-     */
-    R process(InvocationContext<T> ctx);
+public interface BinaryKVInvokeProcessor<R extends Serializable> extends KVInvokeProcessor<ColSpan, ColSpan, R> {
+   /** {@inheritDoc} */
+    R process(BinaryInvocationContext ctx);
 
     /**
      * Invocation context.
-     *
-     * @param <T> Record type.
      */
-    interface InvocationContext<T> {
+    interface BinaryInvocationContext extends KVInvokeProcessor.InvocationContext<ColSpan, ColSpan> {
         /**
-         * @return Invocation arguments.
+         * @return ColSpan builder.
          */
-        Object[] args();
-
-        /**
-         * @return Requested row.
-         */
-        T key();
-
-        /**
-         * @return Current row.
-         */
-        T row();
-
-        /**
-         * Sets new row.
-         *
-         * @param row Object to set.
-         */
-        void row(T row);
+        ColSpan colSpanBuilder();
     }
 }

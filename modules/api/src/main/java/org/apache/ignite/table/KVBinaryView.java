@@ -18,17 +18,17 @@
 package org.apache.ignite.table;
 
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import org.apache.ignite.table.binary.ColSpan;
+import org.apache.ignite.table.binary.ColSpanBuilder;
 
 /**
- * Key-Value interface.
- *
- * @param <K> Key type.
- * @param <V> Value type.
+ * Key-value like facade over table.
+ * <p>
+ * Keys and values are wrappers over corresponding column spans
+ * and implement the BinaryObject concept.
  */
-public interface KVView<K, V> extends KVFacade<K, V> {
+public interface KVBinaryView extends KVFacade<ColSpan, ColSpan> {
     /**
      * Invokes an invoke processor code against the value associated with the provided key.
      *
@@ -37,21 +37,25 @@ public interface KVView<K, V> extends KVFacade<K, V> {
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
      * @return Result of the processing.
-     *
      * @see InvokeProcessor
      */
-     <R extends Serializable> R invoke(K key, KVInvokeProcessor<K, V, R> proc, Serializable... args);
+    <R extends Serializable> R invoke(ColSpan key, BinaryKVInvokeProcessor<R> proc, Serializable... args);
 
     /**
      * Invokes an invoke processor code against values associated with the provided keys.
      *
-     * @param <R> Invoke processor result type.
      * @param keys Ordered collection of keys which values associated with should be processed.
      * @param proc Invoke processor.
      * @param args Optional invoke processor arguments.
+     * @param <R> Invoke processor result type.
      * @return Results of the processing.
-     *
      * @see InvokeProcessor
      */
-     <R extends Serializable> Map<K, R> invokeAll(Collection<K> keys, KVInvokeProcessor<K, V, R> proc, Serializable... args);
+    <R extends Serializable> List<R> invokeAll(List<ColSpan> keys, BinaryKVInvokeProcessor<R> proc,
+        Serializable... args);
+
+    /**
+     * @return Column span builder.
+     */
+    ColSpanBuilder colSpanBuilder();
 }

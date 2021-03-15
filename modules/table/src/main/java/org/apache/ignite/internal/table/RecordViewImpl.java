@@ -145,14 +145,13 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, R, T> proc) {
+    @Override public <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, T> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs,
-        InvokeProcessor<R, R, T> proc) {
-        return null;
+    @Override public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs, InvokeProcessor<R, T> proc) {
+        return Collections.emptyMap();
     }
 
     /**

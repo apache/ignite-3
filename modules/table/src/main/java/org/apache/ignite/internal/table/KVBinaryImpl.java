@@ -22,108 +22,111 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.table.InvokeProcessor;
-import org.apache.ignite.table.KV;
-import org.apache.ignite.table.binary.Row;
-import org.apache.ignite.table.binary.RowBuilder;
+import org.apache.ignite.table.BinaryKVInvokeProcessor;
+import org.apache.ignite.table.KVBinaryView;
+import org.apache.ignite.table.KVFacade;
+import org.apache.ignite.table.binary.ColSpan;
+import org.apache.ignite.table.binary.ColSpanBuilder;
 
-public class KVImpl implements KV {
+public class KVBinaryImpl implements KVBinaryView {
     /**
      * Constructor.
      *
      * @param tbl Table storage.
      */
-    public KVImpl(TableStorage tbl) {
+    public KVBinaryImpl(TableStorage tbl) {
     }
 
     /** {@inheritDoc} */
-    @Override public RowBuilder rowKeyBuilder() {
+    @Override public ColSpan get(ColSpan key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public RowBuilder rowValueBuilder() {
+    @Override public Collection<ColSpan> getAll(Collection<ColSpan> keys) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Row get(Row key) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<Row> getAll(Collection<Row> keys) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean containsKey(Row key) {
+    @Override public boolean containsKey(ColSpan key) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void put(Row key, Row val) {
+    @Override public void put(ColSpan key, ColSpan val) {
 
     }
 
     /** {@inheritDoc} */
-    @Override public void putAll(Map<Row, Row> pairs) {
+    @Override public void putAll(Map<ColSpan, ColSpan> pairs) {
 
     }
 
     /** {@inheritDoc} */
-    @Override public Row getAndPut(Row key, Row val) {
+    @Override public ColSpan getAndPut(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean putIfAbsent(Row key, Row val) {
+    @Override public boolean putIfAbsent(ColSpan key, ColSpan val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean remove(Row key) {
+    @Override public boolean remove(ColSpan key) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean remove(Row key, Row val) {
+    @Override public boolean remove(ColSpan key, ColSpan val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Row> removeAll(Collection<Row> keys) {
+    @Override public Collection<ColSpan> removeAll(Collection<ColSpan> keys) {
         return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public Row getAndRemove(Row key) {
+    @Override public ColSpan getAndRemove(ColSpan key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(Row key, Row val) {
+    @Override public boolean replace(ColSpan key, ColSpan val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(Row key, Row oldVal, Row newVal) {
+    @Override public boolean replace(ColSpan key, ColSpan oldVal, ColSpan newVal) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public Row getAndReplace(Row key, Row val) {
+    @Override public ColSpan getAndReplace(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> R invoke(Row key, InvokeProcessor<Row, Row, R> proc, Serializable... args) {
+    @Override public <R extends Serializable> R invoke(
+        ColSpan key,
+        BinaryKVInvokeProcessor<R> proc,
+        Serializable... args
+    ) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> List<R> invokeAll(List<Row> keys, InvokeProcessor<Row, Row, R> proc,
-        Serializable... args) {
+    @Override public <R extends Serializable> List<R> invokeAll(
+        List<ColSpan> keys,
+        BinaryKVInvokeProcessor<R> proc,
+        Serializable... args
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public ColSpanBuilder colSpanBuilder() {
         return null;
     }
 }

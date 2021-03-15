@@ -18,50 +18,53 @@
 package org.apache.ignite.table;
 
 import java.io.Serializable;
+import org.apache.ignite.table.binary.Row;
 
 /**
- * Invoke processor provide ability to run code against a record on server-side.
+ * Invoke processor provide ability to run code against a value associated with provided key on server-side.
  *
  * Note: Processor will be always deployed to nodes and will never got from a classpath.
  *
- * @param <T> Record object type.
+ * @param <T> Target object type.
+ * @param <V> Value type.
  * @param <R> Processor result type.
  */
-public interface InvokeProcessor<T, R extends Serializable> extends Serializable {
+public interface KVInvokeProcessor<T, V, R extends Serializable> extends Serializable {
     /**
      * Process entry and return the result.
      *
      * @param ctx Invocation context.
      * @return Invoke processor result.
      */
-    R process(InvocationContext<T> ctx);
+    R process(InvocationContext<T, V> ctx);
 
     /**
      * Invocation context.
      *
-     * @param <T> Record type.
+     * @param <T> Target object type.
+     * @param <V> Value type.
      */
-    interface InvocationContext<T> {
+    interface InvocationContext<T, V> {
         /**
          * @return Invocation arguments.
          */
         Object[] args();
 
         /**
-         * @return Requested row.
+         * @return Key object.
          */
         T key();
 
         /**
-         * @return Current row.
+         * @return Current value.
          */
-        T row();
+        V value();
 
         /**
-         * Sets new row.
+         * Sets new value.
          *
-         * @param row Object to set.
+         * @param val Value object to set.
          */
-        void row(T row);
+        void value(V val);
     }
 }

@@ -17,12 +17,26 @@
 
 package org.apache.ignite.table;
 
+import java.io.Serializable;
 import org.apache.ignite.table.binary.Row;
-import org.apache.ignite.table.binary.RowBuilder;
 
-public interface KV extends KVView<Row, Row> {
+/**
+ * Invoke processor provide ability to run code against requested table row on server-side
+ * regarding the BinaryObject concept.
+ *
+ * @param <R> Processor result type.
+ */
+public interface BinaryInvokeProcessor<R extends Serializable> extends InvokeProcessor<Row, R> {
+   /** {@inheritDoc} */
+    R process(BinaryInvocationContext ctx);
 
-    RowBuilder rowKeyBuilder();
-
-    RowBuilder rowValueBuilder();
+    /**
+     * Invocation context.
+     */
+    interface BinaryInvocationContext extends InvocationContext<Row> {
+        /**
+         * @return Row builder.
+         */
+        Row rowBuilder();
+    }
 }

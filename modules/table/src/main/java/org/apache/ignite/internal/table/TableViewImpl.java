@@ -20,10 +20,10 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
-import org.apache.ignite.table.InvokeProcessor;
-import org.apache.ignite.table.KV;
+import org.apache.ignite.table.BinaryInvokeProcessor;
+import org.apache.ignite.table.KVBinaryView;
+import org.apache.ignite.table.KVFacade;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -60,8 +60,8 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public KV kvView() {
-        return new KVImpl(table);
+    @Override public KVBinaryView kvView() {
+        return new KVBinaryImpl(table);
     }
 
     /** {@inheritDoc} */
@@ -144,17 +144,18 @@ public class TableViewImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends Serializable> T invoke(Row keyRec, InvokeProcessor<Row, Row, T> proc) {
+    @Override public <R extends Serializable> R invoke(Row keyRec, BinaryInvokeProcessor<R> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRecs, InvokeProcessor<Row, Row, T> proc) {
+    @Override public <R extends Serializable> Map<Row, R> invokeAll(Collection<Row> keyRecs,
+        BinaryInvokeProcessor<R> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public RowBuilder binaryRowBuilder() {
+    @Override public RowBuilder rowBuilder() {
         return null;
     }
 }

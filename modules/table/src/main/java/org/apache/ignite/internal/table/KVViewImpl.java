@@ -20,10 +20,9 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.KVInvokeProcessor;
 import org.apache.ignite.table.KVView;
 import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.KeyMapper;
@@ -129,18 +128,17 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
+    public <R extends Serializable> R invoke(K key, KVInvokeProcessor<K, V, R> proc, Serializable... args) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> List<R> invokeAll(
-        List<K> keys,
-        InvokeProcessor<K, V, R> proc,
+    @Override public <R extends Serializable> Map<K, R> invokeAll(
+        Collection<K> keys,
+        KVInvokeProcessor<K, V, R> proc,
         Serializable... args
     ) {
-        return Collections.emptyList();
+        return Collections.emptyMap();
     }
 
     /**

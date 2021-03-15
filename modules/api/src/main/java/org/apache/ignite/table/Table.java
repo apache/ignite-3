@@ -17,6 +17,9 @@
 
 package org.apache.ignite.table;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Map;
 import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.binary.RowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
@@ -25,7 +28,7 @@ import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
- * Table binary projection.
+ * Table binary view.
  */
 public interface Table extends TableView<Row> {
     /**
@@ -46,11 +49,11 @@ public interface Table extends TableView<Row> {
     <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
     /**
-     * Creates key-value view of table for binary key-value pair.
+     * Creates key-value like projection over table implementing BinaryObject concept.
      *
-     * @return Table binary key-value view.
+     * @return Table key-value view.
      */
-    KV kvView();
+    KVBinaryView kvView();
 
     /**
      * Creates record view of table for record class provided.
@@ -74,9 +77,25 @@ public interface Table extends TableView<Row> {
     }
 
     /**
+     * Invokes an InvokeProcessor against the associated row.
+     *
+     * @param keyRow Row with key columns set.
+     * @return Results of the processing.
+     */
+     <T extends Serializable> T invoke(Row keyRow, BinaryInvokeProcessor<T> proc);
+
+    /**
+     * Invokes an InvokeProcessor against the associated rows.
+     *
+     * @param keyRows Ordered collection of rows with key columns set.
+     * @return Results of the processing.
+     */
+     <T extends Serializable> Map<Row, T> invokeAll(Collection<Row> keyRows, BinaryInvokeProcessor<T> proc);
+
+    /**
      * Creates builder for BinaryRow.
      *
      * @return BinaryRow builder for table.
      */
-    RowBuilder binaryRowBuilder();
+    RowBuilder rowBuilder();
 }

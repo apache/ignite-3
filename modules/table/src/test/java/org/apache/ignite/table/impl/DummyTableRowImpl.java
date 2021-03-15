@@ -60,7 +60,7 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] getBytes() {
+    @Override public byte[] toBytes() {
         return bytes.clone();
     }
 

@@ -17,9 +17,7 @@
 
 package org.apache.ignite.table;
 
-import java.io.Serializable;
 import java.util.Collection;
-import java.util.Map;
 
 /**
  * Table view interface.
@@ -154,20 +152,4 @@ public interface TableView<R> {
      * @return Rows with key columns set that were not deleted.
      */
     public Collection<R> deleteAllExact(Collection<R> rows);
-
-    /**
-     * Invokes an InvokeProcessor against the associated row.
-     *
-     * @param keyRow Row with key columns set.
-     * @return Results of the processing.
-     */
-    public <T extends Serializable> T invoke(R keyRow, InvokeProcessor<R, R, T> proc);
-
-    /**
-     * Invokes an InvokeProcessor against the associated rows.
-     *
-     * @param keyRows Ordered collection of rows with key columns set.
-     * @return Results of the processing.
-     */
-    public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRows, InvokeProcessor<R, R, T> proc);
 }

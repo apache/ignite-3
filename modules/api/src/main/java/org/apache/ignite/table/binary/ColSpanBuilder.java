@@ -18,16 +18,20 @@
 package org.apache.ignite.table.binary;
 
 /**
- * Binary row interface.
+ * Column span builder.
  */
-public interface Row extends ColSpan {
+public interface ColSpanBuilder {
     /**
-     * @return Column span over key columns.
+     * Sets column value.
+     *
+     * @param colName Column name.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
      */
-    ColSpan keySpan();
+    ColSpanBuilder set(String colName, Object value);
 
     /**
-     * @return Column span over value columns.
+     * @return Column span.
      */
-    ColSpan valueSpan();
+    ColSpan build();
 }
