@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 
-/** */
+/** Visitor with just a single method to override. */
 public abstract class AnyNodeConfigurationVisitor<T> implements ConfigurationVisitor<T> {
     /** {@inheritDoc} */
     @Override public final T visitLeafNode(String key, Serializable val) {
@@ -39,6 +39,11 @@ public abstract class AnyNodeConfigurationVisitor<T> implements ConfigurationVis
         return visitNode(key, node);
     }
 
-    /** */
+    /**
+     * Visit tree node.
+     *
+     * @param key Name of the node.
+     * @param node {@link InnerNode}, {@link NamedListNode<?>} or {@link Serializable} leaf.
+     */
     protected abstract T visitNode(String key, Object node);
 }

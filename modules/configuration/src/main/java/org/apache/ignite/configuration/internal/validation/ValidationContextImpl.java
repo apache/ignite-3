@@ -32,11 +32,17 @@ import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fi
  * Validation context implementation.
  */
 class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
+    /** Root key for current value's root. */
+    private final RootKey<?, ?> rootKey;
+
     /** Cached storage roots with the current version of data. */
     private final Map<RootKey<?, ?>, InnerNode> oldRoots;
 
-    /** Root key for the current node. */
-    private final RootKey<?, ?> rootKey;
+    /** Updated values that need to be validated. */
+    private final Map<RootKey<?, ?>, InnerNode> newRoots;
+
+    /** Provider for arbitrary roots that might not be accociated with the same storage. */
+    private final Function<RootKey<?, ?>, InnerNode> otherRoots;
 
     /**
      * Current node/configuration value.
@@ -45,15 +51,6 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
      */
     private final VIEW val;
 
-    /** Updated values that need to be validated. */
-    private final Map<RootKey<?, ?>, InnerNode> newRoots;
-
-    /** */
-    private final Function<RootKey<?, ?>, InnerNode> otherRoots;
-
-    /** */
-    private final List<ValidationIssue> issues;
-
     /** */
     private final String currentKey;
 
@@ -61,6 +58,20 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
     private final List<String> currentPath;
 
     /** */
+    private final List<ValidationIssue> issues;
+
+    /**
+     * Constructor.
+     *
+     * @param rootKey Root key for current value's root.
+     * @param oldRoots Old roots.
+     * @param newRoots New roots.
+     * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
+     * @param val New value of currently validated configuration.
+     * @param currentKey Key corresponding to the value.
+     * @param currentPath Key corresponding to the value.
+     * @param issues List of issues, should be used as a write-only collection.
+     */
     ValidationContextImpl(
         RootKey<?, ?> rootKey,
         Map<RootKey<?, ?>, InnerNode> oldRoots,

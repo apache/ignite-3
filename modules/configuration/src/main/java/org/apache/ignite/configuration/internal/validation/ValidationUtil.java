@@ -42,18 +42,18 @@ public class ValidationUtil {
     /**
      * Validate configuration changes.
      *
-     * @param oldRoots Old values.
-     * @param newRoots New values.
-     * @param otherRoots
-     * @param memberAnnotations
-     * @param validators
-     * @return Validation results.
+     * @param oldRoots Old known roots.
+     * @param newRoots New roots.
+     * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
+     * @param memberAnnotationsCache Mutable map that contains annotations associated with corresponding member keys.
+     * @param validators Current validators map to look into.
+     * @return List of validation results.
      */
     public static List<ValidationIssue> validate(
         Map<RootKey<?, ?>, InnerNode> oldRoots,
         Map<RootKey<?, ?>, InnerNode> newRoots,
         Function<RootKey<?, ?>, InnerNode> otherRoots,
-        Map<MemberKey, Annotation[]> memberAnnotations,
+        Map<MemberKey, Annotation[]> memberAnnotationsCache,
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators
     ) {
         List<ValidationIssue> issues = new ArrayList<>();
@@ -97,7 +97,7 @@ public class ValidationUtil {
 
                     MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
 
-                    Annotation[] fieldAnnotations = memberAnnotations.computeIfAbsent(memberKey, k -> {
+                    Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
                         try {
                             Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
 
@@ -112,7 +112,7 @@ public class ValidationUtil {
                     for (Annotation annotation : fieldAnnotations) {
                         for (Validator<?, ?> validator : validators.getOrDefault(annotation.annotationType(), emptySet())) {
                             // Making this a compile-time check would be too expensive to implement.
-                            assert assertTypesCoherence(validator.getClass(), annotation.annotationType(), val)
+                            assert assertValidatorTypesCoherence(validator.getClass(), annotation.annotationType(), val)
                                 : "Validator coherence is violated [" +
                                 "class=" + lastInnerNode.getClass().getCanonicalName() + ", " +
                                 "field=" + fieldName + ", " +
@@ -141,14 +141,14 @@ public class ValidationUtil {
     }
 
     /** */
-    private static boolean assertTypesCoherence(
+    private static boolean assertValidatorTypesCoherence(
         Class<?> validatorClass,
         Class<? extends Annotation> annotationType,
         Object val
     ) {
         // Find superclass that directly extends Validator.
         if (!Arrays.asList(validatorClass.getInterfaces()).contains(Validator.class))
-            return assertTypesCoherence(validatorClass.getSuperclass(), annotationType, val);
+            return assertValidatorTypesCoherence(validatorClass.getSuperclass(), annotationType, val);
 
         Type genericSuperClass = Arrays.stream(validatorClass.getGenericInterfaces())
             .filter(i -> i instanceof ParameterizedType && ((ParameterizedType)i).getRawType() == Validator.class)

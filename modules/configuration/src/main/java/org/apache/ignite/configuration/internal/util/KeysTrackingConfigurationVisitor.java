@@ -70,19 +70,19 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         }
     }
 
-    /** */
+    /** To be used instead of {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}. */
     protected T visitLeafNode0(String key, Serializable val) {
         return null;
     }
 
-    /** */
+    /** To be used instead of {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}. */
     protected T visitInnerNode0(String key, InnerNode node) {
         node.traverseChildren(this);
 
         return null;
     }
 
-    /** */
+    /** To be used instead of {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}. */
     protected <N extends InnerNode> T visitNamedListNode0(String key, NamedListNode<N> node) {
         for (String namedListKey : node.namedListKeys()) {
             int prevPos = startVisit(namedListKey, true, false);
@@ -98,7 +98,14 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         return null;
     }
 
-    /** */
+    /**
+     * Tracks passed key to reflect it in {@link #currentKey()} and {@link #currentPath()}.
+     *
+     * @param key Key itself.
+     * @param escape Whether the key needs escaping or not.
+     * @param leaf Add dot at the end of {@link #currentKey()} if {@code leaf} is {@code false}.
+     * @param closure Closure to execute when {@link #currentKey()} and {@link #currentPath()} have updated values.
+     */
     protected final T withTracking(String key, boolean escape, boolean leaf, Supplier<T> closure) {
         int prevPos = startVisit(key, escape, leaf);
 
@@ -111,13 +118,15 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     }
 
     /**
-     * For leaves only.
+     * @return Current key, with a dot at the end if it's not a leaf.
      */
     protected final String currentKey() {
         return currentKey.toString();
     }
 
-    /** For all nodes. */
+    /**
+     * @return List representation of the current key.
+     */
     protected final List<String> currentPath() {
         return Collections.unmodifiableList(currentPath);
     }

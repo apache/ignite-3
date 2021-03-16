@@ -108,11 +108,13 @@ public class ValidationUtilTest {
 
     /** */
     @Test
-    void validateLeafNode() throws Exception {
+    public void validateLeafNode() throws Exception {
         Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
 
         Validator<LeafValidation, String> validator = new Validator<>() {
             @Override public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
+                assertEquals("root.child.str", ctx.currentKey());
+
                 assertEquals("foo", ctx.getNewValue());
 
                 ctx.addIssue(new ValidationIssue("bar"));
@@ -130,11 +132,13 @@ public class ValidationUtilTest {
 
     /** */
     @Test
-    void validateInnerNode() throws Exception {
+    public void validateInnerNode() throws Exception {
         Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
 
         Validator<InnerValidation, ValidatedChildView> validator = new Validator<>() {
             @Override public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
+                assertEquals("root.child", ctx.currentKey());
+
                 assertEquals("foo", ctx.getNewValue().str());
 
                 ctx.addIssue(new ValidationIssue("bar"));
@@ -152,11 +156,13 @@ public class ValidationUtilTest {
 
     /** */
     @Test
-    void validateNamedListNode() throws Exception {
+    public void validateNamedListNode() throws Exception {
         Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
 
         Validator<NamedListValidation, NamedListView<?>> validator = new Validator<>() {
             @Override public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
+                assertEquals("root.elements", ctx.currentKey());
+
                 assertEquals(emptySet(), ctx.getNewValue().namedListKeys());
 
                 ctx.addIssue(new ValidationIssue("bar"));
