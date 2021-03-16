@@ -108,10 +108,10 @@ public class ConfigurationChanger {
     }
 
     /**
-     * Initialize changer.
+     * Register changer.
      */
     // ConfigurationChangeException, really?
-    public void init(ConfigurationStorage configurationStorage) throws ConfigurationChangeException {
+    public void register(ConfigurationStorage configurationStorage) throws ConfigurationChangeException {
         storageInstances.put(configurationStorage.getClass(), configurationStorage);
 
         Set<RootKey<?, ?>> storageRootKeys = rootKeys.stream().filter(
@@ -128,8 +128,6 @@ public class ConfigurationChanger {
         }
 
         Map<RootKey<?, ?>, InnerNode> storageRootsMap = new HashMap<>();
-        // Map to collect defaults for not initialized configurations.
-        Map<RootKey<?, ?>, InnerNode> storageDefaultsMap = new HashMap<>();
 
         Map<String, ?> dataValuesPrefixMap = toPrefixMap(data.values());
 
@@ -141,13 +139,7 @@ public class ConfigurationChanger {
             if (rootPrefixMap != null)
                 fillFromPrefixMap(rootNode, rootPrefixMap);
 
-            // Collecting defaults requires fresh new root.
-            InnerNode defaultsNode = rootKey.createRootNode();
-
-            addDefaults(rootNode, defaultsNode);
-
             storageRootsMap.put(rootKey, rootNode);
-            storageDefaultsMap.put(rootKey, defaultsNode);
         }
 
         StorageRoots storageRoots = new StorageRoots(storageRootsMap, data.version());
@@ -158,6 +150,49 @@ public class ConfigurationChanger {
             configurationStorage.getClass(),
             changedEntries
         ));
+    }
+
+    /** */
+    // TODO Exceptions here are a total mess.
+    public void initialize(Class<? extends ConfigurationStorage> storageType) {
+        ConfigurationStorage configurationStorage = storageInstances.get(storageType);
+
+        assert configurationStorage != null : storageType;
+
+        StorageRoots storageRoots = storagesRootsMap.get(storageType);
+
+        Map<RootKey<?, ?>, InnerNode> storageRootsMap = storageRoots.roots;
+
+        // Map to collect defaults for not initialized configurations.
+        Map<RootKey<?, ?>, InnerNode> storageDefaultsMap = new HashMap<>();
+
+        Map<RootKey<?, ?>, InnerNode> storageForValidationMap = new HashMap<>();
+
+        for (Map.Entry<RootKey<?, ?>, InnerNode> entry : storageRootsMap.entrySet()) {
+            RootKey<?, ?> rootKey = entry.getKey();
+
+            InnerNode rootNode = entry.getValue();
+
+            // Collecting defaults requires fresh new root.
+            InnerNode defaultsNode = rootKey.createRootNode();
+
+            addDefaults(rootNode, defaultsNode);
+
+            storageDefaultsMap.put(rootKey, defaultsNode);
+
+            storageForValidationMap.put(rootKey, patch(rootNode, defaultsNode));
+        }
+
+        List<ValidationIssue> validationIssues = ValidationUtil.validate(
+            storageRootsMap,
+            storageForValidationMap,
+            this::getRootNode,
+            cachedAnnotations,
+            validators
+        );
+
+        if (!validationIssues.isEmpty())
+            throw new ConfigurationValidationException(validationIssues);
 
         // Do this strictly after adding listeners, otherwise we can lose these changes.
         try {
@@ -321,7 +356,9 @@ public class ConfigurationChanger {
         List<ValidationIssue> validationIssues = ValidationUtil.validate(
             storageRoots.roots,
             rootsForValidation,
-            this::getRootNode, cachedAnnotations, validators
+            this::getRootNode,
+            cachedAnnotations,
+            validators
         );
 
         if (!validationIssues.isEmpty()) {

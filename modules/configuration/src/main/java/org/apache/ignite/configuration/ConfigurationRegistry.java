@@ -63,7 +63,7 @@ public class ConfigurationRegistry {
 
     /** */
     public void registerStorage(ConfigurationStorage configurationStorage) {
-        changer.init(configurationStorage);
+        changer.register(configurationStorage);
     }
 
     /** */

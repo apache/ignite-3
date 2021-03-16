@@ -84,7 +84,7 @@ public class ValidatorsTest {
     public void before() {
         changer = new ConfigurationChanger(ValidatedRootConfiguration.KEY);
 
-        changer.init(new TestConfigurationStorage());
+        changer.register(new TestConfigurationStorage());
     }
 
     /** */

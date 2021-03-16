@@ -100,7 +100,7 @@ public class ConfigurationChangerTest {
             .initElements(change -> change.create("a", init -> init.initStrCfg("1")));
 
         final ConfigurationChanger changer = new ConfigurationChanger(KEY);
-        changer.init(storage);
+        changer.register(storage);
 
         changer.change(Collections.singletonMap(KEY, data)).get(1, SECONDS);
 
@@ -130,10 +130,10 @@ public class ConfigurationChangerTest {
             );
 
         final ConfigurationChanger changer1 = new ConfigurationChanger(KEY);
-        changer1.init(storage);
+        changer1.register(storage);
 
         final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
-        changer2.init(storage);
+        changer2.register(storage);
 
         changer1.change(Collections.singletonMap(KEY, data1)).get(1, SECONDS);
         changer2.change(Collections.singletonMap(KEY, data2)).get(1, SECONDS);
@@ -172,10 +172,10 @@ public class ConfigurationChangerTest {
             );
 
         final ConfigurationChanger changer1 = new ConfigurationChanger(KEY);
-        changer1.init(storage);
+        changer1.register(storage);
 
         final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
-        changer2.init(storage);
+        changer2.register(storage);
 
         changer1.change(Collections.singletonMap(KEY, data1)).get(1, SECONDS);
 
@@ -207,11 +207,11 @@ public class ConfigurationChangerTest {
 
         storage.fail(true);
 
-        assertThrows(ConfigurationChangeException.class, () -> changer.init(storage));
+        assertThrows(ConfigurationChangeException.class, () -> changer.register(storage));
 
         storage.fail(false);
 
-        changer.init(storage);
+        changer.register(storage);
 
         storage.fail(true);
 
@@ -262,7 +262,9 @@ public class ConfigurationChangerTest {
 
         changer.addRootKey(DefaultsConfiguration.KEY);
 
-        changer.init(new TestConfigurationStorage());
+        changer.register(new TestConfigurationStorage());
+
+        changer.initialize(TestConfigurationStorage.class);
 
         DefaultsNode root = (DefaultsNode)changer.getRootNode(DefaultsConfiguration.KEY);
 
