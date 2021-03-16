@@ -16,17 +16,17 @@
  */
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.Cluster;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
-import io.scalecube.cluster.Cluster;
+import org.apache.ignite.network.MessageHandlerHolder;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkClusterEventHandler;
 import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.network.MessageHandlerHolder;
 
 import static io.scalecube.cluster.transport.api.Message.fromData;
 import static java.time.Duration.ofMillis;
