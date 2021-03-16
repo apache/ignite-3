@@ -109,6 +109,12 @@ public class ValidationUtil {
                         }
                     });
 
+                    if (fieldAnnotations.length == 0)
+                        return;
+
+                    String currentKey = currentKey() + fieldName;
+                    List<String> currentPath = appendKey(currentPath(), fieldName);
+
                     for (Annotation annotation : fieldAnnotations) {
                         for (Validator<?, ?> validator : validators.getOrDefault(annotation.annotationType(), emptySet())) {
                             // Making this a compile-time check would be too expensive to implement.
@@ -125,8 +131,8 @@ public class ValidationUtil {
                                 newRoots,
                                 otherRoots,
                                 val,
-                                currentKey() + fieldName,
-                                appendKey(currentPath(), fieldName),
+                                currentKey,
+                                currentPath,
                                 issues
                             );
 
