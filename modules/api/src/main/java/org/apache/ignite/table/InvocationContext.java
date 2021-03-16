@@ -15,7 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.binary;
+package org.apache.ignite.table;
 
-public interface ColSpan extends BinaryObject {
+/**
+ * Invocation context.
+ *
+ * @param <K> Target key object type.
+ * @param <V> Value object type.
+ */
+public interface InvocationContext<K, V> {
+    /**
+     * @return Processor invocation arguments provided by user.
+     */
+    Object[] args();
+
+    /**
+     * @return Key object which associated value is processed.
+     */
+    K key();
+
+    /**
+     * @return Current value associated with the requested key.
+     */
+    V value();
+
+    /**
+     * Sets new value for the requested key.
+     *
+     * @param val Value object to set.
+     */
+    void value(V val);
 }

@@ -20,13 +20,12 @@ package org.apache.ignite.table;
 import java.io.Serializable;
 
 /**
- * Invoke processor provide ability to run code against a value associated with provided key on server-side.
- * <p>
- * Note: Processor will be always deployed to nodes and will never got from a classpath.
+ * Invoke processor interface provides API to run code on server side against a value associated with provided key.
  *
  * @param <K> Target object type.
  * @param <V> Value type.
  * @param <R> Processor result type.
+ * @apiNote Processor must always be deployed to nodes. A server node must never got it from the classpath.
  */
 public interface InvokeProcessor<K, V, R extends Serializable> extends Serializable {
     /**
@@ -34,36 +33,7 @@ public interface InvokeProcessor<K, V, R extends Serializable> extends Serializa
      *
      * @param ctx Invocation context.
      * @return Invoke processor result.
+     * @throws InvokeProcessorException If failed during data processing.
      */
-    R process(InvocationContext<K, V> ctx);
-
-    /**
-     * Invocation context.
-     *
-     * @param <K> Target object type.
-     * @param <V> Value type.
-     */
-    interface InvocationContext<K, V> {
-        /**
-         * @return Invocation arguments.
-         */
-        Object[] args();
-
-        /**
-         * @return Key object.
-         */
-        K key();
-
-        /**
-         * @return Current value.
-         */
-        V value();
-
-        /**
-         * Sets new value.
-         *
-         * @param val Value object to set.
-         */
-        void value(V val);
-    }
+    R process(InvocationContext<K, V> ctx) throws InvokeProcessorException;
 }

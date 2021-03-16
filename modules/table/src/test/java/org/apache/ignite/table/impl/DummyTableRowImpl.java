@@ -19,7 +19,8 @@ package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.table.binary.Row;
+import org.apache.ignite.internal.table.ColSpan;
+import org.apache.ignite.internal.table.Row;
 
 /**
  * Stub class.
@@ -56,10 +57,10 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject keySpan() {
-        return new DummyTableRowImpl(this.bytes) {
+    @Override public ColSpan keySpan() {
+        return new DummyTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
-                ByteBuffer buf = ByteBuffer.wrap(bytes);
+                ByteBuffer buf = ByteBuffer.wrap(bytes());
 
                 int keyLen = buf.getInt(KEY_OFFSET);
 
@@ -69,10 +70,10 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject valueSpan() {
-        return new DummyTableRowImpl(this.bytes) {
+    @Override public ColSpan valueSpan() {
+        return new DummyTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
-                ByteBuffer buf = ByteBuffer.wrap(bytes);
+                ByteBuffer buf = ByteBuffer.wrap(bytes());
 
                 int valOffset = KEY_OFFSET + buf.getInt(KEY_OFFSET);
 
@@ -126,4 +127,20 @@ public class DummyTableRowImpl implements Row {
         return null;
     }
 
+    /** {@inheritDoc} */
+    @Override public Object deserialize(Class<?> targetCls) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long schemaVersion() {
+        return 0;
+    }
+
+    /**
+     *
+     */
+    private byte[] bytes() {
+        return bytes;
+    }
 }

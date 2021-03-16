@@ -34,4 +34,11 @@
 
     <artifactId>ignite-api</artifactId>
     <version>3.0.0-SNAPSHOT</version>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+        </dependency>
+    </dependencies>
 </project>

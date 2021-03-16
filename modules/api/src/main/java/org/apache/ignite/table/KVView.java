@@ -20,16 +20,18 @@ package org.apache.ignite.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.Future;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Key-Value interface.
+ * Key-Value interface provides synchronous and asynchronous methods to access table data.
  *
- * @param <K> Key type.
- * @param <V> Value type.
+ * @param <K> Mapped key type.
+ * @param <V> Mapped value type.
  */
 public interface KVView<K, V> {
     /**
-     * Gets value associated with given key.
+     * Gets a value associated with the given key.
      *
      * @param key The key whose associated value is to be returned.
      * @return Value or {@code null}, if it does not exist.
@@ -37,20 +39,36 @@ public interface KVView<K, V> {
     V get(K key);
 
     /**
-     * Gets values associated with given keys.
+     * Asynchronously gets a value associated with the given key.
      *
-     * @param keys Ordered collection of keys whose associated values are to be returned.
+     * @param key The key whose associated value is to be returned.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<V> getAsync(K key);
+
+    /**
+     * Get values associated with given keys.
+     *
+     * @param keys Keys whose associated values are to be returned.
      * @return Values associated with given keys.
      */
-    Collection<V> getAll(Collection<K> keys);
+    Map<K, V> getAll(Collection<K> keys);
+
+    /**
+     * Get values associated with given keys.
+     *
+     * @param keys Keys whose associated values are to be returned.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Map<K, V>> getAllAsync(Collection<K> keys);
 
     /**
      * Determines if the table contains an entry for the specified key.
      *
-     * @param key key whose presence in this cache is to be tested.
-     * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
+     * @param key The key whose presence is to be tested.
+     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
      */
-    boolean containsKey(K key);
+    boolean contains(K key);
 
     /**
      * Puts value associated with given key into the table.
@@ -61,29 +79,64 @@ public interface KVView<K, V> {
     void put(K key, V val);
 
     /**
+     * Asynchronously puts value associated with given key into the table.
+     *
+     * @param key Key with which the specified value is to be associated.
+     * @param val Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Void> putAsync(K key, V val);
+
+    /**
      * Put associated key-value pairs.
      *
-     * @param pairs Ordered collection of key-value pairs.
+     * @param pairs Key-value pairs.
      */
     void putAll(Map<K, V> pairs);
 
     /**
-     * Puts and return value associated with given key into the table.
+     * Asynchronously put associated key-value pairs.
+     *
+     * @param pairs Key-value pairs.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Void> putAllAsync(Map<K, V> pairs);
+
+    /**
+     * Puts new or replaces existed value associated with given key into the table.
      *
      * @param key Key with which the specified value is to be associated.
      * @param val Value to be associated with the specified key.
-     * @return Previous value or {@code null}, if it does not exist.
+     * @return Replaced value or {@code null}, if not existed.
      */
     V getAndPut(K key, V val);
 
     /**
-     * Puts value associated with given key into the table if it is not exists.
+     * Asynchronously puts new or replaces existed value associated with given key into the table.
      *
      * @param key Key with which the specified value is to be associated.
      * @param val Value to be associated with the specified key.
-     * @return {@code True} if put was successful, {@code false} otherwise.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<V> getAndPutAsync(K key, V val);
+
+    /**
+     * Puts value associated with given key into the table if not exists.
+     *
+     * @param key Key with which the specified value is to be associated.
+     * @param val Value to be associated with the specified key.
+     * @return {@code True} if successful, {@code false} otherwise.
      */
     boolean putIfAbsent(K key, V val);
+
+    /**
+     * Asynchronously puts value associated with given key into the table if not exists.
+     *
+     * @param key Key with which the specified value is to be associated.
+     * @param val Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> putIfAbsentAsync(K key, V val);
 
     /**
      * Removes value associated with given key from the table.
@@ -94,32 +147,65 @@ public interface KVView<K, V> {
     boolean remove(K key);
 
     /**
-     * Removes exact value associated with given key from the table.
+     * Asynchronously removes value associated with given key from the table.
      *
-     * @param key key whose mapping is to be removed from the table.
-     * @param val Value expected to be associated with the specified key.
-     * @return {@code True} if the value associated with the specified key was successfully removed, {@code false} otherwise.
+     * @param key Key whose mapping is to be removed from the table.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> removeAsync(K key);
+
+    /**
+     * Removes expected value associated with given key from the table.
+     *
+     * @param key Key whose associated value is to be removed from the table.
+     * @param val Expected value.
+     * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      */
     boolean remove(K key, V val);
 
     /**
-     * Removes values associated with given keys from the table.
+     * Asynchronously removes expected value associated with given key from the table.
      *
-     * @param keys Ordered collection of keys whose mapping is to be removed from the table.
-     * @return Keys that had not been exists and were not removed.
+     * @param key Key whose associated value is to be removed from the table.
+     * @param val Expected value.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> removeAsync(K key, V val);
+
+    /**
+     * Remove values associated with given keys from the table.
+     *
+     * @param keys Keys whose mapping is to be removed from the table.
+     * @return Keys whose values were not existed.
      */
     Collection<K> removeAll(Collection<K> keys);
 
     /**
-     * Removes and returns value associated with given key from the table.
+     * Asynchronously remove values associated with given keys from the table.
      *
-     * @param key Key whose mapping is to be removed from the table.
-     * @return The value if one existed or {@code null} if no mapping existed for this key
+     * @param keys Keys whose mapping is to be removed from the table.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<K> removeAllAsync(Collection<K> keys);
+
+    /**
+     * Gets then removes value associated with given key from the table.
+     *
+     * @param key Key whose associated value is to be removed from the table.
+     * @return Removed value or {@code null}, if not existed.
      */
     V getAndRemove(K key);
 
     /**
-     * Atomically replaces the entry for a key only if currently mapped to some value. This is equivalent to
+     * Asynchronously gets then removes value associated with given key from the table.
+     *
+     * @param key Key whose mapping is to be removed from the table.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<V> getAndRemoveAsync(K key);
+
+    /**
+     * Replaces the value for a key only if exists. This is equivalent to
      * <pre><code>
      * if (cache.containsKey(key)) {
      *   cache.put(key, value);
@@ -136,7 +222,17 @@ public interface KVView<K, V> {
     boolean replace(K key, V val);
 
     /**
-     * Atomically replaces the entry for a key only if currently mapped to some value. This is equivalent to
+     * Asynchronously replaces the value for a key only if exists.
+     * See {@link #replace(Object, Object)}.
+     *
+     * @param key Key with which the specified value is associated.
+     * @param val Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> replaceAsync(K key, V val);
+
+    /**
+     * Replaces the expected value for a key. This is equivalent to
      * <pre><code>
      * if (cache.get(key) == oldVal) {
      *   cache.put(key, newVal);
@@ -154,8 +250,18 @@ public interface KVView<K, V> {
     boolean replace(K key, V oldVal, V newVal);
 
     /**
-     * Atomically replaces the value for a given key if and only if there is a value currently mapped by the key.
-     * This is equivalent to
+     * Asynchronously replaces the expected value for a key.
+     * See {@link #replace(Object, Object, Object)}
+     *
+     * @param key Key with which the specified value is associated.
+     * @param oldVal Expected value associated with the specified key.
+     * @param newVal Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> replaceAsync(K key, V oldVal, V newVal);
+
+    /**
+     * Replaces the value for a given key only if exists. This is equivalent to
      * <pre><code>
      * if (cache.containsKey(key)) {
      *   V oldValue = cache.get(key);
@@ -169,14 +275,24 @@ public interface KVView<K, V> {
      *
      * @param key Key with which the specified value is associated.
      * @param val Value to be associated with the specified key.
-     * @return Previous value associated with the specified key, or {@code null} if there was no mapping for the key.
+     * @return Replaced value, or {@code null} if not existed.
      */
     V getAndReplace(K key, V val);
 
     /**
-     * Invokes an invoke processor code against the value associated with the provided key.
+     * Asynchronously replaces the value for a given key only if exists.
+     * See {@link #getAndReplace(Object, Object)}
      *
-     * @param key Key that associated with the value that invoke processor will be applied to.
+     * @param key Key with which the specified value is associated.
+     * @param val Value to be associated with the specified key.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<V> getAndReplaceAsync(K key, V val);
+
+    /**
+     * Executes invoke processor code against the value associated with the provided key.
+     *
+     * @param key Key associated with the value that invoke processor will be applied to.
      * @param proc Invoke processor.
      * @param args Optional invoke processor arguments.
      * @param <R> Invoke processor result type.
@@ -186,7 +302,19 @@ public interface KVView<K, V> {
     <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args);
 
     /**
-     * Invokes an invoke processor code against values associated with the provided keys.
+     * Asynchronously executes invoke processor code against the value associated with the provided key.
+     *
+     * @param key Key associated with the value that invoke processor will be applied to.
+     * @param proc Invoke processor.
+     * @param args Optional invoke processor arguments.
+     * @param <R> Invoke processor result type.
+     * @return Future representing pending completion of the operation.
+     * @see InvokeProcessor
+     */
+    @NotNull <R extends Serializable> Future<R> invokeAsync(K key, InvokeProcessor<K, V, R> proc, Serializable... args);
+
+    /**
+     * Executes invoke processor code against values associated with the provided keys.
      *
      * @param <R> Invoke processor result type.
      * @param keys Ordered collection of keys which values associated with should be processed.
@@ -195,7 +323,23 @@ public interface KVView<K, V> {
      * @return Results of the processing.
      * @see InvokeProcessor
      */
-    <R extends Serializable> Map<K, R> invokeAll(Collection<K> keys, InvokeProcessor<K, V, R> proc,
+    <R extends Serializable> Map<K, R> invokeAll(
+        Collection<K> keys,
+        InvokeProcessor<K, V, R> proc,
         Serializable... args);
 
+    /**
+     * Asynchronously executes invoke processor code against values associated with the provided keys.
+     *
+     * @param <R> Invoke processor result type.
+     * @param keys Ordered collection of keys which values associated with should be processed.
+     * @param proc Invoke processor.
+     * @param args Optional invoke processor arguments.
+     * @return Future representing pending completion of the operation.
+     * @see InvokeProcessor
+     */
+    @NotNull <R extends Serializable> Future<Map<K, R>> invokeAllAsync(
+        Collection<K> keys,
+        InvokeProcessor<K, V, R> proc,
+        Serializable... args);
 }

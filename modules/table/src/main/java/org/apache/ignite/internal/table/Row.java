@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.binary;
+package org.apache.ignite.internal.table;
 
 /**
  * Binary row interface.
@@ -24,10 +24,15 @@ public interface Row extends ColSpan {
     /**
      * @return Column span over key columns.
      */
-    BinaryObject keySpan();
+    ColSpan keySpan();
 
     /**
      * @return Column span over value columns.
      */
-    BinaryObject valueSpan();
+    ColSpan valueSpan();
+
+    /**
+     * @return Row schema version.
+     */
+    long schemaVersion();
 }

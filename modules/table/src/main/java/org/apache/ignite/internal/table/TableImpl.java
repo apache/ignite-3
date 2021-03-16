@@ -19,8 +19,8 @@ package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.Future;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KV;
 import org.apache.ignite.table.KVView;
@@ -28,13 +28,13 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.binary.BinaryObject;
 import org.apache.ignite.table.binary.BinaryObjectBuilder;
-import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Table view implementation provides functionality to access binary BinaryObjects.
+ * Table view implementation for binary objects.
  */
 public class TableImpl implements Table {
     /** Table. */
@@ -72,31 +72,67 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<BinaryObject> getAsync(BinaryObject keyRec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public Collection<BinaryObject> getAll(Collection<BinaryObject> keyRecs) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean upsert(BinaryObject BinaryObject) {
-        return false;
+    @Override public @NotNull Future<Collection<BinaryObject>> getAllAsync(Collection<BinaryObject> keyRecs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void upsert(BinaryObject rec) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Void> upsertAsync(BinaryObject rec) {
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override public void upsertAll(Collection<BinaryObject> recs) {
+
     }
 
     /** {@inheritDoc} */
-    @Override public boolean insert(BinaryObject BinaryObject) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<BinaryObject> insertAll(Collection<BinaryObject> recs) {
-        return Collections.emptyList();
+    @Override public @NotNull Future<Void> upsertAllAsync(Collection<BinaryObject> recs) {
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override public BinaryObject getAndUpsert(BinaryObject rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<BinaryObject> getAndUpsertAsync(BinaryObject rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean insert(BinaryObject rec) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> insertAsync(BinaryObject rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<BinaryObject> insertAll(Collection<BinaryObject> recs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Collection<BinaryObject>> insertAllAsync(Collection<BinaryObject> recs) {
         return null;
     }
 
@@ -106,12 +142,27 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(BinaryObject rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean replace(BinaryObject oldRec, BinaryObject newRec) {
         return false;
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(BinaryObject oldRec, BinaryObject newRec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public BinaryObject getAndReplace(BinaryObject rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<BinaryObject> getAndReplaceAsync(BinaryObject rec) {
         return null;
     }
 
@@ -121,8 +172,18 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> deleteAsync(BinaryObject keyRec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean deleteExact(BinaryObject oldRec) {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> deleteExactAsync(BinaryObject oldRec) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -131,29 +192,58 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject getAndDeleteExact(BinaryObject rec) {
+    @Override public @NotNull Future<BinaryObject> getAndDeleteAsync(BinaryObject rec) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<BinaryObject> deleteAll(Collection<BinaryObject> recs) {
-        return Collections.emptyList();
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<BinaryObject> deleteAllExact(Collection<BinaryObject> recs) {
-        return Collections.emptyList();
-    }
-
-    /** {@inheritDoc} */
-    @Override public <R extends Serializable> R invoke(BinaryObject keyRec, InvokeProcessor<BinaryObject, BinaryObject, R> proc) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> Map<BinaryObject, R> invokeAll(
+    @Override public @NotNull Future<Collection<BinaryObject>> deleteAllAsync(Collection<BinaryObject> recs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<BinaryObject> deleteAllExact(Collection<BinaryObject> recs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Collection<BinaryObject>> deleteAllExactAsync(Collection<BinaryObject> recs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T extends Serializable> T invoke(
+        BinaryObject keyRec,
+        InvokeProcessor<BinaryObject, BinaryObject, T> proc
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull <T extends Serializable> Future<T> invokeAsync(
+        BinaryObject keyRec,
+        InvokeProcessor<BinaryObject, BinaryObject, T> proc
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T extends Serializable> Map<BinaryObject, T> invokeAll(
         Collection<BinaryObject> keyRecs,
-        InvokeProcessor<BinaryObject, BinaryObject, R> proc
+        InvokeProcessor<BinaryObject, BinaryObject, T> proc
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull <T extends Serializable> Future<Map<BinaryObject, T>> invokeAllAsync(
+        Collection<BinaryObject> keyRecs,
+        InvokeProcessor<BinaryObject, BinaryObject, T> proc
     ) {
         return null;
     }

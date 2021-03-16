@@ -21,27 +21,27 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.table.TableStorage;
-import org.apache.ignite.table.binary.Row;
+import org.apache.ignite.internal.table.Row;
 
 /**
  * Table storage stub.
  */
 public class DummyTableStorageImpl implements TableStorage {
     /** In-memory dummy store. */
-    private final Map<BinaryObjWrapper, BinaryObjWrapper> store = new ConcurrentHashMap<>();
+    private final Map<BinaryObjWrapper, DummyTableRowImpl> store = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public Row get(Row obj) {
-        BinaryObjWrapper row = store.get(new BinaryObjWrapper(obj.keySpan().toBytes()));
+        DummyTableRowImpl row = store.get(new BinaryObjWrapper(obj.keySpan().toBytes()));
 
-        return new DummyTableRowImpl(row.data.clone()); // Clone.
+        return row; // Clone.
     }
 
     /** {@inheritDoc} */
     @Override public Row put(Row row) {
-        final BinaryObjWrapper old = store.put(new BinaryObjWrapper(row.keySpan().toBytes()), new BinaryObjWrapper(row.toBytes()));
-
-        return old == null ? null : new DummyTableRowImpl(old.data.clone());
+       return store.put(
+            new BinaryObjWrapper(row.keySpan().toBytes()),
+            new DummyTableRowImpl(row.toBytes()));
     }
 
     /**

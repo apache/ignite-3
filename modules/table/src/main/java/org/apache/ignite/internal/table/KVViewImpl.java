@@ -19,21 +19,17 @@ package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.Future;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KVView;
-import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Key-value view implementation provides functionality to access table
- * transparently map user defined classes to binary row and vice versa.
- *
- * @param <K> Key type.
- * @param <V> Value type.
+ * Key-value view implementation.
  */
 public class KVViewImpl<K, V> implements KVView<K, V> {
     /** Underlying storage. */
@@ -42,7 +38,7 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     /**
      * Constructor.
      *
-     * @param tbl Table storage..
+     * @param tbl Table storage.
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
@@ -62,12 +58,22 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<V> getAll(Collection<K> keys) {
-        return Collections.emptyList();
+    @Override public @NotNull Future<V> getAsync(K key) {
+        return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean containsKey(K key) {
+    @Override public Map<K, V> getAll(Collection<K> keys) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Map<K, V>> getAllAsync(Collection<K> keys) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean contains(K key) {
         return false;
     }
 
@@ -77,8 +83,28 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Void> putAsync(K key, V val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public void putAll(Map<K, V> pairs) {
 
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Void> putAllAsync(Map<K, V> pairs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public V getAndPut(K key, V val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<V> getAndPutAsync(K key, V val) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -87,7 +113,7 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public V getAndPut(K key, V val) {
+    @Override public @NotNull Future<Boolean> putIfAbsentAsync(K key, V val) {
         return null;
     }
 
@@ -97,8 +123,8 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<K> removeAll(Collection<K> keys) {
-        return Collections.emptyList();
+    @Override public @NotNull Future<Boolean> removeAsync(K key) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -107,7 +133,27 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> removeAsync(K key, V val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<K> removeAll(Collection<K> keys) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<K> removeAllAsync(Collection<K> keys) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public V getAndRemove(K key) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<V> getAndRemoveAsync(K key) {
         return null;
     }
 
@@ -117,8 +163,18 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(K key, V val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean replace(K key, V oldVal, V newVal) {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(K key, V oldVal, V newVal) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -127,8 +183,21 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
+    @Override public @NotNull Future<V> getAndReplaceAsync(K key, V val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull <R extends Serializable> Future<R> invokeAsync(
+        K key,
+        InvokeProcessor<K, V, R> proc,
+        Serializable... args
+    ) {
         return null;
     }
 
@@ -138,7 +207,15 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
         InvokeProcessor<K, V, R> proc,
         Serializable... args
     ) {
-        return Collections.emptyMap();
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull <R extends Serializable> Future<Map<K, R>> invokeAllAsync(
+        Collection<K> keys,
+        InvokeProcessor<K, V, R> proc, Serializable... args
+    ) {
+        return null;
     }
 
     /**

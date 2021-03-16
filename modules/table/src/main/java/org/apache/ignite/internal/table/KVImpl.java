@@ -19,14 +19,19 @@ package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.Future;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KV;
 import org.apache.ignite.table.binary.BinaryObject;
 import org.apache.ignite.table.binary.BinaryObjectBuilder;
-import org.apache.ignite.table.binary.Row;
+import org.jetbrains.annotations.NotNull;
 
+/**
+ * Key-value view implementation for binary objects.
+ *
+ * @implNote Key-value objects are wrappers over corresponding column spans and implement the binary object concept.
+ */
 public class KVImpl implements KV {
     /** Underlying storage. */
     private final TableStorage tbl;
@@ -48,12 +53,22 @@ public class KVImpl implements KV {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<BinaryObject> getAll(Collection<BinaryObject> keys) {
+    @Override public @NotNull Future<BinaryObject> getAsync(BinaryObject key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean containsKey(BinaryObject key) {
+    @Override public Map<BinaryObject, BinaryObject> getAll(Collection<BinaryObject> keys) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Map<BinaryObject, BinaryObject>> getAllAsync(Collection<BinaryObject> keys) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean contains(BinaryObject key) {
         return false;
     }
 
@@ -63,12 +78,27 @@ public class KVImpl implements KV {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Void> putAsync(BinaryObject key, BinaryObject val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public void putAll(Map<BinaryObject, BinaryObject> pairs) {
 
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Void> putAllAsync(Map<BinaryObject, BinaryObject> pairs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public BinaryObject getAndPut(BinaryObject key, BinaryObject val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<BinaryObject> getAndPutAsync(BinaryObject key, BinaryObject val) {
         return null;
     }
 
@@ -78,8 +108,18 @@ public class KVImpl implements KV {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> putIfAbsentAsync(BinaryObject key, BinaryObject val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean remove(BinaryObject key) {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> removeAsync(BinaryObject key) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -88,12 +128,27 @@ public class KVImpl implements KV {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> removeAsync(BinaryObject key, BinaryObject val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public Collection<BinaryObject> removeAll(Collection<BinaryObject> keys) {
-        return Collections.emptyList();
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<BinaryObject> removeAllAsync(Collection<BinaryObject> keys) {
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override public BinaryObject getAndRemove(BinaryObject key) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<BinaryObject> getAndRemoveAsync(BinaryObject key) {
         return null;
     }
 
@@ -103,12 +158,27 @@ public class KVImpl implements KV {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(BinaryObject key, BinaryObject val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean replace(BinaryObject key, BinaryObject oldVal, BinaryObject newVal) {
         return false;
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(BinaryObject key, BinaryObject oldVal, BinaryObject newVal) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public BinaryObject getAndReplace(BinaryObject key, BinaryObject val) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<BinaryObject> getAndReplaceAsync(BinaryObject key, BinaryObject val) {
         return null;
     }
 
@@ -122,7 +192,25 @@ public class KVImpl implements KV {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull <R extends Serializable> Future<R> invokeAsync(
+        BinaryObject key,
+        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
+        Serializable... args
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public <R extends Serializable> Map<BinaryObject, R> invokeAll(
+        Collection<BinaryObject> keys,
+        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
+        Serializable... args
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull <R extends Serializable> Future<Map<BinaryObject, R>> invokeAllAsync(
         Collection<BinaryObject> keys,
         InvokeProcessor<BinaryObject, BinaryObject, R> proc,
         Serializable... args

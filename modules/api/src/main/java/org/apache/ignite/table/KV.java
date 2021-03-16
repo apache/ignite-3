@@ -21,15 +21,14 @@ import org.apache.ignite.table.binary.BinaryObject;
 import org.apache.ignite.table.binary.BinaryObjectBuilder;
 
 /**
- * Key-value like facade over table.
- * <p>
- * Keys and values are wrappers over corresponding column spans
- * and implement the BinaryObject concept.
+ * Key-value like interface provides synchronous and asynchronous methods to access table data
+ * regarding the binary object concept.
  */
 public interface KV extends KVView<BinaryObject, BinaryObject> {
     /**
-     * @return Column span builder.
+     * Factory method shortcut.
+     *
+     * @return Binary builder.
      */
     BinaryObjectBuilder binaryBuilder();
-
 }

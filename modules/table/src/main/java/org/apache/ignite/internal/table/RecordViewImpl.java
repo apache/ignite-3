@@ -19,19 +19,16 @@ package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.Future;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.binary.Row;
 import org.apache.ignite.table.mapper.RecordMapper;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Record view implementation provides functionality to access table
- * transparently map user defined class to binary row and vice versa.
- *
- * @param <R> Record type.
+ * Record view implementation.
  */
 public class RecordViewImpl<R> implements RecordView<R> {
     /** Table */
@@ -48,10 +45,10 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public R get(R recObjToFill) {
+    @Override public R get(R keyRec) {
         Marshaller marsh = marshaller();
 
-        Row kRow = marsh.toKeyRow(recObjToFill);
+        Row kRow = marsh.toKeyRow(keyRec);
 
         Row tRow = tbl.get(kRow);
 
@@ -70,7 +67,47 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<R> getAsync(R keyRec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public Collection<R> getAll(Collection<R> keyRecs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Collection<R>> getAllAsync(Collection<R> keyRecs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void upsert(R rec) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Void> upsertAsync(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void upsertAll(Collection<R> recs) {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Void> upsertAllAsync(Collection<R> recs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public R getAndUpsert(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<R> getAndUpsertAsync(R rec) {
         return null;
     }
 
@@ -80,22 +117,17 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> insertAsync(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public Collection<R> insertAll(Collection<R> recs) {
-        return Collections.emptyList();
+        return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean upsert(R rec) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void upsertAll(Collection<R> recs) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override public R getAndUpsert(R rec) {
+    @Override public @NotNull Future<Collection<R>> insertAllAsync(Collection<R> recs) {
         return null;
     }
 
@@ -105,12 +137,27 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean replace(R oldRec, R newRec) {
         return false;
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> replaceAsync(R oldRec, R newRec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public R getAndReplace(R rec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<R> getAndReplaceAsync(R rec) {
         return null;
     }
 
@@ -120,8 +167,18 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> deleteAsync(R keyRec) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean deleteExact(R oldRec) {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Boolean> deleteExactAsync(R oldRec) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -130,18 +187,28 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<R> deleteAll(Collection<R> recs) {
-        return Collections.emptyList();
+    @Override public @NotNull Future<R> getAndDeleteAsync(R rec) {
+        return null;
     }
 
     /** {@inheritDoc} */
-    @Override public R getAndDeleteExact(R rec) {
+    @Override public Collection<R> deleteAll(Collection<R> recs) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Collection<R>> deleteAllAsync(Collection<R> recs) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<R> deleteAllExact(Collection<R> recs) {
-        return Collections.emptyList();
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull Future<Collection<R>> deleteAllExactAsync(Collection<R> recs) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -150,9 +217,24 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs,
-        InvokeProcessor<R, R, T> proc) {
-        return Collections.emptyMap();
+    @Override public @NotNull <T extends Serializable> Future<T> invokeAsync(R keyRec, InvokeProcessor<R, R, T> proc) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T extends Serializable> Map<R, T> invokeAll(
+        Collection<R> keyRecs,
+        InvokeProcessor<R, R, T> proc
+    ) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull <T extends Serializable> Future<Map<R, T>> invokeAllAsync(
+        Collection<R> keyRecs,
+        InvokeProcessor<R, R, T> proc
+    ) {
+        return null;
     }
 
     /**

@@ -18,7 +18,7 @@
 package org.apache.ignite.table.binary;
 
 /**
- * BinaryObject builder.
+ * Binary object builder.
  */
 public interface BinaryObjectBuilder {
     /**
@@ -31,7 +31,7 @@ public interface BinaryObjectBuilder {
     BinaryObjectBuilder set(String colName, Object value);
 
     /**
-     * @return Column span.
+     * @return Binary object.
      */
     BinaryObject build();
 }

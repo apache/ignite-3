@@ -18,10 +18,10 @@
 package org.apache.ignite.table;
 
 /**
- * Record adapter for Table.
+ * Record view interface provides synchronous and asynchronous methods to access table data.
  * <p>
- * Note: Some methods expects a truncated record with key fields only defined can be used {@code <K>} as parameter,
- * and any value field will be ignored.
+ * @apiNote Some methods require a record with the only key fields set. This is not mandatory requirement
+ * and value fields will be just ignored.
  *
  * @param <R> Record type.
  */
@@ -30,7 +30,7 @@ public interface RecordView<R> extends TableView<R> {
      * Fills given record with the values from the table.
      * Similar to {@link #get(Object)}, but return original object with filled value fields.
      * <p>
-     * Note: Value fields will be rewritten.
+     * All value fields of given object will be rewritten.
      *
      * @param recObjToFill Record object with key fields to be filled.
      * @return Record with all fields filled from the table.

@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.binary;
+package org.apache.ignite.internal.table;
+
+import org.apache.ignite.table.binary.BinaryObject;
 
 /**
- * Binary row builder.
+ * Row columns span.
  */
-public interface RowBuilder {
-    /**
-     * Sets column value.
-     *
-     * @param colName Column name.
-     * @param value Value to set.
-     * @return {@code this} for chaining.
-     */
-    RowBuilder set(String colName, Object value);
-
-    /**
-     * @return Binary row.
-     */
-    Row build();
+public interface ColSpan extends BinaryObject { //TODO: Extract unmanaged BinaryObject into separate interface.
 }

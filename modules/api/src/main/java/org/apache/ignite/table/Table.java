@@ -19,14 +19,17 @@ package org.apache.ignite.table;
 
 import org.apache.ignite.table.binary.BinaryObject;
 import org.apache.ignite.table.binary.BinaryObjectBuilder;
-import org.apache.ignite.table.binary.RowBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
 import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
- * Table binary view.
+ * Table view interface provides synchronous and asynchronous methods to access table data
+ * regarding binary object concept.
+ *
+ * @apiNote Some methods require a record with the only key fields set. This is not mandatory requirement
+ * and value fields will be just ignored.
  */
 public interface Table extends TableView<BinaryObject> {
     /**
@@ -75,9 +78,9 @@ public interface Table extends TableView<BinaryObject> {
     }
 
     /**
-     * Creates builder for BinaryRow.
+     * Factory method shortcut.
      *
-     * @return BinaryRow builder for table.
+     * @return Binary builder.
      */
     BinaryObjectBuilder binaryBuilder();
 }

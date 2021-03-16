@@ -15,22 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.mapper;
-
-import java.util.function.Function;
-import org.apache.ignite.table.binary.BinaryObject;
+package org.apache.ignite.table;
 
 /**
- *
+ * InvokeProcessor invocation exception.
  */
-public interface ValueMapper<V> {
-    public interface Builder<V> {
-        public Builder<V> deserializeTo(Class<?> cls);
+public class InvokeProcessorException extends RuntimeException {
 
-        public Builder<V> map(String fieldName, Class<?> cls);
-
-        public Builder<V> map(String fieldName, Function<BinaryObject, Object> mapper);
-
-        public ValueMapper<V> build();
-    }
 }

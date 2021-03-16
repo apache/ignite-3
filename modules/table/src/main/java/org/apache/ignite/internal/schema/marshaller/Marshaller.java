@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.table.binary.Row;
+import org.apache.ignite.internal.table.Row;
 
 public interface Marshaller {
     <K> Row toKeyRow(K key);

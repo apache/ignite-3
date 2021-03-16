@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import org.apache.ignite.table.binary.Row;
-
 /**
  * Table storage facade.
  */

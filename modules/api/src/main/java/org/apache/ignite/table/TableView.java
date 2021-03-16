@@ -20,154 +20,290 @@ package org.apache.ignite.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.Future;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Table view interface.
+ * Table view interface provides synchronous and asynchronous methods to access table data.
  *
- * @param <R> Table row type.
+ * @param <R> Mapped Record type.
+ * @apiNote Some methods require a record with the only key fields set. This is not mandatory requirement
+ * and value fields will be just ignored.
  */
 public interface TableView<R> {
     /**
-     * Return row from table for given key columns.
+     * Gets a record with same key fields values as given one from the table.
      *
-     * @param keyRow Row with key columns set.
-     * @return Row with all columns filled from the table.
+     * @param keyRec Record with key fields set.
+     * @return Record with all fields filled from the table.
      */
-    R get(R keyRow);
+    R get(R keyRec);
 
     /**
-     * Fills given rows with the values from the table.
+     * Asynchronously gets a record with same key fields values as given one from the table.
      *
-     * @param keyRows Rows with key columns set.
-     * @return Rows with all columns filled from the table.
+     * @param keyRec Record with key fields set.
+     * @return Future representing pending completion of the operation.
      */
-    Collection<R> getAll(Collection<R> keyRows);
+    @NotNull Future<R> getAsync(R keyRec);
 
     /**
-     * Inserts new row into the table if it is not exists or replace existed one.
+     * Get records from the table.
      *
-     * @param row Row to be inserted into table.
-     * @return {@code True} if was successful, {@code false} otherwise.
+     * @param keyRecs Records with key fields set.
+     * @return Records with all fields filled from the table.
      */
-    boolean upsert(R row);
+    Collection<R> getAll(Collection<R> keyRecs);
 
     /**
-     * Inserts new row into the table if it is not exists or replace existed one.
+     * Asynchronously get records from the table.
      *
-     * @param rows Rows to be inserted into table.
+     * @param keyRecs Records with key fields set.
+     * @return Future representing pending completion of the operation.
      */
-    void upsertAll(Collection<R> rows);
+    @NotNull Future<Collection<R>> getAllAsync(Collection<R> keyRecs);
 
     /**
-     * Insert row into the table and return previous row.
+     * Inserts a record into the table if does not exist or replaces the existed one.
      *
-     * @param row Row to be inserted into table.
-     * @return Row that was replaced, {@code null} otherwise.
+     * @param rec Record to insert into the table.
      */
-    R getAndUpsert(R row);
+    void upsert(R rec);
 
     /**
-     * Inserts row into the table if not exists.
+     * Asynchronously inserts a record into the table if does not exist or replaces the existed one.
      *
-     * @param row Row to be inserted into table.
-     * @return {@code True} if was successful, {@code false} otherwise.
+     * @param rec Record to insert into the table.
+     * @return Future representing pending completion of the operation.
      */
-    boolean insert(R row);
+    @NotNull Future<Void> upsertAsync(R rec);
 
     /**
-     * Inserts rows into the table that are not exists, otherwise skips.
+     * Insert records into the table if does not exist or replaces the existed one.
      *
-     * @param rows Rows to be inserted into table.
-     * @return Rows with key columns set that were not inserted.
+     * @param recs Records to insert into the table.
      */
-    Collection<R> insertAll(Collection<R> rows);
+    void upsertAll(Collection<R> recs);
 
     /**
-     * Replaces an existed row in the table with the given one.
+     * Asynchronously inserts a record into the table if does not exist or replaces the existed one.
      *
-     * @param row Row to replace with.
-     * @return {@code True} if the row replaced successfully, {@code false} otherwise.
+     * @param recs Records to insert into the table.
+     * @return Future representing pending completion of the operation.
      */
-    boolean replace(R row);
+    @NotNull Future<Void> upsertAllAsync(Collection<R> recs);
 
     /**
-     * Replaces an expected row in the table with the new one.
+     * Inserts a record into the table or replaces if exists and return replaced previous record.
      *
-     * @param oldRow Row to be replaced in table.
-     * @param newRow Row to replace with.
-     * @return {@code True} if the row replaced successfully, {@code false} otherwise.
+     * @param rec Record to insert into the table.
+     * @return Replaced record or {@code null} if not existed.
      */
-    boolean replace(R oldRow, R newRow);
+    R getAndUpsert(R rec);
 
     /**
-     * Replaces an existed row in the table and return the replaced one.
+     * Asynchronously inserts a record into the table or replaces if exists and return replaced previous record.
      *
-     * @param row Row to be inserted into table.
-     * @return Row that was replaced with given one, {@code null} otherwise.
+     * @param rec Record to insert into the table.
+     * @return Future representing pending completion of the operation.
      */
-    R getAndReplace(R row);
+    @NotNull Future<R> getAndUpsertAsync(R rec);
 
     /**
-     * Remove row from table.
+     * Inserts a record into the table if not exists.
      *
-     * @param keyRow Row with key columns set.
-     * @return {@code True} if row was successfully removed, {@code  false} otherwise.
+     * @param rec Record to insert into the table.
+     * @return {@code True} if successful, {@code false} otherwise.
      */
-    boolean delete(R keyRow);
+    boolean insert(R rec);
 
     /**
-     * Remove exact row from table.
+     * Asynchronously inserts a record into the table if not exists.
      *
-     * @param oldRow Row to be removed.
-     * @return {@code True} if row was successfully removed, {@code  false} otherwise.
+     * @param rec Record to insert into the table.
+     * @return Future representing pending completion of the operation.
      */
-    boolean deleteExact(R oldRow);
+    @NotNull Future<Boolean> insertAsync(R rec);
 
     /**
-     * Remove row from table.
+     * Insert records into the table which do not exist, skipping existed ones.
      *
-     * @param row Row with key columns set.
-     * @return Row that was removed, {@code null} otherwise.
+     * @param recs Records to insert into the table.
+     * @return Skipped records.
      */
-    R getAndDelete(R row);
+    Collection<R> insertAll(Collection<R> recs);
 
     /**
-     * Remove exact row from table.
+     * Asynchronously insert records into the table which do not exist, skipping existed ones.
      *
-     * @param row Row.
-     * @return Row that was removed, {@code null} otherwise.
+     * @param recs Records to insert into the table.
+     * @return Future representing pending completion of the operation.
      */
-    R getAndDeleteExact(R row);
+    @NotNull Future<Collection<R>> insertAllAsync(Collection<R> recs);
 
     /**
-     * Remove rows from table.
+     * Replaces an existed record associated with the same key fields values as the given one has.
      *
-     * @param rows Rows with key columns set.
-     * @return Rows with key columns set that were not deleted.
+     * @param rec Record to replace with.
+     * @return {@code True} if old record was found and replaced successfully, {@code false} otherwise.
      */
-    Collection<R> deleteAll(Collection<R> rows);
+    boolean replace(R rec);
 
     /**
-     * Remove exact rows from table.
+     * Asynchronously replaces an existed record associated with the same key fields values as the given one has.
      *
-     * @param rows Rows with all columns set.
-     * @return Rows with key columns set that were not deleted.
+     * @param rec Record to replace with.
+     * @return Future representing pending completion of the operation.
      */
-    Collection<R> deleteAllExact(Collection<R> rows);
+    @NotNull Future<Boolean> replaceAsync(R rec);
 
     /**
-     * Invokes an InvokeProcessor against the associated row.
+     * Replaces an expected record in the table with the given new one.
      *
-     * @param keyRow Row with key columns set.
+     * @param oldRec Record to replace.
+     * @param newRec Record to replace with.
+     * @return {@code True} if the old record replaced successfully, {@code false} otherwise.
+     */
+    boolean replace(R oldRec, R newRec);
+
+    /**
+     * Asynchronously replaces an expected record in the table with the given new one.
+     *
+     * @param oldRec Record to replace.
+     * @param newRec Record to replace with.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> replaceAsync(R oldRec, R newRec);
+
+    /**
+     * Gets an existed record associated with the same key fields values as the given one has,
+     * then replaces with the given one.
+     *
+     * @param rec Record to replace with.
+     * @return Replaced record or {@code null} if not existed.
+     */
+    R getAndReplace(R rec);
+
+    /**
+     * Asynchronously gets an existed record associated with the same key fields values as the given one has,
+     * then replaces with the given one.
+     *
+     * @param rec Record to replace with.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<R> getAndReplaceAsync(R rec);
+
+    /**
+     * Deletes a record with the same key fields values as the given one from the table.
+     *
+     * @param keyRec Record with key fields set.
+     * @return {@code True} if removed successfully, {@code false} otherwise.
+     */
+    boolean delete(R keyRec);
+
+    /**
+     * Asynchronously deletes a record with the same key fields values as the given one from the table.
+     *
+     * @param keyRec Record with key fields set.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> deleteAsync(R keyRec);
+
+    /**
+     * Deletes the given record from the table.
+     *
+     * @param oldRec Record to delete.
+     * @return {@code True} if removed successfully, {@code false} otherwise.
+     */
+    boolean deleteExact(R oldRec);
+
+    /**
+     * Asynchronously deletes given record from the table.
+     *
+     * @param oldRec Record to delete.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Boolean> deleteExactAsync(R oldRec);
+
+    /**
+     * Gets then deletes a record with the same key fields values from the table.
+     *
+     * @param rec Record with key fields set.
+     * @return Removed record or {@code null} if not existed.
+     */
+    R getAndDelete(R rec);
+
+    /**
+     * Asynchronously gets then deletes a record with the same key fields values from the table.
+     *
+     * @param rec Record with key fields set.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<R> getAndDeleteAsync(R rec);
+
+    /**
+     * Remove records with the same key fields values as the given one has from the table.
+     *
+     * @param recs Records with key fields set.
+     * @return Records with key fields set that were not exists.
+     */
+    Collection<R> deleteAll(Collection<R> recs);
+
+    /**
+     * Asynchronously remove records with the same key fields values as the given one has from the table.
+     *
+     * @param recs Records with key fields set.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Collection<R>> deleteAllAsync(Collection<R> recs);
+
+    /**
+     * Remove given records from the table.
+     *
+     * @param recs Records to delete.
+     * @return Records that were not deleted.
+     */
+    Collection<R> deleteAllExact(Collection<R> recs);
+
+    /**
+     * Asynchronously remove given records from the table.
+     *
+     * @param recs Records to delete.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull Future<Collection<R>> deleteAllExactAsync(Collection<R> recs);
+
+    /**
+     * Executes an InvokeProcessor code against a record with the same key fields values as the given one has.
+     *
+     * @param keyRec Record with key fields set.
      * @return Results of the processing.
      */
-    <T extends Serializable> T invoke(R keyRow, InvokeProcessor<R, R, T> proc);
+    <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, R, T> proc);
 
     /**
-     * Invokes an InvokeProcessor against the associated rows.
+     * Asynchronously executes an InvokeProcessor code against a record
+     * with the same key fields values as the given one has.
      *
-     * @param keyRows Ordered collection of rows with key columns set.
+     * @param keyRec Record with key fields set.
+     * @return Future representing pending completion of the operation.
+     */
+    @NotNull <T extends Serializable> Future<T> invokeAsync(R keyRec, InvokeProcessor<R, R, T> proc);
+
+    /**
+     * Executes an InvokeProcessor code against records with the same key fields values as the given ones has.
+     *
+     * @param keyRecs Records with key fields set.
      * @return Results of the processing.
      */
-    <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRows, InvokeProcessor<R, R, T> proc);
+    <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs, InvokeProcessor<R, R, T> proc);
+
+    /**
+     * Asynchronously executes an InvokeProcessor against records with the same key fields values as the given ones has.
+     *
+     * @param keyRecs Records with key fields set.
+     * @return Results of the processing.
+     */
+    @NotNull <T extends Serializable> Future<Map<R, T>> invokeAllAsync(Collection<R> keyRecs,
+        InvokeProcessor<R, R, T> proc);
 }
