@@ -17,24 +17,35 @@
 
 package org.apache.ignite.configuration.internal.validation;
 
+import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationChanger;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.sample.storage.TestConfigurationStorage;
+import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.configuration.validation.ValidationContext;
+import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.apache.ignite.configuration.validation.Validator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** */
-public class ValidatorsTest {
+public class ValidatotionUtilTest {
     /** */
     @Target(FIELD)
     @Retention(RUNTIME)
@@ -85,6 +96,8 @@ public class ValidatorsTest {
         changer = new ConfigurationChanger(ValidatedRootConfiguration.KEY);
 
         changer.register(new TestConfigurationStorage());
+
+        changer.initialize(TestConfigurationStorage.class);
     }
 
     /** */
@@ -97,5 +110,21 @@ public class ValidatorsTest {
     @Test
     void leafNode() throws Exception {
         var root = (ValidatedRootNode)changer.getRootNode(ValidatedRootConfiguration.KEY);
+
+        Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
+
+        Validator<LeafValidation, String> validator = new Validator<>() {
+            @Override public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
+                ctx.addIssue(new ValidationIssue("foo"));
+            }
+        };
+
+        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(LeafValidation.class, Set.of(validator));
+
+        List<ValidationIssue> issues = ValidationUtil.validate(rootsMap, rootsMap, null, new HashMap<>(), validators);
+
+        assertEquals(1, issues.size());
+
+        assertEquals("foo", issues.get(0).message());
     }
 }
