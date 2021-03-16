@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.configuration.internal.util.KeysTrackingConfigurationVisitor;
@@ -54,7 +53,7 @@ public class ValidationUtil {
         Map<RootKey<?, ?>, InnerNode> oldRoots,
         Map<RootKey<?, ?>, InnerNode> newRoots,
         Function<RootKey<?, ?>, InnerNode> otherRoots,
-        Map<MemberKey, Set<Annotation>> memberAnnotations,
+        Map<MemberKey, Annotation[]> memberAnnotations,
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators
     ) {
         List<ValidationIssue> issues = new ArrayList<>();
@@ -98,15 +97,15 @@ public class ValidationUtil {
 
                     MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
 
-                    Set<Annotation> fieldAnnotations = memberAnnotations.computeIfAbsent(memberKey, k -> {
+                    Annotation[] fieldAnnotations = memberAnnotations.computeIfAbsent(memberKey, k -> {
                         try {
                             Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
 
-                            return Arrays.stream(field.getDeclaredAnnotations()).collect(Collectors.toSet());
+                            return field.getDeclaredAnnotations();
                         }
                         catch (NoSuchFieldException e) {
                             // Should be impossible.
-                            return emptySet();
+                            return new Annotation[0];
                         }
                     });
 

@@ -83,7 +83,7 @@ public class ConfigurationChanger {
     }
 
     /** Lazy annotations cache for configuration schema fields. */
-    private final Map<MemberKey, Set<Annotation>> cachedAnnotations = new ConcurrentHashMap<>();
+    private final Map<MemberKey, Annotation[]> cachedAnnotations = new ConcurrentHashMap<>();
 
     /** Storage instances by their classes. Comes in handy when all you have is {@link RootKey}. */
     private final Map<Class<? extends ConfigurationStorage>, ConfigurationStorage> storageInstances = new HashMap<>();
