@@ -27,7 +27,7 @@ public class AddLearnersRequestImpl implements AddLearnersRequest, AddLearnersRe
 
     private List<PeerId> learnersList = new ArrayList<>();
 
-    public String getGroupId() {
+    @Override public String getGroupId() {
         return groupId;
     }
 

@@ -3,6 +3,8 @@ package org.apache.ignite.raft.client.message;
 import org.apache.ignite.raft.client.PeerId;
 
 public interface RemovePeerRequest {
+    String getGroupId();
+
     PeerId getPeerId();
 
     interface Builder {

@@ -27,7 +27,7 @@ class ChangePeerRequestImpl implements ChangePeersRequest, ChangePeersRequest.Bu
 
     private List<PeerId> newPeersList = new ArrayList<>();
 
-    public String getGroupId() {
+    @Override public String getGroupId() {
         return groupId;
     }
 

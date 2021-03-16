@@ -21,12 +21,18 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.State;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Replication group management service.
  */
 public interface RaftGroupManagmentService {
+    /**
+     * @return Group id.
+     */
+    @NotNull String groupId();
+
     /**
      * @return Leader id or null if it has not been yet initialized.
      */

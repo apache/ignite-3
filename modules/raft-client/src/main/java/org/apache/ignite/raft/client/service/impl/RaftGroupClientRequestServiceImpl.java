@@ -25,6 +25,7 @@ import org.apache.ignite.raft.client.message.UserRequest;
 import org.apache.ignite.raft.client.message.UserResponse;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.service.RaftGroupClientRequestService;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Replication group client service implementation.
@@ -50,6 +51,10 @@ public class RaftGroupClientRequestServiceImpl implements RaftGroupClientRequest
         catch (Exception e) {
             // TODO log error.
         }
+    }
+
+    @Override public @NotNull String groupId() {
+        return groupId;
     }
 
     /** {@inheritDoc} */

@@ -25,7 +25,7 @@ class AddPeerRequestImpl implements AddPeerRequest, AddPeerRequest.Builder {
 
     private PeerId peerId;
 
-    public String getGroupId() {
+    @Override public String getGroupId() {
         return groupId;
     }
 

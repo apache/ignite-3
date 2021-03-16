@@ -25,7 +25,7 @@ class RemovePeerRequestImpl implements RemovePeerRequest, RemovePeerRequest.Buil
 
     private PeerId peerId;
 
-    public String getGroupId() {
+    @Override public String getGroupId() {
         return groupId;
     }
 

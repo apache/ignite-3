@@ -27,7 +27,7 @@ class ResetLearnersRequestImpl implements ResetLearnersRequest, ResetLearnersReq
 
     private List<PeerId> learnersList = new ArrayList<>();
 
-    public String getGroupId() {
+    @Override public String getGroupId() {
         return groupId;
     }
 

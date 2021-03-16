@@ -75,17 +75,27 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
      * @param defaultTimeout Default request timeout.
      * @param initialCfgNode Initial configuration nodes.
      */
-    public RaftGroupRpcClientImpl(NetworkCluster cluster, RaftClientMessageFactory factory, int defaultTimeout, Set<NetworkMember> initialCfgNodes) {
+    public RaftGroupRpcClientImpl(
+        NetworkCluster cluster,
+        RaftClientMessageFactory factory,
+        int defaultTimeout,
+        Set<NetworkMember> initialCfgNodes
+    ) {
         this.defaultTimeout = defaultTimeout;
         this.cluster = cluster;
         this.factory = factory;
         this.initialCfgNodes = new HashSet<>(initialCfgNodes);
     }
 
+    /** {@inheritDoc} */
     @Override public State state(String groupId) {
         return getState(groupId);
     }
 
+    /**
+     * @param groupId Group id.
+     * @return The state.
+     */
     private StateImpl getState(String groupId) {
         return states.computeIfAbsent(groupId, k -> new StateImpl());
     }
@@ -95,7 +105,8 @@ public class RaftGroupRpcClientImpl implements RaftGroupRpcClient {
 
         GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
 
-        CompletableFuture<GetLeaderResponse> fut = cluster.sendWithResponse(initialCfgNodes.iterator().next(), req, defaultTimeout);
+        CompletableFuture<GetLeaderResponse> fut =
+            cluster.sendWithResponse(initialCfgNodes.iterator().next(), req, defaultTimeout);
 
         return fut.thenApply(resp -> state.leader = resp.getLeaderId());
     }

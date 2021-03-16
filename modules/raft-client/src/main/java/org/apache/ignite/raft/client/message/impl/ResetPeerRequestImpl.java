@@ -27,7 +27,7 @@ class ResetPeerRequestImpl implements ResetPeerRequest, ResetPeerRequest.Builder
 
     private List<PeerId> newPeersList = new ArrayList<>();
 
-    public String getGroupId() {
+    @Override public String getGroupId() {
         return groupId;
     }
 

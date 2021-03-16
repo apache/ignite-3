@@ -19,14 +19,17 @@ package org.apache.ignite.raft.client.service;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.raft.client.Command;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Replication group client service.
  */
 public interface RaftGroupClientRequestService {
+    @NotNull String groupId();
+
     /**
      * Submits a command to a replication group leader. If a leader is not initialized yet will try to resolve it.
-     * @param cmd Command.
+     * @param cmd The command.
      * @param <R> Response type.
      * @return A future with the result.
      */

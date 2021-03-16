@@ -23,6 +23,7 @@ import org.apache.ignite.raft.client.PeerId;
 import org.apache.ignite.raft.client.State;
 import org.apache.ignite.raft.client.rpc.RaftGroupRpcClient;
 import org.apache.ignite.raft.client.service.RaftGroupManagmentService;
+import org.jetbrains.annotations.NotNull;
 
 public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService {
     /** */
@@ -38,6 +39,10 @@ public class RaftGroupManagementServiceImpl implements RaftGroupManagmentService
     public RaftGroupManagementServiceImpl(RaftGroupRpcClient rpcClient, String groupId) {
         this.rpcClient = rpcClient;
         this.groupId = groupId;
+    }
+
+    @Override public @NotNull String groupId() {
+        return groupId;
     }
 
     @Override public PeerId getLeader() {
