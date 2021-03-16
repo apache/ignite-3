@@ -118,7 +118,7 @@ public class ValidationUtil {
                                 "class=" + lastInnerNode.getClass().getCanonicalName() + ", " +
                                 "field=" + fieldName + ", " +
                                 "annotation=" + annotation.annotationType().getCanonicalName() + ", " +
-                                "validator=" + validator.getClass().getCanonicalName() + ']';
+                                "validator=" + validator.getClass().getName() + ']';
 
                             ValidationContextImpl<Object> ctx = new ValidationContextImpl<>(
                                 rootKey,
