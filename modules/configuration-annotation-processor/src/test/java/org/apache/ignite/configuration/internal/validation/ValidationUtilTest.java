@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.sample.storage.TestConfigurationStorage;
 import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -42,10 +43,11 @@ import org.junit.jupiter.api.Test;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.Collections.emptySet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** */
-public class ValidatotionUtilTest {
+public class ValidationUtilTest {
     /** */
     @Target(FIELD)
     @Retention(RUNTIME)
@@ -108,14 +110,16 @@ public class ValidatotionUtilTest {
 
     /** */
     @Test
-    void leafNode() throws Exception {
+    void validateLeafNode() throws Exception {
         var root = (ValidatedRootNode)changer.getRootNode(ValidatedRootConfiguration.KEY);
 
         Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
 
         Validator<LeafValidation, String> validator = new Validator<>() {
             @Override public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
-                ctx.addIssue(new ValidationIssue("foo"));
+                assertEquals("foo", ctx.getNewValue());
+
+                ctx.addIssue(new ValidationIssue("bar"));
             }
         };
 
@@ -125,6 +129,54 @@ public class ValidatotionUtilTest {
 
         assertEquals(1, issues.size());
 
-        assertEquals("foo", issues.get(0).message());
+        assertEquals("bar", issues.get(0).message());
+    }
+
+    /** */
+    @Test
+    void validateInnerNode() throws Exception {
+        var root = (ValidatedRootNode)changer.getRootNode(ValidatedRootConfiguration.KEY);
+
+        Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
+
+        Validator<InnerValidation, ValidatedChildView> validator = new Validator<>() {
+            @Override public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
+                assertEquals("foo", ctx.getNewValue().str());
+
+                ctx.addIssue(new ValidationIssue("bar"));
+            }
+        };
+
+        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(InnerValidation.class, Set.of(validator));
+
+        List<ValidationIssue> issues = ValidationUtil.validate(rootsMap, rootsMap, null, new HashMap<>(), validators);
+
+        assertEquals(1, issues.size());
+
+        assertEquals("bar", issues.get(0).message());
+    }
+
+    /** */
+    @Test
+    void validateNamedListNode() throws Exception {
+        var root = (ValidatedRootNode)changer.getRootNode(ValidatedRootConfiguration.KEY);
+
+        Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
+
+        Validator<NamedListValidation, NamedListView<?>> validator = new Validator<>() {
+            @Override public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
+                assertEquals(emptySet(), ctx.getNewValue().namedListKeys());
+
+                ctx.addIssue(new ValidationIssue("bar"));
+            }
+        };
+
+        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(NamedListValidation.class, Set.of(validator));
+
+        List<ValidationIssue> issues = ValidationUtil.validate(rootsMap, rootsMap, null, new HashMap<>(), validators);
+
+        assertEquals(1, issues.size());
+
+        assertEquals("bar", issues.get(0).message());
     }
 }

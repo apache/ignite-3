@@ -17,21 +17,19 @@
 
 package org.apache.ignite.configuration.internal.validation;
 
-import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.internal.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.configuration.internal.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
@@ -66,42 +64,19 @@ public class ValidationUtil {
             TraversableTreeNode newRoot = entry.getValue();
 
             newRoot.accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
-                /** Inner nodes, last one always belongs to "current" leaf. */
-                private Deque<InnerNode> innerNodes = new ArrayDeque<>();
-
                 /** {@inheritDoc} */
-                @Override protected Object visitInnerNode0(String key, InnerNode node) {
-                    assert node != null;
+                @Override protected Object visitInnerNode0(String key, InnerNode innerNode) {
+                    assert innerNode != null;
 
-                    // There cannot be validation annotations on the root itself. Condition is correct.
-                    if (!innerNodes.isEmpty()) {
-                        String currentKey = currentKey();
+                    innerNode.traverseChildren(new AnyNodeConfigurationVisitor<Void>() {
+                        @Override protected Void visitNode(String key, Object node) {
+                            validate(innerNode, key, node, currentKey() + key);
 
-                        // Last dot should be trimmed.
-                        validate(innerNodes.peek(), key, node, currentKey.substring(0, currentKey.length() - 1));
-                    }
+                            return null;
+                        }
+                    });
 
-                    innerNodes.push(node);
-
-                    try {
-                        return super.visitInnerNode0(key, node);
-                    }
-                    finally {
-                        innerNodes.pop();
-                    }
-                }
-
-                /** {@inheritDoc} */
-                @Override protected Void visitLeafNode0(String key, Serializable val) {
-                    if (val == null) {
-                        String message = "'" + currentKey() + "' configuration value is not initialized.";
-
-                        issues.add(new ValidationIssue(message));
-                    }
-                    else
-                        validate(innerNodes.peek(), key, val, currentKey());
-
-                    return null;
+                    return super.visitInnerNode0(key, innerNode);
                 }
 
                 /**
@@ -113,6 +88,14 @@ public class ValidationUtil {
                  * @param currentKey Fully qualified key for the field.
                  */
                 private void validate(InnerNode lastInnerNode, String fieldName, Object val, String currentKey) {
+                    if (val == null) {
+                        String message = "'" + currentKey + "' configuration value is not initialized.";
+
+                        issues.add(new ValidationIssue(message));
+
+                        return;
+                    }
+
                     MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
 
                     Set<Annotation> fieldAnnotations = memberAnnotations.computeIfAbsent(memberKey, k -> {
@@ -132,10 +115,10 @@ public class ValidationUtil {
                             // Making this a compile-time check would be too expensive to implement.
                             assert assertTypesCoherence(validator.getClass(), annotation.annotationType(), val)
                                 : "Validator coherence is violated [" +
-                                "class=" + lastInnerNode.getClass().getSimpleName() + ", " +
+                                "class=" + lastInnerNode.getClass().getCanonicalName() + ", " +
                                 "field=" + fieldName + ", " +
-                                "annotation=" + annotation.annotationType().getSimpleName() + ", " +
-                                "validator=" + validator.getClass().getSimpleName() + ']';
+                                "annotation=" + annotation.annotationType().getCanonicalName() + ", " +
+                                "validator=" + validator.getClass().getCanonicalName() + ']';
 
                             ValidationContextImpl<Object> ctx = new ValidationContextImpl<>(
                                 rootKey,
@@ -186,9 +169,11 @@ public class ValidationUtil {
         if (actualTypeParameters[0] != annotationType)
             return false;
 
-        if (!(actualTypeParameters[1] instanceof Class))
-            return false;
+        Type sndParam = actualTypeParameters[1];
 
-        return val == null || ((Class<?>)actualTypeParameters[1]).isInstance(val);
+        if (sndParam instanceof ParameterizedType)
+            sndParam = ((ParameterizedType)sndParam).getRawType();
+
+        return (sndParam instanceof Class) && (val == null || ((Class<?>)sndParam).isInstance(val));
     }
 }

@@ -71,7 +71,9 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     }
 
     /** */
-    protected abstract T visitLeafNode0(String key, Serializable val);
+    protected T visitLeafNode0(String key, Serializable val) {
+        return null;
+    }
 
     /** */
     protected T visitInnerNode0(String key, InnerNode node) {
@@ -97,7 +99,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     }
 
     /** */
-    protected final T visitNode(String key, boolean escape, boolean leaf, Supplier<T> closure) {
+    protected final T withTracking(String key, boolean escape, boolean leaf, Supplier<T> closure) {
         int prevPos = startVisit(key, escape, leaf);
 
         try {

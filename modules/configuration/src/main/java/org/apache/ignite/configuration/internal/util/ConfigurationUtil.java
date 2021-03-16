@@ -316,7 +316,7 @@ public class ConfigurationUtil {
                 for (String namedListKey : node.namedListKeys()) {
                     N namedElement = node.get(namedListKey);
 
-                    visitNode(namedListKey, true, false, () -> {
+                    withTracking(namedListKey, true, false, () -> {
                         if (namedElement == null)
                             visitDeletedNamedListElement();
                         else
