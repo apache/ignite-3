@@ -36,6 +36,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
 import static java.util.Collections.emptySet;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.appendKey;
 
 /** */
 public class ValidationUtil {
@@ -69,7 +70,7 @@ public class ValidationUtil {
 
                     innerNode.traverseChildren(new AnyNodeConfigurationVisitor<Void>() {
                         @Override protected Void visitNode(String key, Object node) {
-                            validate(innerNode, key, node, currentKey() + key);
+                            validate(innerNode, key, node);
 
                             return null;
                         }
@@ -84,11 +85,10 @@ public class ValidationUtil {
                  * @param lastInnerNode Inner node that contains validated field.
                  * @param fieldName Name of the field.
                  * @param val Value of the field.
-                 * @param currentKey Fully qualified key for the field.
                  */
-                private void validate(InnerNode lastInnerNode, String fieldName, Object val, String currentKey) {
+                private void validate(InnerNode lastInnerNode, String fieldName, Object val) {
                     if (val == null) {
-                        String message = "'" + currentKey + "' configuration value is not initialized.";
+                        String message = "'" + (currentKey() + fieldName) + "' configuration value is not initialized.";
 
                         issues.add(new ValidationIssue(message));
 
@@ -125,8 +125,8 @@ public class ValidationUtil {
                                 newRoots,
                                 otherRoots,
                                 val,
-                                currentKey,
-                                currentPath(),
+                                currentKey() + fieldName,
+                                appendKey(currentPath(), fieldName),
                                 issues
                             );
 

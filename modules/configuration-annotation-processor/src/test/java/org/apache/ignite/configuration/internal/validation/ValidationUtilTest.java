@@ -115,6 +115,7 @@ public class ValidationUtilTest {
             @Override public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
                 assertEquals("root.child.str", ctx.currentKey());
 
+                assertEquals("foo", ctx.getOldValue());
                 assertEquals("foo", ctx.getNewValue());
 
                 ctx.addIssue(new ValidationIssue("bar"));
@@ -139,6 +140,7 @@ public class ValidationUtilTest {
             @Override public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
                 assertEquals("root.child", ctx.currentKey());
 
+                assertEquals("foo", ctx.getOldValue().str());
                 assertEquals("foo", ctx.getNewValue().str());
 
                 ctx.addIssue(new ValidationIssue("bar"));
@@ -163,6 +165,7 @@ public class ValidationUtilTest {
             @Override public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
                 assertEquals("root.elements", ctx.currentKey());
 
+                assertEquals(emptySet(), ctx.getOldValue().namedListKeys());
                 assertEquals(emptySet(), ctx.getNewValue().namedListKeys());
 
                 ctx.addIssue(new ValidationIssue("bar"));

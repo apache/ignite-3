@@ -90,6 +90,8 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
         this.currentKey = currentKey;
         this.currentPath = currentPath;
         this.issues = issues;
+
+        assert !currentPath.isEmpty();
     }
 
     /** {@inheritDoc} */
@@ -99,7 +101,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
 
     /** {@inheritDoc} */
     @Override public VIEW getOldValue() {
-        return (VIEW)find(currentPath, oldRoots.get(rootKey));
+        return (VIEW)find(currentPath.subList(1, currentPath.size()), oldRoots.get(rootKey));
     }
 
     /** {@inheritDoc} */
