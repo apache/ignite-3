@@ -24,13 +24,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.sample.storage.TestConfigurationStorage;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListView;
@@ -90,29 +90,25 @@ public class ValidationUtilTest {
     }
 
     /** */
-    private ConfigurationChanger changer;
+    private ValidatedRootNode root;
 
     /** */
     @BeforeEach
     public void before() {
-        changer = new ConfigurationChanger(ValidatedRootConfiguration.KEY);
+        root = new ValidatedRootNode();
 
-        changer.register(new TestConfigurationStorage());
-
-        changer.initialize(TestConfigurationStorage.class);
+        ConfigurationUtil.addDefaults(root, root);
     }
 
     /** */
     @AfterEach
     public void after() {
-        changer = null;
+        root = null;
     }
 
     /** */
     @Test
     void validateLeafNode() throws Exception {
-        var root = (ValidatedRootNode)changer.getRootNode(ValidatedRootConfiguration.KEY);
-
         Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
 
         Validator<LeafValidation, String> validator = new Validator<>() {
@@ -135,8 +131,6 @@ public class ValidationUtilTest {
     /** */
     @Test
     void validateInnerNode() throws Exception {
-        var root = (ValidatedRootNode)changer.getRootNode(ValidatedRootConfiguration.KEY);
-
         Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
 
         Validator<InnerValidation, ValidatedChildView> validator = new Validator<>() {
@@ -159,8 +153,6 @@ public class ValidationUtilTest {
     /** */
     @Test
     void validateNamedListNode() throws Exception {
-        var root = (ValidatedRootNode)changer.getRootNode(ValidatedRootConfiguration.KEY);
-
         Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
 
         Validator<NamedListValidation, NamedListView<?>> validator = new Validator<>() {
