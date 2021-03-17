@@ -31,7 +31,6 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.configuration.internal.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
-import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
@@ -59,11 +58,10 @@ public class ValidationUtil {
     ) {
         List<ValidationIssue> issues = new ArrayList<>();
 
-        for (Map.Entry<RootKey<?, ?>, ? extends TraversableTreeNode> entry : newRoots.entrySet()) {
+        for (Map.Entry<RootKey<?, ?>, InnerNode> entry : newRoots.entrySet()) {
             RootKey<?, ?> rootKey = entry.getKey();
-            TraversableTreeNode newRoot = entry.getValue();
 
-            newRoot.accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
+            entry.getValue().accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
                 /** {@inheritDoc} */
                 @Override protected Object visitInnerNode0(String key, InnerNode innerNode) {
                     assert innerNode != null;

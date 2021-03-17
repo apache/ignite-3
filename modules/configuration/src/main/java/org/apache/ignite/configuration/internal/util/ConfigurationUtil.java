@@ -437,11 +437,7 @@ public class ConfigurationUtil {
                 dst.construct(key, new ConfigurationSource() {});
 
                 // Get that inner node from destination to continue the processing.
-                InnerNode dstNode = dst.traverseChild(key, new ConfigurationVisitor<>() {
-                    @Override public InnerNode visitInnerNode(String key, InnerNode dstNode) {
-                        return dstNode;
-                    }
-                });
+                InnerNode dstNode = dst.traverseChild(key, innerNodeVisitor());
 
                 // "dstNode" is guaranteed to not be null even if "src" and "dst" match.
                 // Null in "srcNode" means that we should initialize everything that we can in "dstNode"
@@ -453,11 +449,7 @@ public class ConfigurationUtil {
 
             @Override public <N extends InnerNode> Object visitNamedListNode(String key, NamedListNode<N> srcNamedList) {
                 // Here we don't need to preemptively initialise corresponsing field, because it can never be null.
-                NamedListNode<?> dstNamedList = dst.traverseChild(key, new ConfigurationVisitor<>() {
-                    @Override public <N extends InnerNode> NamedListNode<?> visitNamedListNode(String key, NamedListNode<N> dstNode) {
-                        return dstNode;
-                    }
-                });
+                NamedListNode<?> dstNamedList = dst.traverseChild(key, namedListNodeVisitor());
 
                 for (String namedListKey : srcNamedList.namedListKeys()) {
                     // But, in order to get non-null value from "dstNamedList.get(namedListKey)" we must explicitly
@@ -472,7 +464,41 @@ public class ConfigurationUtil {
         });
     }
 
-    /** */
+    /**
+     * @return Visitor that returns leaf value or {@code null} if node is not a leaf.
+     */
+    public static ConfigurationVisitor<Serializable> leafNodeVisitor() {
+        return new ConfigurationVisitor<>() {
+            @Override public Serializable visitLeafNode(String key, Serializable val) {
+                return val;
+            }
+        };
+    }
+
+    /**
+     * @return Visitor that returns inner node or {@code null} if node is not an inner node.
+     */
+    public static ConfigurationVisitor<InnerNode> innerNodeVisitor() {
+        return new ConfigurationVisitor<>() {
+            @Override public InnerNode visitInnerNode(String key, InnerNode node) {
+                return node;
+            }
+        };
+    }
+
+    /**
+     * @return Visitor that returns named list node or {@code null} if node is not a named list node.
+     */
+    public static ConfigurationVisitor<NamedListNode<?>> namedListNodeVisitor() {
+        return new ConfigurationVisitor<>() {
+            @Override
+            public <N extends InnerNode> NamedListNode<?> visitNamedListNode(String key, NamedListNode<N> node) {
+                return node;
+            }
+        };
+    }
+
+    /** @see #patch(ConstructableTreeNode, TraversableTreeNode) */
     private static class PatchLeafConfigurationSource implements ConfigurationSource {
         /** */
         private final Serializable val;
@@ -497,7 +523,7 @@ public class ConfigurationUtil {
         }
     }
 
-    /** */
+    /** @see #patch(ConstructableTreeNode, TraversableTreeNode) */
     private static class PatchInnerConfigurationSource implements ConfigurationSource {
         /** */
         private final InnerNode srcNode;
@@ -543,7 +569,7 @@ public class ConfigurationUtil {
         }
     }
 
-    /** */
+    /** @see #patch(ConstructableTreeNode, TraversableTreeNode) */
     private static class PatchNamedListConfigurationSource implements ConfigurationSource {
         /** */
         private final NamedListNode<?> srcNode;
