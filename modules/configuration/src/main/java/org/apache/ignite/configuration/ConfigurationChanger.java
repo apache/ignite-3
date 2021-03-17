@@ -192,7 +192,6 @@ public class ConfigurationChanger {
         if (!validationIssues.isEmpty())
             throw new ConfigurationValidationException(validationIssues);
 
-        // Do this strictly after adding listeners, otherwise we can lose these changes.
         try {
             change(storageDefaultsMap).get();
         }
