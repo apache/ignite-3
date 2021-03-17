@@ -29,7 +29,8 @@ public final class PeerId {
     private final NetworkMember node;
 
     /**
-     * Peer's local priority value, if node don't support priority election, this value is {@link ElectionPriority#DISABLED}.
+     * Peer's local priority value, if node don't support priority election,
+     * this value is {@link ElectionPriority#DISABLED}.
      */
     private final int priority;
 

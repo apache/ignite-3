@@ -17,17 +17,18 @@
 
 package org.apache.ignite.raft.client.service;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.State;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Replication group management service.
  */
-public interface RaftGroupManagmentService {
+public interface RaftGroupService {
     /**
      * @return Group id.
      */
@@ -53,14 +54,14 @@ public interface RaftGroupManagmentService {
      *
      * @return A future with the result.
      */
-    CompletableFuture<PeerId> refreshLeader();
+    CompletableFuture<Void> refreshLeader();
 
     /**
      * Refreshes a replication group members (excluding a leader).
      *
      * @return A future with the result.
      */
-    CompletableFuture<State> refreshMembers();
+    CompletableFuture<Void> refreshMembers();
 
     /**
      * Adds a voting peer to the raft group.
@@ -68,7 +69,7 @@ public interface RaftGroupManagmentService {
      * @param peerId Peer id.
      * @return A future with the result.
      */
-    CompletableFuture<PeersChangeState> addPeer(PeerId peerId);
+    CompletableFuture<Void> addPeers(Collection<PeerId> peerIds);
 
     /**
      * Removes a peer from the raft group.
@@ -76,7 +77,39 @@ public interface RaftGroupManagmentService {
      * @param peerId Peer id.
      * @return A future with the result.
      */
-    CompletableFuture<PeersChangeState> removePeer(PeerId peerId);
+    CompletableFuture<Void> removePeers(Collection<PeerId> peerIds);
+
+    /**
+     * Adds learners.
+     *
+     * @param learners List of learners.
+     * @return A future with the result.
+     */
+    CompletableFuture<Void> addLearners(List<PeerId> learners);
+
+    /**
+     * Removes learners.
+     *
+     * @param learners List of learners.
+     * @return A future with the result.
+     */
+    CompletableFuture<Void> removeLearners(List<PeerId> learners);
+
+    /**
+     * Takes a local snapshot.
+     *
+     * @param peerId Peer id.
+     * @return A future with the result.
+     */
+    CompletableFuture<Void> snapshot(PeerId peerId);
+
+    /**
+     * Transfer leadership to other peer.
+     *
+     * @param newLeader New leader.
+     * @return A future with the result.
+     */
+    CompletableFuture<Void> transferLeadership(PeerId newLeader);
 
     /**
      * Locally resets raft group peers. Intended for recovering from a group unavailability at the price of consistency.
@@ -88,59 +121,10 @@ public interface RaftGroupManagmentService {
     CompletableFuture<Void> resetPeers(PeerId peerId, List<PeerId> peers);
 
     /**
-     * Takes a local snapshot.
-     *
-     * @param peerId Peer id.
+     * Submits a command to a replication group leader. If a leader is not initialized yet will try to resolve it.
+     * @param cmd The command.
+     * @param <R> Response type.
      * @return A future with the result.
      */
-    CompletableFuture<Void> snapshot(PeerId peerId);
-
-    /**
-     * Change peers.
-     *
-     * @param peers List of peers.
-     * @return A future with the result.
-     */
-    CompletableFuture<PeersChangeState> changePeers(List<PeerId> peers);
-
-    /**
-     * Adds learners.
-     *
-     * @param learners List of learners.
-     * @return A future with the result.
-     */
-    CompletableFuture<PeersChangeState> addLearners(List<PeerId> learners);
-
-    /**
-     * Removes learners.
-     *
-     * @param learners List of learners.
-     * @return A future with the result.
-     */
-    CompletableFuture<PeersChangeState> removeLearners(List<PeerId> learners);
-
-    /**
-     * Resets learners to new set.
-     *
-     * @param learners List of learners.
-     * @return A future with the result.
-     */
-    CompletableFuture<PeersChangeState> resetLearners(List<PeerId> learners);
-
-    /**
-     * Transfer leadership to other peer.
-     *
-     * @param newLeader New leader.
-     * @return A future with the result.
-     */
-    CompletableFuture<Void> transferLeader(PeerId newLeader);
-
-    /**
-     * Represents a change in peers list.
-     */
-    interface PeersChangeState {
-        List<PeerId> getOld();
-
-        List<PeerId> getNew();
-    }
+    <R> CompletableFuture<R> submit(Command cmd);
 }

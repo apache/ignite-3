@@ -22,9 +22,9 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * A listener for replication group client requests.
+ * A listener for replication group commands.
  */
-public interface RaftGroupClientRequestListener {
+public interface RaftGroupCommandListener {
     void onRead(Iterator<ReadCommand> iterator);
 
     void onWrite(Iterator<WriteCommand> iterator);

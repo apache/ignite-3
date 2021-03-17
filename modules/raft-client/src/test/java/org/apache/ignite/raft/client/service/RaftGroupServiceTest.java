@@ -15,30 +15,112 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client;
+package org.apache.ignite.raft.client.service;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.ReadCommand;
+import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.UserRequest;
 import org.apache.ignite.raft.client.message.UserResponse;
+import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 
+import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl.MESSAGE_FACTORY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 
-public class MockUtils {
-    public static PeerId LEADER = new PeerId(new NetworkMember("test"));
+@ExtendWith(MockitoExtension.class)
+public class RaftGroupServiceTest {
+    /** */
+    private static PeerId LEADER = new PeerId(new NetworkMember("test"));
+
+    /** */
+    private static final int TIMEOUT = 5_000;
+
+    @Mock
+    private NetworkCluster cluster;
+
+    @Test
+    public void testRefreshLeader() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, false);
+
+        RaftGroupService service = new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, singleton(LEADER.getNode()));
+
+        assertNull(service.getLeader());
+
+        service.refreshLeader().get();
+
+        assertEquals(LEADER, service.getLeader());
+    }
+
+    @Test
+    public void testRefreshLeaderTimeout() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, true);
+
+        RaftGroupService service = new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, singleton(LEADER.getNode()));
+
+        try {
+            service.refreshLeader().get();
+
+            fail();
+        }
+        catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof TimeoutException);
+        }
+    }
+
+    @Test
+    public void testUserRequest() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, false);
+        mockUserInput1(cluster);
+        mockUserInput2(cluster);
+
+        RaftGroupService service = new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, singleton(LEADER.getNode()));
+
+        service.refreshLeader().get();
+
+        CompletableFuture<TestOutput1> fut1 = service.submit(new TestInput1());
+
+        TestOutput1 output1 = fut1.get();
+
+        assertNotNull(output1);
+
+        CompletableFuture<TestOutput2> fut2 = service.submit(new TestInput2());
+
+        TestOutput2 output2 = fut2.get();
+
+        assertNotNull(output2);
+    }
 
     public static class TestInput1 implements WriteCommand {
     }
