@@ -42,7 +42,6 @@ import org.apache.ignite.configuration.validation.Validator;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.nodeToFlatMap;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.patch;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
@@ -191,7 +190,7 @@ public class ConfigurationChanger {
      * @param rootKey Root key.
      */
     public InnerNode getRootNode(RootKey<?, ?> rootKey) {
-        return storagesRootsMap.get(rootKey.getStorageType()).roots.traverseChild(rootKey.key(), innerNodeVisitor());
+        return storagesRootsMap.get(rootKey.getStorageType()).roots.getRoot(rootKey);
     }
 
     /**

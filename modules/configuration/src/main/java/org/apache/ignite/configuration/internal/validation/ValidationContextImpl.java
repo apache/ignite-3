@@ -18,16 +18,15 @@
 package org.apache.ignite.configuration.internal.validation;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.RootsNode;
 import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.find;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
 
 /**
  * Validation context implementation.
@@ -105,22 +104,16 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
 
     /** {@inheritDoc} */
     @Override public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
-        try {
-            return (ROOT)oldRoots.traverseChild(rootKey.key(), innerNodeVisitor());
-        }
-        catch (NoSuchElementException e) {
-            return (ROOT)otherRoots.apply(rootKey);
-        }
+        InnerNode root = oldRoots.getRoot(rootKey);
+
+        return (ROOT)(root == null ? otherRoots.apply(rootKey) : root);
     }
 
     /** {@inheritDoc} */
     @Override public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
-        try {
-            return (ROOT)newRoots.traverseChild(rootKey.key(), innerNodeVisitor());
-        }
-        catch (NoSuchElementException e) {
-            return (ROOT)otherRoots.apply(rootKey);
-        }
+        TraversableTreeNode root = newRoots.getRoot(rootKey);
+
+        return (ROOT)(root == null ? otherRoots.apply(rootKey) : root);
     }
 
     /** {@inheritDoc} */

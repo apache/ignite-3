@@ -62,6 +62,11 @@ public final class RootsNode extends InnerNode {
         roots.put(rootKey.key(), root);
     }
 
+    /** */
+    public InnerNode getRoot(RootKey<?, ?> rootKey) {
+        return roots.get(rootKey.key());
+    }
+
     /** {@inheritDoc} */
     @Override public <T> void traverseChildren(ConfigurationVisitor<T> visitor) {
         for (Map.Entry<String, InnerNode> entry : roots.entrySet())
