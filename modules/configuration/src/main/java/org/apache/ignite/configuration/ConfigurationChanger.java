@@ -151,7 +151,6 @@ public class ConfigurationChanger {
     }
 
     /** */
-    // TODO Exceptions here are a total mess.
     public void initialize(Class<? extends ConfigurationStorage> storageType) {
         ConfigurationStorage configurationStorage = storageInstances.get(storageType);
 
@@ -266,7 +265,7 @@ public class ConfigurationChanger {
             // It's important to get the root from "roots" object rather then "storageRootMap" or "getRootNode(...)".
             InnerNode currentRootNode = storageRoots.roots.get(rootKey);
 
-            //TODO single putAll + remove matching value, this way "allChanges" will be fair.
+            //TODO IGNITE-14180 single putAll + remove matching value, this way "allChanges" will be fair.
             // These are changes explicitly provided by the client.
             allChanges.putAll(nodeToFlatMap(rootKey, currentRootNode, change));
 
