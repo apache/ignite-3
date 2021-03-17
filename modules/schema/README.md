@@ -1,6 +1,6 @@
 # Schema module
 
-This module provides API and implementation for schema management components:
+This module provides implementation for schema management components:
 
 * Public API for schema definition and evolution
 * Schema manager component that implements necessary machinary to translate schema management commands to corresponding
