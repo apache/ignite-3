@@ -18,31 +18,31 @@ package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.internal.RootsNode;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 import org.apache.ignite.configuration.internal.validation.ValidationUtil;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.tree.InnerNode;
-import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.nodeToFlatMap;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.patch;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
@@ -55,7 +55,7 @@ public class ConfigurationChanger {
     private final ForkJoinPool pool = new ForkJoinPool(2);
 
     /** */
-    private final Set<RootKey<?, ?>> rootKeys = new HashSet<>();
+    private final Map<String, RootKey<?, ?>> rootKeys = new TreeMap<>();
 
     /** Map that has all the trees in accordance to their storages. */
     private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
@@ -66,16 +66,16 @@ public class ConfigurationChanger {
     /**
      * Immutable data container to store version and all roots associated with the specific storage.
      */
-    public static class StorageRoots {
+    private static class StorageRoots {
         /** Immutable forest, so to say. */
-        private final Map<RootKey<?, ?>, InnerNode> roots;
+        private final RootsNode roots;
 
         /** Version associated with the currently known storage state. */
         private final long version;
 
         /** */
-        private StorageRoots(Map<RootKey<?, ?>, InnerNode> roots, long version) {
-            this.roots = Collections.unmodifiableMap(roots);
+        private StorageRoots(RootsNode roots, long version) {
+            this.roots = roots;
             this.version = version;
         }
     }
@@ -88,7 +88,8 @@ public class ConfigurationChanger {
 
     /** Constructor. */
     public ConfigurationChanger(RootKey<?, ?>... rootKeys) {
-        this.rootKeys.addAll(Arrays.asList(rootKeys));
+        for (RootKey<?, ?> rootKey : rootKeys)
+            this.rootKeys.put(rootKey.key(), rootKey);
     }
 
     /** */
@@ -102,7 +103,7 @@ public class ConfigurationChanger {
     public void addRootKey(RootKey<?, ?> rootKey) {
         assert !storageInstances.containsKey(rootKey.getStorageType());
 
-        rootKeys.add(rootKey);
+        rootKeys.put(rootKey.key(), rootKey);
     }
 
     /**
@@ -112,7 +113,7 @@ public class ConfigurationChanger {
     public void register(ConfigurationStorage configurationStorage) throws ConfigurationChangeException {
         storageInstances.put(configurationStorage.getClass(), configurationStorage);
 
-        Set<RootKey<?, ?>> storageRootKeys = rootKeys.stream().filter(
+        Set<RootKey<?, ?>> storageRootKeys = rootKeys.values().stream().filter(
             rootKey -> configurationStorage.getClass() == rootKey.getStorageType()
         ).collect(Collectors.toSet());
 
@@ -125,7 +126,7 @@ public class ConfigurationChanger {
             throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
         }
 
-        Map<RootKey<?, ?>, InnerNode> storageRootsMap = new HashMap<>();
+        RootsNode rootsNode = new RootsNode(rootKeys);
 
         Map<String, ?> dataValuesPrefixMap = toPrefixMap(data.values());
 
@@ -137,10 +138,10 @@ public class ConfigurationChanger {
             if (rootPrefixMap != null)
                 fillFromPrefixMap(rootNode, rootPrefixMap);
 
-            storageRootsMap.put(rootKey, rootNode);
+            rootsNode.addRoot(rootKey, rootNode);
         }
 
-        StorageRoots storageRoots = new StorageRoots(storageRootsMap, data.version());
+        StorageRoots storageRoots = new StorageRoots(rootsNode, data.version());
 
         storagesRootsMap.put(configurationStorage.getClass(), storageRoots);
 
@@ -158,31 +159,14 @@ public class ConfigurationChanger {
 
         StorageRoots storageRoots = storagesRootsMap.get(storageType);
 
-        Map<RootKey<?, ?>, InnerNode> storageRootsMap = storageRoots.roots;
+        RootsNode rootsNode = storageRoots.roots;
+        RootsNode defaultsNode = new RootsNode(rootKeys);
 
-        // Map to collect defaults for not initialized configurations.
-        Map<RootKey<?, ?>, InnerNode> storageDefaultsMap = new HashMap<>();
-
-        Map<RootKey<?, ?>, InnerNode> storageForValidationMap = new HashMap<>();
-
-        for (Map.Entry<RootKey<?, ?>, InnerNode> entry : storageRootsMap.entrySet()) {
-            RootKey<?, ?> rootKey = entry.getKey();
-
-            InnerNode rootNode = entry.getValue();
-
-            // Collecting defaults requires fresh new root.
-            InnerNode defaultsNode = rootKey.createRootNode();
-
-            addDefaults(rootNode, defaultsNode);
-
-            storageDefaultsMap.put(rootKey, defaultsNode);
-
-            storageForValidationMap.put(rootKey, patch(rootNode, defaultsNode));
-        }
+        addDefaults(rootsNode, defaultsNode);
 
         List<ValidationIssue> validationIssues = ValidationUtil.validate(
-            storageRootsMap,
-            storageForValidationMap,
+            rootsNode,
+            defaultsNode,
             this::getRootNode,
             cachedAnnotations,
             validators
@@ -192,7 +176,7 @@ public class ConfigurationChanger {
             throw new ConfigurationValidationException(validationIssues);
 
         try {
-            change(storageDefaultsMap).get();
+            change(defaultsNode, storageType).get();
         }
         catch (InterruptedException | ExecutionException e) {
             throw new ConfigurationChangeException(
@@ -207,14 +191,14 @@ public class ConfigurationChanger {
      * @param rootKey Root key.
      */
     public InnerNode getRootNode(RootKey<?, ?> rootKey) {
-        return this.storagesRootsMap.get(rootKey.getStorageType()).roots.get(rootKey);
+        return storagesRootsMap.get(rootKey.getStorageType()).roots.traverseChild(rootKey.key(), innerNodeVisitor());
     }
 
     /**
      * Change configuration.
      * @param changes Map of changes by root key.
      */
-    public CompletableFuture<Void> change(Map<RootKey<?, ?>, ? extends TraversableTreeNode> changes) {
+    public CompletableFuture<Void> change(Map<RootKey<?, ?>, InnerNode> changes) {
         if (changes.isEmpty())
             return CompletableFuture.completedFuture(null);
 
@@ -230,8 +214,11 @@ public class ConfigurationChanger {
             );
         }
 
-        Class<? extends ConfigurationStorage> storageType = storagesTypes.iterator().next();
+        return change(new RootsNode(rootKeys, changes), storagesTypes.iterator().next());
+    }
 
+    /** */
+    private CompletableFuture<Void> change(RootsNode changes, Class<? extends ConfigurationStorage> storageType) {
         ConfigurationStorage storage = storageInstances.get(storageType);
 
         CompletableFuture<Void> fut = new CompletableFuture<>();
@@ -248,40 +235,30 @@ public class ConfigurationChanger {
      * @param fut Future, that must be completed after changes are written to the storage.
      */
     private void change0(
-        Map<RootKey<?, ?>, ? extends TraversableTreeNode> changes,
+        RootsNode changes,
         ConfigurationStorage storage,
         CompletableFuture<?> fut
     ) {
         StorageRoots storageRoots = storagesRootsMap.get(storage.getClass());
-
-        Map<RootKey<?, ?>, InnerNode> rootsForValidation = new HashMap<>();
+        RootsNode curRoots = storageRoots.roots;
 
         Map<String, Serializable> allChanges = new HashMap<>();
 
-        for (Map.Entry<RootKey<?, ?>, ? extends TraversableTreeNode> entry : changes.entrySet()) {
-            RootKey<?, ?> rootKey = entry.getKey();
-            TraversableTreeNode change = entry.getValue();
+        //TODO IGNITE-14180 single putAll + remove matching value, this way "allChanges" will be fair.
+        // These are changes explicitly provided by the client.
+        allChanges.putAll(nodeToFlatMap(curRoots, changes));
 
-            // It's important to get the root from "roots" object rather then "storageRootMap" or "getRootNode(...)".
-            InnerNode currentRootNode = storageRoots.roots.get(rootKey);
+        // It is necessary to reinitialize default values every time.
+        // Possible use case that explicitly requires it: creation of the same named list entry with slightly
+        // different set of values and different dynamic defaults at the same time.
+        RootsNode patchedRootsNode = patch(curRoots, changes);
 
-            //TODO IGNITE-14180 single putAll + remove matching value, this way "allChanges" will be fair.
-            // These are changes explicitly provided by the client.
-            allChanges.putAll(nodeToFlatMap(rootKey, currentRootNode, change));
+        RootsNode defaultsNode = new RootsNode(rootKeys);
 
-            // It is necessary to reinitialize default values every time.
-            // Possible use case that explicitly requires it: creation of the same named list entry with slightly
-            // different set of values and different dynamic defaults at the same time.
-            InnerNode patchedRootNode = patch(currentRootNode, change);
-            InnerNode defaultsNode = rootKey.createRootNode();
+        addDefaults(patchedRootsNode, defaultsNode);
 
-            addDefaults(patchedRootNode, defaultsNode);
-
-            // These are default values for non-initialized values, required to complete the configuration.
-            allChanges.putAll(nodeToFlatMap(rootKey, patchedRootNode, defaultsNode));
-
-            rootsForValidation.put(rootKey, patch(patchedRootNode, defaultsNode));
-        }
+        // These are default values for non-initialized values, required to complete the configuration.
+        allChanges.putAll(nodeToFlatMap(patchedRootsNode, defaultsNode));
 
         // Unlikely but still possible.
         if (allChanges.isEmpty()) {
@@ -292,7 +269,7 @@ public class ConfigurationChanger {
 
         List<ValidationIssue> validationIssues = ValidationUtil.validate(
             storageRoots.roots,
-            rootsForValidation,
+            patch(patchedRootsNode, defaultsNode),
             this::getRootNode,
             cachedAnnotations,
             validators
@@ -327,25 +304,15 @@ public class ConfigurationChanger {
     ) {
         StorageRoots oldStorageRoots = this.storagesRootsMap.get(storageType);
 
-        Map<RootKey<?, ?>, InnerNode> storageRootsMap = new HashMap<>(oldStorageRoots.roots);
-
         Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
 
         compressDeletedEntries(dataValuesPrefixMap);
 
-        for (RootKey<?, ?> rootKey : oldStorageRoots.roots.keySet()) {
-            Map<String, ?> rootPrefixMap = (Map<String, ?>)dataValuesPrefixMap.get(rootKey.key());
+        RootsNode newRootsNode = oldStorageRoots.roots.copy();
 
-            if (rootPrefixMap != null) {
-                InnerNode rootNode = oldStorageRoots.roots.get(rootKey).copy();
+        fillFromPrefixMap(newRootsNode, dataValuesPrefixMap);
 
-                fillFromPrefixMap(rootNode, rootPrefixMap);
-
-                storageRootsMap.put(rootKey, rootNode);
-            }
-        }
-
-        StorageRoots storageRoots = new StorageRoots(storageRootsMap, changedEntries.version());
+        StorageRoots storageRoots = new StorageRoots(newRootsNode, changedEntries.version());
 
         storagesRootsMap.put(storageType, storageRoots);
 

@@ -18,28 +18,26 @@
 package org.apache.ignite.configuration.internal.validation;
 
 import java.util.List;
-import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.internal.RootsNode;
 import org.apache.ignite.configuration.tree.InnerNode;
-import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.find;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
 
 /**
  * Validation context implementation.
  */
 class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
-    /** Root key for current value's root. */
-    private final RootKey<?, ?> rootKey;
-
     /** Cached storage roots with the current version of data. */
-    private final Map<RootKey<?, ?>, InnerNode> oldRoots;
+    private final RootsNode oldRoots;
 
     /** Updated values that need to be validated. */
-    private final Map<RootKey<?, ?>, InnerNode> newRoots;
+    private final RootsNode newRoots;
 
     /** Provider for arbitrary roots that might not be accociated with the same storage. */
     private final Function<RootKey<?, ?>, InnerNode> otherRoots;
@@ -62,9 +60,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
 
     /**
      * Constructor.
-     *
-     * @param rootKey Root key for current value's root.
-     * @param oldRoots Old roots.
+     *  @param oldRoots Old roots.
      * @param newRoots New roots.
      * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
      * @param val New value of currently validated configuration.
@@ -73,16 +69,14 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
      * @param issues List of issues, should be used as a write-only collection.
      */
     ValidationContextImpl(
-        RootKey<?, ?> rootKey,
-        Map<RootKey<?, ?>, InnerNode> oldRoots,
-        Map<RootKey<?, ?>, InnerNode> newRoots,
+        RootsNode oldRoots,
+        RootsNode newRoots,
         Function<RootKey<?, ?>, InnerNode> otherRoots,
         VIEW val,
         String currentKey,
         List<String> currentPath,
         List<ValidationIssue> issues
     ) {
-        this.rootKey = rootKey;
         this.oldRoots = oldRoots;
         this.newRoots = newRoots;
         this.otherRoots = otherRoots;
@@ -101,7 +95,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
 
     /** {@inheritDoc} */
     @Override public VIEW getOldValue() {
-        return (VIEW)find(currentPath.subList(1, currentPath.size()), oldRoots.get(rootKey));
+        return (VIEW)find(currentPath, oldRoots);
     }
 
     /** {@inheritDoc} */
@@ -111,16 +105,22 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
 
     /** {@inheritDoc} */
     @Override public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
-        InnerNode root = oldRoots.get(rootKey);
-
-        return (ROOT)(root == null ? otherRoots.apply(rootKey) : root);
+        try {
+            return (ROOT)oldRoots.traverseChild(rootKey.key(), innerNodeVisitor());
+        }
+        catch (NoSuchElementException e) {
+            return (ROOT)otherRoots.apply(rootKey);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
-        TraversableTreeNode root = newRoots.get(rootKey);
-
-        return (ROOT)(root == null ? otherRoots.apply(rootKey) : root);
+        try {
+            return (ROOT)newRoots.traverseChild(rootKey.key(), innerNodeVisitor());
+        }
+        catch (NoSuchElementException e) {
+            return (ROOT)otherRoots.apply(rootKey);
+        }
     }
 
     /** {@inheritDoc} */

@@ -24,15 +24,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.internal.RootsNode;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.sample.storage.TestConfigurationStorage;
-import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -43,6 +42,7 @@ import org.junit.jupiter.api.Test;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -109,7 +109,7 @@ public class ValidationUtilTest {
     /** */
     @Test
     public void validateLeafNode() throws Exception {
-        Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
+        var rootsNode = new RootsNode(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<LeafValidation, String> validator = new Validator<>() {
             @Override public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
@@ -124,7 +124,7 @@ public class ValidationUtilTest {
 
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(LeafValidation.class, Set.of(validator));
 
-        List<ValidationIssue> issues = ValidationUtil.validate(rootsMap, rootsMap, null, new HashMap<>(), validators);
+        List<ValidationIssue> issues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
         assertEquals(1, issues.size());
 
@@ -134,7 +134,7 @@ public class ValidationUtilTest {
     /** */
     @Test
     public void validateInnerNode() throws Exception {
-        Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
+        var rootsNode = new RootsNode(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<InnerValidation, ValidatedChildView> validator = new Validator<>() {
             @Override public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
@@ -149,7 +149,7 @@ public class ValidationUtilTest {
 
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(InnerValidation.class, Set.of(validator));
 
-        List<ValidationIssue> issues = ValidationUtil.validate(rootsMap, rootsMap, null, new HashMap<>(), validators);
+        List<ValidationIssue> issues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
         assertEquals(1, issues.size());
 
@@ -159,7 +159,7 @@ public class ValidationUtilTest {
     /** */
     @Test
     public void validateNamedListNode() throws Exception {
-        Map<RootKey<?, ?>, InnerNode> rootsMap = Map.of(ValidatedRootConfiguration.KEY, root);
+        var rootsNode = new RootsNode(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<NamedListValidation, NamedListView<?>> validator = new Validator<>() {
             @Override public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
@@ -174,7 +174,7 @@ public class ValidationUtilTest {
 
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(NamedListValidation.class, Set.of(validator));
 
-        List<ValidationIssue> issues = ValidationUtil.validate(rootsMap, rootsMap, null, new HashMap<>(), validators);
+        List<ValidationIssue> issues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
         assertEquals(1, issues.size());
 

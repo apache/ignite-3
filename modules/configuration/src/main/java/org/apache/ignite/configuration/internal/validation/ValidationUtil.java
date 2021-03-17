@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.internal.RootsNode;
 import org.apache.ignite.configuration.internal.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.configuration.internal.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
@@ -50,96 +51,91 @@ public class ValidationUtil {
      * @return List of validation results.
      */
     public static List<ValidationIssue> validate(
-        Map<RootKey<?, ?>, InnerNode> oldRoots,
-        Map<RootKey<?, ?>, InnerNode> newRoots,
+        RootsNode oldRoots,
+        RootsNode newRoots,
         Function<RootKey<?, ?>, InnerNode> otherRoots,
         Map<MemberKey, Annotation[]> memberAnnotationsCache,
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators
     ) {
         List<ValidationIssue> issues = new ArrayList<>();
 
-        for (Map.Entry<RootKey<?, ?>, InnerNode> entry : newRoots.entrySet()) {
-            RootKey<?, ?> rootKey = entry.getKey();
+        newRoots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
+            /** {@inheritDoc} */
+            @Override protected Object visitInnerNode0(String key, InnerNode innerNode) {
+                assert innerNode != null;
 
-            entry.getValue().accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
-                /** {@inheritDoc} */
-                @Override protected Object visitInnerNode0(String key, InnerNode innerNode) {
-                    assert innerNode != null;
+                innerNode.traverseChildren(new AnyNodeConfigurationVisitor<Void>() {
+                    @Override protected Void visitNode(String key, Object node) {
+                        validate(innerNode, key, node);
 
-                    innerNode.traverseChildren(new AnyNodeConfigurationVisitor<Void>() {
-                        @Override protected Void visitNode(String key, Object node) {
-                            validate(innerNode, key, node);
+                        return null;
+                    }
+                });
 
-                            return null;
-                        }
-                    });
+                return super.visitInnerNode0(key, innerNode);
+            }
 
-                    return super.visitInnerNode0(key, innerNode);
+            /**
+             * Perform validation on the node's subnode.
+             *
+             * @param lastInnerNode Inner node that contains validated field.
+             * @param fieldName Name of the field.
+             * @param val Value of the field.
+             */
+            private void validate(InnerNode lastInnerNode, String fieldName, Object val) {
+                if (val == null) {
+                    String message = "'" + (currentKey() + fieldName) + "' configuration value is not initialized.";
+
+                    issues.add(new ValidationIssue(message));
+
+                    return;
                 }
 
-                /**
-                 * Perform validation on the node's subnode.
-                 *
-                 * @param lastInnerNode Inner node that contains validated field.
-                 * @param fieldName Name of the field.
-                 * @param val Value of the field.
-                 */
-                private void validate(InnerNode lastInnerNode, String fieldName, Object val) {
-                    if (val == null) {
-                        String message = "'" + (currentKey() + fieldName) + "' configuration value is not initialized.";
+                MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
 
-                        issues.add(new ValidationIssue(message));
+                Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
+                    try {
+                        Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
 
-                        return;
+                        return field.getDeclaredAnnotations();
                     }
+                    catch (NoSuchFieldException e) {
+                        // Should be impossible.
+                        return new Annotation[0];
+                    }
+                });
 
-                    MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
+                if (fieldAnnotations.length == 0)
+                    return;
 
-                    Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
-                        try {
-                            Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
+                String currentKey = currentKey() + fieldName;
+                List<String> currentPath = appendKey(currentPath(), fieldName);
 
-                            return field.getDeclaredAnnotations();
-                        }
-                        catch (NoSuchFieldException e) {
-                            // Should be impossible.
-                            return new Annotation[0];
-                        }
-                    });
+                for (Annotation annotation : fieldAnnotations) {
+                    for (Validator<?, ?> validator : validators.getOrDefault(annotation.annotationType(), emptySet())) {
+                        // Making this a compile-time check would be too expensive to implement.
+                        assert assertValidatorTypesCoherence(validator.getClass(), annotation.annotationType(), val)
+                            : "Validator coherence is violated [" +
+                            "class=" + lastInnerNode.getClass().getCanonicalName() + ", " +
+                            "field=" + fieldName + ", " +
+                            "annotation=" + annotation.annotationType().getCanonicalName() + ", " +
+                            "validator=" + validator.getClass().getName() + ']';
 
-                    if (fieldAnnotations.length == 0)
-                        return;
+                        ValidationContextImpl<Object> ctx = new ValidationContextImpl<>(
+                            oldRoots,
+                            newRoots,
+                            otherRoots,
+                            val,
+                            currentKey,
+                            currentPath,
+                            issues
+                        );
 
-                    String currentKey = currentKey() + fieldName;
-                    List<String> currentPath = appendKey(currentPath(), fieldName);
-
-                    for (Annotation annotation : fieldAnnotations) {
-                        for (Validator<?, ?> validator : validators.getOrDefault(annotation.annotationType(), emptySet())) {
-                            // Making this a compile-time check would be too expensive to implement.
-                            assert assertValidatorTypesCoherence(validator.getClass(), annotation.annotationType(), val)
-                                : "Validator coherence is violated [" +
-                                "class=" + lastInnerNode.getClass().getCanonicalName() + ", " +
-                                "field=" + fieldName + ", " +
-                                "annotation=" + annotation.annotationType().getCanonicalName() + ", " +
-                                "validator=" + validator.getClass().getName() + ']';
-
-                            ValidationContextImpl<Object> ctx = new ValidationContextImpl<>(
-                                rootKey,
-                                oldRoots,
-                                newRoots,
-                                otherRoots,
-                                val,
-                                currentKey,
-                                currentPath,
-                                issues
-                            );
-
-                            ((Validator<Annotation, Object>)validator).validate(annotation, ctx);
-                        }
+                        ((Validator<Annotation, Object>)validator).validate(annotation, ctx);
                     }
                 }
-            });
-        }
+            }
+        });
 
         return issues;
     }

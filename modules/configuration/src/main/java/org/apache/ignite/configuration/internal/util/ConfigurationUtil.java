@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.internal.RootsNode;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.ConstructableTreeNode;
@@ -282,13 +282,13 @@ public class ConfigurationUtil {
      * @return Map of changes.
      */
     public static Map<String, Serializable> nodeToFlatMap(
-        RootKey<?, ?> rootKey,
-        TraversableTreeNode curRoot,
-        TraversableTreeNode updates
+        RootsNode curRoots,
+        RootsNode updates
     ) {
-        return updates.accept(rootKey.key(), new KeysTrackingConfigurationVisitor<>() {
+        Map<String, Serializable> values = new HashMap<>();
+
+        updates.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
             /** Resulting flat map. */
-            private Map<String, Serializable> values = new HashMap<>();
 
             /** Write nulls instead of actual values. Makes sense for deletions from named lists. */
             private boolean writeNulls;
@@ -345,7 +345,7 @@ public class ConfigurationUtil {
                     // This code can in fact be better optimized for deletion scenario,
                     // but there's no point in doing that, since the operation is so rare and it will
                     // complicate code even more.
-                    originalNamedElement = find(currentPath.subList(1, currentPath.size()), curRoot);
+                    originalNamedElement = find(currentPath, curRoots);
                 }
                 catch (KeyNotFoundException ignore) {
                     // May happen, not a big deal. This means that element never existed in the first place.
@@ -362,6 +362,8 @@ public class ConfigurationUtil {
                 }
             }
         });
+
+        return values;
     }
 
     /**
