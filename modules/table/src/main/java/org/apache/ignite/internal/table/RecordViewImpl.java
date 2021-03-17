@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.Future;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -67,7 +67,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<R> getAsync(R keyRec) {
+    @Override public @NotNull IgniteFuture<R> getAsync(R keyRec) {
         return null;
     }
 
@@ -77,7 +77,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<R>> getAllAsync(Collection<R> keyRecs) {
+    @Override public @NotNull IgniteFuture<Collection<R>> getAllAsync(Collection<R> keyRecs) {
         return null;
     }
 
@@ -87,7 +87,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Void> upsertAsync(R rec) {
+    @Override public @NotNull IgniteFuture<Void> upsertAsync(R rec) {
         return null;
     }
 
@@ -97,7 +97,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Void> upsertAllAsync(Collection<R> recs) {
+    @Override public @NotNull IgniteFuture<Void> upsertAllAsync(Collection<R> recs) {
         return null;
     }
 
@@ -107,7 +107,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<R> getAndUpsertAsync(R rec) {
+    @Override public @NotNull IgniteFuture<R> getAndUpsertAsync(R rec) {
         return null;
     }
 
@@ -117,7 +117,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> insertAsync(R rec) {
+    @Override public @NotNull IgniteFuture<Boolean> insertAsync(R rec) {
         return null;
     }
 
@@ -127,7 +127,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<R>> insertAllAsync(Collection<R> recs) {
+    @Override public @NotNull IgniteFuture<Collection<R>> insertAllAsync(Collection<R> recs) {
         return null;
     }
 
@@ -137,7 +137,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> replaceAsync(R rec) {
+    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(R rec) {
         return null;
     }
 
@@ -147,7 +147,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> replaceAsync(R oldRec, R newRec) {
+    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(R oldRec, R newRec) {
         return null;
     }
 
@@ -157,7 +157,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<R> getAndReplaceAsync(R rec) {
+    @Override public @NotNull IgniteFuture<R> getAndReplaceAsync(R rec) {
         return null;
     }
 
@@ -167,7 +167,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> deleteAsync(R keyRec) {
+    @Override public @NotNull IgniteFuture<Boolean> deleteAsync(R keyRec) {
         return null;
     }
 
@@ -177,7 +177,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> deleteExactAsync(R oldRec) {
+    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(R oldRec) {
         return null;
     }
 
@@ -187,7 +187,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<R> getAndDeleteAsync(R rec) {
+    @Override public @NotNull IgniteFuture<R> getAndDeleteAsync(R rec) {
         return null;
     }
 
@@ -197,7 +197,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<R>> deleteAllAsync(Collection<R> recs) {
+    @Override public @NotNull IgniteFuture<Collection<R>> deleteAllAsync(Collection<R> recs) {
         return null;
     }
 
@@ -207,7 +207,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<R>> deleteAllExactAsync(Collection<R> recs) {
+    @Override public @NotNull IgniteFuture<Collection<R>> deleteAllExactAsync(Collection<R> recs) {
         return null;
     }
 
@@ -217,7 +217,8 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> Future<T> invokeAsync(R keyRec, InvokeProcessor<R, R, T> proc) {
+    @Override public @NotNull <T extends Serializable> IgniteFuture<T> invokeAsync(R keyRec,
+        InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
@@ -230,7 +231,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> Future<Map<R, T>> invokeAllAsync(
+    @Override public @NotNull <T extends Serializable> IgniteFuture<Map<R, T>> invokeAllAsync(
         Collection<R> keyRecs,
         InvokeProcessor<R, R, T> proc
     ) {

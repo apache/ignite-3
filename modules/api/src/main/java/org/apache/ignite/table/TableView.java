@@ -20,7 +20,7 @@ package org.apache.ignite.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.Future;
+import org.apache.ignite.lang.IgniteFuture;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -45,7 +45,7 @@ public interface TableView<R> {
      * @param keyRec Record with key fields set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<R> getAsync(R keyRec);
+    @NotNull IgniteFuture<R> getAsync(R keyRec);
 
     /**
      * Get records from the table.
@@ -61,7 +61,7 @@ public interface TableView<R> {
      * @param keyRecs Records with key fields set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Collection<R>> getAllAsync(Collection<R> keyRecs);
+    @NotNull IgniteFuture<Collection<R>> getAllAsync(Collection<R> keyRecs);
 
     /**
      * Inserts a record into the table if does not exist or replaces the existed one.
@@ -76,7 +76,7 @@ public interface TableView<R> {
      * @param rec Record to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Void> upsertAsync(R rec);
+    @NotNull IgniteFuture<Void> upsertAsync(R rec);
 
     /**
      * Insert records into the table if does not exist or replaces the existed one.
@@ -91,7 +91,7 @@ public interface TableView<R> {
      * @param recs Records to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Void> upsertAllAsync(Collection<R> recs);
+    @NotNull IgniteFuture<Void> upsertAllAsync(Collection<R> recs);
 
     /**
      * Inserts a record into the table or replaces if exists and return replaced previous record.
@@ -107,7 +107,7 @@ public interface TableView<R> {
      * @param rec Record to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<R> getAndUpsertAsync(R rec);
+    @NotNull IgniteFuture<R> getAndUpsertAsync(R rec);
 
     /**
      * Inserts a record into the table if not exists.
@@ -123,7 +123,7 @@ public interface TableView<R> {
      * @param rec Record to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> insertAsync(R rec);
+    @NotNull IgniteFuture<Boolean> insertAsync(R rec);
 
     /**
      * Insert records into the table which do not exist, skipping existed ones.
@@ -139,7 +139,7 @@ public interface TableView<R> {
      * @param recs Records to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Collection<R>> insertAllAsync(Collection<R> recs);
+    @NotNull IgniteFuture<Collection<R>> insertAllAsync(Collection<R> recs);
 
     /**
      * Replaces an existed record associated with the same key fields values as the given one has.
@@ -155,7 +155,7 @@ public interface TableView<R> {
      * @param rec Record to replace with.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> replaceAsync(R rec);
+    @NotNull IgniteFuture<Boolean> replaceAsync(R rec);
 
     /**
      * Replaces an expected record in the table with the given new one.
@@ -173,7 +173,7 @@ public interface TableView<R> {
      * @param newRec Record to replace with.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> replaceAsync(R oldRec, R newRec);
+    @NotNull IgniteFuture<Boolean> replaceAsync(R oldRec, R newRec);
 
     /**
      * Gets an existed record associated with the same key fields values as the given one has,
@@ -191,7 +191,7 @@ public interface TableView<R> {
      * @param rec Record to replace with.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<R> getAndReplaceAsync(R rec);
+    @NotNull IgniteFuture<R> getAndReplaceAsync(R rec);
 
     /**
      * Deletes a record with the same key fields values as the given one from the table.
@@ -207,7 +207,7 @@ public interface TableView<R> {
      * @param keyRec Record with key fields set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> deleteAsync(R keyRec);
+    @NotNull IgniteFuture<Boolean> deleteAsync(R keyRec);
 
     /**
      * Deletes the given record from the table.
@@ -223,7 +223,7 @@ public interface TableView<R> {
      * @param oldRec Record to delete.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> deleteExactAsync(R oldRec);
+    @NotNull IgniteFuture<Boolean> deleteExactAsync(R oldRec);
 
     /**
      * Gets then deletes a record with the same key fields values from the table.
@@ -239,7 +239,7 @@ public interface TableView<R> {
      * @param rec Record with key fields set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<R> getAndDeleteAsync(R rec);
+    @NotNull IgniteFuture<R> getAndDeleteAsync(R rec);
 
     /**
      * Remove records with the same key fields values as the given one has from the table.
@@ -255,7 +255,7 @@ public interface TableView<R> {
      * @param recs Records with key fields set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Collection<R>> deleteAllAsync(Collection<R> recs);
+    @NotNull IgniteFuture<Collection<R>> deleteAllAsync(Collection<R> recs);
 
     /**
      * Remove given records from the table.
@@ -271,7 +271,7 @@ public interface TableView<R> {
      * @param recs Records to delete.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Collection<R>> deleteAllExactAsync(Collection<R> recs);
+    @NotNull IgniteFuture<Collection<R>> deleteAllExactAsync(Collection<R> recs);
 
     /**
      * Executes an InvokeProcessor code against a record with the same key fields values as the given one has.
@@ -288,7 +288,7 @@ public interface TableView<R> {
      * @param keyRec Record with key fields set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull <T extends Serializable> Future<T> invokeAsync(R keyRec, InvokeProcessor<R, R, T> proc);
+    @NotNull <T extends Serializable> IgniteFuture<T> invokeAsync(R keyRec, InvokeProcessor<R, R, T> proc);
 
     /**
      * Executes an InvokeProcessor code against records with the same key fields values as the given ones has.
@@ -304,6 +304,6 @@ public interface TableView<R> {
      * @param keyRecs Records with key fields set.
      * @return Results of the processing.
      */
-    @NotNull <T extends Serializable> Future<Map<R, T>> invokeAllAsync(Collection<R> keyRecs,
+    @NotNull <T extends Serializable> IgniteFuture<Map<R, T>> invokeAllAsync(Collection<R> keyRecs,
         InvokeProcessor<R, R, T> proc);
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.Future;
+import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KV;
 import org.apache.ignite.table.KVView;
@@ -72,7 +72,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<BinaryObject> getAsync(BinaryObject keyRec) {
+    @Override public @NotNull IgniteFuture<BinaryObject> getAsync(BinaryObject keyRec) {
         return null;
     }
 
@@ -82,7 +82,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<BinaryObject>> getAllAsync(Collection<BinaryObject> keyRecs) {
+    @Override public @NotNull IgniteFuture<Collection<BinaryObject>> getAllAsync(Collection<BinaryObject> keyRecs) {
         return null;
     }
 
@@ -92,7 +92,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Void> upsertAsync(BinaryObject rec) {
+    @Override public @NotNull IgniteFuture<Void> upsertAsync(BinaryObject rec) {
         return null;
     }
 
@@ -102,7 +102,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Void> upsertAllAsync(Collection<BinaryObject> recs) {
+    @Override public @NotNull IgniteFuture<Void> upsertAllAsync(Collection<BinaryObject> recs) {
         return null;
     }
 
@@ -112,7 +112,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<BinaryObject> getAndUpsertAsync(BinaryObject rec) {
+    @Override public @NotNull IgniteFuture<BinaryObject> getAndUpsertAsync(BinaryObject rec) {
         return null;
     }
 
@@ -122,7 +122,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> insertAsync(BinaryObject rec) {
+    @Override public @NotNull IgniteFuture<Boolean> insertAsync(BinaryObject rec) {
         return null;
     }
 
@@ -132,7 +132,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<BinaryObject>> insertAllAsync(Collection<BinaryObject> recs) {
+    @Override public @NotNull IgniteFuture<Collection<BinaryObject>> insertAllAsync(Collection<BinaryObject> recs) {
         return null;
     }
 
@@ -142,7 +142,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> replaceAsync(BinaryObject rec) {
+    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(BinaryObject rec) {
         return null;
     }
 
@@ -152,7 +152,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> replaceAsync(BinaryObject oldRec, BinaryObject newRec) {
+    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(BinaryObject oldRec, BinaryObject newRec) {
         return null;
     }
 
@@ -162,7 +162,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<BinaryObject> getAndReplaceAsync(BinaryObject rec) {
+    @Override public @NotNull IgniteFuture<BinaryObject> getAndReplaceAsync(BinaryObject rec) {
         return null;
     }
 
@@ -172,7 +172,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> deleteAsync(BinaryObject keyRec) {
+    @Override public @NotNull IgniteFuture<Boolean> deleteAsync(BinaryObject keyRec) {
         return null;
     }
 
@@ -182,7 +182,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Boolean> deleteExactAsync(BinaryObject oldRec) {
+    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(BinaryObject oldRec) {
         return null;
     }
 
@@ -192,7 +192,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<BinaryObject> getAndDeleteAsync(BinaryObject rec) {
+    @Override public @NotNull IgniteFuture<BinaryObject> getAndDeleteAsync(BinaryObject rec) {
         return null;
     }
 
@@ -202,7 +202,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<BinaryObject>> deleteAllAsync(Collection<BinaryObject> recs) {
+    @Override public @NotNull IgniteFuture<Collection<BinaryObject>> deleteAllAsync(Collection<BinaryObject> recs) {
         return null;
     }
 
@@ -212,7 +212,8 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull Future<Collection<BinaryObject>> deleteAllExactAsync(Collection<BinaryObject> recs) {
+    @Override public @NotNull IgniteFuture<Collection<BinaryObject>> deleteAllExactAsync(
+        Collection<BinaryObject> recs) {
         return null;
     }
 
@@ -225,7 +226,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> Future<T> invokeAsync(
+    @Override public @NotNull <T extends Serializable> IgniteFuture<T> invokeAsync(
         BinaryObject keyRec,
         InvokeProcessor<BinaryObject, BinaryObject, T> proc
     ) {
@@ -241,7 +242,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> Future<Map<BinaryObject, T>> invokeAllAsync(
+    @Override public @NotNull <T extends Serializable> IgniteFuture<Map<BinaryObject, T>> invokeAllAsync(
         Collection<BinaryObject> keyRecs,
         InvokeProcessor<BinaryObject, BinaryObject, T> proc
     ) {

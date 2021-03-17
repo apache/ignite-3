@@ -20,7 +20,7 @@ package org.apache.ignite.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.Future;
+import org.apache.ignite.lang.IgniteFuture;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -44,7 +44,7 @@ public interface KVView<K, V> {
      * @param key The key whose associated value is to be returned.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<V> getAsync(K key);
+    @NotNull IgniteFuture<V> getAsync(K key);
 
     /**
      * Get values associated with given keys.
@@ -60,7 +60,7 @@ public interface KVView<K, V> {
      * @param keys Keys whose associated values are to be returned.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Map<K, V>> getAllAsync(Collection<K> keys);
+    @NotNull IgniteFuture<Map<K, V>> getAllAsync(Collection<K> keys);
 
     /**
      * Determines if the table contains an entry for the specified key.
@@ -85,7 +85,7 @@ public interface KVView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Void> putAsync(K key, V val);
+    @NotNull IgniteFuture<Void> putAsync(K key, V val);
 
     /**
      * Put associated key-value pairs.
@@ -100,7 +100,7 @@ public interface KVView<K, V> {
      * @param pairs Key-value pairs.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Void> putAllAsync(Map<K, V> pairs);
+    @NotNull IgniteFuture<Void> putAllAsync(Map<K, V> pairs);
 
     /**
      * Puts new or replaces existed value associated with given key into the table.
@@ -118,7 +118,7 @@ public interface KVView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<V> getAndPutAsync(K key, V val);
+    @NotNull IgniteFuture<V> getAndPutAsync(K key, V val);
 
     /**
      * Puts value associated with given key into the table if not exists.
@@ -136,7 +136,7 @@ public interface KVView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> putIfAbsentAsync(K key, V val);
+    @NotNull IgniteFuture<Boolean> putIfAbsentAsync(K key, V val);
 
     /**
      * Removes value associated with given key from the table.
@@ -152,7 +152,7 @@ public interface KVView<K, V> {
      * @param key Key whose mapping is to be removed from the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> removeAsync(K key);
+    @NotNull IgniteFuture<Boolean> removeAsync(K key);
 
     /**
      * Removes expected value associated with given key from the table.
@@ -170,7 +170,7 @@ public interface KVView<K, V> {
      * @param val Expected value.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> removeAsync(K key, V val);
+    @NotNull IgniteFuture<Boolean> removeAsync(K key, V val);
 
     /**
      * Remove values associated with given keys from the table.
@@ -186,7 +186,7 @@ public interface KVView<K, V> {
      * @param keys Keys whose mapping is to be removed from the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<K> removeAllAsync(Collection<K> keys);
+    @NotNull IgniteFuture<K> removeAllAsync(Collection<K> keys);
 
     /**
      * Gets then removes value associated with given key from the table.
@@ -202,7 +202,7 @@ public interface KVView<K, V> {
      * @param key Key whose mapping is to be removed from the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<V> getAndRemoveAsync(K key);
+    @NotNull IgniteFuture<V> getAndRemoveAsync(K key);
 
     /**
      * Replaces the value for a key only if exists. This is equivalent to
@@ -229,7 +229,7 @@ public interface KVView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> replaceAsync(K key, V val);
+    @NotNull IgniteFuture<Boolean> replaceAsync(K key, V val);
 
     /**
      * Replaces the expected value for a key. This is equivalent to
@@ -258,7 +258,7 @@ public interface KVView<K, V> {
      * @param newVal Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<Boolean> replaceAsync(K key, V oldVal, V newVal);
+    @NotNull IgniteFuture<Boolean> replaceAsync(K key, V oldVal, V newVal);
 
     /**
      * Replaces the value for a given key only if exists. This is equivalent to
@@ -287,7 +287,7 @@ public interface KVView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull Future<V> getAndReplaceAsync(K key, V val);
+    @NotNull IgniteFuture<V> getAndReplaceAsync(K key, V val);
 
     /**
      * Executes invoke processor code against the value associated with the provided key.
@@ -311,7 +311,7 @@ public interface KVView<K, V> {
      * @return Future representing pending completion of the operation.
      * @see InvokeProcessor
      */
-    @NotNull <R extends Serializable> Future<R> invokeAsync(K key, InvokeProcessor<K, V, R> proc, Serializable... args);
+    @NotNull <R extends Serializable> IgniteFuture<R> invokeAsync(K key, InvokeProcessor<K, V, R> proc, Serializable... args);
 
     /**
      * Executes invoke processor code against values associated with the provided keys.
@@ -338,7 +338,7 @@ public interface KVView<K, V> {
      * @return Future representing pending completion of the operation.
      * @see InvokeProcessor
      */
-    @NotNull <R extends Serializable> Future<Map<K, R>> invokeAllAsync(
+    @NotNull <R extends Serializable> IgniteFuture<Map<K, R>> invokeAllAsync(
         Collection<K> keys,
         InvokeProcessor<K, V, R> proc,
         Serializable... args);
