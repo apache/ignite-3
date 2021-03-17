@@ -97,12 +97,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override public CompletableFuture<Void> refreshLeader() {
-        GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
-
-        CompletableFuture<GetLeaderResponse> fut =
-            cluster.sendWithResponse(initialMembers.iterator().next(), req, timeout);
-
-        return fut.thenApply(resp -> {
+        return cluster.<GetLeaderResponse>sendWithResponse(
+            initialMembers.iterator().next(),
+            factory.createGetLeaderRequest().setGroupId(groupId).build(),
+            timeout).thenApply(resp -> {
             leader = resp.getLeaderId();
 
             return null;
