@@ -422,6 +422,8 @@ public class ConfigurationUtil {
      * @param dst Destination node.
      */
     public static void addDefaults(InnerNode src, InnerNode dst) {
+        assert src.getClass() == dst.getClass();
+
         src.traverseChildren(new ConfigurationVisitor<>() {
             @Override public Object visitLeafNode(String key, Serializable val) {
                 // If source value is null then inititalise the same value on the destination node.
