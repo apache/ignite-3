@@ -23,10 +23,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <artifactId>apache-ignite</artifactId>
         <groupId>org.apache.ignite</groupId>
-        <version>3.0.0-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <artifactId>ignite-parent</artifactId>
+        <version>1</version>
+        <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
     <artifactId>ignite-bytecode</artifactId>
