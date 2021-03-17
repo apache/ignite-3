@@ -521,6 +521,7 @@
                     <suppressionsLocation>${project.basedir}/check-rules/checkstyle-suppressions.xml</suppressionsLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                     <excludes>**/generated/**/*</excludes>
+                    <excludes>**/com/facebook/presto/bytecode/**/*</excludes> <!-- Forked prestodb-bytecode code. -->
                 </configuration>
                 <dependencies>
                     <dependency>
