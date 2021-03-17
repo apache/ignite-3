@@ -288,8 +288,6 @@ public class ConfigurationUtil {
         Map<String, Serializable> values = new HashMap<>();
 
         updates.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
-            /** Resulting flat map. */
-
             /** Write nulls instead of actual values. Makes sense for deletions from named lists. */
             private boolean writeNulls;
 
