@@ -123,10 +123,10 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
         }
     }
 
-//    /** {@inheritDoc} */
-//    @Override public boolean constructDefault(String key) throws NoSuchElementException {
-//        throw new NoSuchElementException(key);
-//    }
+    /** {@inheritDoc} */
+    @Override public boolean constructDefault(String key) {
+        return false;
+    }
 
     /** {@inheritDoc} */
     @Override public NamedListNode<N> copy() {

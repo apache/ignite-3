@@ -111,15 +111,6 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     @Override public abstract void construct(String key, ConfigurationSource src) throws NoSuchElementException;
 
     /**
-     * Assigns default value to the corresponding leaf. Defaults are gathered from configuration schema class.
-     *
-     * @param key Field name to be initialized.
-     * @return {@code true} if default value has been assigned, {@code false} otherwise.
-     * @throws NoSuchElementException If there's no such field or it is not a leaf value.
-     */
-    public abstract boolean constructDefault(String key) throws NoSuchElementException;
-
-    /**
      * @return Class of corresponding configuration schema.
      */
     public abstract Class<?> schemaType();
