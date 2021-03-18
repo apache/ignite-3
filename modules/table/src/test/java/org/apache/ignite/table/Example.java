@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  *
  */
-@SuppressWarnings({"PMD.EmptyLineSeparatorCheck", "checkstyle:EmptyLineSeparator",
+@SuppressWarnings({"PMD.EmptyLineSeparatorCheck", "emptylineseparator",
     "unused", "UnusedAssignment", "InstanceVariableMayNotBeInitialized", "JoinDeclarationAndAssignmentJava"})
 public class Example {
     /**
@@ -257,7 +257,7 @@ public class Example {
                     BinaryObject bObj = row.binaryObjectField("conditionalDetails");
                     int type = row.intValue("type");
 
-                    return  type == 0 ?
+                    return type == 0 ?
                         BinaryObjects.deserialize(bObj, CreditCard.class) :
                         BinaryObjects.deserialize(bObj, BankAccount.class);
                 }).build());
