@@ -19,7 +19,7 @@ package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.schema.Tuple;
+import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.table.RowChunk;
 import org.apache.ignite.internal.table.TableRow;
 
@@ -28,7 +28,7 @@ import org.apache.ignite.internal.table.TableRow;
  */
 public class DummyTableRowImpl implements TableRow {
     /** Key offset in tuple. */
-    private static final int KEY_OFFSET = Tuple.TUPLE_HEADER_SIZE;
+    private static final int KEY_OFFSET = Row.ROW_HEADER_SIZE;
 
     /** Payload. */
     private final byte[] bytes;

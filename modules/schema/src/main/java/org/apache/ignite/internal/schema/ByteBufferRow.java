@@ -22,16 +22,16 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Heap byte buffer-based tuple.
+ * Heap byte buffer-based row.
  */
-public class ByteBufferTuple extends Tuple {
+public class ByteBufferRow extends Row {
     /** */
     private final ByteBuffer buf;
 
     /**
-     * @param arr Array representation of the tuple.
+     * @param arr Array representation of the row.
      */
-    public ByteBufferTuple(SchemaDescriptor sch, byte[] arr) {
+    public ByteBufferRow(SchemaDescriptor sch, byte[] arr) {
         super(sch);
 
         buf = ByteBuffer.wrap(arr);
