@@ -71,6 +71,7 @@ public class RestApiHttpResponse {
      * @return Updated response.
      */
     public RestApiHttpResponse json(Object content) {
+        // TODO: IGNITE-14344 Gson object should not be created on every response
         this.content = new Gson().toJson(content).getBytes(StandardCharsets.UTF_8);
         headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON.toString());
         return this;
