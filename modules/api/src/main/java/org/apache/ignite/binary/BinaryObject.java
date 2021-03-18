@@ -15,12 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
-
-import org.apache.ignite.table.binary.BinaryObject;
+package org.apache.ignite.binary;
 
 /**
- * Row columns span.
+ * Binary object wraps byte[].
+ *
+ * @apiNote Binary objects are not intended to be managed with schema manager.
  */
-public interface ColSpan extends BinaryObject { //TODO: Extract unmanaged BinaryObject into separate interface.
+//TODO: Stub interface. Rework in IGNITE-14316
+public interface BinaryObject {
+    /**
+     * @return Serialized data.
+     */
+    byte[] toBytes();
 }

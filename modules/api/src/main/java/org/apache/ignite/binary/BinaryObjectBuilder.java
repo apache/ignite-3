@@ -15,25 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.binary;
 
-import org.apache.ignite.internal.table.TableRow;
-import org.apache.ignite.table.ColSpan;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-public interface Marshaller {
-    <K> TableRow serializeKey(@NotNull K key);
-
-    TableRow marshallRecord(@NotNull ColSpan rec);
-
-    TableRow marshallKVPair(@NotNull ColSpan keySpan, @Nullable ColSpan valSpan);
-
-    <K> @NotNull K deserializeKey(@NotNull TableRow row);
-
-    <V> @Nullable V deserializeValue(@NotNull TableRow row);
-
-    <R> R deserializeToRecord(@NotNull TableRow row);
-
-    <R> R deserializeToRecord(@NotNull R record, @NotNull TableRow row);
+/**
+ * Binary object builder.
+ */
+//TODO: Stub interface. Rework in IGNITE-14316
+public interface BinaryObjectBuilder {
+    /**
+     * @return Binary object.
+     */
+    BinaryObject build();
 }

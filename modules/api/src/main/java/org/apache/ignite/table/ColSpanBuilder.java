@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.table;
 
-import org.apache.ignite.internal.table.TableRow;
-import org.apache.ignite.table.ColSpan;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+/**
+ * Binary object builder.
+ */
+public interface ColSpanBuilder {
+    /**
+     * Sets field value.
+     *
+     * @param colName Column name.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
+     */
+    ColSpanBuilder set(String colName, Object value);
 
-public interface Marshaller {
-    <K> TableRow serializeKey(@NotNull K key);
-
-    TableRow marshallRecord(@NotNull ColSpan rec);
-
-    TableRow marshallKVPair(@NotNull ColSpan keySpan, @Nullable ColSpan valSpan);
-
-    <K> @NotNull K deserializeKey(@NotNull TableRow row);
-
-    <V> @Nullable V deserializeValue(@NotNull TableRow row);
-
-    <R> R deserializeToRecord(@NotNull TableRow row);
-
-    <R> R deserializeToRecord(@NotNull R record, @NotNull TableRow row);
+    /**
+     * @return Binary object.
+     */
+    ColSpan build();
 }

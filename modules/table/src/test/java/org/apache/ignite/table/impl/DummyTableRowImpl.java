@@ -18,14 +18,14 @@
 package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.internal.table.ColSpan;
-import org.apache.ignite.internal.table.Row;
+import org.apache.ignite.internal.table.RowChunk;
+import org.apache.ignite.internal.table.TableRow;
+import org.apache.ignite.binary.BinaryObject;
 
 /**
  * Stub class.
  */
-public class DummyTableRowImpl implements Row {
+public class DummyTableRowImpl implements TableRow {
     //TODO: Replace with Tuple layout constants.
     /** */
     private static final int SCHEMA_VERSION_OFFSET = 0;
@@ -57,7 +57,7 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpan keySpan() {
+    @Override public RowChunk keySpan() {
         return new DummyTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes());
@@ -70,7 +70,7 @@ public class DummyTableRowImpl implements Row {
     }
 
     /** {@inheritDoc} */
-    @Override public ColSpan valueSpan() {
+    @Override public RowChunk valueSpan() {
         return new DummyTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes());
@@ -124,11 +124,6 @@ public class DummyTableRowImpl implements Row {
 
     /** {@inheritDoc} */
     @Override public String stringValue(String colName) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Object deserialize(Class<?> targetCls) {
         return null;
     }
 

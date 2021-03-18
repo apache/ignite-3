@@ -15,23 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.binary;
+package org.apache.ignite.binary;
 
 /**
- * Binary object builder.
+ * Binary objects utility class.
  */
-public interface BinaryObjectBuilder {
+public final class BinaryObjects {
     /**
-     * Sets field value.
-     *
-     * @param colName Column name.
-     * @param value Value to set.
-     * @return {@code this} for chaining.
-     */
-    BinaryObjectBuilder set(String colName, Object value);
-
-    /**
+     * Wraps byte array to BinaryObject.
+     * @param data Object data.
      * @return Binary object.
      */
-    BinaryObject build();
+    public static BinaryObject wrap(byte[] data) {
+        return null;
+    }
+
+    /**
+     * Deserializes binary object.
+     *
+     * @param obj Object to deserialize.
+     * @param targetCls Target class.
+     * @return Deserialized object.
+     */
+    public static <T> T deserialize(BinaryObject obj, Class<T> targetCls) {
+        return null;
+    }
+
+    /**
+     * Constructor.
+     */
+    private BinaryObjects() {
+        // No-op.
+    }
 }

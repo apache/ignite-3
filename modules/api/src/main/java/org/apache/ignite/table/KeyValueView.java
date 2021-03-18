@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
  * @param <K> Mapped key type.
  * @param <V> Mapped value type.
  */
-public interface KVView<K, V> {
+public interface KeyValueView<K, V> {
     /**
      * Gets a value associated with the given key.
      *

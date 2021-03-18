@@ -20,8 +20,9 @@ package org.apache.ignite.table;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.table.impl.DummyTableStorageImpl;
 import org.apache.ignite.table.mapper.Mappers;
 import org.junit.jupiter.api.Disabled;
@@ -54,7 +55,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
+        ColSpan res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -132,7 +133,7 @@ public class Example {
             int department;
         }
 
-        KVView<EmployeeKey, Employee> employeeKv = t.kvView(EmployeeKey.class, Employee.class);
+        KeyValueView<EmployeeKey, Employee> employeeKv = t.kvView(EmployeeKey.class, Employee.class);
 
         employeeKv.get(new EmployeeKey(1, 1));
 
@@ -142,7 +143,7 @@ public class Example {
             String lastName;
         }
 
-        KVView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.kvView(EmployeeKey.class, TruncatedEmployee.class);
+        KeyValueView<EmployeeKey, TruncatedEmployee> truncatedEmployeeKv = t.kvView(EmployeeKey.class, TruncatedEmployee.class);
 
         TruncatedEmployee te = truncatedEmployeeKv.get(new EmployeeKey(1, 1));
     }
@@ -174,14 +175,14 @@ public class Example {
             String bankName;
         }
 
-        KVView<Long, CreditCard> credCardKvView = t.kvView(Long.class, CreditCard.class);
+        KeyValueView<Long, CreditCard> credCardKvView = t.kvView(Long.class, CreditCard.class);
         CreditCard creditCard = credCardKvView.get(1L);
 
-        KVView<Long, BankAccount> backAccKvView = t.kvView(Long.class, BankAccount.class);
+        KeyValueView<Long, BankAccount> backAccKvView = t.kvView(Long.class, BankAccount.class);
         BankAccount bankAccount = backAccKvView.get(2L);
 
         // Truncated view.
-        KVView<Long, BillingDetails> billingDetailsKVView = t.kvView(Long.class, BillingDetails.class);
+        KeyValueView<Long, BillingDetails> billingDetailsKVView = t.kvView(Long.class, BillingDetails.class);
         BillingDetails billingDetails = billingDetailsKVView.get(2L);
 
         // Without discriminator it is impossible to deserialize to correct type automatically.
@@ -250,19 +251,21 @@ public class Example {
             String bankName;
         }
 
-        KVView<OrderKey, OrderValue> orderKvView = t.kvView(Mappers.ofKeyClass(OrderKey.class),
+        KeyValueView<OrderKey, OrderValue> orderKvView = t.kvView(Mappers.ofKeyClass(OrderKey.class),
             Mappers.ofValueClassBuilder(OrderValue.class)
                 .map("billingDetails", (row) -> {
                     BinaryObject bObj = row.binaryObjectField("conditionalDetails");
                     int type = row.intValue("type");
 
-                    return bObj.deserialize(type == 0 ? CreditCard.class : BankAccount.class);
+                    return  type == 0 ?
+                        BinaryObjects.deserialize(bObj, CreditCard.class) :
+                        BinaryObjects.deserialize(bObj, BankAccount.class);
                 }).build());
 
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
+        ColSpan res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -293,8 +296,8 @@ public class Example {
 
         // Manual deserialization is possible as well.
         Object billingDetails = orderRecord.type == 0 ?
-            binObj.deserialize(CreditCard.class) :
-            binObj.deserialize(BankAccount.class);
+            BinaryObjects.deserialize(binObj, CreditCard.class) :
+            BinaryObjects.deserialize(binObj, BankAccount.class);
     }
 
     /**
@@ -311,7 +314,7 @@ public class Example {
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
+        ColSpan res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -326,7 +329,7 @@ public class Example {
             final int orgId;
 
             byte[] originalObject;
-            BinaryObject upgradedObject;
+            ColSpan upgradedObject;
             int department;
 
             Record(int id, int orgId) {
@@ -376,7 +379,9 @@ public class Example {
                     BinaryObject bObj = row.binaryObjectField("upgradedObject");
                     int dept = row.intValue("department");
 
-                    return dept == 0 ? bObj.deserialize(JavaPerson.class) : bObj.deserialize(JavaPersonV2.class);
+                    return dept == 0 ?
+                        BinaryObjects.deserialize(bObj, JavaPerson.class) :
+                        BinaryObjects.deserialize(bObj, JavaPersonV2.class);
                 }).build());
     }
 
@@ -393,7 +398,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        BinaryObject res = t.get(t.binaryBuilder().set("id", 1).build());
+        ColSpan res = t.get(t.binaryBuilder().set("id", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -415,7 +420,7 @@ public class Example {
             long id;
         }
 
-        KVView<Long, Employee> employeeView = t.kvView(Long.class, Employee.class);
+        KeyValueView<Long, Employee> employeeView = t.kvView(Long.class, Employee.class);
 
         Employee e = employeeView.get(1L);
     }
@@ -440,7 +445,7 @@ public class Example {
             int department;
         }
 
-        KVView<Long, BinaryObject> employeeView = t.kvView(Long.class, BinaryObject.class);
+        KeyValueView<Long, BinaryObject> employeeView = t.kvView(Long.class, BinaryObject.class);
 
         employeeView.put(1L, BinaryObjects.wrap(new byte[0] /* serialized Employee */));
 

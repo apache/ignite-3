@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
@@ -48,22 +49,22 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public R get(R keyRec) {
         Marshaller marsh = marshaller();
 
-        Row kRow = marsh.toKeyRow(keyRec);
+        TableRow kRow = marsh.serializeKey(keyRec);
 
-        Row tRow = tbl.get(kRow);
+        TableRow tRow = tbl.get(kRow);
 
-        return marsh.unmarshallToRecord(tRow);
+        return marsh.deserializeToRecord(tRow);
     }
 
     /** {@inheritDoc} */
     @Override public R fill(R recObjToFill) {
         Marshaller marsh = marshaller();
 
-        Row kRow = marsh.toKeyRow(recObjToFill);
+        TableRow kRow = marsh.serializeKey(recObjToFill);
 
-        Row tRow = tbl.get(kRow);
+        TableRow tRow = tbl.get(kRow);
 
-        return marsh.unmarshallToRecord(recObjToFill, tRow);
+        return marsh.deserializeToRecord(recObjToFill, tRow);
     }
 
     /** {@inheritDoc} */

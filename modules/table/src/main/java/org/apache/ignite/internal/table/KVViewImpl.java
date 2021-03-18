@@ -21,9 +21,10 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
-import org.apache.ignite.table.KVView;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 import org.jetbrains.annotations.NotNull;
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Key-value view implementation.
  */
-public class KVViewImpl<K, V> implements KVView<K, V> {
+public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     /** Underlying storage. */
     private final TableStorage tbl;
 
@@ -50,11 +51,11 @@ public class KVViewImpl<K, V> implements KVView<K, V> {
     @Override public V get(K key) {
         final Marshaller marsh = marshaller();
 
-        Row kRow = marsh.toKeyRow(key);
+        TableRow kRow = marsh.serializeKey(key);
 
-        Row row = tbl.get(kRow);
+        TableRow row = tbl.get(kRow);
 
-        return marsh.unmarshallValue(row);
+        return marsh.deserializeValue(row);
     }
 
     /** {@inheritDoc} */

@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.binary;
+package org.apache.ignite.table;
+
+import org.apache.ignite.binary.BinaryObject;
 
 /**
- * Binary object interface represents non-versioned types which are not managed with schema manager.
- * Binary object instance is self-described objects and incorporates a schema for direct field access.
+ * Column span provides access to arbitrary column belongs to the span.
  */
-public interface BinaryObject {
-    /**
-     * Deserializes binary object.
-     *
-     * @param targetCls Target class.
-     * @return Deserialized object.
-     */
-    //TODO: remove
-    default Object deserialize(Class<?> targetCls) {
-        return null;
-    }
-
+public interface ColSpan { //TODO: Rename to Tuple
+    //TODO: Add ticket for getMetadata()
+    //TODO: Add ticket for indexed access to column.
     /**
      * Gets column value for given column name.
      *
@@ -105,9 +97,4 @@ public interface BinaryObject {
      * @return Column value.
      */
     String stringValue(String colName);
-
-    /**
-     * @return Serialized data.
-     */
-    byte[] toBytes();
 }

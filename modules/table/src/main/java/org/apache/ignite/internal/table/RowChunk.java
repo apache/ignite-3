@@ -17,22 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
+import org.apache.ignite.table.ColSpan;
+
 /**
- * Binary row interface.
+ * Column span over table row columns.
  */
-public interface Row extends ColSpan {
+public interface RowChunk extends ColSpan {
     /**
-     * @return Column span over key columns.
+     * @return Serialized column span.
      */
-    ColSpan keySpan();
-
-    /**
-     * @return Column span over value columns.
-     */
-    ColSpan valueSpan();
-
-    /**
-     * @return Row schema version.
-     */
-    long schemaVersion();
+    public byte[] toBytes();
 }

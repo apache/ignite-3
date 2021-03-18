@@ -17,8 +17,6 @@
 
 package org.apache.ignite.table;
 
-import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.table.binary.BinaryObjectBuilder;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -31,7 +29,7 @@ import org.apache.ignite.table.mapper.ValueMapper;
  * @apiNote Some methods require a record with the only key fields set. This is not mandatory requirement
  * and value fields will be just ignored.
  */
-public interface Table extends TableView<BinaryObject> {
+public interface Table extends TableView<ColSpan> {
     /**
      * Creates record view of table for record class mapper provided.
      *
@@ -47,14 +45,14 @@ public interface Table extends TableView<BinaryObject> {
      * @param valMapper Value class mapper.
      * @return Table key-value view.
      */
-    <K, V> KVView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
+    <K, V> KeyValueView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
     /**
      * Creates key-value like projection over table implementing BinaryObject concept.
      *
      * @return Table key-value view.
      */
-    KV kvView();
+    KeyValueBinaryView kvView();
 
     /**
      * Creates record view of table for record class provided.
@@ -73,7 +71,7 @@ public interface Table extends TableView<BinaryObject> {
      * @param valCls Value class.
      * @return Table key-value view.
      */
-    default <K, V> KVView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
+    default <K, V> KeyValueView<K, V> kvView(Class<K> keyCls, Class<V> valCls) {
         return kvView(Mappers.ofKeyClass(keyCls), Mappers.ofValueClass(valCls));
     }
 
@@ -82,5 +80,5 @@ public interface Table extends TableView<BinaryObject> {
      *
      * @return Binary builder.
      */
-    BinaryObjectBuilder binaryBuilder();
+    ColSpanBuilder binaryBuilder();
 }

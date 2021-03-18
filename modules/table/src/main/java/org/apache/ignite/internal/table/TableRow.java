@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
-
-import org.apache.ignite.table.binary.BinaryObject;
+package org.apache.ignite.internal.table;
 
 /**
- *
+ * Table binary row interface.
+ * TODO: Make {@link #org.apache.ignite.internal.schema.Tuple} implement or replace this.
  */
-public final class BinaryObjects {
+public interface TableRow extends RowChunk {
     /**
-     * Wraps byte array to BinaryObject.
-     * @param data Object data.
-     * @return Binary object.
+     * @return Column span over key columns.
      */
-    public static BinaryObject wrap(byte[] data) {
-        return null;
-    }
+    RowChunk keySpan();
+
+    /**
+     * @return Column span over value columns.
+     */
+    RowChunk valueSpan();
+
+    /**
+     * @return Row schema version.
+     */
+    long schemaVersion();
 }

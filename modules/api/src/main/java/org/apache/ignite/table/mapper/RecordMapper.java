@@ -18,7 +18,7 @@
 package org.apache.ignite.table.mapper;
 
 import java.util.function.Function;
-import org.apache.ignite.table.binary.BinaryObject;
+import org.apache.ignite.table.ColSpan;
 
 /**
  *
@@ -27,7 +27,7 @@ public interface RecordMapper<R> {
     public interface Builder<R> {
         public Builder<R> map(String fieldName, Class<?> targetClass);
 
-        public Builder<R> map(String fieldName, Function<BinaryObject, Object> mapping);
+        public Builder<R> map(String fieldName, Function<ColSpan, Object> mapping);
 
         public RecordMapper<R> build();
     }

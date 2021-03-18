@@ -19,6 +19,8 @@ package org.apache.ignite.table;
 
 /**
  * Invocation context.
+ * //TODO: Describe. Impossible to update schema inside InvokeProc.
+ * //TODO: Describe methods. Add examples.
  *
  * @param <K> Target key object type.
  * @param <V> Value object type.

@@ -20,11 +20,14 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
+import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
-import org.apache.ignite.table.KV;
-import org.apache.ignite.table.binary.BinaryObject;
-import org.apache.ignite.table.binary.BinaryObjectBuilder;
+import org.apache.ignite.table.KeyValueBinaryView;
+import org.apache.ignite.table.ColSpan;
+import org.apache.ignite.table.ColSpanBuilder;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -32,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * @implNote Key-value objects are wrappers over corresponding column spans and implement the binary object concept.
  */
-public class KVImpl implements KV {
+public class KVImpl implements KeyValueBinaryView {
     /** Underlying storage. */
     private final TableStorage tbl;
 
@@ -46,147 +49,151 @@ public class KVImpl implements KV {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject get(BinaryObject key) {
-        Row kRow = toKeyRow(key);
+    @Override public ColSpan get(ColSpan keySpan) {
+        Objects.requireNonNull(keySpan);
 
-        return tbl.get(kRow);
+        return marshaller().marshallKVPair(keySpan, null);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<BinaryObject> getAsync(BinaryObject key) {
+    @Override public @NotNull IgniteFuture<ColSpan> getAsync(ColSpan key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Map<BinaryObject, BinaryObject> getAll(Collection<BinaryObject> keys) {
+    @Override public Map<ColSpan, ColSpan> getAll(Collection<ColSpan> keys) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Map<BinaryObject, BinaryObject>> getAllAsync(Collection<BinaryObject> keys) {
+    @Override public @NotNull IgniteFuture<Map<ColSpan, ColSpan>> getAllAsync(Collection<ColSpan> keys) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean contains(BinaryObject key) {
+    @Override public boolean contains(ColSpan key) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void put(BinaryObject key, BinaryObject val) {
+    @Override public void put(ColSpan keySpan, ColSpan valSpan) {
+        Objects.requireNonNull(keySpan);
 
+        final TableRow row = marshaller().marshallKVPair(keySpan, valSpan);
+
+        tbl.put(row);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> putAsync(BinaryObject key, BinaryObject val) {
+    @Override public @NotNull IgniteFuture<Void> putAsync(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public void putAll(Map<BinaryObject, BinaryObject> pairs) {
+    @Override public void putAll(Map<ColSpan, ColSpan> pairs) {
 
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> putAllAsync(Map<BinaryObject, BinaryObject> pairs) {
+    @Override public @NotNull IgniteFuture<Void> putAllAsync(Map<ColSpan, ColSpan> pairs) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject getAndPut(BinaryObject key, BinaryObject val) {
+    @Override public ColSpan getAndPut(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<BinaryObject> getAndPutAsync(BinaryObject key, BinaryObject val) {
+    @Override public @NotNull IgniteFuture<ColSpan> getAndPutAsync(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean putIfAbsent(BinaryObject key, BinaryObject val) {
+    @Override public boolean putIfAbsent(ColSpan key, ColSpan val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> putIfAbsentAsync(BinaryObject key, BinaryObject val) {
+    @Override public @NotNull IgniteFuture<Boolean> putIfAbsentAsync(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean remove(BinaryObject key) {
+    @Override public boolean remove(ColSpan key) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> removeAsync(BinaryObject key) {
+    @Override public @NotNull IgniteFuture<Boolean> removeAsync(ColSpan key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean remove(BinaryObject key, BinaryObject val) {
+    @Override public boolean remove(ColSpan key, ColSpan val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> removeAsync(BinaryObject key, BinaryObject val) {
+    @Override public @NotNull IgniteFuture<Boolean> removeAsync(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<BinaryObject> removeAll(Collection<BinaryObject> keys) {
+    @Override public Collection<ColSpan> removeAll(Collection<ColSpan> keys) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<BinaryObject> removeAllAsync(Collection<BinaryObject> keys) {
+    @Override public @NotNull IgniteFuture<ColSpan> removeAllAsync(Collection<ColSpan> keys) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject getAndRemove(BinaryObject key) {
+    @Override public ColSpan getAndRemove(ColSpan key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<BinaryObject> getAndRemoveAsync(BinaryObject key) {
+    @Override public @NotNull IgniteFuture<ColSpan> getAndRemoveAsync(ColSpan key) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(BinaryObject key, BinaryObject val) {
+    @Override public boolean replace(ColSpan key, ColSpan val) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(BinaryObject key, BinaryObject val) {
+    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(BinaryObject key, BinaryObject oldVal, BinaryObject newVal) {
+    @Override public boolean replace(ColSpan key, ColSpan oldVal, ColSpan newVal) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(BinaryObject key, BinaryObject oldVal,
-        BinaryObject newVal) {
+    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(ColSpan key, ColSpan oldVal,
+        ColSpan newVal) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject getAndReplace(BinaryObject key, BinaryObject val) {
+    @Override public ColSpan getAndReplace(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<BinaryObject> getAndReplaceAsync(BinaryObject key, BinaryObject val) {
+    @Override public @NotNull IgniteFuture<ColSpan> getAndReplaceAsync(ColSpan key, ColSpan val) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public <R extends Serializable> R invoke(
-        BinaryObject key,
-        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
+        ColSpan key,
+        InvokeProcessor<ColSpan, ColSpan, R> proc,
         Serializable... args
     ) {
         return null;
@@ -194,43 +201,40 @@ public class KVImpl implements KV {
 
     /** {@inheritDoc} */
     @Override public @NotNull <R extends Serializable> IgniteFuture<R> invokeAsync(
-        BinaryObject key,
-        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
+        ColSpan key,
+        InvokeProcessor<ColSpan, ColSpan, R> proc,
         Serializable... args
     ) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Serializable> Map<BinaryObject, R> invokeAll(
-        Collection<BinaryObject> keys,
-        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
+    @Override public <R extends Serializable> Map<ColSpan, R> invokeAll(
+        Collection<ColSpan> keys,
+        InvokeProcessor<ColSpan, ColSpan, R> proc,
         Serializable... args
     ) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <R extends Serializable> IgniteFuture<Map<BinaryObject, R>> invokeAllAsync(
-        Collection<BinaryObject> keys,
-        InvokeProcessor<BinaryObject, BinaryObject, R> proc,
+    @Override public @NotNull <R extends Serializable> IgniteFuture<Map<ColSpan, R>> invokeAllAsync(
+        Collection<ColSpan> keys,
+        InvokeProcessor<ColSpan, ColSpan, R> proc,
         Serializable... args
     ) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObjectBuilder binaryBuilder() {
+    @Override public ColSpanBuilder binaryBuilder() {
         return null;
     }
 
     /**
-     * Converts user binary object to row.
-     *
-     * @param o Binary object.
-     * @return Row.
+     * @return Marshaller.
      */
-    private Row toKeyRow(BinaryObject o) {
+    private Marshaller marshaller() {
         return null;
     }
 }

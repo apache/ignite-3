@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.storage;
+
+import org.apache.ignite.internal.table.TableRow;
 
 /**
  * Table storage facade.
@@ -27,7 +29,7 @@ public interface TableStorage {
      * @param keyRow Row with key columns set.
      * @return Row with all columns set.
      */
-    public Row get(Row keyRow);
+    public TableRow get(TableRow keyRow);
 
     /**
      * Puts row from storage.
@@ -35,5 +37,5 @@ public interface TableStorage {
      * @param row Row.
      * @return Replaced row or {@code null}.
      */
-    Row put(Row row);
+    TableRow put(TableRow row);
 }
