@@ -21,7 +21,7 @@ import java.lang.annotation.Annotation;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 
 /**
- * Interface for all configuration validators class. Recommended to be a stateless class.
+ * Interface for all configuration validators. Recommended to be a stateless class.
  *
  * It is mandatory that all direct implementations of the interface explicitly specify types {@code A} and {@code VIEW}.
  *

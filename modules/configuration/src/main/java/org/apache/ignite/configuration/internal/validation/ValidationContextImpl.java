@@ -64,7 +64,7 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
      * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
      * @param val New value of currently validated configuration.
      * @param currentKey Key corresponding to the value.
-     * @param currentPath Key corresponding to the value.
+     * @param currentPath List representation of {@code currentKey}.
      * @param issues List of issues, should be used as a write-only collection.
      */
     ValidationContextImpl(

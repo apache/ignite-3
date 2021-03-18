@@ -30,7 +30,7 @@ public class MinValidator implements Validator<Min, Number> {
     @Override public void validate(Min annotation, ValidationContext<Number> ctx) {
         if (ctx.getNewValue().longValue() < annotation.value()) {
             ctx.addIssue(new ValidationIssue(
-                "Configuration value '" + ctx.currentKey() + "' cannot be less then " + annotation.value()
+                "Configuration value '" + ctx.currentKey() + "' must not be less than " + annotation.value()
             ));
         }
     }

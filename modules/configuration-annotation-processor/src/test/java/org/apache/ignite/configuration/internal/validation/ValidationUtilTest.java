@@ -36,7 +36,6 @@ import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -90,20 +89,12 @@ public class ValidationUtilTest {
     }
 
     /** */
-    private ValidatedRootNode root;
+    private ValidatedRootNode root = new ValidatedRootNode();
 
     /** */
     @BeforeEach
     public void before() {
-        root = new ValidatedRootNode();
-
         ConfigurationUtil.addDefaults(root, root);
-    }
-
-    /** */
-    @AfterEach
-    public void after() {
-        root = null;
     }
 
     /** */
