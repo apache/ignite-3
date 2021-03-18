@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.internal.RootsNode;
+import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.ConstructableTreeNode;
@@ -282,8 +282,8 @@ public class ConfigurationUtil {
      * @return Map of changes.
      */
     public static Map<String, Serializable> nodeToFlatMap(
-        RootsNode curRoots,
-        RootsNode updates
+        SuperRoot curRoots,
+        SuperRoot updates
     ) {
         Map<String, Serializable> values = new HashMap<>();
 
@@ -292,7 +292,7 @@ public class ConfigurationUtil {
             private boolean writeNulls;
 
             /** {@inheritDoc} */
-            @Override public Map<String, Serializable> visitLeafNode0(String key, Serializable val) {
+            @Override public Map<String, Serializable> doVisitLeafNode(String key, Serializable val) {
                 if (val != null)
                     values.put(currentKey(), writeNulls ? null : val);
 
@@ -300,7 +300,7 @@ public class ConfigurationUtil {
             }
 
             /** {@inheritDoc} */
-            @Override public Map<String, Serializable> visitInnerNode0(String key, InnerNode node) {
+            @Override public Map<String, Serializable> doVisitInnerNode(String key, InnerNode node) {
                 if (node == null)
                     return null;
 
@@ -310,7 +310,7 @@ public class ConfigurationUtil {
             }
 
             /** {@inheritDoc} */
-            @Override public <N extends InnerNode> Map<String, Serializable> visitNamedListNode0(String key, NamedListNode<N> node) {
+            @Override public <N extends InnerNode> Map<String, Serializable> doVisitNamedListNode(String key, NamedListNode<N> node) {
                 for (String namedListKey : node.namedListKeys()) {
                     N namedElement = node.get(namedListKey);
 

@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.internal.RootsNode;
+import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.configuration.internal.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
@@ -51,8 +51,8 @@ public class ValidationUtil {
      * @return List of validation results.
      */
     public static List<ValidationIssue> validate(
-        RootsNode oldRoots,
-        RootsNode newRoots,
+        SuperRoot oldRoots,
+        SuperRoot newRoots,
         Function<RootKey<?, ?>, InnerNode> otherRoots,
         Map<MemberKey, Annotation[]> memberAnnotationsCache,
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators
@@ -61,7 +61,7 @@ public class ValidationUtil {
 
         newRoots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
             /** {@inheritDoc} */
-            @Override protected Object visitInnerNode0(String key, InnerNode innerNode) {
+            @Override protected Object doVisitInnerNode(String key, InnerNode innerNode) {
                 assert innerNode != null;
 
                 innerNode.traverseChildren(new AnyNodeConfigurationVisitor<Void>() {
@@ -72,7 +72,7 @@ public class ValidationUtil {
                     }
                 });
 
-                return super.visitInnerNode0(key, innerNode);
+                return super.doVisitInnerNode(key, innerNode);
             }
 
             /**

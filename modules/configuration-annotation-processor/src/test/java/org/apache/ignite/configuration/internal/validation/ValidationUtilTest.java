@@ -29,7 +29,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.internal.RootsNode;
+import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.sample.storage.TestConfigurationStorage;
 import org.apache.ignite.configuration.tree.NamedListView;
@@ -100,7 +100,7 @@ public class ValidationUtilTest {
     /** */
     @Test
     public void validateLeafNode() throws Exception {
-        var rootsNode = new RootsNode(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
+        var rootsNode = new SuperRoot(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<LeafValidation, String> validator = new Validator<>() {
             @Override public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
@@ -125,7 +125,7 @@ public class ValidationUtilTest {
     /** */
     @Test
     public void validateInnerNode() throws Exception {
-        var rootsNode = new RootsNode(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
+        var rootsNode = new SuperRoot(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<InnerValidation, ValidatedChildView> validator = new Validator<>() {
             @Override public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
@@ -150,7 +150,7 @@ public class ValidationUtilTest {
     /** */
     @Test
     public void validateNamedListNode() throws Exception {
-        var rootsNode = new RootsNode(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
+        var rootsNode = new SuperRoot(emptyMap(), Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<NamedListValidation, NamedListView<?>> validator = new Validator<>() {
             @Override public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {

@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.internal.validation;
 import java.util.List;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.internal.RootsNode;
+import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.ValidationContext;
@@ -33,10 +33,10 @@ import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fi
  */
 class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
     /** Cached storage roots with the current version of data. */
-    private final RootsNode oldRoots;
+    private final SuperRoot oldRoots;
 
     /** Updated values that need to be validated. */
-    private final RootsNode newRoots;
+    private final SuperRoot newRoots;
 
     /** Provider for arbitrary roots that might not be accociated with the same storage. */
     private final Function<RootKey<?, ?>, InnerNode> otherRoots;
@@ -68,8 +68,8 @@ class ValidationContextImpl<VIEW> implements ValidationContext<VIEW> {
      * @param issues List of issues, should be used as a write-only collection.
      */
     ValidationContextImpl(
-        RootsNode oldRoots,
-        RootsNode newRoots,
+        SuperRoot oldRoots,
+        SuperRoot newRoots,
         Function<RootKey<?, ?>, InnerNode> otherRoots,
         VIEW val,
         String currentKey,

@@ -39,7 +39,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         int prevPos = startVisit(key, false, true);
 
         try {
-            return visitLeafNode0(key, val);
+            return doVisitLeafNode(key, val);
         }
         finally {
             endVisit(prevPos);
@@ -51,7 +51,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         int prevPos = startVisit(key, false, false);
 
         try {
-            return visitInnerNode0(key, node);
+            return doVisitInnerNode(key, node);
         }
         finally {
             endVisit(prevPos);
@@ -63,7 +63,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         int prevPos = startVisit(key, false, false);
 
         try {
-            return visitNamedListNode0(key, node);
+            return doVisitNamedListNode(key, node);
         }
         finally {
             endVisit(prevPos);
@@ -71,24 +71,24 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     }
 
     /** To be used instead of {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}. */
-    protected T visitLeafNode0(String key, Serializable val) {
+    protected T doVisitLeafNode(String key, Serializable val) {
         return null;
     }
 
     /** To be used instead of {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}. */
-    protected T visitInnerNode0(String key, InnerNode node) {
+    protected T doVisitInnerNode(String key, InnerNode node) {
         node.traverseChildren(this);
 
         return null;
     }
 
     /** To be used instead of {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}. */
-    protected <N extends InnerNode> T visitNamedListNode0(String key, NamedListNode<N> node) {
+    protected <N extends InnerNode> T doVisitNamedListNode(String key, NamedListNode<N> node) {
         for (String namedListKey : node.namedListKeys()) {
             int prevPos = startVisit(namedListKey, true, false);
 
             try {
-                visitInnerNode0(namedListKey, node.get(namedListKey));
+                doVisitInnerNode(namedListKey, node.get(namedListKey));
             }
             finally {
                 endVisit(prevPos);

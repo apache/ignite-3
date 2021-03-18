@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 
 /** */
-public final class RootsNode extends InnerNode {
+public final class SuperRoot extends InnerNode {
     /** */
     private final SortedMap<String, InnerNode> roots = new TreeMap<>();
 
@@ -35,19 +35,19 @@ public final class RootsNode extends InnerNode {
     private final Map<String, RootKey<?, ?>> allRootKeys;
 
     /** Copy constructor. */
-    private RootsNode(RootsNode rootsNode) {
-        roots.putAll(rootsNode.roots);
+    private SuperRoot(SuperRoot superRoot) {
+        roots.putAll(superRoot.roots);
 
-        allRootKeys = rootsNode.allRootKeys;
+        allRootKeys = superRoot.allRootKeys;
     }
 
     /** */
-    public RootsNode(Map<String, RootKey<?, ?>> rootKeys) {
+    public SuperRoot(Map<String, RootKey<?, ?>> rootKeys) {
         allRootKeys = rootKeys;
     }
 
     /** */
-    public RootsNode(Map<String, RootKey<?, ?>> rootKeys, Map<RootKey<?, ?>, InnerNode> roots) {
+    public SuperRoot(Map<String, RootKey<?, ?>> rootKeys, Map<RootKey<?, ?>, InnerNode> roots) {
         allRootKeys = rootKeys;
 
         for (Map.Entry<RootKey<?, ?>, InnerNode> entry : roots.entrySet())
@@ -112,7 +112,7 @@ public final class RootsNode extends InnerNode {
     }
 
     /** {@inheritDoc} */
-    @Override public RootsNode copy() {
-        return new RootsNode(this);
+    @Override public SuperRoot copy() {
+        return new SuperRoot(this);
     }
 }
