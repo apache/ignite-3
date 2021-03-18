@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.client.service;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -70,13 +71,14 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(cluster, false);
 
-        RaftGroupService service = new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, singleton(LEADER.getNode()));
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, this::resolve,false);
 
-        assertNull(service.getLeader());
+        assertNull(service.leader());
 
         service.refreshLeader().get();
 
-        assertEquals(LEADER, service.getLeader());
+        assertEquals(LEADER, service.leader());
     }
 
     @Test
@@ -85,7 +87,8 @@ public class RaftGroupServiceTest {
 
         mockLeaderRequest(cluster, true);
 
-        RaftGroupService service = new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, singleton(LEADER.getNode()));
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, this::resolve, false);
 
         try {
             service.refreshLeader().get();
@@ -105,7 +108,8 @@ public class RaftGroupServiceTest {
         mockUserInput1(cluster);
         mockUserInput2(cluster);
 
-        RaftGroupService service = new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, singleton(LEADER.getNode()));
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, this::resolve, false);
 
         service.refreshLeader().get();
 
@@ -120,6 +124,14 @@ public class RaftGroupServiceTest {
         TestOutput2 output2 = fut2.get();
 
         assertNotNull(output2);
+    }
+
+    /**
+     * @param grpId Group id.
+     * @return Members.
+     */
+    private Set<NetworkMember> resolve(String grpId) {
+        return singleton(LEADER.getNode());
     }
 
     public static class TestInput1 implements WriteCommand {

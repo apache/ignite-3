@@ -20,13 +20,28 @@ package org.apache.ignite.raft.client.service;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.PeerId;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Replication group management service.
+ * A service providing operations on a replication group.
+ * <p>
+ * Most of operations require a known group leader. The group leader can be refreshed at any time by calling
+ * {@link #refreshLeader()} method, otherwise it will happen automatically on a first call.
+ * <p>
+ * If a leader has been changed while the operation in progress, it will be transparently retried until timeout is
+ * reached. The current leader will be refreshed automatically (maybe several times) in the process.
+ * <p>
+ * Each async method (returning a future) uses a default timeout to finish. If a result is not ready within the timeout,
+ * the future will be completed with a {@link TimeoutException}
+ * <p>
+ * If an error is occured during operation execution, the future will be completed with the corresponding
+ * IgniteException having an error code and a related message.
+ * <p>
+ * Async operations provided by the service are not cancellable.
  */
 public interface RaftGroupService {
     /**
@@ -35,36 +50,58 @@ public interface RaftGroupService {
     @NotNull String groupId();
 
     /**
-     * @return Leader id or null if it has not been yet initialized.
+     * @return Default timeout for the operations in milliseconds.
      */
-    @Nullable PeerId getLeader();
+    long timeout();
 
     /**
-     * @return List of peers or null if it has not been yet initialized.
+     * Changes default timeout value for all subsequent operations.
+     *
+     * @param newTimeout New timeout value.
      */
-    @Nullable List<PeerId> getPeers();
+    void timeout(long newTimeout);
 
     /**
-     * @return List of leaners or null if it has not been yet initialized.
+     * @return Current leader id or {@code null} if it has not been yet initialized.
      */
-    @Nullable List<PeerId> getLearners();
+    @Nullable PeerId leader();
+
+    /**
+     * @return List of voting peers or {@code null} if it has not been yet initialized.
+     */
+    @Nullable List<PeerId> peers();
+
+    /**
+     * @return List of leaners or {@code null} if it has not been yet initialized.
+     */
+    @Nullable List<PeerId> learners();
 
     /**
      * Refreshes a replication group leader.
      *
-     * @return A future with the result.
+     * @return A future to wait for completion.
      */
     CompletableFuture<Void> refreshLeader();
 
     /**
-     * Refreshes a replication group members (excluding a leader).
+     * Refreshes replication group members.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
      *
-     * @return A future with the result.
+     * @return A future to wait for completion.
      */
     CompletableFuture<Void> refreshMembers();
 
     /**
      * Adds a voting peer to the raft group.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
      *
      * @param peerId Peer id.
      * @return A future with the result.
@@ -73,6 +110,11 @@ public interface RaftGroupService {
 
     /**
      * Removes a peer from the raft group.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
      *
      * @param peerId Peer id.
      * @return A future with the result.
@@ -80,7 +122,12 @@ public interface RaftGroupService {
     CompletableFuture<Void> removePeers(Collection<PeerId> peerIds);
 
     /**
-     * Adds learners.
+     * Adds learners (non-voting members).
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
      *
      * @param learners List of learners.
      * @return A future with the result.
@@ -89,6 +136,11 @@ public interface RaftGroupService {
 
     /**
      * Removes learners.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
      *
      * @param learners List of learners.
      * @return A future with the result.
@@ -96,7 +148,7 @@ public interface RaftGroupService {
     CompletableFuture<Void> removeLearners(List<PeerId> learners);
 
     /**
-     * Takes a local snapshot.
+     * Takes a state machine snapshot on a given group peer.
      *
      * @param peerId Peer id.
      * @return A future with the result.
@@ -105,6 +157,8 @@ public interface RaftGroupService {
 
     /**
      * Transfer leadership to other peer.
+     * <p>
+     * This operation is executed on a group leader.
      *
      * @param newLeader New leader.
      * @return A future with the result.
@@ -121,7 +175,8 @@ public interface RaftGroupService {
     CompletableFuture<Void> resetPeers(PeerId peerId, List<PeerId> peers);
 
     /**
-     * Submits a command to a replication group leader. If a leader is not initialized yet will try to resolve it.
+     * Submits a user command to a replication group leader.
+     *
      * @param cmd The command.
      * @param <R> Response type.
      * @return A future with the result.

@@ -3,7 +3,7 @@ package org.apache.ignite.raft.client.message;
 import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
 
-public interface ResetPeerRequest {
+public interface ResetPeersRequest {
     String getGroupId();
 
     List<PeerId> getNewPeersList();
@@ -11,8 +11,8 @@ public interface ResetPeerRequest {
     public interface Builder {
         Builder setGroupId(String groupId);
 
-        Builder addNewPeers(PeerId peerId);
+        Builder addPeer(PeerId peerId);
 
-        ResetPeerRequest build();
+        ResetPeersRequest build();
     }
 }

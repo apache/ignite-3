@@ -20,7 +20,7 @@ package org.apache.ignite.raft.client.message.impl;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.message.UserRequest;
 
-public class UserRequestImpl<T> implements UserRequest, UserRequest.Builder {
+class UserRequestImpl<T> implements UserRequest, UserRequest.Builder {
     private Command request;
 
     private String groupId;

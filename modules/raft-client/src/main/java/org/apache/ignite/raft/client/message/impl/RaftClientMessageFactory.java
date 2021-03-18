@@ -19,41 +19,33 @@ package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.message.AddLearnersRequest;
 import org.apache.ignite.raft.client.message.AddPeerRequest;
-import org.apache.ignite.raft.client.message.AddPeerResponse;
-import org.apache.ignite.raft.client.message.ChangePeersRequest;
-import org.apache.ignite.raft.client.message.ChangePeersResponse;
+import org.apache.ignite.raft.client.message.ChangedPeersResponse;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.GetPeersRequest;
 import org.apache.ignite.raft.client.message.GetPeersResponse;
-import org.apache.ignite.raft.client.message.LearnersOpResponse;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeerRequest;
-import org.apache.ignite.raft.client.message.RemovePeerResponse;
 import org.apache.ignite.raft.client.message.ResetLearnersRequest;
-import org.apache.ignite.raft.client.message.ResetPeerRequest;
+import org.apache.ignite.raft.client.message.ResetPeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
 import org.apache.ignite.raft.client.message.TransferLeaderRequest;
 import org.apache.ignite.raft.client.message.UserRequest;
 import org.apache.ignite.raft.client.message.UserResponse;
 
-/** */
+/**
+ * A factory for immutable replication group messages.
+ */
 public interface RaftClientMessageFactory {
     AddPeerRequest.Builder createAddPeerRequest();
 
-    AddPeerResponse.Builder createAddPeerResponse();
+    ChangedPeersResponse.Builder createAddPeerResponse();
 
     RemovePeerRequest.Builder createRemovePeerRequest();
 
-    RemovePeerResponse.Builder createRemovePeerResponse();
-
-    ChangePeersRequest.Builder createChangePeerRequest();
-
-    ChangePeersResponse.Builder createChangePeerResponse();
-
     SnapshotRequest.Builder createSnapshotRequest();
 
-    ResetPeerRequest.Builder createResetPeerRequest();
+    ResetPeersRequest.Builder createResetPeerRequest();
 
     TransferLeaderRequest.Builder createTransferLeaderRequest();
 
@@ -70,8 +62,6 @@ public interface RaftClientMessageFactory {
     RemoveLearnersRequest.Builder createRemoveLearnersRequest();
 
     ResetLearnersRequest.Builder createResetLearnersRequest();
-
-    LearnersOpResponse.Builder createLearnersOpResponse();
 
     UserRequest.Builder createUserRequest();
 

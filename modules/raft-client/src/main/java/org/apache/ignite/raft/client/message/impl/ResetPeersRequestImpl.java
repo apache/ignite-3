@@ -20,9 +20,9 @@ package org.apache.ignite.raft.client.message.impl;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.ResetPeerRequest;
+import org.apache.ignite.raft.client.message.ResetPeersRequest;
 
-class ResetPeerRequestImpl implements ResetPeerRequest, ResetPeerRequest.Builder {
+class ResetPeersRequestImpl implements ResetPeersRequest, ResetPeersRequest.Builder {
     private String groupId;
 
     private List<PeerId> newPeersList = new ArrayList<>();
@@ -41,13 +41,13 @@ class ResetPeerRequestImpl implements ResetPeerRequest, ResetPeerRequest.Builder
         return this;
     }
 
-    @Override public Builder addNewPeers(PeerId peerId) {
+    @Override public Builder addPeer(PeerId peerId) {
         newPeersList.add(peerId);
 
         return this;
     }
 
-    @Override public ResetPeerRequest build() {
+    @Override public ResetPeersRequest build() {
         return this;
     }
 }

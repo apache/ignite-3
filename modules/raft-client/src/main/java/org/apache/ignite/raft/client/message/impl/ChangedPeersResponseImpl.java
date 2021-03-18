@@ -20,34 +20,34 @@ package org.apache.ignite.raft.client.message.impl;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.LearnersOpResponse;
+import org.apache.ignite.raft.client.message.ChangedPeersResponse;
 
-class LearnersOpResponseImpl implements LearnersOpResponse, LearnersOpResponse.Builder {
-    private List<PeerId> oldLearnersList = new ArrayList<>();
+class ChangedPeersResponseImpl implements ChangedPeersResponse, ChangedPeersResponse.Builder {
+    private List<PeerId> oldPeersList = new ArrayList<>();
 
-    private List<PeerId> newLearnersList = new ArrayList<>();
+    private List<PeerId> newPeersList = new ArrayList<>();
 
-    @Override public List<PeerId> getOldLearnersList() {
-        return oldLearnersList;
+    @Override public List<PeerId> getOldPeersList() {
+        return oldPeersList;
     }
 
-    @Override public List<PeerId> getNewLearnersList() {
-        return newLearnersList;
+    @Override public List<PeerId> getNewPeersList() {
+        return newPeersList;
     }
 
-    @Override public Builder addOldLearners(PeerId oldLearnersId) {
-        oldLearnersList.add(oldLearnersId);
+    @Override public Builder addOldPeers(PeerId oldPeersId) {
+        oldPeersList.add(oldPeersId);
 
         return this;
     }
 
-    @Override public Builder addNewLearners(PeerId newLearnersId) {
-        newLearnersList.add(newLearnersId);
+    @Override public Builder addNewPeers(PeerId newPeersId) {
+        newPeersList.add(newPeersId);
 
         return this;
     }
 
-    @Override public LearnersOpResponse build() {
+    @Override public ChangedPeersResponse build() {
         return this;
     }
 }

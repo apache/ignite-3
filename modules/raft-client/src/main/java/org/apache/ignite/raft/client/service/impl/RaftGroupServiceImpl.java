@@ -21,11 +21,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.UserRequest;
 import org.apache.ignite.raft.client.message.UserResponse;
@@ -33,18 +33,26 @@ import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
+/**
+ * The implementation of {@link RaftGroupService}
+ */
 public class RaftGroupServiceImpl implements RaftGroupService {
+    /** */
+    private static System.Logger LOG = System.getLogger(RaftGroupService.class.getName());
+
+    /** */
+    private static CompletableFuture<Void> FINISHED_FUT = CompletableFuture.completedFuture(null);
+
     /** */
     private final int timeout;
 
     /** */
     private final String groupId;
 
-    /** Where to ask for raft leader. */
-    private final Set<NetworkMember> initialMembers;
+    /** Where to ask for leader. */
+    private final Function<String, Set<NetworkMember>> initialMembersResolver;
 
+    /** */
     private final RaftClientMessageFactory factory;
 
     /** */
@@ -64,41 +72,63 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param cluster A cluster.
      * @param factory A message factory.
      * @param timeout Request timeout.
-     * @param initialMembers Initial members of a group.
+     * @param initialMembersResolver A closure to resolve network members for a group.
+     * @param refreshLeader {@code True} to synchronously refresh leader on service creation.
      */
     public RaftGroupServiceImpl(
         String groupId,
         NetworkCluster cluster,
         RaftClientMessageFactory factory,
         int timeout,
-        Set<NetworkMember> initialMembers
+        Function<String, Set<NetworkMember>> initialMembersResolver,
+        boolean refreshLeader
     ) {
         this.cluster = cluster;
-        this.initialMembers = initialMembers;
+        this.initialMembersResolver = initialMembersResolver;
         this.factory = factory;
         this.timeout = timeout;
         this.groupId = groupId;
+
+        if (refreshLeader) {
+            try {
+                refreshLeader().get();
+            }
+            catch (Exception e) {
+                error("Failed to refresh a leader", e);
+            }
+        }
     }
 
     @Override public @NotNull String groupId() {
         return groupId;
     }
 
-    @Override public PeerId getLeader() {
+    @Override public long timeout() {
+        return 0;
+    }
+
+    @Override public void timeout(long newTimeout) {
+
+    }
+
+    @Override public PeerId leader() {
         return leader;
     }
 
-    @Override public List<PeerId> getPeers() {
+    @Override public List<PeerId> peers() {
         return peers;
     }
 
-    @Override public List<PeerId> getLearners() {
+    @Override public List<PeerId> learners() {
         return learners;
     }
 
     @Override public CompletableFuture<Void> refreshLeader() {
+        Set<NetworkMember> members = initialMembersResolver.apply(groupId);
+
+        // TODO Try all members.
         return cluster.<GetLeaderResponse>sendWithResponse(
-            initialMembers.iterator().next(),
+            members.iterator().next(),
             factory.createGetLeaderRequest().setGroupId(groupId).build(),
             timeout).thenApply(resp -> {
             leader = resp.getLeaderId();
@@ -144,10 +174,25 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         PeerId leader = this.leader;
 
-        CompletableFuture<Void> fut0 = leader == null ? refreshLeader() : completedFuture(null);
+        CompletableFuture<Void> refreshLeaderFut = leader == null ? refreshLeader() : FINISHED_FUT;
 
-        CompletableFuture<UserResponse<R>> fut1 = fut0.thenCompose(peerId -> cluster.sendWithResponse(leader.getNode(), req, timeout));
+        return refreshLeaderFut.<UserResponse<R>>thenCompose(peerId -> cluster.sendWithResponse(leader.getNode(), req, timeout)).
+            thenApply(resp -> resp.response());
+    }
 
-        return fut1.thenApply(resp -> resp.response());
+    private void info(String msg, Object... params) {
+        LOG.log(System.Logger.Level.INFO, msg, params);
+    }
+
+    private void warn(String msg, Object... params) {
+        LOG.log(System.Logger.Level.WARNING, msg, params);
+    }
+
+    private void error(String msg, Object... params) {
+        LOG.log(System.Logger.Level.ERROR, msg, params);
+    }
+
+    private void error(String msg, Exception e) {
+        LOG.log(System.Logger.Level.ERROR, msg, e);
     }
 }
