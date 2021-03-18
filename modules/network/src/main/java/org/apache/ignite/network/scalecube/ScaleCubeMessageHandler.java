@@ -16,12 +16,12 @@
  */
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.transport.api.Message;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import io.scalecube.cluster.Cluster;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
-import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
 import org.apache.ignite.network.NetworkClusterEventHandler;
 import org.apache.ignite.network.NetworkMember;
@@ -64,7 +64,9 @@ public class ScaleCubeMessageHandler implements ClusterMessageHandler {
     /** {@inheritDoc} */
     @Override public void onMessage(Message message) {
         for (NetworkMessageHandler handler : messageHandlerHolder.messageHandlers()) {
-            handler.onReceived(new NetworkMessage(message.data(), memberForAddress(message.sender())));
+            NetworkMessage msg = message.data();
+            msg.sender(memberForAddress(message.sender()));
+            handler.onReceived(msg);
         }
     }
 

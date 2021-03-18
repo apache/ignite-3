@@ -20,15 +20,25 @@ package org.apache.ignite.network.scalecube;
 
 import java.io.Serializable;
 import java.util.Objects;
+import org.apache.ignite.network.AckResponse;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.Request;
 
 /** */
-class TestMessage implements Serializable {
+class TestMessage extends Request<AckResponse> implements Serializable {
+    /** Visible type for tests. */
+    public static final short TYPE = 1000;
+
     /** */
     private final String msg;
 
     /** */
     TestMessage(String msg) {
         this.msg = msg;
+    }
+
+    public String msg() {
+        return msg;
     }
 
     /** {@inheritDoc} */
@@ -51,5 +61,10 @@ class TestMessage implements Serializable {
         return "TestMessage{" +
             "msg='" + msg + '\'' +
             '}';
+    }
+
+    /** {@inheritDoc} */
+    @Override public short type() {
+        return TYPE;
     }
 }

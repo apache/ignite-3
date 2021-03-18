@@ -14,38 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
 /**
- * Message for exchange information in cluster.
+ * MessageMapper provides functionality for reading and writing {@link NetworkMessage} objects.
+ * @param <M>
  */
-public abstract class NetworkMessage {
-    /** Network member who sent this message. */
-    private NetworkMember sender;
+public interface MessageMapper<M extends NetworkMessage> {
+    /**
+     * Read
+     * @param objectInputStream
+     * @return
+     * @throws MessageMappingException
+     */
+    M readMessage(ObjectInputStream objectInputStream) throws MessageMappingException;
 
     /**
-     * Constructor.
+     *
+     * @param message
+     * @param objectOutputStream
+     * @throws MessageMappingException
      */
-    public NetworkMessage() {
-    }
+    void writeMessage(M message, ObjectOutputStream objectOutputStream) throws MessageMappingException;
 
-    /**
-     * Set sender.
-     * @param sender Sender of this message.
-     */
-    public void sender(NetworkMember sender) {
-        this.sender = sender;
-    }
-
-    /**
-     * @return Network member who sent this message.
-     */
-    public NetworkMember sender() {
-        return sender;
-    }
-
-    /**
-     * @return Message type.
-     */
-    public abstract short type();
 }

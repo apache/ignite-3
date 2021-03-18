@@ -20,9 +20,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import org.apache.ignite.network.MessageHandlerHolder;
+import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkClusterFactory;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
@@ -54,7 +53,7 @@ class ITScaleCubeNetworkClusterMessagingTest {
     /** */
     @Test
     @Disabled
-    public void messageWasSentToAllMembersSuccessfully() {
+    public void messageWasSentToAllMembersSuccessfully() throws Exception {
         //Given: Three started member which are gathered to cluster.
         List<String> addresses = List.of("localhost:3344", "localhost:3345", "localhost:3346");
 
@@ -72,9 +71,9 @@ class ITScaleCubeNetworkClusterMessagingTest {
         }
 
         //Then: All members successfully received message.
-        assertThat(getLastMessage(alice).data(), is(sentMessage));
-        assertThat(getLastMessage(bob).data(), is(sentMessage));
-        assertThat(getLastMessage(carol).data(), is(sentMessage));
+        assertThat(getLastMessage(alice), is(sentMessage));
+        assertThat(getLastMessage(bob), is(sentMessage));
+        assertThat(getLastMessage(carol), is(sentMessage));
     }
 
     /** */
@@ -86,8 +85,13 @@ class ITScaleCubeNetworkClusterMessagingTest {
      * @return Started member.
      */
     private NetworkCluster startMember(String name, int port, List<String> addresses) {
-        NetworkCluster member = new NetworkClusterFactory(name, port, addresses)
-            .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
+        Network network = new Network(
+            new ScaleCubeNetworkClusterFactory(name, port, addresses, new ScaleCubeMemberResolver())
+        );
+
+        network.registerMessageMapper(TestMessage.TYPE, new TestMessageMapper());
+
+        NetworkCluster member = network.start();
 
         member.addHandlersProvider(new TestNetworkHandlersProvider(name));
 

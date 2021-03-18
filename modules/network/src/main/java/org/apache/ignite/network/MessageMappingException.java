@@ -14,38 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
 /**
- * Message for exchange information in cluster.
+ * Exception happened during message serializing or deserializing.
  */
-public abstract class NetworkMessage {
-    /** Network member who sent this message. */
-    private NetworkMember sender;
+public class MessageMappingException extends RuntimeException {
+    /**
+     * Constructor.
+     * @param message Message mapping error message.
+     */
+    public MessageMappingException(String message) {
+        super(message);
+    }
 
     /**
      * Constructor.
+     * @param message Message mapping error message.
+     * @param cause Cause of message mapping error.
      */
-    public NetworkMessage() {
+    public MessageMappingException(String message, Throwable cause) {
+        super(message, cause);
     }
-
-    /**
-     * Set sender.
-     * @param sender Sender of this message.
-     */
-    public void sender(NetworkMember sender) {
-        this.sender = sender;
-    }
-
-    /**
-     * @return Network member who sent this message.
-     */
-    public NetworkMember sender() {
-        return sender;
-    }
-
-    /**
-     * @return Message type.
-     */
-    public abstract short type();
 }

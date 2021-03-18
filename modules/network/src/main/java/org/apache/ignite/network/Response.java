@@ -14,38 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
 /**
- * Message for exchange information in cluster.
+ * Message that is response to a {@link Request}.
  */
-public abstract class NetworkMessage {
-    /** Network member who sent this message. */
-    private NetworkMember sender;
-
-    /**
-     * Constructor.
-     */
-    public NetworkMessage() {
-    }
-
-    /**
-     * Set sender.
-     * @param sender Sender of this message.
-     */
-    public void sender(NetworkMember sender) {
-        this.sender = sender;
-    }
-
-    /**
-     * @return Network member who sent this message.
-     */
-    public NetworkMember sender() {
-        return sender;
-    }
-
-    /**
-     * @return Message type.
-     */
-    public abstract short type();
+public abstract class Response extends NetworkMessage {
 }

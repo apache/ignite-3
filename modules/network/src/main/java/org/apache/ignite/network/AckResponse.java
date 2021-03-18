@@ -14,38 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
 /**
- * Message for exchange information in cluster.
+ * Response without actual data, that just states the fact of the receiving of a request message.
  */
-public abstract class NetworkMessage {
-    /** Network member who sent this message. */
-    private NetworkMember sender;
-
-    /**
-     * Constructor.
-     */
-    public NetworkMessage() {
+public class AckResponse extends Response {
+    /** {@inheritDoc} */
+    @Override public short type() {
+        return 0;
     }
-
-    /**
-     * Set sender.
-     * @param sender Sender of this message.
-     */
-    public void sender(NetworkMember sender) {
-        this.sender = sender;
-    }
-
-    /**
-     * @return Network member who sent this message.
-     */
-    public NetworkMember sender() {
-        return sender;
-    }
-
-    /**
-     * @return Message type.
-     */
-    public abstract short type();
 }

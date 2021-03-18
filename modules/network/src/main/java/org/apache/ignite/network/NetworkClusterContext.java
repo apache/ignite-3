@@ -14,38 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
+import java.util.Map;
+
 /**
- * Message for exchange information in cluster.
+ * Cluster context.
  */
-public abstract class NetworkMessage {
-    /** Network member who sent this message. */
-    private NetworkMember sender;
+public class NetworkClusterContext {
+    /** Message handlers. */
+    private final MessageHandlerHolder messageHandlerHolder;
+
+    /** Message mappers, message type -> message mapper. */
+    private final Map<Short, MessageMapper> messageMappers;
 
     /**
      * Constructor.
+     * @param messageHandlerHolder Message handlers.
+     * @param messageMappers Message mappers map.
      */
-    public NetworkMessage() {
+    public NetworkClusterContext(MessageHandlerHolder messageHandlerHolder, Map<Short, MessageMapper> messageMappers) {
+        this.messageHandlerHolder = messageHandlerHolder;
+        this.messageMappers = messageMappers;
     }
 
     /**
-     * Set sender.
-     * @param sender Sender of this message.
+     * @return Message handlers.
      */
-    public void sender(NetworkMember sender) {
-        this.sender = sender;
+    public MessageHandlerHolder messageHandlerHolder() {
+        return messageHandlerHolder;
     }
 
     /**
-     * @return Network member who sent this message.
+     * @return Message mappers map.
      */
-    public NetworkMember sender() {
-        return sender;
+    public Map<Short, MessageMapper> messageMappers() {
+        return messageMappers;
     }
-
-    /**
-     * @return Message type.
-     */
-    public abstract short type();
 }
