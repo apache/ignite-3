@@ -18,14 +18,14 @@
 package org.apache.ignite.table;
 
 /**
- * Key-value like interface provides synchronous and asynchronous methods to access table data
+ * Key-value view of table provides methods to access the data using key-value approach and
  * regarding the binary object concept.
  */
-public interface KeyValueBinaryView extends KeyValueView<ColSpan, ColSpan> {
+public interface KeyValueBinaryView extends KeyValueView<Tuple, Tuple> {
     /**
      * Factory method shortcut.
      *
-     * @return Binary builder.
+     * @return Tuple builder.
      */
-    ColSpanBuilder binaryBuilder();
+    TupleBuilder tupleBuilder();
 }

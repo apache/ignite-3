@@ -19,10 +19,8 @@ package org.apache.ignite.binary;
 
 /**
  * Binary object wraps byte[].
- *
- * @apiNote Binary objects are not intended to be managed with schema manager.
  */
-//TODO: Stub interface. Rework in IGNITE-14316
+//TODO: IGNITE-14316: Replace this stub with a proper interface.
 public interface BinaryObject {
     /**
      * @return Serialized data.

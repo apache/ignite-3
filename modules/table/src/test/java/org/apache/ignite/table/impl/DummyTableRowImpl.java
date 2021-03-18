@@ -18,28 +18,19 @@
 package org.apache.ignite.table.impl;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.internal.schema.Tuple;
 import org.apache.ignite.internal.table.RowChunk;
 import org.apache.ignite.internal.table.TableRow;
-import org.apache.ignite.binary.BinaryObject;
 
 /**
  * Stub class.
  */
 public class DummyTableRowImpl implements TableRow {
-    //TODO: Replace with Tuple layout constants.
-    /** */
-    private static final int SCHEMA_VERSION_OFFSET = 0;
+    /** Key offset in tuple. */
+    private static final int KEY_OFFSET = Tuple.TUPLE_HEADER_SIZE;
 
-    /** */
-    private static final int FLAGS_OFFSET = SCHEMA_VERSION_OFFSET + 2;
-
-    /** */
-    private static final int KEY_HASH_OFFSET = FLAGS_OFFSET + 2;
-
-    /** */
-    private static final int KEY_OFFSET = KEY_HASH_OFFSET + 4;
-
-    /** */
+    /** Payload. */
     private final byte[] bytes;
 
     /**
@@ -57,7 +48,7 @@ public class DummyTableRowImpl implements TableRow {
     }
 
     /** {@inheritDoc} */
-    @Override public RowChunk keySpan() {
+    @Override public RowChunk keyChunk() {
         return new DummyTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes());
@@ -70,7 +61,7 @@ public class DummyTableRowImpl implements TableRow {
     }
 
     /** {@inheritDoc} */
-    @Override public RowChunk valueSpan() {
+    @Override public RowChunk valueChunk() {
         return new DummyTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes());

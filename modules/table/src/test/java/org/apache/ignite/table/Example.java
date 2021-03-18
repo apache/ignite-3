@@ -55,7 +55,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase1(Table t) {
         // Search row will allow nulls even in non-null columns.
-        ColSpan res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
+        Tuple res = t.get(t.tupleBuilder().set("id", 1).set("orgId", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");
@@ -265,7 +265,7 @@ public class Example {
         OrderValue ov = orderKvView.get(new OrderKey(1, 1));
 
         // Same with direct Row access and BinaryObject wrapper.
-        ColSpan res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
+        Tuple res = t.get(t.tupleBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("billingDetails");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -314,7 +314,7 @@ public class Example {
     @ParameterizedTest
     @MethodSource("tableFactory")
     public void useCase5(Table t) {
-        ColSpan res = t.get(t.binaryBuilder().set("id", 1).set("orgId", 1).build());
+        Tuple res = t.get(t.tupleBuilder().set("id", 1).set("orgId", 1).build());
 
         byte[] objData = res.value("originalObject");
         BinaryObject binObj = BinaryObjects.wrap(objData);
@@ -329,7 +329,7 @@ public class Example {
             final int orgId;
 
             byte[] originalObject;
-            ColSpan upgradedObject;
+            Tuple upgradedObject;
             int department;
 
             Record(int id, int orgId) {
@@ -398,7 +398,7 @@ public class Example {
     @MethodSource("tableFactory")
     public void useCase6(Table t) {
         // Search row will allow nulls even in non-null columns.
-        ColSpan res = t.get(t.binaryBuilder().set("id", 1).build());
+        Tuple res = t.get(t.tupleBuilder().set("id", 1).build());
 
         String name = res.value("name");
         String lastName = res.value("latName");

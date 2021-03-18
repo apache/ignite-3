@@ -18,16 +18,16 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.table.TableRow;
-import org.apache.ignite.table.ColSpan;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public interface Marshaller {
     <K> TableRow serializeKey(@NotNull K key);
 
-    TableRow marshallRecord(@NotNull ColSpan rec);
+    TableRow marshallRecord(@NotNull Tuple rec);
 
-    TableRow marshallKVPair(@NotNull ColSpan keySpan, @Nullable ColSpan valSpan);
+    TableRow marshallKVPair(@NotNull Tuple keyTuple, @Nullable Tuple valTuple);
 
     <K> @NotNull K deserializeKey(@NotNull TableRow row);
 

@@ -15,15 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.binary;
+package org.apache.ignite.table;
 
 /**
- * Binary object builder.
+ * Tuple builder interface.
  */
-//TODO: Stub interface. Rework in IGNITE-14316
-public interface BinaryObjectBuilder {
+public interface TupleBuilder {
     /**
-     * @return Binary object.
+     * Sets column value.
+     *
+     * @param colName Column name.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
      */
-    BinaryObject build();
+    TupleBuilder set(String colName, Object value);
+
+    /**
+     * @return Tuple.
+     */
+    Tuple build();
 }

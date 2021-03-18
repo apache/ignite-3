@@ -21,13 +21,16 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.table.mapper.Mappers;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Key-Value interface provides synchronous and asynchronous methods to access table data.
+ * Key-Value view of table provides methods to access table records.
  *
  * @param <K> Mapped key type.
  * @param <V> Mapped value type.
+ * @apiNote 'Key/value class field' &gt;-&lt 'table column' mapping laid down in implementation.
+ * @see Mappers
  */
 public interface KeyValueView<K, V> {
     /**
@@ -311,7 +314,8 @@ public interface KeyValueView<K, V> {
      * @return Future representing pending completion of the operation.
      * @see InvokeProcessor
      */
-    @NotNull <R extends Serializable> IgniteFuture<R> invokeAsync(K key, InvokeProcessor<K, V, R> proc, Serializable... args);
+    @NotNull <R extends Serializable> IgniteFuture<R> invokeAsync(K key, InvokeProcessor<K, V, R> proc,
+        Serializable... args);
 
     /**
      * Executes invoke processor code against values associated with the provided keys.

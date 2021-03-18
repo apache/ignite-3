@@ -18,7 +18,7 @@
 package org.apache.ignite.table.mapper;
 
 import java.util.function.Function;
-import org.apache.ignite.table.ColSpan;
+import org.apache.ignite.table.Tuple;
 
 /**
  *
@@ -27,7 +27,7 @@ public interface RecordMapper<R> {
     public interface Builder<R> {
         public Builder<R> map(String fieldName, Class<?> targetClass);
 
-        public Builder<R> map(String fieldName, Function<ColSpan, Object> mapping);
+        public Builder<R> map(String fieldName, Function<Tuple, Object> mapping);
 
         public RecordMapper<R> build();
     }

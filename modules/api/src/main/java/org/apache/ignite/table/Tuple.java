@@ -20,11 +20,11 @@ package org.apache.ignite.table;
 import org.apache.ignite.binary.BinaryObject;
 
 /**
- * Column span provides access to arbitrary column belongs to the span.
+ * Tuple represents arbitrary set of columns whose values is accessible by column name.
+ *
+ * Provides specialized method for some value-types to avoid boxing/unboxing.
  */
-public interface ColSpan { //TODO: Rename to Tuple
-    //TODO: Add ticket for getMetadata()
-    //TODO: Add ticket for indexed access to column.
+public interface Tuple {
     /**
      * Gets column value for given column name.
      *

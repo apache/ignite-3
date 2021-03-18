@@ -17,13 +17,16 @@
 
 package org.apache.ignite.table;
 
+import org.apache.ignite.table.mapper.Mappers;
+
 /**
- * Record view interface provides synchronous and asynchronous methods to access table data.
+ * Record view of table provides methods to access table records.
  * <p>
+ * @param <R> Record type.
+ * @apiNote 'Record class field' &gt;-&lt 'table column' mapping laid down in implementation.
  * @apiNote Some methods require a record with the only key fields set. This is not mandatory requirement
  * and value fields will be just ignored.
- *
- * @param <R> Record type.
+ * @see Mappers
  */
 public interface RecordView<R> extends TableView<R> {
     /**

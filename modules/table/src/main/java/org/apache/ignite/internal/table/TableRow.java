@@ -23,14 +23,14 @@ package org.apache.ignite.internal.table;
  */
 public interface TableRow extends RowChunk {
     /**
-     * @return Column span over key columns.
+     * @return Key chunk.
      */
-    RowChunk keySpan();
+    RowChunk keyChunk();
 
     /**
-     * @return Column span over value columns.
+     * @return Value chunk.
      */
-    RowChunk valueSpan();
+    RowChunk valueChunk();
 
     /**
      * @return Row schema version.

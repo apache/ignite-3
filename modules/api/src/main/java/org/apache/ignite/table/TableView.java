@@ -24,25 +24,25 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Table view interface provides synchronous and asynchronous methods to access table data.
+ * Table view interface provides methods to access table records.
  *
- * @param <R> Mapped Record type.
- * @apiNote Some methods require a record with the only key fields set. This is not mandatory requirement
- * and value fields will be just ignored.
+ * @param <R> Mapped record type.
+ * @apiNote Some methods require a record with the only key columns set. This is not mandatory requirement
+ * and value columns will be just ignored.
  */
 public interface TableView<R> {
     /**
-     * Gets a record with same key fields values as given one from the table.
+     * Gets a record with same key columns values as given one from the table.
      *
-     * @param keyRec Record with key fields set.
-     * @return Record with all fields filled from the table.
+     * @param keyRec Record with key columns set.
+     * @return Record with all columns filled from the table.
      */
     R get(R keyRec);
 
     /**
-     * Asynchronously gets a record with same key fields values as given one from the table.
+     * Asynchronously gets a record with same key columns values as given one from the table.
      *
-     * @param keyRec Record with key fields set.
+     * @param keyRec Record with key columns set.
      * @return Future representing pending completion of the operation.
      */
     @NotNull IgniteFuture<R> getAsync(R keyRec);
@@ -50,15 +50,15 @@ public interface TableView<R> {
     /**
      * Get records from the table.
      *
-     * @param keyRecs Records with key fields set.
-     * @return Records with all fields filled from the table.
+     * @param keyRecs Records with key columns set.
+     * @return Records with all columns filled from the table.
      */
     Collection<R> getAll(Collection<R> keyRecs);
 
     /**
      * Asynchronously get records from the table.
      *
-     * @param keyRecs Records with key fields set.
+     * @param keyRecs Records with key columns set.
      * @return Future representing pending completion of the operation.
      */
     @NotNull IgniteFuture<Collection<R>> getAllAsync(Collection<R> keyRecs);
@@ -142,7 +142,7 @@ public interface TableView<R> {
     @NotNull IgniteFuture<Collection<R>> insertAllAsync(Collection<R> recs);
 
     /**
-     * Replaces an existed record associated with the same key fields values as the given one has.
+     * Replaces an existed record associated with the same key columns values as the given one has.
      *
      * @param rec Record to replace with.
      * @return {@code True} if old record was found and replaced successfully, {@code false} otherwise.
@@ -150,7 +150,7 @@ public interface TableView<R> {
     boolean replace(R rec);
 
     /**
-     * Asynchronously replaces an existed record associated with the same key fields values as the given one has.
+     * Asynchronously replaces an existed record associated with the same key columns values as the given one has.
      *
      * @param rec Record to replace with.
      * @return Future representing pending completion of the operation.
@@ -176,7 +176,7 @@ public interface TableView<R> {
     @NotNull IgniteFuture<Boolean> replaceAsync(R oldRec, R newRec);
 
     /**
-     * Gets an existed record associated with the same key fields values as the given one has,
+     * Gets an existed record associated with the same key columns values as the given one has,
      * then replaces with the given one.
      *
      * @param rec Record to replace with.
@@ -185,7 +185,7 @@ public interface TableView<R> {
     R getAndReplace(R rec);
 
     /**
-     * Asynchronously gets an existed record associated with the same key fields values as the given one has,
+     * Asynchronously gets an existed record associated with the same key columns values as the given one has,
      * then replaces with the given one.
      *
      * @param rec Record to replace with.
@@ -194,17 +194,17 @@ public interface TableView<R> {
     @NotNull IgniteFuture<R> getAndReplaceAsync(R rec);
 
     /**
-     * Deletes a record with the same key fields values as the given one from the table.
+     * Deletes a record with the same key columns values as the given one from the table.
      *
-     * @param keyRec Record with key fields set.
+     * @param keyRec Record with key columns set.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
     boolean delete(R keyRec);
 
     /**
-     * Asynchronously deletes a record with the same key fields values as the given one from the table.
+     * Asynchronously deletes a record with the same key columns values as the given one from the table.
      *
-     * @param keyRec Record with key fields set.
+     * @param keyRec Record with key columns set.
      * @return Future representing pending completion of the operation.
      */
     @NotNull IgniteFuture<Boolean> deleteAsync(R keyRec);
@@ -226,33 +226,33 @@ public interface TableView<R> {
     @NotNull IgniteFuture<Boolean> deleteExactAsync(R oldRec);
 
     /**
-     * Gets then deletes a record with the same key fields values from the table.
+     * Gets then deletes a record with the same key columns values from the table.
      *
-     * @param rec Record with key fields set.
+     * @param rec Record with key columns set.
      * @return Removed record or {@code null} if not existed.
      */
     R getAndDelete(R rec);
 
     /**
-     * Asynchronously gets then deletes a record with the same key fields values from the table.
+     * Asynchronously gets then deletes a record with the same key columns values from the table.
      *
-     * @param rec Record with key fields set.
+     * @param rec Record with key columns set.
      * @return Future representing pending completion of the operation.
      */
     @NotNull IgniteFuture<R> getAndDeleteAsync(R rec);
 
     /**
-     * Remove records with the same key fields values as the given one has from the table.
+     * Remove records with the same key columns values as the given one has from the table.
      *
-     * @param recs Records with key fields set.
-     * @return Records with key fields set that were not exists.
+     * @param recs Records with key columns set.
+     * @return Records with key columns set that were not exists.
      */
     Collection<R> deleteAll(Collection<R> recs);
 
     /**
-     * Asynchronously remove records with the same key fields values as the given one has from the table.
+     * Asynchronously remove records with the same key columns values as the given one has from the table.
      *
-     * @param recs Records with key fields set.
+     * @param recs Records with key columns set.
      * @return Future representing pending completion of the operation.
      */
     @NotNull IgniteFuture<Collection<R>> deleteAllAsync(Collection<R> recs);
@@ -274,34 +274,34 @@ public interface TableView<R> {
     @NotNull IgniteFuture<Collection<R>> deleteAllExactAsync(Collection<R> recs);
 
     /**
-     * Executes an InvokeProcessor code against a record with the same key fields values as the given one has.
+     * Executes an InvokeProcessor code against a record with the same key columns values as the given one has.
      *
-     * @param keyRec Record with key fields set.
+     * @param keyRec Record with key columns set.
      * @return Results of the processing.
      */
     <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, R, T> proc);
 
     /**
      * Asynchronously executes an InvokeProcessor code against a record
-     * with the same key fields values as the given one has.
+     * with the same key columns values as the given one has.
      *
-     * @param keyRec Record with key fields set.
+     * @param keyRec Record with key columns set.
      * @return Future representing pending completion of the operation.
      */
     @NotNull <T extends Serializable> IgniteFuture<T> invokeAsync(R keyRec, InvokeProcessor<R, R, T> proc);
 
     /**
-     * Executes an InvokeProcessor code against records with the same key fields values as the given ones has.
+     * Executes an InvokeProcessor code against records with the same key columns values as the given ones has.
      *
-     * @param keyRecs Records with key fields set.
+     * @param keyRecs Records with key columns set.
      * @return Results of the processing.
      */
     <T extends Serializable> Map<R, T> invokeAll(Collection<R> keyRecs, InvokeProcessor<R, R, T> proc);
 
     /**
-     * Asynchronously executes an InvokeProcessor against records with the same key fields values as the given ones has.
+     * Asynchronously executes an InvokeProcessor against records with the same key columns values as the given ones has.
      *
-     * @param keyRecs Records with key fields set.
+     * @param keyRecs Records with key columns set.
      * @return Results of the processing.
      */
     @NotNull <T extends Serializable> IgniteFuture<Map<R, T>> invokeAllAsync(Collection<R> keyRecs,

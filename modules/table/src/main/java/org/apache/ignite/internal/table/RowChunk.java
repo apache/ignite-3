@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
-import org.apache.ignite.table.ColSpan;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Column span over table row columns.
+ * Table row chunk.
  */
-public interface RowChunk extends ColSpan {
+public interface RowChunk extends Tuple {
     /**
-     * @return Serialized column span.
+     * @return Row chunk bytes.
      */
     public byte[] toBytes();
 }

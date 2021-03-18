@@ -19,32 +19,40 @@ package org.apache.ignite.table;
 
 /**
  * Invocation context.
- * //TODO: Describe. Impossible to update schema inside InvokeProc.
  * //TODO: Describe methods. Add examples.
  *
- * @param <K> Target key object type.
+ * @param <K> Target object type.
  * @param <V> Value object type.
  */
 public interface InvocationContext<K, V> {
     /**
-     * @return Processor invocation arguments provided by user.
+     * @return Processor invocation arguments provided by user to invoke() method.
      */
     Object[] args();
 
     /**
-     * @return Key object which associated value is processed.
+     * Returns an object the user provide associated with the target row.
+     *
+     * @return Object is associated with target row. Either Key object or record object with key fields set or
+     * tuple with key fields set.
      */
     K key();
 
     /**
-     * @return Current value associated with the requested key.
+     * Returns current value of row associated with the requested key.
+     *
+     * @return Current value of target row. Either value object or record object or tuple with value fields set.
      */
     V value();
 
     /**
-     * Sets new value for the requested key.
+     * Sets new value for the target row.
      *
-     * @param val Value object to set.
+     * New value MUST be compliant with the current schema version.
+     * InvokeProcessor executes atomically under lock which makes impossible to trigger 'live-schema' upgrade.
+     *
+     * @param val Value object to set. Either value object or record object or tuple with value fields set.
+     * @throws InvokeProcessorException if new value is not compliant with the current schema.
      */
     void value(V val);
 }

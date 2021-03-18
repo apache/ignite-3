@@ -20,16 +20,24 @@ package org.apache.ignite.table;
 import java.io.Serializable;
 
 /**
- * Invoke processor interface provides API to run code on server side against a value associated with provided key.
+ * Invoke processor interface provides API to run code on server side against a table record
+ * associated with provided key.
+ * <p>
+ * For non-binary projections row will be deserialized to user object(s) before the invocation
+ * and serialized back if a new value was set via {@link InvocationContext#value(V)}.
+ * <p>
+ * Invoke operation arguments along with invoke operation result classes MUST be serializable
+ * as they can be transferred over network.
  *
- * @param <K> Target object type.
+ * @param <K> Key object type.
  * @param <V> Value type.
  * @param <R> Processor result type.
- * @apiNote Processor must always be deployed to nodes. A server node must never got it from the classpath.
+ * @apiNote Distributed deployment MUST be used for processor code load instead of load form the classpath
+ * to guarantee same code revision in the grid.
  */
 public interface InvokeProcessor<K, V, R extends Serializable> extends Serializable {
     /**
-     * Process entry and return the result.
+     * Processes table record and return the result.
      *
      * @param ctx Invocation context.
      * @return Invoke processor result.

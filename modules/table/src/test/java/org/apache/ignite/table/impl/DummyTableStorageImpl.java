@@ -32,7 +32,7 @@ public class DummyTableStorageImpl implements TableStorage {
 
     /** {@inheritDoc} */
     @Override public TableRow get(TableRow obj) {
-        DummyTableRowImpl row = store.get(new BinaryObjWrapper(obj.keySpan().toBytes()));
+        DummyTableRowImpl row = store.get(new BinaryObjWrapper(obj.keyChunk().toBytes()));
 
         return row; // Clone.
     }
@@ -40,7 +40,7 @@ public class DummyTableStorageImpl implements TableStorage {
     /** {@inheritDoc} */
     @Override public TableRow put(TableRow row) {
        return store.put(
-            new BinaryObjWrapper(row.keySpan().toBytes()),
+            new BinaryObjWrapper(row.keyChunk().toBytes()),
             new DummyTableRowImpl(row.toBytes()));
     }
 

@@ -23,13 +23,21 @@ import org.apache.ignite.table.mapper.RecordMapper;
 import org.apache.ignite.table.mapper.ValueMapper;
 
 /**
- * Table view interface provides synchronous and asynchronous methods to access table data
- * regarding binary object concept.
+ * Table view of table provides methods to access table records regarding binary object concept.
+ * <p>
+ * Provided different views (key-value vs record) and approaches (mapped-object vs binary) to reach the data.
+ * <p>
+ * Binary table views might be useful in cases (but not limited) if user key-value classes are not in classpath
+ * or serialization/deserialization is unwanted due to performance reasons.
  *
- * @apiNote Some methods require a record with the only key fields set. This is not mandatory requirement
- * and value fields will be just ignored.
+ * @apiNote Some methods require a record with the only key columns set. This is not mandatory requirement
+ * and value columns will be just ignored.
+ * @see RecordView
+ * @see Table
+ * @see KeyValueView
+ * @see KeyValueBinaryView
  */
-public interface Table extends TableView<ColSpan> {
+public interface Table extends TableView<Tuple> {
     /**
      * Creates record view of table for record class mapper provided.
      *
@@ -48,7 +56,7 @@ public interface Table extends TableView<ColSpan> {
     <K, V> KeyValueView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper);
 
     /**
-     * Creates key-value like projection over table implementing BinaryObject concept.
+     * Creates key-value view of table regarding the binary object concept.
      *
      * @return Table key-value view.
      */
@@ -78,7 +86,7 @@ public interface Table extends TableView<ColSpan> {
     /**
      * Factory method shortcut.
      *
-     * @return Binary builder.
+     * @return Tuple builder.
      */
-    ColSpanBuilder binaryBuilder();
+    TupleBuilder tupleBuilder();
 }
