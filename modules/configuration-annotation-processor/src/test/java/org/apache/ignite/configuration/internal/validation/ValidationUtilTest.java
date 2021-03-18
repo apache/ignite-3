@@ -89,7 +89,7 @@ public class ValidationUtilTest {
     }
 
     /** */
-    private ValidatedRootNode root = new ValidatedRootNode();
+    private final ValidatedRootNode root = new ValidatedRootNode();
 
     /** */
     @BeforeEach
