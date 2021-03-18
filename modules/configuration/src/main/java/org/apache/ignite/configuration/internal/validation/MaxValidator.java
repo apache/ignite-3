@@ -30,7 +30,7 @@ public class MaxValidator implements Validator<Max, Number> {
     @Override public void validate(Max annotation, ValidationContext<Number> ctx) {
         if (ctx.getNewValue().longValue() > annotation.value()) {
             ctx.addIssue(new ValidationIssue(
-                "Configuration value '" + ctx.currentKey() + "' must not be greater tha " + annotation.value()
+                "Configuration value '" + ctx.currentKey() + "' must not be greater than " + annotation.value()
             ));
         }
     }
