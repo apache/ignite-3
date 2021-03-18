@@ -19,7 +19,9 @@ package org.apache.ignite.network.scalecube;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** */
 class ITScaleCubeNetworkClusterMessagingTest {
@@ -74,6 +77,19 @@ class ITScaleCubeNetworkClusterMessagingTest {
         assertThat(getLastMessage(alice), is(sentMessage));
         assertThat(getLastMessage(bob), is(sentMessage));
         assertThat(getLastMessage(carol), is(sentMessage));
+
+        for (NetworkMember member : alice.allMembers()) {
+            System.out.println("SEND : " + member);
+
+            CompletableFuture<TestResponse> responseFuture = alice.sendWithResponse(
+                member,
+                new TestRequest(100),
+                3_000
+            );
+
+            final TestResponse response = responseFuture.get(3, TimeUnit.SECONDS);
+            assertEquals(100, response.responseNumber());
+        }
     }
 
     /** */
@@ -90,6 +106,8 @@ class ITScaleCubeNetworkClusterMessagingTest {
         );
 
         network.registerMessageMapper(TestMessage.TYPE, new TestMessageMapper());
+        network.registerMessageMapper(TestRequest.TYPE, new TestRequestMapper());
+        network.registerMessageMapper(TestResponse.TYPE, new TestResponseMapper());
 
         NetworkCluster member = network.start();
 

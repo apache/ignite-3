@@ -50,7 +50,7 @@ public interface NetworkCluster {
      * @param member Network member which should receive the message.
      * @param msg Message which should be delivered.
      */
-    void weakSend(NetworkMember member, NetworkMessage msg);
+    void weakSend(NetworkMember member, Request<AckResponse> msg);
 
     /**
      * Try to send the message asynchronously to the specific member with next guarantees:
@@ -60,10 +60,10 @@ public interface NetworkCluster {
      * @param member Network member which should receive the message.
      * @param msg Message which should be delivered.
      */
-    Future<?> send(NetworkMember member, NetworkMessage msg);
+    Future<?> send(NetworkMember member, Request<AckResponse> msg);
 
     /**
-     * Sends asynchronously a message with same guarantees as for {@link #send(NetworkMember, NetworkMessage)} and
+     * Sends a message asynchronously with same guarantees as for {@link #send(NetworkMember, NetworkMessage)} and
      * returns a response (RPC style).
      *
      * @param member Network member which should receive the message.
@@ -72,7 +72,7 @@ public interface NetworkCluster {
      * @param <R> Expected response type.
      * @return A future holding the response or error if the expected response was not received.
      */
-    <R> CompletableFuture<R> sendWithResponse(NetworkMember member, NetworkMessage msg, long timeout);
+    <R extends Response> CompletableFuture<R> sendWithResponse(NetworkMember member, Request<R> msg, long timeout);
 
     /**
      * Add provider which allows to get configured handlers for different cluster events(ex. received message).

@@ -100,7 +100,7 @@ class ScaleCubeMessageCodec implements MessageCodec {
 
         Map<String, String> headers = message.headers();
 
-        assert headers.containsKey(HEADER_MESSAGE_TYPE): "Missing message type header";
+        assert headers.containsKey(HEADER_MESSAGE_TYPE) : "Missing message type header";
 
         try (ObjectOutputStream oos = new ObjectOutputStream(stream)) {
             // headers

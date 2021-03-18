@@ -24,24 +24,24 @@ import org.apache.ignite.network.MessageMapper;
 import org.apache.ignite.network.MessageMappingException;
 
 /**
- * Mapper for {@link TestMessage}.
+ * Mapper for {@link TestResponse}.
  */
-public class TestMessageMapper implements MessageMapper<TestMessage> {
+public class TestResponseMapper implements MessageMapper<TestResponse> {
     /** {@inheritDoc} */
-    @Override public TestMessage readMessage(ObjectInputStream objectInputStream) throws MessageMappingException {
+    @Override public TestResponse readMessage(ObjectInputStream objectInputStream) throws MessageMappingException {
         try {
-            final String str = (String) objectInputStream.readObject();
-            return new TestMessage(str);
+            final int number = objectInputStream.readInt();
+            return new TestResponse(number);
         }
-        catch (IOException | ClassNotFoundException e) {
+        catch (IOException e) {
             throw new MessageMappingException("Failed to deserialize", e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public void writeMessage(TestMessage message, ObjectOutputStream objectOutputStream) throws MessageMappingException {
+    @Override public void writeMessage(TestResponse message, ObjectOutputStream objectOutputStream) throws MessageMappingException {
         try {
-            objectOutputStream.writeObject(message.msg());
+            objectOutputStream.writeInt(message.responseNumber());
         }
         catch (IOException e) {
             throw new MessageMappingException("Failed to serialize", e);

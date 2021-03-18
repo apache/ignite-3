@@ -27,7 +27,7 @@ import org.apache.ignite.network.Request;
 /** */
 class TestMessage extends Request<AckResponse> implements Serializable {
     /** Visible type for tests. */
-    public static final short TYPE = 1000;
+    public static final short TYPE = 3;
 
     /** */
     private final String msg;

@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
+import org.apache.ignite.network.AckResponse;
 import org.apache.ignite.network.MessageHandlerHolder;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkClusterEventHandler;
@@ -29,8 +30,9 @@ import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.Request;
+import org.apache.ignite.network.Response;
 
-import static io.scalecube.cluster.transport.api.Message.fromData;
 import static java.time.Duration.ofMillis;
 import static org.apache.ignite.network.scalecube.ScaleCubeMessageCodec.HEADER_MESSAGE_TYPE;
 
@@ -82,18 +84,18 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
     }
 
     /** {@inheritDoc} */
-    @Override public void weakSend(NetworkMember member, NetworkMessage msg) {
+    @Override public void weakSend(NetworkMember member, Request<AckResponse> msg) {
         cluster.send(memberResolver.resolveMember(member), fromNetworkMessage(msg))
             .block();
     }
 
     /** {@inheritDoc} */
-    @Override public Future<?> send(NetworkMember member, NetworkMessage msg) {
+    @Override public Future<?> send(NetworkMember member, Request<AckResponse> msg) {
         return cluster.send(memberResolver.resolveMember(member), fromNetworkMessage(msg)).toFuture();
     }
 
     /** {@inheritDoc} */
-    @Override public <R> CompletableFuture<R> sendWithResponse(NetworkMember member, NetworkMessage msg, long timeout) {
+    @Override public <R extends Response> CompletableFuture<R> sendWithResponse(NetworkMember member, Request<R> msg, long timeout) {
         return cluster.requestResponse(memberResolver.resolveMember(member), fromNetworkMessage(msg))
             .timeout(ofMillis(timeout)).toFuture().thenApply(m -> m.data());
     }
