@@ -23,7 +23,7 @@ import java.util.List;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.table.impl.DummyTableStorageImpl;
+import org.apache.ignite.table.impl.TestTableStorageImpl;
 import org.apache.ignite.table.mapper.Mappers;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,7 +39,7 @@ public class Example {
      * @return Table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableImpl(new DummyTableStorageImpl()));
+        return Collections.singletonList(new TableImpl(new TestTableStorageImpl()));
     }
 
     /**
@@ -308,7 +308,7 @@ public class Example {
      * [originalObject byte[], upgradedObject byte[], int department] // value
      * ]
      * Where {@code originalObject} is some value that was originally put to the column,
-     * {@code upgradedObject} is a version 2 of the object, and department is extracted field.
+     * {@code upgradedObject} is a version 2 of the object, and department is an extracted field.
      */
     @Disabled
     @ParameterizedTest

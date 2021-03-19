@@ -88,4 +88,24 @@ public class ByteBufferRow extends Row {
     @Override protected String readString(int off, int len) {
         return new String(buf.array(), off, len, StandardCharsets.UTF_8);
     }
+
+    /** {@inheritDoc} */
+    @Override public byte[] rowBytes() {
+        return buf.array();
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] keyChunkBytes() {
+        final int len = readInteger(KEY_CHUNK_OFFSET);
+
+        return readBytes(KEY_HASH_FIELD_OFFSET, len); // Includes key-hash.
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] valueChunkBytes() {
+        int off = KEY_CHUNK_OFFSET + readInteger(KEY_CHUNK_OFFSET);
+        int len = readInteger(off);
+
+        return readBytes(off, len);
+    }
 }

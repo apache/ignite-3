@@ -20,44 +20,46 @@ package org.apache.ignite.table.impl;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.storage.TableStorage;
+import org.apache.ignite.internal.table.TableRow;
 
 /**
- * Table storage stub.
+ * Dummy table storage implementation.
  */
-public class DummyTableStorageImpl implements TableStorage {
+public class TestTableStorageImpl implements TableStorage {
     /** In-memory dummy store. */
-    private final Map<BinaryObjWrapper, DummyTableRowImpl> store = new ConcurrentHashMap<>();
+    private final Map<KeyChunk, TestTableRowImpl> store = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public TableRow get(TableRow obj) {
-        DummyTableRowImpl row = store.get(new BinaryObjWrapper(obj.keyChunk().toBytes()));
-
-        return row; // Clone.
+        return store.get(new KeyChunk(obj.keyChunk().toBytes()));
     }
 
     /** {@inheritDoc} */
     @Override public TableRow put(TableRow row) {
-       return store.put(
-            new BinaryObjWrapper(row.keyChunk().toBytes()),
-            new DummyTableRowImpl(row.toBytes()));
+        return store.put(
+            new KeyChunk(row.keyChunk().toBytes()),
+            new TestTableRowImpl(row.toBytes()));
     }
 
     /**
      * Wrapper provides correct byte[] comparison.
      */
-    private static class BinaryObjWrapper {
+    private static class KeyChunk {
         /** Data. */
         private final byte[] data;
+
+        /** Hash. */
+        private final int hash;
 
         /**
          * Constructor.
          *
          * @param data Wrapped data.
          */
-        BinaryObjWrapper(byte[] data) {
+        KeyChunk(byte[] data) {
             this.data = data;
+            this.hash = Arrays.hashCode(data);
         }
 
         /** {@inheritDoc} */
@@ -68,13 +70,13 @@ public class DummyTableStorageImpl implements TableStorage {
             if (o == null || getClass() != o.getClass())
                 return false;
 
-            BinaryObjWrapper wrapper = (BinaryObjWrapper)o;
+            KeyChunk wrapper = (KeyChunk)o;
             return Arrays.equals(data, wrapper.data);
         }
 
         /** {@inheritDoc} */
         @Override public int hashCode() {
-            return Arrays.hashCode(data);
+            return hash;
         }
     }
 }

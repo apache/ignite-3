@@ -24,11 +24,11 @@ import org.apache.ignite.internal.table.RowChunk;
 import org.apache.ignite.internal.table.TableRow;
 
 /**
- * Stub class.
+ * Dummy implementation class.
  */
-public class DummyTableRowImpl implements TableRow {
+public class TestTableRowImpl implements TableRow {
     /** Key offset in tuple. */
-    private static final int KEY_OFFSET = Row.ROW_HEADER_SIZE;
+    private static final int KEY_OFFSET = Row.KEY_HASH_FIELD_OFFSET;
 
     /** Payload. */
     private final byte[] bytes;
@@ -38,7 +38,7 @@ public class DummyTableRowImpl implements TableRow {
      *
      * @param bytes Bytes to wrap.
      */
-    public DummyTableRowImpl(byte[] bytes) {
+    public TestTableRowImpl(byte[] bytes) {
         this.bytes = bytes.clone();
     }
 
@@ -49,7 +49,7 @@ public class DummyTableRowImpl implements TableRow {
 
     /** {@inheritDoc} */
     @Override public RowChunk keyChunk() {
-        return new DummyTableRowImpl(bytes) {
+        return new TestTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes());
 
@@ -62,7 +62,7 @@ public class DummyTableRowImpl implements TableRow {
 
     /** {@inheritDoc} */
     @Override public RowChunk valueChunk() {
-        return new DummyTableRowImpl(bytes) {
+        return new TestTableRowImpl(bytes) {
             @Override public byte[] toBytes() {
                 ByteBuffer buf = ByteBuffer.wrap(bytes());
 

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 /**
  * Table binary row interface.
- * TODO: Make {@link org.apache.ignite.internal.schema.Row} implement or replace this.
  */
 public interface TableRow extends RowChunk {
     /**

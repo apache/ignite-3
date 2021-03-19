@@ -139,7 +139,7 @@ public class RowAssembler {
 
         curCols = schema.keyColumns();
 
-        initOffsets(Row.ROW_HEADER_SIZE, nonNullVarlenKeyCols);
+        initOffsets(Row.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
 
         buf.putShort(0, (short)schema.version());
     }
@@ -161,7 +161,7 @@ public class RowAssembler {
         int nonNullVarlenValCols,
         int nonNullVarlenValSize
     ) {
-        return Row.ROW_HEADER_SIZE +
+        return Row.KEY_CHUNK_OFFSET +
             rowChunkSize(keyCols, nonNullVarlenKeyCols, nonNullVarlenKeySize) +
             rowChunkSize(valCols, nonNullVarlenValCols, nonNullVarlenValSize);
     }

@@ -27,16 +27,16 @@ import java.util.UUID;
  */
 public abstract class Row {
     /** */
-    public static final int SCHEMA_VERSION_FIELD_SIZE = 2;
+    public static final int SCHEMA_VERSION_OFFSET = 0;
 
     /** */
-    public static final int FLAGS_FIELD_SIZE = 2;
+    public static final int FLAGS_FIELD_OFFSET = SCHEMA_VERSION_OFFSET + 2;
 
     /** */
-    public static final int KEY_HASH_FIELD_SIZE = 4;
+    public static final int KEY_HASH_FIELD_OFFSET = FLAGS_FIELD_OFFSET + 2;
 
     /** */
-    public static final int ROW_HEADER_SIZE = SCHEMA_VERSION_FIELD_SIZE + FLAGS_FIELD_SIZE + KEY_HASH_FIELD_SIZE;
+    public static final int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4;
 
     /** */
     public static final int TOTAL_LEN_FIELD_SIZE = 4;
@@ -47,6 +47,19 @@ public abstract class Row {
     /** */
     public static final int VARLEN_COLUMN_OFFSET_FIELD_SIZE = 2;
 
+    /** */
+    public static final class RowFlags {
+        /** Tombstone flag. */
+        public static final int TOMBSTONE = 1;
+
+        /** Null-value flag. */
+        public static final int NULL_VALUE = 1 << 1;
+
+        /** Stub. */
+        private RowFlags() {
+        }
+    }
+
     /** Schema descriptor for which this row was created. */
     private final SchemaDescriptor schema;
 
@@ -55,6 +68,16 @@ public abstract class Row {
      */
     protected Row(SchemaDescriptor schema) {
         this.schema = schema;
+    }
+
+
+    /**
+     * @return {@code True} if row has non-null value, {@code false} otherwise.
+     */
+    public boolean hasValue() {
+        short flags = readShort(FLAGS_FIELD_OFFSET);
+
+        return (flags & (RowFlags.NULL_VALUE | RowFlags.TOMBSTONE)) == 0;
     }
 
     /**
@@ -232,7 +255,7 @@ public abstract class Row {
         boolean keyCol = schema.keyColumn(colIdx);
         Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
 
-        int off = ROW_HEADER_SIZE;
+        int off = KEY_CHUNK_OFFSET;
 
         if (!keyCol) {
             // Jump to the next chunk, the size of the first chunk is written at the chunk start.
@@ -426,4 +449,16 @@ public abstract class Row {
     /**
      */
     protected abstract byte[] readBytes(int off, int len);
+
+    /**
+     */
+    public abstract byte[] rowBytes();
+
+    /**
+     */
+    public abstract byte[] keyChunkBytes();
+
+    /**
+     */
+    public abstract byte[] valueChunkBytes();
 }
