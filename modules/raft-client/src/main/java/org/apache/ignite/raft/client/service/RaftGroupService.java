@@ -175,7 +175,7 @@ public interface RaftGroupService {
     /**
      * Runs a command on a replication group leader.
      * <p>
-     * Read commands always read up-to-date data.
+     * Read commands always see up to date data.
      *
      * @param cmd The command.
      * @param <R> Resulting type of command execution response.
@@ -186,7 +186,7 @@ public interface RaftGroupService {
     /**
      * Runs a read command on a given peer.
      * <p>
-     * Read commands can read stale data (in the past).
+     * Read commands can see stale data (in the past).
      *
      * @param peerId Peer id.
      * @param cmd The command.
