@@ -70,7 +70,6 @@ public abstract class Row {
         this.schema = schema;
     }
 
-
     /**
      * @return {@code True} if row has non-null value, {@code false} otherwise.
      */
