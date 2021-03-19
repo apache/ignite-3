@@ -20,19 +20,19 @@ package org.apache.ignite.raft.client.message.impl;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.ResetLearnersRequest;
+import org.apache.ignite.raft.client.message.RemovePeersRequest;
 
-class ResetLearnersRequestImpl implements ResetLearnersRequest, ResetLearnersRequest.Builder {
+class RemovePeersRequestImpl implements RemovePeersRequest, RemovePeersRequest.Builder {
     private String groupId;
 
-    private List<PeerId> learnersList = new ArrayList<>();
+    private List<PeerId> peersList = new ArrayList<>();
 
     @Override public String getGroupId() {
         return groupId;
     }
 
-    @Override public List<PeerId> getLearnersList() {
-        return learnersList;
+    @Override public List<PeerId> getPeersList() {
+        return peersList;
     }
 
     @Override public Builder setGroupId(String groupId) {
@@ -41,13 +41,14 @@ class ResetLearnersRequestImpl implements ResetLearnersRequest, ResetLearnersReq
         return this;
     }
 
-    @Override public Builder addLearners(PeerId learnerId) {
-        learnersList.add(learnerId);
+    @Override public Builder addPeer(PeerId peerId) {
+        if (!this.peersList.contains(peerId))
+            this.peersList.add(peerId);
 
         return this;
     }
 
-    @Override public ResetLearnersRequest build() {
+    @Override public RemovePeersRequest build() {
         return this;
     }
 }

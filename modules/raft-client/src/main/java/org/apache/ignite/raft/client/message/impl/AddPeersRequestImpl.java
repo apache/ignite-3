@@ -17,20 +17,22 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
-import org.apache.ignite.raft.client.message.RemovePeerRequest;
+import org.apache.ignite.raft.client.message.AddPeersRequest;
 
-class RemovePeerRequestImpl implements RemovePeerRequest, RemovePeerRequest.Builder {
+class AddPeersRequestImpl implements AddPeersRequest, AddPeersRequest.Builder {
     private String groupId;
 
-    private PeerId peerId;
+    private List<PeerId> peersList = new ArrayList<>();
 
     @Override public String getGroupId() {
         return groupId;
     }
 
-    @Override public PeerId getPeerId() {
-        return peerId;
+    @Override public List<PeerId> getPeersList() {
+        return peersList;
     }
 
     @Override public Builder setGroupId(String groupId) {
@@ -39,13 +41,14 @@ class RemovePeerRequestImpl implements RemovePeerRequest, RemovePeerRequest.Buil
         return this;
     }
 
-    @Override public Builder setPeerId(PeerId peerId) {
-        this.peerId = peerId;
+    @Override public Builder addPeer(PeerId peerId) {
+        if (!this.peersList.contains(peerId))
+            this.peersList.add(peerId);
 
         return this;
     }
 
-    @Override public RemovePeerRequest build() {
+    @Override public AddPeersRequest build() {
         return this;
     }
 }

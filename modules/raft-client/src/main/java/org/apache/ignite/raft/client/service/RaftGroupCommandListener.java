@@ -25,7 +25,13 @@ import org.apache.ignite.raft.client.WriteCommand;
  * A listener for replication group commands.
  */
 public interface RaftGroupCommandListener {
+    /**
+     * @param iterator Read command iterator.
+     */
     void onRead(Iterator<ReadCommand> iterator);
 
+    /**
+     * @param iterator Write command iterator.
+     */
     void onWrite(Iterator<WriteCommand> iterator);
 }

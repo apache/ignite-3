@@ -113,13 +113,13 @@ public class RaftGroupServiceTest {
 
         service.refreshLeader().get();
 
-        CompletableFuture<TestOutput1> fut1 = service.submit(new TestInput1());
+        CompletableFuture<TestOutput1> fut1 = service.run(new TestInput1());
 
         TestOutput1 output1 = fut1.get();
 
         assertNotNull(output1);
 
-        CompletableFuture<TestOutput2> fut2 = service.submit(new TestInput2());
+        CompletableFuture<TestOutput2> fut2 = service.run(new TestInput2());
 
         TestOutput2 output2 = fut2.get();
 

@@ -11,7 +11,7 @@ public interface AddLearnersRequest {
     public interface Builder {
         Builder setGroupId(String groupId);
 
-        Builder addLearners(PeerId learnerId);
+        Builder addLearner(PeerId learnerId);
 
         AddLearnersRequest build();
     }

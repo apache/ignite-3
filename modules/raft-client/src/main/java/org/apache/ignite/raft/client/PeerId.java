@@ -20,11 +20,11 @@ package org.apache.ignite.raft.client;
 import org.apache.ignite.network.NetworkMember;
 
 /**
- * Represents a participant in a replication group.
+ * A participant of a replication group.
  */
 public final class PeerId {
     /**
-     * Cluster node for peer.
+     * Network node.
      */
     private final NetworkMember node;
 
@@ -34,25 +34,41 @@ public final class PeerId {
      */
     private final int priority;
 
+    /**
+     * @param peer Peerid.
+     */
     public PeerId(PeerId peer) {
         this.node = peer.getNode();
         this.priority = peer.getPriority();
     }
 
+    /**
+     * @param node Node.
+     */
     public PeerId(NetworkMember node) {
         this(node, ElectionPriority.DISABLED);
     }
 
+    /**
+     * @param node Node.
+     * @param priority Election priority.
+     */
     public PeerId(final NetworkMember node, final int priority) {
         super();
         this.node = node;
         this.priority = priority;
     }
 
+    /**
+     * @return Node.
+     */
     public NetworkMember getNode() {
         return this.node;
     }
 
+    /**
+     * @return Election priority.
+     */
     public int getPriority() {
         return priority;
     }

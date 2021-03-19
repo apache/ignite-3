@@ -9,9 +9,9 @@ public interface ChangePeersResponse {
     List<PeerId> getNewPeersList();
 
     public interface Builder {
-        Builder addOldPeers(PeerId oldPeerId);
+        Builder addOldPeers(PeerId oldPeersId);
 
-        Builder addNewPeers(PeerId newPeerId);
+        Builder addNewPeers(PeerId newPeersId);
 
         ChangePeersResponse build();
     }

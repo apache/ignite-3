@@ -1,17 +1,18 @@
 package org.apache.ignite.raft.client.message;
 
+import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
 
-public interface RemovePeerRequest {
+public interface AddPeersRequest {
     String getGroupId();
 
-    PeerId getPeerId();
+    List<PeerId> getPeersList();
 
     interface Builder {
         Builder setGroupId(String groupId);
 
-        Builder setPeerId(PeerId peerId);
+        Builder addPeer(PeerId peerId);
 
-        RemovePeerRequest build();
+        AddPeersRequest build();
     }
 }

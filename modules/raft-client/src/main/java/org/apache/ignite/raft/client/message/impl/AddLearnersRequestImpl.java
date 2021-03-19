@@ -41,7 +41,7 @@ public class AddLearnersRequestImpl implements AddLearnersRequest, AddLearnersRe
         return this;
     }
 
-    @Override public Builder addLearners(PeerId learnerId) {
+    @Override public Builder addLearner(PeerId learnerId) {
         learnersList.add(learnerId);
 
         return this;

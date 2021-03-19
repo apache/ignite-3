@@ -3,16 +3,16 @@ package org.apache.ignite.raft.client.message;
 import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
 
-public interface ResetLearnersRequest {
+public interface RemovePeersRequest {
     String getGroupId();
 
-    List<PeerId> getLearnersList();
+    List<PeerId> getPeersList();
 
-    public interface Builder {
+    interface Builder {
         Builder setGroupId(String groupId);
 
-        Builder addLearners(PeerId learnerId);
+        Builder addPeer(PeerId peerId);
 
-        ResetLearnersRequest build();
+        RemovePeersRequest build();
     }
 }

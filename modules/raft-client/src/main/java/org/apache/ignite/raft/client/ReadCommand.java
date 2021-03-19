@@ -1,7 +1,7 @@
 package org.apache.ignite.raft.client;
 
 /**
- * A read command with linearizable guaranties (never see stale data). Executed on a leader.
+ * A read command.
  */
 public interface ReadCommand extends Command {
 }
