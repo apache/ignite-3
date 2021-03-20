@@ -35,14 +35,14 @@ class ChangePeersResponseImpl implements ChangePeersResponse, ChangePeersRespons
         return newPeersList;
     }
 
-    @Override public Builder addOldPeers(PeerId oldPeerId) {
-        oldPeersList.add(oldPeerId);
+    @Override public Builder addOldPeers(PeerId oldPeersId) {
+        oldPeersList.add(oldPeersId);
 
         return this;
     }
 
-    @Override public Builder addNewPeers(PeerId newPeerId) {
-        newPeersList.add(newPeerId);
+    @Override public Builder addNewPeers(PeerId newPeersId) {
+        newPeersList.add(newPeersId);
 
         return this;
     }

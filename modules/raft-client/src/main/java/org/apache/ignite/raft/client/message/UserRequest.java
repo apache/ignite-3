@@ -3,9 +3,9 @@ package org.apache.ignite.raft.client.message;
 import org.apache.ignite.raft.client.Command;
 
 public interface UserRequest {
-    Command request();
-
     String getGroupId();
+
+    Command request();
 
     public interface Builder {
         Builder setRequest(Command request);

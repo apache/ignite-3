@@ -1,0 +1,197 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.raft.client.service;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
+import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.ReadCommand;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * A service providing operations on a replication group.
+ * <p>
+ * Most of operations require a known group leader. The group leader can be refreshed at any time by calling
+ * {@link #refreshLeader()} method, otherwise it will happen automatically on a first call.
+ * <p>
+ * If a leader has been changed while the operation in progress, the operation will be transparently retried until
+ * timeout is reached. The current leader will be refreshed automatically (maybe several times) in the process.
+ * <p>
+ * Each asynchronous method (returning a future) uses a default timeout to finish, see {@link #timeout()}.
+ * If a result is not ready within the timeout, the future will be completed with a {@link TimeoutException}
+ * <p>
+ * If an error is occured during operation execution, the future will be completed with the corresponding
+ * IgniteException having an error code and a related message.
+ * <p>
+ * Async operations provided by the service are not cancellable.
+ */
+public interface RaftGroupService {
+    /**
+     * @return Group id.
+     */
+    @NotNull String groupId();
+
+    /**
+     * @return Default timeout for the operations in milliseconds.
+     */
+    long timeout();
+
+    /**
+     * Changes default timeout value for all subsequent operations.
+     *
+     * @param newTimeout New timeout value.
+     */
+    void timeout(long newTimeout);
+
+    /**
+     * @return Current leader id or {@code null} if it has not been yet initialized.
+     */
+    @Nullable PeerId leader();
+
+    /**
+     * @return List of voting peers or {@code null} if it has not been yet initialized.
+     */
+    @Nullable List<PeerId> peers();
+
+    /**
+     * @return List of leaners or {@code null} if it has not been yet initialized.
+     */
+    @Nullable List<PeerId> learners();
+
+    /**
+     * Refreshes a replication group leader.
+     * <p>
+     * After the future completion the method {@link #leader()}
+     * can be used to retrieve a current group leader.
+     * <p>
+     * This operation is executed on a group leader.
+     *
+     * @return A future.
+     */
+    CompletableFuture<Void> refreshLeader();
+
+    /**
+     * Refreshes replication group members.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
+     *
+     * @param onlyAlive {@code True} to exclude dead nodes.
+     * @return A future.
+     */
+    CompletableFuture<Void> refreshMembers(boolean onlyAlive);
+
+    /**
+     * Adds a voting peer to the raft group.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
+     *
+     * @param peerId Peer id.
+     * @return A future.
+     */
+    CompletableFuture<Void> addPeers(Collection<PeerId> peerIds);
+
+    /**
+     * Removes a peer from the raft group.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
+     *
+     * @param peerId Peer id.
+     * @return A future.
+     */
+    CompletableFuture<Void> removePeers(Collection<PeerId> peerIds);
+
+    /**
+     * Adds learners (non-voting members).
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
+     *
+     * @param learners List of learners.
+     * @return A future.
+     */
+    CompletableFuture<Void> addLearners(Collection<PeerId> learners);
+
+    /**
+     * Removes learners.
+     * <p>
+     * After the future completion methods like {@link #peers()} and {@link #learners()}
+     * can be used to retrieve current members of a group.
+     * <p>
+     * This operation is executed on a group leader.
+     *
+     * @param learners List of learners.
+     * @return A future.
+     */
+    CompletableFuture<Void> removeLearners(Collection<PeerId> learners);
+
+    /**
+     * Takes a state machine snapshot on a given group peer.
+     *
+     * @param peerId Peer id.
+     * @return A future.
+     */
+    CompletableFuture<Void> snapshot(PeerId peerId);
+
+    /**
+     * Transfers leadership to other peer.
+     * <p>
+     * This operation is executed on a group leader.
+     *
+     * @param newLeader New leader.
+     * @return A future.
+     */
+    CompletableFuture<Void> transferLeadership(PeerId newLeader);
+
+    /**
+     * Runs a command on a replication group leader.
+     * <p>
+     * Read commands always see up to date data.
+     *
+     * @param cmd The command.
+     * @param <R> Resulting type of command execution response.
+     * @return A future with the execution result.
+     */
+    <R> CompletableFuture<R> run(Command cmd);
+
+    /**
+     * Runs a read command on a given peer.
+     * <p>
+     * Read commands can see stale data (in the past).
+     *
+     * @param peerId Peer id.
+     * @param cmd The command.
+     * @param <R> Resulting type of command execution response.
+     * @return A future with the execution result.
+     */
+    <R> CompletableFuture<R> run(PeerId peerId, ReadCommand cmd);
+}

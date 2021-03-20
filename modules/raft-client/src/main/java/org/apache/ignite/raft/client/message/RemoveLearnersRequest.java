@@ -4,6 +4,8 @@ import java.util.List;
 import org.apache.ignite.raft.client.PeerId;
 
 public interface RemoveLearnersRequest {
+    String getGroupId();
+
     List<PeerId> getLearnersList();
 
     public interface Builder {

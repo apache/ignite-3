@@ -27,7 +27,7 @@ class RemoveLearnersRequestImpl implements RemoveLearnersRequest, RemoveLearners
 
     private List<PeerId> learnersList = new ArrayList<>();
 
-    public String getGroupId() {
+    @Override public String getGroupId() {
         return groupId;
     }
 

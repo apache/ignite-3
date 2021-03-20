@@ -18,20 +18,14 @@
 package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.message.AddLearnersRequest;
-import org.apache.ignite.raft.client.message.AddPeerRequest;
-import org.apache.ignite.raft.client.message.AddPeerResponse;
-import org.apache.ignite.raft.client.message.ChangePeersRequest;
+import org.apache.ignite.raft.client.message.AddPeersRequest;
 import org.apache.ignite.raft.client.message.ChangePeersResponse;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.GetPeersRequest;
 import org.apache.ignite.raft.client.message.GetPeersResponse;
-import org.apache.ignite.raft.client.message.LearnersOpResponse;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
-import org.apache.ignite.raft.client.message.RemovePeerRequest;
-import org.apache.ignite.raft.client.message.RemovePeerResponse;
-import org.apache.ignite.raft.client.message.ResetLearnersRequest;
-import org.apache.ignite.raft.client.message.ResetPeerRequest;
+import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
 import org.apache.ignite.raft.client.message.TransferLeaderRequest;
 import org.apache.ignite.raft.client.message.UserRequest;
@@ -44,36 +38,20 @@ public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
     /** */
     public static RaftClientMessageFactoryImpl MESSAGE_FACTORY = new RaftClientMessageFactoryImpl();
 
-    @Override public AddPeerRequest.Builder createAddPeerRequest() {
-        return new AddPeerRequestImpl();
+    @Override public AddPeersRequest.Builder createAddPeersRequest() {
+        return new AddPeersRequestImpl();
     }
 
-    @Override public AddPeerResponse.Builder createAddPeerResponse() {
-        return new AddPeerResponseImpl();
-    }
-
-    @Override public RemovePeerRequest.Builder createRemovePeerRequest() {
-        return new RemovePeerRequestImpl();
-    }
-
-    @Override public RemovePeerResponse.Builder createRemovePeerResponse() {
-        return new RemovePeerResponseImpl();
-    }
-
-    @Override public ChangePeersRequest.Builder createChangePeerRequest() {
-        return new ChangePeerRequestImpl();
-    }
-
-    @Override public ChangePeersResponse.Builder createChangePeerResponse() {
+    @Override public ChangePeersResponse.Builder createChangePeersResponse() {
         return new ChangePeersResponseImpl();
+    }
+
+    @Override public RemovePeersRequest.Builder createRemovePeerRequest() {
+        return new RemovePeersRequestImpl();
     }
 
     @Override public SnapshotRequest.Builder createSnapshotRequest() {
         return new SnapshotRequestImpl();
-    }
-
-    @Override public ResetPeerRequest.Builder createResetPeerRequest() {
-        return new ResetPeerRequestImpl();
     }
 
     @Override public TransferLeaderRequest.Builder createTransferLeaderRequest() {
@@ -102,14 +80,6 @@ public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
 
     @Override public RemoveLearnersRequest.Builder createRemoveLearnersRequest() {
         return new RemoveLearnersRequestImpl();
-    }
-
-    @Override public ResetLearnersRequest.Builder createResetLearnersRequest() {
-        return new ResetLearnersRequestImpl();
-    }
-
-    @Override public LearnersOpResponse.Builder createLearnersOpResponse() {
-        return new LearnersOpResponseImpl();
     }
 
     @Override public UserRequest.Builder createUserRequest() {
