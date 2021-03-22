@@ -86,7 +86,7 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
     /** {@inheritDoc} */
     @Override public void weakSend(NetworkMember member, Request<AckResponse> msg) {
         cluster.send(memberResolver.resolveMember(member), fromNetworkMessage(msg))
-            .block();
+            .subscribe();
     }
 
     /** {@inheritDoc} */

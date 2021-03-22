@@ -81,7 +81,6 @@ public class ScaleCubeNetworkClusterFactory implements NetworkClusterFactory {
                 .memberAlias(localMemberName)
                 .transport(trans -> {
                     return trans.port(localPort)
-                        .connectTimeout(1000_000_000)
                         .messageCodec(new ScaleCubeMessageCodec(clusterContext.messageMappers()));
                 })
             )
