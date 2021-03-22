@@ -61,6 +61,7 @@ public class JsonConverter implements FormatConverter {
     private static class JsonObjectConfigurationSource implements ConfigurationSource {
         /** Shared. */
         private final List<String> path;
+
         /** */
         private final JsonObject jsonObject;
 
@@ -108,6 +109,7 @@ public class JsonConverter implements FormatConverter {
 
     private static class JsonPrimitiveConfigurationSource implements ConfigurationSource {
         private final List<String> path;
+
         private final JsonElement jsonLeaf;
 
         private JsonPrimitiveConfigurationSource(List<String> path, JsonElement jsonLeaf) {
