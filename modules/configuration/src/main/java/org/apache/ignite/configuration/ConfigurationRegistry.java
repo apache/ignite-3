@@ -90,11 +90,11 @@ public class ConfigurationRegistry {
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public <T> T represent(List<String> path, ConfigurationVisitor<T> representationVisitor) throws IllegalArgumentException {
-        SuperRoot puperRoot = changer.superPuperRoot();
+        SuperRoot mergedSuperRoot = changer.mergedSuperRoot();
 
         Object node;
         try {
-            node = ConfigurationUtil.find(path, puperRoot);
+            node = ConfigurationUtil.find(path, mergedSuperRoot);
         }
         catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());

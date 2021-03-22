@@ -217,7 +217,7 @@ public class ConfigurationChanger {
     }
 
     /** */
-    public SuperRoot superPuperRoot() {
+    public SuperRoot mergedSuperRoot() {
         SuperRoot puperRoot = new SuperRoot(rootKeys);
 
         for (StorageRoots storageRoots : storagesRootsMap.values())
