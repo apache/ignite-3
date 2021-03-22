@@ -62,8 +62,7 @@ public class JsonConverter implements FormatConverter {
             @Override public JsonElement visitLeafNode(String key, Serializable val) {
                 JsonElement jsonLeaf = toJsonLeaf(val);
 
-                if (!jsonObjectsStack.isEmpty())
-                    jsonObjectsStack.peek().add(key, jsonLeaf);
+                addToParent(key, jsonLeaf);
 
                 return jsonLeaf;
             }
@@ -78,8 +77,7 @@ public class JsonConverter implements FormatConverter {
 
                 jsonObjectsStack.pop();
 
-                if (!jsonObjectsStack.isEmpty())
-                    jsonObjectsStack.peek().add(key, innerJsonNode);
+                addToParent(key, innerJsonNode);
 
                 return innerJsonNode;
             }
@@ -95,8 +93,7 @@ public class JsonConverter implements FormatConverter {
 
                 jsonObjectsStack.pop();
 
-                if (!jsonObjectsStack.isEmpty())
-                    jsonObjectsStack.peek().add(key, namedListJsonNode);
+                addToParent(key, namedListJsonNode);
 
                 return namedListJsonNode;
             }
@@ -136,6 +133,17 @@ public class JsonConverter implements FormatConverter {
                 assert false : val;
 
                 throw new IllegalArgumentException(val.getClass().getCanonicalName());
+            }
+
+            /**
+             * Add subelement to the paretn JSON object if it exists.
+             *
+             * @param key Key for the passed JSON element.
+             * @param jsonElement JSON element to add to the parent.
+             */
+            private void addToParent(String key, JsonElement jsonElement) {
+                if (!jsonObjectsStack.isEmpty())
+                    jsonObjectsStack.peek().add(key, jsonElement);
             }
         };
     }

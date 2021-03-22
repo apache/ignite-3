@@ -95,11 +95,16 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
         return this;
     }
 
-    /** Very dirty. */
+    /**
+     * Deletes named list element.
+     *
+     * @param key Element's key.
+     */
     public void forceDelete(String key) {
         map.remove(key);
     }
 
+    /** {@inheritDoc} */
     @Override public NamedListChange<N, N> create(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(valConsumer, "valConsumer");
 

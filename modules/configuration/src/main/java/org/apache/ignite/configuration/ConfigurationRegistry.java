@@ -80,8 +80,16 @@ public class ConfigurationRegistry {
         return (T)configs.get(rootKey.key());
     }
 
-    /** */
-    public <T> T represent(List<String> path, ConfigurationVisitor<T> representationVisitor) {
+    /**
+     * Convert configuration subtree into a user-defined representation.
+     *
+     * @param path Path to configuration subtree. Can be empty, can't be {@code null}.
+     * @param representationVisitor Visitor that will be applied to the subtree and build the representation.
+     * @param <T> Type of the representation.
+     * @return User-defined representation constructed by {@code representationVisitor}.
+     * @throws IllegalArgumentException If {@code path} is not found in current configuration.
+     */
+    public <T> T represent(List<String> path, ConfigurationVisitor<T> representationVisitor) throws IllegalArgumentException {
         SuperRoot puperRoot = changer.superPuperRoot();
 
         Object node;
@@ -102,8 +110,7 @@ public class ConfigurationRegistry {
 
     /** */
     public CompletableFuture<?> change(List<String> path, ConfigurationSource changesSource) {
-        //TODO IGNITE-14372 Not implemented yet.
-        return CompletableFuture.completedFuture(null);
+        throw new UnsupportedOperationException("IGNITE-14372 Not implemented yet.");
     }
 
     /**
