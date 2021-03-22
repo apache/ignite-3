@@ -118,26 +118,26 @@ public class JsonConverter implements FormatConverter {
 
                 return jsonArray;
             }
+
+            /** */
+            @NotNull private JsonElement toJsonPrimitive(Object val) {
+                if (val == null)
+                    return JsonNull.INSTANCE;
+
+                if (val instanceof Boolean)
+                    return new JsonPrimitive((Boolean)val);
+
+                if (val instanceof String)
+                    return new JsonPrimitive((String)val);
+
+                if (val instanceof Number)
+                    return new JsonPrimitive((Number)val);
+
+                assert false : val;
+
+                throw new IllegalArgumentException(val.getClass().getCanonicalName());
+            }
         };
-    }
-
-    /** */
-    @NotNull private static JsonElement toJsonPrimitive(Object val) {
-        if (val == null)
-            return JsonNull.INSTANCE;
-
-        if (val instanceof Boolean)
-            return new JsonPrimitive((Boolean)val);
-
-        if (val instanceof String)
-            return new JsonPrimitive((String)val);
-
-        if (val instanceof Number)
-            return new JsonPrimitive((Number)val);
-
-        assert false : val;
-
-        throw new IllegalArgumentException(val.getClass().getCanonicalName());
     }
 
     /** */
