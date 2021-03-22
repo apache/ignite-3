@@ -257,7 +257,7 @@ public class ConfigurationUtil {
 
                     if (val == null) {
                         if (node instanceof NamedListNode) {
-                            // Given that this particular method is applied to modify existing trees rather then
+                            // Given that this particular method is applied to modify existing trees rather than
                             // creating new trees, a "hack" is required in this place. "construct" is designed to create
                             // "change" objects, thus it would just nullify named list element instead of deleting it.
                             ((NamedListNode<?>)node).forceDelete(key);
