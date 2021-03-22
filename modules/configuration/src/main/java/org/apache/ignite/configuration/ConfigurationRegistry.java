@@ -17,9 +17,12 @@
 
 package org.apache.ignite.configuration;
 
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import javax.validation.constraints.Max;
@@ -27,10 +30,16 @@ import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.RootKeyImpl;
+import org.apache.ignite.configuration.internal.SuperRoot;
+import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
+import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.tree.ConfigurationSource;
+import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.Validator;
 
 /** */
@@ -69,6 +78,32 @@ public class ConfigurationRegistry {
     /** */
     public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
         return (T)configs.get(rootKey.key());
+    }
+
+    /** */
+    public <T> T represent(List<String> path, ConfigurationVisitor<T> representationVisitor) {
+        SuperRoot puperRoot = changer.superPuperRoot();
+
+        Object node;
+        try {
+            node = ConfigurationUtil.find(path, puperRoot);
+        }
+        catch (KeyNotFoundException e) {
+            throw new IllegalArgumentException(e.getMessage());
+        }
+
+        if (node instanceof TraversableTreeNode)
+            return ((TraversableTreeNode)node).accept(null, representationVisitor);
+
+        assert node == null || node instanceof Serializable;
+
+        return representationVisitor.visitLeafNode(null, (Serializable)node);
+    }
+
+    /** */
+    public CompletableFuture<?> change(List<String> path, ConfigurationSource changesSource) {
+        //TODO IGNITE-14372 Not implemented yet.
+        return CompletableFuture.completedFuture(null);
     }
 
     /**

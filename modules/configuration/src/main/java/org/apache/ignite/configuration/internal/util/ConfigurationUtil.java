@@ -255,8 +255,12 @@ public class ConfigurationUtil {
 
                     assert val == null || val instanceof Map || val instanceof Serializable;
 
-                    if (val == null)
-                        node.construct(key, null);
+                    if (val == null) {
+                        if (node instanceof NamedListNode)
+                            ((NamedListNode<?>)node).forceDelete(key); // Bad, but necessary.
+                        else
+                            node.construct(key, null);
+                    }
                     else if (val instanceof Map)
                         node.construct(key, new InnerConfigurationSource((Map<String, ?>)val));
                     else {
@@ -595,7 +599,10 @@ public class ConfigurationUtil {
             for (String key : srcNode.namedListKeys()) {
                 InnerNode node = srcNode.get(key);
 
-                dstNode.construct(key, node == null ? null : new PatchInnerConfigurationSource(node));
+                if (node == null)
+                    ((NamedListNode<?>)dstNode).forceDelete(key); // Same as in fillFromPrefixMap.
+                else
+                    dstNode.construct(key, new PatchInnerConfigurationSource(node));
             }
         }
     }

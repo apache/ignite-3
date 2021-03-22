@@ -17,13 +17,16 @@
 
 package org.apache.ignite.rest;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import java.io.Reader;
-import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.configuration.ConfigurationRegistry;
+import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.rest.configuration.RestConfiguration;
+import org.apache.ignite.rest.configuration.RestView;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.rest.presentation.FormatConverter;
 import org.apache.ignite.rest.presentation.json.JsonConverter;
@@ -38,7 +41,7 @@ import org.slf4j.Logger;
  */
 public class RestModule {
     /** */
-    private static final int DFLT_PORT = 10300;
+    public static final int DFLT_PORT = 10300;
 
     /** */
     private static final String CONF_URL = "/management/v1/configuration/";
@@ -64,7 +67,7 @@ public class RestModule {
     public void prepareStart(ConfigurationRegistry sysConfig, Reader moduleConfReader) {
         sysConf = sysConfig;
 
-        presentation = new JsonPresentation(Collections.emptyMap());
+        presentation = new JsonPresentation();
 
 //        FormatConverter converter = new JsonConverter();
 //
@@ -88,7 +91,11 @@ public class RestModule {
             String configPath = ctx.pathParam(PATH_PARAM);
 
             try {
-                ctx.result(presentation.representByPath(configPath));
+                List<String> path = ConfigurationUtil.split(configPath);
+
+                JsonElement json = sysConf.represent(path, JsonConverter.jsonVisitor());
+
+                ctx.result(json.toString());
             }
             catch (IllegalArgumentException pathE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
@@ -128,14 +135,16 @@ public class RestModule {
 
     /** */
     private Javalin startRestEndpoint() {
-        Integer port = sysConf.getConfiguration(RestConfiguration.KEY).port().value();
-        Integer portRange = sysConf.getConfiguration(RestConfiguration.KEY).portRange().value();
+        RestView restConfigurationView = sysConf.getConfiguration(RestConfiguration.KEY).value();
+
+        int port = restConfigurationView.port();
+        int portRange = restConfigurationView.portRange();
 
         Javalin app = null;
 
-        if (portRange == null || portRange == 0) {
+        if (portRange == 0) {
             try {
-                app = Javalin.create().start(port != null ? port : DFLT_PORT);
+                app = Javalin.create().start(port);
             }
             catch (RuntimeException e) {
                 log.warn("Failed to start REST endpoint: ", e);
@@ -171,10 +180,5 @@ public class RestModule {
         log.info("REST protocol started successfully on port " + app.port());
 
         return app;
-    }
-
-    /** */
-    public String configRootKey() {
-        return "rest";
     }
 }

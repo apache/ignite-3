@@ -217,6 +217,16 @@ public class ConfigurationChanger {
     }
 
     /** */
+    public SuperRoot superPuperRoot() {
+        SuperRoot puperRoot = new SuperRoot(rootKeys);
+
+        for (StorageRoots storageRoots : storagesRootsMap.values())
+            puperRoot.append(storageRoots.roots);
+
+        return puperRoot;
+    }
+
+    /** */
     private CompletableFuture<Void> change(SuperRoot changes, Class<? extends ConfigurationStorage> storageType) {
         ConfigurationStorage storage = storageInstances.get(storageType);
 
