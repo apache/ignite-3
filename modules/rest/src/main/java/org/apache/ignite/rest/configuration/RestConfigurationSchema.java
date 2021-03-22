@@ -33,10 +33,10 @@ public class RestConfigurationSchema {
     @Min(1024)
     @Max(0xFFFF)
     @Value(hasDefault = true)
-    public int port = DFLT_PORT;
+    public final int port = DFLT_PORT;
 
     /** */
     @Min(0)
-    @Value
-    public int portRange;
+    @Value(hasDefault = true)
+    public final int portRange = 0;
 }
