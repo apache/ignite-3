@@ -99,7 +99,7 @@ public class JsonConverter implements FormatConverter {
                     }
                 }
                 catch (NoSuchElementException e) {
-                    throw new IllegalArgumentException(""); //TODO
+                    throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
                 }
 
                 path.remove(path.size() - 1);
@@ -119,13 +119,13 @@ public class JsonConverter implements FormatConverter {
 
         @Override public <T> T unwrap(Class<T> clazz) {
             if (clazz.isArray() != jsonLeaf.isJsonArray())
-                throw new IllegalArgumentException(""); //TODO
+                throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
 
             return null;
         }
 
         @Override public void descend(ConstructableTreeNode node) {
-            throw new IllegalArgumentException(""); //TODO
+            throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
         }
 
         private <T> T unwrap(JsonPrimitive jsonPrimitive, Class<T> clazz) {
