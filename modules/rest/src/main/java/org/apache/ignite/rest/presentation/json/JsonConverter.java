@@ -100,25 +100,25 @@ public class JsonConverter implements FormatConverter {
 
                 return namedListJsonNode;
             }
+
+            /** */
+            @NotNull private JsonElement toJsonLeaf(Serializable val) {
+                if (val == null)
+                    return JsonNull.INSTANCE;
+
+                Class<? extends Serializable> valClass = val.getClass();
+
+                if (!valClass.isArray())
+                    return toJsonPrimitive(val);
+
+                JsonArray jsonArray = new JsonArray();
+
+                for (int i = 0; i < Array.getLength(val); i++)
+                    jsonArray.add(toJsonPrimitive(Array.get(val, i)));
+
+                return jsonArray;
+            }
         };
-    }
-
-    /** */
-    @NotNull private static JsonElement toJsonLeaf(Serializable val) {
-        if (val == null)
-            return JsonNull.INSTANCE;
-
-        Class<? extends Serializable> valClass = val.getClass();
-
-        if (!valClass.isArray())
-            return toJsonPrimitive(val);
-
-        JsonArray jsonArray = new JsonArray();
-
-        for (int i = 0; i < Array.getLength(val); i++)
-            jsonArray.add(toJsonPrimitive(Array.get(val, i)));
-
-        return jsonArray;
     }
 
     /** */
