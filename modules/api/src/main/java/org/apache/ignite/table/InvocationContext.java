@@ -18,40 +18,50 @@
 package org.apache.ignite.table;
 
 /**
- * Invocation context.
- * //TODO: Describe methods. Add examples.
+ * Invocation context provides access to invoke operation call parameters,
+ * a method to set a new value for the key.
+ * <p>
+ * InvokeProcessor executes atomically under lock which makes impossible
+ * to trigger 'live-schema' upgrade within the invoke operation.
+ * Any try to update the row leading to schema change will end up with {@link InvokeProcessorException}.
  *
  * @param <K> Target object type.
  * @param <V> Value object type.
+ * @apiNote New value MUST BE compliant with the current schema version.
  */
 public interface InvocationContext<K, V> {
     /**
-     * @return Processor invocation arguments provided by user to invoke() method.
+     * @return Processor invocation arguments provided by user to invoke operation.
      */
     Object[] args();
 
     /**
-     * Returns an object the user provide associated with the target row.
+     * Returns an object the user provide to invoke call for running invoke processor against the associated row.
+     * <p>
+     * Depending on Table view the invoke operation is called on, the returning value is either value object or
+     * record object or tuple with value fields set.
      *
-     * @return Object is associated with target row. Either Key object or record object with key fields set or
-     * tuple with key fields set.
+     * @return Object which target row is associated with.
      */
     K key();
 
     /**
-     * Returns current value of row associated with the requested key.
+     * Returns current value object for the target row.
+     * <p>
+     * Depending on Table view the invoke operation is called on, the returning value is either value object or
+     * record object or tuple with value fields set or {@code null} for non-existed row.
      *
-     * @return Current value of target row. Either value object or record object or tuple with value fields set.
+     * @return Current value of target row or {@code null} if value associated with the key is not exists.
      */
     V value();
 
     /**
-     * Sets new value for the target row.
+     * Sets a new value object for the target row.
+     * <p>
+     * Depending on Table view the invoke operation is called on, a new value can be either value object or
+     * record object or tuple with value fields set or {@code null} for removal.
      *
-     * New value MUST be compliant with the current schema version.
-     * InvokeProcessor executes atomically under lock which makes impossible to trigger 'live-schema' upgrade.
-     *
-     * @param val Value object to set. Either value object or record object or tuple with value fields set.
+     * @param val Value object to set.
      * @throws InvokeProcessorException if new value is not compliant with the current schema.
      */
     void value(V val);
