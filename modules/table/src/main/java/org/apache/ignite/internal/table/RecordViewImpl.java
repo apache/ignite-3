@@ -49,7 +49,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public R get(R keyRec) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.serializeKey(keyRec);
+        TableRow kRow = marsh.serialize(keyRec);
 
         TableRow tRow = tbl.get(kRow);
 
@@ -60,11 +60,11 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public R fill(R recObjToFill) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.serializeKey(recObjToFill);
+        TableRow kRow = marsh.serialize(recObjToFill);
 
         TableRow tRow = tbl.get(kRow);
 
-        return marsh.deserializeToRecord(recObjToFill, tRow);
+        return marsh.deserializeToRecord(tRow, recObjToFill);
     }
 
     /** {@inheritDoc} */

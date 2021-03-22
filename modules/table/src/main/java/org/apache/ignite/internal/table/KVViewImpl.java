@@ -51,7 +51,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     @Override public V get(K key) {
         final Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.serializeKey(key);
+        TableRow kRow = marsh.serialize(key);
 
         TableRow row = tbl.get(kRow);
 

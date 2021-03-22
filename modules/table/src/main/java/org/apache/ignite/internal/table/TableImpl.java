@@ -70,7 +70,7 @@ public class TableImpl implements Table {
     @Override public Tuple get(Tuple keyRec) {
         Marshaller marsh = marshaller();
 
-        return tbl.get(marsh.marshallRecord(keyRec));
+        return tbl.get(marsh.marshalRecord(keyRec));
     }
 
     /** {@inheritDoc} */

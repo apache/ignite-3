@@ -53,7 +53,7 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     @Override public Tuple get(Tuple key) {
         Objects.requireNonNull(key);
 
-        return marshaller().marshallKVPair(key, null);
+        return marshaller().marshalKVPair(key, null);
     }
 
     /** {@inheritDoc} */
@@ -80,7 +80,7 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     @Override public void put(Tuple key, Tuple val) {
         Objects.requireNonNull(key);
 
-        final TableRow row = marshaller().marshallKVPair(key, val);
+        final TableRow row = marshaller().marshalKVPair(key, val);
 
         tbl.put(row);
     }

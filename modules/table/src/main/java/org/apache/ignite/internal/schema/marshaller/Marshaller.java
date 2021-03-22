@@ -22,18 +22,53 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Marshaller interface.
+ */
 public interface Marshaller {
-    <K> TableRow serializeKey(@NotNull K key);
+    /**
+     * @param obj Object to serialize.
+     * @return Table row with columns set from given object.
+     */
+    <T> TableRow serialize(@NotNull T obj);
 
-    TableRow marshallRecord(@NotNull Tuple rec);
+    /**
+     * @param tuple Record tuple.
+     * @return Table row with columns set from given tuples.
+     */
+    TableRow marshalRecord(@NotNull Tuple tuple);
 
-    TableRow marshallKVPair(@NotNull Tuple keyTuple, @Nullable Tuple valTuple);
+    /**
+     * @param keyTuple Key tuple.
+     * @param valTuple Value tuple.
+     * @return Table row with columns set from given tuples.
+     */
+    TableRow marshalKVPair(@NotNull Tuple keyTuple, @Nullable Tuple valTuple);
 
+    /**
+     * @param row Table row.
+     * @return Deserialized key object.
+     */
     <K> @NotNull K deserializeKey(@NotNull TableRow row);
 
+    /**
+     * @param row Table row.
+     * @return Deserialized value object.
+     */
     <V> @Nullable V deserializeValue(@NotNull TableRow row);
 
+    /**
+     * @param row Table row.
+     * @return Deserialized record object.
+     */
     <R> R deserializeToRecord(@NotNull TableRow row);
 
-    <R> R deserializeToRecord(@NotNull R record, @NotNull TableRow row);
+    /**
+     * Deserializes row and fills given record object fields.
+     *
+     * @param row Table row.
+     * @param rec Record object to fill.
+     * @return Given record with filled fields from the given row.
+     */
+    <R> R deserializeToRecord(@NotNull TableRow row, @NotNull R rec);
 }
