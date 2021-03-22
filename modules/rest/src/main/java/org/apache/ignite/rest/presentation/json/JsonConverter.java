@@ -53,6 +53,94 @@ public class JsonConverter implements FormatConverter {
     }
 
     /** */
+    public static ConfigurationVisitor<JsonElement> jsonVisitor() {
+        return new ConfigurationVisitor<JsonElement>() {
+            /** */
+            private final Deque<JsonObject> jsonObjectsStack = new ArrayDeque<>();
+
+            /** {@inheritDoc} */
+            @Override public JsonElement visitLeafNode(String key, Serializable val) {
+                JsonElement jsonLeaf = toJsonLeaf(val);
+
+                if (!jsonObjectsStack.isEmpty())
+                    jsonObjectsStack.peek().add(key, jsonLeaf);
+
+                return jsonLeaf;
+            }
+
+            /** {@inheritDoc} */
+            @Override public JsonElement visitInnerNode(String key, InnerNode node) {
+                JsonObject innerJsonNode = new JsonObject();
+
+                jsonObjectsStack.push(innerJsonNode);
+
+                node.traverseChildren(this);
+
+                jsonObjectsStack.pop();
+
+                if (!jsonObjectsStack.isEmpty())
+                    jsonObjectsStack.peek().add(key, innerJsonNode);
+
+                return innerJsonNode;
+            }
+
+            /** {@inheritDoc} */
+            @Override public <N extends InnerNode> JsonElement visitNamedListNode(String key, NamedListNode<N> node) {
+                JsonObject namedListJsonNode = new JsonObject();
+
+                jsonObjectsStack.push(namedListJsonNode);
+
+                for (String subkey : node.namedListKeys())
+                    node.get(subkey).accept(subkey, this);
+
+                jsonObjectsStack.pop();
+
+                if (!jsonObjectsStack.isEmpty())
+                    jsonObjectsStack.peek().add(key, namedListJsonNode);
+
+                return namedListJsonNode;
+            }
+        };
+    }
+
+    /** */
+    @NotNull private static JsonElement toJsonLeaf(Serializable val) {
+        if (val == null)
+            return JsonNull.INSTANCE;
+
+        Class<? extends Serializable> valClass = val.getClass();
+
+        if (!valClass.isArray())
+            return toJsonPrimitive(val);
+
+        JsonArray jsonArray = new JsonArray();
+
+        for (int i = 0; i < Array.getLength(val); i++)
+            jsonArray.add(toJsonPrimitive(Array.get(val, i)));
+
+        return jsonArray;
+    }
+
+    /** */
+    @NotNull private static JsonElement toJsonPrimitive(Object val) {
+        if (val == null)
+            return JsonNull.INSTANCE;
+
+        if (val instanceof Boolean)
+            return new JsonPrimitive((Boolean)val);
+
+        if (val instanceof String)
+            return new JsonPrimitive((String)val);
+
+        if (val instanceof Number)
+            return new JsonPrimitive((Number)val);
+
+        assert false : val;
+
+        throw new IllegalArgumentException(val.getClass().getCanonicalName());
+    }
+
+    /** */
     public static ConfigurationSource jsonSource(JsonElement jsonElement) {
         //TODO IGNITE-14372 Finish this implementation.
         return null;
@@ -169,89 +257,6 @@ public class JsonConverter implements FormatConverter {
 
             throw new IllegalArgumentException("");
         }
-    }
-
-    /** */
-    public static ConfigurationVisitor<JsonElement> jsonVisitor() {
-        return new ConfigurationVisitor<JsonElement>() {
-            /** */
-            private final Deque<JsonObject> objects = new ArrayDeque<>();
-
-            @Override public JsonElement visitLeafNode(String key, Serializable val) {
-                JsonElement jsonLeaf = toJsonLeaf(val);
-
-                if (!objects.isEmpty())
-                    objects.peek().add(key, jsonLeaf);
-
-                return jsonLeaf;
-            }
-
-            @Override public JsonElement visitInnerNode(String key, InnerNode node) {
-                JsonObject innerJsonNode = new JsonObject();
-
-                objects.push(innerJsonNode);
-
-                node.traverseChildren(this);
-
-                objects.pop();
-
-                if (!objects.isEmpty())
-                    objects.peek().add(key, innerJsonNode);
-
-                return innerJsonNode;
-            }
-
-            @Override public <N extends InnerNode> JsonElement visitNamedListNode(String key, NamedListNode<N> node) {
-                JsonObject namedListJsonNode = new JsonObject();
-
-                objects.push(namedListJsonNode);
-
-                for (String subkey : node.namedListKeys())
-                    node.get(subkey).accept(subkey, this);
-
-                objects.pop();
-
-                if (!objects.isEmpty())
-                    objects.peek().add(key, namedListJsonNode);
-
-                return namedListJsonNode;
-            }
-        };
-    }
-
-    @NotNull private static JsonElement toJsonLeaf(Serializable val) {
-        if (val == null)
-            return JsonNull.INSTANCE;
-
-        Class<? extends Serializable> valClass = val.getClass();
-
-        if (!valClass.isArray())
-            return toJsonPrimitive(val);
-
-        JsonArray jsonArray = new JsonArray();
-
-        for (int i = 0; i < Array.getLength(val); i++)
-            jsonArray.add(toJsonPrimitive(Array.get(val, i)));
-
-        return jsonArray;
-    }
-
-    @NotNull private static JsonElement toJsonPrimitive(Object val) {
-        if (val == null)
-            return JsonNull.INSTANCE; // OR `assert val != null`? I don't know
-
-        if (val instanceof Boolean)
-            return new JsonPrimitive((Boolean)val);
-
-        if (val instanceof String)
-            return new JsonPrimitive((String)val);
-
-        if (val instanceof Number)
-            return new JsonPrimitive((Number)val);
-
-        assert false : val;
-
-        throw new IllegalArgumentException(val.getClass().getCanonicalName());
     }
 
     /** {@inheritDoc} */
