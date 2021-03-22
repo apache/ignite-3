@@ -84,12 +84,12 @@ public class ConfigurationRegistry {
      * Convert configuration subtree into a user-defined representation.
      *
      * @param path Path to configuration subtree. Can be empty, can't be {@code null}.
-     * @param representationVisitor Visitor that will be applied to the subtree and build the representation.
+     * @param visitor Visitor that will be applied to the subtree and build the representation.
      * @param <T> Type of the representation.
-     * @return User-defined representation constructed by {@code representationVisitor}.
+     * @return User-defined representation constructed by {@code visitor}.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
-    public <T> T represent(List<String> path, ConfigurationVisitor<T> representationVisitor) throws IllegalArgumentException {
+    public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
         SuperRoot mergedSuperRoot = changer.mergedSuperRoot();
 
         Object node;
@@ -101,11 +101,11 @@ public class ConfigurationRegistry {
         }
 
         if (node instanceof TraversableTreeNode)
-            return ((TraversableTreeNode)node).accept(null, representationVisitor);
+            return ((TraversableTreeNode)node).accept(null, visitor);
 
         assert node == null || node instanceof Serializable;
 
-        return representationVisitor.visitLeafNode(null, (Serializable)node);
+        return visitor.visitLeafNode(null, (Serializable)node);
     }
 
     /** */
