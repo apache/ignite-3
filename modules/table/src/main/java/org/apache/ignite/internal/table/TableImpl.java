@@ -253,7 +253,7 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return null;
+        return new TupleBuilderImpl();
     }
 
     /**

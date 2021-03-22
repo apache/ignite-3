@@ -229,7 +229,7 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return null;
+        return new TupleBuilderImpl();
     }
 
     /**
