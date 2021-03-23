@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -65,17 +65,17 @@ public interface RaftGroupService {
     /**
      * @return Current leader id or {@code null} if it has not been yet initialized.
      */
-    @Nullable PeerId leader();
+    @Nullable Peer leader();
 
     /**
      * @return List of voting peers or {@code null} if it has not been yet initialized.
      */
-    @Nullable List<PeerId> peers();
+    @Nullable List<Peer> peers();
 
     /**
      * @return List of leaners or {@code null} if it has not been yet initialized.
      */
-    @Nullable List<PeerId> learners();
+    @Nullable List<Peer> learners();
 
     /**
      * Refreshes a replication group leader.
@@ -113,7 +113,7 @@ public interface RaftGroupService {
      * @param peerId Peer id.
      * @return A future.
      */
-    CompletableFuture<Void> addPeers(Collection<PeerId> peerIds);
+    CompletableFuture<Void> addPeers(Collection<Peer> peers);
 
     /**
      * Removes a peer from the raft group.
@@ -126,7 +126,7 @@ public interface RaftGroupService {
      * @param peerId Peer id.
      * @return A future.
      */
-    CompletableFuture<Void> removePeers(Collection<PeerId> peerIds);
+    CompletableFuture<Void> removePeers(Collection<Peer> peers);
 
     /**
      * Adds learners (non-voting members).
@@ -139,7 +139,7 @@ public interface RaftGroupService {
      * @param learners List of learners.
      * @return A future.
      */
-    CompletableFuture<Void> addLearners(Collection<PeerId> learners);
+    CompletableFuture<Void> addLearners(Collection<Peer> learners);
 
     /**
      * Removes learners.
@@ -152,15 +152,15 @@ public interface RaftGroupService {
      * @param learners List of learners.
      * @return A future.
      */
-    CompletableFuture<Void> removeLearners(Collection<PeerId> learners);
+    CompletableFuture<Void> removeLearners(Collection<Peer> learners);
 
     /**
      * Takes a state machine snapshot on a given group peer.
      *
-     * @param peerId Peer id.
+     * @param peer Peer id.
      * @return A future.
      */
-    CompletableFuture<Void> snapshot(PeerId peerId);
+    CompletableFuture<Void> snapshot(Peer peer);
 
     /**
      * Transfers leadership to other peer.
@@ -170,7 +170,7 @@ public interface RaftGroupService {
      * @param newLeader New leader.
      * @return A future.
      */
-    CompletableFuture<Void> transferLeadership(PeerId newLeader);
+    CompletableFuture<Void> transferLeadership(Peer newLeader);
 
     /**
      * Runs a command on a replication group leader.
@@ -188,10 +188,10 @@ public interface RaftGroupService {
      * <p>
      * Read commands can see stale data (in the past).
      *
-     * @param peerId Peer id.
+     * @param peer Peer id.
      * @param cmd The command.
      * @param <R> Resulting type of command execution response.
      * @return A future with the execution result.
      */
-    <R> CompletableFuture<R> run(PeerId peerId, ReadCommand cmd);
+    <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd);
 }

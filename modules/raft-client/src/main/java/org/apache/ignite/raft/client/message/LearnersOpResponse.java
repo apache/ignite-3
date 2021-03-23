@@ -1,17 +1,17 @@
 package org.apache.ignite.raft.client.message;
 
 import java.util.List;
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 
 public interface LearnersOpResponse {
-    List<PeerId> getOldLearnersList();
+    List<Peer> getOldLearnersList();
 
-    List<PeerId> getNewLearnersList();
+    List<Peer> getNewLearnersList();
 
     public interface Builder {
-        Builder addOldLearners(PeerId oldLearnersId);
+        Builder addOldLearners(Peer oldLearnersId);
 
-        Builder addNewLearners(PeerId newLearnersId);
+        Builder addNewLearners(Peer newLearnersId);
 
         LearnersOpResponse build();
     }

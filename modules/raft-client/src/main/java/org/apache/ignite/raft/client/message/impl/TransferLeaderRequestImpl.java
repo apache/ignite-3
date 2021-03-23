@@ -17,20 +17,20 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.TransferLeaderRequest;
 
 class TransferLeaderRequestImpl implements TransferLeaderRequest, TransferLeaderRequest.Builder {
     private String groupId;
 
-    private PeerId peerId;
+    private Peer peer;
 
     @Override public String getGroupId() {
         return groupId;
     }
 
-    @Override public PeerId getPeerId() {
-        return peerId;
+    @Override public Peer getPeer() {
+        return peer;
     }
 
     @Override public Builder setGroupId(String groupId) {

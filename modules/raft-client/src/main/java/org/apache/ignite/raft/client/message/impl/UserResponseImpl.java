@@ -17,19 +17,19 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.UserResponse;
 
 class UserResponseImpl<T> implements UserResponse<T>, UserResponse.Builder<T> {
     private T response;
-    private PeerId peerId;
+    private Peer peer;
 
-    @Override public PeerId newLeaderId() {
-        return peerId;
+    @Override public Peer newLeaderId() {
+        return peer;
     }
 
-    @Override public Builder setNewLeaderId(PeerId peerId) {
-        this.peerId = peerId;
+    @Override public Builder setNewLeaderId(Peer peer) {
+        this.peer = peer;
 
         return this;
     }

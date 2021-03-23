@@ -19,19 +19,19 @@ package org.apache.ignite.raft.client.message.impl;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 
 class RemoveLearnersRequestImpl implements RemoveLearnersRequest, RemoveLearnersRequest.Builder {
     private String groupId;
 
-    private List<PeerId> learnersList = new ArrayList<>();
+    private List<Peer> learnersList = new ArrayList<>();
 
     @Override public String getGroupId() {
         return groupId;
     }
 
-    @Override public List<PeerId> getLearnersList() {
+    @Override public List<Peer> getLearnersList() {
         return learnersList;
     }
 
@@ -41,7 +41,7 @@ class RemoveLearnersRequestImpl implements RemoveLearnersRequest, RemoveLearners
         return this;
     }
 
-    @Override public Builder addLearners(PeerId learnerId) {
+    @Override public Builder addLearners(Peer learnerId) {
         learnersList.add(learnerId);
 
         return this;

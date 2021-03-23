@@ -19,29 +19,29 @@ package org.apache.ignite.raft.client.message.impl;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.ChangePeersResponse;
 
 class ChangePeersResponseImpl implements ChangePeersResponse, ChangePeersResponse.Builder {
-    private List<PeerId> oldPeersList = new ArrayList<>();
+    private List<Peer> oldPeersList = new ArrayList<>();
 
-    private List<PeerId> newPeersList = new ArrayList<>();
+    private List<Peer> newPeersList = new ArrayList<>();
 
-    @Override public List<PeerId> getOldPeersList() {
+    @Override public List<Peer> getOldPeersList() {
         return oldPeersList;
     }
 
-    @Override public List<PeerId> getNewPeersList() {
+    @Override public List<Peer> getNewPeersList() {
         return newPeersList;
     }
 
-    @Override public Builder addOldPeers(PeerId oldPeersId) {
+    @Override public Builder addOldPeers(Peer oldPeersId) {
         oldPeersList.add(oldPeersId);
 
         return this;
     }
 
-    @Override public Builder addNewPeers(PeerId newPeersId) {
+    @Override public Builder addNewPeers(Peer newPeersId) {
         newPeersList.add(newPeersId);
 
         return this;

@@ -1,22 +1,17 @@
 package org.apache.ignite.raft.client.message;
 
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 
-public interface UserResponse<T> {
+public interface UserResponse<T> extends NewLeaderHint {
     /**
      * @return A response for this request.
      */
     T response();
 
-    /**
-     * @return A new leader, because old has stepped down.
-     */
-    PeerId newLeaderId();
-
     public interface Builder<T> {
         Builder setResponse(T response);
 
-        Builder setNewLeaderId(PeerId peerId);
+        Builder setNewLeaderId(Peer peer);
 
         UserResponse<T> build();
     }

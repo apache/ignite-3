@@ -17,13 +17,13 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 
 public class GetLeaderResponseImpl implements GetLeaderResponse, GetLeaderResponse.Builder {
-    private PeerId leaderId;
+    private Peer leaderId;
 
-    @Override public PeerId getLeaderId() {
+    @Override public Peer getLeaderId() {
         return leaderId;
     }
 
@@ -31,7 +31,7 @@ public class GetLeaderResponseImpl implements GetLeaderResponse, GetLeaderRespon
         return this;
     }
 
-    @Override public Builder setLeaderId(PeerId leaderId) {
+    @Override public Builder setLeaderId(Peer leaderId) {
         this.leaderId = leaderId;
 
         return this;

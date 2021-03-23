@@ -22,7 +22,7 @@ import org.apache.ignite.network.NetworkMember;
 /**
  * A participant of a replication group.
  */
-public final class PeerId {
+public final class Peer {
     /**
      * Network node.
      */
@@ -37,7 +37,7 @@ public final class PeerId {
     /**
      * @param peer Peerid.
      */
-    public PeerId(PeerId peer) {
+    public Peer(Peer peer) {
         this.node = peer.getNode();
         this.priority = peer.getPriority();
     }
@@ -45,7 +45,7 @@ public final class PeerId {
     /**
      * @param node Node.
      */
-    public PeerId(NetworkMember node) {
+    public Peer(NetworkMember node) {
         this(node, ElectionPriority.DISABLED);
     }
 
@@ -53,7 +53,7 @@ public final class PeerId {
      * @param node Node.
      * @param priority Election priority.
      */
-    public PeerId(final NetworkMember node, final int priority) {
+    public Peer(final NetworkMember node, final int priority) {
         super();
         this.node = node;
         this.priority = priority;
@@ -77,10 +77,10 @@ public final class PeerId {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        PeerId peerId = (PeerId) o;
+        Peer peer = (Peer) o;
 
-        if (priority != peerId.priority) return false;
-        if (!node.equals(peerId.node)) return false;
+        if (priority != peer.priority) return false;
+        if (!node.equals(peer.node)) return false;
 
         return true;
     }

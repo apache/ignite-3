@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
@@ -57,7 +57,7 @@ import static org.mockito.ArgumentMatchers.eq;
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest {
     /** */
-    private static PeerId LEADER = new PeerId(new NetworkMember("test"));
+    private static Peer LEADER = new Peer(new NetworkMember("test"));
 
     /** */
     private static final int TIMEOUT = 5_000;
@@ -82,7 +82,7 @@ public class RaftGroupServiceTest {
     }
 
     @Test
-    public void testRefreshLeaderTimeout() throws Exception {
+    public void testRefreshLeaderWithTimeout() throws Exception {
         String groupId = "test";
 
         mockLeaderRequest(cluster, true);
@@ -102,6 +102,32 @@ public class RaftGroupServiceTest {
 
     @Test
     public void testUserRequest() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, false);
+        mockUserInput1(cluster);
+        mockUserInput2(cluster);
+
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, this::resolve, false);
+
+        service.refreshLeader().get();
+
+        CompletableFuture<TestOutput1> fut1 = service.run(new TestInput1());
+
+        TestOutput1 output1 = fut1.get();
+
+        assertNotNull(output1);
+
+        CompletableFuture<TestOutput2> fut2 = service.run(new TestInput2());
+
+        TestOutput2 output2 = fut2.get();
+
+        assertNotNull(output2);
+    }
+
+    @Test
+    public void testUserRequestWithTimeout() throws Exception {
         String groupId = "test";
 
         mockLeaderRequest(cluster, false);

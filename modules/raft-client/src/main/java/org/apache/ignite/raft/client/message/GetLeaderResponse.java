@@ -1,13 +1,13 @@
 package org.apache.ignite.raft.client.message;
 
-import org.apache.ignite.raft.client.PeerId;
+import org.apache.ignite.raft.client.Peer;
 
 public interface GetLeaderResponse {
-    PeerId getLeaderId();
+    Peer getLeaderId();
 
     public interface Builder {
         GetLeaderResponse build();
 
-        Builder setLeaderId(PeerId leaderId);
+        Builder setLeaderId(Peer leaderId);
     }
 }
