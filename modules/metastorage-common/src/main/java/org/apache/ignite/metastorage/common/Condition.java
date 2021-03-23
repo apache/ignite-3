@@ -71,7 +71,6 @@ public final class Condition {
             // No-op.
         }
 
-        // TODO: eq, ne, lt, le, gt, ge
         /**
          * Produces the condition of type {@link Type#EQUAL}. This condition tests the given revision on equality with
          * target entry revision.
@@ -280,8 +279,8 @@ public final class Condition {
         }
 
         /**
-         * Produces the condition of type {@link Type#NOT_EQUAL}. This condition tests the given мфдгу on inequality
-         * with target entry мфдгу.
+         * Produces the condition of type {@link Type#NOT_EQUAL}. This condition tests the given value on inequality
+         * with target entry value.
          *
          * @param val The value.
          * @return The condition of type {@link Type#NOT_EQUAL}.

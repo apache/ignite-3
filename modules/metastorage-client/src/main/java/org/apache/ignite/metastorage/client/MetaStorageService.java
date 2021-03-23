@@ -264,7 +264,7 @@ public interface MetaStorageService {
      *
      * @param keyFrom Start key of range (inclusive). Could be {@code null}.
      * @param keyTo End key of range (exclusive). Could be {@code null}.
-     * @param revision Start revision inclusive. {@code 0} - all revision,
+     * @param revision Start revision inclusive. {@code 0} - all revisions,
      * {@code -1} - latest revision (accordingly to current meta storage state).
      * @param lsnr Listener which will be notified for each update.
      * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
@@ -281,8 +281,8 @@ public interface MetaStorageService {
     /**
      * Subscribes on meta storage updates for the given key.
      *
-     * @param key The target key. Could be {@code null}.
-     * @param revision Start revision inclusive. {@code 0} - all revision,
+     * @param key The target key. Couldn't be {@code null}.
+     * @param revision Start revision inclusive. {@code 0} - all revisions,
      * {@code -1} - latest revision (accordingly to current meta storage state).
      * @param lsnr Listener which will be notified for each update.
      * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
@@ -329,6 +329,7 @@ public interface MetaStorageService {
      * @return Completed future. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      */
+    @NotNull
     CompletableFuture<Void> compact();
 }
 

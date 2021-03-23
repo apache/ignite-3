@@ -24,6 +24,9 @@ package org.apache.ignite.metastorage.common;
  * @see Operation
  */
 public final class Operations {
+    /** No-op operation singleton. */
+    private static final Operation.NoOp NO_OP = new Operation.NoOp();
+
     /**
      * Creates operation of type <i>remove</i>. This type of operation removes entry.
      *
@@ -49,7 +52,7 @@ public final class Operations {
      * @return Operation of type <i>noop</i>.
      */
     public static Operation noop() {
-        return new Operation(new Operation.NoOp());
+        return new Operation(NO_OP);
     }
 
     /**

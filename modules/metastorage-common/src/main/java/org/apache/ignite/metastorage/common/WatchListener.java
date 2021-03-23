@@ -26,7 +26,7 @@ public interface WatchListener {
     /**
      * The method will be called on each meta storage update.
      *
-     * @param events A single event or batch.
+     * @param events A single event or a batch. The batch always contains updates for specific revision.
      * @return {@code True} if listener must continue event handling. If returns {@code false} then the listener and
      * corresponding watch will be unregistered.
      */
