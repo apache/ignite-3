@@ -30,7 +30,6 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.configuration.ConfigurationRegistry;
@@ -107,7 +106,7 @@ public class RestModule {
 
                     JsonElement json = sysConf.represent(path, JsonConverter.jsonVisitor());
 
-                    ctx.result(json.toString());
+                    resp.json(json);
                 }
                 catch (IllegalArgumentException pathE) {
                     ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
