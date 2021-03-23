@@ -101,6 +101,34 @@ public class RaftGroupServiceTest {
     }
 
     @Test
+    public void testUserRequestWithLazyInitLeader() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, false);
+        mockUserInput1(cluster);
+        mockUserInput2(cluster);
+
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, this::resolve, false);
+
+        assertNull(service.leader());
+
+        CompletableFuture<TestOutput1> fut1 = service.run(new TestInput1());
+
+        TestOutput1 output1 = fut1.get();
+
+        assertNotNull(output1);
+
+        assertEquals(LEADER, service.leader());
+
+        CompletableFuture<TestOutput2> fut2 = service.run(new TestInput2());
+
+        TestOutput2 output2 = fut2.get();
+
+        assertNotNull(output2);
+    }
+
+    @Test
     public void testUserRequest() throws Exception {
         String groupId = "test";
 
@@ -126,31 +154,31 @@ public class RaftGroupServiceTest {
         assertNotNull(output2);
     }
 
-    @Test
-    public void testUserRequestWithTimeout() throws Exception {
-        String groupId = "test";
-
-        mockLeaderRequest(cluster, false);
-        mockUserInput1(cluster);
-        mockUserInput2(cluster);
-
-        RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, this::resolve, false);
-
-        service.refreshLeader().get();
-
-        CompletableFuture<TestOutput1> fut1 = service.run(new TestInput1());
-
-        TestOutput1 output1 = fut1.get();
-
-        assertNotNull(output1);
-
-        CompletableFuture<TestOutput2> fut2 = service.run(new TestInput2());
-
-        TestOutput2 output2 = fut2.get();
-
-        assertNotNull(output2);
-    }
+//    @Test
+//    public void testUserRequestWithTimeout() throws Exception {
+//        String groupId = "test";
+//
+//        mockLeaderRequest(cluster, false);
+//        mockUserInput1(cluster);
+//        mockUserInput2(cluster);
+//
+//        RaftGroupService service =
+//            new RaftGroupServiceImpl(groupId, cluster, MESSAGE_FACTORY, TIMEOUT, this::resolve, false);
+//
+//        service.refreshLeader().get();
+//
+//        CompletableFuture<TestOutput1> fut1 = service.run(new TestInput1());
+//
+//        TestOutput1 output1 = fut1.get();
+//
+//        assertNotNull(output1);
+//
+//        CompletableFuture<TestOutput2> fut2 = service.run(new TestInput2());
+//
+//        TestOutput2 output2 = fut2.get();
+//
+//        assertNotNull(output2);
+//    }
 
     /**
      * @param grpId Group id.

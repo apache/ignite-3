@@ -80,7 +80,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param cluster A cluster.
      * @param factory A message factory.
      * @param timeout Request timeout.
-     * @param initialMembersResolver A closure to resolve network members for a group.
+     * @param topResolver A closure to resolve intitial topology for a group.
      * @param refreshLeader {@code True} to synchronously refresh leader on service creation.
      */
     public RaftGroupServiceImpl(
@@ -88,11 +88,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         NetworkCluster cluster,
         RaftClientMessageFactory factory,
         int timeout,
-        Function<String, Set<NetworkMember>> initialMembersResolver,
+        Function<String, Set<NetworkMember>> topResolver,
         boolean refreshLeader
     ) {
         this.cluster = cluster;
-        this.initialMembersResolver = initialMembersResolver;
+        this.initialMembersResolver = topResolver;
         this.factory = factory;
         this.timeout = timeout;
         this.groupId = groupId;
