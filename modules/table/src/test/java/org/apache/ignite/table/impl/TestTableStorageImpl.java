@@ -17,35 +17,75 @@
 
 package org.apache.ignite.table.impl;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.Row;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.internal.table.TableRow;
+import org.apache.ignite.internal.table.TableRowAdapter;
+import org.apache.ignite.internal.table.TableSchemaManager;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy table storage implementation.
  */
 public class TestTableStorageImpl implements TableStorage {
     /** In-memory dummy store. */
-    private final Map<KeyChunk, TestTableRowImpl> store = new ConcurrentHashMap<>();
+    private final Map<Chunk, Chunk> store = new ConcurrentHashMap<>();
 
-    /** {@inheritDoc} */
-    @Override public TableRow get(TableRow obj) {
-        return store.get(new KeyChunk(obj.keyChunk().toBytes()));
+    /** Schema manager. */
+    private final TableSchemaManager schemaMgr;
+
+    public TestTableStorageImpl(TableSchemaManager mgr) {
+        schemaMgr = mgr;
     }
 
     /** {@inheritDoc} */
-    @Override public TableRow put(TableRow row) {
-        return store.put(
-            new KeyChunk(row.keyChunk().toBytes()),
-            new TestTableRowImpl(row.toBytes()));
+    @Override public TableRow get(@NotNull TableRow obj) {
+        Chunk chunk = store.get(new Chunk(obj.keyChunk().toBytes()));
+
+        return chunkToRow(chunk);
+    }
+
+    /** {@inheritDoc} */
+    @Override public TableRow put(@NotNull TableRow row) {
+        if (row.valueChunk() == null) {
+            final Chunk old = store.remove(new Chunk(row.keyChunk().toBytes()));
+
+            return chunkToRow(old);
+        }
+
+        final Chunk old = store.put(
+            new Chunk(row.keyChunk().toBytes()),
+            new Chunk(row.toBytes()));
+
+        return chunkToRow(old);
+    }
+
+    @Nullable private TableRow chunkToRow(@Nullable Chunk chunk) {
+        if (chunk == null)
+            return null;
+
+        ByteBuffer buf = ByteBuffer.wrap(chunk.data);
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+
+        short ver = buf.getShort(Row.SCHEMA_VERSION_OFFSET);
+
+        final SchemaDescriptor schema = schemaMgr.schema(ver);
+
+        return chunk == null ? null : new TableRowAdapter(new ByteBufferRow(schema, buf), schema);
     }
 
     /**
      * Wrapper provides correct byte[] comparison.
      */
-    private static class KeyChunk {
+    private static class Chunk {
         /** Data. */
         private final byte[] data;
 
@@ -57,7 +97,7 @@ public class TestTableStorageImpl implements TableStorage {
          *
          * @param data Wrapped data.
          */
-        KeyChunk(byte[] data) {
+        Chunk(byte[] data) {
             this.data = data;
             this.hash = Arrays.hashCode(data);
         }
@@ -70,7 +110,7 @@ public class TestTableStorageImpl implements TableStorage {
             if (o == null || getClass() != o.getClass())
                 return false;
 
-            KeyChunk wrapper = (KeyChunk)o;
+            Chunk wrapper = (Chunk)o;
             return Arrays.equals(data, wrapper.data);
         }
 

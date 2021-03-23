@@ -20,7 +20,11 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
-import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Row;
+import org.apache.ignite.internal.schema.RowAssembler;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
@@ -42,13 +46,17 @@ public class TableImpl implements Table {
     /** Table. */
     private final TableStorage tbl;
 
+    /** Schema manager. */
+    private final TableSchemaManager schemaMgr;
+
     /**
      * Constructor.
      *
      * @param tbl Table.
      */
-    public TableImpl(TableStorage tbl) {
+    public TableImpl(TableStorage tbl, TableSchemaManager schemaMgr) {
         this.tbl = tbl;
+        this.schemaMgr = schemaMgr;
     }
 
     /** {@inheritDoc} */
@@ -68,9 +76,7 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple keyRec) {
-        Marshaller marsh = marshaller();
-
-        return tbl.get(marsh.marshalRecord(keyRec));
+        return tbl.get(marshallToRow(keyRec, true));
     }
 
     /** {@inheritDoc} */
@@ -90,7 +96,7 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public void upsert(Tuple rec) {
-
+        tbl.put(marshallToRow(rec, false));
     }
 
     /** {@inheritDoc} */
@@ -257,9 +263,56 @@ public class TableImpl implements Table {
     }
 
     /**
-     * @return Marshaller.
+     * @param rec Record tuple.
+     * @param skipValue Skip value columns.
+     * @return Table row.
      */
-    private Marshaller marshaller() {
-        return null;
+    //TODO: Move to marshaller.
+    private TableRow marshallToRow(Tuple rec, boolean skipValue) {
+        final SchemaDescriptor schema = schemaMgr.schema();
+
+        assert rec instanceof TupleBuilderImpl;
+
+        final RowAssembler rowBuilder = new RowAssembler(schema, 4096, 0, 0);
+
+        for (int i = 0; i < schema.keyColumns().length(); i++) {
+            final Column col = schema.keyColumns().column(i);
+
+            writeColumn(rec, col, rowBuilder);
+        }
+
+        if (!skipValue) {
+            for (int i = 0; i < schema.valueColumns().length(); i++) {
+                final Column col = schema.valueColumns().column(i);
+
+                writeColumn(rec, col, rowBuilder);
+            }
+        }
+
+        return wrap(new ByteBufferRow(schema, rowBuilder.build()));
+    }
+
+    //TODO: Move to marshaller.
+    private void writeColumn(Tuple rec, Column col, RowAssembler rowWriter) {
+        if (rec.value(col.name())==null) {
+            rowWriter.appendNull();
+            return;
+        }
+
+        switch (col.type().spec()) {
+            case LONG: {
+                rowWriter.appendLong(rec.longValue(col.name()));
+
+                break;
+            }
+
+            default:
+                throw new IllegalStateException("Unexpected value: " + col.type());
+        }
+    }
+
+    //TODO: Move to marshaller.
+    @NotNull private TableRowAdapter wrap(Row row) {
+        return row == null ? null : new TableRowAdapter(row, schemaMgr.schema());
     }
 }

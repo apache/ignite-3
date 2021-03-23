@@ -29,13 +29,27 @@ public class ByteBufferRow extends Row {
     private final ByteBuffer buf;
 
     /**
-     * @param arr Array representation of the row.
+     * @param schema Row schema.
+     * @param data Array representation of the row.
      */
-    public ByteBufferRow(SchemaDescriptor sch, byte[] arr) {
-        super(sch);
+    public ByteBufferRow(SchemaDescriptor schema, byte[] data) {
+        super(schema);
 
-        buf = ByteBuffer.wrap(arr);
+        buf = ByteBuffer.wrap(data);
         buf.order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param schema Schema.
+     * @param buf Buffer representing the row.
+     */
+    public ByteBufferRow(SchemaDescriptor schema, ByteBuffer buf) {
+        super(schema);
+
+        assert buf.order() == ByteOrder.LITTLE_ENDIAN;
+        this.buf = buf;
     }
 
     /** {@inheritDoc} */

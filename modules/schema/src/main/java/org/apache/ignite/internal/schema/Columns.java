@@ -139,6 +139,13 @@ public class Columns {
     }
 
     /**
+     * @return Sorted columns.
+     */
+    Column[] columns() {
+        return cols;
+    }
+
+    /**
      * @return Number of columns in this chunk.
      */
     public int length() {
