@@ -20,6 +20,7 @@ package org.apache.ignite.raft.client.service.impl;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +46,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 
 import static java.lang.System.currentTimeMillis;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static org.apache.ignite.raft.client.RaftErrorCode.LEADER_CHANGED;
 import static org.apache.ignite.raft.client.RaftErrorCode.NO_LEADER;
@@ -103,13 +105,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         long retryDelay,
         Timer timer
     ) {
-        this.cluster = cluster;
-        this.peers = peers;
+        this.cluster = requireNonNull(cluster);
+        this.peers = requireNonNull(peers);
         this.factory = factory;
         this.timeout = timeout;
         this.groupId = groupId;
         this.retryDelay = retryDelay;
-        this.timer = timer;
+        this.timer = requireNonNull(timer);
 
         if (refreshLeader) {
             try {
@@ -150,9 +152,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         CompletableFuture<GetLeaderResponse> fut = new CompletableFuture<>();
 
-        ArrayList<Peer> copy = new ArrayList<>(peers);
-
-        sendWithRetry(randomNode(copy), req, currentTimeMillis() + timeout, fut);
+        sendWithRetry(randomNode(), req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> {
             leader = resp.leaderId();
@@ -249,6 +249,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return A future.
      */
     private <R> void sendWithRetry(NetworkMember node, Object req, long stopTime, CompletableFuture<R> fut) {
+        info("sendWithRetry stopTime=" + stopTime + " cur=" + System.currentTimeMillis());
+
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 

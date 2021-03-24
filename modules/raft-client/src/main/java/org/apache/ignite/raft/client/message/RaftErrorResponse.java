@@ -2,18 +2,17 @@ package org.apache.ignite.raft.client.message;
 
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
-import org.jetbrains.annotations.Nullable;
 
-public class RaftErrorResponse {
-    private RaftErrorCode errorCode;
+public interface RaftErrorResponse {
+    public RaftErrorCode getErrorCode();
 
-    private @Nullable Peer newLeader;
+    public Peer getNewLeader();
 
-    public RaftErrorCode getErrorCode() {
-        return errorCode;
-    }
+    public interface Builder {
+        Builder setErrorCode(RaftErrorCode errorCode);
 
-    public Peer getNewLeader() {
-        return newLeader;
+        Builder setNewLeader(Peer newLeader);
+
+        RaftErrorResponse build();
     }
 }

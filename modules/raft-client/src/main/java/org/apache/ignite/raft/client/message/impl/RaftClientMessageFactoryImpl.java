@@ -24,6 +24,7 @@ import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.GetPeersRequest;
 import org.apache.ignite.raft.client.message.GetPeersResponse;
+import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
@@ -85,5 +86,9 @@ public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
 
     @Override public UserResponse.Builder createUserResponse() {
         return new UserResponseImpl();
+    }
+
+    @Override public RaftErrorResponse.Builder createRaftErrorResponse() {
+        return new RaftErrorResponseImpl();
     }
 }
