@@ -273,14 +273,16 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         if (resp0.getErrorCode().equals(NO_LEADER)) {
                             timer.schedule(new TimerTask() {
                                 @Override public void run() {
-                                    sendWithRetry(randomNode(), req, stopTime, fut);
+                                sendWithRetry(randomNode(), req, stopTime, fut);
                                 }
                             }, retryDelay);
                         }
                         else if (resp0.getErrorCode().equals(LEADER_CHANGED)) {
+                            leader = resp0.getNewLeader(); // Update a leader.
+
                             timer.schedule(new TimerTask() {
                                 @Override public void run() {
-                                    sendWithRetry(resp0.getNewLeader().getNode(), req, stopTime, fut);
+                                sendWithRetry(resp0.getNewLeader().getNode(), req, stopTime, fut);
                                 }
                             }, retryDelay);
                         }
@@ -320,13 +322,5 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private void error(String msg, Exception e) {
         LOG.log(System.Logger.Level.ERROR, msg, e);
-    }
-
-    /**
-     * @param peers Peers.
-     * @return A node.
-     */
-    private NetworkMember randomNode(ArrayList<Peer> peers) {
-        return peers.get(current().nextInt(peers.size())).getNode();
     }
 }

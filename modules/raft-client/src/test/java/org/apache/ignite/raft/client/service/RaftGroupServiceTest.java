@@ -28,11 +28,8 @@ import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.exception.RaftException;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
-import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.UserRequest;
-import org.apache.ignite.raft.client.message.UserResponse;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
@@ -50,6 +47,7 @@ import static java.util.List.of;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,10 +70,10 @@ public class RaftGroupServiceTest {
     private volatile Peer leader;
 
     /** Call timeout. */
-    private static final int TIMEOUT = 1_500;
+    private static final int TIMEOUT = 1000;
 
     /** Retry delay. */
-    private static final int DELAY = 500;
+    private static final int DELAY = 200;
 
     @Mock
     private NetworkCluster cluster;
@@ -126,7 +124,7 @@ public class RaftGroupServiceTest {
     }
 
     @Test
-    public void testRefreshLeaderElected() throws Exception {
+    public void testRefreshLeaderElectedAfterDelay() throws Exception {
         String groupId = "test";
 
         mockLeaderRequest(cluster, false);
@@ -140,7 +138,7 @@ public class RaftGroupServiceTest {
             @Override public void run() {
                 leader = NODES.get(0);
             }
-        }, 1000);
+        }, 500);
 
         RaftGroupService service =
             new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, timer);
@@ -172,11 +170,11 @@ public class RaftGroupServiceTest {
     }
 
     @Test
-    public void testUserRequest() throws Exception {
+    public void testUserRequestLeaderElected() throws Exception {
         String groupId = "test";
 
         mockLeaderRequest(cluster, false);
-        mockUserInput(cluster);
+        mockUserInput(cluster, false);
 
         RaftGroupService service =
             new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, new Timer());
@@ -191,22 +189,20 @@ public class RaftGroupServiceTest {
     }
 
     @Test
-    public void testUserRequestWithLazyInitLeader() throws Exception {
+    public void testUserRequestLazyInitLeader() throws Exception {
         String groupId = "test";
 
         mockLeaderRequest(cluster, false);
-        mockUserInput(cluster);
+        mockUserInput(cluster, false);
 
         RaftGroupService service =
             new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, new Timer());
 
         assertNull(service.leader());
 
-        CompletableFuture<TestResponse> fut = service.run(new TestCommand());
+        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
 
-        TestResponse output = fut.get();
-
-        assertNotNull(output);
+        assertNotNull(resp);
 
         assertEquals(leader, service.leader());
     }
@@ -216,24 +212,127 @@ public class RaftGroupServiceTest {
         String groupId = "test";
 
         mockLeaderRequest(cluster, false);
-        mockUserInput(cluster);
+        mockUserInput(cluster, true);
 
         RaftGroupService service =
             new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, new Timer());
 
-        service.refreshLeader().get();
+        try {
+            service.run(new TestCommand()).get();
 
-        CompletableFuture<TestResponse> fut = service.run(new TestCommand());
-
-        TestResponse output = fut.get();
-
-        assertNotNull(output);
+            fail();
+        }
+        catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof TimeoutException);
+        }
     }
 
-    public void mockUserInput(NetworkCluster cluster) {
+    @Test
+    public void testUserRequestLeaderNotElected() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, false);
+        mockUserInput(cluster, false);
+
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, new Timer());
+
+        Peer lastKnownLeader = leader;
+
+        assertEquals(lastKnownLeader, service.leader());
+
+        leader = null;
+
+        assertEquals(lastKnownLeader, service.leader());
+
+        try {
+            service.run(new TestCommand()).get();
+
+            fail("Expecting timeout");
+        }
+        catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof TimeoutException);
+        }
+    }
+
+    @Test
+    public void testUserRequestLeaderElectedAfterDelay() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, false);
+        mockUserInput(cluster, false);
+
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, new Timer());
+
+        Peer lastKnownLeader = leader;
+
+        assertEquals(lastKnownLeader, service.leader());
+
+        leader = null;
+
+        assertEquals(lastKnownLeader, service.leader());
+
+        Timer timer = new Timer();
+
+        timer.schedule(new TimerTask() {
+            @Override public void run() {
+                leader = NODES.get(0);
+            }
+        }, 500);
+
+        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
+
+        assertNotNull(resp);
+    }
+
+    @Test
+    public void testUserRequestLeaderChanged() throws Exception {
+        String groupId = "test";
+
+        mockLeaderRequest(cluster, false);
+        mockUserInput(cluster, false);
+
+        RaftGroupService service =
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, new Timer());
+
+        Peer lastKnownLeader = leader;
+
+        assertEquals(lastKnownLeader, service.leader());
+
+        Peer newLeader = NODES.get(1);
+
+        this.leader = newLeader;
+
+        assertEquals(lastKnownLeader, service.leader());
+        assertNotEquals(lastKnownLeader, newLeader);
+
+        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
+
+        assertNotNull(resp);
+
+        assertEquals(newLeader, service.leader());
+    }
+
+    public void mockUserInput(NetworkCluster cluster, boolean simulateTimeout) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                UserResponse resp = FACTORY.createUserResponse().setResponse(new TestResponse()).build();
+                NetworkMember target = invocation.getArgument(0);
+
+                if (simulateTimeout)
+                    return failedFuture(new TimeoutException());
+
+                Object resp;
+
+                if (leader == null) {
+                    resp = FACTORY.createRaftErrorResponse().setErrorCode(RaftErrorCode.NO_LEADER).build();
+                }
+                else if (target != leader.getNode()){
+                    resp = FACTORY.createRaftErrorResponse().setErrorCode(RaftErrorCode.LEADER_CHANGED).setNewLeader(leader).build();
+                }
+                else {
+                    resp = FACTORY.createUserResponse().setResponse(new TestResponse()).build();
+                }
 
                 return completedFuture(resp);
             }
@@ -251,21 +350,19 @@ public class RaftGroupServiceTest {
     public void mockLeaderRequest(NetworkCluster cluster, boolean simulateTimeout) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
-                NetworkMember target = invocation.getArgument(0);
-
                 if (simulateTimeout)
                     return failedFuture(new TimeoutException());
 
                 Object resp;
 
-                if (leader == null) {
+                Peer leader0 = leader;
+
+                if (leader0 == null) {
                     resp = FACTORY.createRaftErrorResponse().setErrorCode(RaftErrorCode.NO_LEADER).build();
                 }
-                else if (target != leader.getNode()){
-                    resp = FACTORY.createRaftErrorResponse().setErrorCode(RaftErrorCode.LEADER_CHANGED).setNewLeader(leader).build();
+                else {
+                    resp = FACTORY.createGetLeaderResponse().setLeaderId(leader0).build();
                 }
-                else
-                    resp = FACTORY.createGetLeaderResponse().setLeaderId(leader).build();
 
                 return completedFuture(resp);
             }
