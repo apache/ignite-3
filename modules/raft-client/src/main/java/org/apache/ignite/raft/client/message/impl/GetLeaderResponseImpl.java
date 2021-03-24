@@ -23,7 +23,7 @@ import org.apache.ignite.raft.client.message.GetLeaderResponse;
 public class GetLeaderResponseImpl implements GetLeaderResponse, GetLeaderResponse.Builder {
     private Peer leaderId;
 
-    @Override public Peer getLeaderId() {
+    @Override public Peer leaderId() {
         return leaderId;
     }
 

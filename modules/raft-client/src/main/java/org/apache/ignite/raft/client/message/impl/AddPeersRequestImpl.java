@@ -17,22 +17,21 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.AddPeersRequest;
 
 class AddPeersRequestImpl implements AddPeersRequest, AddPeersRequest.Builder {
     private String groupId;
 
-    private List<Peer> peersList = new ArrayList<>();
+    private Collection<Peer> peers;
 
-    @Override public String getGroupId() {
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public List<Peer> getPeersList() {
-        return peersList;
+    @Override public Collection<Peer> peers() {
+        return peers;
     }
 
     @Override public Builder setGroupId(String groupId) {
@@ -41,14 +40,16 @@ class AddPeersRequestImpl implements AddPeersRequest, AddPeersRequest.Builder {
         return this;
     }
 
-    @Override public Builder addPeer(Peer peer) {
-        if (!this.peersList.contains(peer))
-            this.peersList.add(peer);
+    @Override public Builder setPeers(Collection<Peer> peers) {
+        this.peers = peers;
 
-        return this;
+        return null;
     }
 
     @Override public AddPeersRequest build() {
+        if (peers == null)
+            throw new IllegalArgumentException();
+
         return this;
     }
 }

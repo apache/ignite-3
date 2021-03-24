@@ -35,9 +35,6 @@ import org.apache.ignite.raft.client.message.UserResponse;
  * Raft client message factory.
  */
 public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
-    /** */
-    public static RaftClientMessageFactoryImpl MESSAGE_FACTORY = new RaftClientMessageFactoryImpl();
-
     @Override public AddPeersRequest.Builder createAddPeersRequest() {
         return new AddPeersRequestImpl();
     }

@@ -19,6 +19,7 @@ package org.apache.ignite.raft.client.service;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.client.Command;
@@ -68,12 +69,12 @@ public interface RaftGroupService {
     @Nullable Peer leader();
 
     /**
-     * @return List of voting peers or {@code null} if it has not been yet initialized.
+     * @return A list of voting peers or {@code null} if it has not been yet initialized.
      */
     @Nullable List<Peer> peers();
 
     /**
-     * @return List of leaners or {@code null} if it has not been yet initialized.
+     * @return A list of leaners or {@code null} if it has not been yet initialized.
      */
     @Nullable List<Peer> learners();
 

@@ -72,7 +72,7 @@ public interface NetworkCluster {
      * @param <R> Expected response type.
      * @return A future holding the response or error if the expected response was not received.
      */
-    <R> CompletableFuture<R> sendWithResponse(NetworkMember member, Object msg, long timeout);
+    CompletableFuture sendWithResponse(NetworkMember member, Object msg, long timeout);
 
     /**
      * Add provider which allows to get configured handlers for different cluster events(ex. received message).
