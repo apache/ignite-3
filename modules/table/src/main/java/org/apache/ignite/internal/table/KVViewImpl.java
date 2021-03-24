@@ -20,6 +20,9 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Row;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
@@ -36,26 +39,33 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     /** Underlying storage. */
     private final TableStorage tbl;
 
+    /** Schema manager. */
+    private final TableSchemaManager schemaMgr;
+
     /**
      * Constructor.
-     *
-     * @param tbl Table storage.
+     *  @param tbl Table storage.
+     * @param schemaMgr Schema manager.
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
-    public KVViewImpl(TableStorage tbl, KeyMapper<K> keyMapper, ValueMapper<V> valueMapper) {
+    public KVViewImpl(TableStorage tbl, TableSchemaManager schemaMgr, KeyMapper<K> keyMapper,
+        ValueMapper<V> valueMapper) {
         this.tbl = tbl;
+        this.schemaMgr = schemaMgr;
     }
 
     /** {@inheritDoc} */
     @Override public V get(K key) {
         final Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.serialize(key);
+        Row kRow = marsh.serialize(key); // Convert to portable format to pass TX/storage layer.
 
-        TableRow row = tbl.get(kRow);
+        BinaryRow vRow = tbl.get(kRow); // Load from storage.
 
-        return marsh.deserializeValue(row);
+        Row res = wrap(vRow); // Binary -> schema-aware row
+
+        return marsh.deserializeValue(res);
     }
 
     /** {@inheritDoc} */
@@ -224,5 +234,18 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
      */
     private Marshaller marshaller() {
         return null;        // table.schemaManager().marshaller();
+    }
+
+    /**
+     * @param row Binary row.
+     * @return Schema-aware row.
+     */
+    private Row wrap(BinaryRow row) {
+        if (row == null)
+            return null;
+
+        final SchemaDescriptor rowSchema = schemaMgr.schema(row.schemaVersion()); // Get a schema for row.
+
+        return new Row(rowSchema, row);
     }
 }

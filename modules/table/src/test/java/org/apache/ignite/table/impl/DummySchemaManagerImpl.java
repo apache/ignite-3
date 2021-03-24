@@ -19,6 +19,7 @@ package org.apache.ignite.table.impl;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableSchemaManager;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Dummy schema manager for tests.
@@ -32,7 +33,9 @@ public class DummySchemaManagerImpl implements TableSchemaManager {
      *
      * @param schema Schema descriptor.
      */
-    public DummySchemaManagerImpl(SchemaDescriptor schema) {
+    public DummySchemaManagerImpl(@NotNull SchemaDescriptor schema) {
+        assert schema != null;
+
         this.schema = schema;
     }
 
@@ -42,7 +45,9 @@ public class DummySchemaManagerImpl implements TableSchemaManager {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor schema(short ver) {
+    @Override public SchemaDescriptor schema(int ver) {
+        assert ver >= 0;
+
         assert schema.version() == ver;
 
         return schema;

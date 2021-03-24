@@ -21,6 +21,9 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Row;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
@@ -40,20 +43,29 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     /** Underlying storage. */
     private final TableStorage tbl;
 
+    /** Schema manager. */
+    private final TableSchemaManager schemaMgr;
+
     /**
      * Constructor.
      *
      * @param tbl Table storage.
+     * @param schemaMgr Schema manager.
      */
-    public KeyValueBinaryViewImpl(TableStorage tbl) {
+    public KeyValueBinaryViewImpl(TableStorage tbl, TableSchemaManager schemaMgr) {
         this.tbl = tbl;
+        this.schemaMgr = schemaMgr;
     }
 
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple key) {
         Objects.requireNonNull(key);
 
-        return marshaller().marshalKVPair(key, null);
+        Row kRow = marshaller().marshalKVPair(key, null); // Convert to portable format to pass TX/storage layer.
+
+        BinaryRow vRow = tbl.get(kRow); // Load from storage.
+
+        return wrap(vRow); // Binary -> schema-aware row -> tuple
     }
 
     /** {@inheritDoc} */
@@ -80,9 +92,9 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     @Override public void put(Tuple key, Tuple val) {
         Objects.requireNonNull(key);
 
-        final TableRow row = marshaller().marshalKVPair(key, val);
+        Row row = marshaller().marshalKVPair(key, val); // Convert to portable format to pass TX/storage layer.
 
-        tbl.put(row);
+        tbl.put(row); // Put to storage.
     }
 
     /** {@inheritDoc} */
@@ -237,5 +249,18 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
      */
     private Marshaller marshaller() {
         return null;
+    }
+
+    /**
+     * @param row Binary row.
+     * @return Table row.
+     */
+    private TableRow wrap(BinaryRow row) {
+        if (row == null)
+            return null;
+
+        final SchemaDescriptor schema = schemaMgr.schema(row.schemaVersion());
+
+        return new TableRow(schema, new Row(schema, row));
     }
 }

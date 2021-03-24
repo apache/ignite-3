@@ -17,69 +17,55 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
 
 /**
+ * Schema-aware row.
+ *
  * The class contains non-generic methods to read boxed and unboxed primitives based on the schema column types.
  * Any type conversions and coercions should be implemented outside the row by the key-value or query runtime.
  * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
  */
-public abstract class Row {
-    /** */
-    public static final int SCHEMA_VERSION_OFFSET = 0;
-
-    /** */
-    public static final int FLAGS_FIELD_OFFSET = SCHEMA_VERSION_OFFSET + 2;
-
-    /** */
-    public static final int KEY_HASH_FIELD_OFFSET = FLAGS_FIELD_OFFSET + 2;
-
-    /** */
-    public static final int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4;
-
-    /** */
-    public static final int TOTAL_LEN_FIELD_SIZE = 4;
-
-    /** */
-    public static final int VARLEN_TABLE_SIZE_FIELD_SIZE = 2;
-
-    /** */
-    public static final int VARLEN_COLUMN_OFFSET_FIELD_SIZE = 2;
-
-    /** */
-    public static final class RowFlags {
-        /** Tombstone flag. */
-        public static final int TOMBSTONE = 1;
-
-        /** Null-value flag. */
-        public static final int NULL_VALUE = 1 << 1;
-
-        /** Stub. */
-        private RowFlags() {
-        }
-    }
-
-    /** Schema descriptor for which this row was created. */
+public class Row implements BinaryRow {
+    /** Schema descriptor. */
     private final SchemaDescriptor schema;
 
+    /** Binary row. */
+    private final BinaryRow row;
+
     /**
-     * @param schema Schema instance.
+     * Constructor.
+     *
+     * @param schema Schema.
+     * @param row Binary row representation.
      */
-    protected Row(SchemaDescriptor schema) {
+    public Row(SchemaDescriptor schema, BinaryRow row) {
+        assert row.schemaVersion() == schema.version();
+
+        this.row = row;
         this.schema = schema;
+    }
+
+    /**
+     * @return Row schema.
+     */
+    public SchemaDescriptor rowSchema() {
+        return schema;
     }
 
     /**
      * @return {@code True} if row has non-null value, {@code false} otherwise.
      */
-    public boolean hasValue() {
-        short flags = readShort(FLAGS_FIELD_OFFSET);
-
-        return (flags & (RowFlags.NULL_VALUE | RowFlags.TOMBSTONE)) == 0;
+    @Override public boolean hasValue() {
+        return row.hasValue();
     }
 
     /**
+     *
      */
     public byte byteValue(int col) {
         long off = findColumn(col, NativeTypeSpec.BYTE);
@@ -88,6 +74,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public Byte byteValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.BYTE);
@@ -96,6 +83,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public short shortValue(int col) {
         long off = findColumn(col, NativeTypeSpec.SHORT);
@@ -104,6 +92,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public Short shortValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.SHORT);
@@ -112,6 +101,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public int intValue(int col) {
         long off = findColumn(col, NativeTypeSpec.INTEGER);
@@ -120,6 +110,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public Integer intValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.INTEGER);
@@ -128,6 +119,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public long longValue(int col) {
         long off = findColumn(col, NativeTypeSpec.LONG);
@@ -136,6 +128,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public Long longValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.LONG);
@@ -144,6 +137,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public float floatValue(int col) {
         long off = findColumn(col, NativeTypeSpec.FLOAT);
@@ -152,6 +146,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public Float floatValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.FLOAT);
@@ -160,6 +155,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public double doubleValue(int col) {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
@@ -168,6 +164,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public Double doubleValueBoxed(int col) {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
@@ -176,6 +173,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public String stringValue(int col) {
         long offLen = findColumn(col, NativeTypeSpec.STRING);
@@ -190,6 +188,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public byte[] bytesValue(int col) {
         long offLen = findColumn(col, NativeTypeSpec.BYTES);
@@ -204,6 +203,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public UUID uuidValue(int col) {
         long found = findColumn(col, NativeTypeSpec.UUID);
@@ -220,6 +220,7 @@ public abstract class Row {
     }
 
     /**
+     *
      */
     public BitSet bitmaskValue(int colIdx) {
         long offLen = findColumn(colIdx, NativeTypeSpec.BITMASK);
@@ -228,10 +229,9 @@ public abstract class Row {
             return null;
 
         int off = offset(offLen);
+        int colLen = columnLength(colIdx);
 
-        Column col = schema.column(colIdx);
-
-        return BitSet.valueOf(readBytes(off, col.type().length()));
+        return BitSet.valueOf(readBytes(off, colLen));
     }
 
     /**
@@ -249,7 +249,7 @@ public abstract class Row {
      * @see #length(long)
      * @see InvalidTypeException If actual column type does not match the requested column type.
      */
-    private long findColumn(int colIdx, NativeTypeSpec type) {
+    protected long findColumn(int colIdx, NativeTypeSpec type) {
         // Get base offset (key start or value start) for the given column.
         boolean keyCol = schema.keyColumn(colIdx);
         Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
@@ -276,6 +276,16 @@ public abstract class Row {
         return type.fixedLength() ?
             fixlenColumnOffset(cols, off, colIdx) :
             varlenColumnOffsetAndLength(cols, off, colIdx);
+    }
+
+    /**
+     * @param colIdx Column index.
+     * @return Column length.
+     */
+    private int columnLength(int colIdx) {
+        Column col = schema.column(colIdx);
+
+        return col.type().length();
     }
 
     /**
@@ -417,47 +427,68 @@ public abstract class Row {
         return baseOff + TOTAL_LEN_FIELD_SIZE + VARLEN_TABLE_SIZE_FIELD_SIZE;
     }
 
-    /**
-     */
-    protected abstract byte readByte(int off);
+    /** {@inheritDoc} */
+    @Override public int schemaVersion() {
+        return row.schemaVersion();
+    }
 
-    /**
-     */
-    protected abstract short readShort(int off);
+    /** {@inheritDoc} */
+    @Override public int hash() {
+        return row.hash();
+    }
 
-    /**
-     */
-    protected abstract int readInteger(int off);
+    /** {@inheritDoc} */
+    @Override public ByteBuffer keySlice() {
+        return row.keySlice();
+    }
 
-    /**
-     */
-    protected abstract long readLong(int off);
+    /** {@inheritDoc} */
+    @Override public ByteBuffer valueSlice() {
+        return row.valueSlice();
+    }
 
-    /**
-     */
-    protected abstract float readFloat(int off);
+    /** {@inheritDoc} */
+    @Override public void writeTo(OutputStream stream) throws IOException {
+        row.writeTo(stream);
+    }
 
-    /**
-     */
-    protected abstract double readDouble(int off);
+    /** {@inheritDoc} */
+    @Override public byte readByte(int off) {
+        return row.readByte(off);
+    }
 
-    /**
-     */
-    protected abstract String readString(int off, int len);
+    /** {@inheritDoc} */
+    @Override public short readShort(int off) {
+        return row.readShort(off);
+    }
 
-    /**
-     */
-    protected abstract byte[] readBytes(int off, int len);
+    /** {@inheritDoc} */
+    @Override public int readInteger(int off) {
+        return row.readInteger(off);
+    }
 
-    /**
-     */
-    public abstract byte[] rowBytes();
+    /** {@inheritDoc} */
+    @Override public long readLong(int off) {
+        return row.readLong(off);
+    }
 
-    /**
-     */
-    public abstract byte[] keyChunkBytes();
+    /** {@inheritDoc} */
+    @Override public float readFloat(int off) {
+        return row.readFloat(off);
+    }
 
-    /**
-     */
-    public abstract byte[] valueChunkBytes();
+    /** {@inheritDoc} */
+    @Override public double readDouble(int off) {
+        return row.readDouble(off);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String readString(int off, int len) {
+        return row.readString(off, len);
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] readBytes(int off, int len) {
+        return row.readBytes(off, len);
+    }
 }

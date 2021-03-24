@@ -32,5 +32,5 @@ public interface TableSchemaManager {
      * @param ver Schema version.
      * @return Schema of given version.
      */
-    SchemaDescriptor schema(short ver);
+    SchemaDescriptor schema(int ver);
 }

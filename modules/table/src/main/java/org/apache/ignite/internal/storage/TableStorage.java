@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.table.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 
 /**
  * Table storage facade.
@@ -29,7 +29,7 @@ public interface TableStorage {
      * @param keyRow Row with key columns set.
      * @return Row with all columns set.
      */
-    public TableRow get(TableRow keyRow);
+    public BinaryRow get(BinaryRow keyRow);
 
     /**
      * Puts row from storage.
@@ -37,5 +37,5 @@ public interface TableStorage {
      * @param row Row.
      * @return Replaced row or {@code null}.
      */
-    TableRow put(TableRow row);
+    BinaryRow put(BinaryRow row);
 }

@@ -110,7 +110,7 @@ public class RowAssembler {
      * @return Row's chunk size.
      */
     public static int rowChunkSize(Columns cols, int nonNullVarlenCols, int nonNullVarlenSize) {
-        int size = Row.TOTAL_LEN_FIELD_SIZE + Row.VARLEN_TABLE_SIZE_FIELD_SIZE +
+        int size = BinaryRow.TOTAL_LEN_FIELD_SIZE + BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE +
             varlenTableSize(nonNullVarlenCols) + cols.nullMapSize();
 
         for (int i = 0; i < cols.numberOfFixsizeColumns(); i++)
@@ -140,10 +140,10 @@ public class RowAssembler {
 
         curCols = schema.keyColumns();
 
-        initOffsets(Row.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
+        initOffsets(BinaryRow.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
 
         buf.putShort(0, (short)schema.version());
-        buf.putShort(baseOff + Row.TOTAL_LEN_FIELD_SIZE, (short)nonNullVarlenKeyCols);
+        buf.putShort(baseOff + BinaryRow.TOTAL_LEN_FIELD_SIZE, (short)nonNullVarlenKeyCols);
     }
 
     /**
@@ -163,7 +163,7 @@ public class RowAssembler {
         int nonNullVarlenValCols,
         int nonNullVarlenValSize
     ) {
-        return Row.KEY_CHUNK_OFFSET +
+        return BinaryRow.KEY_CHUNK_OFFSET +
             rowChunkSize(keyCols, nonNullVarlenKeyCols, nonNullVarlenKeySize) +
             rowChunkSize(valCols, nonNullVarlenValCols, nonNullVarlenValSize);
     }
@@ -344,12 +344,12 @@ public class RowAssembler {
             throw new IllegalStateException("Key column missed: colIdx=" + curCol);
         else {
             if (curCol == 0)
-                flags |= Row.RowFlags.NULL_VALUE;
+                flags |= BinaryRow.RowFlags.NULL_VALUE;
             else if (schema.valueColumns().length() != curCol)
             throw new IllegalStateException("Value column missed: colIdx=" + curCol);
         }
 
-        buf.putShort(Row.FLAGS_FIELD_OFFSET, flags);
+        buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
 
         return buf.toArray();
     }
@@ -439,7 +439,7 @@ public class RowAssembler {
             buf.putShort(baseOff, (short)keyLen);
 
             if (schema.valueColumns() == curCols) {
-                buf.putShort(baseOff + Row.TOTAL_LEN_FIELD_SIZE, (short)nonNullVarlenValCols);
+                buf.putShort(baseOff + BinaryRow.TOTAL_LEN_FIELD_SIZE, (short)nonNullVarlenValCols);
                 return; // No more columns.
             }
 
@@ -459,7 +459,7 @@ public class RowAssembler {
         curCol = 0;
         curVarlenTblEntry = 0;
 
-        varlenTblOff = baseOff + Row.TOTAL_LEN_FIELD_SIZE + Row.VARLEN_TABLE_SIZE_FIELD_SIZE;
+        varlenTblOff = baseOff + BinaryRow.TOTAL_LEN_FIELD_SIZE + BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE;
         nullMapOff = varlenTblOff + varlenTableSize(nonNullVarlenCols);
         curOff = nullMapOff + curCols.nullMapSize();
     }

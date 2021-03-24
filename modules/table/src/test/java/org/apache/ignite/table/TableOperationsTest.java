@@ -44,7 +44,7 @@ public class TableOperationsTest {
             new Column[] {new Column("val", NativeType.LONG, false)}
         );
 
-        Table tbl = new TableImpl(new TestTableStorageImpl(new DummySchemaManagerImpl(schema)), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new TestTableStorageImpl(), new DummySchemaManagerImpl(schema));
 
         final Tuple tup1 = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
         final Tuple tup1v2 = tbl.tupleBuilder().set("id", 1L).set("val", 111L).build();

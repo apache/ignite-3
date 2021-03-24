@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Row;
@@ -61,22 +62,24 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public <R> RecordView<R> recordView(RecordMapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, recMapper);
+        return new RecordViewImpl<>(tbl, schemaMgr, recMapper);
     }
 
     /** {@inheritDoc} */
     @Override public <K, V> KeyValueView<K, V> kvView(KeyMapper<K> keyMapper, ValueMapper<V> valMapper) {
-        return new KVViewImpl<>(tbl, keyMapper, valMapper);
+        return new KVViewImpl<>(tbl, schemaMgr, keyMapper, valMapper);
     }
 
     /** {@inheritDoc} */
     @Override public KeyValueBinaryView kvView() {
-        return new KeyValueBinaryViewImpl(tbl);
+        return new KeyValueBinaryViewImpl(tbl, schemaMgr);
     }
 
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple keyRec) {
-        return tbl.get(marshallToRow(keyRec, true));
+        final Row row = marshallToRow(keyRec, true); // Convert to portable format to pass TX/storage layer.
+
+        return wrap(tbl.get(row));
     }
 
     /** {@inheritDoc} */
@@ -268,7 +271,7 @@ public class TableImpl implements Table {
      * @return Table row.
      */
     //TODO: Move to marshaller.
-    private TableRow marshallToRow(Tuple rec, boolean skipValue) {
+    private Row marshallToRow(Tuple rec, boolean skipValue) {
         final SchemaDescriptor schema = schemaMgr.schema();
 
         assert rec instanceof TupleBuilderImpl;
@@ -289,12 +292,12 @@ public class TableImpl implements Table {
             }
         }
 
-        return wrap(new ByteBufferRow(schema, rowBuilder.build()));
+        return new Row(schema, new ByteBufferRow(rowBuilder.build()));
     }
 
     //TODO: Move to marshaller.
     private void writeColumn(Tuple rec, Column col, RowAssembler rowWriter) {
-        if (rec.value(col.name())==null) {
+        if (rec.value(col.name()) == null) {
             rowWriter.appendNull();
             return;
         }
@@ -311,8 +314,16 @@ public class TableImpl implements Table {
         }
     }
 
-    //TODO: Move to marshaller.
-    @NotNull private TableRowAdapter wrap(Row row) {
-        return row == null ? null : new TableRowAdapter(row, schemaMgr.schema());
+    /**
+     * @param row Binary row.
+     * @return Table row.
+     */
+    private TableRow wrap(BinaryRow row) {
+        if (row == null)
+            return null;
+
+        final SchemaDescriptor schema = schemaMgr.schema(row.schemaVersion());
+
+        return new TableRow(schema, new Row(schema, row));
     }
 }

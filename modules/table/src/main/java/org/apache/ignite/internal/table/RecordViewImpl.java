@@ -20,6 +20,9 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Row;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
 import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
@@ -35,36 +38,44 @@ public class RecordViewImpl<R> implements RecordView<R> {
     /** Table */
     private final TableStorage tbl;
 
+    /** Schema manager. */
+    private final TableSchemaManager schemaMgr;
+
     /**
      * Constructor.
-     *
-     * @param tbl Table.
+     *  @param tbl Table.
+     * @param schemaMgr Schema manager.
      * @param mapper Record class mapper.
      */
-    public RecordViewImpl(TableStorage tbl, RecordMapper<R> mapper) {
+    public RecordViewImpl(TableStorage tbl, TableSchemaManager schemaMgr, RecordMapper<R> mapper) {
         this.tbl = tbl;
+        this.schemaMgr = schemaMgr;
     }
 
     /** {@inheritDoc} */
     @Override public R get(R keyRec) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.serialize(keyRec);
+        Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
 
-        TableRow tRow = tbl.get(kRow);
+        BinaryRow bRow = tbl.get(kRow); // Load from storage.
 
-        return marsh.deserializeToRecord(tRow);
+        Row res = wrap(bRow);  // Binary -> schema-aware row
+
+        return marsh.deserializeToRecord(res);
     }
 
     /** {@inheritDoc} */
     @Override public R fill(R recObjToFill) {
         Marshaller marsh = marshaller();
 
-        TableRow kRow = marsh.serialize(recObjToFill);
+        BinaryRow kRow = marsh.serialize(recObjToFill);
 
-        TableRow tRow = tbl.get(kRow);
+        BinaryRow bRow = tbl.get(kRow); // Load from storage.
 
-        return marsh.deserializeToRecord(tRow, recObjToFill);
+        Row res = wrap(bRow);  // Binary -> schema-aware row
+
+        return marsh.deserializeToRecord(res, recObjToFill);
     }
 
     /** {@inheritDoc} */
@@ -246,4 +257,16 @@ public class RecordViewImpl<R> implements RecordView<R> {
         return null;        // table.schemaManager().marshaller();
     }
 
+    /**
+     * @param row Binary row.
+     * @return Schema-aware row.
+     */
+    private Row wrap(BinaryRow row) {
+        if (row == null)
+            return null;
+
+        final SchemaDescriptor rowSchema = schemaMgr.schema(row.schemaVersion()); // Get a schema for row.
+
+        return new Row(rowSchema, row);
+    }
 }

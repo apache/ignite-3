@@ -296,7 +296,7 @@ public class RowTest {
 
         byte[] data = asm.build();
 
-        ByteBufferRow tup = new ByteBufferRow(schema, data);
+        Row tup = new Row(schema, new ByteBufferRow(data));
 
         for (int i = 0; i < vals.length; i++) {
             Column col = schema.column(i);

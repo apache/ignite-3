@@ -20,10 +20,9 @@ package org.apache.ignite.table;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.impl.TestTableStorageImpl;
 import org.apache.ignite.table.mapper.Mappers;
 import org.junit.jupiter.api.Disabled;
@@ -41,11 +40,7 @@ public class Example {
      * @return Table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(
-            new TableImpl(
-                new TestTableStorageImpl(new DummySchemaManagerImpl(null)),
-                null)
-        );
+        return Collections.singletonList(new TableImpl(new TestTableStorageImpl(), null));
     }
 
     /**
