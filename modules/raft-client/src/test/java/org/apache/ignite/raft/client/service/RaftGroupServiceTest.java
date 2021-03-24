@@ -237,7 +237,7 @@ public class RaftGroupServiceTest {
 
                 return completedFuture(resp);
             }
-        }).when(cluster).sendWithResponse(eq(leader.getNode()), argThat(new ArgumentMatcher<UserRequest>() {
+        }).when(cluster).sendWithResponse(any(), argThat(new ArgumentMatcher<UserRequest>() {
             @Override public boolean matches(UserRequest arg) {
                 return arg.request() instanceof TestCommand;
             }

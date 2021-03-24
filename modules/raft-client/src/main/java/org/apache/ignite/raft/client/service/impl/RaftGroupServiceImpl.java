@@ -221,13 +221,16 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override public <R> CompletableFuture<R> run(Command cmd) {
-        GetLeaderRequest req = factory.createGetLeaderRequest().setGroupId(groupId).build();
+        Peer leader = this.leader;
+
+        if (leader == null)
+            return refreshLeader().thenCompose(res -> run(cmd));
+
+        UserRequest req = factory.createUserRequest().setRequest(cmd).setGroupId(groupId).build();
 
         CompletableFuture<UserResponse<R>> fut = new CompletableFuture<>();
 
-        ArrayList<Peer> copy = new ArrayList<>(peers);
-
-        sendWithRetry(randomNode(copy), req, currentTimeMillis() + timeout, fut);
+        sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> resp.response());
     }
