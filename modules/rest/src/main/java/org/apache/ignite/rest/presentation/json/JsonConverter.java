@@ -229,14 +229,14 @@ public class JsonConverter implements FormatConverter {
 
             if (clazz == String.class) {
                 if (!jsonPrimitive.isString())
-                    throw new IllegalArgumentException("");
+                    throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
 
                 return clazz.cast(jsonPrimitive.getAsString());
             }
 
             if (Number.class.isAssignableFrom(clazz)) {
                 if (!jsonPrimitive.isNumber())
-                    throw new IllegalArgumentException("");
+                    throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
 
                 if (clazz == Double.class)
                     return clazz.cast(jsonPrimitive.getAsDouble());
@@ -248,7 +248,7 @@ public class JsonConverter implements FormatConverter {
                     long longValue = jsonPrimitive.getAsLong();
 
                     if (longValue < Integer.MIN_VALUE || longValue > Integer.MAX_VALUE)
-                        throw new IllegalArgumentException("");
+                        throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
 
                     return clazz.cast((int)longValue);
                 }
@@ -258,12 +258,12 @@ public class JsonConverter implements FormatConverter {
 
             if (clazz == Boolean.class) {
                 if (!jsonPrimitive.isBoolean())
-                    throw new IllegalArgumentException("");
+                    throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
 
                 return clazz.cast(jsonPrimitive.getAsBoolean());
             }
 
-            throw new IllegalArgumentException("");
+            throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
         }
     }
 
