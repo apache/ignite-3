@@ -35,6 +35,7 @@ import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
@@ -55,7 +56,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest {
@@ -67,7 +67,7 @@ public class RaftGroupServiceTest {
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** */
-    private volatile Peer leader;
+    private volatile Peer leader = NODES.get(0);
 
     /** Call timeout. */
     private static final int TIMEOUT = 1000;
@@ -75,12 +75,13 @@ public class RaftGroupServiceTest {
     /** Retry delay. */
     private static final int DELAY = 200;
 
+    /** Cluster. */
     @Mock
     private NetworkCluster cluster;
 
     @BeforeEach
-    public void before() {
-        leader = NODES.get(0);
+    void before(TestInfo testInfo) {
+        System.out.println(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
     }
 
     @Test
@@ -307,6 +308,7 @@ public class RaftGroupServiceTest {
         assertEquals(lastKnownLeader, service.leader());
         assertNotEquals(lastKnownLeader, newLeader);
 
+        // Send request to old leader. It should respond with leader changed and automatically retry to a new.
         TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
 
         assertNotNull(resp);
