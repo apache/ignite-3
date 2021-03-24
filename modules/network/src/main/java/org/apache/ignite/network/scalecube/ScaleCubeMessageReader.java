@@ -15,11 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.scalecube;
 
-/**
- * Message that requests data in return.
- * @param <R> Type of the {@link Response} message.
- */
-public abstract class Request<R extends Response> extends NetworkMessage {
+import java.io.ObjectInputStream;
+import org.apache.ignite.network.internal.MessageReader;
+
+/** */
+@Deprecated
+public class ScaleCubeMessageReader implements MessageReader {
+    /** */
+    private final ObjectInputStream stream;
+
+    /** */
+    public ScaleCubeMessageReader(ObjectInputStream stream) {
+        this.stream = stream;
+    }
+
+    /** {@inheritDoc} */
+    @Override public ObjectInputStream stream() {
+        return this.stream;
+    }
 }

@@ -15,26 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.message;
+
+import org.apache.ignite.network.internal.MessageReader;
 
 /**
- * Exception happened during message serializing or deserializing.
+ * Message deserializer.
+ * @param <M> Message type.
  */
-public class MessageMappingException extends RuntimeException {
+public interface MessageDeserializer<M extends NetworkMessage> {
     /**
-     * Constructor.
-     * @param message Message mapping error message.
+     * Read message from reader.
+     * @param reader Message reader.
+     * @return Read message.
+     * @throws MessageMappingException If failed.
      */
-    public MessageMappingException(String message) {
-        super(message);
-    }
-
-    /**
-     * Constructor.
-     * @param message Message mapping error message.
-     * @param cause Cause of message mapping error.
-     */
-    public MessageMappingException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    M readMessage(MessageReader reader) throws MessageMappingException;
 }

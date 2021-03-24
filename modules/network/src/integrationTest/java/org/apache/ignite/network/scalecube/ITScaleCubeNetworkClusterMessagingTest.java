@@ -28,7 +28,7 @@ import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkClusterEventHandler;
 import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -74,8 +74,8 @@ class ITScaleCubeNetworkClusterMessagingTest {
         NetworkCluster carol = startMember("Carol", 3346, addresses);
 
         final NetworkHandlersProvider messageWaiter = new NetworkHandlersProvider() {
-            @Override
-            public NetworkMessageHandler messageHandler() {
+            /** {@inheritDoc} */
+            @Override public NetworkMessageHandler messageHandler() {
                 return message -> {
                     latch.countDown();
                 };
@@ -118,9 +118,9 @@ class ITScaleCubeNetworkClusterMessagingTest {
             new ScaleCubeNetworkClusterFactory(name, port, addresses, new ScaleCubeMemberResolver())
         );
 
-        network.registerMessageMapper(TestMessage.TYPE, new TestMessageMapper());
-        network.registerMessageMapper(TestRequest.TYPE, new TestRequestMapper());
-        network.registerMessageMapper(TestResponse.TYPE, new TestResponseMapper());
+        network.registerMessageMapper(TestMessage.TYPE, new TestMessageMapperProvider());
+        network.registerMessageMapper(TestRequest.TYPE, new TestRequestMapperProvider());
+        network.registerMessageMapper(TestResponse.TYPE, new TestResponseMapperProvider());
 
         NetworkCluster member = network.start();
 

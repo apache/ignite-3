@@ -17,7 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
-import org.apache.ignite.network.Request;
+import org.apache.ignite.network.message.Request;
 
 /**
  * Test request which requires {@link TestResponse} as a response.

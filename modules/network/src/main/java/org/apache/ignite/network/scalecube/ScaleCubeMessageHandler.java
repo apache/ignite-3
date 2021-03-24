@@ -25,7 +25,7 @@ import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.net.Address;
 import org.apache.ignite.network.NetworkClusterEventHandler;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.MessageHandlerHolder;
 

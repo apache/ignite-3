@@ -24,10 +24,13 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import org.apache.ignite.network.MessageMapper;
-import org.apache.ignite.network.MessageMappingException;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.message.MessageDeserializer;
+import org.apache.ignite.network.message.MessageMapperProvider;
+import org.apache.ignite.network.message.MessageMappingException;
+import org.apache.ignite.network.message.MessageSerializer;
+import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Serializes and deserialized messages in ScaleCube cluster.
@@ -36,15 +39,15 @@ class ScaleCubeMessageCodec implements MessageCodec {
     /** Header name for {@link NetworkMessage#type()}. */
     public static final String HEADER_MESSAGE_TYPE = "type";
 
-    /** Map message type -> {@link MessageMapper} */
-    private final Map<Short, MessageMapper> messageMapperMap;
+    /** Message mappers, messageMapperProviders[message type] -> message mapper provider for message with message type. */
+    private final List<MessageMapperProvider<?>> messageMappers;
 
     /**
      * Constructor.
      * @param map Message mapper map.
      */
-    ScaleCubeMessageCodec(Map<Short, MessageMapper> map) {
-        messageMapperMap = map;
+    ScaleCubeMessageCodec(List<MessageMapperProvider<?>> mappers) {
+        messageMappers = mappers;
     }
 
     /** {@inheritDoc} */
@@ -77,11 +80,14 @@ class ScaleCubeMessageCodec implements MessageCodec {
                 throw new MessageMappingException("Type is not short", e);
             }
 
-            MessageMapper mapper = messageMapperMap.get(type);
+            MessageMapperProvider mapperProvider = messageMappers.get(type);
 
-            assert mapper != null : "No mapper defined for type " + type;
+            assert mapperProvider != null : "No mapper provider defined for type " + type;
 
-            NetworkMessage message = mapper.readMessage(ois);
+            MessageDeserializer deserializer = mapperProvider.createDeserializer();
+
+            NetworkMessage message = deserializer.readMessage(new ScaleCubeMessageReader(ois));
+
             builder.data(message);
         }
         return builder.build();
@@ -113,11 +119,13 @@ class ScaleCubeMessageCodec implements MessageCodec {
             assert data instanceof NetworkMessage : "Message data is not an instance of NetworkMessage";
 
             NetworkMessage msg = (NetworkMessage) data;
-            MessageMapper mapper = messageMapperMap.get(msg.type());
+            MessageMapperProvider mapper = messageMappers.get(msg.type());
 
-            assert mapper != null : "No mapper defined for type " + msg.getClass();
+            assert mapper != null : "No mapper provider defined for type " + msg.getClass();
 
-            mapper.writeMessage(msg, oos);
+            MessageSerializer serializer = mapper.createSerializer();
+
+            serializer.writeMessage(msg, new ScaleCubeMessageWriter(oos));
 
             oos.flush();
         }

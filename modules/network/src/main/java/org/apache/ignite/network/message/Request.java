@@ -14,16 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.network;
 
-import org.apache.ignite.network.message.NetworkMessage;
+package org.apache.ignite.network.message;
 
 /**
- * Handler of incoming messages.
+ * Message that requests data in return.
+ * @param <R> Type of the {@link Response} message.
  */
-public interface NetworkMessageHandler {
-    /**
-     * @param message Message which was received from cluster.
-     */
-    void onReceived(NetworkMessage message);
+public abstract class Request<R extends Response> extends NetworkMessage {
 }

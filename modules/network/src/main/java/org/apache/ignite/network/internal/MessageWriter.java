@@ -15,30 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.internal;
 
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
 /**
- * MessageMapper provides functionality for reading and writing {@link NetworkMessage} objects.
- * @param <M>
+ * Stateful message writer.
  */
-public interface MessageMapper<M extends NetworkMessage> {
-    /**
-     * Read
-     * @param objectInputStream
-     * @return
-     * @throws MessageMappingException
-     */
-    M readMessage(ObjectInputStream objectInputStream) throws MessageMappingException;
-
-    /**
-     *
-     * @param message
-     * @param objectOutputStream
-     * @throws MessageMappingException
-     */
-    void writeMessage(M message, ObjectOutputStream objectOutputStream) throws MessageMappingException;
-
+public interface MessageWriter {
+    /** Get output stream. Will be replaced with Ignite 2.X message writer interface. */
+    @Deprecated
+    ObjectOutputStream stream();
 }

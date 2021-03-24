@@ -26,6 +26,7 @@ import org.apache.ignite.network.MessageHandlerHolder;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkClusterContext;
 import org.apache.ignite.network.NetworkClusterFactory;
+import org.apache.ignite.network.NetworkConfigurationException;
 
 /**
  * Factory for ScaleCubeNetworkCluster.
@@ -38,7 +39,7 @@ public class ScaleCubeNetworkClusterFactory implements NetworkClusterFactory {
     private final int localPort;
 
     /** Network addresses to find another members in cluster. */
-    private final List<String> addresses;
+    private final List<Address> addresses;
 
     /**
      * Member resolver which allows convert {@link org.apache.ignite.network.NetworkMember} to inner ScaleCube type
@@ -58,13 +59,20 @@ public class ScaleCubeNetworkClusterFactory implements NetworkClusterFactory {
         ScaleCubeMemberResolver memberResolver
     ) {
         this.localMemberName = localMemberName;
-        localPort = port;
-        this.addresses = addresses;
+        this.localPort = port;
+        this.addresses = addresses.stream().map(address -> {
+            try {
+                return Address.from(address);
+            }
+            catch (IllegalStateException e) {
+                throw new NetworkConfigurationException("Failed to parse address", e);
+            }
+        }).collect(Collectors.toList());;
         this.memberResolver = memberResolver;
     }
 
     /**
-     * Implementation of {@link NetworkCluster} based on ScaleCube.
+     * Start ScaleCube network cluster.
      *
      * @param memberResolver Member resolve which allows convert {@link org.apache.ignite.network.NetworkMember} to
      * inner ScaleCube type and otherwise.
@@ -72,7 +80,8 @@ public class ScaleCubeNetworkClusterFactory implements NetworkClusterFactory {
      * @return {@link NetworkCluster} instance.
      */
     @Override public NetworkCluster startCluster(NetworkClusterContext clusterContext) {
-        final MessageHandlerHolder handlerHolder = clusterContext.messageHandlerHolder();
+        MessageHandlerHolder handlerHolder = clusterContext.messageHandlerHolder();
+
         Cluster cluster = new ClusterImpl()
             .handler(cl -> {
                 return new ScaleCubeMessageHandler(cl, memberResolver, handlerHolder);
@@ -81,10 +90,12 @@ public class ScaleCubeNetworkClusterFactory implements NetworkClusterFactory {
                 .memberAlias(localMemberName)
                 .transport(trans -> {
                     return trans.port(localPort)
-                        .messageCodec(new ScaleCubeMessageCodec(clusterContext.messageMappers()));
+                        .messageCodec(new ScaleCubeMessageCodec(clusterContext.messageMapperProviders()));
                 })
             )
-            .membership(opts -> opts.seedMembers(addresses.stream().map(Address::from).collect(Collectors.toList())))
+            .membership(opts -> {
+                return opts.seedMembers(addresses);
+            })
             .startAwait();
 
         return new ScaleCubeNetworkCluster(cluster, memberResolver, handlerHolder);

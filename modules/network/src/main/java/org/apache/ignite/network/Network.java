@@ -17,15 +17,16 @@
 
 package org.apache.ignite.network;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Collections;
+import org.apache.ignite.network.message.MessageMapperProvider;
 
 /**
  * Entry point for network module.
  */
 public class Network {
-    /** Message mappers map, message type -> message mapper. */
-    private final Map<Short, MessageMapper> messageMappers = new HashMap<>();
+    /** Message mapper providers, messageMapperProviders[message type] -> message mapper provider for message with message type. */
+    private final MessageMapperProvider<?>[] messageMapperProviders = new MessageMapperProvider<?>[Short.MAX_VALUE << 1];
 
     /** Message handlers. */
     private final MessageHandlerHolder messageHandlerHolder = new MessageHandlerHolder();
@@ -44,10 +45,13 @@ public class Network {
     /**
      * Register message mapper by message type.
      * @param type Message type.
-     * @param messageMapper Message mapper.
+     * @param mapperProvider Message mapper provider.
      */
-    public void registerMessageMapper(short type, MessageMapper messageMapper) {
-        this.messageMappers.put(type, messageMapper);
+    public void registerMessageMapper(short type, MessageMapperProvider mapperProvider) throws NetworkConfigurationException {
+        if (this.messageMapperProviders[type] != null)
+            throw new NetworkConfigurationException("Message mapper for type " + type + " is already defined");
+
+        this.messageMapperProviders[type] = mapperProvider;
     }
 
     /**
@@ -55,7 +59,8 @@ public class Network {
      * @return Network cluster.
      */
     public NetworkCluster start() {
-        NetworkClusterContext context = new NetworkClusterContext(messageHandlerHolder, messageMappers);
+        //noinspection Java9CollectionFactory
+        NetworkClusterContext context = new NetworkClusterContext(messageHandlerHolder, Collections.unmodifiableList(Arrays.asList(messageMapperProviders)));
         return clusterFactory.startCluster(context);
     }
 }

@@ -15,10 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.message;
+
+import org.apache.ignite.network.message.Response;
 
 /**
- * Message that is response to a {@link Request}.
+ * Response without actual data, that just states the fact of the receiving of a request message.
  */
-public abstract class Response extends NetworkMessage {
+public class AckResponse extends Response {
+    /** {@inheritDoc} */
+    @Override public short type() {
+        return 0;
+    }
 }

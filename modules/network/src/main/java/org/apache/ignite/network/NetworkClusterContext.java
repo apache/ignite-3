@@ -17,7 +17,9 @@
 
 package org.apache.ignite.network;
 
-import java.util.Map;
+import java.util.Collections;
+import java.util.List;
+import org.apache.ignite.network.message.MessageMapperProvider;
 
 /**
  * Cluster context.
@@ -26,17 +28,17 @@ public class NetworkClusterContext {
     /** Message handlers. */
     private final MessageHandlerHolder messageHandlerHolder;
 
-    /** Message mappers, message type -> message mapper. */
-    private final Map<Short, MessageMapper> messageMappers;
+    /** Message mappers, messageMapperProviders[message type] -> message mapper provider for message with message type. */
+    private final List<MessageMapperProvider<?>> messageMapperProviders;
 
     /**
      * Constructor.
      * @param messageHandlerHolder Message handlers.
-     * @param messageMappers Message mappers map.
+     * @param messageMapperProviders Message mappers map.
      */
-    public NetworkClusterContext(MessageHandlerHolder messageHandlerHolder, Map<Short, MessageMapper> messageMappers) {
+    public NetworkClusterContext(MessageHandlerHolder messageHandlerHolder, List<MessageMapperProvider<?>> messageMapperProviders) {
         this.messageHandlerHolder = messageHandlerHolder;
-        this.messageMappers = messageMappers;
+        this.messageMapperProviders = messageMapperProviders;
     }
 
     /**
@@ -47,9 +49,9 @@ public class NetworkClusterContext {
     }
 
     /**
-     * @return Message mappers map.
+     * @return Message mapper providers list.
      */
-    public Map<Short, MessageMapper> messageMappers() {
-        return messageMappers;
+    public List<MessageMapperProvider<?>> messageMapperProviders() {
+        return Collections.unmodifiableList(messageMapperProviders);
     }
 }

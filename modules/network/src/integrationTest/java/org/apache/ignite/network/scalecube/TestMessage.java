@@ -20,9 +20,8 @@ package org.apache.ignite.network.scalecube;
 
 import java.io.Serializable;
 import java.util.Objects;
-import org.apache.ignite.network.AckResponse;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.Request;
+import org.apache.ignite.network.message.AckResponse;
+import org.apache.ignite.network.message.Request;
 
 /** */
 class TestMessage extends Request<AckResponse> implements Serializable {

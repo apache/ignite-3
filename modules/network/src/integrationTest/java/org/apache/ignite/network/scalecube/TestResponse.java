@@ -17,7 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
-import org.apache.ignite.network.Response;
+import org.apache.ignite.network.message.Response;
 
 /**
  * Test response.

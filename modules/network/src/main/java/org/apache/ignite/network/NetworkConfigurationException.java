@@ -14,16 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
-import org.apache.ignite.network.message.NetworkMessage;
-
 /**
- * Handler of incoming messages.
+ * Exception raised during configuration of the network cluster.
  */
-public interface NetworkMessageHandler {
+public class NetworkConfigurationException extends RuntimeException {
     /**
-     * @param message Message which was received from cluster.
+     * Constructor.
+     * @param message Exception message.
      */
-    void onReceived(NetworkMessage message);
+    public NetworkConfigurationException(String message) {
+        super(message);
+    }
+
+    /**
+     * Constructor.
+     * @param message Exception message.
+     * @param cause Cause of the exception.
+     */
+    public NetworkConfigurationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
