@@ -17,8 +17,6 @@
 
 package org.apache.ignite.network.message;
 
-import org.apache.ignite.network.message.Response;
-
 /**
  * Response without actual data, that just states the fact of the receiving of a request message.
  */

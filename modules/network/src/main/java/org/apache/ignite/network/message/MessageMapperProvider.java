@@ -17,9 +17,6 @@
 
 package org.apache.ignite.network.message;
 
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-
 /**
  * MessageMapperProvider creates {@link MessageDeserializer} and {@link MessageSerializer} instances
  * for working with {@link NetworkMessage} objects.
