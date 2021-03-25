@@ -368,15 +368,12 @@ public class RaftGroupServiceTest {
 
                 Object resp;
 
-                if (leader == null) {
+                if (leader == null)
                     resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.NO_LEADER).build();
-                }
-                else if (target != leader.getNode()){
+                else if (target != leader.getNode())
                     resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.LEADER_CHANGED).newLeader(leader).build();
-                }
-                else {
+                else
                     resp = FACTORY.actionResponse().result(new TestResponse()).build();
-                }
 
                 return completedFuture(resp);
             }
