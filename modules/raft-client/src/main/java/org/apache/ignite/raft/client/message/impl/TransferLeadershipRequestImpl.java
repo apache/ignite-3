@@ -26,9 +26,6 @@ class TransferLeadershipRequestImpl implements TransferLeadershipRequest, Transf
     private String groupId;
 
     /** */
-    private Peer peer;
-
-    /** */
     private Peer newLeader;
 
     /** {@inheritDoc} */

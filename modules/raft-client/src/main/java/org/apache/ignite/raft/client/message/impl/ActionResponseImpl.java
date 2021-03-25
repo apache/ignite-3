@@ -17,16 +17,12 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.ActionResponse;
 
 /** */
 class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
     /** */
     private T result;
-
-    /** */
-    private Peer peer;
 
     /** {@inheritDoc} */
     @Override public T result() {
