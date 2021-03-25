@@ -179,7 +179,7 @@ public interface RaftGroupService {
      * Read commands always see up to date data.
      *
      * @param cmd The command.
-     * @return A future with the execution result, can be of any type.
+     * @return A future with the execution result, which can be of any type.
      */
     CompletableFuture<?> run(Command cmd);
 
@@ -190,7 +190,7 @@ public interface RaftGroupService {
      *
      * @param peer Peer id.
      * @param cmd The command.
-     * @return A future with the execution result, can be of any type.
+     * @return A future with the execution result, which can be of any type.
      */
     CompletableFuture<?> run(Peer peer, ReadCommand cmd);
 }

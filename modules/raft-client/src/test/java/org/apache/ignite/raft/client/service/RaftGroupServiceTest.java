@@ -57,6 +57,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 
+/**
+ * Test methods of raft group service.
+ */
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest {
     /** */
@@ -79,11 +82,17 @@ public class RaftGroupServiceTest {
     @Mock
     private NetworkCluster cluster;
 
+    /**
+     * @param testInfo Test info.
+     */
     @BeforeEach
     void before(TestInfo testInfo) {
         System.out.println(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testRefreshLeaderStable() throws Exception {
         String groupId = "test";
@@ -100,6 +109,9 @@ public class RaftGroupServiceTest {
         assertEquals(leader, service.leader());
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testRefreshLeaderNotElected() throws Exception {
         String groupId = "test";
@@ -124,6 +136,9 @@ public class RaftGroupServiceTest {
         }
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testRefreshLeaderElectedAfterDelay() throws Exception {
         String groupId = "test";
@@ -151,6 +166,9 @@ public class RaftGroupServiceTest {
         assertEquals(NODES.get(0), service.leader());
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testRefreshLeaderWithTimeout() throws Exception {
         String groupId = "test";
@@ -170,6 +188,9 @@ public class RaftGroupServiceTest {
         }
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testUserRequestLeaderElected() throws Exception {
         String groupId = "test";
@@ -189,6 +210,9 @@ public class RaftGroupServiceTest {
         assertNotNull(output1);
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testUserRequestLazyInitLeader() throws Exception {
         String groupId = "test";
@@ -208,6 +232,9 @@ public class RaftGroupServiceTest {
         assertEquals(leader, service.leader());
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testUserRequestWithTimeout() throws Exception {
         String groupId = "test";
@@ -228,6 +255,9 @@ public class RaftGroupServiceTest {
         }
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testUserRequestLeaderNotElected() throws Exception {
         String groupId = "test";
@@ -256,6 +286,9 @@ public class RaftGroupServiceTest {
         }
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testUserRequestLeaderElectedAfterDelay() throws Exception {
         String groupId = "test";
@@ -289,6 +322,9 @@ public class RaftGroupServiceTest {
         assertEquals(NODES.get(0), service.leader());
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testUserRequestLeaderChanged() throws Exception {
         String groupId = "test";
@@ -318,7 +354,11 @@ public class RaftGroupServiceTest {
         assertEquals(newLeader, service.leader());
     }
 
-    public void mockUserInput(NetworkCluster cluster, boolean simulateTimeout) {
+    /**
+     * @param cluster The cluster.
+     * @param simulateTimeout {@code True} to simulate request timeout.
+     */
+    private void mockUserInput(NetworkCluster cluster, boolean simulateTimeout) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
                 NetworkMember target = invocation.getArgument(0);
@@ -348,10 +388,10 @@ public class RaftGroupServiceTest {
     }
 
     /**
-     * @param cluster Cluster.
+     * @param cluster The cluster.
      * @param simulateTimeout {@code True} to simulate request timeout.
      */
-    public void mockLeaderRequest(NetworkCluster cluster, boolean simulateTimeout) {
+    private void mockLeaderRequest(NetworkCluster cluster, boolean simulateTimeout) {
         Mockito.doAnswer(new Answer() {
             @Override public Object answer(InvocationOnMock invocation) throws Throwable {
                 if (simulateTimeout)
@@ -373,9 +413,11 @@ public class RaftGroupServiceTest {
         }).when(cluster).sendWithResponse(any(), any(GetLeaderRequest.class), anyLong());
     }
 
-    public static class TestCommand implements WriteCommand {
+    /** */
+    private static class TestCommand implements WriteCommand {
     }
 
-    public static class TestResponse {
+    /** */
+    private static class TestResponse {
     }
 }
