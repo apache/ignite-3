@@ -1,17 +1,21 @@
 package org.apache.ignite.raft.client.message;
 
-import org.apache.ignite.raft.client.Peer;
-
-public interface UserResponse<T> extends NewLeaderHint {
+/**
+ * The result of user request.
+ * @param <T> Result type.
+ */
+public interface UserResponse<T> {
     /**
-     * @return A response for this request.
+     * @return A result for this request.
      */
-    T response();
+    T result();
 
     public interface Builder<T> {
-        Builder setResponse(T response);
-
-        Builder setNewLeaderId(Peer peer);
+        /**
+         * @param result A result for this request.
+         * @return The builder.
+         */
+        Builder result(T result);
 
         UserResponse<T> build();
     }

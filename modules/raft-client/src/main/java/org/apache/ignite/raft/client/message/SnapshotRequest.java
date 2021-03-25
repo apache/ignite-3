@@ -1,10 +1,20 @@
 package org.apache.ignite.raft.client.message;
 
+/**
+ * Take a local snapshot on the peer.
+ */
 public interface SnapshotRequest {
-    String getGroupId();
+    /**
+     * @return Group id.
+     */
+    String groupId();
 
     public interface Builder {
-        Builder setGroupId(String groupId);
+        /**
+         * @param groupId Group id.
+         * @return The builder.
+         */
+        Builder groupId(String groupId);
 
         SnapshotRequest build();
     }

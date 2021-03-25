@@ -1,19 +1,39 @@
 package org.apache.ignite.raft.client.message;
 
-import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
+/**
+ * Add peers.
+ */
 public interface AddPeersRequest {
+    /**
+     * @return Group id.
+     */
     String groupId();
 
-    Collection<Peer> peers();
+    /**
+     * @return Peers.
+     */
+    List<Peer> peers();
 
     interface Builder {
-        Builder setGroupId(String groupId);
+        /**
+         * @param groupId Group id.
+         * @return The builder.
+         */
+        Builder groupId(String groupId);
 
-        Builder setPeers(Collection<Peer> peers);
+        /**
+         * @param peers Peers.
+         * @return The builder.
+         */
+        Builder peers(List<Peer> peers);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If message is not in valid state.
+         */
         AddPeersRequest build();
     }
 }

@@ -20,20 +20,25 @@ package org.apache.ignite.raft.client.message.impl;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 
+/** */
 public class GetLeaderResponseImpl implements GetLeaderResponse, GetLeaderResponse.Builder {
-    private Peer leaderId;
+    /** */
+    private Peer leader;
 
-    @Override public Peer leaderId() {
-        return leaderId;
+    /** {@inheritDoc} */
+    @Override public Peer leader() {
+        return leader;
     }
 
-    @Override public GetLeaderResponse build() {
+    /** {@inheritDoc} */
+    @Override public Builder leader(Peer leader) {
+        this.leader = leader;
+
         return this;
     }
 
-    @Override public Builder setLeaderId(Peer leaderId) {
-        this.leaderId = leaderId;
-
+    /** {@inheritDoc} */
+    @Override public GetLeaderResponse build() {
         return this;
     }
 }

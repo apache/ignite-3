@@ -28,67 +28,81 @@ import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
-import org.apache.ignite.raft.client.message.TransferLeaderRequest;
+import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
 import org.apache.ignite.raft.client.message.UserRequest;
 import org.apache.ignite.raft.client.message.UserResponse;
 
 /**
- * Raft client message factory.
+ * The default implementation.
  */
 public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
-    @Override public AddPeersRequest.Builder createAddPeersRequest() {
+    /** {@inheritDoc} */
+    @Override public AddPeersRequest.Builder addPeersRequest() {
         return new AddPeersRequestImpl();
     }
 
-    @Override public ChangePeersResponse.Builder createChangePeersResponse() {
+    /** {@inheritDoc} */
+    @Override public ChangePeersResponse.Builder changePeersResponse() {
         return new ChangePeersResponseImpl();
     }
 
-    @Override public RemovePeersRequest.Builder createRemovePeerRequest() {
+    /** {@inheritDoc} */
+    @Override public RemovePeersRequest.Builder removePeerRequest() {
         return new RemovePeersRequestImpl();
     }
 
-    @Override public SnapshotRequest.Builder createSnapshotRequest() {
+    /** {@inheritDoc} */
+    @Override public SnapshotRequest.Builder snapshotRequest() {
         return new SnapshotRequestImpl();
     }
 
-    @Override public TransferLeaderRequest.Builder createTransferLeaderRequest() {
-        return new TransferLeaderRequestImpl();
+    /** {@inheritDoc} */
+    @Override public TransferLeadershipRequest.Builder transferLeaderRequest() {
+        return new TransferLeadershipRequestImpl();
     }
 
-    @Override public GetLeaderRequest.Builder createGetLeaderRequest() {
+    /** {@inheritDoc} */
+    @Override public GetLeaderRequest.Builder getLeaderRequest() {
         return new GetLeaderRequestImpl();
     }
 
-    @Override public GetLeaderResponse.Builder createGetLeaderResponse() {
+    /** {@inheritDoc} */
+    @Override public GetLeaderResponse.Builder getLeaderResponse() {
         return new GetLeaderResponseImpl();
     }
 
-    @Override public GetPeersRequest.Builder createGetPeersRequest() {
+    /** {@inheritDoc} */
+    @Override public GetPeersRequest.Builder getPeersRequest() {
         return new GetPeersRequestImpl();
     }
 
-    @Override public GetPeersResponse.Builder createGetPeersResponse() {
+    /** {@inheritDoc} */
+    @Override public GetPeersResponse.Builder getPeersResponse() {
         return new GetPeersResponseImpl();
     }
 
-    @Override public AddLearnersRequest.Builder createAddLearnersRequest() {
+    /** {@inheritDoc} */
+    @Override public AddLearnersRequest.Builder addLearnersRequest() {
         return new AddLearnersRequestImpl();
     }
 
-    @Override public RemoveLearnersRequest.Builder createRemoveLearnersRequest() {
+    /** {@inheritDoc} */
+    @Override public RemoveLearnersRequest.Builder removeLearnersRequest() {
         return new RemoveLearnersRequestImpl();
     }
 
-    @Override public UserRequest.Builder createUserRequest() {
+    /** {@inheritDoc} */
+    @Override public UserRequest.Builder userRequest() {
         return new UserRequestImpl();
     }
 
-    @Override public UserResponse.Builder createUserResponse() {
+    /** {@inheritDoc} */
+    @Override public UserResponse.Builder userResponse() {
         return new UserResponseImpl();
     }
 
-    @Override public RaftErrorResponse.Builder createRaftErrorResponse() {
+    /** {@inheritDoc} */
+    @Override public RaftErrorResponse.Builder raftErrorResponse() {
         return new RaftErrorResponseImpl();
     }
 }

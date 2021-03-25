@@ -3,16 +3,38 @@ package org.apache.ignite.raft.client.message;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
+/**
+ * Add learners.
+ */
 public interface AddLearnersRequest {
-    String getGroupId();
+    /**
+     * @return Group id.
+     */
+    String groupId();
 
-    List<Peer> getLearnersList();
+    /**
+     * @return List of learners.
+     */
+    List<Peer> learners();
 
+    /** */
     public interface Builder {
-        Builder setGroupId(String groupId);
+        /**
+         * @param groupId Group id.
+         * @return The builder.
+         */
+        Builder groupId(String groupId);
 
-        Builder addLearner(Peer learner);
+        /**
+         * @param learners Learners.
+         * @return The builder.
+         */
+        Builder learners(List<Peer> learner);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If message is not in valid state.
+         */
         AddLearnersRequest build();
     }
 }

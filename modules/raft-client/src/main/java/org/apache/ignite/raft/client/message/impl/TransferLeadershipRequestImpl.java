@@ -18,28 +18,30 @@
 package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.TransferLeaderRequest;
+import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
 
-class TransferLeaderRequestImpl implements TransferLeaderRequest, TransferLeaderRequest.Builder {
+/** */
+class TransferLeadershipRequestImpl implements TransferLeadershipRequest, TransferLeadershipRequest.Builder {
+    /** */
     private String groupId;
 
+    /** */
     private Peer peer;
 
-    @Override public String getGroupId() {
+    /** {@inheritDoc} */
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public Peer getPeer() {
-        return peer;
-    }
-
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
-    @Override public TransferLeaderRequest build() {
+    /** {@inheritDoc} */
+    @Override public TransferLeadershipRequest build() {
         return this;
     }
 }

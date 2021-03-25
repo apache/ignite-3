@@ -17,37 +17,47 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.AddLearnersRequest;
 
+/** */
 public class AddLearnersRequestImpl implements AddLearnersRequest, AddLearnersRequest.Builder {
+    /** */
     private String groupId;
 
-    private List<Peer> learnersList = new ArrayList<>();
+    /** */
+    private List<Peer> learners;
 
-    @Override public String getGroupId() {
+    /** {@inheritDoc} */
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public List<Peer> getLearnersList() {
-        return learnersList;
+    /** {@inheritDoc} */
+    @Override public List<Peer> learners() {
+        return learners;
     }
 
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
-    @Override public Builder addLearner(Peer learner) {
-        learnersList.add(learner);
+    /** {@inheritDoc} */
+    @Override public Builder learners(List<Peer> learners) {
+        this.learners = learners;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public AddLearnersRequest build() {
+        if (learners == null || groupId == null)
+            throw new IllegalStateException();
+
         return this;
     }
 }

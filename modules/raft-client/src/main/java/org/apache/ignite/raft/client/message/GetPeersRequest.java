@@ -1,13 +1,35 @@
 package org.apache.ignite.raft.client.message;
 
+/** Get peers. */
 public interface GetPeersRequest {
-    boolean getOnlyAlive();
+    /**
+     * @return Group id.
+     */
+    String groupId();
 
+    /**
+     * @return {@code True} to list only alive nodes.
+     */
+    boolean onlyAlive();
+
+    /** */
     public interface Builder {
-        Builder setGroupId(String groupId);
+        /**
+         * @param groupId Group id.
+         * @return The builder.
+         */
+        Builder groupId(String groupId);
 
-        Builder setOnlyAlive(boolean onlyGetAlive);
+        /**
+         * @param onlyGetAlive {@code True} to list only alive nodes.
+         * @return The builder.
+         */
+        Builder onlyAlive(boolean onlyGetAlive);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If message is not in valid state.
+         */
         GetPeersRequest build();
     }
 }

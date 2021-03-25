@@ -17,32 +17,38 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.GetPeersResponse;
 
+/** */
 class GetPeersResponseImpl implements GetPeersResponse, GetPeersResponse.Builder {
-    private List<Peer> peersList = new ArrayList<>();
+    /** */
+    private List<Peer> peers;
 
-    private List<Peer> learnersList = new ArrayList<>();
+    /** */
+    private List<Peer> learners;
 
-    @Override public List<Peer> getPeersList() {
-        return peersList;
+    /** {@inheritDoc} */
+    @Override public List<Peer> peers() {
+        return peers;
     }
 
-    @Override public List<Peer> getLearnersList() {
-        return learnersList;
+    /** {@inheritDoc} */
+    @Override public List<Peer> learners() {
+        return learners;
     }
 
-    @Override public Builder addPeers(Peer peer) {
-        peersList.add(peer);
+    /** {@inheritDoc} */
+    @Override public Builder peers(List<Peer> peers) {
+        this.peers = peers;
 
         return this;
     }
 
-    @Override public Builder addLearners(Peer learnerId) {
-        learnersList.add(learnerId);
+    /** {@inheritDoc} */
+    @Override public Builder learners(List<Peer> learners) {
+        this.learners = learners;
 
         return this;
     }

@@ -238,13 +238,13 @@ public class RaftGroupServiceTest {
         RaftGroupService service =
             new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, new Timer());
 
-        Peer lastKnownLeader = leader;
+        Peer leader = this.leader;
 
-        assertEquals(lastKnownLeader, service.leader());
+        assertEquals(leader, service.leader());
 
-        leader = null;
+        this.leader = null;
 
-        assertEquals(lastKnownLeader, service.leader());
+        assertEquals(leader, service.leader());
 
         try {
             service.run(new TestCommand()).get();
@@ -266,19 +266,19 @@ public class RaftGroupServiceTest {
         RaftGroupService service =
             new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, new Timer());
 
-        Peer lastKnownLeader = leader;
+        Peer leader = this.leader;
 
-        assertEquals(lastKnownLeader, service.leader());
+        assertEquals(leader, service.leader());
 
-        leader = null;
+        this.leader = null;
 
-        assertEquals(lastKnownLeader, service.leader());
+        assertEquals(leader, service.leader());
 
         Timer timer = new Timer();
 
         timer.schedule(new TimerTask() {
             @Override public void run() {
-                leader = NODES.get(0);
+                RaftGroupServiceTest.this.leader = NODES.get(0);
             }
         }, 500);
 
@@ -297,16 +297,16 @@ public class RaftGroupServiceTest {
         RaftGroupService service =
             new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, new Timer());
 
-        Peer lastKnownLeader = leader;
+        Peer leader = this.leader;
 
-        assertEquals(lastKnownLeader, service.leader());
+        assertEquals(leader, service.leader());
 
         Peer newLeader = NODES.get(1);
 
         this.leader = newLeader;
 
-        assertEquals(lastKnownLeader, service.leader());
-        assertNotEquals(lastKnownLeader, newLeader);
+        assertEquals(leader, service.leader());
+        assertNotEquals(leader, newLeader);
 
         // Send request to old leader. It should respond with leader changed and automatically retry to a new.
         TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
@@ -327,20 +327,20 @@ public class RaftGroupServiceTest {
                 Object resp;
 
                 if (leader == null) {
-                    resp = FACTORY.createRaftErrorResponse().setErrorCode(RaftErrorCode.NO_LEADER).build();
+                    resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.NO_LEADER).build();
                 }
                 else if (target != leader.getNode()){
-                    resp = FACTORY.createRaftErrorResponse().setErrorCode(RaftErrorCode.LEADER_CHANGED).setNewLeader(leader).build();
+                    resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.LEADER_CHANGED).newLeader(leader).build();
                 }
                 else {
-                    resp = FACTORY.createUserResponse().setResponse(new TestResponse()).build();
+                    resp = FACTORY.userResponse().result(new TestResponse()).build();
                 }
 
                 return completedFuture(resp);
             }
         }).when(cluster).sendWithResponse(any(), argThat(new ArgumentMatcher<UserRequest>() {
             @Override public boolean matches(UserRequest arg) {
-                return arg.request() instanceof TestCommand;
+                return arg.command() instanceof TestCommand;
             }
         }), anyLong());
     }
@@ -360,10 +360,10 @@ public class RaftGroupServiceTest {
                 Peer leader0 = leader;
 
                 if (leader0 == null) {
-                    resp = FACTORY.createRaftErrorResponse().setErrorCode(RaftErrorCode.NO_LEADER).build();
+                    resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.NO_LEADER).build();
                 }
                 else {
-                    resp = FACTORY.createGetLeaderResponse().setLeaderId(leader0).build();
+                    resp = FACTORY.getLeaderResponse().leader(leader0).build();
                 }
 
                 return completedFuture(resp);

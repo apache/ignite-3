@@ -2,15 +2,33 @@ package org.apache.ignite.raft.client.message;
 
 import org.apache.ignite.raft.client.Command;
 
+/**
+ * Submit user request to a replication group.
+ */
 public interface UserRequest {
-    String getGroupId();
+    /**
+     * @return Group id.
+     */
+    String groupId();
 
-    Command request();
+    /**
+     * @return State machine command.
+     */
+    Command command();
 
+    /** */
     public interface Builder {
-        Builder setRequest(Command request);
+        /**
+         * @param cmd State machine command.
+         * @return The builder.
+         */
+        Builder command(Command cmd);
 
-        Builder setGroupId(String groupId);
+        /**
+         * @param groupId Group id.
+         * @return The builder.
+         */
+        Builder groupId(String groupId);
 
         UserRequest build();
     }

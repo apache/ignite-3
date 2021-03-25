@@ -17,36 +17,43 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.ChangePeersResponse;
 
+/** */
 class ChangePeersResponseImpl implements ChangePeersResponse, ChangePeersResponse.Builder {
-    private List<Peer> oldPeersList = new ArrayList<>();
+    /** */
+    private List<Peer> oldPeers;
 
-    private List<Peer> newPeersList = new ArrayList<>();
+    /** */
+    private List<Peer> newPeers;
 
-    @Override public List<Peer> getOldPeersList() {
-        return oldPeersList;
+    /** {@inheritDoc} */
+    @Override public List<Peer> oldPeers() {
+        return oldPeers;
     }
 
-    @Override public List<Peer> getNewPeersList() {
-        return newPeersList;
+    /** {@inheritDoc} */
+    @Override public List<Peer> newPeers() {
+        return newPeers;
     }
 
-    @Override public Builder addOldPeers(Peer oldPeersId) {
-        oldPeersList.add(oldPeersId);
+    /** {@inheritDoc} */
+    @Override public Builder oldPeers(List<Peer> oldPeers) {
+        this.oldPeers = oldPeers;
 
         return this;
     }
 
-    @Override public Builder addNewPeers(Peer newPeersId) {
-        newPeersList.add(newPeersId);
+    /** {@inheritDoc} */
+    @Override public Builder newPeers(List<Peer> newPeers) {
+        this.newPeers = newPeers;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public ChangePeersResponse build() {
         return this;
     }

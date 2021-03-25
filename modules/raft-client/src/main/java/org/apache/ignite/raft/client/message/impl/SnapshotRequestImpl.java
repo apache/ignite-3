@@ -19,19 +19,24 @@ package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.message.SnapshotRequest;
 
+/** */
 class SnapshotRequestImpl implements SnapshotRequest, SnapshotRequest.Builder {
+    /** */
     private String groupId;
 
-    @Override public String getGroupId() {
+    /** {@inheritDoc} */
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public SnapshotRequest build() {
         return this;
     }

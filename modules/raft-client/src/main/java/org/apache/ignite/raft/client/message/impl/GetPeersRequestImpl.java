@@ -19,31 +19,39 @@ package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.message.GetPeersRequest;
 
+/** */
 class GetPeersRequestImpl implements GetPeersRequest, GetPeersRequest.Builder {
+    /** */
     private String groupId;
 
+    /** */
     private boolean onlyAlive;
 
-    public String getGroupId() {
+    /** {@inheritDoc} */
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public boolean getOnlyAlive() {
+    /** {@inheritDoc} */
+    @Override public boolean onlyAlive() {
         return onlyAlive;
     }
 
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
-    @Override public Builder setOnlyAlive(boolean onlyGetAlive) {
+    /** {@inheritDoc} */
+    @Override public Builder onlyAlive(boolean onlyGetAlive) {
         this.onlyAlive = onlyGetAlive;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public GetPeersRequest build() {
         return this;
     }

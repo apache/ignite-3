@@ -3,16 +3,37 @@ package org.apache.ignite.raft.client.message;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
+/**
+ * Change peers result.
+ */
 public interface ChangePeersResponse {
-    List<Peer> getOldPeersList();
+    /**
+     * @return Old peers.
+     */
+    List<Peer> oldPeers();
 
-    List<Peer> getNewPeersList();
+    /**
+     * @return New peers.
+     */
+    List<Peer> newPeers();
 
     public interface Builder {
-        Builder addOldPeers(Peer oldPeersId);
+        /**
+         * @param oldPeers Old peers.
+         * @return The builder.
+         */
+        Builder oldPeers(List<Peer> oldPeers);
 
-        Builder addNewPeers(Peer newPeersId);
+        /**
+         * @param newPeers New peers.
+         * @return The builder.
+         */
+        Builder newPeers(List<Peer> newPeers);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalArgumentException if peers are not set.
+         */
         ChangePeersResponse build();
     }
 }

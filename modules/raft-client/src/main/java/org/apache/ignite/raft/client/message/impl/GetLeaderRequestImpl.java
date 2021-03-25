@@ -19,19 +19,24 @@ package org.apache.ignite.raft.client.message.impl;
 
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 
+/** */
 public class GetLeaderRequestImpl implements GetLeaderRequest, GetLeaderRequest.Builder {
+    /** */
     private String groupId;
 
-    @Override public String getGroupId() {
+    /** {@inheritDoc} */
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public GetLeaderRequest build() {
         return this;
     }

@@ -2,16 +2,34 @@ package org.apache.ignite.raft.client.message;
 
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
+import org.jetbrains.annotations.Nullable;
 
+/**
+ * Raft error response.
+ */
 public interface RaftErrorResponse {
-    public RaftErrorCode getErrorCode();
+    /**
+     * @return Error code.
+     */
+    public RaftErrorCode errorCode();
 
-    public Peer getNewLeader();
+    /**
+     * @return The new leader if a current leader is obsolete or null if not applicable.
+     */
+    public @Nullable Peer newLeader();
 
     public interface Builder {
-        Builder setErrorCode(RaftErrorCode errorCode);
+        /**
+         * @param errorCode Error code.
+         * @return The builder.
+         */
+        Builder errorCode(RaftErrorCode errorCode);
 
-        Builder setNewLeader(Peer newLeader);
+        /**
+         * @param newLeader New leader.
+         * @return The builder.
+         */
+        Builder newLeader(Peer newLeader);
 
         RaftErrorResponse build();
     }

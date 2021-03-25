@@ -1,17 +1,35 @@
 package org.apache.ignite.raft.client.message;
 
+import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
+/**
+ * Remove learners.
+ */
 public interface RemoveLearnersRequest {
-    String getGroupId();
+    /**
+     * @return Group id.
+     */
+    String groupId();
 
-    List<Peer> getLearnersList();
+    /**
+     * @return Learners to remove.
+     */
+    List<Peer> learners();
 
     public interface Builder {
-        Builder setGroupId(String groupId);
+        /**
+         * @param groupId Group id.
+         * @return The builder.
+         */
+        Builder groupId(String groupId);
 
-        Builder addLearners(Peer leaderId);
+        /**
+         * @param learners Learners to remove.
+         * @return The builder.
+         */
+        Builder learners(List<Peer> learners);
 
         RemoveLearnersRequest build();
     }

@@ -3,15 +3,32 @@ package org.apache.ignite.raft.client.message;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
+/**
+ * Remove peers.
+ */
 public interface RemovePeersRequest {
-    String getGroupId();
+    /**
+     * @return Group id.
+     */
+    String groupId();
 
-    List<Peer> getPeersList();
+    /**
+     * @return Peers to remove.
+     */
+    List<Peer> peers();
 
     interface Builder {
-        Builder setGroupId(String groupId);
+        /**
+         * @param groupId Group id.
+         * @return The builder.
+         */
+        Builder groupId(String groupId);
 
-        Builder addPeer(Peer peer);
+        /**
+         * @param peers Peers to remove.
+         * @return The builder.
+         */
+        Builder peers(List<Peer> peers);
 
         RemovePeersRequest build();
     }

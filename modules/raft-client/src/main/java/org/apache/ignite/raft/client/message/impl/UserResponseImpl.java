@@ -20,30 +20,27 @@ package org.apache.ignite.raft.client.message.impl;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.UserResponse;
 
+/** */
 class UserResponseImpl<T> implements UserResponse<T>, UserResponse.Builder<T> {
-    private T response;
+    /** */
+    private T result;
+
+    /** */
     private Peer peer;
 
-    @Override public Peer newLeaderId() {
-        return peer;
+    /** {@inheritDoc} */
+    @Override public T result() {
+        return result;
     }
 
-    @Override public Builder setNewLeaderId(Peer peer) {
-        this.peer = peer;
+    /** {@inheritDoc} */
+    @Override public Builder result(T result) {
+        this.result = result;
 
         return this;
     }
 
-    @Override public T response() {
-        return response;
-    }
-
-    @Override public Builder setResponse(T response) {
-        this.response = response;
-
-        return this;
-    }
-
+    /** {@inheritDoc} */
     @Override public UserResponse build() {
         return this;
     }

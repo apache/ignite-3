@@ -22,31 +22,39 @@ import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 
+/** */
 class RemoveLearnersRequestImpl implements RemoveLearnersRequest, RemoveLearnersRequest.Builder {
+    /** */
     private String groupId;
 
-    private List<Peer> learnersList = new ArrayList<>();
+    /** */
+    private List<Peer> learners = new ArrayList<>();
 
-    @Override public String getGroupId() {
+    /** {@inheritDoc} */
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public List<Peer> getLearnersList() {
-        return learnersList;
+    /** {@inheritDoc} */
+    @Override public List<Peer> learners() {
+        return learners;
     }
 
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
-    @Override public Builder addLearners(Peer learnerId) {
-        learnersList.add(learnerId);
+    /** {@inheritDoc} */
+    @Override public Builder learners(List<Peer> learners) {
+        this.learners = learners;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public RemoveLearnersRequest build() {
         return this;
     }

@@ -20,31 +20,39 @@ package org.apache.ignite.raft.client.message.impl;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.message.UserRequest;
 
+/** */
 class UserRequestImpl<T> implements UserRequest, UserRequest.Builder {
-    private Command request;
+    /** */
+    private Command cmd;
 
+    /** */
     private String groupId;
 
-    @Override public Command request() {
-        return request;
+    /** {@inheritDoc} */
+    @Override public Command command() {
+        return cmd;
     }
 
-    @Override public String getGroupId() {
+    /** {@inheritDoc} */
+    @Override public String groupId() {
         return groupId;
     }
 
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
-    @Override public Builder setRequest(Command request) {
-        this.request = request;
+    /** {@inheritDoc} */
+    @Override public Builder command(Command cmd) {
+        this.cmd = cmd;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public UserRequest build() {
         return this;
     }

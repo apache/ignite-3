@@ -11,26 +11,31 @@ public class RaftErrorResponseImpl implements RaftErrorResponse, RaftErrorRespon
     /** */
     private Peer newLeader;
 
-    @Override public RaftErrorCode getErrorCode() {
+    /** {@inheritDoc} */
+    @Override public RaftErrorCode errorCode() {
         return errorCode;
     }
 
-    @Override public Peer getNewLeader() {
+    /** {@inheritDoc} */
+    @Override public Peer newLeader() {
         return newLeader;
     }
 
-    @Override public Builder setErrorCode(RaftErrorCode errorCode) {
+    /** {@inheritDoc} */
+    @Override public Builder errorCode(RaftErrorCode errorCode) {
         this.errorCode = errorCode;
 
         return this;
     }
 
-    @Override public Builder setNewLeader(Peer newLeader) {
+    /** {@inheritDoc} */
+    @Override public Builder newLeader(Peer newLeader) {
         this.newLeader = newLeader;
 
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public RaftErrorResponse build() {
         return this;
     }

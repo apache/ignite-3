@@ -1,9 +1,9 @@
 package org.apache.ignite.raft.client.message;
 
 /**
- * Get leader.
+ * Transfer a leadership to receiving peer.
  */
-public interface GetLeaderRequest {
+public interface TransferLeadershipRequest {
     /**
      * @return Group id.
      */
@@ -16,6 +16,6 @@ public interface GetLeaderRequest {
          */
         Builder groupId(String groupId);
 
-        GetLeaderRequest build();
+        TransferLeadershipRequest build();
     }
 }

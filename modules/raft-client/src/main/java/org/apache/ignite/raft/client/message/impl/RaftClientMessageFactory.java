@@ -28,7 +28,7 @@ import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
-import org.apache.ignite.raft.client.message.TransferLeaderRequest;
+import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
 import org.apache.ignite.raft.client.message.UserRequest;
 import org.apache.ignite.raft.client.message.UserResponse;
 
@@ -36,31 +36,73 @@ import org.apache.ignite.raft.client.message.UserResponse;
  * A factory for immutable replication group messages.
  */
 public interface RaftClientMessageFactory {
-    AddPeersRequest.Builder createAddPeersRequest();
+    /**
+     * @return The builder.
+     */
+    AddPeersRequest.Builder addPeersRequest();
 
-    RemovePeersRequest.Builder createRemovePeerRequest();
+    /**
+     * @return The builder.
+     */
+    RemovePeersRequest.Builder removePeerRequest();
 
-    SnapshotRequest.Builder createSnapshotRequest();
+    /**
+     * @return The builder.
+     */
+    SnapshotRequest.Builder snapshotRequest();
 
-    TransferLeaderRequest.Builder createTransferLeaderRequest();
+    /**
+     * @return The builder.
+     */
+    TransferLeadershipRequest.Builder transferLeaderRequest();
 
-    GetLeaderRequest.Builder createGetLeaderRequest();
+    /**
+     * @return The builder.
+     */
+    GetLeaderRequest.Builder getLeaderRequest();
 
-    GetLeaderResponse.Builder createGetLeaderResponse();
+    /**
+     * @return The builder.
+     */
+    GetLeaderResponse.Builder getLeaderResponse();
 
-    GetPeersRequest.Builder createGetPeersRequest();
+    /**
+     * @return The builder.
+     */
+    GetPeersRequest.Builder getPeersRequest();
 
-    GetPeersResponse.Builder createGetPeersResponse();
+    /**
+     * @return The builder.
+     */
+    GetPeersResponse.Builder getPeersResponse();
 
-    AddLearnersRequest.Builder createAddLearnersRequest();
+    /**
+     * @return The builder.
+     */
+    AddLearnersRequest.Builder addLearnersRequest();
 
-    RemoveLearnersRequest.Builder createRemoveLearnersRequest();
+    /**
+     * @return The builder.
+     */
+    RemoveLearnersRequest.Builder removeLearnersRequest();
 
-    ChangePeersResponse.Builder createChangePeersResponse();
+    /**
+     * @return The builder.
+     */
+    ChangePeersResponse.Builder changePeersResponse();
 
-    UserRequest.Builder createUserRequest();
+    /**
+     * @return The builder.
+     */
+    UserRequest.Builder userRequest();
 
-    UserResponse.Builder createUserResponse();
+    /**
+     * @return The builder.
+     */
+    UserResponse.Builder userResponse();
 
-    RaftErrorResponse.Builder createRaftErrorResponse();
+    /**
+     * @return The builder.
+     */
+    RaftErrorResponse.Builder raftErrorResponse();
 }

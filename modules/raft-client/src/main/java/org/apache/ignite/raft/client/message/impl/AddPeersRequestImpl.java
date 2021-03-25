@@ -17,35 +17,43 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.AddPeersRequest;
 
+/** */
 class AddPeersRequestImpl implements AddPeersRequest, AddPeersRequest.Builder {
+    /** */
     private String groupId;
 
-    private Collection<Peer> peers;
+    /** */
+    private List<Peer> peers;
 
+    /** {@inheritDoc} */
     @Override public String groupId() {
         return groupId;
     }
 
-    @Override public Collection<Peer> peers() {
+    /** {@inheritDoc} */
+    @Override public List<Peer> peers() {
         return peers;
     }
 
-    @Override public Builder setGroupId(String groupId) {
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
 
         return this;
     }
 
-    @Override public Builder setPeers(Collection<Peer> peers) {
+    /** {@inheritDoc} */
+    @Override public Builder peers(List<Peer> peers) {
         this.peers = peers;
 
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public AddPeersRequest build() {
         if (peers == null)
             throw new IllegalArgumentException();

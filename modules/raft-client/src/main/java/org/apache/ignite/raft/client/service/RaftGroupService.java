@@ -69,12 +69,14 @@ public interface RaftGroupService {
     @Nullable Peer leader();
 
     /**
-     * @return A list of voting peers or {@code null} if it has not been yet initialized.
+     * @return A list of voting peers or {@code null} if it has not been yet initialized. Peers order is corresponding
+     * to the time of joining to the group.
      */
     @Nullable List<Peer> peers();
 
     /**
-     * @return A list of leaners or {@code null} if it has not been yet initialized.
+     * @return A list of leaners or {@code null} if it has not been yet initialized. Peers order is corresponding
+     * to the time of joining to the group.
      */
     @Nullable List<Peer> learners();
 
@@ -114,7 +116,7 @@ public interface RaftGroupService {
      * @param peerId Peer id.
      * @return A future.
      */
-    CompletableFuture<Void> addPeers(Collection<Peer> peers);
+    CompletableFuture<Void> addPeers(List<Peer> peers);
 
     /**
      * Removes a peer from the raft group.
@@ -127,7 +129,7 @@ public interface RaftGroupService {
      * @param peerId Peer id.
      * @return A future.
      */
-    CompletableFuture<Void> removePeers(Collection<Peer> peers);
+    CompletableFuture<Void> removePeers(List<Peer> peers);
 
     /**
      * Adds learners (non-voting members).
@@ -140,7 +142,7 @@ public interface RaftGroupService {
      * @param learners List of learners.
      * @return A future.
      */
-    CompletableFuture<Void> addLearners(Collection<Peer> learners);
+    CompletableFuture<Void> addLearners(List<Peer> learners);
 
     /**
      * Removes learners.
@@ -153,7 +155,7 @@ public interface RaftGroupService {
      * @param learners List of learners.
      * @return A future.
      */
-    CompletableFuture<Void> removeLearners(Collection<Peer> learners);
+    CompletableFuture<Void> removeLearners(List<Peer> learners);
 
     /**
      * Takes a state machine snapshot on a given group peer.
@@ -179,7 +181,7 @@ public interface RaftGroupService {
      * Read commands always see up to date data.
      *
      * @param cmd The command.
-     * @param <R> Resulting type of command execution response.
+     * @param <R> Resulting type of command execution result.
      * @return A future with the execution result.
      */
     <R> CompletableFuture<R> run(Command cmd);
@@ -191,7 +193,7 @@ public interface RaftGroupService {
      *
      * @param peer Peer id.
      * @param cmd The command.
-     * @param <R> Resulting type of command execution response.
+     * @param <R> Resulting type of command execution result.
      * @return A future with the execution result.
      */
     <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd);

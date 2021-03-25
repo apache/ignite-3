@@ -1,14 +1,23 @@
 package org.apache.ignite.raft.client.message;
 
 import org.apache.ignite.raft.client.Peer;
-import org.jetbrains.annotations.Nullable;
 
+/**
+ * A current leader.
+ */
 public interface GetLeaderResponse {
-    Peer leaderId();
+    /**
+     * @return The leader.
+     */
+    Peer leader();
 
     public interface Builder {
-        GetLeaderResponse build();
+        /**
+         * @param leader Leader
+         * @return The builder.
+         */
+        Builder leader(Peer leaderId);
 
-        Builder setLeaderId(Peer leaderId);
+        GetLeaderResponse build();
     }
 }

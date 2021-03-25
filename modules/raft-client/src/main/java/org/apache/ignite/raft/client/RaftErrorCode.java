@@ -4,9 +4,9 @@ package org.apache.ignite.raft.client;
  * Error codes for raft protocol.
  */
 public enum RaftErrorCode {
-    NO_LEADER(0, "No leader found within a timeout"),
+    NO_LEADER(1000, "No leader found within a timeout"),
 
-    LEADER_CHANGED(1, "A peer is no longer a leader");
+    LEADER_CHANGED(1001, "A peer is no longer a leader");
 
     /** */
     private final int code;

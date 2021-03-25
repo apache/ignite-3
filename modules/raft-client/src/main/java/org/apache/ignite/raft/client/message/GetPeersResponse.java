@@ -3,15 +3,33 @@ package org.apache.ignite.raft.client.message;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
+/**
+ *
+ */
 public interface GetPeersResponse {
-    List<Peer> getPeersList();
+    /**
+     * @return Current peers.
+     */
+    List<Peer> peers();
 
-    List<Peer> getLearnersList();
+    /**
+     * @return Current leaners.
+     */
+    List<Peer> learners();
 
+    /** */
     public interface Builder {
-        Builder addPeers(Peer peer);
+        /**
+         * @param peers Current peers.
+         * @return The builder.
+         */
+        Builder peers(List<Peer> peers);
 
-        Builder addLearners(Peer learnerId);
+        /**
+         * @param learners Current learners.
+         * @return The builder.
+         */
+        Builder learners(List<Peer> learners);
 
         GetPeersResponse build();
     }
