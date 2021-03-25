@@ -126,30 +126,37 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull String groupId() {
         return groupId;
     }
 
+    /** {@inheritDoc} */
     @Override public long timeout() {
         return timeout;
     }
 
+    /** {@inheritDoc} */
     @Override public void timeout(long newTimeout) {
         this.timeout = timeout;
     }
 
+    /** {@inheritDoc} */
     @Override public Peer leader() {
         return leader;
     }
 
+    /** {@inheritDoc} */
     @Override public List<Peer> peers() {
         return peers;
     }
 
+    /** {@inheritDoc} */
     @Override public List<Peer> learners() {
         return learners;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> refreshLeader() {
         GetLeaderRequest req = factory.getLeaderRequest().groupId(groupId).build();
 
@@ -164,6 +171,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         });
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> refreshMembers(boolean onlyAlive) {
         GetPeersRequest req = factory.getPeersRequest().onlyAlive(onlyAlive).groupId(groupId).build();
 
@@ -184,6 +192,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         });
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> addPeers(List<Peer> peers) {
         Peer leader = this.leader;
 
@@ -203,6 +212,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         });
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> removePeers(List<Peer> peers) {
         Peer leader = this.leader;
 
@@ -222,6 +232,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         });
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> addLearners(List<Peer> learners) {
         Peer leader = this.leader;
 
@@ -241,6 +252,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         });
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> removeLearners(List<Peer> learners) {
         Peer leader = this.leader;
 
@@ -260,6 +272,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         });
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> snapshot(Peer peer) {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
@@ -268,14 +281,21 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return fut.thenApply(resp -> null);
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> transferLeadership(Peer newLeader) {
-        TransferLeadershipRequest req = factory.transferLeaderRequest().groupId(groupId).build();
+        Peer leader = this.leader;
+
+        if (leader == null)
+            return refreshLeader().thenCompose(res -> transferLeadership(newLeader));
+
+        TransferLeadershipRequest req = factory.transferLeaderRequest().groupId(groupId).peer(newLeader).build();
 
         CompletableFuture<?> fut = cluster.sendWithResponse(newLeader.getNode(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
 
+    /** {@inheritDoc} */
     @Override public <R> CompletableFuture<R> run(Command cmd) {
         Peer leader = this.leader;
 
@@ -291,6 +311,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return fut.thenApply(resp -> resp.result());
     }
 
+    /** {@inheritDoc} */
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).build();
 

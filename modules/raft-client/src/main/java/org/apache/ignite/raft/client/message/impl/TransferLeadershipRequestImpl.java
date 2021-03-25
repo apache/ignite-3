@@ -28,14 +28,31 @@ class TransferLeadershipRequestImpl implements TransferLeadershipRequest, Transf
     /** */
     private Peer peer;
 
+    /** */
+    private Peer newLeader;
+
     /** {@inheritDoc} */
     @Override public String groupId() {
         return groupId;
     }
 
+    /**
+     * @return New leader.
+     */
+    @Override public Peer newLeader() {
+        return newLeader;
+    }
+
     /** {@inheritDoc} */
     @Override public Builder groupId(String groupId) {
         this.groupId = groupId;
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Builder peer(Peer newLeader) {
+        this.newLeader = newLeader;
 
         return this;
     }
