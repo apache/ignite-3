@@ -1,3 +1,3 @@
 # Ignite raft client module.
-This module provides a services for interoperability with raft group server nodes.
+This module provides a service for interoperability with RAFT replication group peers.
  
