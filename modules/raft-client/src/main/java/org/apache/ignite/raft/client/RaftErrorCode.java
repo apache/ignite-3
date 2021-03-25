@@ -4,9 +4,14 @@ package org.apache.ignite.raft.client;
  * Error codes for raft protocol.
  */
 public enum RaftErrorCode {
-    NO_LEADER(1000, "No leader found within a timeout"),
+    /** */
+    SUCCESS(1000, "Successful"),
 
-    LEADER_CHANGED(1001, "A peer is no longer a leader");
+    /** */
+    NO_LEADER(1001, "No leader found within a timeout"),
+
+    /** */
+    LEADER_CHANGED(1002, "A peer is no longer a leader");
 
     /** */
     private final int code;
@@ -15,8 +20,8 @@ public enum RaftErrorCode {
     private final String desc;
 
     /**
-     * @param code Code.
-     * @param desc Desctiption.
+     * @param code The code.
+     * @param desc The desctiption.
      */
     RaftErrorCode(int code, String desc) {
         this.code = code;
@@ -24,14 +29,14 @@ public enum RaftErrorCode {
     }
 
     /**
-     * @return Code.
+     * @return The code.
      */
     public int code() {
         return code;
     }
 
     /**
-     * @return Description.
+     * @return The description.
      */
     public String description() {
         return desc;

@@ -17,6 +17,7 @@ public interface ChangePeersResponse {
      */
     List<Peer> newPeers();
 
+    /** */
     public interface Builder {
         /**
          * @param oldPeers Old peers.

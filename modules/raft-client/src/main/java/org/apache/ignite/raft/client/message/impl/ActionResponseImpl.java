@@ -21,20 +21,20 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.ActionResponse;
 
 /** */
-class ActionResponseImpl implements ActionResponse, ActionResponse.Builder {
+class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
     /** */
-    private Object result;
+    private T result;
 
     /** */
     private Peer peer;
 
     /** {@inheritDoc} */
-    @Override public Object result() {
+    @Override public T result() {
         return result;
     }
 
     /** {@inheritDoc} */
-    @Override public Builder result(Object result) {
+    @Override public Builder result(T result) {
         this.result = result;
 
         return this;

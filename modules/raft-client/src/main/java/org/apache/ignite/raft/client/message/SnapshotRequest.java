@@ -9,6 +9,7 @@ public interface SnapshotRequest {
      */
     String groupId();
 
+    /** */
     public interface Builder {
         /**
          * @param groupId Group id.

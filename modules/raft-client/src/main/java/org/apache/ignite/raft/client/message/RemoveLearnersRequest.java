@@ -18,6 +18,7 @@ public interface RemoveLearnersRequest {
      */
     List<Peer> learners();
 
+    /** */
     public interface Builder {
         /**
          * @param groupId Group id.

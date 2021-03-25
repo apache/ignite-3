@@ -5,7 +5,7 @@ import org.apache.ignite.raft.client.RaftErrorCode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft error response.
+ * Raft error response. Also used as a default response when errorCode == {@link RaftErrorCode#SUCCESS}
  */
 public interface RaftErrorResponse {
     /**
@@ -18,6 +18,7 @@ public interface RaftErrorResponse {
      */
     public @Nullable Peer newLeader();
 
+    /** */
     public interface Builder {
         /**
          * @param errorCode Error code.

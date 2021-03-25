@@ -11,6 +11,7 @@ public interface GetLeaderResponse {
      */
     Peer leader();
 
+    /** */
     public interface Builder {
         /**
          * @param leader Leader

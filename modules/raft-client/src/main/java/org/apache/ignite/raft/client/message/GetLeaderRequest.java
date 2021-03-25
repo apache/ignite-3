@@ -9,6 +9,7 @@ public interface GetLeaderRequest {
      */
     String groupId();
 
+    /** */
     public interface Builder {
         /**
          * @param groupId Group id.

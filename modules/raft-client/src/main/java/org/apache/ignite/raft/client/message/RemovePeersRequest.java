@@ -17,6 +17,7 @@ public interface RemovePeersRequest {
      */
     List<Peer> peers();
 
+    /** */
     interface Builder {
         /**
          * @param groupId Group id.

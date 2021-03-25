@@ -20,7 +20,6 @@ package org.apache.ignite.raft.client.service;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.network.NetworkCluster;
@@ -63,6 +62,9 @@ import static org.mockito.ArgumentMatchers.argThat;
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest {
     /** */
+    private static System.Logger LOG = System.getLogger(RaftGroupServiceTest.class.getName());
+
+    /** */
     private static List<Peer> NODES = of(new Peer(new NetworkMember("node1")), new Peer(new NetworkMember("node2")),
         new Peer(new NetworkMember("node3")));
 
@@ -87,7 +89,7 @@ public class RaftGroupServiceTest {
      */
     @BeforeEach
     void before(TestInfo testInfo) {
-        System.out.println(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
+        LOG.log(System.Logger.Level.INFO, ">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
     }
 
     /**
@@ -203,11 +205,9 @@ public class RaftGroupServiceTest {
 
         service.refreshLeader().get();
 
-        CompletableFuture fut = service.run(new TestCommand());
+        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
 
-        TestResponse output1 = (TestResponse) fut.get();
-
-        assertNotNull(output1);
+        assertNotNull(resp);
     }
 
     /**
@@ -225,7 +225,7 @@ public class RaftGroupServiceTest {
 
         assertNull(service.leader());
 
-        TestResponse resp = (TestResponse) service.run(new TestCommand()).get();
+        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
 
         assertNotNull(resp);
 
@@ -315,7 +315,7 @@ public class RaftGroupServiceTest {
             }
         }, 500);
 
-        TestResponse resp = (TestResponse) service.run(new TestCommand()).get();
+        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
 
         assertNotNull(resp);
 
@@ -347,7 +347,7 @@ public class RaftGroupServiceTest {
         assertNotEquals(leader, newLeader);
 
         // Runs the command on an old leader. It should respond with leader changed error, when transparently retry.
-        TestResponse resp = (TestResponse) service.run(new TestCommand()).get();
+        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
 
         assertNotNull(resp);
 
