@@ -31,6 +31,10 @@ public interface RaftErrorResponse {
          */
         Builder newLeader(Peer newLeader);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         RaftErrorResponse build();
     }
 }

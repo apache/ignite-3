@@ -16,6 +16,10 @@ public interface GetLeaderRequest {
          */
         Builder groupId(String groupId);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         GetLeaderRequest build();
     }
 }

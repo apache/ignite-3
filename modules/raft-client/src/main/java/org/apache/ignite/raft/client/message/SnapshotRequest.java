@@ -16,6 +16,10 @@ public interface SnapshotRequest {
          */
         Builder groupId(String groupId);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         SnapshotRequest build();
     }
 }

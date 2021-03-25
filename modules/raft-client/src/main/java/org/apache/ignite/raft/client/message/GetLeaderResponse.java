@@ -18,6 +18,10 @@ public interface GetLeaderResponse {
          */
         Builder leader(Peer leaderId);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         GetLeaderResponse build();
     }
 }

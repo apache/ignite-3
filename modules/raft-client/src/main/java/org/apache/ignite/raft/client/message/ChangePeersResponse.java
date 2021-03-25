@@ -32,7 +32,7 @@ public interface ChangePeersResponse {
 
         /**
          * @return The complete message.
-         * @throws IllegalArgumentException if peers are not set.
+         * @throws IllegalStateException If the message is not in valid state.
          */
         ChangePeersResponse build();
     }

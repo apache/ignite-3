@@ -31,6 +31,10 @@ public interface GetPeersResponse {
          */
         Builder learners(List<Peer> learners);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         GetPeersResponse build();
     }
 }

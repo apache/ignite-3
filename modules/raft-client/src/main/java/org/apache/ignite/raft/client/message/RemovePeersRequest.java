@@ -30,6 +30,10 @@ public interface RemovePeersRequest {
          */
         Builder peers(List<Peer> peers);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         RemovePeersRequest build();
     }
 }

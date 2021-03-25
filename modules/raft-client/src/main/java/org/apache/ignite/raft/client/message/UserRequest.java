@@ -30,6 +30,10 @@ public interface UserRequest {
          */
         Builder groupId(String groupId);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         UserRequest build();
     }
 }

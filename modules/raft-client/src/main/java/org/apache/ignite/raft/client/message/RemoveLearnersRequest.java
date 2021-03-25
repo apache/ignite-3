@@ -31,6 +31,10 @@ public interface RemoveLearnersRequest {
          */
         Builder learners(List<Peer> learners);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         RemoveLearnersRequest build();
     }
 }

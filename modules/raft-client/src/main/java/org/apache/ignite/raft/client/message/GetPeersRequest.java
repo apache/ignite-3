@@ -28,7 +28,7 @@ public interface GetPeersRequest {
 
         /**
          * @return The complete message.
-         * @throws IllegalStateException If message is not in valid state.
+         * @throws IllegalStateException If the message is not in valid state.
          */
         GetPeersRequest build();
     }

@@ -17,6 +17,10 @@ public interface UserResponse<T> {
          */
         Builder result(T result);
 
+        /**
+         * @return The complete message.
+         * @throws IllegalStateException If the message is not in valid state.
+         */
         UserResponse<T> build();
     }
 }
