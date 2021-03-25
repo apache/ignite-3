@@ -17,9 +17,7 @@
 
 package org.apache.ignite.raft.client.service;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.client.Command;
@@ -38,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * timeout is reached. The current leader will be refreshed automatically (maybe several times) in the process.
  * <p>
  * Each asynchronous method (returning a future) uses a default timeout to finish, see {@link #timeout()}.
- * If a result is not ready within the timeout, the future will be completed with a {@link TimeoutException}
+ * If a result is not available within the timeout, the future will be completed with a {@link TimeoutException}
  * <p>
  * If an error is occured during operation execution, the future will be completed with the corresponding
  * IgniteException having an error code and a related message.
@@ -106,7 +104,7 @@ public interface RaftGroupService {
     CompletableFuture<Void> refreshMembers(boolean onlyAlive);
 
     /**
-     * Adds a voting peer to the raft group.
+     * Adds a voting peer to the replication group.
      * <p>
      * After the future completion methods like {@link #peers()} and {@link #learners()}
      * can be used to retrieve current members of a group.
@@ -119,7 +117,7 @@ public interface RaftGroupService {
     CompletableFuture<Void> addPeers(List<Peer> peers);
 
     /**
-     * Removes a peer from the raft group.
+     * Removes a peer from the replication group.
      * <p>
      * After the future completion methods like {@link #peers()} and {@link #learners()}
      * can be used to retrieve current members of a group.
@@ -181,10 +179,9 @@ public interface RaftGroupService {
      * Read commands always see up to date data.
      *
      * @param cmd The command.
-     * @param <R> Resulting type of command execution result.
-     * @return A future with the execution result.
+     * @return A future with the execution result, can be of any type.
      */
-    <R> CompletableFuture<R> run(Command cmd);
+    CompletableFuture<?> run(Command cmd);
 
     /**
      * Runs a read command on a given peer.
@@ -193,8 +190,7 @@ public interface RaftGroupService {
      *
      * @param peer Peer id.
      * @param cmd The command.
-     * @param <R> Resulting type of command execution result.
-     * @return A future with the execution result.
+     * @return A future with the execution result, can be of any type.
      */
-    <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd);
+    CompletableFuture<?> run(Peer peer, ReadCommand cmd);
 }

@@ -17,31 +17,43 @@
 
 package org.apache.ignite.raft.client.message.impl;
 
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.UserResponse;
+import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.message.ActionRequest;
 
 /** */
-class UserResponseImpl<T> implements UserResponse<T>, UserResponse.Builder<T> {
+class ActionRequestImpl<T> implements ActionRequest, ActionRequest.Builder {
     /** */
-    private T result;
+    private Command cmd;
 
     /** */
-    private Peer peer;
+    private String groupId;
 
     /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
+    @Override public Command command() {
+        return cmd;
     }
 
     /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
+    @Override public String groupId() {
+        return groupId;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Builder groupId(String groupId) {
+        this.groupId = groupId;
 
         return this;
     }
 
     /** {@inheritDoc} */
-    @Override public UserResponse build() {
+    @Override public Builder command(Command cmd) {
+        this.cmd = cmd;
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public ActionRequest build() {
         return this;
     }
 }

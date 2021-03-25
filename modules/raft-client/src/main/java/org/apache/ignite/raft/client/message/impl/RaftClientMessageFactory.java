@@ -29,8 +29,8 @@ import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
 import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
-import org.apache.ignite.raft.client.message.UserRequest;
-import org.apache.ignite.raft.client.message.UserResponse;
+import org.apache.ignite.raft.client.message.ActionRequest;
+import org.apache.ignite.raft.client.message.ActionResponse;
 
 /**
  * A factory for immutable replication group messages.
@@ -94,12 +94,12 @@ public interface RaftClientMessageFactory {
     /**
      * @return The builder.
      */
-    UserRequest.Builder userRequest();
+    ActionRequest.Builder actionRequest();
 
     /**
      * @return The builder.
      */
-    UserResponse.Builder userResponse();
+    ActionResponse.Builder actionResponse();
 
     /**
      * @return The builder.

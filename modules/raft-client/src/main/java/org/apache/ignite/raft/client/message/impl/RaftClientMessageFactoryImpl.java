@@ -29,8 +29,8 @@ import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
 import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
-import org.apache.ignite.raft.client.message.UserRequest;
-import org.apache.ignite.raft.client.message.UserResponse;
+import org.apache.ignite.raft.client.message.ActionRequest;
+import org.apache.ignite.raft.client.message.ActionResponse;
 
 /**
  * The default implementation.
@@ -92,13 +92,13 @@ public class RaftClientMessageFactoryImpl implements RaftClientMessageFactory {
     }
 
     /** {@inheritDoc} */
-    @Override public UserRequest.Builder userRequest() {
-        return new UserRequestImpl();
+    @Override public ActionRequest.Builder actionRequest() {
+        return new ActionRequestImpl();
     }
 
     /** {@inheritDoc} */
-    @Override public UserResponse.Builder userResponse() {
-        return new UserResponseImpl();
+    @Override public ActionResponse.Builder actionResponse() {
+        return new ActionResponseImpl();
     }
 
     /** {@inheritDoc} */

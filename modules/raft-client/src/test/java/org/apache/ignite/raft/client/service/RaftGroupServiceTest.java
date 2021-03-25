@@ -29,7 +29,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
-import org.apache.ignite.raft.client.message.UserRequest;
+import org.apache.ignite.raft.client.message.ActionRequest;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
@@ -182,9 +182,9 @@ public class RaftGroupServiceTest {
 
         service.refreshLeader().get();
 
-        CompletableFuture<TestResponse> fut = service.run(new TestCommand());
+        CompletableFuture fut = service.run(new TestCommand());
 
-        TestResponse output1 = fut.get();
+        TestResponse output1 = (TestResponse) fut.get();
 
         assertNotNull(output1);
     }
@@ -201,7 +201,7 @@ public class RaftGroupServiceTest {
 
         assertNull(service.leader());
 
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
+        TestResponse resp = (TestResponse) service.run(new TestCommand()).get();
 
         assertNotNull(resp);
 
@@ -282,9 +282,11 @@ public class RaftGroupServiceTest {
             }
         }, 500);
 
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
+        TestResponse resp = (TestResponse) service.run(new TestCommand()).get();
 
         assertNotNull(resp);
+
+        assertEquals(NODES.get(0), service.leader());
     }
 
     @Test
@@ -308,8 +310,8 @@ public class RaftGroupServiceTest {
         assertEquals(leader, service.leader());
         assertNotEquals(leader, newLeader);
 
-        // Send request to old leader. It should respond with leader changed and automatically retry to a new.
-        TestResponse resp = service.<TestResponse>run(new TestCommand()).get();
+        // Runs the command on an old leader. It should respond with leader changed error, when transparently retry.
+        TestResponse resp = (TestResponse) service.run(new TestCommand()).get();
 
         assertNotNull(resp);
 
@@ -333,13 +335,13 @@ public class RaftGroupServiceTest {
                     resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.LEADER_CHANGED).newLeader(leader).build();
                 }
                 else {
-                    resp = FACTORY.userResponse().result(new TestResponse()).build();
+                    resp = FACTORY.actionResponse().result(new TestResponse()).build();
                 }
 
                 return completedFuture(resp);
             }
-        }).when(cluster).sendWithResponse(any(), argThat(new ArgumentMatcher<UserRequest>() {
-            @Override public boolean matches(UserRequest arg) {
+        }).when(cluster).sendWithResponse(any(), argThat(new ArgumentMatcher<ActionRequest>() {
+            @Override public boolean matches(ActionRequest arg) {
                 return arg.command() instanceof TestCommand;
             }
         }), anyLong());

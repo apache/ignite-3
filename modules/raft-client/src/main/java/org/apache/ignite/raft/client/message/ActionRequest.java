@@ -3,23 +3,23 @@ package org.apache.ignite.raft.client.message;
 import org.apache.ignite.raft.client.Command;
 
 /**
- * Submit user request to a replication group.
+ * Submit an action to a replication group.
  */
-public interface UserRequest {
+public interface ActionRequest {
     /**
      * @return Group id.
      */
     String groupId();
 
     /**
-     * @return State machine command.
+     * @return Action's command.
      */
     Command command();
 
     /** */
     public interface Builder {
         /**
-         * @param cmd State machine command.
+         * @param cmd Action's command.
          * @return The builder.
          */
         Builder command(Command cmd);
@@ -34,6 +34,6 @@ public interface UserRequest {
          * @return The complete message.
          * @throws IllegalStateException If the message is not in valid state.
          */
-        UserRequest build();
+        ActionRequest build();
     }
 }

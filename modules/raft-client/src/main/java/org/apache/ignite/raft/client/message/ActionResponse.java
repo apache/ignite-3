@@ -1,26 +1,25 @@
 package org.apache.ignite.raft.client.message;
 
 /**
- * The result of user request.
- * @param <T> Result type.
+ * The result of an action.
  */
-public interface UserResponse<T> {
+public interface ActionResponse {
     /**
-     * @return A result for this request.
+     * @return A result for this request, can be of any type.
      */
-    T result();
+    Object result();
 
-    public interface Builder<T> {
+    public interface Builder {
         /**
          * @param result A result for this request.
          * @return The builder.
          */
-        Builder result(T result);
+        Builder result(Object result);
 
         /**
          * @return The complete message.
          * @throws IllegalStateException If the message is not in valid state.
          */
-        UserResponse<T> build();
+        ActionResponse build();
     }
 }

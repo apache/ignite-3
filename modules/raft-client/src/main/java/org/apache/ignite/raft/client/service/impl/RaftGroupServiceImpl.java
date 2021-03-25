@@ -36,8 +36,8 @@ import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetPeersRequest;
 import org.apache.ignite.raft.client.message.GetPeersResponse;
-import org.apache.ignite.raft.client.message.UserRequest;
-import org.apache.ignite.raft.client.message.UserResponse;
+import org.apache.ignite.raft.client.message.ActionRequest;
+import org.apache.ignite.raft.client.message.ActionResponse;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
@@ -217,25 +217,25 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return null;
     }
 
-    @Override public <R> CompletableFuture<R> run(Command cmd) {
+    @Override public CompletableFuture<?> run(Command cmd) {
         Peer leader = this.leader;
 
         if (leader == null)
             return refreshLeader().thenCompose(res -> run(cmd));
 
-        UserRequest req = factory.userRequest().command(cmd).groupId(groupId).build();
+        ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).build();
 
-        CompletableFuture<UserResponse<R>> fut = new CompletableFuture<>();
+        CompletableFuture<ActionResponse> fut = new CompletableFuture<>();
 
         sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> resp.result());
     }
 
-    @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
-        UserRequest req = factory.userRequest().command(cmd).groupId(groupId).build();
+    @Override public CompletableFuture<?> run(Peer peer, ReadCommand cmd) {
+        ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).build();
 
-        CompletableFuture<UserResponse<R>> fut = cluster.sendWithResponse(peer.getNode(), req, timeout);
+        CompletableFuture<ActionResponse> fut = cluster.sendWithResponse(peer.getNode(), req, timeout);
 
         return fut.thenApply(resp -> resp.result());
     }
