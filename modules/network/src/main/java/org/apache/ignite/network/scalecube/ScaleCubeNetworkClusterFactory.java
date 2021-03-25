@@ -67,7 +67,7 @@ public class ScaleCubeNetworkClusterFactory implements NetworkClusterFactory {
             catch (IllegalStateException e) {
                 throw new NetworkConfigurationException("Failed to parse address", e);
             }
-        }).collect(Collectors.toList());;
+        }).collect(Collectors.toList());
         this.memberResolver = memberResolver;
     }
 
