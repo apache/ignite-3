@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Represents a storage unit as entry with key, value and revision, where
  * <ul>
- *     <li>key - an unique entry's key represented by an array of bytes. Keys are comparable in lexicographic manner.</li>
+ *     <li>key - an unique entry's key. Keys are comparable in lexicographic manner.</li>
  *     <ul>value - a data which is associated with a key and represented as an array of bytes.</ul>
  *     <ul>revision - a number which denotes a version of whole meta storage. Each change increments the revision.</ul>
  * </ul>
@@ -34,7 +34,7 @@ public interface Entry {
      *
      * @return The key.
      */
-    @NotNull byte[] key();
+    @NotNull Key key();
 
     /**
      * Returns a value. Could be {@code null} for empty entry.
