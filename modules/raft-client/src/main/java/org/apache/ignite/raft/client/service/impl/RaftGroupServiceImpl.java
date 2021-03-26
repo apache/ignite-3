@@ -23,6 +23,7 @@ import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
+import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.client.Command;
@@ -59,7 +60,7 @@ import static org.apache.ignite.raft.client.RaftErrorCode.SUCCESS;
  */
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** */
-    private static System.Logger LOG = System.getLogger(RaftGroupServiceImpl.class.getName());
+    private static LogWrapper LOG = new LogWrapper(RaftGroupServiceImpl.class);
 
     /** */
     private volatile int timeout;
@@ -121,7 +122,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 refreshLeader().get();
             }
             catch (Exception e) {
-                error("Failed to refresh a leader", e);
+                LOG.error("Failed to refresh a leader", e);
             }
         }
     }
@@ -329,8 +330,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return A future.
      */
     private <R> void sendWithRetry(NetworkMember node, Object req, long stopTime, CompletableFuture<R> fut) {
-        debug("sendWithRetry stopTime=" + stopTime + " cur=" + System.currentTimeMillis());
-
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 
@@ -386,25 +385,5 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return null;
 
         return peers0.get(current().nextInt(peers0.size())).getNode();
-    }
-
-    private void info(String msg, Object... params) {
-        LOG.log(System.Logger.Level.INFO, msg, params);
-    }
-
-    private void debug(String msg, Object... params) {
-        LOG.log(System.Logger.Level.DEBUG, msg, params);
-    }
-
-    private void warn(String msg, Object... params) {
-        LOG.log(System.Logger.Level.WARNING, msg, params);
-    }
-
-    private void error(String msg, Object... params) {
-        LOG.log(System.Logger.Level.ERROR, msg, params);
-    }
-
-    private void error(String msg, Exception e) {
-        LOG.log(System.Logger.Level.ERROR, msg, e);
     }
 }
