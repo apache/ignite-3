@@ -53,8 +53,7 @@ public final class Peer {
      * @param node Node.
      * @param priority Election priority.
      */
-    public Peer(final NetworkMember node, final int priority) {
-        super();
+    public Peer(NetworkMember node, int priority) {
         this.node = node;
         this.priority = priority;
     }
