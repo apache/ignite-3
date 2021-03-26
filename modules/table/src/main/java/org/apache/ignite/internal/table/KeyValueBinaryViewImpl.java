@@ -21,11 +21,11 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -41,7 +41,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     /** Underlying storage. */
-    private final TableStorage tbl;
+    private final InternalTable tbl;
 
     /** Schema manager. */
     private final TableSchemaManager schemaMgr;
@@ -52,7 +52,7 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
      * @param tbl Table storage.
      * @param schemaMgr Schema manager.
      */
-    public KeyValueBinaryViewImpl(TableStorage tbl, TableSchemaManager schemaMgr) {
+    public KeyValueBinaryViewImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
         this.tbl = tbl;
         this.schemaMgr = schemaMgr;
     }
@@ -60,12 +60,16 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple key) {
         Objects.requireNonNull(key);
+        try {
+            Row kRow = marshaller().marshalKVPair(key, null); // Convert to portable format to pass TX/storage layer.
 
-        Row kRow = marshaller().marshalKVPair(key, null); // Convert to portable format to pass TX/storage layer.
-
-        BinaryRow vRow = tbl.get(kRow); // Load from storage.
-
-        return wrap(vRow); // Binary -> schema-aware row -> tuple
+            return tbl.get(kRow)  // Load async.
+                .thenApply(this::wrap) // Binary -> schema-aware row
+                .get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -91,10 +95,14 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     /** {@inheritDoc} */
     @Override public void put(Tuple key, Tuple val) {
         Objects.requireNonNull(key);
+        try {
+            Row row = marshaller().marshalKVPair(key, val); // Convert to portable format to pass TX/storage layer.
 
-        Row row = marshaller().marshalKVPair(key, val); // Convert to portable format to pass TX/storage layer.
-
-        tbl.put(row); // Put to storage.
+            tbl.upsert(row).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -262,5 +270,16 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
         final SchemaDescriptor schema = schemaMgr.schema(row.schemaVersion());
 
         return new TableRow(schema, new Row(schema, row));
+    }
+
+    /**
+     * @param e Exception.
+     * @return Runtime exception.
+     */
+    private RuntimeException convertException(Exception e) {
+        if (e instanceof InterruptedException)
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+        return new RuntimeException(e);
     }
 }

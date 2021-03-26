@@ -20,11 +20,13 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
@@ -37,19 +39,20 @@ import org.jetbrains.annotations.NotNull;
  */
 public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     /** Underlying storage. */
-    private final TableStorage tbl;
+    private final InternalTable tbl;
 
     /** Schema manager. */
     private final TableSchemaManager schemaMgr;
 
     /**
      * Constructor.
-     *  @param tbl Table storage.
+     *
+     * @param tbl Table storage.
      * @param schemaMgr Schema manager.
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
-    public KVViewImpl(TableStorage tbl, TableSchemaManager schemaMgr, KeyMapper<K> keyMapper,
+    public KVViewImpl(InternalTable tbl, TableSchemaManager schemaMgr, KeyMapper<K> keyMapper,
         ValueMapper<V> valueMapper) {
         this.tbl = tbl;
         this.schemaMgr = schemaMgr;
@@ -57,19 +60,37 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override public V get(K key) {
+        Objects.requireNonNull(key);
+
         final Marshaller marsh = marshaller();
 
-        Row kRow = marsh.serialize(key); // Convert to portable format to pass TX/storage layer.
+        try {
+            Row kRow = marsh.serialize(key); // Convert to portable format to pass TX/storage layer.
 
-        BinaryRow vRow = tbl.get(kRow); // Load from storage.
+            final CompletableFuture<V> fut = tbl.get(kRow)  // Load async.
+                .thenApply(this::wrap) // Binary -> schema-aware row
+                .thenApply(marsh::deserializeValue); // Deserialize.
 
-        Row res = wrap(vRow); // Binary -> schema-aware row
-
-        return marsh.deserializeValue(res);
+            return fut.get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull IgniteFuture<V> getAsync(K key) {
+//        Objects.requireNonNull(key);
+//
+//        final Marshaller marsh = marshaller();
+//
+//        Row kRow = marsh.serialize(key); // Convert to portable format to pass TX/storage layer.
+//
+//        final CompletableFuture<BinaryRow> fut = tbl.get(kRow);
+//
+        //Binary -> schema-aware row -> deserialize.
+//        return fut.thenApply(r -> wrap(r))
+//            .thenApply(r -> marsh.deserializeValue(r));
         return null;
     }
 
@@ -247,5 +268,16 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
         final SchemaDescriptor rowSchema = schemaMgr.schema(row.schemaVersion()); // Get a schema for row.
 
         return new Row(rowSchema, row);
+    }
+
+    /**
+     * @param e Exception.
+     * @return Runtime exception.
+     */
+    private RuntimeException convertException(Exception e) {
+        if (e instanceof InterruptedException)
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+        return new RuntimeException(e);
     }
 }

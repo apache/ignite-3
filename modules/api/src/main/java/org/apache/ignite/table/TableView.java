@@ -212,18 +212,18 @@ public interface TableView<R> {
     /**
      * Deletes the given record from the table.
      *
-     * @param oldRec Record to delete.
+     * @param rec Record to delete.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
-    boolean deleteExact(R oldRec);
+    boolean deleteExact(R rec);
 
     /**
      * Asynchronously deletes given record from the table.
      *
-     * @param oldRec Record to delete.
+     * @param rec Record to delete.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull IgniteFuture<Boolean> deleteExactAsync(R oldRec);
+    @NotNull IgniteFuture<Boolean> deleteExactAsync(R rec);
 
     /**
      * Gets then deletes a record with the same key columns values from the table.

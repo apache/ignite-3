@@ -20,11 +20,13 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.Marshaller;
-import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
@@ -36,46 +38,61 @@ import org.jetbrains.annotations.NotNull;
  */
 public class RecordViewImpl<R> implements RecordView<R> {
     /** Table */
-    private final TableStorage tbl;
+    private final InternalTable tbl;
 
     /** Schema manager. */
     private final TableSchemaManager schemaMgr;
 
     /**
      * Constructor.
-     *  @param tbl Table.
+     *
+     * @param tbl Table.
      * @param schemaMgr Schema manager.
      * @param mapper Record class mapper.
      */
-    public RecordViewImpl(TableStorage tbl, TableSchemaManager schemaMgr, RecordMapper<R> mapper) {
+    public RecordViewImpl(InternalTable tbl, TableSchemaManager schemaMgr, RecordMapper<R> mapper) {
         this.tbl = tbl;
         this.schemaMgr = schemaMgr;
     }
 
     /** {@inheritDoc} */
     @Override public R get(R keyRec) {
+        Objects.requireNonNull(keyRec);
+
         Marshaller marsh = marshaller();
 
-        Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
+        try {
+            Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
 
-        BinaryRow bRow = tbl.get(kRow); // Load from storage.
+            final CompletableFuture<R> fut = tbl.get(kRow)  // Load async.
+                .thenApply(this::wrap) // Binary -> schema-aware row
+                .thenApply(marsh::deserializeToRecord); // Deserialize.
 
-        Row res = wrap(bRow);  // Binary -> schema-aware row
-
-        return marsh.deserializeToRecord(res);
+            return fut.get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public R fill(R recObjToFill) {
+        Objects.requireNonNull(recObjToFill);
+
         Marshaller marsh = marshaller();
 
-        BinaryRow kRow = marsh.serialize(recObjToFill);
+        try {
+            Row kRow = marsh.serialize(recObjToFill);  // Convert to portable format to pass TX/storage layer.
 
-        BinaryRow bRow = tbl.get(kRow); // Load from storage.
+            final CompletableFuture<R> fut = tbl.get(kRow)  // Load async.
+                .thenApply(this::wrap) // Binary -> schema-aware row
+                .thenApply(r -> marsh.deserializeToRecord(r, recObjToFill)); // Deserialize and fill record.
 
-        Row res = wrap(bRow);  // Binary -> schema-aware row
-
-        return marsh.deserializeToRecord(res, recObjToFill);
+            return fut.get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -184,12 +201,12 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean deleteExact(R oldRec) {
+    @Override public boolean deleteExact(R rec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(R oldRec) {
+    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(R rec) {
         return null;
     }
 
@@ -268,5 +285,16 @@ public class RecordViewImpl<R> implements RecordView<R> {
         final SchemaDescriptor rowSchema = schemaMgr.schema(row.schemaVersion()); // Get a schema for row.
 
         return new Row(rowSchema, row);
+    }
+
+    /**
+     * @param e Exception.
+     * @return Runtime exception.
+     */
+    private RuntimeException convertException(Exception e) {
+        if (e instanceof InterruptedException)
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+        return new RuntimeException(e);
     }
 }

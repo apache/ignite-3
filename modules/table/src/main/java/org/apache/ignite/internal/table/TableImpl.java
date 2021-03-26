@@ -20,13 +20,13 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.storage.TableStorage;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -45,7 +45,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class TableImpl implements Table {
     /** Table. */
-    private final TableStorage tbl;
+    private final InternalTable tbl;
 
     /** Schema manager. */
     private final TableSchemaManager schemaMgr;
@@ -55,7 +55,7 @@ public class TableImpl implements Table {
      *
      * @param tbl Table.
      */
-    public TableImpl(TableStorage tbl, TableSchemaManager schemaMgr) {
+    public TableImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
         this.tbl = tbl;
         this.schemaMgr = schemaMgr;
     }
@@ -77,9 +77,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple keyRec) {
-        final Row row = marshallToRow(keyRec, true); // Convert to portable format to pass TX/storage layer.
+        Objects.requireNonNull(keyRec);
 
-        return wrap(tbl.get(row));
+        try {
+            final Row keyRow = marshallToRow(keyRec, true); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.get(keyRow).thenApply(this::wrap).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -99,7 +106,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public void upsert(Tuple rec) {
-        tbl.put(marshallToRow(rec, false));
+        Objects.requireNonNull(rec);
+
+        try {
+            final Row keyRow = marshallToRow(rec, false);
+
+            tbl.upsert(keyRow).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -119,7 +135,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndUpsert(Tuple rec) {
-        return null;
+        Objects.requireNonNull(rec);
+
+        try {
+            final Row keyRow = marshallToRow(rec, false);
+
+            return tbl.getAndUpsert(keyRow).thenApply(this::wrap).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -129,7 +154,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public boolean insert(Tuple rec) {
-        return false;
+        Objects.requireNonNull(rec);
+
+        try {
+            final Row keyRow = marshallToRow(rec, false);
+
+            return tbl.insert(keyRow).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -179,7 +213,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public boolean delete(Tuple keyRec) {
-        return false;
+        Objects.requireNonNull(keyRec);
+
+        try {
+            final Row keyRow = marshallToRow(keyRec, false);
+
+            return tbl.delete(keyRow).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -188,12 +231,12 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean deleteExact(Tuple oldRec) {
+    @Override public boolean deleteExact(Tuple rec) {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(Tuple oldRec) {
+    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(Tuple rec) {
         return null;
     }
 
@@ -325,5 +368,16 @@ public class TableImpl implements Table {
         final SchemaDescriptor schema = schemaMgr.schema(row.schemaVersion());
 
         return new TableRow(schema, new Row(schema, row));
+    }
+
+    /**
+     * @param e Exception.
+     * @return Runtime exception.
+     */
+    private RuntimeException convertException(Exception e) {
+        if (e instanceof InterruptedException)
+            Thread.currentThread().interrupt(); // Restore interrupt flag.
+
+        return new RuntimeException(e);
     }
 }
