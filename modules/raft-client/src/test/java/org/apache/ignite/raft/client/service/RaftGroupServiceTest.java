@@ -22,13 +22,14 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.ActionRequest;
+import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
@@ -62,7 +63,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest {
     /** */
-    private static System.Logger LOG = System.getLogger(RaftGroupServiceTest.class.getName());
+    private static LogWrapper LOG = new LogWrapper(RaftGroupServiceTest.class);
 
     /** */
     private static List<Peer> NODES = of(new Peer(new NetworkMember("node1")), new Peer(new NetworkMember("node2")),
@@ -89,7 +90,7 @@ public class RaftGroupServiceTest {
      */
     @BeforeEach
     void before(TestInfo testInfo) {
-        LOG.log(System.Logger.Level.INFO, ">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
+        LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
     }
 
     /**
