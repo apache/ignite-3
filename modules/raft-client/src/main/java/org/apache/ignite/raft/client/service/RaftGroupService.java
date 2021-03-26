@@ -67,14 +67,14 @@ public interface RaftGroupService {
     @Nullable Peer leader();
 
     /**
-     * @return A list of voting peers or {@code null} if it has not been yet initialized. Peers order is corresponding
-     * to the time of joining to the group.
+     * @return A list of voting peers or {@code null} if it has not been yet initialized. The order is corresponding
+     * to the time of joining to the replication group.
      */
     @Nullable List<Peer> peers();
 
     /**
-     * @return A list of leaners or {@code null} if it has not been yet initialized. Peers order is corresponding
-     * to the time of joining to the group.
+     * @return A list of leaners or {@code null} if it has not been yet initialized. The order is corresponding
+     * to the time of joining to the replication group.
      */
     @Nullable List<Peer> learners();
 
@@ -104,27 +104,27 @@ public interface RaftGroupService {
     CompletableFuture<Void> refreshMembers(boolean onlyAlive);
 
     /**
-     * Adds a voting peer to the replication group.
+     * Adds a voting peers to the replication group.
      * <p>
      * After the future completion methods like {@link #peers()} and {@link #learners()}
      * can be used to retrieve current members of a group.
      * <p>
      * This operation is executed on a group leader.
      *
-     * @param peerId Peer id.
+     * @param peers Peers.
      * @return A future.
      */
     CompletableFuture<Void> addPeers(List<Peer> peers);
 
     /**
-     * Removes a peer from the replication group.
+     * Removes peers from the replication group.
      * <p>
      * After the future completion methods like {@link #peers()} and {@link #learners()}
      * can be used to retrieve current members of a group.
      * <p>
      * This operation is executed on a group leader.
      *
-     * @param peerId Peer id.
+     * @param peers Peers.
      * @return A future.
      */
     CompletableFuture<Void> removePeers(List<Peer> peers);
@@ -158,7 +158,7 @@ public interface RaftGroupService {
     /**
      * Takes a state machine snapshot on a given group peer.
      *
-     * @param peer Peer id.
+     * @param peer Peer.
      * @return A future.
      */
     CompletableFuture<Void> snapshot(Peer peer);

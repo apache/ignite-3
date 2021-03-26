@@ -35,7 +35,7 @@ public final class Peer {
     private final int priority;
 
     /**
-     * @param peer Peerid.
+     * @param peer Peer.
      */
     public Peer(Peer peer) {
         this.node = peer.getNode();
