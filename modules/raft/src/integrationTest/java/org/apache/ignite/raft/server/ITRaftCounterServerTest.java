@@ -25,6 +25,8 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
@@ -53,7 +55,8 @@ class ITRaftCounterServerTest {
 
     /** */
     // TODO: IGNITE-14088: Uncomment and use real serializer provider
-    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 //            .registerFactory((short)1000, ???)
 //            .registerFactory((short)1001, ???)
 //            .registerFactory((short)1005, ???)

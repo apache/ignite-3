@@ -29,6 +29,8 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkConfigurationException;
+import org.apache.ignite.network.internal.netty.ConnectionManager;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 
 /**
  * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
@@ -39,7 +41,10 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     @Override public ClusterService createClusterService(ClusterLocalConfiguration context) {
         var topologyService = new ScaleCubeTopologyService();
         var messagingService = new ScaleCubeMessagingService(topologyService);
-        var transportFactory = new DelegatingTransportFactory(messagingService);
+        MessageSerializationRegistry registry = context.getSerializationRegistry();
+        ConnectionManager connectionManager = new ConnectionManager(context.getPort(), registry);
+        connectionManager.start();
+        ScaleCubeDirectMarshallerTransport transport = new ScaleCubeDirectMarshallerTransport(connectionManager);
 
         var cluster = new ClusterImpl()
             .handler(cl -> new ClusterMessageHandler() {
@@ -54,7 +59,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                 }
             })
             .config(opts -> opts.memberAlias(context.getName()))
-            .transport(opts -> opts.port(context.getPort()).transportFactory(transportFactory))
+            .transport(opts -> opts.transportFactory(config -> transport))
             .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())).suspicionMult(1));
 
         // resolve cyclic dependencies
@@ -72,6 +77,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
             @Override public void shutdown() {
                 cluster.shutdown();
                 cluster.onShutdown().block();
+                connectionManager.stop();
             }
         };
     }
