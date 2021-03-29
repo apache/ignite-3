@@ -20,9 +20,12 @@ package org.apache.ignite.table.impl;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.table.InvokeProcessor;
@@ -31,7 +34,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Dummy table storage implementation.
  */
-public class DummyTableStorageImpl implements InternalTable {
+public class DummyInternalTableImpl implements InternalTable {
     /** In-memory dummy store. */
     private final Map<KeyWrapper, BinaryRow> store = new ConcurrentHashMap<>();
 
@@ -115,20 +118,45 @@ public class DummyTableStorageImpl implements InternalTable {
         return CompletableFuture.completedFuture(store.remove(key) != null);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRecs) {
-        return null;
+        assert keyRecs != null && !keyRecs.isEmpty();
+
+        final List<BinaryRow> res = keyRecs.stream()
+            .map(this::extractAndWrapKey)
+            .map(store::get)
+            .collect(Collectors.toList());
+
+        return CompletableFuture.completedFuture(res);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> recs) {
-        return null;
+        assert recs != null && !recs.isEmpty();
+
+        recs.stream()
+            .map(k -> store.put(extractAndWrapKey(k), k));
+
+        return CompletableFuture.completedFuture(null);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> insert(BinaryRow rec) {
-        return null;
+        assert rec != null;
+
+        return CompletableFuture.completedFuture(store.putIfAbsent(extractAndWrapKey(rec), rec) == null);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> recs) {
-        return null;
+        assert recs != null && !recs.isEmpty();
+
+        final List<BinaryRow> res = recs.stream()
+            .map(k -> store.putIfAbsent(extractAndWrapKey(k), k) == null ? null : k)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+
+        return CompletableFuture.completedFuture(res);
     }
 
     @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow rec) {
@@ -173,7 +201,7 @@ public class DummyTableStorageImpl implements InternalTable {
      * @param row Row.
      * @return Extracted key.
      */
-    @NotNull private DummyTableStorageImpl.KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
+    @NotNull private DummyInternalTableImpl.KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
         final byte[] bytes = new byte[row.keySlice().capacity()];
         row.keySlice().get(bytes);
 

@@ -22,7 +22,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.table.impl.DummyTableStorageImpl;
+import org.apache.ignite.table.impl.DummyInternalTableImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +39,41 @@ public class TableOperationsTest {
      *
      */
     @Test
+    public void testInsert() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+            1,
+            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {new Column("val", NativeType.LONG, false)}
+        );
+
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+
+        final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
+        final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 111L).build();
+        final Tuple nonExistedTuple = tbl.tupleBuilder().set("id", 2L).set("val", 22L).build();
+
+        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertNull(tbl.get(tuple));
+
+        // Insert new tuple.
+        assertTrue(tbl.insert(tuple));
+
+        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertEqualsRows(schema, tuple, tbl.get(tuple));
+
+        assertNull(tbl.get(nonExistedTuple));
+
+        // Ignore insert operation for exited row.
+        assertFalse(tbl.insert(newTuple));
+
+        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertEqualsRows(schema, tuple, tbl.get(newTuple));
+    }
+
+    /**
+     *
+     */
+    @Test
     public void testUpsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
             1,
@@ -46,10 +81,10 @@ public class TableOperationsTest {
             new Column[] {new Column("val", NativeType.LONG, false)}
         );
 
-        Table tbl = new TableImpl(new DummyTableStorageImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
-        final Tuple updatedTuple = tbl.tupleBuilder().set("id", 1L).set("val", 111L).build();
+        final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 111L).build();
         final Tuple nonExistedTuple = tbl.tupleBuilder().set("id", 2L).set("val", 22L).build();
 
         assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
@@ -64,10 +99,10 @@ public class TableOperationsTest {
         assertNull(tbl.get(nonExistedTuple));
 
         // Ignore insert operation for exited row.
-        tbl.upsert(updatedTuple);
+        tbl.upsert(newTuple);
 
-        assertEqualsRows(schema, updatedTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
-        assertEqualsRows(schema, updatedTuple, tbl.get(updatedTuple));
+        assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertEqualsRows(schema, newTuple, tbl.get(newTuple));
     }
 
     /**
@@ -81,10 +116,10 @@ public class TableOperationsTest {
             new Column[] {new Column("val", NativeType.LONG, false)}
         );
 
-        Table tbl = new TableImpl(new DummyTableStorageImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
 
         final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
-        final Tuple updatedTuple = tbl.tupleBuilder().set("id", 1L).set("val", 111L).build();
+        final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 111L).build();
         final Tuple nonExistedTuple = tbl.tupleBuilder().set("id", 2L).set("val", 22L).build();
 
         assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
@@ -99,10 +134,10 @@ public class TableOperationsTest {
         assertNull(tbl.get(nonExistedTuple));
 
         // Ignore insert operation for exited row.
-        assertEqualsRows(schema, tuple, tbl.getAndUpsert(updatedTuple));
+        assertEqualsRows(schema, tuple, tbl.getAndUpsert(newTuple));
 
-        assertEqualsRows(schema, updatedTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
-        assertEqualsRows(schema, updatedTuple, tbl.get(updatedTuple));
+        assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertEqualsRows(schema, newTuple, tbl.get(newTuple));
     }
 
     /**
@@ -116,27 +151,27 @@ public class TableOperationsTest {
             new Column[] {new Column("val", NativeType.LONG, false)}
         );
 
-        Table tbl = new TableImpl(new DummyTableStorageImpl(), new DummySchemaManagerImpl(schema));
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
 
-        final Tuple tuple1 = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
-        final Tuple tuple2 = tbl.tupleBuilder().set("id", 2L).set("val", 22L).build();
+        final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
+        final Tuple nonExistedTuple = tbl.tupleBuilder().set("id", 2L).set("val", 22L).build();
 
-        tbl.upsert(tuple1);
+        tbl.upsert(tuple);
 
-        assertNotNull(tbl.get(tuple1));
-        assertNull(tbl.get(tuple2));
+        assertNotNull(tbl.get(tuple));
+        assertNull(tbl.get(nonExistedTuple));
 
         // Delete not existed tuple.
-        assertFalse(tbl.delete(tuple2));
+        assertFalse(tbl.delete(nonExistedTuple));
         // TODO: check no tombstone exists.
 
         // Delete existed tuple.
-        assertTrue(tbl.delete(tuple1));
-        assertNull(tbl.get(tuple1));
+        assertTrue(tbl.delete(tuple));
+        assertNull(tbl.get(tuple));
         // TODO: check tombstone exists.
 
         // Delete already deleted tuple.
-        assertFalse(tbl.delete(tuple1));
+        assertFalse(tbl.delete(tuple));
         // TODO: check tombstone still exists.
     }
 
