@@ -241,7 +241,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public boolean deleteExact(Tuple rec) {
-        return false;
+        Objects.requireNonNull(rec);
+
+        try {
+            final Row row = marshallToRow(rec, false);
+
+            return tbl.deleteExact(row).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */

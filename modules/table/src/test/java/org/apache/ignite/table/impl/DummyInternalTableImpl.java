@@ -191,13 +191,16 @@ public class DummyInternalTableImpl implements InternalTable {
         final ByteBuffer oldVal = old.valueSlice();
 
 
-        if (val.remaining() != oldVal.remaining())
+        if (val.limit() != oldVal.limit())
             return CompletableFuture.completedFuture(false);
 
         int i = 0;
 
-        while (i < val.limit() && val.get(i) == val.get(i))
+        while (i < val.limit() && val.get(i) == oldVal.get(i))
             i++;
+
+        if (i == val.limit())
+            store.remove(key);
 
         return CompletableFuture.completedFuture(i == val.limit());
     }
