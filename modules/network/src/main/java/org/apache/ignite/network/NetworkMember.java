@@ -18,6 +18,7 @@ package org.apache.ignite.network;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Representation of the network member.
@@ -48,6 +49,15 @@ public class NetworkMember implements Serializable {
             return false;
         NetworkMember member = (NetworkMember)o;
         return Objects.equals(name, member.name);
+    }
+
+    /**
+     * Creates node UUID.
+     *
+     * @return Node UUID identifier.
+     */
+    public UUID id() {
+        return new UUID(name.hashCode(), name.substring(name.length() / 2).hashCode());
     }
 
     /** {@inheritDoc} */
