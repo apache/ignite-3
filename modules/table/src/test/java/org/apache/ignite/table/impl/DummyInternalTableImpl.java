@@ -18,6 +18,7 @@
 package org.apache.ignite.table.impl;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -39,7 +40,7 @@ public class DummyInternalTableImpl implements InternalTable {
     private final Map<KeyWrapper, BinaryRow> store = new ConcurrentHashMap<>();
 
     /**
-     * Wrapper provides correct byte[] comparison.
+     * Wrapper provides corrowt byte[] comparison.
      */
     private static class KeyWrapper {
         /** Data. */
@@ -119,10 +120,10 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRecs) {
-        assert keyRecs != null && !keyRecs.isEmpty();
+    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows) {
+        assert keyRows != null && !keyRows.isEmpty();
 
-        final List<BinaryRow> res = keyRecs.stream()
+        final List<BinaryRow> res = keyRows.stream()
             .map(this::extractAndWrapKey)
             .map(store::get)
             .collect(Collectors.toList());
@@ -131,27 +132,27 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> recs) {
-        assert recs != null && !recs.isEmpty();
+    @Override public @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows) {
+        assert rows != null && !rows.isEmpty();
 
-        recs.stream()
+        rows.stream()
             .map(k -> store.put(extractAndWrapKey(k), k));
 
         return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> insert(BinaryRow rec) {
-        assert rec != null;
+    @Override public @NotNull CompletableFuture<Boolean> insert(BinaryRow row) {
+        assert row != null;
 
-        return CompletableFuture.completedFuture(store.putIfAbsent(extractAndWrapKey(rec), rec) == null);
+        return CompletableFuture.completedFuture(store.putIfAbsent(extractAndWrapKey(row), row) == null);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> recs) {
-        assert recs != null && !recs.isEmpty();
+    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows) {
+        assert rows != null && !rows.isEmpty();
 
-        final List<BinaryRow> res = recs.stream()
+        final List<BinaryRow> res = rows.stream()
             .map(k -> store.putIfAbsent(extractAndWrapKey(k), k) == null ? null : k)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
@@ -159,41 +160,67 @@ public class DummyInternalTableImpl implements InternalTable {
         return CompletableFuture.completedFuture(res);
     }
 
-    @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow rec) {
+    @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow row) {
+        assert row != null;
+
+        return CompletableFuture.completedFuture(store.replace(extractAndWrapKey(row), row) != null);
+    }
+
+    @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow) {
         return null;
     }
 
-    @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRec, BinaryRow newRec) {
+    @Override public @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow row) {
         return null;
     }
 
-    @Override public @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow rec) {
+    /** {@inheritDoc} */
+    @Override public @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow row) {
+        assert row != null;
+        assert row.hasValue();
+        
+        final KeyWrapper key = extractAndWrapKey(row);
+        final BinaryRow old = store.get(key);
+        
+        if (old == null || !old.hasValue())
+            return CompletableFuture.completedFuture(false);
+
+        assert row.schemaVersion() == old.schemaVersion() : "Table doesn't support row version upgrade.";
+
+        final ByteBuffer val = row.valueSlice();
+        final ByteBuffer oldVal = old.valueSlice();
+
+
+        if (val.remaining() != oldVal.remaining())
+            return CompletableFuture.completedFuture(false);
+
+        int i = 0;
+
+        while (i < val.limit() && val.get(i) == val.get(i))
+            i++;
+
+        return CompletableFuture.completedFuture(i == val.limit());
+    }
+
+    @Override public @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow row) {
         return null;
     }
 
-    @Override public @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow oldRec) {
+    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows) {
         return null;
     }
 
-    @Override public @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow rec) {
+    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows) {
         return null;
     }
 
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> recs) {
-        return null;
-    }
-
-    @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> recs) {
-        return null;
-    }
-
-    @Override public @NotNull <T extends Serializable, R> CompletableFuture<T> invoke(BinaryRow keyRec,
+    @Override public @NotNull <T extends Serializable, R> CompletableFuture<T> invoke(BinaryRow keyRow,
         InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
     @Override public @NotNull <T extends Serializable, R> CompletableFuture<Map<BinaryRow, T>> invokeAll(
-        Collection<BinaryRow> keyRecs, InvokeProcessor<R, R, T> proc) {
+        Collection<BinaryRow> keyRows, InvokeProcessor<R, R, T> proc) {
         return null;
     }
 

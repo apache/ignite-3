@@ -183,7 +183,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple rec) {
-        return false;
+        Objects.requireNonNull(rec);
+
+        try {
+            final Row keyRow = marshallToRow(rec, false);
+
+            return tbl.replace(keyRow).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */

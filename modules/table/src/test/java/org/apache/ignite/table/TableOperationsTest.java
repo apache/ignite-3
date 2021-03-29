@@ -32,7 +32,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
+ * Basic table operations test.
  *
+ * TODO: Add bulk operations tests.
+ * TODO: Add async operations tests.
+ * TODO: Refactor, to check different schema configurations (varlen fields, composite keys, binary fields and etc).
  */
 public class TableOperationsTest {
     /**
@@ -98,11 +102,11 @@ public class TableOperationsTest {
 
         assertNull(tbl.get(nonExistedTuple));
 
-        // Ignore insert operation for exited row.
+        // Update exited row.
         tbl.upsert(newTuple);
 
         assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
-        assertEqualsRows(schema, newTuple, tbl.get(newTuple));
+        assertEqualsRows(schema, newTuple, tbl.get(tuple));
     }
 
     /**
@@ -133,11 +137,11 @@ public class TableOperationsTest {
 
         assertNull(tbl.get(nonExistedTuple));
 
-        // Ignore insert operation for exited row.
+        // Update exited row.
         assertEqualsRows(schema, tuple, tbl.getAndUpsert(newTuple));
 
         assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
-        assertEqualsRows(schema, newTuple, tbl.get(newTuple));
+        assertEqualsRows(schema, newTuple, tbl.get(tuple));
     }
 
     /**
@@ -173,6 +177,44 @@ public class TableOperationsTest {
         // Delete already deleted tuple.
         assertFalse(tbl.delete(tuple));
         // TODO: check tombstone still exists.
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void testReplace() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+            1,
+            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {new Column("val", NativeType.LONG, false)}
+        );
+
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+
+        final Tuple tuple = tbl.tupleBuilder().set("id", 1L).set("val", 11L).build();
+        final Tuple newTuple = tbl.tupleBuilder().set("id", 1L).set("val", 111L).build();
+        final Tuple nonExistedTuple = tbl.tupleBuilder().set("id", 2L).set("val", 22L).build();
+
+        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertNull(tbl.get(tuple));
+
+        // Ignore replace operation for non-existed row.
+        assertFalse(tbl.replace(tuple));
+
+        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertNull(tbl.get(tuple));
+
+        assertNull(tbl.get(nonExistedTuple));
+
+        // Insert row.
+        tbl.insert(tuple);
+
+        // Replace existed row.
+        assertTrue(tbl.replace(newTuple));
+
+        assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
+        assertEqualsRows(schema, newTuple, tbl.get(tuple));
     }
 
     /**
