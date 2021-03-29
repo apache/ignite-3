@@ -286,7 +286,6 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    //TODO: UUID Should be replaced by IgniteUUID when it will be introduced.
     CompletableFuture<IgniteUuid> watch(@Nullable Key keyFrom, @Nullable Key keyTo,
                                   long revision, @NotNull WatchListener lsnr);
 
@@ -305,7 +304,6 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    //TODO: UUID Should be replaced by IgniteUUID when it will be introduced.
     CompletableFuture<IgniteUuid> watch(@NotNull Key key, long revision, @NotNull WatchListener lsnr);
 
     /**
@@ -323,7 +321,6 @@ public interface MetaStorageService {
      * @see Entry
      */
     @NotNull
-    //TODO: UUID Should be replaced by IgniteUUID when it will be introduced.
     CompletableFuture<IgniteUuid> watch(@NotNull Collection<Key> keys, long revision, @NotNull WatchListener lsnr);
 
     /**
@@ -334,7 +331,6 @@ public interface MetaStorageService {
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      */
     @NotNull
-    //TODO: UUID Should be replaced by IgniteUUID when it will be introduced.
     CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id);
 
     /**

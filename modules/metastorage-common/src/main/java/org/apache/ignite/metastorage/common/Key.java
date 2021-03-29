@@ -19,7 +19,6 @@ package org.apache.ignite.metastorage.common;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import org.apache.ignite.util.LexicographicComparator;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -76,6 +75,6 @@ public final class Key implements Comparable<Key> {
 
     /** {@inheritDoc} */
     @Override public int compareTo(@NotNull Key other) {
-        return LexicographicComparator.getInstance().compare(this.arr, other.arr);
+        return Arrays.compare(this.arr, other.arr);
     }
 }
