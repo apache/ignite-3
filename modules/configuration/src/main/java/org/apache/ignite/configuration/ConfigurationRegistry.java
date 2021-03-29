@@ -19,6 +19,7 @@ package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.RootKeyImpl;
@@ -35,6 +37,7 @@ import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
@@ -42,13 +45,19 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.Validator;
 
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
+import static org.apache.ignite.configuration.notifications.ConfigurationNotificationsUtil.notifyListeners;
+
 /** */
 public class ConfigurationRegistry {
+    /** */
+    private static final System.Logger logger = System.getLogger(ConfigurationRegistry.class.getName());
+
     /** */
     private final Map<String, DynamicConfiguration<?, ?, ?>> configs = new HashMap<>();
 
     /** */
-    private final ConfigurationChanger changer = new ConfigurationChanger();
+    private final ConfigurationChanger changer = new ConfigurationChanger(this::notificator);
 
     {
         // Default vaildators implemented in current module.
@@ -61,8 +70,6 @@ public class ConfigurationRegistry {
         changer.addRootKey(rootKey);
 
         configs.put(rootKey.key(), (DynamicConfiguration<?, ?, ?>)rootKey.createPublicRoot(changer));
-
-        //TODO IGNITE-14180 link these two entities.
     }
 
     /** */
@@ -73,6 +80,11 @@ public class ConfigurationRegistry {
     /** */
     public void registerStorage(ConfigurationStorage configurationStorage) {
         changer.register(configurationStorage);
+    }
+
+    /** */
+    public void startStorageConfigurations(Class<? extends ConfigurationStorage> storageType) {
+        changer.initialize(storageType);
     }
 
     /** */
@@ -111,6 +123,37 @@ public class ConfigurationRegistry {
     /** */
     public CompletableFuture<?> change(List<String> path, ConfigurationSource changesSource) {
         throw new UnsupportedOperationException("IGNITE-14372 Not implemented yet.");
+    }
+
+    /** */
+    public void stop() {
+        changer.stop();
+    }
+
+    private @NotNull CompletableFuture<?> notificator(ConfigurationNotificationEvent<SuperRoot> ctx) {
+        List<CompletableFuture<?>> futures = new ArrayList<>();
+
+        ctx.newValue().traverseChildren(new ConfigurationVisitor<Void>() {
+            @Override public Void visitInnerNode(String key, InnerNode newRoot) {
+                InnerNode oldRoot = ctx.oldValue().traverseChild(key, innerNodeVisitor());
+
+                var cfg = (DynamicConfiguration<InnerNode, ?, ?>)configs.get(key);
+
+                assert oldRoot != null && cfg != null : key;
+
+                if (oldRoot != newRoot)
+                    notifyListeners(oldRoot, newRoot, cfg, ctx.storageRevision(), futures);
+
+                return null;
+            }
+        });
+
+        return CompletableFuture.allOf(futures.stream().map(listenerFut -> listenerFut.handle((res, throwable) -> {
+            if (throwable != null)
+                logger.log(System.Logger.Level.ERROR, "Failed to notify configuration listener.", throwable);
+
+            return res;
+        })).toArray(CompletableFuture[]::new));
     }
 
     /**

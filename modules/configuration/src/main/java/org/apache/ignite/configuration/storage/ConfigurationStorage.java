@@ -18,7 +18,6 @@ package org.apache.ignite.configuration.storage;
 
 import java.io.Serializable;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -42,14 +41,7 @@ public interface ConfigurationStorage {
     CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long version);
 
     /**
-     * Get all the keys of the configuration storage.
-     * @return Set of keys.
-     * @throws StorageException If failed to retrieve keys.
-     */
-    Set<String> keys() throws StorageException;
-
-    /**
-     * Add listener to the storage that notifies of data changes..
+     * Add listener to the storage that notifies of data changes.
      * @param listener Listener.
      */
     void addListener(ConfigurationStorageListener listener);
@@ -58,5 +50,11 @@ public interface ConfigurationStorage {
      * Remove storage listener.
      * @param listener Listener.
      */
+    @Deprecated // ?
     void removeListener(ConfigurationStorageListener listener);
+
+    /**
+     *
+     */
+    void notifyApplied(long storageRevision);
 }

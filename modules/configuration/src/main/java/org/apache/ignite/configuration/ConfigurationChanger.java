@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 import org.apache.ignite.configuration.internal.validation.ValidationUtil;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
@@ -39,8 +41,11 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.jetbrains.annotations.TestOnly;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.addDefaults;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.cleanupMatchingValues;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.nodeToFlatMap;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.patch;
@@ -49,7 +54,7 @@ import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.to
 /**
  * Class that handles configuration changes, by validating them, passing to storage and listening to storage updates.
  */
-public class ConfigurationChanger {
+public final class ConfigurationChanger {
     /** */
     private final ForkJoinPool pool = new ForkJoinPool(2);
 
@@ -61,6 +66,9 @@ public class ConfigurationChanger {
 
     /** Annotation classes mapped to validator objects. */
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
+
+    /** Closure to execute when update forom storage is received. */
+    private final ConfigurationListener<SuperRoot> notificator;
 
     /**
      * Immutable data container to store version and all roots associated with the specific storage.
@@ -85,8 +93,18 @@ public class ConfigurationChanger {
     /** Storage instances by their classes. Comes in handy when all you have is {@link RootKey}. */
     private final Map<Class<? extends ConfigurationStorage>, ConfigurationStorage> storageInstances = new HashMap<>();
 
-    /** Constructor. */
-    public ConfigurationChanger(RootKey<?, ?>... rootKeys) {
+    /**
+     * @param notificator Closure to execute when update forom storage is received.
+     */
+    public ConfigurationChanger(ConfigurationListener<SuperRoot> notificator) {
+        this.notificator = notificator;
+    }
+
+    /** Constructor for tests. */
+    @TestOnly
+    ConfigurationChanger(RootKey<?, ?>... rootKeys) {
+        notificator = ctx -> completedFuture(null);
+
         for (RootKey<?, ?> rootKey : rootKeys)
             this.rootKeys.put(rootKey.key(), rootKey);
     }
@@ -140,7 +158,7 @@ public class ConfigurationChanger {
             superRoot.addRoot(rootKey, rootNode);
         }
 
-        StorageRoots storageRoots = new StorageRoots(superRoot, data.version());
+        StorageRoots storageRoots = new StorageRoots(superRoot, data.cfgVersion());
 
         storagesRootsMap.put(configurationStorage.getClass(), storageRoots);
 
@@ -184,6 +202,11 @@ public class ConfigurationChanger {
         }
     }
 
+    /** Stop component. */
+    public void stop() {
+        pool.shutdownNow();
+    }
+
     /**
      * Get root node by root key. Subject to revisiting.
      *
@@ -199,7 +222,7 @@ public class ConfigurationChanger {
      */
     public CompletableFuture<Void> change(Map<RootKey<?, ?>, InnerNode> changes) {
         if (changes.isEmpty())
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
 
         Set<Class<? extends ConfigurationStorage>> storagesTypes = changes.keySet().stream()
             .map(RootKey::getStorageType)
@@ -251,12 +274,6 @@ public class ConfigurationChanger {
         StorageRoots storageRoots = storagesRootsMap.get(storage.getClass());
         SuperRoot curRoots = storageRoots.roots;
 
-        Map<String, Serializable> allChanges = new HashMap<>();
-
-        //TODO IGNITE-14180 single putAll + remove matching value, this way "allChanges" will be fair.
-        // These are changes explicitly provided by the client.
-        allChanges.putAll(nodeToFlatMap(curRoots, changes));
-
         // It is necessary to reinitialize default values every time.
         // Possible use case that explicitly requires it: creation of the same named list entry with slightly
         // different set of values and different dynamic defaults at the same time.
@@ -266,8 +283,11 @@ public class ConfigurationChanger {
 
         addDefaults(patchedSuperRoot, defaultsNode);
 
-        // These are default values for non-initialized values, required to complete the configuration.
-        allChanges.putAll(nodeToFlatMap(patchedSuperRoot, defaultsNode));
+        SuperRoot patchedChanges = patch(changes, defaultsNode);
+
+        cleanupMatchingValues(curRoots, changes);
+
+        Map<String, Serializable> allChanges = nodeToFlatMap(curRoots, patchedChanges);
 
         // Unlikely but still possible.
         if (allChanges.isEmpty()) {
@@ -297,8 +317,18 @@ public class ConfigurationChanger {
                 fut.completeExceptionally(new ConfigurationChangeException("Failed to change configuration", throwable));
             else if (casResult)
                 fut.complete(null);
-            else
+            else {
+                try {
+                    // Is this ok to have a busy wait on concurrent configuration updates?
+                    // Maybe we'll fix it while implementing metastorage storage implementation.
+                    Thread.sleep(10);
+                }
+                catch (InterruptedException e) {
+                    fut.completeExceptionally(e);
+                }
+
                 change0(changes, storage, fut);
+            }
         }, pool);
     }
 
@@ -317,15 +347,25 @@ public class ConfigurationChanger {
 
         compressDeletedEntries(dataValuesPrefixMap);
 
-        SuperRoot newSuperRoot = oldStorageRoots.roots.copy();
+        SuperRoot oldSuperRoot = oldStorageRoots.roots;
+        SuperRoot newSuperRoot = oldSuperRoot.copy();
 
         fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
 
-        StorageRoots storageRoots = new StorageRoots(newSuperRoot, changedEntries.version());
+        StorageRoots newStorageRoots = new StorageRoots(newSuperRoot, changedEntries.cfgVersion());
 
-        storagesRootsMap.put(storageType, storageRoots);
+        storagesRootsMap.put(storageType, newStorageRoots);
 
-        //TODO IGNITE-14180 Notify listeners.
+        ConfigurationStorage storage = storageInstances.get(storageType);
+
+        long storegeRevision = changedEntries.storageRevision();
+
+        // This will also be updated during the metastorage integration.
+        notificator.onUpdate(new ConfigurationNotificationEvent<>(
+            oldSuperRoot,
+            newSuperRoot,
+            storegeRevision
+        )).whenCompleteAsync((res, throwable) -> storage.notifyApplied(storegeRevision), pool);
     }
 
     /**

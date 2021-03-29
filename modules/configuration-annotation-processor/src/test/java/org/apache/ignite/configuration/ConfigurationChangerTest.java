@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.sample.storage;
+package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.lang.annotation.Retention;
@@ -24,14 +24,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.storage.Data;
+import org.apache.ignite.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -40,7 +39,7 @@ import org.junit.jupiter.api.Test;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.configuration.sample.storage.AConfiguration.KEY;
+import static org.apache.ignite.configuration.AConfiguration.KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;

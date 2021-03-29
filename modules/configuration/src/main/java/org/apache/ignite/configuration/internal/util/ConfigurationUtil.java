@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.SuperRoot;
@@ -506,6 +507,45 @@ public class ConfigurationUtil {
                 return node;
             }
         };
+    }
+
+    /**
+     *
+     * @param curNode
+     * @param newNode
+     */
+    public static void cleanupMatchingValues(InnerNode curNode, InnerNode newNode) {
+        if (curNode == null || newNode == null)
+            return;
+
+        assert curNode.getClass() == newNode.getClass();
+
+        newNode.traverseChildren(new ConfigurationVisitor<Void>() {
+            /** {@inheritDoc} */
+            @Override public Void visitLeafNode(String key, Serializable newVal) {
+                if (Objects.deepEquals(curNode.traverseChild(key, leafNodeVisitor()), newVal))
+                    newNode.construct(key, null);
+
+                return null;
+            }
+
+            /** {@inheritDoc} */
+            @Override public Void visitInnerNode(String key, InnerNode newInnerNode) {
+                cleanupMatchingValues(curNode.traverseChild(key, innerNodeVisitor()), newInnerNode);
+
+                return null;
+            }
+
+            /** {@inheritDoc} */
+            @Override public <N extends InnerNode> Void visitNamedListNode(String key, NamedListNode<N> newNamedList) {
+                NamedListNode<?> curNamedList = curNode.traverseChild(key, namedListNodeVisitor());
+
+                for (String name : newNamedList.namedListKeys())
+                    cleanupMatchingValues(curNamedList.get(name), newNamedList.get(name));
+
+                return null;
+            }
+        });
     }
 
     /** @see #patch(ConstructableTreeNode, TraversableTreeNode) */

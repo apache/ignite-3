@@ -15,28 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration;
+package org.apache.ignite.configuration.notifications;
 
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Base interface for configuration.
- * @param <VIEW> Type of the value.
- * @param <CHANGE> Type of the object that changes the value of configuration.
+ * Configuration property change listener.
+ *
+ * @param <VIEW> VIEW type configuration.
  */
-public interface ConfigurationProperty<VIEW, CHANGE> {
+@FunctionalInterface
+public interface ConfigurationListener<VIEW> {
     /**
-     * Get key of this node.
-     * @return Key.
+     * Called on property value update.
+     *
+     * @param ctx Notification context.
+     * @return Future that signifies end of listener execution. Can be {@code null}.
      */
-    String key();
-
-    /**
-     * Get value of this property.
-     * @return Value of this property.
-     */
-    VIEW value();
-
-    /** */
-    void listen(ConfigurationListener<VIEW> listener);
+    @Nullable CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<VIEW> ctx);
 }
+

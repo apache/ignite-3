@@ -14,53 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.storage;
 
-import java.io.Serializable;
-import java.util.Map;
+package org.apache.ignite.configuration.notifications;
 
-/**
- * Represents data in configuration storage.
- */
-public class Data {
-    /** Values. */
-    private final Map<String, Serializable> values;
-
-    /** Configuration storage version. */
-    private final long cfgVersion;
-
-    /** */
+// TODO Split into interface and implementation
+public class ConfigurationNotificationEvent<VIEW> {
+    private final VIEW oldValue;
+    private final VIEW newValue;
     private final long storageRevision;
 
-    /**
-     * Constructor.
-     * @param values Values.
-     * @param cfgVersion Version.
-     * @param storageRevision
-     */
-    public Data(Map<String, Serializable> values, long cfgVersion, long storageRevision) {
-        this.values = values;
-        this.cfgVersion = cfgVersion;
+    public ConfigurationNotificationEvent(VIEW oldValue, VIEW newValue, long storageRevision) {
+        this.oldValue = oldValue;
+        this.newValue = newValue;
         this.storageRevision = storageRevision;
     }
 
-    /**
-     * Get values.
-     * @return Values.
-     */
-    public Map<String, Serializable> values() {
-        return values;
+    public VIEW oldValue() {
+        return oldValue;
     }
 
-    /**
-     * Get version.
-     * @return version.
-     */
-    public long cfgVersion() {
-        return cfgVersion;
+    public VIEW newValue() {
+        return newValue;
     }
 
-    /** */
     public long storageRevision() {
         return storageRevision;
     }
