@@ -31,6 +31,7 @@ import org.apache.ignite.rest.presentation.json.JsonConverter;
  * Preparing configuration includes reading it from configuration file, parsing it and initializing
  * {@link ConfigurationRegistry} object.
  */
+@SuppressWarnings("PMD.UnusedPrivateField")
 public class ConfigurationModule {
     /** */
     private LocalConfiguration localConfigurator;
