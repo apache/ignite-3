@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
+import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -200,6 +201,21 @@ public final class ConfigurationChanger {
                 "Failed to write defalut configuration values into the storage " + configurationStorage.getClass(), e
             );
         }
+    }
+
+    /** Temporary until the IGNITE-14372 */
+    public CompletableFuture<?> changeX(
+        List<String> path,
+        ConfigurationSource source,
+        ConfigurationStorage storage
+    ) {
+        assert path.isEmpty() : "Path support is not yet implemented.";
+
+        SuperRoot superRoot = new SuperRoot(rootKeys);
+
+        source.descend(superRoot);
+
+        return change(superRoot, storage.getClass());
     }
 
     /** Stop component. */
