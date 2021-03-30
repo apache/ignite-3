@@ -1,3 +1,0 @@
-com.alipay.sofa.jraft.NodeDescribeSignalHandler
-com.alipay.sofa.jraft.NodeMetricsSignalHandler
-com.alipay.sofa.jraft.ThreadPoolMetricsSignalHandler

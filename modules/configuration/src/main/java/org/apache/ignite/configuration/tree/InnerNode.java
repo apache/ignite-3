@@ -22,8 +22,8 @@ import java.util.NoSuchElementException;
 /** */
 public abstract class InnerNode implements TraversableTreeNode, ConstructableTreeNode, Cloneable {
     /** {@inheritDoc} */
-    @Override public final void accept(String key, ConfigurationVisitor visitor) {
-        visitor.visitInnerNode(key, this);
+    @Override public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
+        return visitor.visitInnerNode(key, this);
     }
 
     /**
@@ -44,7 +44,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *
      * @param visitor Configuration visitor.
      */
-    public abstract void traverseChildren(ConfigurationVisitor visitor);
+    public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor);
 
     /**
      * Method with auto-generated implementation. Must look like this:
@@ -77,7 +77,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * @param visitor Configuration visitor.
      * @throws NoSuchElementException If field {@code key} is not found.
      */
-    public abstract void traverseChild(String key, ConfigurationVisitor visitor) throws NoSuchElementException;
+    public abstract <T> T traverseChild(String key, ConfigurationVisitor<T> visitor) throws NoSuchElementException;
 
     /**
      * Method with auto-generated implementation. Must look like this:
@@ -109,6 +109,20 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * {@inheritDoc}
      */
     @Override public abstract void construct(String key, ConfigurationSource src) throws NoSuchElementException;
+
+    /**
+     * Assigns default value to the corresponding leaf. Defaults are gathered from configuration schema class.
+     *
+     * @param fieldName Field name to be initialized.
+     * @return {@code true} if default value has been assigned, {@code false} otherwise.
+     * @throws NoSuchElementException If there's no such field or it is not a leaf value.
+     */
+    public abstract boolean constructDefault(String fieldName) throws NoSuchElementException;
+
+    /**
+     * @return Class of corresponding configuration schema.
+     */
+    public abstract Class<?> schemaType();
 
     /** {@inheritDoc} */
     @Override public InnerNode copy() {

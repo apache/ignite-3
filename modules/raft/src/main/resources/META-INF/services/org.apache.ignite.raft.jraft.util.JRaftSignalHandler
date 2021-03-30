@@ -1,0 +1,3 @@
+org.apache.ignite.raft.jraft.NodeDescribeSignalHandler
+org.apache.ignite.raft.jraft.NodeMetricsSignalHandler
+org.apache.ignite.raft.jraft.ThreadPoolMetricsSignalHandler

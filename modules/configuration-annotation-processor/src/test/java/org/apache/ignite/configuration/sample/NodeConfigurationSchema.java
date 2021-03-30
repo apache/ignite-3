@@ -19,9 +19,7 @@ package org.apache.ignite.configuration.sample;
 
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Validate;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.sample.validation.NodeValidator;
 
 /**
  * Test node configuration schema.
@@ -31,15 +29,13 @@ public class NodeConfigurationSchema {
     /** Consistent id. */
     @Value(immutable = true)
     @NotNull(message = "Consistent id must not be null")
-    private String consistentId;
+    public String consistentId;
 
     /** Port. */
     @Value
-    private int port;
+    public int port;
 
     /** Auto adjust enabled. */
-    @Value
-    @Validate(NodeValidator.class)
-    private boolean autoAdjustEnabled;
-
+    @Value(hasDefault = true)
+    public boolean autoAdjustEnabled = true;
 }

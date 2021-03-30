@@ -17,21 +17,33 @@
 
 package org.apache.ignite.rest;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonSyntaxException;
-import io.javalin.Javalin;
-import java.io.Reader;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 import org.apache.ignite.configuration.ConfigurationRegistry;
-import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.internal.selector.SelectorNotFoundException;
+import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.rest.configuration.InitRest;
-import org.apache.ignite.rest.configuration.RestConfigurationImpl;
-import org.apache.ignite.rest.configuration.Selectors;
+import org.apache.ignite.rest.configuration.RestConfiguration;
+import org.apache.ignite.rest.configuration.RestView;
+import org.apache.ignite.rest.netty.RestApiInitializer;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.rest.presentation.FormatConverter;
 import org.apache.ignite.rest.presentation.json.JsonConverter;
 import org.apache.ignite.rest.presentation.json.JsonPresentation;
+import org.apache.ignite.rest.routes.Router;
 import org.slf4j.Logger;
+
+import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 
 /**
  * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
@@ -41,7 +53,7 @@ import org.slf4j.Logger;
  */
 public class RestModule {
     /** */
-    private static final int DFLT_PORT = 10300;
+    public static final int DFLT_PORT = 10300;
 
     /** */
     private static final String CONF_URL = "/management/v1/configuration/";
@@ -64,88 +76,90 @@ public class RestModule {
     }
 
     /** */
-    public void prepareStart(ConfigurationRegistry sysConfig, Reader moduleConfReader) {
-        try {
-            Class.forName(Selectors.class.getName());
-        }
-        catch (ClassNotFoundException e) {
-            // No-op.
-        }
+    public void prepareStart(ConfigurationRegistry sysCfg) {
+        sysConf = sysCfg;
+        sysCfg.registerRootKey(RestConfiguration.KEY);
 
-        sysConf = sysConfig;
+        presentation = new JsonPresentation();
+    }
 
-        presentation = new JsonPresentation(sysConfig.getConfigurators());
+    /**
+     *
+     */
+    public void start() throws InterruptedException {
+        var router = new Router();
+        router
+            .get(CONF_URL, (req, resp) -> {
+                resp.json(presentation.represent());
+            })
+            .get(CONF_URL + ":" + PATH_PARAM, (req, resp) -> {
+                String cfgPath = req.queryParams().get(PATH_PARAM);
+                try {
+                    List<String> path = ConfigurationUtil.split(cfgPath);
 
-        FormatConverter converter = new JsonConverter();
+                    JsonElement json = sysConf.represent(path, JsonConverter.jsonVisitor());
 
-        Configurator<RestConfigurationImpl> restConf = Configurator.create(RestConfigurationImpl::new,
-            converter.convertFrom(moduleConfReader, "rest", InitRest.class));
+                    resp.json(json);
+                }
+                catch (IllegalArgumentException pathE) {
+                    ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
 
-        sysConfig.registerConfigurator(restConf);
+                    resp.status(BAD_REQUEST);
+                    resp.json(Map.of("error", eRes));
+                }
+            })
+            .put(CONF_URL, HttpHeaderValues.APPLICATION_JSON, (req, resp) -> {
+                try {
+                    presentation.update(
+                        req
+                            .request()
+                            .content()
+                            .readCharSequence(req.request().content().readableBytes(), StandardCharsets.UTF_8)
+                            .toString());
+                }
+                catch (IllegalArgumentException argE) {
+                    ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", argE.getMessage());
+
+                    resp.status(BAD_REQUEST);
+                    resp.json(Map.of("error", eRes));
+                }
+                catch (ConfigurationValidationException validationE) {
+                    ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
+
+                    resp.status(BAD_REQUEST);
+                    resp.json(Map.of("error", eRes));
+                    resp.json(eRes);
+                }
+                catch (JsonSyntaxException e) {
+                    String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+
+                    ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
+                    resp.status(BAD_REQUEST);
+                    resp.json(Map.of("error", eRes));
+                }
+                catch (Exception e) {
+                    ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+
+                    resp.status(BAD_REQUEST);
+                    resp.json(Map.of("error", eRes));
+                }
+            });
+
+        startRestEndpoint(router);
     }
 
     /** */
-    public void start() {
-        Javalin app = startRestEndpoint();
+    private void startRestEndpoint(Router router) throws InterruptedException {
+        RestView restConfigurationView = sysConf.getConfiguration(RestConfiguration.KEY).value();
 
-        FormatConverter converter = new JsonConverter();
+        int desiredPort = restConfigurationView.port();
+        int portRange = restConfigurationView.portRange();
 
-        app.get(CONF_URL, ctx -> {
-            ctx.result(presentation.represent());
-        });
+        int port = 0;
 
-        app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
-            String configPath = ctx.pathParam(PATH_PARAM);
-
+        if (portRange == 0) {
             try {
-                ctx.result(presentation.representByPath(configPath));
-            }
-            catch (SelectorNotFoundException | IllegalArgumentException pathE) {
-                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-        });
-
-        app.post(CONF_URL, ctx -> {
-            try {
-                presentation.update(ctx.body());
-            }
-            catch (SelectorNotFoundException | IllegalArgumentException argE) {
-                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", argE.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-            catch (ConfigurationValidationException validationE) {
-                ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-            catch (JsonSyntaxException e) {
-                String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-
-                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-            catch (Exception e) {
-                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
-
-                ctx.status(400).result(converter.convertTo("error", eRes));
-            }
-        });
-    }
-
-    /** */
-    private Javalin startRestEndpoint() {
-        Integer port = sysConf.getConfiguration(RestConfigurationImpl.KEY).port().value();
-        Integer portRange = sysConf.getConfiguration(RestConfigurationImpl.KEY).portRange().value();
-
-        Javalin app = null;
-
-        if (portRange == null || portRange == 0) {
-            try {
-                app = Javalin.create().start(port != null ? port : DFLT_PORT);
+                port = desiredPort;
             }
             catch (RuntimeException e) {
                 log.warn("Failed to start REST endpoint: ", e);
@@ -154,23 +168,20 @@ public class RestModule {
             }
         }
         else {
-            int startPort = port;
+            int startPort = desiredPort;
 
             for (int portCandidate = startPort; portCandidate < startPort + portRange; portCandidate++) {
                 try {
-                    app = Javalin.create().start(portCandidate);
+                    port = (portCandidate);
                 }
                 catch (RuntimeException ignored) {
                     // No-op.
                 }
-
-                if (app != null)
-                    break;
             }
 
-            if (app == null) {
+            if (port == 0) {
                 String msg = "Cannot start REST endpoint. " +
-                    "All ports in range [" + startPort + ", " + (startPort + portRange) + ") are in use.";
+                    "All ports in range [" + startPort + ", " + (startPort + portRange) + "] are in use.";
 
                 log.warn(msg);
 
@@ -178,13 +189,27 @@ public class RestModule {
             }
         }
 
-        log.info("REST protocol started successfully on port " + app.port());
+        EventLoopGroup bossGrp = new NioEventLoopGroup(1);
+        EventLoopGroup workerGrp = new NioEventLoopGroup();
+        var hnd = new RestApiInitializer(router);
+        try {
+            ServerBootstrap b = new ServerBootstrap();
+            b.option(ChannelOption.SO_BACKLOG, 1024);
+            b.group(bossGrp, workerGrp)
+                .channel(NioServerSocketChannel.class)
+                .handler(new LoggingHandler(LogLevel.INFO))
+                .childHandler(hnd);
 
-        return app;
-    }
+            Channel ch = b.bind(port).sync().channel();
 
-    /** */
-    public String configRootKey() {
-        return "rest";
+            if (log.isInfoEnabled())
+                log.info("REST protocol started successfully on port " + port);
+
+            ch.closeFuture().sync();
+        }
+        finally {
+            bossGrp.shutdownGracefully();
+            workerGrp.shutdownGracefully();
+        }
     }
 }

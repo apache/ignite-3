@@ -17,50 +17,48 @@
 
 package org.apache.ignite.configuration;
 
-import java.io.Reader;
-import org.apache.ignite.configuration.extended.InitLocal;
-import org.apache.ignite.configuration.extended.LocalConfigurationImpl;
-import org.apache.ignite.configuration.extended.Selectors;
-import org.apache.ignite.rest.presentation.FormatConverter;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.util.Collections;
+import java.util.concurrent.ExecutionException;
+import org.apache.ignite.configuration.extended.LocalConfiguration;
+import org.apache.ignite.rest.configuration.InMemoryConfigurationStorage;
 import org.apache.ignite.rest.presentation.json.JsonConverter;
 
 /**
  * Module is responsible for preparing configuration when module is started.
  *
  * Preparing configuration includes reading it from configuration file, parsing it and initializing
- * {@link Configurator} object.
+ * {@link ConfigurationRegistry} object.
  */
+@SuppressWarnings("PMD.UnusedPrivateField")
 public class ConfigurationModule {
-    static {
-        try {
-            Selectors.LOCAL_BASELINE.select(null);
-        }
-        catch (Throwable ignored) {
-            // No-op.
-        }
-    }
-
     /** */
-    private Configurator<LocalConfigurationImpl> localConfigurator;
+    private LocalConfiguration localConfigurator;
 
     /** */
     private final ConfigurationRegistry confRegistry = new ConfigurationRegistry();
 
-    /** */
-    public void bootstrap(Reader confReader) {
-        FormatConverter converter = new JsonConverter();
+    /**
+     * @param jsonStr
+     */
+    public void bootstrap(String jsonStr) throws InterruptedException {
+        confRegistry.registerRootKey(LocalConfiguration.KEY);
 
-        Configurator<LocalConfigurationImpl> configurator =
-            Configurator.create(LocalConfigurationImpl::new, converter.convertFrom(confReader, "local", InitLocal.class));
+        InMemoryConfigurationStorage storage = new InMemoryConfigurationStorage();
 
-        localConfigurator = configurator;
+        confRegistry.registerStorage(storage);
 
-        confRegistry.registerConfigurator(configurator);
-    }
+        JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
 
-    /** */
-    public Configurator<LocalConfigurationImpl> localConfigurator() {
-        return localConfigurator;
+        try {
+            confRegistry.change(Collections.emptyList(), JsonConverter.jsonSource(jsonCfg), storage).get();
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+
+        localConfigurator = confRegistry.getConfiguration(LocalConfiguration.KEY);
     }
 
     /** */

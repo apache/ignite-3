@@ -17,20 +17,26 @@
 
 package org.apache.ignite.rest.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
+
+import static org.apache.ignite.rest.RestModule.DFLT_PORT;
 
 /**
  * Configuration schema for REST endpoint subtree.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@Config(value = "rest", root = true)
+@ConfigurationRoot(rootName = "rest", storage = InMemoryConfigurationStorage.class)
 public class RestConfigurationSchema {
     /** */
-    @Value
-    private int port;
+    @Min(1024)
+    @Max(0xFFFF)
+    @Value(hasDefault = true)
+    public final int port = DFLT_PORT;
 
     /** */
-    @Value
-    private int portRange;
+    @Min(0)
+    @Value(hasDefault = true)
+    public final int portRange = 0;
 }

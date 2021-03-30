@@ -17,12 +17,8 @@
 
 package org.apache.ignite.rest.presentation.json;
 
+import java.util.Collections;
 import java.util.Map;
-import java.util.stream.Collectors;
-import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.Configurator;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
-import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
 
 /** */
@@ -31,19 +27,16 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
     private final JsonConverter converter = new JsonConverter();
 
     /** */
-    private final Map<String, Configurator<? extends DynamicConfiguration<?, ?, ?>>> configsMap;
-
-    /** */
-    public JsonPresentation(Map<String, Configurator<? extends DynamicConfiguration<?, ?, ?>>> configsMap) {
-        this.configsMap = configsMap;
+    public JsonPresentation() {
     }
 
     /** {@inheritDoc} */
     @Override public String represent() {
-        Map<String, ?> preparedMap = configsMap.entrySet().stream().collect(Collectors.toMap(
-            e -> e.getKey(),
-            e -> e.getValue().getRoot().value()
-        ));
+        Map<String, ?> preparedMap = Collections.emptyMap();
+//        configsMap.entrySet().stream().collect(Collectors.toMap(
+//            e -> e.getKey(),
+//            e -> e.getValue().getRoot().value()
+//        ));
 
         return converter.convertTo(preparedMap);
     }
@@ -53,13 +46,14 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
         if (path == null || path.isEmpty())
             return represent();
 
-        String root = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
-
-        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator = configsMap.get(root);
-
-        ConfigurationProperty<Object, Object> prop = configurator.getInternal(BaseSelectors.find(path));
-
-        return converter.convertTo(prop.value());
+//        String root = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
+//
+//        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator = configsMap.get(root);
+//
+//        ConfigurationProperty<Object, Object> prop = configurator.getInternal(BaseSelectors.find(path));
+//
+//        return converter.convertTo(prop.value());
+        return "";
     }
 
     /** {@inheritDoc} */
@@ -70,14 +64,8 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
             throw new IllegalArgumentException("Invalid request, no root in request: " + configUpdate);
         }
 
-        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator = configsMap.get(root);
+//        Object updateObj = converter.convertFrom(configUpdate, root, configurator.getChangeType());
 
-        if (configurator == null) {
-            throw new IllegalArgumentException("Invalid request, configuration root not found: " + configUpdate);
-        }
-
-        Object updateObj = converter.convertFrom(configUpdate, root, configurator.getChangeType());
-
-        configurator.set(BaseSelectors.find(root), updateObj);
+//        configurator.set(BaseSelectors.find(root), updateObj);
     }
 }

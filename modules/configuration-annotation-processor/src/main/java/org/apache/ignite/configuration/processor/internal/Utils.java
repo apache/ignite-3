@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.configuration.processor.internal;
 
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -142,6 +143,14 @@ public class Utils {
         );
     }
 
+    /** */
+    public static ClassName getNodeName(ClassName schemaClassName) {
+        return ClassName.get(
+            schemaClassName.packageName(),
+            schemaClassName.simpleName().replace("ConfigurationSchema", "Node")
+        );
+    }
+
     /**
      * Get {@link ClassName} for configuration VIEW object class.
      *
@@ -151,7 +160,7 @@ public class Utils {
     public static ClassName getViewName(ClassName schemaClassName) {
         return ClassName.get(
             schemaClassName.packageName(),
-            schemaClassName.simpleName().replace("ConfigurationSchema", "")
+            schemaClassName.simpleName().replace("ConfigurationSchema", "View")
         );
     }
 
@@ -164,7 +173,7 @@ public class Utils {
     public static ClassName getInitName(ClassName schemaClassName) {
         return ClassName.get(
             schemaClassName.packageName(),
-            "Init" + schemaClassName.simpleName().replace("ConfigurationSchema", "")
+            schemaClassName.simpleName().replace("ConfigurationSchema", "Init")
         );
     }
 
@@ -177,7 +186,7 @@ public class Utils {
     public static ClassName getChangeName(ClassName schemaClassName) {
         return ClassName.get(
             schemaClassName.packageName(),
-            "Change" + schemaClassName.simpleName().replace("ConfigurationSchema", "")
+            schemaClassName.simpleName().replace("ConfigurationSchema", "Change")
         );
     }
 
@@ -214,4 +223,12 @@ public class Utils {
         throw new ProcessorException(type + " is not a NamedListConfiguration class");
     }
 
+    /**
+     * @return {@code @SuppressWarnings("unchecked")} annotation spec object.
+     */
+    public static AnnotationSpec suppressWarningsUnchecked() {
+        return AnnotationSpec.builder(SuppressWarnings.class)
+            .addMember("value", "$S", "unchecked")
+            .build();
+    }
 }
