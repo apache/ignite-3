@@ -84,6 +84,8 @@ public class Processor extends AbstractProcessor {
 
     /** Inherit doc javadoc. */
     private static final String INHERIT_DOC = "{@inheritDoc}";
+
+    /** */
     private static final ClassName ROOT_KEY_CLASSNAME = ClassName.get("org.apache.ignite.configuration", "RootKey");
 
     /**

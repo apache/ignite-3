@@ -22,7 +22,9 @@ import org.jetbrains.annotations.Nullable;
 
 public class ConfigurationNotificationEventImpl<VIEW> implements ConfigurationNotificationEvent<VIEW> {
     private final VIEW oldValue;
+
     private final VIEW newValue;
+
     private final long storageRevision;
 
     public ConfigurationNotificationEventImpl(VIEW oldValue, VIEW newValue, long storageRevision) {
