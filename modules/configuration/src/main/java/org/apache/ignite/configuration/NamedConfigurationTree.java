@@ -39,8 +39,8 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEW, CH
     T get(String name);
 
     /**
-     *
-     * @param listener
+     * Add named-list-specific configuration values listener.
+     * @param listener Listener.
      */
     void listen(ConfigurationNamedListListener<VIEW> listener);
 }

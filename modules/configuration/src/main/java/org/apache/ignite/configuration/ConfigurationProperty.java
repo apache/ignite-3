@@ -37,6 +37,9 @@ public interface ConfigurationProperty<VIEW, CHANGE> {
      */
     VIEW value();
 
-    /** */
+    /**
+     * Add configuration values listener.
+     * @param listener Listener.
+     */
     void listen(ConfigurationListener<VIEW> listener);
 }
