@@ -119,7 +119,13 @@ public class LocalRpcClient implements RpcClient {
         locConn.onBeforeRequestSend((Message) request, fut);
 
         fut.whenComplete((res, err) -> {
-            locConn.onAfterResponseSend((Message) res, err);
+            try {
+                locConn.onAfterResponseSend((Message) res, err);
+            }
+            catch (Exception e) {
+                e.printStackTrace(); // TODO logger.
+            }
+
             RpcUtils.runInThread(() -> callback.complete(res, err)); // Avoid deadlocks if a closure has completed in the same thread.
         }).orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
     }

@@ -24,7 +24,7 @@ import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 
 /**
- * Abstract factory to create services for SOFAJRaft.
+ * Abstract factory to create services for SOFAJRaft. TODO kill this.
  * @author boyan(boyan@antfin.com)
  * @since  1.2.6
  */

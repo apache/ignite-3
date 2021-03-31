@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.counter.rpc;
 
-import java.io.Serializable;
+import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**
  * Value response.
@@ -25,7 +25,7 @@ import java.io.Serializable;
  *
  * 2018-Apr-09 4:55:35 PM
  */
-public class ValueResponse implements Serializable {
+public class ValueResponse implements Message {
 
     private static final long serialVersionUID = -4220017686727146773L;
 

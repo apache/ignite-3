@@ -91,13 +91,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /**
      * @param groupId Group id.
-     * @param cluster A cluster.
-     * @param factory A message factory.
+     * @param cluster The cluster.
+     * @param factory Message factory.
      * @param timeout Request timeout.
      * @param peers Initial group configuration.
      * @param refreshLeader {@code True} to synchronously refresh leader on service creation.
      * @param retryDelay Retry delay.
-     * @param timer Timer for scheduled execution.
+     * @param timer The timer for scheduled execution.
      */
     public RaftGroupServiceImpl(
         String groupId,
