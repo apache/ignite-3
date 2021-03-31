@@ -32,8 +32,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 import org.apache.ignite.configuration.internal.validation.ValidationUtil;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
@@ -42,6 +40,7 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -68,8 +67,15 @@ public final class ConfigurationChanger {
     /** Annotation classes mapped to validator objects. */
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
+    /** */
+    @FunctionalInterface
+    public interface Notificator {
+        /** */
+        @NotNull CompletableFuture<?> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
+    }
+
     /** Closure to execute when update forom storage is received. */
-    private final ConfigurationListener<SuperRoot> notificator;
+    private final Notificator notificator;
 
     /**
      * Immutable data container to store version and all roots associated with the specific storage.
@@ -97,14 +103,14 @@ public final class ConfigurationChanger {
     /**
      * @param notificator Closure to execute when update forom storage is received.
      */
-    public ConfigurationChanger(ConfigurationListener<SuperRoot> notificator) {
+    public ConfigurationChanger(Notificator notificator) {
         this.notificator = notificator;
     }
 
     /** Constructor for tests. */
     @TestOnly
     ConfigurationChanger(RootKey<?, ?>... rootKeys) {
-        notificator = ctx -> completedFuture(null);
+        notificator = (oldRoot, newRoot, storageRevision) -> completedFuture(null);
 
         for (RootKey<?, ?> rootKey : rootKeys)
             this.rootKeys.put(rootKey.key(), rootKey);
@@ -377,11 +383,11 @@ public final class ConfigurationChanger {
         long storegeRevision = changedEntries.storageRevision();
 
         // This will also be updated during the metastorage integration.
-        notificator.onUpdate(new ConfigurationNotificationEvent<>(
+        notificator.notify(
             oldSuperRoot,
             newSuperRoot,
             storegeRevision
-        )).whenCompleteAsync((res, throwable) -> storage.notifyApplied(storegeRevision), pool);
+        ).whenCompleteAsync((res, throwable) -> storage.notifyApplied(storegeRevision), pool);
     }
 
     /**

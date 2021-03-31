@@ -510,9 +510,9 @@ public class ConfigurationUtil {
     }
 
     /**
-     *
-     * @param curNode
-     * @param newNode
+     * Nullifies values in {@code newNode} that 100% match with corresponding values in {@code curNode}.
+     * @param curNode Node to look for definitive values.
+     * @param newNode Node to nullify matching values.
      */
     public static void cleanupMatchingValues(InnerNode curNode, InnerNode newNode) {
         if (curNode == null || newNode == null)

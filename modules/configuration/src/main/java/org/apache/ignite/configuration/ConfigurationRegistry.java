@@ -37,7 +37,6 @@ import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
@@ -45,8 +44,8 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.Validator;
 
+import static org.apache.ignite.configuration.internal.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
-import static org.apache.ignite.configuration.notifications.ConfigurationNotificationsUtil.notifyListeners;
 
 /** */
 public class ConfigurationRegistry {
@@ -130,19 +129,20 @@ public class ConfigurationRegistry {
         changer.stop();
     }
 
-    private @NotNull CompletableFuture<?> notificator(ConfigurationNotificationEvent<SuperRoot> ctx) {
+    /** */
+    private @NotNull CompletableFuture<?> notificator(SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision) {
         List<CompletableFuture<?>> futures = new ArrayList<>();
 
-        ctx.newValue().traverseChildren(new ConfigurationVisitor<Void>() {
+        newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
             @Override public Void visitInnerNode(String key, InnerNode newRoot) {
-                InnerNode oldRoot = ctx.oldValue().traverseChild(key, innerNodeVisitor());
+                InnerNode oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor());
 
                 var cfg = (DynamicConfiguration<InnerNode, ?, ?>)configs.get(key);
 
                 assert oldRoot != null && cfg != null : key;
 
                 if (oldRoot != newRoot)
-                    notifyListeners(oldRoot, newRoot, cfg, ctx.storageRevision(), futures);
+                    notifyListeners(oldRoot, newRoot, cfg, storageRevision, futures);
 
                 return null;
             }

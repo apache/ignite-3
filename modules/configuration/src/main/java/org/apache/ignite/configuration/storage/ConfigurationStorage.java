@@ -50,11 +50,11 @@ public interface ConfigurationStorage {
      * Remove storage listener.
      * @param listener Listener.
      */
-    @Deprecated // ?
     void removeListener(ConfigurationStorageListener listener);
 
     /**
-     *
+     * Notify storage that this specific revision was successfully handled and there's no necessity to repeat the same
+     * notification on node restart.
      */
     void notifyApplied(long storageRevision);
 }

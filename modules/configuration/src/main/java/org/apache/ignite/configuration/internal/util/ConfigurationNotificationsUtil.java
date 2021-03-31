@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.notifications;
+package org.apache.ignite.configuration.internal.util;
 
 import java.io.Serializable;
 import java.util.HashSet;
@@ -28,6 +28,9 @@ import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.DynamicProperty;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
+import org.apache.ignite.configuration.internal.notifications.ConfigurationNotificationEventImpl;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
@@ -160,7 +163,7 @@ public class ConfigurationNotificationsUtil {
         long storageRevision,
         List<CompletableFuture<?>> futures
     ) {
-        ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEvent<>(
+        ConfigurationNotificationEvent<V> evt = new ConfigurationNotificationEventImpl<>(
             oldVal,
             newVal,
             storageRevision

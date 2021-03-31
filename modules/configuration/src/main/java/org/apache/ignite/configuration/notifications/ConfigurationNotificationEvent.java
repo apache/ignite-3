@@ -17,27 +17,30 @@
 
 package org.apache.ignite.configuration.notifications;
 
-// TODO Split into interface and implementation
-public class ConfigurationNotificationEvent<VIEW> {
-    private final VIEW oldValue;
-    private final VIEW newValue;
-    private final long storageRevision;
+import org.apache.ignite.configuration.ConfigurationProperty;
+import org.jetbrains.annotations.Nullable;
 
-    public ConfigurationNotificationEvent(VIEW oldValue, VIEW newValue, long storageRevision) {
-        this.oldValue = oldValue;
-        this.newValue = newValue;
-        this.storageRevision = storageRevision;
-    }
+/**
+ * Event object propogated on configuration change. Passed to listeners after configuration changes are applied.
+ *
+ * @see ConfigurationProperty#listen(ConfigurationListener)
+ * @see ConfigurationListener
+ * @see ConfigurationNotificationEvent
+ */
+public interface ConfigurationNotificationEvent<VIEW> {
+    /**
+     * Previous value of the updated configuration.
+     */
+    @Nullable VIEW oldValue();
 
-    public VIEW oldValue() {
-        return oldValue;
-    }
+    /**
+     * Updated value of the configuration.
+     */
+    @Nullable VIEW newValue();
 
-    public VIEW newValue() {
-        return newValue;
-    }
-
-    public long storageRevision() {
-        return storageRevision;
-    }
+    /**
+     * Monotonously increasing counter, linked to the specific storage for current configuration values. Gives you a
+     * unique change identifier inside a specific configuration storage.
+     */
+    long storageRevision();
 }
