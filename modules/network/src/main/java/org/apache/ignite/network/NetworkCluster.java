@@ -65,7 +65,7 @@ public interface NetworkCluster {
 
     /**
      * Sends a message asynchronously with same guarantees as for {@link #send(NetworkMember, NetworkMessage)} and
-     * returns a response (RPC style).
+     * returns a response.
      *
      * @param member Network member which should receive the message.
      * @param msg A message.
