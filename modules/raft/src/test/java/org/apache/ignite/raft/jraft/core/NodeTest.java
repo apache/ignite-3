@@ -1586,9 +1586,40 @@ public class NodeTest {
         LOG.info("restart old leader {}", oldLeader);
         assertTrue(cluster.start(oldLeader.getEndpoint()));
         assertTrue(cluster.ensureSame(-1));
+
+        boolean bad = false;
+
         for (final MockStateMachine fsm : cluster.getFsms()) {
-            assertEquals(30, fsm.getLogs().size());
+            if (fsm.getLogs().size() != 30) {
+                bad = true;
+                break;
+            }
         }
+
+        if (bad) {
+            for (final MockStateMachine fsm : cluster.getFsms()) {
+                LOG.info("DBG: fail " + fsm.getAddress().toString());
+
+                for (ByteBuffer buffer : fsm.getLogs()) {
+                    LOG.info("DBG:    " + new String(buffer.array()));
+                }
+            }
+
+            Thread.sleep(2000);
+
+            LOG.info("DBG: wakeup");
+
+            for (final MockStateMachine fsm : cluster.getFsms()) {
+                LOG.info("DBG: fail " + fsm.getAddress().toString());
+
+                for (ByteBuffer buffer : fsm.getLogs()) {
+                    LOG.info("DBG:    " + new String(buffer.array()));
+                }
+            }
+
+            fail();
+        }
+
         cluster.stopAll();
     }
 
