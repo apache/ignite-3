@@ -15,10 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.message;
+package org.apache.ignite.network;
 
-/**
- * Message that is response to a {@link Request}.
- */
-public abstract class Response extends NetworkMessage {
+import org.apache.ignite.network.message.NetworkMessage;
+
+public class NetworkException extends RuntimeException {
+
+    private final NetworkMessage errorResponse;
+
+    public NetworkException(NetworkMessage response) {
+        errorResponse = response;
+    }
+
+    public NetworkMessage getErrorResponse() {
+        return errorResponse;
+    }
 }

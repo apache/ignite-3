@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
-import org.apache.ignite.network.message.AckResponse;
 import org.apache.ignite.network.MessageHandlerHolder;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkClusterEventHandler;
@@ -30,8 +29,6 @@ import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.network.message.Request;
-import org.apache.ignite.network.message.Response;
 
 import static java.time.Duration.ofMillis;
 import static org.apache.ignite.network.scalecube.ScaleCubeMessageCodec.HEADER_MESSAGE_TYPE;
@@ -84,18 +81,18 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
     }
 
     /** {@inheritDoc} */
-    @Override public void weakSend(NetworkMember member, Request<AckResponse> msg) {
+    @Override public void weakSend(NetworkMember member, NetworkMessage msg) {
         cluster.send(memberResolver.resolveMember(member), fromNetworkMessage(msg))
             .subscribe();
     }
 
     /** {@inheritDoc} */
-    @Override public Future<Void> send(NetworkMember member, Request<AckResponse> msg) {
+    @Override public Future<Void> send(NetworkMember member, NetworkMessage msg) {
         return cluster.send(memberResolver.resolveMember(member), fromNetworkMessage(msg)).toFuture();
     }
 
     /** {@inheritDoc} */
-    @Override public <R extends Response> CompletableFuture<R> sendWithResponse(NetworkMember member, Request<R> msg, long timeout) {
+    @Override public CompletableFuture<NetworkMessage> sendWithResponse(NetworkMember member, NetworkMessage msg, long timeout) {
         return cluster.requestResponse(memberResolver.resolveMember(member), fromNetworkMessage(msg))
             .timeout(ofMillis(timeout)).toFuture().thenApply(m -> m.data());
     }
@@ -121,7 +118,7 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
     private Message fromNetworkMessage(NetworkMessage message) {
         return Message.builder()
             .data(message)
-            .header(HEADER_MESSAGE_TYPE, String.valueOf(message.type()))
+            .header(HEADER_MESSAGE_TYPE, String.valueOf(message.directType()))
             .build();
     }
 

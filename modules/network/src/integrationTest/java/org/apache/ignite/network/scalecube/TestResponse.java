@@ -17,12 +17,12 @@
 
 package org.apache.ignite.network.scalecube;
 
-import org.apache.ignite.network.message.Response;
+import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Test response.
  */
-public class TestResponse extends Response {
+public class TestResponse implements NetworkMessage {
     /** Public type for tests. */
     public static final short TYPE = 2;
 
@@ -44,7 +44,7 @@ public class TestResponse extends Response {
     }
 
     /** {@inheritDoc} */
-    @Override public short type() {
+    @Override public short directType() {
         return TYPE;
     }
 }

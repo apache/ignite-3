@@ -20,8 +20,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import org.apache.ignite.network.message.AckResponse;
-import org.apache.ignite.network.message.Request;
-import org.apache.ignite.network.message.Response;
+import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Main interface for interaction with network. It allows to get information about network members and send messages to
@@ -53,7 +52,7 @@ public interface NetworkCluster {
      * @param member Network member which should receive the message.
      * @param msg Message which should be delivered.
      */
-    void weakSend(NetworkMember member, Request<AckResponse> msg);
+    void weakSend(NetworkMember member, NetworkMessage msg);
 
     /**
      * Try to send the message asynchronously to the specific member with next guarantees:
@@ -63,7 +62,7 @@ public interface NetworkCluster {
      * @param member Network member which should receive the message.
      * @param msg Message which should be delivered.
      */
-    Future<Void> send(NetworkMember member, Request<AckResponse> msg);
+    Future<Void> send(NetworkMember member, NetworkMessage msg);
 
     /**
      * Sends a message asynchronously with same guarantees as for {@link #send(NetworkMember, Request<AckResponse>)} and
@@ -75,7 +74,7 @@ public interface NetworkCluster {
      * @param <R> Expected response type.
      * @return A future holding the response or error if the expected response was not received.
      */
-    <R extends Response> CompletableFuture<R> sendWithResponse(NetworkMember member, Request<R> msg, long timeout);
+    CompletableFuture<NetworkMessage> sendWithResponse(NetworkMember member, NetworkMessage msg, long timeout);
 
     /**
      * Add provider which allows to get configured handlers for different cluster events(ex. received message).

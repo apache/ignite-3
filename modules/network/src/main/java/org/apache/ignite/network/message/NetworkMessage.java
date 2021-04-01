@@ -21,33 +21,9 @@ import org.apache.ignite.network.NetworkMember;
 /**
  * Message for exchange information in cluster.
  */
-public abstract class NetworkMessage {
-    /** Network member who sent this message. */
-    private NetworkMember sender;
-
-    /**
-     * Constructor.
-     */
-    public NetworkMessage() {
-    }
-
-    /**
-     * Set sender.
-     * @param sender Sender of this message.
-     */
-    public void sender(NetworkMember sender) {
-        this.sender = sender;
-    }
-
-    /**
-     * @return Network member who sent this message.
-     */
-    public NetworkMember sender() {
-        return sender;
-    }
-
+public interface NetworkMessage {
     /**
      * @return Message type.
      */
-    public abstract short type();
+    public abstract short directType();
 }

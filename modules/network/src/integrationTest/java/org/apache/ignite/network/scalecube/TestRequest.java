@@ -17,12 +17,12 @@
 
 package org.apache.ignite.network.scalecube;
 
-import org.apache.ignite.network.message.Request;
+import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Test request which requires {@link TestResponse} as a response.
  */
-public class TestRequest extends Request<TestResponse> {
+public class TestRequest implements NetworkMessage {
     /** Public type for tests. */
     public static final short TYPE = 1;
 
@@ -42,7 +42,7 @@ public class TestRequest extends Request<TestResponse> {
     }
 
     /** {@inheritDoc} */
-    @Override public short type() {
+    @Override public short directType() {
         return TYPE;
     }
 }

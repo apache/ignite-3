@@ -18,13 +18,11 @@
 
 package org.apache.ignite.network.scalecube;
 
-import java.io.Serializable;
 import java.util.Objects;
-import org.apache.ignite.network.message.AckResponse;
-import org.apache.ignite.network.message.Request;
+import org.apache.ignite.network.message.NetworkMessage;
 
 /** */
-class TestMessage extends Request<AckResponse> implements Serializable {
+class TestMessage implements NetworkMessage {
     /** Visible type for tests. */
     public static final short TYPE = 3;
 
@@ -63,7 +61,7 @@ class TestMessage extends Request<AckResponse> implements Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public short type() {
+    @Override public short directType() {
         return TYPE;
     }
 }

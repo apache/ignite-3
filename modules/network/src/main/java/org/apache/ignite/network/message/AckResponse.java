@@ -20,9 +20,9 @@ package org.apache.ignite.network.message;
 /**
  * Response without actual data, that just states the fact of the receiving of a request message.
  */
-public class AckResponse extends Response {
+public class AckResponse implements NetworkMessage {
     /** {@inheritDoc} */
-    @Override public short type() {
+    @Override public short directType() {
         return 0;
     }
 }

@@ -36,7 +36,7 @@ import org.apache.ignite.network.message.NetworkMessage;
  * Serializes and deserialized messages in ScaleCube cluster.
  */
 class ScaleCubeMessageCodec implements MessageCodec {
-    /** Header name for {@link NetworkMessage#type()}. */
+    /** Header name for {@link NetworkMessage#directType()}. */
     public static final String HEADER_MESSAGE_TYPE = "type";
 
     /** Message mappers, messageMapperProviders[message type] -> message mapper provider for message with message type. */
@@ -119,7 +119,7 @@ class ScaleCubeMessageCodec implements MessageCodec {
             assert data instanceof NetworkMessage : "Message data is not an instance of NetworkMessage";
 
             NetworkMessage msg = (NetworkMessage) data;
-            MessageMapperProvider mapper = messageMappers.get(msg.type());
+            MessageMapperProvider mapper = messageMappers.get(msg.directType());
 
             assert mapper != null : "No mapper provider defined for type " + msg.getClass();
 
