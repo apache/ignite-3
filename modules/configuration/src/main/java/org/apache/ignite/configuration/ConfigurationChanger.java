@@ -210,7 +210,7 @@ public final class ConfigurationChanger {
             throw new ConfigurationValidationException(validationIssues);
 
         try {
-            change(defaultsNode, storageType).get();
+            change0(defaultsNode, storageInstances.get(storageType)).get();
         }
         catch (InterruptedException | ExecutionException e) {
             throw new ConfigurationChangeException(
@@ -231,7 +231,7 @@ public final class ConfigurationChanger {
 
         source.descend(superRoot);
 
-        return change(superRoot, storage.getClass());
+        return change0(superRoot, storage);
     }
 
     /** Stop component. */
@@ -268,7 +268,7 @@ public final class ConfigurationChanger {
             );
         }
 
-        return change(new SuperRoot(rootKeys, changes), storagesTypes.iterator().next());
+        return change0(new SuperRoot(rootKeys, changes), storageInstances.get(storagesTypes.iterator().next()));
     }
 
     /** */
@@ -281,87 +281,78 @@ public final class ConfigurationChanger {
         return mergedSuperRoot;
     }
 
-    /** */
-    private CompletableFuture<Void> change(SuperRoot changes, Class<? extends ConfigurationStorage> storageType) {
-        ConfigurationStorage storage = storageInstances.get(storageType);
-
-        CompletableFuture<Void> fut = new CompletableFuture<>();
-
-        pool.execute(() -> change0(changes, storage, fut));
-
-        return fut;
-    }
-
     /**
      * Internal configuration change method that completes provided future.
      * @param changes Map of changes by root key.
      * @param storage Storage instance.
-     * @param fut Future, that must be completed after changes are written to the storage.
+     * @return fut Future that will be completed after changes are written to the storage.
      */
-    private void change0(
+    private CompletableFuture<Void> change0(
         SuperRoot changes,
-        ConfigurationStorage storage,
-        CompletableFuture<?> fut
+        ConfigurationStorage storage
     ) {
         StorageRoots storageRoots = storagesRootsMap.get(storage.getClass());
-        SuperRoot curRoots = storageRoots.roots;
 
-        // It is necessary to reinitialize default values every time.
-        // Possible use case that explicitly requires it: creation of the same named list entry with slightly
-        // different set of values and different dynamic defaults at the same time.
-        SuperRoot patchedSuperRoot = patch(curRoots, changes);
+        return CompletableFuture
+            .supplyAsync(() -> {
+                SuperRoot curRoots = storageRoots.roots;
 
-        SuperRoot defaultsNode = new SuperRoot(rootKeys);
+                // It is necessary to reinitialize default values every time.
+                // Possible use case that explicitly requires it: creation of the same named list entry with slightly
+                // different set of values and different dynamic defaults at the same time.
+                SuperRoot patchedSuperRoot = patch(curRoots, changes);
 
-        addDefaults(patchedSuperRoot, defaultsNode);
+                SuperRoot defaultsNode = new SuperRoot(rootKeys);
 
-        SuperRoot patchedChanges = patch(changes, defaultsNode);
+                addDefaults(patchedSuperRoot, defaultsNode);
 
-        cleanupMatchingValues(curRoots, changes);
+                SuperRoot patchedChanges = patch(changes, defaultsNode);
 
-        Map<String, Serializable> allChanges = nodeToFlatMap(curRoots, patchedChanges);
+                cleanupMatchingValues(curRoots, changes);
 
-        // Unlikely but still possible.
-        if (allChanges.isEmpty()) {
-            fut.complete(null);
+                Map<String, Serializable> allChanges = nodeToFlatMap(curRoots, patchedChanges);
 
-            return;
-        }
+                // Unlikely but still possible.
+                if (allChanges.isEmpty())
+                    return null;
 
-        List<ValidationIssue> validationIssues = ValidationUtil.validate(
-            storageRoots.roots,
-            patch(patchedSuperRoot, defaultsNode),
-            this::getRootNode,
-            cachedAnnotations,
-            validators
-        );
+                List<ValidationIssue> validationIssues = ValidationUtil.validate(
+                    storageRoots.roots,
+                    patch(patchedSuperRoot, defaultsNode),
+                    this::getRootNode,
+                    cachedAnnotations,
+                    validators
+                );
 
-        if (!validationIssues.isEmpty()) {
-            fut.completeExceptionally(new ConfigurationValidationException(validationIssues));
+                if (!validationIssues.isEmpty())
+                    throw new ConfigurationValidationException(validationIssues);
 
-            return;
-        }
+                return allChanges;
+            }, pool)
+            .thenCompose(allChanges -> {
+                if (allChanges == null)
+                    return CompletableFuture.completedFuture(true);
+                return storage.write(allChanges, storageRoots.version)
+                    .exceptionally(throwable -> {
+                        throw new ConfigurationChangeException("Failed to change configuration", throwable);
+                    });
+            })
+            .thenCompose(casResult -> {
+                if (casResult)
+                    return CompletableFuture.completedFuture(null);
+                else {
+                    try {
+                        // Is this ok to have a busy wait on concurrent configuration updates?
+                        // Maybe we'll fix it while implementing metastorage storage implementation.
+                        Thread.sleep(10);
+                    }
+                    catch (InterruptedException e) {
+                        return CompletableFuture.failedStage(e);
+                    }
 
-        CompletableFuture<Boolean> writeFut = storage.write(allChanges, storageRoots.version);
-
-        writeFut.whenCompleteAsync((casResult, throwable) -> {
-            if (throwable != null)
-                fut.completeExceptionally(new ConfigurationChangeException("Failed to change configuration", throwable));
-            else if (casResult)
-                fut.complete(null);
-            else {
-                try {
-                    // Is this ok to have a busy wait on concurrent configuration updates?
-                    // Maybe we'll fix it while implementing metastorage storage implementation.
-                    Thread.sleep(10);
+                    return change0(changes, storage);
                 }
-                catch (InterruptedException e) {
-                    fut.completeExceptionally(e);
-                }
-
-                change0(changes, storage, fut);
-            }
-        }, pool);
+            });
     }
 
     /**
