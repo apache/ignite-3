@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.network;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Message for exchange information in cluster.
  */
@@ -26,13 +28,18 @@ public class NetworkMessage {
     /** Network member who sent this message. */
     private final NetworkMember senderMember;
 
+    /** */
+    private String corellationId;
+
     /**
      * @param data Custom data.
      * @param senderMember Network member who sent this message.
+     * @param corellationId
      */
-    public NetworkMessage(Object data, NetworkMember senderMember) {
+    public NetworkMessage(Object data, NetworkMember senderMember, String corellationId) {
         this.data = data;
         this.senderMember = senderMember;
+        this.corellationId = corellationId;
     }
 
     /**
@@ -48,6 +55,13 @@ public class NetworkMessage {
      */
     public NetworkMember sender() {
         return senderMember;
+    }
+
+    /**
+     * @return Corellation id.
+     */
+    public @Nullable String corellationId() {
+        return corellationId;
     }
 
     @Override public String toString() {

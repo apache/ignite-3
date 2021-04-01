@@ -15,32 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message;
+package org.apache.ignite.raft.server;
 
-import java.io.Serializable;
-import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 
 /**
- * A current leader.
+ * The RAFT replication group server. Provides server side RAFT protocol capabilities.
+ * <p>
+ * The raft group listens for client commands, submits them to a replicatedlog and calls {@link RaftGroupCommandListener}
+ * methods then a command's result is commited to the log.
  */
-public interface GetLeaderResponse extends Serializable {
-    /**
-     * @return The leader.
-     */
-    Peer leader();
+public interface RaftServer extends Lifecycle<RaftServerOptions> {
+    NetworkMember networkMember();
 
-    /** */
-    public interface Builder {
-        /**
-         * @param leader Leader
-         * @return The builder.
-         */
-        Builder leader(Peer leaderId);
+    void setListener(String groupId, RaftGroupCommandListener lsnr);
 
-        /**
-         * @return The complete message.
-         * @throws IllegalStateException If the message is not in valid state.
-         */
-        GetLeaderResponse build();
-    }
+    void clearListener(String groupId);
+
+    @Override void init(RaftServerOptions options);
+
+    @Override void destroy() throws Exception;
 }

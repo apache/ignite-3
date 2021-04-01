@@ -17,10 +17,12 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
+
 /**
  * Get leader.
  */
-public interface GetLeaderRequest {
+public interface GetLeaderRequest extends Serializable {
     /**
      * @return Group id.
      */

@@ -277,7 +277,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public CompletableFuture<Void> snapshot(Peer peer) {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
-        CompletableFuture<?> fut = cluster.sendWithResponse(peer.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.invoke(peer.getNode(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -291,7 +291,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         TransferLeadershipRequest req = factory.transferLeaderRequest().groupId(groupId).peer(newLeader).build();
 
-        CompletableFuture<?> fut = cluster.sendWithResponse(newLeader.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.invoke(newLeader.getNode(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -316,7 +316,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).build();
 
-        CompletableFuture fut = cluster.sendWithResponse(peer.getNode(), req, timeout);
+        CompletableFuture fut = cluster.invoke(peer.getNode(), req, timeout);
 
         return fut.thenApply(resp -> ((ActionResponse) resp).result());
     }
@@ -336,7 +336,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return;
         }
 
-        CompletableFuture fut0 = cluster.sendWithResponse(node, req, timeout);
+        CompletableFuture fut0 = cluster.invoke(node, req, timeout);
 
         fut0.whenComplete(new BiConsumer<Object, Throwable>() {
             @Override public void accept(Object resp, Throwable err) {

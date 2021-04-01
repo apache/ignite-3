@@ -17,7 +17,9 @@
 package org.apache.ignite.network.scalecube;
 
 import io.scalecube.cluster.Cluster;
+import io.scalecube.cluster.transport.api.Message;
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -80,8 +82,7 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
 
     /** {@inheritDoc} */
     @Override public void weakSend(NetworkMember member, Object msg) {
-        cluster.send(memberResolver.resolveMember(member), fromData(msg))
-            .block();
+        cluster.send(memberResolver.resolveMember(member), fromData(msg));
     }
 
     /** {@inheritDoc} */
@@ -89,9 +90,15 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
         return cluster.send(memberResolver.resolveMember(member), fromData(msg)).toFuture();
     }
 
+    @Override public Future<?> send(NetworkMember member, Object msg, String corellationId) {
+        return cluster.send(memberResolver.resolveMember(member),
+            Message.withData(msg).correlationId(corellationId).build()).toFuture();
+    }
+
     /** {@inheritDoc} */
-    @Override public CompletableFuture<?> sendWithResponse(NetworkMember member, Object msg, long timeout) {
-        return cluster.requestResponse(memberResolver.resolveMember(member), fromData(msg))
+    @Override public CompletableFuture<?> invoke(NetworkMember member, Object msg, long timeout) {
+        return cluster.requestResponse(memberResolver.resolveMember(member),
+            Message.withData(msg).correlationId(UUID.randomUUID().toString()).build())
             .timeout(ofMillis(timeout)).toFuture().thenApply(m -> m.data());
     }
 

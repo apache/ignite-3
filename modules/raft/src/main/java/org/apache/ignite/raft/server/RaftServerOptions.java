@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.service;
+package org.apache.ignite.raft.server;
 
-import java.util.Iterator;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
+import java.util.List;
+import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * A listener for replication group commands.
- */
-public interface RaftGroupCommandListener {
-    /**
-     * @param iterator Read command iterator.
-     */
-    void onRead(Iterator<CommandFuture<ReadCommand>> iterator);
-
-    /**
-     * @param iterator Write command iterator.
-     */
-    void onWrite(Iterator<CommandFuture<WriteCommand>> iterator);
+public class RaftServerOptions {
+    public String id;
+    public int localPort;
+    public @Nullable List<String> members;
+    public RaftClientMessageFactory msgFactory;
 }
