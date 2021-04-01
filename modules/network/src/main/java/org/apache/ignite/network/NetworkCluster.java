@@ -19,7 +19,6 @@ package org.apache.ignite.network;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import org.apache.ignite.network.message.AckResponse;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /**
@@ -65,7 +64,7 @@ public interface NetworkCluster {
     Future<Void> send(NetworkMember member, NetworkMessage msg);
 
     /**
-     * Sends a message asynchronously with same guarantees as for {@link #send(NetworkMember, Request<AckResponse>)} and
+     * Sends a message asynchronously with same guarantees as for {@link #send(NetworkMember, NetworkMessage)} and
      * returns a response (RPC style).
      *
      * @param member Network member which should receive the message.

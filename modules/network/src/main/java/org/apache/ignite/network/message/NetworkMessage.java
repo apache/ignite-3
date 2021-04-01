@@ -16,8 +16,6 @@
  */
 package org.apache.ignite.network.message;
 
-import org.apache.ignite.network.NetworkMember;
-
 /**
  * Message for exchange information in cluster.
  */
