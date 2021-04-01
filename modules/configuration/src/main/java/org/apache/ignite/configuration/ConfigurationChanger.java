@@ -67,14 +67,24 @@ public final class ConfigurationChanger {
     /** Annotation classes mapped to validator objects. */
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
-    /** */
+    /**
+     * Closure interface to be used by configuration changer. Instance of this closur is passed into constructor and
+     * invoked every time when there's an update from any of the storages.
+     */
     @FunctionalInterface
     public interface Notificator {
-        /** */
+        /**
+         * Invoked every time when configuration is updated.
+         * @param oldRoot Old roots values. All these roots always belong to a single storage.
+         * @param newRoot New values for the same roots as in {@code oldRoot}.
+         * @param storageRevision Revision of the storage.
+         * @return Not-null future that must signify when processing is completed. Exceptional completion is not
+         *      expected.
+         */
         @NotNull CompletableFuture<?> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
     }
 
-    /** Closure to execute when update forom storage is received. */
+    /** Closure to execute when update from the storage is received. */
     private final Notificator notificator;
 
     /**
@@ -101,7 +111,7 @@ public final class ConfigurationChanger {
     private final Map<Class<? extends ConfigurationStorage>, ConfigurationStorage> storageInstances = new HashMap<>();
 
     /**
-     * @param notificator Closure to execute when update forom storage is received.
+     * @param notificator Closure to execute when update from the storage is received.
      */
     public ConfigurationChanger(Notificator notificator) {
         this.notificator = notificator;
@@ -380,14 +390,14 @@ public final class ConfigurationChanger {
 
         ConfigurationStorage storage = storageInstances.get(storageType);
 
-        long storegeRevision = changedEntries.storageRevision();
+        long storageRevision = changedEntries.storageRevision();
 
         // This will also be updated during the metastorage integration.
         notificator.notify(
             oldSuperRoot,
             newSuperRoot,
-            storegeRevision
-        ).whenCompleteAsync((res, throwable) -> storage.notifyApplied(storegeRevision), pool);
+            storageRevision
+        ).whenCompleteAsync((res, throwable) -> storage.notifyApplied(storageRevision), pool);
     }
 
     /**

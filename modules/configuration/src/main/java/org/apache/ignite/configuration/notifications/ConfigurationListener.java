@@ -31,7 +31,8 @@ public interface ConfigurationListener<VIEW> {
      * Called on property value update.
      *
      * @param ctx Notification context.
-     * @return Future that signifies end of listener execution. Can be {@code null}.
+     * @return Future that signifies end of listener execution. Can be {@code null}, this would be equivalent to
+     * successfully completed future.
      */
     @Nullable CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<VIEW> ctx);
 }

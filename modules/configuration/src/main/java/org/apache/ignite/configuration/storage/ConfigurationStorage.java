@@ -53,7 +53,7 @@ public interface ConfigurationStorage {
     void removeListener(ConfigurationStorageListener listener);
 
     /**
-     * Notify storage that this specific revision was successfully handled and there's no necessity to repeat the same
+     * Notify storage that this specific revision was successfully handled and it is not necessary to repeat the same
      * notification on node restart.
      */
     void notifyApplied(long storageRevision);

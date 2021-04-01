@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -148,12 +149,17 @@ public class ConfigurationRegistry {
             }
         });
 
-        return CompletableFuture.allOf(futures.stream().map(listenerFut -> listenerFut.handle((res, throwable) -> {
+        // Map futures into a "suppressed" future that won't throw any exceptions on completion.
+        Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.handle((res, throwable) -> {
             if (throwable != null)
                 logger.log(System.Logger.Level.ERROR, "Failed to notify configuration listener.", throwable);
 
             return res;
-        })).toArray(CompletableFuture[]::new));
+        });
+
+        CompletableFuture[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(resultFutures);
     }
 
     /**
