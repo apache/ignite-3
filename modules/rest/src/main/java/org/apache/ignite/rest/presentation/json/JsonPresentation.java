@@ -27,9 +27,6 @@ import org.apache.ignite.rest.presentation.ConfigurationPresentation;
 /** */
 public class JsonPresentation implements ConfigurationPresentation<String> {
     /** */
-    private final JsonConverter converter = new JsonConverter();
-
-    /** */
     private final ConfigurationRegistry sysCfg;
 
     /**
