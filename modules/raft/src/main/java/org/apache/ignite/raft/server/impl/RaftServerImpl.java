@@ -235,7 +235,7 @@ public class RaftServerImpl implements RaftServer {
         BlockingQueue<CommandClosureEx<T>> queue,
         BiConsumer<RaftGroupCommandListener, Iterator<CommandClosure<T>>> clo
     ) {
-        while(!Thread.interrupted()) {
+        while (!Thread.interrupted()) {
             try {
                 CommandClosureEx<T> cmdClo = queue.take();
 
