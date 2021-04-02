@@ -152,21 +152,5 @@ public interface InternalTable {
      */
     @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> recs);
 
-    /**
-     * Asynchronously executes an InvokeProcessor code against a record
-     * with the same key columns values as the given one has.
-     *
-     * @param keyRec Record with key columns set.
-     * @return Future representing pending completion of the operation.
-     */
-    @NotNull <T extends Serializable, R> CompletableFuture<T> invoke(BinaryRow keyRec, InvokeProcessor<R, R, T> proc);
-
-    /**
-     * Asynchronously executes an InvokeProcessor against records with the same key columns values as the given ones has.
-     *
-     * @param keyRecs Records with key columns set.
-     * @return Results of the processing.
-     */
-    @NotNull <T extends Serializable, R> CompletableFuture<Map<BinaryRow, T>> invokeAll(Collection<BinaryRow> keyRecs,
-        InvokeProcessor<R, R, T> proc);
+    //TODO: add invoke() methods.
 }

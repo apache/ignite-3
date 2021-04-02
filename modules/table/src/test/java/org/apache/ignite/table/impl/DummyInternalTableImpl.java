@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table.impl;
 
-import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
@@ -29,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.table.InvokeProcessor;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -214,16 +212,6 @@ public class DummyInternalTableImpl implements InternalTable {
     }
 
     @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows) {
-        return null;
-    }
-
-    @Override public @NotNull <T extends Serializable, R> CompletableFuture<T> invoke(BinaryRow keyRow,
-        InvokeProcessor<R, R, T> proc) {
-        return null;
-    }
-
-    @Override public @NotNull <T extends Serializable, R> CompletableFuture<Map<BinaryRow, T>> invokeAll(
-        Collection<BinaryRow> keyRows, InvokeProcessor<R, R, T> proc) {
         return null;
     }
 
