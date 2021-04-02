@@ -337,7 +337,7 @@ public final class ConfigurationChanger {
                         Thread.sleep(10);
                     }
                     catch (InterruptedException e) {
-                        return CompletableFuture.failedStage(e);
+                        return CompletableFuture.failedFuture(e);
                     }
 
                     return change0(changes, storage);
