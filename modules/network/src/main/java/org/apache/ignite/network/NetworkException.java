@@ -15,34 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message.impl;
+package org.apache.ignite.network;
 
-import org.apache.ignite.raft.client.message.ActionResponse;
+import org.apache.ignite.network.message.NetworkMessage;
 
-/** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
-    /** */
-    private T result;
+public class NetworkException extends RuntimeException {
 
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
+    private final NetworkMessage errorResponse;
+
+    public NetworkException(NetworkMessage response) {
+        errorResponse = response;
     }
 
-    /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return 1001;
+    public NetworkMessage getErrorResponse() {
+        return errorResponse;
     }
 }

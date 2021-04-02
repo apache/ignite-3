@@ -15,34 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message.impl;
+package org.apache.ignite.network.message;
 
-import org.apache.ignite.raft.client.message.ActionResponse;
+import org.apache.ignite.network.internal.MessageReader;
 
-/** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
-    /** */
-    private T result;
-
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return 1001;
-    }
+/**
+ * Message deserializer.
+ * @param <M> Message type.
+ */
+public interface MessageDeserializer<M extends NetworkMessage> {
+    /**
+     * Read message from reader.
+     * @param reader Message reader.
+     * @return Read message.
+     * @throws MessageMappingException If failed.
+     */
+    M readMessage(MessageReader reader) throws MessageMappingException;
 }

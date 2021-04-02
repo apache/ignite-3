@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message.impl;
+package org.apache.ignite.network;
 
-import org.apache.ignite.raft.client.message.ActionResponse;
-
-/** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
-    /** */
-    private T result;
-
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
+/**
+ * Exception raised during configuration of the network cluster.
+ */
+public class NetworkConfigurationException extends RuntimeException {
+    /**
+     * Constructor.
+     * @param message Exception message.
+     */
+    public NetworkConfigurationException(String message) {
+        super(message);
     }
 
-    /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return 1001;
+    /**
+     * Constructor.
+     * @param message Exception message.
+     * @param cause Cause of the exception.
+     */
+    public NetworkConfigurationException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

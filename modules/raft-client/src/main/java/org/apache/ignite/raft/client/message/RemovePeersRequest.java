@@ -17,14 +17,14 @@
 
 package org.apache.ignite.raft.client.message;
 
-import java.io.Serializable;
 import java.util.List;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * Remove peers.
  */
-public interface RemovePeersRequest extends Serializable {
+public interface RemovePeersRequest extends NetworkMessage {
     /**
      * @return Group id.
      */

@@ -19,12 +19,12 @@ package org.apache.ignite.raft.server;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.MessageHandlerHolder;
+import org.apache.ignite.network.message.DefaultMessageMapperProvider;
+import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkClusterFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
+import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
@@ -97,7 +97,7 @@ class ITRaftCounterServerTest {
         Peer server = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
-            List.of(server), true, 200, new Timer());
+            List.of(server), true, 200);
 
         Peer leader = service.leader();
 
@@ -118,13 +118,11 @@ class ITRaftCounterServerTest {
 
         Peer server = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
-        Timer timer = new Timer();
-
         RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
-            List.of(server), true, 200, timer);
+            List.of(server), true, 200);
 
         RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 1000,
-            List.of(server), true, 200, timer);
+            List.of(server), true, 200);
 
         assertNotNull(service0.leader());
         assertNotNull(service1.leader());
@@ -149,8 +147,16 @@ class ITRaftCounterServerTest {
      * @return The client cluster view.
      */
     private NetworkCluster startClient(String name, int port, List<String> servers) {
-        return new NetworkClusterFactory(name, port, servers)
-            .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
+        Network network = new Network(
+            new ScaleCubeNetworkClusterFactory(name, port, servers, new ScaleCubeMemberResolver())
+        );
+
+        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
+        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
+        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
+        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
+
+        return network.start();
     }
 
     /**

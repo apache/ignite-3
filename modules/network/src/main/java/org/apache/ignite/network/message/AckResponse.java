@@ -15,34 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message.impl;
+package org.apache.ignite.network.message;
 
-import org.apache.ignite.raft.client.message.ActionResponse;
-
-/** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
-    /** */
-    private T result;
-
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
-    }
-
+/**
+ * Response without actual data, that just states the fact of the receiving of a request message.
+ */
+public class AckResponse implements NetworkMessage {
     /** {@inheritDoc} */
     @Override public short directType() {
-        return 1001;
+        return 0;
     }
 }

@@ -18,12 +18,13 @@
 package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * A current leader.
  */
-public interface GetLeaderResponse extends Serializable {
+public interface GetLeaderResponse extends NetworkMessage, Serializable {
     /**
      * @return The leader.
      */

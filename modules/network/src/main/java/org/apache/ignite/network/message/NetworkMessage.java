@@ -14,35 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.network.message;
 
-package org.apache.ignite.raft.client.message.impl;
-
-import org.apache.ignite.raft.client.message.ActionResponse;
-
-/** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
-    /** */
-    private T result;
-
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return 1001;
-    }
+/**
+ * Message for exchange information in cluster.
+ */
+public interface NetworkMessage {
+    /**
+     * @return Message type.
+     */
+    public abstract short directType();
 }

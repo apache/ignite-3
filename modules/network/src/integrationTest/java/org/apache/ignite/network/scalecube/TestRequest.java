@@ -15,34 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message.impl;
+package org.apache.ignite.network.scalecube;
 
-import org.apache.ignite.raft.client.message.ActionResponse;
+import org.apache.ignite.network.message.NetworkMessage;
 
-/** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
-    /** */
-    private T result;
+/**
+ * Test request which requires {@link TestResponse} as a response.
+ */
+public class TestRequest implements NetworkMessage {
+    /** Public type for tests. */
+    public static final short TYPE = 1;
 
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
+    /** Some test value. */
+    private final int number;
+
+    /** Constructor. */
+    public TestRequest(int number) {
+        this.number = number;
     }
 
-    /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
+    /**
+     * @return Test value.
+     */
+    public int number() {
+        return number;
     }
 
     /** {@inheritDoc} */
     @Override public short directType() {
-        return 1001;
+        return TYPE;
     }
 }

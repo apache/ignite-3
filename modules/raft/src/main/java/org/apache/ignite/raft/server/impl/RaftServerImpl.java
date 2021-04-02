@@ -6,19 +6,19 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.MessageHandlerHolder;
+import org.apache.ignite.network.message.DefaultMessageMapperProvider;
+import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkClusterFactory;
 import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
+import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -96,21 +96,26 @@ public class RaftServerImpl implements RaftServer {
         readQueue = new ArrayBlockingQueue<CommandClosureEx<ReadCommand>>(queueSize);
         writeQueue = new ArrayBlockingQueue<CommandClosureEx<WriteCommand>>(queueSize);
 
-        server = new NetworkClusterFactory(id, localPort, List.of())
-            .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
+        Network network = new Network(
+            new ScaleCubeNetworkClusterFactory(id, localPort, List.of(), new ScaleCubeMemberResolver())
+        );
+
+        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
+        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
+        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
+        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
+
+        server = network.start();
 
         server.addHandlersProvider(new NetworkHandlersProvider() {
             @Override public NetworkMessageHandler messageHandler() {
                 return new NetworkMessageHandler() {
-                    @Override public void onReceived(NetworkMessage msg) {
-                        NetworkMember sender = msg.sender();
-
-                        Object req = msg.data();
+                    @Override public void onReceived(NetworkMessage req, NetworkMember sender, String corellationId) {
 
                         if (req instanceof GetLeaderRequest) {
                             GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(server.localMember())).build();
 
-                            server.send(sender, resp, msg.corellationId());
+                            server.send(sender, resp, corellationId);
                         }
                         else if (req instanceof ActionRequest) {
                             ActionRequest req0 = (ActionRequest) req;
@@ -118,16 +123,16 @@ public class RaftServerImpl implements RaftServer {
                             RaftGroupCommandListener lsnr = listeners.get(req0.groupId());
 
                             if (lsnr == null) {
-                                sendError(sender, msg.corellationId(), RaftErrorCode.ILLEGAL_STATE);
+                                sendError(sender, corellationId, RaftErrorCode.ILLEGAL_STATE);
 
                                 return;
                             }
 
                             if (req0.command() instanceof ReadCommand) {
-                                handleActionRequest(sender, req0, msg.corellationId(), readQueue, lsnr);
+                                handleActionRequest(sender, req0, corellationId, readQueue, lsnr);
                             }
                             else {
-                                handleActionRequest(sender, req0, msg.corellationId(), writeQueue, lsnr);
+                                handleActionRequest(sender, req0, corellationId, writeQueue, lsnr);
                             }
                         }
                         else {

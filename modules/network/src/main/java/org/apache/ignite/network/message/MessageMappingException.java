@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message.impl;
+package org.apache.ignite.network.message;
 
-import org.apache.ignite.raft.client.message.ActionResponse;
-
-/** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
-    /** */
-    private T result;
-
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
+/**
+ * Exception happened during message serializing or deserializing.
+ */
+public class MessageMappingException extends RuntimeException {
+    /**
+     * Constructor.
+     * @param message Message mapping error message.
+     */
+    public MessageMappingException(String message) {
+        super(message);
     }
 
-    /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return 1001;
+    /**
+     * Constructor.
+     * @param message Message mapping error message.
+     * @param cause Cause of message mapping error.
+     */
+    public MessageMappingException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

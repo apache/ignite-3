@@ -15,34 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.client.message.impl;
+package org.apache.ignite.network.scalecube;
 
-import org.apache.ignite.raft.client.message.ActionResponse;
+import java.io.ObjectOutputStream;
+import org.apache.ignite.network.internal.MessageWriter;
 
 /** */
-class ActionResponseImpl<T> implements ActionResponse<T>, ActionResponse.Builder<T> {
+@Deprecated
+public class ScaleCubeMessageWriter implements MessageWriter {
     /** */
-    private T result;
+    private final ObjectOutputStream stream;
 
-    /** {@inheritDoc} */
-    @Override public T result() {
-        return result;
+    /** */
+    public ScaleCubeMessageWriter(ObjectOutputStream stream) {
+        this.stream = stream;
     }
 
     /** {@inheritDoc} */
-    @Override public Builder result(T result) {
-        this.result = result;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ActionResponse build() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return 1001;
+    @Override public ObjectOutputStream stream() {
+        return stream;
     }
 }

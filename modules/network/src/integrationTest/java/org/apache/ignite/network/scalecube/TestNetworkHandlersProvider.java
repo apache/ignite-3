@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.network.NetworkClusterEventHandler;
 import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 
 /** */
@@ -41,7 +41,7 @@ class TestNetworkHandlersProvider implements NetworkHandlersProvider {
 
     /** {@inheritDoc} */
     @Override public NetworkMessageHandler messageHandler() {
-        return event -> {
+        return (event, sender, corellationId) -> {
             MESSAGE_STORAGE.put(localName, event);
 
             System.out.println(localName + " handled messages : " + event);
