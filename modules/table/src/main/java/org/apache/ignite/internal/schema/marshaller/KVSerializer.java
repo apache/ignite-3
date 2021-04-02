@@ -18,57 +18,28 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Marshaller interface.
+ * Key-value marshaller interface.
  */
-public interface Marshaller {
+public interface KVSerializer<K, V> {
     /**
      * @param obj Object to serialize.
      * @return Table row with columns set from given object.
      */
-    <T> Row serialize(@NotNull T obj);
-
-    /**
-     * @param tuple Record tuple.
-     * @return Table row with columns set from given tuples.
-     */
-    Row marshalRecord(@NotNull Tuple tuple);
-
-    /**
-     * @param keyTuple Key tuple.
-     * @param valTuple Value tuple.
-     * @return Table row with columns set from given tuples.
-     */
-    Row marshalKVPair(@NotNull Tuple keyTuple, @Nullable Tuple valTuple);
+    Row serialize(@NotNull K obj, V val);
 
     /**
      * @param row Table row.
      * @return Deserialized key object.
      */
-    <K> @NotNull K deserializeKey(@NotNull Row row);
+    @NotNull K deserializeKey(@NotNull Row row);
 
     /**
      * @param row Table row.
      * @return Deserialized value object.
      */
-    <V> @Nullable V deserializeValue(@NotNull Row row);
-
-    /**
-     * @param row Table row.
-     * @return Deserialized record object.
-     */
-    <R> R deserializeToRecord(@NotNull Row row);
-
-    /**
-     * Deserializes row and fills given record object fields.
-     *
-     * @param row Table row.
-     * @param rec Record object to fill.
-     * @return Given record with filled fields from the given row.
-     */
-    <R> R deserializeToRecord(@NotNull Row row, @NotNull R rec);
+    @Nullable V deserializeValue(@NotNull Row row);
 }

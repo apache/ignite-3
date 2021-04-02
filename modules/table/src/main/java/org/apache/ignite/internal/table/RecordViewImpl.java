@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.internal.schema.marshaller.RecordSerializer;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
@@ -59,14 +59,14 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public R get(R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        Marshaller marsh = marshaller();
+        RecordSerializer<R> marsh = serializer();
 
         try {
             Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
 
             final CompletableFuture<R> fut = tbl.get(kRow)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(marsh::deserializeToRecord); // Deserialize.
+                .thenApply(marsh::deserialize); // Deserialize.
 
             return fut.get();
         }
@@ -79,14 +79,14 @@ public class RecordViewImpl<R> implements RecordView<R> {
     @Override public R fill(R recObjToFill) {
         Objects.requireNonNull(recObjToFill);
 
-        Marshaller marsh = marshaller();
+        RecordSerializer<R> marsh = serializer();
 
         try {
             Row kRow = marsh.serialize(recObjToFill);  // Convert to portable format to pass TX/storage layer.
 
             final CompletableFuture<R> fut = tbl.get(kRow)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(r -> marsh.deserializeToRecord(r, recObjToFill)); // Deserialize and fill record.
+                .thenApply(r -> marsh.deserialize(r, recObjToFill)); // Deserialize and fill record.
 
             return fut.get();
         }
@@ -270,8 +270,8 @@ public class RecordViewImpl<R> implements RecordView<R> {
     /**
      * @return Marshaller.
      */
-    private Marshaller marshaller() {
-        return null;        // table.schemaManager().marshaller();
+    private RecordSerializer<R> serializer() {
+        return null;
     }
 
     /**

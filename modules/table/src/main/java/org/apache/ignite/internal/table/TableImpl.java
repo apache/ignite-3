@@ -22,11 +22,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -50,6 +48,9 @@ public class TableImpl implements Table {
     /** Schema manager. */
     private final TableSchemaManager schemaMgr;
 
+    /** Marshaller. */
+    private final TupleMarshallerImpl marsh;
+
     /**
      * Constructor.
      *
@@ -58,6 +59,8 @@ public class TableImpl implements Table {
     public TableImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
         this.tbl = tbl;
         this.schemaMgr = schemaMgr;
+
+        marsh = new TupleMarshallerImpl(schemaMgr);
     }
 
     /** {@inheritDoc} */
@@ -80,7 +83,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(keyRec);
 
         try {
-            final Row keyRow = marshallToRow(keyRec, true); // Convert to portable format to pass TX/storage layer.
+            final Row keyRow = marshaller().marshal(keyRec, null); // Convert to portable format to pass TX/storage layer.
 
             return tbl.get(keyRow).thenApply(this::wrap).get();
         }
@@ -109,7 +112,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(rec);
 
         try {
-            final Row keyRow = marshallToRow(rec, false);
+            final Row keyRow = marshaller().marshal(rec);
 
             tbl.upsert(keyRow).get();
         }
@@ -138,7 +141,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(rec);
 
         try {
-            final Row keyRow = marshallToRow(rec, false);
+            final Row keyRow = marshaller().marshal(rec);
 
             return tbl.getAndUpsert(keyRow).thenApply(this::wrap).get();
         }
@@ -157,7 +160,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(rec);
 
         try {
-            final Row keyRow = marshallToRow(rec, false);
+            final Row keyRow = marshaller().marshal(rec);
 
             return tbl.insert(keyRow).get();
         }
@@ -186,7 +189,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(rec);
 
         try {
-            final Row keyRow = marshallToRow(rec, false);
+            final Row keyRow = marshaller().marshal(rec);
 
             return tbl.replace(keyRow).get();
         }
@@ -225,7 +228,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(keyRec);
 
         try {
-            final Row keyRow = marshallToRow(keyRec, false);
+            final Row keyRow = marshaller().marshal(keyRec, null);
 
             return tbl.delete(keyRow).get();
         }
@@ -244,7 +247,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(rec);
 
         try {
-            final Row row = marshallToRow(rec, false);
+            final Row row = marshaller().marshal(rec);
 
             return tbl.deleteExact(row).get();
         }
@@ -326,53 +329,8 @@ public class TableImpl implements Table {
         return new TupleBuilderImpl();
     }
 
-    /**
-     * @param rec Record tuple.
-     * @param skipValue Skip value columns.
-     * @return Table row.
-     */
-    //TODO: Move to marshaller.
-    private Row marshallToRow(Tuple rec, boolean skipValue) {
-        final SchemaDescriptor schema = schemaMgr.schema();
-
-        assert rec instanceof TupleBuilderImpl;
-
-        final RowAssembler rowBuilder = new RowAssembler(schema, 4096, 0, 0);
-
-        for (int i = 0; i < schema.keyColumns().length(); i++) {
-            final Column col = schema.keyColumns().column(i);
-
-            writeColumn(rec, col, rowBuilder);
-        }
-
-        if (!skipValue) {
-            for (int i = 0; i < schema.valueColumns().length(); i++) {
-                final Column col = schema.valueColumns().column(i);
-
-                writeColumn(rec, col, rowBuilder);
-            }
-        }
-
-        return new Row(schema, new ByteBufferRow(rowBuilder.build()));
-    }
-
-    //TODO: Move to marshaller.
-    private void writeColumn(Tuple rec, Column col, RowAssembler rowWriter) {
-        if (rec.value(col.name()) == null) {
-            rowWriter.appendNull();
-            return;
-        }
-
-        switch (col.type().spec()) {
-            case LONG: {
-                rowWriter.appendLong(rec.longValue(col.name()));
-
-                break;
-            }
-
-            default:
-                throw new IllegalStateException("Unexpected value: " + col.type());
-        }
+    private TupleMarshaller marshaller() {
+        return marsh;
     }
 
     /**
@@ -398,4 +356,5 @@ public class TableImpl implements Table {
 
         return new RuntimeException(e);
     }
+
 }

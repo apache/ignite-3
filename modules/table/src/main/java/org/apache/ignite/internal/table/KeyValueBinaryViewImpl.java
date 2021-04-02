@@ -25,7 +25,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -46,6 +46,9 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     /** Schema manager. */
     private final TableSchemaManager schemaMgr;
 
+    /** Marshaller. */
+    private final TupleMarshallerImpl marsh;
+
     /**
      * Constructor.
      *
@@ -55,13 +58,16 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     public KeyValueBinaryViewImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
         this.tbl = tbl;
         this.schemaMgr = schemaMgr;
+
+        marsh = new TupleMarshallerImpl(schemaMgr);
     }
 
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple key) {
         Objects.requireNonNull(key);
+
         try {
-            Row kRow = marshaller().marshalKVPair(key, null); // Convert to portable format to pass TX/storage layer.
+            Row kRow = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
 
             return tbl.get(kRow)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
@@ -95,8 +101,9 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     /** {@inheritDoc} */
     @Override public void put(Tuple key, Tuple val) {
         Objects.requireNonNull(key);
+
         try {
-            Row row = marshaller().marshalKVPair(key, val); // Convert to portable format to pass TX/storage layer.
+            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
             tbl.upsert(row).get();
         }
@@ -255,8 +262,8 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
     /**
      * @return Marshaller.
      */
-    private Marshaller marshaller() {
-        return null;
+    private TupleMarshaller marshaller() {
+        return marsh;
     }
 
     /**

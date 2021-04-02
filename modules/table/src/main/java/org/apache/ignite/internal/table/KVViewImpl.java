@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.Marshaller;
+import org.apache.ignite.internal.schema.marshaller.KVSerializer;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
@@ -62,10 +62,10 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     @Override public V get(K key) {
         Objects.requireNonNull(key);
 
-        final Marshaller marsh = marshaller();
+        final KVSerializer<K, V> marsh = marshaller();
 
         try {
-            Row kRow = marsh.serialize(key); // Convert to portable format to pass TX/storage layer.
+            Row kRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
 
             final CompletableFuture<V> fut = tbl.get(kRow)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
@@ -253,7 +253,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     /**
      * @return Marshaller.
      */
-    private Marshaller marshaller() {
+    private KVSerializer<K, V> marshaller() {
         return null;        // table.schemaManager().marshaller();
     }
 
