@@ -20,8 +20,7 @@
 <!--
     POM file.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -32,59 +31,67 @@
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
-    <artifactId>ignite-table</artifactId>
+    <artifactId>ignite-affinity-api</artifactId>
     <version>3.0.0-SNAPSHOT</version>
 
     <dependencies>
+        <!-- Test dependencies. -->
         <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-api</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-schema</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
+        <!--<dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-network</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-raft-client</artifactId>
+            <artifactId>ignite-table</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>metastorage-client</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
         </dependency>
+
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-metastorage</artifactId>
+            <artifactId>ignite-raft-client</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
+        </dependency>-->
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-configuration-annotation-processor</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

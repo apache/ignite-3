@@ -19,7 +19,6 @@ package org.apache.ignite.runner.internal.app;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
-import org.apache.ignite.affinity.internal.AffinityManager;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.baseline.internal.BaselineManager;
@@ -27,6 +26,8 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.internal.ConfigurationManagerImpl;
 import org.apache.ignite.configuration.internal.DistributedConfigurationManagerImpl;
 import org.apache.ignite.configuration.internal.LocalConfigurationManagerImpl;
+import org.apache.ignite.internal.affinity.ditributed.AffinityManager;
+import org.apache.ignite.internal.table.distributed.TableManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
 import org.apache.ignite.metastorage.internal.network.MetaStorageMessageTypes;
@@ -41,7 +42,7 @@ import org.apache.ignite.raft.internal.Loza;
 import org.apache.ignite.raft.internal.network.RaftMessageTypes;
 import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
-import org.apache.ignite.table.distributed.internal.DistributedTableManager;
+import org.apache.ignite.table.manager.TableManager;
 import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,14 +149,13 @@ public class IgnitionImpl implements Ignition {
         BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr);
 
         // Affinity manager startup.
-        AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
+        AffinityManager affinityMgr = new AffinityManager(configurationMgr, netMember, metaStorageMgr, baselineMgr);
 
         // Distributed table manager startup.
-        DistributedTableManager distributedTblMgr = new DistributedTableManager(
-            raftMgr,
+        TableManager distributedTblMgr = new TableManagerImpl(
             configurationMgr,
-            metaStorageMgr,
-            affinityMgr
+            netMember,
+            metaStorageMgr
         );
 
         // TODO sanpwc: Start rest manager.

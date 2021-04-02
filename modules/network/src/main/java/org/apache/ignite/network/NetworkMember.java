@@ -24,6 +24,8 @@ import java.util.UUID;
  * Representation of the network member.
  */
 public class NetworkMember implements Serializable {
+    private static final long serialVersionUID = 0L;
+
     /** Unique name of member in cluster. */
     private final String name;
 

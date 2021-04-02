@@ -54,7 +54,9 @@
         <module>modules/vault</module>
         <module>modules/baseline</module>
         <module>modules/affinity</module>
-        <module>modules/distributed-table</module>
+        <module>modules/affinity-api</module>
+        <module>modules/metastorage-api</module>
+        <module>modules/network-api</module>
     </modules>
 
     <build>

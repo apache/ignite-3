@@ -17,6 +17,34 @@
 
 package org.apache.ignite.app;
 
-public interface Ignite extends AutoCloseable {
+import java.util.function.Consumer;
+import org.apache.ignite.configuration.ConfigurationRegistry;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.distributed.configuration.TableInit;
+import org.apache.ignite.table.manager.TableManager;
 
+public interface Ignite extends AutoCloseable {
+    /**
+     * Creates a cluster table.
+     * The table changes if already exists.
+     *
+     * @param name Table name.
+     * @param tableInitChange Table changer.
+     * @return Table.
+     */
+    Table createTable(String name, Consumer<TableInit> tableInitChange);
+
+    /**
+     * Gets a manager for tables.
+     *
+     * @return Table manager.
+     */
+    TableManager tableManager();
+
+    /**
+     * Gets interactive object for configure cluster.
+     *
+     * @return Ignite configuration.
+     */
+    ConfigurationRegistry configuration();
 }

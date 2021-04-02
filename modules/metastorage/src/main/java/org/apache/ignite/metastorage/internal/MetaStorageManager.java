@@ -18,6 +18,7 @@
 package org.apache.ignite.metastorage.internal;
 
 import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.metastorage.client.MetaStorageService;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -29,6 +30,8 @@ public class MetaStorageManager {
     private final Loza raftMgr;
 
     private final ConfigurationManager locConfigurationMgr;
+
+    private MetaStorageService service;
 
     public MetaStorageManager(
         NetworkCluster network,
@@ -46,6 +49,15 @@ public class MetaStorageManager {
                 };
             }
         });
+    }
+
+    /**
+     * Gets a metastorage service.
+     *
+     * @return Metastorage service.
+     */
+    public MetaStorageService service() {
+        return service;
     }
 
     public void registerWatch() {
