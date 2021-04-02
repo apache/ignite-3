@@ -200,7 +200,7 @@ public final class ConfigurationChanger {
             throw new ConfigurationValidationException(validationIssues);
 
         try {
-            change0(defaultsNode, storageInstances.get(storageType)).get();
+            changeInternally(defaultsNode, storageInstances.get(storageType)).get();
         }
         catch (InterruptedException | ExecutionException e) {
             throw new ConfigurationChangeException(
@@ -221,7 +221,7 @@ public final class ConfigurationChanger {
 
         source.descend(superRoot);
 
-        return change0(superRoot, storage);
+        return changeInternally(superRoot, storage);
     }
 
     /** Stop component. */
@@ -258,7 +258,7 @@ public final class ConfigurationChanger {
             );
         }
 
-        return change0(new SuperRoot(rootKeys, changes), storageInstances.get(storagesTypes.iterator().next()));
+        return changeInternally(new SuperRoot(rootKeys, changes), storageInstances.get(storagesTypes.iterator().next()));
     }
 
     /** */
@@ -277,7 +277,7 @@ public final class ConfigurationChanger {
      * @param storage Storage instance.
      * @return fut Future that will be completed after changes are written to the storage.
      */
-    private CompletableFuture<Void> change0(
+    private CompletableFuture<Void> changeInternally(
         SuperRoot changes,
         ConfigurationStorage storage
     ) {
@@ -340,7 +340,7 @@ public final class ConfigurationChanger {
                         return CompletableFuture.failedFuture(e);
                     }
 
-                    return change0(changes, storage);
+                    return changeInternally(changes, storage);
                 }
             });
     }
