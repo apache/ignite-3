@@ -21,19 +21,21 @@ import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 
 /**
- * The RAFT replication group server. Provides server side RAFT protocol capabilities.
+ * The RAFT replication server. Provides server side RAFT protocol capabilities.
  * <p>
- * The raft group listens for client commands, submits them to a replicatedlog and calls {@link RaftGroupCommandListener}
- * methods then a command's result is commited to the log.
+ * Supports multiple RAFT groups.
+ * <p>
+ * The server listens for client commands, submits them to a replicated log and calls {@link RaftGroupCommandListener}
+ * onRead and onWrite methods then after the command was committed to the log.
  */
-public interface RaftServer extends Lifecycle<RaftServerOptions> {
+public interface RaftServer {
+    void init(RaftServerOptions options) throws Exception;
+
+    void destroy() throws Exception;
+
     NetworkMember networkMember();
 
     void setListener(String groupId, RaftGroupCommandListener lsnr);
 
     void clearListener(String groupId);
-
-    @Override void init(RaftServerOptions options);
-
-    @Override void destroy() throws Exception;
 }

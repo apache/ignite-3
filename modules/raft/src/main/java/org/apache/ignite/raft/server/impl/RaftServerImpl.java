@@ -1,6 +1,7 @@
 package org.apache.ignite.raft.server.impl;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -8,7 +9,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
+import java.util.function.BiConsumer;
 import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.MessageHandlerHolder;
 import org.apache.ignite.network.NetworkCluster;
@@ -25,7 +26,6 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.exception.RaftException;
 import org.apache.ignite.raft.client.message.ActionRequest;
-import org.apache.ignite.raft.client.message.ActionResponse;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.RaftErrorResponse;
@@ -55,9 +55,9 @@ public class RaftServerImpl implements RaftServer {
         listeners.remove(groupId);
     }
 
-    private BlockingQueue<CommandFutureEx<ReadCommand>> readQueue = new ArrayBlockingQueue<CommandFutureEx<ReadCommand>>(1000);
+    private BlockingQueue<CommandFutureEx<ReadCommand>> readQueue;
 
-    private BlockingQueue<CommandFutureEx<WriteCommand>> writeQueue = new ArrayBlockingQueue<CommandFutureEx<WriteCommand>>(1000);
+    private BlockingQueue<CommandFutureEx<WriteCommand>> writeQueue;
 
     private Thread readWorker;
 
@@ -65,11 +65,15 @@ public class RaftServerImpl implements RaftServer {
 
     @Override public synchronized void init(RaftServerOptions options) {
         Objects.requireNonNull(options.id);
-        Objects.requireNonNull(options.msgFactory);
+        Objects.requireNonNull(options.clientMsgFactory);
+
+        readQueue = new ArrayBlockingQueue<CommandFutureEx<ReadCommand>>(options.queueSize);
+        writeQueue = new ArrayBlockingQueue<CommandFutureEx<WriteCommand>>(options.queueSize);
 
         this.options = options;
 
-        member = new NetworkClusterFactory(options.id, options.localPort, options.members == null ? List.of() : new ArrayList<>(options.members))
+        member = new NetworkClusterFactory(options.id, options.localPort,
+            options.members == null ? List.of() : new ArrayList<>(options.members))
             .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
 
         member.addHandlersProvider(new NetworkHandlersProvider() {
@@ -81,7 +85,7 @@ public class RaftServerImpl implements RaftServer {
                         Object req = msg.data();
 
                         if (req instanceof GetLeaderRequest) {
-                            GetLeaderResponse resp = options.msgFactory.getLeaderResponse().leader(new Peer(member.localMember())).build();
+                            GetLeaderResponse resp = options.clientMsgFactory.getLeaderResponse().leader(new Peer(member.localMember())).build();
 
                             member.send(sender, resp, msg.corellationId());
                         }
@@ -111,53 +115,11 @@ public class RaftServerImpl implements RaftServer {
             }
         });
 
-        readWorker = new Thread(null, new Runnable() {
-            @Override public void run() {
-                while(!Thread.interrupted()) {
-                    try {
-                        CommandFutureEx<ReadCommand> cmdFut = readQueue.take();
-
-                        RaftGroupCommandListener lsnr = cmdFut.listener();
-
-                        if (lsnr == null)
-                            cmdFut.future().completeExceptionally(new RaftException(RaftErrorCode.ILLEGAL_STATE));
-                        else {
-                            List<CommandFuture<ReadCommand>> cmdFut1 = List.of(cmdFut);
-
-                            lsnr.onRead(cmdFut1.iterator());
-                        }
-                    }
-                    catch (InterruptedException e) {
-                        return;
-                    }
-                }
-            }
-        }, "read-command-worker#" + options.id);
+        readWorker = new Thread(() -> processQueue(readQueue, (l, i) -> l.onRead(i)), "read-cmd-worker#" + options.id);
         readWorker.setDaemon(true);
         readWorker.start();
 
-        writeWorker = new Thread(null, new Runnable() {
-            @Override public void run() {
-                while(!Thread.interrupted()) {
-                    try {
-                        CommandFutureEx<WriteCommand> cmdFut = writeQueue.take();
-
-                        RaftGroupCommandListener lsnr = cmdFut.listener();
-
-                        if (lsnr == null)
-                            cmdFut.future().completeExceptionally(new RaftException(RaftErrorCode.ILLEGAL_STATE));
-                        else {
-                            List<CommandFuture<WriteCommand>> cmdFut1 = List.of(cmdFut);
-
-                            lsnr.onWrite(cmdFut1.iterator());
-                        }
-                    }
-                    catch (InterruptedException e) {
-                        return;
-                    }
-                }
-            }
-        }, "write-command-worker#" + options.id);
+        writeWorker = new Thread(() -> processQueue(writeQueue, (l, i) -> l.onWrite(i)), "write-cmd-worker#" + options.id);
         writeWorker.setDaemon(true);
         writeWorker.start();
 
@@ -178,7 +140,13 @@ public class RaftServerImpl implements RaftServer {
         LOG.info("Stopped replication server [id=" + options.id + ", localPort=" + options.localPort + ']');
     }
 
-    private <T extends Command> void handleActionRequest(NetworkMember sender, ActionRequest req, String corellationId, BlockingQueue<CommandFutureEx<T>> queue, RaftGroupCommandListener lsnr) {
+    private <T extends Command> void handleActionRequest(
+        NetworkMember sender,
+        ActionRequest req,
+        String corellationId,
+        BlockingQueue<CommandFutureEx<T>> queue,
+        RaftGroupCommandListener lsnr
+    ) {
         CompletableFuture fut0 = new CompletableFuture();
 
         if (!queue.offer(new CommandFutureEx<T>() {
@@ -200,20 +168,41 @@ public class RaftServerImpl implements RaftServer {
             return;
         }
 
-        // TODO cleanup.
-        fut0.thenApply(new Function() {
-            @Override public Object apply(Object res) {
-                ActionResponse resp = options.msgFactory.actionResponse().result(res).build();
+        fut0.thenApply(res -> {
+            member.send(sender, options.clientMsgFactory.actionResponse().result(res).build(), corellationId);
 
-                member.send(sender, resp, corellationId);
-
-                return null;
-            }
+            return null;
         });
     }
 
+    private <T extends Command> void processQueue(
+        BlockingQueue<CommandFutureEx<T>> queue,
+        BiConsumer<RaftGroupCommandListener, Iterator<CommandFuture<T>>> clo
+    ) {
+        while(!Thread.interrupted()) {
+            try {
+                CommandFutureEx<T> cmdFut = queue.take();
+
+                RaftGroupCommandListener lsnr = cmdFut.listener();
+
+                if (lsnr == null)
+                    cmdFut.future().completeExceptionally(new RaftException(RaftErrorCode.ILLEGAL_STATE));
+                else {
+                    List<CommandFuture<T>> cmdFut1 = List.of(cmdFut);
+
+                    Iterator<CommandFuture<T>> iter = cmdFut1.iterator();
+
+                    clo.accept(lsnr, iter);
+                }
+            }
+            catch (InterruptedException e) {
+                return;
+            }
+        }
+    }
+
     private void sendError(NetworkMember sender, String corellationId, RaftErrorCode errorCode) {
-        RaftErrorResponse resp = options.msgFactory.raftErrorResponse().errorCode(errorCode).build();
+        RaftErrorResponse resp = options.clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
         member.send(sender, resp, corellationId);
     }

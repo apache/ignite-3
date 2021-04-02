@@ -36,18 +36,21 @@ import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
-class ITRaftServerTest {
-    private static LogWrapper LOG = new LogWrapper(ITRaftServerTest.class);
+class ITRaftCounterServerTest {
+    /** */
+    private static LogWrapper LOG = new LogWrapper(ITRaftCounterServerTest.class);
 
+    /** */
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** */
     private RaftServer server;
 
     /** */
-    private static final String SERVER_ID = "testSrv";
+    private static final String SERVER_ID = "testServer";
 
     /** */
     private static final String CLIENT_ID = "testClient";
@@ -62,7 +65,7 @@ class ITRaftServerTest {
      * @param testInfo Test info.
      */
     @BeforeEach
-    void before(TestInfo testInfo) {
+    void before(TestInfo testInfo) throws Exception {
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
 
         server = new RaftServerImpl();
@@ -73,7 +76,7 @@ class ITRaftServerTest {
 
         opts.localPort = 20100;
         opts.id = SERVER_ID;
-        opts.msgFactory = FACTORY;
+        opts.clientMsgFactory = FACTORY;
 
         server.init(opts);
     }
@@ -87,40 +90,50 @@ class ITRaftServerTest {
     public void testRefreshLeader() throws Exception {
         NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
 
-        waitForTopology(client, 2, 1000);
+        assertTrue(waitForTopology(client, 2, 1000));
 
-        Peer peer = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer server = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
-        RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000, List.of(peer), true, 200, new Timer());
+        RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
+            List.of(server), true, 200, new Timer());
 
         Peer leader = service.leader();
 
         assertNotNull(leader);
-        assertEquals(peer.getNode().name(), leader.getNode().name());
+        assertEquals(server.getNode().name(), leader.getNode().name());
+
+        client.shutdown();
     }
 
     @Test
     public void testCounterCommandListener() throws Exception {
         NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
 
-        waitForTopology(client, 2, 1000);
+        assertTrue(waitForTopology(client, 2, 1000));
 
-        Peer peer = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer server = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         Timer timer = new Timer();
-        RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000, List.of(peer), true, 200, timer);
-        RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 1000, List.of(peer), true, 200, timer);
+
+        RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
+            List.of(server), true, 200, timer);
+        RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 1000,
+            List.of(server), true, 200, timer);
 
         assertNotNull(service0.leader());
         assertNotNull(service1.leader());
 
-        Integer res = service0.<Integer>run(new IncrementAndGetCommand(2)).get();
+        assertEquals(2, service0.<Integer>run(new IncrementAndGetCommand(2)).get());
+        assertEquals(2, service0.<Integer>run(new GetValueCommand()).get());
+        assertEquals(3, service0.<Integer>run(new IncrementAndGetCommand(1)).get());
+        assertEquals(3, service0.<Integer>run(new GetValueCommand()).get());
 
-        assertEquals(2, res);
+        assertEquals(4, service1.<Integer>run(new IncrementAndGetCommand(4)).get());
+        assertEquals(4, service1.<Integer>run(new GetValueCommand()).get());
+        assertEquals(7, service1.<Integer>run(new IncrementAndGetCommand(3)).get());
+        assertEquals(7, service1.<Integer>run(new GetValueCommand()).get());
 
-        Integer cur = service0.<Integer>run(new GetValueCommand()).get();
-
-        assertEquals(2, cur);
+        client.shutdown();
     }
 
     private NetworkCluster startClient(String name, int port, List<String> servers) {
@@ -128,14 +141,19 @@ class ITRaftServerTest {
             .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
     }
 
-    private boolean waitForTopology(NetworkCluster cluster, int members, int timeout) throws InterruptedException {
+    private boolean waitForTopology(NetworkCluster cluster, int expected, int timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {
-            if (cluster.allMembers().size() >= members)
+            if (cluster.allMembers().size() >= expected)
                 return true;
 
-            Thread.sleep(50);
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
         }
 
         return false;

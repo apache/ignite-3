@@ -25,5 +25,6 @@ public class RaftServerOptions {
     public String id;
     public int localPort;
     public @Nullable List<String> members;
-    public RaftClientMessageFactory msgFactory;
+    public RaftClientMessageFactory clientMsgFactory;
+    public int queueSize = 1000;
 }
