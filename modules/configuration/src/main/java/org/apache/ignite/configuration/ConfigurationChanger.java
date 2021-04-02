@@ -83,7 +83,7 @@ public final class ConfigurationChanger {
         @NotNull CompletableFuture<Void> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
     }
 
-    /** Closure to execute when update from the storage is received. */
+    /** Closure to execute when an update from the storage is received. */
     private final Notificator notificator;
 
     /**
