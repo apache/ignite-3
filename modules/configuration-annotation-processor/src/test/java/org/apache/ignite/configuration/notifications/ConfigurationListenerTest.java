@@ -31,6 +31,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -93,7 +94,7 @@ public class ConfigurationListenerTest {
 
             log.add("parent");
 
-            return null;
+            return completedFuture(null);
         });
 
         configuration.child().listen(ctx -> {
@@ -102,7 +103,7 @@ public class ConfigurationListenerTest {
 
             log.add("child");
 
-            return null;
+            return completedFuture(null);
         });
 
         configuration.child().str().listen(ctx -> {
@@ -111,13 +112,13 @@ public class ConfigurationListenerTest {
 
             log.add("str");
 
-            return null;
+            return completedFuture(null);
         });
 
         configuration.elements().listen(ctx -> {
             log.add("elements");
 
-            return null;
+            return completedFuture(null);
         });
 
         configuration.change(parent -> parent.changeChild(child -> child.changeStr("foo"))).get(1, SECONDS);
@@ -133,13 +134,13 @@ public class ConfigurationListenerTest {
         configuration.listen(ctx -> {
             log.add("parent");
 
-            return null;
+            return completedFuture(null);
         });
 
         configuration.child().listen(ctx -> {
             log.add("child");
 
-            return null;
+            return completedFuture(null);
         });
 
         configuration.elements().listen(ctx -> {
@@ -169,7 +170,7 @@ public class ConfigurationListenerTest {
 
             log.add("elements");
 
-            return null;
+            return completedFuture(null);
         });
 
         configuration.elements().listen(new ConfigurationNamedListListener<ChildView>() {
@@ -184,7 +185,7 @@ public class ConfigurationListenerTest {
 
                 log.add("create");
 
-                return null;
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
@@ -201,7 +202,7 @@ public class ConfigurationListenerTest {
 
                 log.add("update");
 
-                return null;
+                return completedFuture(null);
             }
 
             /** {@inheritDoc} */
@@ -215,7 +216,7 @@ public class ConfigurationListenerTest {
 
                 log.add("delete");
 
-                return null;
+                return completedFuture(null);
             }
         });
 

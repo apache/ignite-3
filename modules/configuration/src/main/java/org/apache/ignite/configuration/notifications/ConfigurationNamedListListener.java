@@ -18,7 +18,7 @@
 package org.apache.ignite.configuration.notifications;
 
 import java.util.concurrent.CompletableFuture;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Configuration property change listener for named list configurations.
@@ -30,15 +30,15 @@ public interface ConfigurationNamedListListener<VIEW> extends ConfigurationListe
      * Called when new named list element is created.
      *
      * @param ctx Notification context.
-     * @return Future that signifies end of listener execution. Can be {@code null}.
+     * @return Future that signifies end of listener execution.
      */
-    @Nullable CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VIEW> ctx);
+    @NotNull CompletableFuture<?> onCreate(ConfigurationNotificationEvent<VIEW> ctx);
 
     /**
      * Called when named list element is deleted.
      *
      * @param ctx Notification context.
-     * @return Future that signifies end of listener execution. Can be {@code null}.
+     * @return Future that signifies end of listener execution.
      */
-    @Nullable CompletableFuture<?> onDelete(ConfigurationNotificationEvent<VIEW> ctx);
+    @NotNull CompletableFuture<?> onDelete(ConfigurationNotificationEvent<VIEW> ctx);
 }

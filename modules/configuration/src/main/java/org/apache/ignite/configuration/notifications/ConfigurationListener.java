@@ -18,7 +18,7 @@
 package org.apache.ignite.configuration.notifications;
 
 import java.util.concurrent.CompletableFuture;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Configuration property change listener.
@@ -31,9 +31,8 @@ public interface ConfigurationListener<VIEW> {
      * Called on property value update.
      *
      * @param ctx Notification context.
-     * @return Future that signifies end of listener execution. Can be {@code null}, this would be equivalent to
-     * successfully completed future.
+     * @return Future that signifies end of listener execution.
      */
-    @Nullable CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<VIEW> ctx);
+    @NotNull CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<VIEW> ctx);
 }
 
