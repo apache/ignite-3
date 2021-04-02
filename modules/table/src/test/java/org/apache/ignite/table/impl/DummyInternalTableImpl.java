@@ -40,7 +40,7 @@ public class DummyInternalTableImpl implements InternalTable {
     private final Map<KeyWrapper, BinaryRow> store = new ConcurrentHashMap<>();
 
     /**
-     * Wrapper provides corrowt byte[] comparison.
+     * Wrapper provides correct byte[] comparison.
      */
     private static class KeyWrapper {
         /** Data. */
