@@ -91,10 +91,10 @@ public class ReadOnlyServiceTest {
         });
         this.readOnlyServiceImpl.flush();
         Mockito.verify(this.node).handleReadIndexRequest(Mockito.argThat(new ArgumentMatcher<ReadIndexRequest>() {
-            @Override public boolean matches(Object argument) {
+            @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return req.getGroupId().equals("test") && req.getServerId().equals("localhost:8081:0")
+                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
                            && req.getEntriesCount() == 1
                            && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }
@@ -123,10 +123,10 @@ public class ReadOnlyServiceTest {
         final ArgumentCaptor<RpcResponseClosure> closureCaptor = ArgumentCaptor.forClass(RpcResponseClosure.class);
 
         Mockito.verify(this.node).handleReadIndexRequest(Mockito.argThat(new ArgumentMatcher<ReadIndexRequest>() {
-            @Override public boolean matches(Object argument) {
+            @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return req.getGroupId().equals("test") && req.getServerId().equals("localhost:8081:0")
+                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
                            && req.getEntriesCount() == 1
                            && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }
@@ -168,10 +168,10 @@ public class ReadOnlyServiceTest {
         final ArgumentCaptor<RpcResponseClosure> closureCaptor = ArgumentCaptor.forClass(RpcResponseClosure.class);
 
         Mockito.verify(this.node).handleReadIndexRequest(Mockito.argThat(new ArgumentMatcher<ReadIndexRequest>() {
-            @Override public boolean matches(Object argument) {
+            @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return req.getGroupId().equals("test") && req.getServerId().equals("localhost:8081:0")
+                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
                            && req.getEntriesCount() == 1
                            && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }
@@ -211,10 +211,10 @@ public class ReadOnlyServiceTest {
         final ArgumentCaptor<RpcResponseClosure> closureCaptor = ArgumentCaptor.forClass(RpcResponseClosure.class);
 
         Mockito.verify(this.node).handleReadIndexRequest(Mockito.argThat(new ArgumentMatcher<ReadIndexRequest>() {
-            @Override public boolean matches(Object argument) {
+            @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return req.getGroupId().equals("test") && req.getServerId().equals("localhost:8081:0")
+                    return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
                            && req.getEntriesCount() == 1
                            && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }

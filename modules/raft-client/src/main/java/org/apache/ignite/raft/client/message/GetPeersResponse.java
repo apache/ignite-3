@@ -17,13 +17,15 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
 import java.util.List;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  *
  */
-public interface GetPeersResponse {
+public interface GetPeersResponse extends NetworkMessage, Serializable {
     /**
      * @return Current peers.
      */
