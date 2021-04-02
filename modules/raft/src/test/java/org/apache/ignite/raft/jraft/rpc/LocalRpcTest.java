@@ -43,6 +43,8 @@ public class LocalRpcTest {
         server.shutdown();
 
         assertNull(LocalRpcServer.servers.get(endpoint));
+
+        LocalRpcClient.onCreated = null;
     }
 
     @Test
