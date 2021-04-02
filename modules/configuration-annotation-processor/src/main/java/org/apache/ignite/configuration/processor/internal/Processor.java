@@ -394,7 +394,7 @@ public class Processor extends AbstractProcessor {
         final Value valueAnnotation = field.getAnnotation(Value.class);
         if (valueAnnotation != null) {
             // It is necessary to use class names without loading classes so that we won't
-            // accidentallyget NoClassDefFoundError
+            // accidentally get NoClassDefFoundError
             ClassName dynPropClass = ClassName.get("org.apache.ignite.configuration.internal", "DynamicProperty");
             ClassName confValueClass = ClassName.get("org.apache.ignite.configuration", "ConfigurationValue");
 
