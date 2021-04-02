@@ -41,7 +41,6 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.TestOnly;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.addDefaults;
@@ -68,7 +67,7 @@ public final class ConfigurationChanger {
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
     /**
-     * Closure interface to be used by configuration changer. Instance of this closur is passed into constructor and
+     * Closure interface to be used by configuration changer. An instance of this closure is passed into constructor and
      * invoked every time when there's an update from any of the storages.
      */
     @FunctionalInterface
@@ -81,7 +80,7 @@ public final class ConfigurationChanger {
          * @return Not-null future that must signify when processing is completed. Exceptional completion is not
          *      expected.
          */
-        @NotNull CompletableFuture<?> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
+        @NotNull CompletableFuture<Void> notify(SuperRoot oldRoot, SuperRoot newRoot, long storageRevision);
     }
 
     /** Closure to execute when update from the storage is received. */
@@ -115,15 +114,6 @@ public final class ConfigurationChanger {
      */
     public ConfigurationChanger(Notificator notificator) {
         this.notificator = notificator;
-    }
-
-    /** Constructor for tests. */
-    @TestOnly
-    ConfigurationChanger(RootKey<?, ?>... rootKeys) {
-        notificator = (oldRoot, newRoot, storageRevision) -> completedFuture(null);
-
-        for (RootKey<?, ?> rootKey : rootKeys)
-            this.rootKeys.put(rootKey.key(), rootKey);
     }
 
     /** */

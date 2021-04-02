@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.AConfiguration.KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -98,7 +99,8 @@ public class ConfigurationChangerTest {
             .initChild(init -> init.initIntCfg(1).initStrCfg("1"))
             .initElements(change -> change.create("a", init -> init.initStrCfg("1")));
 
-        final ConfigurationChanger changer = new ConfigurationChanger(KEY);
+        ConfigurationChanger changer = new ConfigurationChanger((oldRoot, newRoot, revision) -> completedFuture(null));
+        changer.addRootKey(KEY);
         changer.register(storage);
 
         changer.change(Collections.singletonMap(KEY, data)).get(1, SECONDS);
@@ -128,10 +130,12 @@ public class ConfigurationChangerTest {
                 .create("b", init -> init.initStrCfg("2"))
             );
 
-        final ConfigurationChanger changer1 = new ConfigurationChanger(KEY);
+        ConfigurationChanger changer1 = new ConfigurationChanger((oldRoot, newRoot, revision) -> completedFuture(null));
+        changer1.addRootKey(KEY);
         changer1.register(storage);
 
-        final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
+        ConfigurationChanger changer2 = new ConfigurationChanger((oldRoot, newRoot, revision) -> completedFuture(null));
+        changer2.addRootKey(KEY);
         changer2.register(storage);
 
         changer1.change(Collections.singletonMap(KEY, data1)).get(1, SECONDS);
@@ -170,10 +174,12 @@ public class ConfigurationChangerTest {
                 .create("b", init -> init.initStrCfg("2"))
             );
 
-        final ConfigurationChanger changer1 = new ConfigurationChanger(KEY);
+        ConfigurationChanger changer1 = new ConfigurationChanger((oldRoot, newRoot, revision) -> completedFuture(null));
+        changer1.addRootKey(KEY);
         changer1.register(storage);
 
-        final ConfigurationChanger changer2 = new ConfigurationChanger(KEY);
+        ConfigurationChanger changer2 = new ConfigurationChanger((oldRoot, newRoot, revision) -> completedFuture(null));
+        changer2.addRootKey(KEY);
         changer2.register(storage);
 
         changer1.change(Collections.singletonMap(KEY, data1)).get(1, SECONDS);
@@ -202,7 +208,8 @@ public class ConfigurationChangerTest {
 
         ANode data = new ANode().initChild(child -> child.initIntCfg(1));
 
-        final ConfigurationChanger changer = new ConfigurationChanger(KEY);
+        ConfigurationChanger changer = new ConfigurationChanger((oldRoot, newRoot, revision) -> completedFuture(null));
+        changer.addRootKey(KEY);
 
         storage.fail(true);
 
@@ -257,7 +264,7 @@ public class ConfigurationChangerTest {
 
     @Test
     public void defaultsOnInit() throws Exception {
-        var changer = new ConfigurationChanger();
+        var changer = new ConfigurationChanger((oldRoot, newRoot, revision) -> completedFuture(null));
 
         changer.addRootKey(DefaultsConfiguration.KEY);
 

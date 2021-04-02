@@ -131,7 +131,7 @@ public class ConfigurationRegistry {
     }
 
     /** */
-    private @NotNull CompletableFuture<?> notificator(SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision) {
+    private @NotNull CompletableFuture<Void> notificator(SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision) {
         List<CompletableFuture<?>> futures = new ArrayList<>();
 
         newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
