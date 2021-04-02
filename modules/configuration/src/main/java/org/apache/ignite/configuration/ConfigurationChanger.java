@@ -73,7 +73,7 @@ public final class ConfigurationChanger {
     @FunctionalInterface
     public interface Notificator {
         /**
-         * Invoked every time when configuration is updated.
+         * Invoked every time when the configuration is updated.
          * @param oldRoot Old roots values. All these roots always belong to a single storage.
          * @param newRoot New values for the same roots as in {@code oldRoot}.
          * @param storageRevision Revision of the storage.
