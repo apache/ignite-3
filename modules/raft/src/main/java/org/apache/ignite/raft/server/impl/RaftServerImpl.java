@@ -1,8 +1,8 @@
 package org.apache.ignite.raft.server.impl;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -28,55 +28,78 @@ import org.apache.ignite.raft.client.exception.RaftException;
 import org.apache.ignite.raft.client.message.ActionRequest;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.RaftErrorResponse;
-import org.apache.ignite.raft.client.service.CommandFuture;
+import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
-import org.apache.ignite.raft.server.RaftServerOptions;
 import org.apache.ignite.raft.server.RaftServer;
+import org.jetbrains.annotations.NotNull;
 
+/**
+ * A single node server implementation.
+ */
 public class RaftServerImpl implements RaftServer {
+    /** */
     private static LogWrapper LOG = new LogWrapper(RaftServerImpl.class);
 
-    private NetworkCluster member;
+    /** */
+    private final String id;
 
-    private ConcurrentMap<String, RaftGroupCommandListener> listeners = new ConcurrentHashMap<>();
+    /** */
+    private final int localPort;
 
-    private RaftServerOptions options;
+    /** */
+    private final RaftClientMessageFactory clientMsgFactory;
 
-    @Override public NetworkMember networkMember() {
-        return member.localMember();
-    }
+    /** */
+    private final NetworkCluster server;
 
-    @Override public void setListener(String groupId, RaftGroupCommandListener lsnr) {
-        listeners.put(groupId, lsnr);
-    }
+    /** */
+    private final ConcurrentMap<String, RaftGroupCommandListener> listeners = new ConcurrentHashMap<>();
 
-    @Override public void clearListener(String groupId) {
-        listeners.remove(groupId);
-    }
+    /** */
+    private final BlockingQueue<CommandClosureEx<ReadCommand>> readQueue;
 
-    private BlockingQueue<CommandFutureEx<ReadCommand>> readQueue;
+    /** */
+    private final BlockingQueue<CommandClosureEx<WriteCommand>> writeQueue;
 
-    private BlockingQueue<CommandFutureEx<WriteCommand>> writeQueue;
+    /** */
+    private final Thread readWorker;
 
-    private Thread readWorker;
+    /** */
+    private final Thread writeWorker;
 
-    private Thread writeWorker;
+    /**
+     * @param id Server id.
+     * @param localPort Local port.
+     * @param clientMsgFactory Client message factory.
+     * @param queueSize Queue size.
+     * @param listeners Command listeners.
+     */
+    public RaftServerImpl(
+        @NotNull String id,
+        int localPort,
+        @NotNull RaftClientMessageFactory clientMsgFactory,
+        int queueSize,
+        Map<String, RaftGroupCommandListener> listeners
+    ) {
+        Objects.requireNonNull(id);
+        Objects.requireNonNull(clientMsgFactory);
 
-    @Override public synchronized void init(RaftServerOptions options) {
-        Objects.requireNonNull(options.id);
-        Objects.requireNonNull(options.clientMsgFactory);
+        this.id = id;
+        this.localPort = localPort;
+        this.clientMsgFactory = clientMsgFactory;
 
-        readQueue = new ArrayBlockingQueue<CommandFutureEx<ReadCommand>>(options.queueSize);
-        writeQueue = new ArrayBlockingQueue<CommandFutureEx<WriteCommand>>(options.queueSize);
+        if (listeners != null)
+            this.listeners.putAll(listeners);
 
-        this.options = options;
+        readQueue = new ArrayBlockingQueue<CommandClosureEx<ReadCommand>>(queueSize);
+        writeQueue = new ArrayBlockingQueue<CommandClosureEx<WriteCommand>>(queueSize);
 
-        member = new NetworkClusterFactory(options.id, options.localPort,
-            options.members == null ? List.of() : new ArrayList<>(options.members))
+        server = new NetworkClusterFactory(id, localPort, List.of())
             .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
 
-        member.addHandlersProvider(new NetworkHandlersProvider() {
+        server.addHandlersProvider(new NetworkHandlersProvider() {
             @Override public NetworkMessageHandler messageHandler() {
                 return new NetworkMessageHandler() {
                     @Override public void onReceived(NetworkMessage msg) {
@@ -85,9 +108,9 @@ public class RaftServerImpl implements RaftServer {
                         Object req = msg.data();
 
                         if (req instanceof GetLeaderRequest) {
-                            GetLeaderResponse resp = options.clientMsgFactory.getLeaderResponse().leader(new Peer(member.localMember())).build();
+                            GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(server.localMember())).build();
 
-                            member.send(sender, resp, msg.corellationId());
+                            server.send(sender, resp, msg.corellationId());
                         }
                         else if (req instanceof ActionRequest) {
                             ActionRequest req0 = (ActionRequest) req;
@@ -115,21 +138,35 @@ public class RaftServerImpl implements RaftServer {
             }
         });
 
-        readWorker = new Thread(() -> processQueue(readQueue, (l, i) -> l.onRead(i)), "read-cmd-worker#" + options.id);
+        readWorker = new Thread(() -> processQueue(readQueue, (l, i) -> l.onRead(i)), "read-cmd-worker#" + id);
         readWorker.setDaemon(true);
         readWorker.start();
 
-        writeWorker = new Thread(() -> processQueue(writeQueue, (l, i) -> l.onWrite(i)), "write-cmd-worker#" + options.id);
+        writeWorker = new Thread(() -> processQueue(writeQueue, (l, i) -> l.onWrite(i)), "write-cmd-worker#" + id);
         writeWorker.setDaemon(true);
         writeWorker.start();
 
-        LOG.info("Started replication server [id=" + options.id + ", localPort=" + options.localPort + ']');
+        LOG.info("Started replication server [id=" + id + ", localPort=" + localPort + ']');
     }
 
-    @Override public synchronized void destroy() throws Exception {
-        Objects.requireNonNull(member);
+    /** {@inheritDoc} */
+    @Override public NetworkMember localMember() {
+        return server.localMember();
+    }
 
-        member.shutdown();
+    /** {@inheritDoc} */
+    @Override public void setListener(String groupId, RaftGroupCommandListener lsnr) {
+        listeners.put(groupId, lsnr);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void clearListener(String groupId) {
+        listeners.remove(groupId);
+    }
+
+    /** {@inheritDoc} */
+    @Override public synchronized void shutdown() throws Exception {
+        server.shutdown();
 
         readWorker.interrupt();
         readWorker.join();
@@ -137,19 +174,17 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.interrupt();
         writeWorker.join();
 
-        LOG.info("Stopped replication server [id=" + options.id + ", localPort=" + options.localPort + ']');
+        LOG.info("Stopped replication server [id=" + id + ", localPort=" + localPort + ']');
     }
 
     private <T extends Command> void handleActionRequest(
         NetworkMember sender,
         ActionRequest req,
         String corellationId,
-        BlockingQueue<CommandFutureEx<T>> queue,
+        BlockingQueue<CommandClosureEx<T>> queue,
         RaftGroupCommandListener lsnr
     ) {
-        CompletableFuture fut0 = new CompletableFuture();
-
-        if (!queue.offer(new CommandFutureEx<T>() {
+        if (!queue.offer(new CommandClosureEx<T>() {
             @Override public RaftGroupCommandListener listener() {
                 return lsnr;
             }
@@ -158,8 +193,12 @@ public class RaftServerImpl implements RaftServer {
                 return (T) req.command();
             }
 
-            @Override public CompletableFuture future() {
-                return fut0;
+            @Override public void success(Object res) {
+                server.send(sender, clientMsgFactory.actionResponse().result(res).build(), corellationId);
+            }
+
+            @Override public void failure(Throwable t) {
+                sendError(sender, corellationId, RaftErrorCode.ILLEGAL_STATE);
             }
         })) {
             // Queue out of capacity.
@@ -167,33 +206,22 @@ public class RaftServerImpl implements RaftServer {
 
             return;
         }
-
-        fut0.thenApply(res -> {
-            member.send(sender, options.clientMsgFactory.actionResponse().result(res).build(), corellationId);
-
-            return null;
-        });
     }
 
     private <T extends Command> void processQueue(
-        BlockingQueue<CommandFutureEx<T>> queue,
-        BiConsumer<RaftGroupCommandListener, Iterator<CommandFuture<T>>> clo
+        BlockingQueue<CommandClosureEx<T>> queue,
+        BiConsumer<RaftGroupCommandListener, Iterator<CommandClosure<T>>> clo
     ) {
         while(!Thread.interrupted()) {
             try {
-                CommandFutureEx<T> cmdFut = queue.take();
+                CommandClosureEx<T> cmdClo = queue.take();
 
-                RaftGroupCommandListener lsnr = cmdFut.listener();
+                RaftGroupCommandListener lsnr = cmdClo.listener();
 
                 if (lsnr == null)
-                    cmdFut.future().completeExceptionally(new RaftException(RaftErrorCode.ILLEGAL_STATE));
-                else {
-                    List<CommandFuture<T>> cmdFut1 = List.of(cmdFut);
-
-                    Iterator<CommandFuture<T>> iter = cmdFut1.iterator();
-
-                    clo.accept(lsnr, iter);
-                }
+                    cmdClo.failure(new RaftException(RaftErrorCode.ILLEGAL_STATE));
+                else
+                    clo.accept(lsnr, List.<CommandClosure<T>>of(cmdClo).iterator());
             }
             catch (InterruptedException e) {
                 return;
@@ -202,12 +230,12 @@ public class RaftServerImpl implements RaftServer {
     }
 
     private void sendError(NetworkMember sender, String corellationId, RaftErrorCode errorCode) {
-        RaftErrorResponse resp = options.clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
+        RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
-        member.send(sender, resp, corellationId);
+        server.send(sender, resp, corellationId);
     }
 
-    private interface CommandFutureEx<T extends Command> extends CommandFuture<T> {
+    private interface CommandClosureEx<T extends Command> extends CommandClosure<T> {
         RaftGroupCommandListener listener();
     }
 }

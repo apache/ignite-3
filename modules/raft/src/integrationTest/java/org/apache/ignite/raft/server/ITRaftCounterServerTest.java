@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.server;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.MessageHandlerHolder;
@@ -24,7 +26,7 @@ import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkClusterFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
@@ -56,10 +58,10 @@ class ITRaftCounterServerTest {
     private static final String CLIENT_ID = "testClient";
 
     /** */
-    public static final String COUNTER_GROUP_ID_0 = "counter0";
+    private static final String COUNTER_GROUP_ID_0 = "counter0";
 
     /** */
-    public static final String COUNTER_GROUP_ID_1 = "counter1";
+    private static final String COUNTER_GROUP_ID_1 = "counter1";
 
     /**
      * @param testInfo Test info.
@@ -68,24 +70,24 @@ class ITRaftCounterServerTest {
     void before(TestInfo testInfo) throws Exception {
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
 
-        server = new RaftServerImpl();
-        server.setListener(COUNTER_GROUP_ID_0, new CounterCommandListener());
-        server.setListener(COUNTER_GROUP_ID_1, new CounterCommandListener());
-
-        RaftServerOptions opts = new RaftServerOptions();
-
-        opts.localPort = 20100;
-        opts.id = SERVER_ID;
-        opts.clientMsgFactory = FACTORY;
-
-        server.init(opts);
+        server = new RaftServerImpl(SERVER_ID,
+            20100,
+            FACTORY,
+            1000,
+            Map.of(COUNTER_GROUP_ID_0, new CounterCommandListener(), COUNTER_GROUP_ID_1, new CounterCommandListener()));
     }
 
+    /**
+     * @throws Exception
+     */
     @AfterEach
     void after() throws Exception {
-        server.destroy();
+        server.shutdown();
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testRefreshLeader() throws Exception {
         NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
@@ -105,6 +107,9 @@ class ITRaftCounterServerTest {
         client.shutdown();
     }
 
+    /**
+     * @throws Exception
+     */
     @Test
     public void testCounterCommandListener() throws Exception {
         NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
@@ -117,6 +122,7 @@ class ITRaftCounterServerTest {
 
         RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
             List.of(server), true, 200, timer);
+
         RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 1000,
             List.of(server), true, 200, timer);
 
@@ -136,11 +142,23 @@ class ITRaftCounterServerTest {
         client.shutdown();
     }
 
+    /**
+     * @param name Node name.
+     * @param port Local port.
+     * @param servers Server nodes of the cluster.
+     * @return The client cluster view.
+     */
     private NetworkCluster startClient(String name, int port, List<String> servers) {
         return new NetworkClusterFactory(name, port, servers)
             .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
     }
 
+    /**
+     * @param cluster The cluster.
+     * @param expected Expected count.
+     * @param timeout The timeout in millis.
+     * @return {@code True} if topology size is equal to expected.
+     */
     private boolean waitForTopology(NetworkCluster cluster, int expected, int timeout) {
         long stop = System.currentTimeMillis() + timeout;
 

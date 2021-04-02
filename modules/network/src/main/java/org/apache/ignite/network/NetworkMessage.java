@@ -28,15 +28,15 @@ public class NetworkMessage {
     /** Network member who sent this message. */
     private final NetworkMember senderMember;
 
-    /** */
+    /** Corellation id. */
     private String corellationId;
 
     /**
      * @param data Custom data.
      * @param senderMember Network member who sent this message.
-     * @param corellationId
+     * @param corellationId Corellation id.
      */
-    public NetworkMessage(Object data, NetworkMember senderMember, String corellationId) {
+    public NetworkMessage(Object data, NetworkMember senderMember, @Nullable String corellationId) {
         this.data = data;
         this.senderMember = senderMember;
         this.corellationId = corellationId;

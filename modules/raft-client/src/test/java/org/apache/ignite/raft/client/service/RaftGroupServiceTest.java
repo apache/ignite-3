@@ -30,7 +30,7 @@ import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.message.ActionRequest;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
-import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.junit.jupiter.api.BeforeEach;

@@ -44,7 +44,7 @@ import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
 import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
-import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 
