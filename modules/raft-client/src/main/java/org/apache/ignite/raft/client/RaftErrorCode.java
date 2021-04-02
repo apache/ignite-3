@@ -25,7 +25,7 @@ public enum RaftErrorCode {
     SUCCESS(1000, "Successful"),
 
     /** */
-    NO_LEADER(1001, "No leader found within a timeout"),
+    NO_LEADER(1001, "No leader is found within a timeout"),
 
     /** */
     LEADER_CHANGED(1002, "A peer is no longer a leader"),
