@@ -155,6 +155,7 @@ class ITRaftCounterServerTest {
         network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
         network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
         network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
+        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
 
         return network.start();
     }
