@@ -17,7 +17,6 @@
 
 package org.apache.ignite.rest;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonSyntaxException;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -29,16 +28,13 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import org.apache.ignite.configuration.ConfigurationRegistry;
-import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.rest.configuration.RestConfiguration;
 import org.apache.ignite.rest.configuration.RestView;
 import org.apache.ignite.rest.netty.RestApiInitializer;
 import org.apache.ignite.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.rest.presentation.json.JsonConverter;
 import org.apache.ignite.rest.presentation.json.JsonPresentation;
 import org.apache.ignite.rest.routes.Router;
 import org.slf4j.Logger;
@@ -80,7 +76,7 @@ public class RestModule {
         sysConf = sysCfg;
         sysCfg.registerRootKey(RestConfiguration.KEY);
 
-        presentation = new JsonPresentation();
+        presentation = new JsonPresentation(sysCfg);
     }
 
     /**
@@ -95,11 +91,7 @@ public class RestModule {
             .get(CONF_URL + ":" + PATH_PARAM, (req, resp) -> {
                 String cfgPath = req.queryParams().get(PATH_PARAM);
                 try {
-                    List<String> path = ConfigurationUtil.split(cfgPath);
-
-                    JsonElement json = sysConf.represent(path, JsonConverter.jsonVisitor());
-
-                    resp.json(json);
+                    resp.json(presentation.representByPath(cfgPath));
                 }
                 catch (IllegalArgumentException pathE) {
                     ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());

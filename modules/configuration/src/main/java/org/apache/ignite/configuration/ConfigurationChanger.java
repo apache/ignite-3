@@ -36,6 +36,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
+import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -209,19 +210,42 @@ public final class ConfigurationChanger {
         }
     }
 
-    /** Temporary until the IGNITE-14372 */
-    public CompletableFuture<?> changeX(
-        List<String> path,
+    /** */
+    public CompletableFuture<Void> change(
         ConfigurationSource source,
         ConfigurationStorage storage
     ) {
-        assert path.isEmpty() : "Path support is not yet implemented.";
-
         SuperRoot superRoot = new SuperRoot(rootKeys);
 
         source.descend(superRoot);
 
-        return changeInternally(superRoot, storage);
+        Set<Class<? extends ConfigurationStorage>> storagesTypes = new HashSet<>();
+
+        superRoot.traverseChildren(new ConfigurationVisitor<Object>() {
+            @Override public Object visitInnerNode(String key, InnerNode node) {
+                RootKey<?, ?> rootKey = rootKeys.get(key);
+
+                return storagesTypes.add(rootKey.getStorageType());
+            }
+        });
+
+        assert !storagesTypes.isEmpty();
+
+        if (storagesTypes.size() != 1) {
+            return CompletableFuture.failedFuture(
+                new ConfigurationChangeException("Cannot change configurations belonging to different storages.")
+            );
+        }
+
+        ConfigurationStorage actualStorage = storageInstances.get(storagesTypes.iterator().next());
+
+        if (storage != null && storage != actualStorage) {
+            return CompletableFuture.failedFuture(
+                new ConfigurationChangeException("Mismatched storage passed.")
+            );
+        }
+
+        return changeInternally(superRoot, actualStorage);
     }
 
     /** Stop component. */

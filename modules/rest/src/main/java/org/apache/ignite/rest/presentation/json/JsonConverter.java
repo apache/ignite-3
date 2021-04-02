@@ -17,41 +17,28 @@
 
 package org.apache.ignite.rest.presentation.json;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import java.io.Reader;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
-import org.apache.ignite.rest.presentation.FormatConverter;
 import org.jetbrains.annotations.NotNull;
 
 /** */
-public class JsonConverter implements FormatConverter {
-    /** */
-    private final Gson gson = new Gson();
-
-    /** {@inheritDoc} */
-    @Override public String convertTo(Object obj) {
-        return gson.toJson(obj);
-    }
-
+public class JsonConverter {
     /** */
     public static ConfigurationVisitor<JsonElement> jsonVisitor() {
         return new ConfigurationVisitor<JsonElement>() {
@@ -150,6 +137,8 @@ public class JsonConverter implements FormatConverter {
 
     /** */
     public static ConfigurationSource jsonSource(JsonElement jsonElement) {
+        assert jsonElement.isJsonObject();
+
         //TODO IGNITE-14372 Finish this implementation.
         return new JsonObjectConfigurationSource(new ArrayList<>(), jsonElement.getAsJsonObject());
     }
@@ -264,42 +253,5 @@ public class JsonConverter implements FormatConverter {
 
             throw new IllegalArgumentException(""); //TODO IGNITE-14372 Update comment.
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public String convertTo(String rootName, Object src) {
-        Map<String, Object> res = new HashMap<>();
-
-        res.put(rootName, src);
-
-        return gson.toJson(res);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String rootName(String source) {
-        Map<String, Object> map = gson.fromJson(source, Map.class);
-
-        // Peek only first root for simplicity. See comment in ConfigurationPresentation#update for more context.
-        Optional<String> firstOpt = map.keySet().stream().findFirst();
-
-        return firstOpt.isPresent() ? firstOpt.get() : null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Object convertFrom(String source, String rootName, Class<?> clazz) {
-        Map map = gson.fromJson(source, Map.class);
-
-        String root = gson.toJson(map.get(rootName));
-
-        return gson.fromJson(root, clazz);
-    }
-
-    /** {@inheritDoc} */
-    @Override public <T> T convertFrom(Reader source, String rootName, Class<T> clazz) {
-        Map map = gson.fromJson(source, Map.class);
-
-        String root = gson.toJson(map.get(rootName));
-
-        return gson.fromJson(root, clazz);
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.rest.presentation.json;
 
 import com.google.gson.JsonNull;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -31,9 +32,12 @@ import org.junit.jupiter.api.Test;
 import static com.google.gson.JsonParser.parseString;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.rest.presentation.json.JsonConverter.jsonSource;
 import static org.apache.ignite.rest.presentation.json.JsonConverter.jsonVisitor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
 public class JsonConverterTest {
@@ -214,5 +218,80 @@ public class JsonConverterTest {
             JsonNull.INSTANCE,
             registry.represent(List.of("root", "primitivesList", "foo"), jsonVisitor())
         );
+    }
+
+    //TODO Arrays
+    /** */
+    @Test
+    public void fromJson() throws Exception {
+        change("{'root':{'primitivesList':{'name' : {}},'arraysList':{'name' : {}}}}");
+
+        JsonPrimitivesConfiguration primitives = configuration.primitivesList().get("name");
+        assertNotNull(primitives);
+
+        change("{'root':{'primitivesList':{'name':{'booleanVal' : true}}}}");
+        assertTrue(primitives.booleanVal().value());
+
+        change("{'root':{'primitivesList':{'name':{'intVal' : 12345}}}}");
+        assertEquals(12345, primitives.intVal().value());
+
+        change("{'root':{'primitivesList':{'name':{'longVal' : 12345678900}}}}");
+        assertEquals(12345678900L, primitives.longVal().value());
+
+        change("{'root':{'primitivesList':{'name':{'doubleVal' : 2.5}}}}");
+        assertEquals(2.5d, primitives.doubleVal().value());
+
+        change("{'root':{'primitivesList':{'name':{'stringVal' : 'foo'}}}}");
+        assertEquals("foo", primitives.stringVal().value());
+
+        JsonArraysConfiguration arrays = configuration.arraysList().get("name");
+        assertNotNull(arrays);
+
+        // Wrong names:
+        assertThrows(IllegalArgumentException.class, () -> change("{'doot' : {}}"));
+        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'foo' : {}}}"));
+        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList':{'name':{'x' : 1}}}}"));
+
+        // Wrong node types:
+        assertThrows(IllegalArgumentException.class, () -> change("{'root' : 'foo'}"));
+        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList' : 'foo'}}"));
+        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList':{'name' : 'foo'}}}"));
+        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList':{'name':{'intVal' : {}}}}}"));
+
+        // Wrong value types:
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'primitivesList':{'name':{'booleanVal' : 'true'}}}}")
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'primitivesList':{'name':{'intVal' : 12345678900}}}}") // Integer overflow.
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'primitivesList':{'name':{'intVal' : false}}}}")
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'primitivesList':{'name':{'stringVal' : 10}}}}")
+        );
+    }
+
+    /** */
+    private void change(String json) throws Exception {
+        try {
+            registry.change(jsonSource(parseString(json)), null).get(1, SECONDS);
+        }
+        catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+
+            if (cause instanceof Exception)
+                throw (Exception)cause;
+
+            throw e;
+        }
     }
 }
