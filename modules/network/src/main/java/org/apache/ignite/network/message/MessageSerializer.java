@@ -28,7 +28,8 @@ public interface MessageSerializer<M extends NetworkMessage> {
      * Write message to writer.
      * @param message Message.
      * @param writer Message writer.
+     * @return {@code true } if message was completely written.
      * @throws MessageMappingException If failed.
      */
-    void writeMessage(M message, MessageWriter writer) throws MessageMappingException;
+    boolean writeMessage(M message, MessageWriter writer) throws MessageMappingException;
 }

@@ -14,16 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network.message;
 
 /**
- * Message for exchange information in cluster.
+ * MessageMapperProvider creates {@link MessageDeserializer} and {@link MessageSerializer} instances
+ * for working with {@link NetworkMessage} objects.
+ * @param <M> Message type.
  */
-public interface NetworkMessage {
-    static final int DIRECT_TYPE_SIZE = 2;
+public interface MessageSerializerProvider<M extends NetworkMessage> {
+    /**
+     * Create deserializer.
+     * @return Message deserializer.
+     */
+    MessageDeserializer<M> createDeserializer();
 
     /**
-     * @return Message type.
+     * Create serializer.
+     * @return Message serializer.
      */
-    public abstract short directType();
+    MessageSerializer<M> createSerializer();
+
+    /**
+     * @return Message's field count.
+     */
+    byte fieldsCount();
 }

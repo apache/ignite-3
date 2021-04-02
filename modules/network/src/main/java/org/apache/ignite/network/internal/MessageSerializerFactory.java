@@ -15,47 +15,27 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.network.internal;
 
-package org.apache.ignite.network.scalecube;
-
-import java.io.Serializable;
-import java.util.Map;
+import java.util.List;
+import org.apache.ignite.network.message.MessageDeserializer;
+import org.apache.ignite.network.message.MessageSerializer;
+import org.apache.ignite.network.message.MessageSerializerProvider;
 import org.apache.ignite.network.message.NetworkMessage;
 
-/** */
-class TestMessage implements NetworkMessage, Serializable {
-    /** Visible type for tests. */
-    public static final short TYPE = 3;
+public class MessageSerializerFactory {
 
-    /** */
-    private final String msg;
+    private final List<MessageSerializerProvider<NetworkMessage>> messageMappers;
 
-    private final Map<Integer, String> map;
-
-    /** */
-    TestMessage(String msg, Map<Integer, String> map) {
-        this.msg = msg;
-        this.map = map;
+    public MessageSerializerFactory(List<MessageSerializerProvider<NetworkMessage>> mappers) {
+        messageMappers = mappers;
     }
 
-    public String msg() {
-        return msg;
+    public MessageDeserializer<NetworkMessage> createDeserializer(short directType) {
+        return messageMappers.get(directType).createDeserializer();
     }
 
-    public Map<Integer, String> getMap() {
-        return map;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return "TestMessage{" +
-            "msg='" + msg + '\'' +
-            ", map=" + map +
-            '}';
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return TYPE;
+    public MessageSerializer<NetworkMessage> createSerializer(short directType) {
+        return messageMappers.get(directType).createSerializer();
     }
 }

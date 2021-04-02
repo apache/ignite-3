@@ -15,24 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.internal.util;
 
-import java.io.ObjectOutputStream;
-import org.apache.ignite.network.internal.MessageWriter;
+import java.nio.ByteBuffer;
 
-/** */
-@Deprecated
-public class ScaleCubeMessageWriter implements MessageWriter {
-    /** */
-    private final ObjectOutputStream stream;
-
-    /** */
-    public ScaleCubeMessageWriter(ObjectOutputStream stream) {
-        this.stream = stream;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ObjectOutputStream stream() {
-        return stream;
-    }
+/**
+ * Cleaner interface for {@code java.nio.ByteBuffer}.
+ */
+public interface DirectBufferCleaner {
+    /**
+     * Cleans direct buffer.
+     *
+     * @param buf direct buffer.
+     */
+    public void clean(ByteBuffer buf);
 }
+

@@ -17,13 +17,292 @@
 
 package org.apache.ignite.network.internal;
 
-import java.io.ObjectInputStream;
+import java.nio.ByteBuffer;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**
  * Stateful message reader.
  */
 public interface MessageReader {
-    /** Get input stream. Will be replaced with Ignite 2.X message reader interface. */
-    @Deprecated
-    ObjectInputStream stream();
+    /**
+     * Sets but buffer to read from.
+     *
+     * @param buf Byte buffer.
+     */
+    public void setBuffer(ByteBuffer buf);
+
+    /**
+     * Sets type of message currently read.
+     *
+     * @param msgCls Message type.
+     */
+    public void setCurrentReadClass(Class<? extends NetworkMessage> msgCls);
+
+    /**
+     * Callback that must be invoked by a message implementation before message body started decoding.
+     *
+     * @return {@code True} if reading can proceed, {@code false} otherwise.
+     */
+    public boolean beforeMessageRead();
+
+    /**
+     * Callback that must be invoked by a message implementation after message body finished decoding.
+     *
+     * @param msgCls Message class finishing read stage.
+     * @return {@code True} if reading can proceed, {@code false} otherwise.
+     */
+    public boolean afterMessageRead(Class<? extends NetworkMessage> msgCls);
+
+    /**
+     * Reads {@code byte} value.
+     *
+     * @param name Field name.
+     * @return {@code byte} value.
+     */
+    public byte readByte(String name);
+
+    /**
+     * Reads {@code short} value.
+     *
+     * @param name Field name.
+     * @return {@code short} value.
+     */
+    public short readShort(String name);
+
+    /**
+     * Reads {@code int} value.
+     *
+     * @param name Field name.
+     * @return {@code int} value.
+     */
+    public int readInt(String name);
+
+    /**
+     * Reads {@code int} value.
+     *
+     * @param name Field name.
+     * @param dflt Default value if field not found.
+     * @return {@code int} value.
+     */
+    public int readInt(String name, int dflt);
+
+    /**
+     * Reads {@code long} value.
+     *
+     * @param name Field name.
+     * @return {@code long} value.
+     */
+    public long readLong(String name);
+
+    /**
+     * Reads {@code float} value.
+     *
+     * @param name Field name.
+     * @return {@code float} value.
+     */
+    public float readFloat(String name);
+
+    /**
+     * Reads {@code double} value.
+     *
+     * @param name Field name.
+     * @return {@code double} value.
+     */
+    public double readDouble(String name);
+
+    /**
+     * Reads {@code char} value.
+     *
+     * @param name Field name.
+     * @return {@code char} value.
+     */
+    public char readChar(String name);
+
+    /**
+     * Reads {@code boolean} value.
+     *
+     * @param name Field name.
+     * @return {@code boolean} value.
+     */
+    public boolean readBoolean(String name);
+
+    /**
+     * Reads {@code byte} array.
+     *
+     * @param name Field name.
+     * @return {@code byte} array.
+     */
+    public byte[] readByteArray(String name);
+
+    /**
+     * Reads {@code short} array.
+     *
+     * @param name Field name.
+     * @return {@code short} array.
+     */
+    public short[] readShortArray(String name);
+
+    /**
+     * Reads {@code int} array.
+     *
+     * @param name Field name.
+     * @return {@code int} array.
+     */
+    public int[] readIntArray(String name);
+
+    /**
+     * Reads {@code long} array.
+     *
+     * @param name Field name.
+     * @return {@code long} array.
+     */
+    public long[] readLongArray(String name);
+
+    /**
+     * Reads {@code float} array.
+     *
+     * @param name Field name.
+     * @return {@code float} array.
+     */
+    public float[] readFloatArray(String name);
+
+    /**
+     * Reads {@code double} array.
+     *
+     * @param name Field name.
+     * @return {@code double} array.
+     */
+    public double[] readDoubleArray(String name);
+
+    /**
+     * Reads {@code char} array.
+     *
+     * @param name Field name.
+     * @return {@code char} array.
+     */
+    public char[] readCharArray(String name);
+
+    /**
+     * Reads {@code boolean} array.
+     *
+     * @param name Field name.
+     * @return {@code boolean} array.
+     */
+    public boolean[] readBooleanArray(String name);
+
+    /**
+     * Reads {@link String}.
+     *
+     * @param name Field name.
+     * @return {@link String}.
+     */
+    public String readString(String name);
+
+    /**
+     * Reads {@link BitSet}.
+     *
+     * @param name Field name.
+     * @return {@link BitSet}.
+     */
+    public BitSet readBitSet(String name);
+
+    /**
+     * Reads {@link UUID}.
+     *
+     * @param name Field name.
+     * @return {@link UUID}.
+     */
+    public UUID readUuid(String name);
+
+    /**
+     * Reads {@link IgniteUuid}.
+     *
+     * @param name Field name.
+     * @return {@link IgniteUuid}.
+     */
+    public IgniteUuid readIgniteUuid(String name);
+
+    /**
+     * Reads nested message.
+     *
+     * @param name Field name.
+     * @return Message.
+     */
+    public <T extends NetworkMessage> T readMessage(String name);
+
+    /**
+     * Reads array of objects.
+     *
+     * @param name Field name.
+     * @param itemType Array component type.
+     * @param itemCls Array component class.
+     * @return Array of objects.
+     */
+    public <T> T[] readObjectArray(String name, MessageCollectionItemType itemType, Class<T> itemCls);
+
+    /**
+     * Reads collection.
+     *
+     * @param name Field name.
+     * @param itemType Collection item type.
+     * @return Collection.
+     */
+    public <C extends Collection<?>> C readCollection(String name, MessageCollectionItemType itemType);
+
+    /**
+     * Reads map.
+     *
+     * @param name Field name.
+     * @param keyType Map key type.
+     * @param valType Map value type.
+     * @param linked Whether {@link LinkedHashMap} should be created.
+     * @return Map.
+     */
+    public <M extends Map<?, ?>> M readMap(String name, MessageCollectionItemType keyType,
+       MessageCollectionItemType valType, boolean linked);
+
+    /**
+     * Tells whether last invocation of any of {@code readXXX(...)}
+     * methods has fully written the value. {@code False} is returned
+     * if there were not enough remaining bytes in byte buffer.
+     *
+     * @return Whether las value was fully read.
+     */
+    public boolean isLastRead();
+
+    /**
+     * Gets current read state.
+     *
+     * @return Read state.
+     */
+    public int state();
+
+    /**
+     * Increments read state.
+     */
+    public void incrementState();
+
+    /**
+     * Callback called before inner message is read.
+     */
+    public void beforeInnerMessageRead();
+
+    /**
+     * Callback called after inner message is read.
+     *
+     * @param finished Whether message was fully read.
+     */
+    public void afterInnerMessageRead(boolean finished);
+
+    /**
+     * Resets this reader.
+     */
+    public void reset();
 }

@@ -27,8 +27,12 @@ public interface MessageDeserializer<M extends NetworkMessage> {
     /**
      * Read message from reader.
      * @param reader Message reader.
-     * @return Read message.
+     * @return {@code true } if message was completely read.
      * @throws MessageMappingException If failed.
      */
-    M readMessage(MessageReader reader) throws MessageMappingException;
+    boolean readMessage(MessageReader reader) throws MessageMappingException;
+
+    Class<M> klass();
+
+    M getMessage();
 }

@@ -28,12 +28,11 @@ import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkClusterEventHandler;
 import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.message.NetworkMessage;
 
 import static io.scalecube.cluster.transport.api.Message.fromData;
 import static java.time.Duration.ofMillis;
-import static org.apache.ignite.network.scalecube.ScaleCubeMessageCodec.HEADER_MESSAGE_TYPE;
 
 /**
  * Implementation of {@link NetworkCluster} based on ScaleCube.
@@ -128,7 +127,6 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
     private Message fromNetworkMessage(NetworkMessage message) {
         return Message.builder()
             .data(message)
-            .header(HEADER_MESSAGE_TYPE, String.valueOf(message.directType()))
             .build();
     }
 
