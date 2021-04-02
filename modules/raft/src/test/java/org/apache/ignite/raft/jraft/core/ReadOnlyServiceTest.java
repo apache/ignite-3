@@ -149,7 +149,7 @@ public class ReadOnlyServiceTest {
 
     @Test
     public void testAddRequestOnResponseFailure() throws Exception {
-        Mockito.when(this.fsmCaller.getLastAppliedIndex()).thenReturn(2L);
+        Mockito.lenient().when(this.fsmCaller.getLastAppliedIndex()).thenReturn(2L);
 
         final byte[] requestContext = TestUtils.getRandomBytes();
         final CountDownLatch latch = new CountDownLatch(1);
