@@ -511,7 +511,7 @@ public class ConfigurationUtil {
 
     /**
      * Nullifies leaves in {@code newNode} node that are equal to the corresponding leaf values in {@code curNode}.
-     * In this context we view {@code curNode} as full configuration node with all the data, while {@code newNode}
+     * In this context we view {@code curNode} as a full configuration node with all the data, while {@code newNode}
      * contains only updates that we plan to apply to the {@code curNode} in the future.
      * @param curNode Node to look for definitive values.
      * @param newNode Node to nullify matching values.
