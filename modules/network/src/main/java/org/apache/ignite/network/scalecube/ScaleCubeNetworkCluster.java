@@ -95,7 +95,8 @@ public class ScaleCubeNetworkCluster implements NetworkCluster {
 
     @Override public Future<?> send(NetworkMember member, NetworkMessage msg, String corellationId) {
         return cluster.send(memberResolver.resolveMember(member),
-            Message.withData(msg).header(HEADER_MESSAGE_TYPE, String.valueOf(msg.directType())).correlationId(corellationId).build()).toFuture();
+            Message.withData(msg).header(HEADER_MESSAGE_TYPE, String.valueOf(msg.directType())).
+                correlationId(corellationId).build()).toFuture();
     }
 
     /** {@inheritDoc} */
