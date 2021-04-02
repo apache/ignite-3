@@ -27,7 +27,7 @@ public class CounterCommandListener implements RaftGroupCommandListener {
 
             IncrementAndGetCommand cmd0 = (IncrementAndGetCommand) cmdFut.command();
 
-            cmdFut.future().complete(counter.addAndGet(cmd0.delta));
+            cmdFut.future().complete(counter.addAndGet(cmd0.delta()));
         }
     }
 }

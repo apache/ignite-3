@@ -17,12 +17,13 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
 import org.apache.ignite.raft.client.Command;
 
 /**
  * Submit an action to a replication group.
  */
-public interface ActionRequest {
+public interface ActionRequest extends Serializable {
     /**
      * @return Group id.
      */

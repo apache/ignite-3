@@ -17,10 +17,12 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
+
 /**
  * The result of an action.
  */
-public interface ActionResponse<T> {
+public interface ActionResponse<T> extends Serializable {
     /**
      * @return A result for this request, can be of any type.
      */

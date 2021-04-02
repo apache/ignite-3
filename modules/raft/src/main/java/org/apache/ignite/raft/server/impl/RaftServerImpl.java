@@ -85,7 +85,7 @@ public class RaftServerImpl implements RaftServer {
 
                             member.send(sender, resp, msg.corellationId());
                         }
-                        if (req instanceof ActionRequest) {
+                        else if (req instanceof ActionRequest) {
                             ActionRequest req0 = (ActionRequest) req;
 
                             RaftGroupCommandListener lsnr = listeners.get(req0.groupId());
@@ -158,6 +158,8 @@ public class RaftServerImpl implements RaftServer {
                 }
             }
         }, "write-command-worker#" + options.id);
+        writeWorker.setDaemon(true);
+        writeWorker.start();
 
         LOG.info("Started replication server [id=" + options.id + ", localPort=" + options.localPort + ']');
     }
@@ -198,6 +200,7 @@ public class RaftServerImpl implements RaftServer {
             return;
         }
 
+        // TODO cleanup.
         fut0.thenApply(new Function() {
             @Override public Object apply(Object res) {
                 ActionResponse resp = options.msgFactory.actionResponse().result(res).build();

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.jetbrains.annotations.Nullable;
@@ -24,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Raft error response. Also used as a default response when errorCode == {@link RaftErrorCode#SUCCESS}
  */
-public interface RaftErrorResponse {
+public interface RaftErrorResponse extends Serializable {
     /**
      * @return Error code.
      */

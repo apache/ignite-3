@@ -17,13 +17,14 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * Change peers result.
  */
-public interface ChangePeersResponse {
+public interface ChangePeersResponse extends Serializable {
     /**
      * @return Old peers.
      */

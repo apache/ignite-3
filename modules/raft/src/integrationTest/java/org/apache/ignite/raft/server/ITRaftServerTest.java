@@ -53,7 +53,10 @@ class ITRaftServerTest {
     private static final String CLIENT_ID = "testClient";
 
     /** */
-    public static final String COUNTER_GROUP_ID = "counter";
+    public static final String COUNTER_GROUP_ID_0 = "counter0";
+
+    /** */
+    public static final String COUNTER_GROUP_ID_1 = "counter1";
 
     /**
      * @param testInfo Test info.
@@ -63,8 +66,8 @@ class ITRaftServerTest {
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
 
         server = new RaftServerImpl();
-        server.setListener("counter0", new CounterCommandListener());
-        server.setListener("counter1", new CounterCommandListener());
+        server.setListener(COUNTER_GROUP_ID_0, new CounterCommandListener());
+        server.setListener(COUNTER_GROUP_ID_1, new CounterCommandListener());
 
         RaftServerOptions opts = new RaftServerOptions();
 
@@ -82,13 +85,13 @@ class ITRaftServerTest {
 
     @Test
     public void testRefreshLeader() throws Exception {
-        NetworkCluster clientNode = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
+        NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
 
-        Thread.sleep(1000);
+        waitForTopology(client, 2, 1000);
 
-        Peer peer = new Peer(clientNode.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer peer = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
-        RaftGroupService service = new RaftGroupServiceImpl("test", clientNode, FACTORY, 1000, List.of(peer), true, 200, new Timer());
+        RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000, List.of(peer), true, 200, new Timer());
 
         Peer leader = service.leader();
 
@@ -97,23 +100,44 @@ class ITRaftServerTest {
     }
 
     @Test
-    public void testCounterStateMachine() throws Exception {
-        NetworkCluster clientNode = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
+    public void testCounterCommandListener() throws Exception {
+        NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
 
-        Thread.sleep(1000);
+        waitForTopology(client, 2, 1000);
 
-        Peer peer = new Peer(clientNode.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer peer = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
-        RaftGroupService service = new RaftGroupServiceImpl("test", clientNode, FACTORY, 1000, List.of(peer), true, 200, new Timer());
+        Timer timer = new Timer();
+        RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000, List.of(peer), true, 200, timer);
+        RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 1000, List.of(peer), true, 200, timer);
 
-        Peer leader = service.leader();
+        assertNotNull(service0.leader());
+        assertNotNull(service1.leader());
 
-        assertNotNull(leader);
-        assertEquals(peer.getNode().name(), leader.getNode().name());
+        Integer res = service0.<Integer>run(new IncrementAndGetCommand(2)).get();
+
+        assertEquals(2, res);
+
+        Integer cur = service0.<Integer>run(new GetValueCommand()).get();
+
+        assertEquals(2, cur);
     }
 
     private NetworkCluster startClient(String name, int port, List<String> servers) {
         return new NetworkClusterFactory(name, port, servers)
             .startScaleCubeBasedCluster(new ScaleCubeMemberResolver(), new MessageHandlerHolder());
+    }
+
+    private boolean waitForTopology(NetworkCluster cluster, int members, int timeout) throws InterruptedException {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while(System.currentTimeMillis() < stop) {
+            if (cluster.allMembers().size() >= members)
+                return true;
+
+            Thread.sleep(50);
+        }
+
+        return false;
     }
 }

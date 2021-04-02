@@ -17,13 +17,14 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * Remove learners.
  */
-public interface RemoveLearnersRequest {
+public interface RemoveLearnersRequest extends Serializable {
     /**
      * @return Group id.
      */
