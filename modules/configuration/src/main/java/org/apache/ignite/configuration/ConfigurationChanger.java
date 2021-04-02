@@ -67,7 +67,7 @@ public final class ConfigurationChanger {
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
 
     /**
-     * Closure interface to be used by configuration changer. An instance of this closure is passed into constructor and
+     * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and
      * invoked every time when there's an update from any of the storages.
      */
     @FunctionalInterface
