@@ -55,6 +55,24 @@
             <scope>compile</scope>
         </dependency>
 
+        <!--<dependency>-->
+            <!--<groupId>org.apache.ignite</groupId>-->
+            <!--<artifactId>ignite-network</artifactId>-->
+            <!--<version>${project.version}</version>-->
+        <!--</dependency>-->
+
+        <!--<dependency>-->
+            <!--<groupId>org.apache.ignite</groupId>-->
+            <!--<artifactId>ignite-vault</artifactId>-->
+            <!--<version>${project.version}</version>-->
+        <!--</dependency>-->
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- 3rd party dependencies. -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -64,6 +82,19 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
+        </dependency>
+
+        <!-- Test dependencies. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
