@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import io.netty.channel.ChannelFuture;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.rest.RestModule;
 import org.apache.ignite.utils.IgniteProperties;
@@ -98,9 +99,8 @@ public class IgniteRunner {
 
             String str;
 
-            while ((str = confReader.readLine()) != null) {
+            while ((str = confReader.readLine()) != null)
                 bldr.append(str);
-            }
 
             restModule.prepareStart(confModule.configurationRegistry());
 
@@ -111,9 +111,11 @@ public class IgniteRunner {
                 confReader.close();
         }
 
-        restModule.start();
+        ChannelFuture restChFut = restModule.start();
 
         ackSuccessStart();
+
+        restChFut.sync();
     }
 
     /** */
