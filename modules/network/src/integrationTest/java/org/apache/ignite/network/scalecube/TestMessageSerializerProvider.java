@@ -52,6 +52,7 @@ public class TestMessageSerializerProvider implements MessageSerializerProvider<
 
                         reader.incrementState();
 
+                    //noinspection fallthrough
                     case 1:
                         msg = reader.readString("msg");
 
@@ -96,6 +97,7 @@ public class TestMessageSerializerProvider implements MessageSerializerProvider<
 
                     writer.incrementState();
 
+                //noinspection fallthrough
                 case 1:
                     if (!writer.writeString("msg", message.msg()))
                         return false;

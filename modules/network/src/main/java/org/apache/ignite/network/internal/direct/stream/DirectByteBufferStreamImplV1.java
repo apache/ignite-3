@@ -609,6 +609,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 1:
                 writeLong(val.getMostSignificantBits());
 
@@ -617,6 +618,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 2:
                 writeLong(val.getLeastSignificantBits());
 
@@ -638,6 +640,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 1:
                 writeLong(val.globalId().getMostSignificantBits());
 
@@ -646,6 +649,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 2:
                 writeLong(val.globalId().getLeastSignificantBits());
 
@@ -654,6 +658,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 3:
                 writeLong(val.localId());
 
@@ -806,12 +811,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
 
             while (mapIt.hasNext() || mapCur != NULL) {
-                Map.Entry<K, V> e;
-
                 if (mapCur == NULL)
                     mapCur = mapIt.next();
 
-                e = (Map.Entry<K, V>)mapCur;
+                Map.Entry<K, V> e = (Map.Entry<K, V>) mapCur;
 
                 if (!keyDone) {
                     write(keyType, e.getKey(), writer);
@@ -1092,6 +1095,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 1:
                 uuidMost = readLong();
 
@@ -1100,6 +1104,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 2:
                 uuidLeast = readLong();
 
@@ -1128,6 +1133,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 1:
                 uuidMost = readLong();
 
@@ -1136,6 +1142,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 2:
                 uuidLeast = readLong();
 
@@ -1144,6 +1151,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
+            //noinspection fallthrough
             case 3:
                 uuidLocId = readLong();
 
