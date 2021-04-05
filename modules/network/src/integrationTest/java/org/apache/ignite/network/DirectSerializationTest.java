@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.network;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -28,14 +28,19 @@ import org.apache.ignite.network.message.MessageDeserializer;
 import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.MessageSerializerProvider;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.scalecube.TestMessage;
+import org.apache.ignite.network.scalecube.TestMessageSerializerProvider;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Test Direct Message Writing/Reading works. This test won't be needed after we implement Netty Transport for Ignite.
+ */
 public class DirectSerializationTest {
-
+    /** */
     @Test
     public void test() {
         MessageSerializerProvider[] messageMapperProviders = new MessageSerializerProvider[Short.MAX_VALUE << 1];

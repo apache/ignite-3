@@ -23,7 +23,7 @@ import java.util.Map;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /** */
-class TestMessage implements NetworkMessage, Serializable {
+public class TestMessage implements NetworkMessage, Serializable {
     /** Visible type for tests. */
     public static final short TYPE = 3;
 
@@ -33,7 +33,7 @@ class TestMessage implements NetworkMessage, Serializable {
     private final Map<Integer, String> map;
 
     /** */
-    TestMessage(String msg, Map<Integer, String> map) {
+    public TestMessage(String msg, Map<Integer, String> map) {
         this.msg = msg;
         this.map = map;
     }

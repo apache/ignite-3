@@ -23,19 +23,33 @@ import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.MessageSerializerProvider;
 import org.apache.ignite.network.message.NetworkMessage;
 
+/**
+ * Factory that provides message serializers and deserializers by {@link NetworkMessage#directType()}.
+ */
 public class MessageSerializerFactory {
+    /** List of all serializers. Index is the direct type of the message. */
+    private final List<MessageSerializerProvider<NetworkMessage>> serializerProviders;
 
-    private final List<MessageSerializerProvider<NetworkMessage>> messageMappers;
-
+    /** Constructor. */
     public MessageSerializerFactory(List<MessageSerializerProvider<NetworkMessage>> mappers) {
-        messageMappers = mappers;
+        serializerProviders = mappers;
     }
 
+    /**
+     * Create deserializer for message by direct type.
+     * @param directType Message's direct type.
+     * @return Message deserializer.
+     */
     public MessageDeserializer<NetworkMessage> createDeserializer(short directType) {
-        return messageMappers.get(directType).createDeserializer();
+        return serializerProviders.get(directType).createDeserializer();
     }
 
+    /**
+     * Create serializer for message by direct type.
+     * @param directType Message's direct type.
+     * @return Message serializer.
+     */
     public MessageSerializer<NetworkMessage> createSerializer(short directType) {
-        return messageMappers.get(directType).createSerializer();
+        return serializerProviders.get(directType).createSerializer();
     }
 }
