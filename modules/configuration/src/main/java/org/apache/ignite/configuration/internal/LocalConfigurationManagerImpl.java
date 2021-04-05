@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.configuration.internal;
 
-@SuppressWarnings("UnnecessaryInterfaceModifier")
-public interface Ignition {
-    public Ignite start(String jsonStrBootstrapCfg);
+public class LocalConfigurationManagerImpl extends AbstractConfigurationManager {
 }

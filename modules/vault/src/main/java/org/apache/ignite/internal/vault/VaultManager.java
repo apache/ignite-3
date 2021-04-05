@@ -19,4 +19,7 @@ package org.apache.ignite.internal.vault;
 
 public class VaultManager {
 
+    public boolean bootstrapped() {
+        return false;
+    }
 }

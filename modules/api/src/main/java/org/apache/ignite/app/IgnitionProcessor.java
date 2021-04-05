@@ -30,7 +30,7 @@ public enum IgnitionProcessor implements Ignition {
         ignition = loader.iterator().next();
     }
 
-    @Override public synchronized Ignite start() {
-        return ignition.start();
+    @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
+        return ignition.start(jsonStrBootstrapCfg);
     }
 }

@@ -15,9 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.network.configuration;
 
-@SuppressWarnings("UnnecessaryInterfaceModifier")
-public interface Ignition {
-    public Ignite start(String jsonStrBootstrapCfg);
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+
+/**
+ * Test discovery configuration schema.
+ */
+@Config
+public class DiscoveryConfigurationSchema {
+    /** Node failure detection timeout. */
+    @Value(hasDefault = true)
+    public int failureDetectionTimeout = 10_000;
+
+    /** Node join timeout. */
+    @Value(hasDefault = true)
+    public int joinTimeout = 5_000;
 }
