@@ -20,6 +20,7 @@ package org.apache.ignite.network.scalecube;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /** */
@@ -52,6 +53,19 @@ public class TestMessage implements NetworkMessage, Serializable {
             "msg='" + msg + '\'' +
             ", map=" + map +
             '}';
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TestMessage message = (TestMessage) o;
+        return Objects.equals(msg, message.msg) && Objects.equals(map, message.map);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Objects.hash(msg, map);
     }
 
     /** {@inheritDoc} */

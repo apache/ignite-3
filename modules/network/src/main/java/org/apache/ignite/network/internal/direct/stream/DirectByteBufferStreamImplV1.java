@@ -1716,7 +1716,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param type Type.
+     * @param reader Reader.
+     * @return Value.
+     */
     protected Object read(MessageCollectionItemType type, MessageReader reader) {
         switch (type) {
             case BYTE:

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network.internal.direct;
 
-
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network.internal.direct.state;
 
-
 import java.lang.reflect.Array;
 import java.util.function.Supplier;
 
