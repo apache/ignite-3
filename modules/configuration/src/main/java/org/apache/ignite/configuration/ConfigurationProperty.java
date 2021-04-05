@@ -17,12 +17,14 @@
 
 package org.apache.ignite.configuration;
 
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+
 /**
  * Base interface for configuration.
- * @param <VALUE> Type of the value.
+ * @param <VIEW> Type of the value.
  * @param <CHANGE> Type of the object that changes the value of configuration.
  */
-public interface ConfigurationProperty<VALUE, CHANGE> {
+public interface ConfigurationProperty<VIEW, CHANGE> {
     /**
      * Get key of this node.
      * @return Key.
@@ -33,5 +35,11 @@ public interface ConfigurationProperty<VALUE, CHANGE> {
      * Get value of this property.
      * @return Value of this property.
      */
-    VALUE value();
+    VIEW value();
+
+    /**
+     * Add configuration values listener.
+     * @param listener Listener.
+     */
+    void listen(ConfigurationListener<VIEW> listener);
 }

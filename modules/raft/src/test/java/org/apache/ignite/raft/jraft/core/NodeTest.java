@@ -1587,37 +1587,8 @@ public class NodeTest {
         assertTrue(cluster.start(oldLeader.getEndpoint()));
         assertTrue(cluster.ensureSame(-1));
 
-        boolean bad = false;
-
         for (final MockStateMachine fsm : cluster.getFsms()) {
-            if (fsm.getLogs().size() != 30) {
-                bad = true;
-                break;
-            }
-        }
-
-        if (bad) {
-            for (final MockStateMachine fsm : cluster.getFsms()) {
-                LOG.info("DBG: fail " + fsm.getAddress().toString());
-
-                for (ByteBuffer buffer : fsm.getLogs()) {
-                    LOG.info("DBG:    " + new String(buffer.array()));
-                }
-            }
-
-            Thread.sleep(2000);
-
-            LOG.info("DBG: wakeup");
-
-            for (final MockStateMachine fsm : cluster.getFsms()) {
-                LOG.info("DBG: fail " + fsm.getAddress().toString());
-
-                for (ByteBuffer buffer : fsm.getLogs()) {
-                    LOG.info("DBG:    " + new String(buffer.array()));
-                }
-            }
-
-            fail();
+            assertEquals(30, fsm.getLogs().size());
         }
 
         cluster.stopAll();
@@ -3428,31 +3399,77 @@ public class NodeTest {
     public void testClusterWithMessageRecording() throws Exception {
         Set<LocalConnection> conns = new ConcurrentHashSet<>();
 
-        LocalRpcClient.onCreated = conn -> {
-            conns.add(conn);
-            conn.recordMessages(msg -> true);
-        };
+        try {
+            LocalRpcClient.onCreated = conn -> {
+                conns.add(conn);
+                conn.recordMessages(msg -> true);
+            };
 
-        final List<PeerId> peers = TestUtils.generatePeers(3);
-        final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
+            final List<PeerId> peers = TestUtils.generatePeers(3);
+            final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
 
-        for (final PeerId peer : peers) {
-            assertTrue(cluster.start(peer.getEndpoint()));
+            for (final PeerId peer : peers) {
+                assertTrue(cluster.start(peer.getEndpoint()));
+            }
+
+            cluster.waitLeader();
+
+            Thread.sleep(2_000);
+
+            NodeImpl leader = (NodeImpl) cluster.getLeader();
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcService();
+            LocalRpcClient localRpcClient = (LocalRpcClient) rpcService.getRpcClient();
+
+            List<LocalConnection> leaderConns = conns.stream().filter(loc -> loc.client == localRpcClient).collect(Collectors.toList());
+
+            assertEquals(2, leaderConns.size());
+
+            for (LocalConnection conn : leaderConns)
+                assertTrue(!conn.recordedMessages().isEmpty());
+
+            cluster.stopAll();
         }
+        finally {
+            LocalRpcClient.onCreated = null;
+        }
+    }
 
-        cluster.waitLeader();
+    @Test
+    @Ignore
+    public void testBlockedElection() throws Exception {
+        Set<LocalConnection> conns = new ConcurrentHashSet<>();
 
-        Thread.sleep(2_000);
+        try {
+            LocalRpcClient.onCreated = conn -> {
+                conns.add(conn);
+                conn.recordMessages(msg -> true);
+            };
 
-        NodeImpl leader = (NodeImpl) cluster.getLeader();
-        DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcService();
-        LocalRpcClient localRpcClient = (LocalRpcClient) rpcService.getRpcClient();
+            final List<PeerId> peers = TestUtils.generatePeers(3);
+            final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
 
-        List<LocalConnection> leaderConns = conns.stream().filter(loc -> loc.client == localRpcClient).collect(Collectors.toList());
+            for (final PeerId peer : peers) {
+                assertTrue(cluster.start(peer.getEndpoint()));
+            }
 
-        assertEquals(2, leaderConns.size());
+            cluster.waitLeader();
 
-        cluster.stopAll();
+            Thread.sleep(2_000);
+
+            NodeImpl leader = (NodeImpl) cluster.getLeader();
+
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcService();
+            LocalRpcClient localRpcClient = (LocalRpcClient) rpcService.getRpcClient();
+
+            List<LocalConnection> leaderConns = conns.stream().filter(loc -> loc.client == localRpcClient).collect(Collectors.toList());
+
+            assertEquals(2, leaderConns.size());
+
+            cluster.stopAll();
+        }
+        finally {
+            LocalRpcClient.onCreated = null;
+        }
     }
 
     private NodeOptions createNodeOptionsWithSharedTimer() {
