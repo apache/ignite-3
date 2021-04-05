@@ -75,7 +75,7 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public KeyValueBinaryView kvView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaMgr);
+        return new KVBinaryViewImpl(tbl, schemaMgr);
     }
 
     /** {@inheritDoc} */
@@ -205,7 +205,18 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple oldRec, Tuple newRec) {
-        return false;
+        Objects.requireNonNull(oldRec);
+        Objects.requireNonNull(newRec);
+
+        try {
+            final Row oldRow = marshaller().marshal(oldRec);
+            final Row newRow = marshaller().marshal(newRec);
+
+            return tbl.replace(oldRow, newRow).get();
+        }
+        catch (Exception e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */

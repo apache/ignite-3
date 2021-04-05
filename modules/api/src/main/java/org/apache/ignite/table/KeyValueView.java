@@ -130,7 +130,7 @@ public interface KeyValueView<K, V> {
      * @param val Value to be associated with the specified key.
      * @return {@code True} if successful, {@code false} otherwise.
      */
-    boolean putIfAbsent(K key, V val);
+    boolean putIfAbsent(K key, @NotNull V val);
 
     /**
      * Asynchronously puts value associated with given key into the table if not exists.
@@ -164,7 +164,7 @@ public interface KeyValueView<K, V> {
      * @param val Expected value.
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      */
-    boolean remove(K key, V val);
+    boolean remove(K key, @NotNull V val);
 
     /**
      * Asynchronously removes expected value associated with given key from the table.

@@ -127,7 +127,7 @@ public class ByteBufferRow implements BinaryRow {
         final int len = readInteger(off);
 
         try {
-            return buf.position(off).limit(off + len).slice();
+            return buf.limit(off + len).position(off).slice();
         }
         finally {
             buf.position(0); // Reset bounds.
@@ -138,10 +138,10 @@ public class ByteBufferRow implements BinaryRow {
     /** {@inheritDoc} */
     @Override public ByteBuffer valueSlice() {
         int off = KEY_CHUNK_OFFSET + readInteger(KEY_CHUNK_OFFSET);
-        int len = readInteger(off);
+        int len = hasValue() ? readInteger(off) : 0;
 
         try {
-            return buf.position(off).limit(off + len).slice();
+            return buf.limit(off + len).position(off).slice();
         }
         finally {
             buf.position(0); // Reset bounds.

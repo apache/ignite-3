@@ -39,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
  * @implNote Key-value {@link Tuple}s represents marshalled user-objects
  * regarding the binary object concept.
  */
-public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
+public class KVBinaryViewImpl implements KeyValueBinaryView {
     /** Underlying storage. */
     private final InternalTable tbl;
 
@@ -55,7 +55,7 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
      * @param tbl Table storage.
      * @param schemaMgr Schema manager.
      */
-    public KeyValueBinaryViewImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
+    public KVBinaryViewImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
         this.tbl = tbl;
         this.schemaMgr = schemaMgr;
 
@@ -71,6 +71,7 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
             return tbl.get(kRow)  // Load async.
                 .thenApply(this::wrap) // Binary -> schema-aware row
+                .thenApply(t -> t == null ? null : t.valueChunk()) // Narrow to value.
                 .get();
         }
         catch (InterruptedException | ExecutionException e) {
@@ -129,7 +130,19 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndPut(Tuple key, Tuple val) {
-        return null;
+        Objects.requireNonNull(key);
+
+        try {
+            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.getAndUpsert(row)
+                .thenApply(this::wrap) // Binary -> schema-aware row
+                .thenApply(t -> t == null ? null : t.valueChunk()) // Narrow to value.
+                .get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -139,7 +152,17 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean putIfAbsent(Tuple key, Tuple val) {
-        return false;
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
+
+        try {
+            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.insert(row).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -149,7 +172,16 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean remove(Tuple key) {
-        return false;
+        Objects.requireNonNull(key);
+
+        try {
+            Row row = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.delete(row).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -159,7 +191,17 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean remove(Tuple key, Tuple val) {
-        return false;
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
+
+        try {
+            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.deleteExact(row).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -189,7 +231,16 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple key, Tuple val) {
-        return false;
+        Objects.requireNonNull(key);
+
+        try {
+            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.replace(row).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -199,7 +250,17 @@ public class KeyValueBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple key, Tuple oldVal, Tuple newVal) {
-        return false;
+        Objects.requireNonNull(key);
+
+        try {
+            Row oldRow = marshaller().marshal(key, oldVal); // Convert to portable format to pass TX/storage layer.
+            Row newRow = marshaller().marshal(key, newVal); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.replace(oldRow, newRow).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw convertException(e);
+        }
     }
 
     /** {@inheritDoc} */

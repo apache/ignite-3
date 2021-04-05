@@ -65,7 +65,7 @@ class TupleMarshallerImpl implements TupleMarshaller {
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);
 
-                writeColumn(keyTuple, col, rowBuilder);
+                writeColumn(valTuple, col, rowBuilder);
             }
         }
 
@@ -73,19 +73,19 @@ class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /**
-     * @param rec Record tuple.
+     * @param tup Tuple.
      * @param col Column.
      * @param rowAsm Row assembler.
      */
-    private void writeColumn(Tuple rec, Column col, RowAssembler rowAsm) {
-        if (rec.value(col.name()) == null) {
+    private void writeColumn(Tuple tup, Column col, RowAssembler rowAsm) {
+        if (tup.value(col.name()) == null) {
             rowAsm.appendNull();
             return;
         }
 
         switch (col.type().spec()) {
             case LONG: {
-                rowAsm.appendLong(rec.longValue(col.name()));
+                rowAsm.appendLong(tup.longValue(col.name()));
 
                 break;
             }

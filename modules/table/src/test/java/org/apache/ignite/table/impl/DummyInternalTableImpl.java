@@ -81,18 +81,14 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row) {
         assert row != null;
 
-        final KeyWrapper key = extractAndWrapKey(row);
-
-        return CompletableFuture.completedFuture(store.get(key));
+        return CompletableFuture.completedFuture(store.get(extractAndWrapKey(row)));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row) {
         assert row != null;
 
-        final KeyWrapper key = extractAndWrapKey(row);
-
-        store.put(key, row);
+        store.put(extractAndWrapKey(row), row);
 
         return CompletableFuture.completedFuture(null);
     }
@@ -101,9 +97,7 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> getAndUpsert(@NotNull BinaryRow row) {
         assert row != null;
 
-        final KeyWrapper key = extractAndWrapKey(row);
-
-        final BinaryRow old = store.put(key, row);
+        final BinaryRow old = store.put(extractAndWrapKey(row), row);
 
         return CompletableFuture.completedFuture(old);
     }
@@ -113,8 +107,9 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         final KeyWrapper key = extractAndWrapKey(row);
+        final BinaryRow oldVal = store.get(key);
 
-        return CompletableFuture.completedFuture(store.remove(key) != null);
+        return CompletableFuture.completedFuture(oldVal != null && oldVal.hasValue() && store.remove(key, oldVal));
     }
 
     /** {@inheritDoc} */
@@ -158,14 +153,31 @@ public class DummyInternalTableImpl implements InternalTable {
         return CompletableFuture.completedFuture(res);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow row) {
         assert row != null;
 
-        return CompletableFuture.completedFuture(store.replace(extractAndWrapKey(row), row) != null);
+        final KeyWrapper key = extractAndWrapKey(row);
+        final BinaryRow oldRow = store.get(key);
+
+        if (oldRow == null || !oldRow.hasValue())
+            return CompletableFuture.completedFuture(false);
+
+        return CompletableFuture.completedFuture(store.put(key, row) == oldRow);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow) {
-        return null;
+        assert oldRow != null;
+        assert newRow != null;
+
+        final KeyWrapper key = extractAndWrapKey(oldRow);
+        final BinaryRow row = store.get(key);
+
+        if (row == null)
+            return CompletableFuture.completedFuture(!oldRow.hasValue() && store.put(key, newRow) == null);
+
+        return CompletableFuture.completedFuture(equalValues(row, oldRow) && store.put(key, newRow) != null);
     }
 
     @Override public @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow row) {
@@ -176,31 +188,14 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow row) {
         assert row != null;
         assert row.hasValue();
-        
+
         final KeyWrapper key = extractAndWrapKey(row);
         final BinaryRow old = store.get(key);
-        
+
         if (old == null || !old.hasValue())
             return CompletableFuture.completedFuture(false);
 
-        assert row.schemaVersion() == old.schemaVersion() : "Table doesn't support row version upgrade.";
-
-        final ByteBuffer val = row.valueSlice();
-        final ByteBuffer oldVal = old.valueSlice();
-
-
-        if (val.limit() != oldVal.limit())
-            return CompletableFuture.completedFuture(false);
-
-        int i = 0;
-
-        while (i < val.limit() && val.get(i) == oldVal.get(i))
-            i++;
-
-        if (i == val.limit())
-            store.remove(key);
-
-        return CompletableFuture.completedFuture(i == val.limit());
+        return CompletableFuture.completedFuture(equalValues(row, old) && store.remove(key) != null);
     }
 
     @Override public @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow row) {
@@ -224,5 +219,16 @@ public class DummyInternalTableImpl implements InternalTable {
         row.keySlice().get(bytes);
 
         return new KeyWrapper(bytes, row.hash());
+    }
+
+    /**
+     * @param row Row.
+     * @return Extracted key.
+     */
+    @NotNull private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
+        if (row.hasValue() ^ row2.hasValue())
+            return false;
+
+        return row.valueSlice().compareTo(row2.valueSlice()) == 0;
     }
 }

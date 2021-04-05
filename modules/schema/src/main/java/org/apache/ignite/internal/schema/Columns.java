@@ -141,7 +141,7 @@ public class Columns {
     /**
      * @return Sorted columns.
      */
-    Column[] columns() {
+    public Column[] columns() {
         return cols;
     }
 
