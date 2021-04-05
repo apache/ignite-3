@@ -17,17 +17,22 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.raft.jraft.rpc.impl.LocalRpcClient;
-import org.apache.ignite.raft.jraft.rpc.impl.LocalRpcServer;
-import org.apache.ignite.raft.jraft.util.Endpoint;
+import java.util.Queue;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 
-/** */
-public class LocalRpcTest extends AbstractRpcTest {
-    @Override public RpcServer createServer(Endpoint endpoint) {
-        return new LocalRpcServer(endpoint);
-    }
+public interface RpcClientEx extends RpcClient {
+    public static Consumer[] onConnCreated = new Consumer[1];
 
-    @Override public RpcClient createClient() {
-        return new LocalRpcClient();
-    }
+    void blockMessages(BiPredicate<Object, String> predicate);
+
+    void unblockMessages();
+
+    void recordMessages(BiPredicate<Object, String> predicate);
+
+    Queue<Object[]> recordedMessages();
+
+    Queue<Object[]> blockedMessages();
 }
+
+

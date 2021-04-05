@@ -16,11 +16,15 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import java.util.ArrayList;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -29,7 +33,7 @@ import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RpcClient;
+import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.slf4j.Logger;
@@ -40,12 +44,16 @@ import org.slf4j.LoggerFactory;
  *
  * @author ascherbakov.
  */
-public class LocalRpcClient implements RpcClient {
+public class LocalRpcClient implements RpcClientEx {
     private static final Logger LOG                    = LoggerFactory.getLogger(LocalRpcClient.class);
 
     public volatile ReplicatorGroup replicatorGroup = null;
 
-    public static Consumer<LocalConnection> onCreated = null;
+    private volatile BiPredicate<Object, String> recordPred;
+    private volatile BiPredicate<Object, String> blockPred;
+
+    private LinkedBlockingQueue<Object[]> blockedMsgs = new LinkedBlockingQueue<>();
+    private LinkedBlockingQueue<Object[]> recordedMsgs = new LinkedBlockingQueue<>();
 
     @Override public boolean checkConnection(Endpoint endpoint) {
         return LocalRpcServer.connect(this, endpoint, false, null);
@@ -73,8 +81,8 @@ public class LocalRpcClient implements RpcClient {
                 LOG.warn("Failed to parse peer: {}", peer); // TODO asch how to handle ?
         }
 
-        if (onCreated != null)
-            onCreated.accept(conn);
+        if (onConnCreated[0] != null)
+            onConnCreated[0].accept(conn);
     }
 
     @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {
@@ -91,10 +99,20 @@ public class LocalRpcClient implements RpcClient {
 
         CompletableFuture<Object> fut = new CompletableFuture();
 
-        locConn.onBeforeRequestSend((Message) request, fut);
+        // Future hashcode used as corellation id.
+        if (recordPred != null && recordPred.test(request, endpoint.toString()))
+            recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+
+        if (blockPred != null && blockPred.test(request, endpoint.toString()))
+            blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> locConn.send(request, fut)});
+        else
+            locConn.send(request, fut);
 
         try {
-            return fut.whenComplete((res, err) -> locConn.onAfterResponseSend((Message) res, err)).get(timeoutMs, TimeUnit.MILLISECONDS);
+            return fut.whenComplete((res, err) -> {
+                if (err == null && recordPred != null && recordPred.test(res, this.toString()))
+                    recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+            }).get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) {
             throw new RemotingException(e);
         } catch (TimeoutException e) {
@@ -116,18 +134,29 @@ public class LocalRpcClient implements RpcClient {
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
-        locConn.onBeforeRequestSend((Message) request, fut);
+        fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS).
+            whenComplete((res, err) -> {
+                if (err == null && recordPred != null && recordPred.test(res, this.toString()))
+                    recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
-        fut.whenComplete((res, err) -> {
-            try {
-                locConn.onAfterResponseSend((Message) res, err);
-            }
-            catch (Exception e) {
-                LOG.error("Failed to notify the connection", e);
-            }
+                RpcUtils.runInThread(() -> callback.complete(res, err)); // Avoid deadlocks if a closure has completed in the same thread.
+            });
 
-            RpcUtils.runInThread(() -> callback.complete(res, err)); // Avoid deadlocks if a closure has completed in the same thread.
-        }).orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
+        // Future hashcode used as corellation id.
+        if (recordPred != null && recordPred.test(request, endpoint.toString()))
+            recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+
+        if (blockPred != null && blockPred.test(request, endpoint.toString())) {
+            blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
+                @Override public void run() {
+                    locConn.send(request, fut);
+                }
+            }});
+
+            return;
+        }
+        else
+            locConn.send(request, fut);
     }
 
     @Override public boolean init(RpcOptions opts) {
@@ -140,5 +169,31 @@ public class LocalRpcClient implements RpcClient {
             LocalRpcServer.closeConnection(this, value.local);
     }
 
+    @Override public void blockMessages(BiPredicate<Object, String> predicate) {
+        this.blockPred = predicate;
+    }
 
+    @Override public void unblockMessages() {
+        ArrayList<Object[]> msgs = new ArrayList<>();
+
+        blockedMsgs.drainTo(msgs);
+
+        for (Object[] msg : msgs) {
+            Runnable r = (Runnable) msg[4];
+
+            r.run();
+        }
+    }
+
+    @Override public void recordMessages(BiPredicate<Object, String> predicate) {
+        this.recordPred = predicate;
+    }
+
+    @Override public Queue<Object[]> recordedMessages() {
+        return recordedMsgs;
+    }
+
+    @Override public Queue<Object[]> blockedMessages() {
+        return blockedMsgs;
+    }
 }
