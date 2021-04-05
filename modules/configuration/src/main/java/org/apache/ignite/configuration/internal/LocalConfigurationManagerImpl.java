@@ -15,22 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.configuration.internal;
 
-import java.util.ServiceLoader;
-
-public enum IgnitionProcessor implements Ignition {
-    INSTANCE;
-
-    private Ignition ignition;
-
-    IgnitionProcessor() {
-        ServiceLoader<Ignition> loader = ServiceLoader.load(Ignition.class);
-        // TODO sanpwc: add service-implementation-not-found logic.
-        ignition = loader.iterator().next();
-    }
-
-    @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
-        return ignition.start(jsonStrBootstrapCfg);
-    }
+public class LocalConfigurationManagerImpl extends AbstractConfigurationManager {
 }

@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.network.configuration;
 
-import java.util.ServiceLoader;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
-public enum IgnitionProcessor implements Ignition {
-    INSTANCE;
+/**
+ * Test discovery configuration schema.
+ */
+@Config
+public class DiscoveryConfigurationSchema {
+    /** Node failure detection timeout. */
+    @Value(hasDefault = true)
+    public int failureDetectionTimeout = 10_000;
 
-    private Ignition ignition;
-
-    IgnitionProcessor() {
-        ServiceLoader<Ignition> loader = ServiceLoader.load(Ignition.class);
-        // TODO sanpwc: add service-implementation-not-found logic.
-        ignition = loader.iterator().next();
-    }
-
-    @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
-        return ignition.start(jsonStrBootstrapCfg);
-    }
+    /** Node join timeout. */
+    @Value(hasDefault = true)
+    public int joinTimeout = 5_000;
 }
