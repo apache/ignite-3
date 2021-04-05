@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Resolver for scalecube specific member.
  */
-public class ScaleCubeMemberResolver {
+final class ScaleCubeMemberResolver {
     /** Map of public network member by its unique name. */
     private final Map<String, NetworkMember> directMemberMap = new ConcurrentHashMap<>();
 
@@ -39,26 +39,19 @@ public class ScaleCubeMemberResolver {
      * @param member ScaleCube specific member.
      * @return Public network member instance.
      */
-    public NetworkMember resolveNetworkMember(Member member) {
-        String alias = member.alias();
-
-        NetworkMember networkMember = directMemberMap.get(alias);
-
-        if (networkMember != null)
-            return networkMember;
-
-        networkMember = directMemberMap.computeIfAbsent(alias, NetworkMember::new);
-
-        reverseMemberMap.put(networkMember, member);
-
-        return networkMember;
+    NetworkMember resolveNetworkMember(Member member) {
+        return directMemberMap.computeIfAbsent(member.alias(), alias -> {
+            NetworkMember topologyMember = new NetworkMember(alias);
+            reverseMemberMap.put(topologyMember, member);
+            return topologyMember;
+        });
     }
 
     /**
      * @param member Public network member.
      * @return ScaleCube specific member.
      */
-    public Member resolveMember(NetworkMember member) {
+    Member resolveMember(NetworkMember member) {
         return requireNonNull(reverseMemberMap.get(member));
     }
 }

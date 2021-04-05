@@ -17,50 +17,33 @@
 
 package org.apache.ignite.network;
 
-import java.util.Arrays;
-import java.util.Collections;
-import org.apache.ignite.network.message.MessageMapperProvider;
-
 /**
- * Entry point for network module.
+ * Class that represents the network-related resources of a node and provides entry points for working with the
+ * network members of a cluster.
  */
-public class Network {
-    /** Message mapper providers, messageMapperProviders[message type] -> message mapper provider for message with message type. */
-    private final MessageMapperProvider<?>[] messageMapperProviders = new MessageMapperProvider<?>[Short.MAX_VALUE << 1];
-
-    /** Message handlers. */
-    private final MessageHandlerHolder messageHandlerHolder = new MessageHandlerHolder();
-
-    /** Cluster factory. */
-    private final NetworkClusterFactory clusterFactory;
+public interface Network {
+    /**
+     * Returns the {@link TopologyService} for working with the cluster topology.
+     */
+    TopologyService getTopologyService();
 
     /**
-     * Constructor.
-     * @param factory Cluster factory.
+     * Returns the {@link TopologyService} for sending messages to the cluster members.
      */
-    public Network(NetworkClusterFactory factory) {
-        clusterFactory = factory;
-    }
+    MessagingService getMessagingService();
 
     /**
-     * Register message mapper by message type.
-     * @param type Message type.
-     * @param mapperProvider Message mapper provider.
+     * Returns the context associated with the current node.
      */
-    public void registerMessageMapper(short type, MessageMapperProvider mapperProvider) throws NetworkConfigurationException {
-        if (this.messageMapperProviders[type] != null)
-            throw new NetworkConfigurationException("Message mapper for type " + type + " is already defined");
-
-        this.messageMapperProviders[type] = mapperProvider;
-    }
+    NetworkContext getContext();
 
     /**
-     * Start new cluster.
-     * @return Network cluster.
+     * Starts the current node, allowing it to join the cluster and start receiving messages.
      */
-    public NetworkCluster start() {
-        //noinspection Java9CollectionFactory
-        NetworkClusterContext context = new NetworkClusterContext(messageHandlerHolder, Collections.unmodifiableList(Arrays.asList(messageMapperProviders)));
-        return clusterFactory.startCluster(context);
-    }
+    void start();
+
+    /**
+     * Stops the current node, gracefully freeing the encapsulated resources.
+     */
+    void shutdown();
 }

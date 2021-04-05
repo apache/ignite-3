@@ -16,14 +16,10 @@
  */
 package org.apache.ignite.network;
 
-/**
- * Factory for creating {@link NetworkCluster}.
- */
-public interface NetworkClusterFactory {
+/** */
+public interface NetworkFactory {
     /**
-     *
-     * @param clusterContext
-     * @return
+     * Creates a new {@link Network} using the provided context. The created network will not be in the "started" state.
      */
-    NetworkCluster startCluster(NetworkClusterContext clusterContext);
+    Network createNetwork(NetworkContext context);
 }

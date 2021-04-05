@@ -14,25 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.network;
 
-package org.apache.ignite.network.scalecube;
+/**
+ * Interface for handling events related to topology changes.
+ */
+public interface TopologyEventHandler {
+    /**
+     * Called when a new member has been detected joining a cluster.
+     */
+    void onAppeared(NetworkMember member);
 
-import java.io.ObjectInputStream;
-import org.apache.ignite.network.internal.MessageReader;
-
-/** */
-@Deprecated
-class ScaleCubeMessageReader implements MessageReader {
-    /** */
-    private final ObjectInputStream stream;
-
-    /** */
-    ScaleCubeMessageReader(ObjectInputStream stream) {
-        this.stream = stream;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ObjectInputStream stream() {
-        return this.stream;
-    }
+    /**
+     * Indicates that a member has left a cluster. This method is only called when a member leaves permanently (i.e.
+     * it is not possible to re-establish a connection to it).
+     */
+    void onDisappeared(NetworkMember member);
 }

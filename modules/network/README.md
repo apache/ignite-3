@@ -20,4 +20,15 @@ receiving messages across nodes in the cluster. Several delivery guarantee optio
 On top of the described primitives, the networking module provides a higher-level request-response primitive which can
 be thought of as an RPC call, implying a single response for the given request. This primitive requires that the message
 being sent has a unique identifier that can be matched with response on receipt.
-  
+
+## Concepts and interfaces
+
+This module provides the following interfaces and implementations:
+
+1. `Network` interface represents the current node in a cluster, `NetworkImpl` being its default implementation.
+2. `NetworkContext` contains some state of the current node, e.g. its alias and configuration.
+3. `NetworkFactory` is the main way of starting a node.
+4. `TopologyService` provides information about the cluster members and allows registering listeners for topology change 
+   events.
+5. `MessagingService` provides a mechanism for sending messages between network members in both weak and patient mode 
+   and allows registering listeners for events related to cluster member communication.

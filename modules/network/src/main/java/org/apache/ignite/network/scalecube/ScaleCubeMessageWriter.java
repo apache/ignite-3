@@ -22,12 +22,12 @@ import org.apache.ignite.network.internal.MessageWriter;
 
 /** */
 @Deprecated
-public class ScaleCubeMessageWriter implements MessageWriter {
+class ScaleCubeMessageWriter implements MessageWriter {
     /** */
     private final ObjectOutputStream stream;
 
     /** */
-    public ScaleCubeMessageWriter(ObjectOutputStream stream) {
+    ScaleCubeMessageWriter(ObjectOutputStream stream) {
         this.stream = stream;
     }
 

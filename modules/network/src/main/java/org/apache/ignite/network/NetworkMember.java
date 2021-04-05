@@ -20,7 +20,7 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Representation of the network member.
+ * Representation of a network member.
  */
 public class NetworkMember implements Serializable {
     /** Unique name of member in cluster. */

@@ -20,11 +20,12 @@ package org.apache.ignite.raft.server;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
+import org.apache.ignite.network.NetworkContext;
+import org.apache.ignite.network.NetworkFactory;
+import org.apache.ignite.network.message.DefaultMessageMapperProvider;
+import org.apache.ignite.network.message.MessageMapperProviders;
+import org.apache.ignite.network.scalecube.ScaleCubeNetworkFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
@@ -43,13 +44,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** */
 class ITRaftCounterServerTest {
     /** */
-    private static LogWrapper LOG = new LogWrapper(ITRaftCounterServerTest.class);
+    private static final LogWrapper LOG = new LogWrapper(ITRaftCounterServerTest.class);
 
     /** */
-    private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
+    private static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
+
+    /** Network factory. */
+    private static final NetworkFactory NETWORK_FACTORY = new ScaleCubeNetworkFactory();
+
+    /** */
+    private static final MessageMapperProviders MESSAGE_MAPPER_PROVIDERS = new MessageMapperProviders();
+
+    static {
+        var defaultMessageMapperProvider = new DefaultMessageMapperProvider();
+        MESSAGE_MAPPER_PROVIDERS
+            .registerProvider((short)1000, defaultMessageMapperProvider)
+            .registerProvider((short)1001, defaultMessageMapperProvider)
+            .registerProvider((short)1005, defaultMessageMapperProvider)
+            .registerProvider((short)1006, defaultMessageMapperProvider)
+            .registerProvider((short)1009, defaultMessageMapperProvider);
+    }
 
     /** */
     private RaftServer server;
+
+    /** */
+    private Network client;
 
     /** */
     private static final String SERVER_ID = "testServer";
@@ -67,7 +87,7 @@ class ITRaftCounterServerTest {
      * @param testInfo Test info.
      */
     @BeforeEach
-    void before(TestInfo testInfo) throws Exception {
+    void before(TestInfo testInfo) {
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
 
         server = new RaftServerImpl(SERVER_ID,
@@ -75,6 +95,8 @@ class ITRaftCounterServerTest {
             FACTORY,
             1000,
             Map.of(COUNTER_GROUP_ID_0, new CounterCommandListener(), COUNTER_GROUP_ID_1, new CounterCommandListener()));
+
+        client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
     }
 
     /**
@@ -83,18 +105,16 @@ class ITRaftCounterServerTest {
     @AfterEach
     void after() throws Exception {
         server.shutdown();
+        client.shutdown();
     }
 
     /**
-     * @throws Exception
      */
     @Test
-    public void testRefreshLeader() throws Exception {
-        NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
-
+    public void testRefreshLeader() {
         assertTrue(waitForTopology(client, 2, 1000));
 
-        Peer server = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer server = new Peer(client.getTopologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
             List.of(server), true, 200);
@@ -103,8 +123,6 @@ class ITRaftCounterServerTest {
 
         assertNotNull(leader);
         assertEquals(server.getNode().name(), leader.getNode().name());
-
-        client.shutdown();
     }
 
     /**
@@ -112,11 +130,9 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testCounterCommandListener() throws Exception {
-        NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
-
         assertTrue(waitForTopology(client, 2, 1000));
 
-        Peer server = new Peer(client.allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer server = new Peer(client.getTopologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
             List.of(server), true, 200);
@@ -136,8 +152,6 @@ class ITRaftCounterServerTest {
         assertEquals(4, service1.<Integer>run(new GetValueCommand()).get());
         assertEquals(7, service1.<Integer>run(new IncrementAndGetCommand(3)).get());
         assertEquals(7, service1.<Integer>run(new GetValueCommand()).get());
-
-        client.shutdown();
     }
 
     /**
@@ -146,18 +160,11 @@ class ITRaftCounterServerTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private NetworkCluster startClient(String name, int port, List<String> servers) {
-        Network network = new Network(
-            new ScaleCubeNetworkClusterFactory(name, port, servers, new ScaleCubeMemberResolver())
-        );
-
-        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
-
-        return network.start();
+    private Network startClient(String name, int port, List<String> servers) {
+        var context = new NetworkContext(name, port, servers, MESSAGE_MAPPER_PROVIDERS);
+        var network = NETWORK_FACTORY.createNetwork(context);
+        network.start();
+        return network;
     }
 
     /**
@@ -166,11 +173,11 @@ class ITRaftCounterServerTest {
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    private boolean waitForTopology(NetworkCluster cluster, int expected, int timeout) {
+    private boolean waitForTopology(Network cluster, int expected, int timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {
-            if (cluster.allMembers().size() >= expected)
+            if (cluster.getTopologyService().allMembers().size() >= expected)
                 return true;
 
             try {

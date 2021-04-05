@@ -14,23 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 /**
- * Provider of handlers of different cluster events.
+ * Base class for {@link TopologyService} implementations.
  */
-public interface NetworkHandlersProvider {
-    /**
-     * @return Handler for processing the received messages from the cluster.
-     */
-    default NetworkMessageHandler messageHandler() {
-        return null;
+public abstract class AbstractTopologyService implements TopologyService {
+    /** */
+    private final Collection<TopologyEventHandler> eventHandlers = new CopyOnWriteArrayList<>();
+
+    /** {@inheritDoc} */
+    @Override public void addEventHandler(TopologyEventHandler handler) {
+        eventHandlers.add(handler);
     }
 
     /**
-     * @return Handler for processing the different cluster events.
+     * @return registered event handlers.
      */
-    default NetworkClusterEventHandler clusterEventHandler() {
-        return null;
+    public Collection<TopologyEventHandler> getEventHandlers() {
+        return Collections.unmodifiableCollection(eventHandlers);
     }
 }

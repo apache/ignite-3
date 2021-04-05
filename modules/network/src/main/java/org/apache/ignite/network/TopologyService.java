@@ -16,22 +16,25 @@
  */
 package org.apache.ignite.network;
 
+import java.util.Collection;
+
 /**
- * Interface for handling events related to cluster changes.
+ * Entry point for obtaining information about a cluster's topology.
  */
-public interface NetworkClusterEventHandler {
+public interface TopologyService {
     /**
-     * Event which happened when one new member was detected in cluster.
-     *
-     * @param member New network member.
+     * @return Information about the local network member.
      */
-    void onAppeared(NetworkMember member);
+    NetworkMember localMember();
 
     /**
-     * Event which happened when one member leave the cluster. It means the member leaves the cluster permanently. If
-     * the connection lost but it is possible to reestablish it, nothing happens here.
-     *
-     * @param member The network member which leaves the cluster.
+     * @return Information about all members which have discovered by the local member (including the local member
+     * itself).
      */
-    void onDisappeared(NetworkMember member);
+    Collection<NetworkMember> allMembers();
+
+    /**
+     * Registers a handler for topology change events.
+     */
+    void addEventHandler(TopologyEventHandler handler);
 }

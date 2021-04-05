@@ -14,46 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.network;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Encapsulation of all cluster handlers for centralized management.
+ * Base class for {@link MessagingService} implementations.
  */
-public class MessageHandlerHolder {
-    /** Handler for processing incoming messages. */
+public abstract class AbstractMessagingService implements MessagingService {
+    /** */
     private final Collection<NetworkMessageHandler> messageHandlers = new CopyOnWriteArrayList<>();
 
-    /** Handler for processing all cluster events. */
-    private final Collection<NetworkClusterEventHandler> clusterEventHandlers = new CopyOnWriteArrayList<>();
-
-    /**
-     * @param handler Handler for processing incoming messages.
-     */
-    public void addmessageHandlers(NetworkMessageHandler handler) {
+    /** {@inheritDoc} */
+    @Override public void addMessageHandler(NetworkMessageHandler handler) {
         messageHandlers.add(handler);
     }
 
     /**
-     * @param handler Handler for processing all cluster events.
+     * @return registered message handlers.
      */
-    public void addClusterEventHandlers(NetworkClusterEventHandler handler) {
-        clusterEventHandlers.add(handler);
-    }
-
-    /**
-     * @return All handlers for processing incoming messages.
-     */
-    public Collection<NetworkMessageHandler> messageHandlers() {
-        return messageHandlers;
-    }
-
-    /**
-     * @return All handler for processing all cluster events.
-     */
-    public Collection<NetworkClusterEventHandler> clusterEventHandlers() {
-        return clusterEventHandlers;
+    public Collection<NetworkMessageHandler> getMessageHandlers() {
+        return Collections.unmodifiableCollection(messageHandlers);
     }
 }
