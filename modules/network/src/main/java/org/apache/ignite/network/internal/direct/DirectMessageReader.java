@@ -41,9 +41,6 @@ public class DirectMessageReader implements MessageReader {
     /** State. */
     private final DirectMessageState<StateItem> state;
 
-    /** Protocol version. */
-    private final byte protoVer;
-
     /** Whether last field was fully read. */
     private boolean lastRead;
 
@@ -57,8 +54,6 @@ public class DirectMessageReader implements MessageReader {
                 return new StateItem(msgFactory, protoVer);
             }
         });
-
-        this.protoVer = protoVer;
     }
 
     /** {@inheritDoc} */

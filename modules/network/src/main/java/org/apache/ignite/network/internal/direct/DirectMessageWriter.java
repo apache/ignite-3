@@ -37,9 +37,6 @@ public class DirectMessageWriter implements MessageWriter {
     /** State. */
     private final DirectMessageState<StateItem> state;
 
-    /** Protocol version. */
-    private final byte protoVer;
-
     /**
      * @param protoVer Protocol version.
      */
@@ -49,8 +46,6 @@ public class DirectMessageWriter implements MessageWriter {
                 return new StateItem(protoVer);
             }
         });
-
-        this.protoVer = protoVer;
     }
 
     /** {@inheritDoc} */
