@@ -123,7 +123,7 @@ public class LocalRpcClient implements RpcClient {
                 locConn.onAfterResponseSend((Message) res, err);
             }
             catch (Exception e) {
-                e.printStackTrace(); // TODO logger.
+                LOG.error("Failed to notify the connection", e);
             }
 
             RpcUtils.runInThread(() -> callback.complete(res, err)); // Avoid deadlocks if a closure has completed in the same thread.
