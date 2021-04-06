@@ -71,9 +71,9 @@ class ITScaleCubeNetworkMessagingTest {
 
         CountDownLatch latch = new CountDownLatch(3);
 
-        Network alice = startMember("Alice", 3344, addresses);
-        Network bob = startMember("Bob", 3345, addresses);
-        Network carol = startMember("Carol", 3346, addresses);
+        Network alice = startNetwork("Alice", 3344, addresses);
+        Network bob = startNetwork("Bob", 3345, addresses);
+        Network carol = startNetwork("Carol", 3346, addresses);
 
         NetworkMessageHandler messageWaiter = (message, sender, correlationId) -> latch.countDown();
 
@@ -104,10 +104,8 @@ class ITScaleCubeNetworkMessagingTest {
         return messageStorage.get(network.getContext().getName());
     }
 
-    /**
-     * @return Started member.
-     */
-    private Network startMember(String name, int port, List<String> addresses) {
+    /** */
+    private Network startNetwork(String name, int port, List<String> addresses) {
         var context = new NetworkContext(name, port, addresses, TEST_MESSAGE_MAPPER_PROVIDERS);
 
         Network network = NETWORK_FACTORY.createNetwork(context);
