@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.function.BiPredicate;
-import java.util.function.Predicate;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -41,14 +40,10 @@ import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.rpc.Connection;
-import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
-import org.apache.ignite.raft.jraft.rpc.impl.LocalConnection;
-import org.apache.ignite.raft.jraft.rpc.impl.LocalRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -56,7 +51,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -74,7 +68,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -488,7 +481,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO FIXME asch broken.
     public void testVoteTimedoutStepDown() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1582,7 +1575,7 @@ public class NodeTest {
             NodeImpl follower0 = (NodeImpl) follower;
             DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-            rpcClientEx.unblockMessages();
+            rpcClientEx.stopBlock();
         }
 
         // elect new leader
@@ -3427,43 +3420,65 @@ public class NodeTest {
         }
     }
 
-//    @Test
-//    @Ignore
-//    public void testBlockedElection() throws Exception {
-//        Set<Connection> conns = new ConcurrentHashSet<>();
-//
-//        try {
-//            RpcClientEx.onConnCreated = conn -> {
-//                conns.add(conn);
-//                ((RpcClientEx)conn).recordMessages(msg -> true);
-//            };
-//
-//            final List<PeerId> peers = TestUtils.generatePeers(3);
-//            final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
-//
-//            for (final PeerId peer : peers) {
-//                assertTrue(cluster.start(peer.getEndpoint()));
-//            }
-//
-//            cluster.waitLeader();
-//
-//            Thread.sleep(2_000);
-//
-//            NodeImpl leader = (NodeImpl) cluster.getLeader();
-//
-//            DefaultRaftClientService rpcService = (DefaultRaftClientService) leader.getRpcService();
-//            LocalRpcClient localRpcClient = (LocalRpcClient) rpcService.getRpcClient();
-//
-//            List<LocalConnection> leaderConns = conns.stream().filter(loc -> loc.client == localRpcClient).collect(Collectors.toList());
-//
-//            assertEquals(2, leaderConns.size());
-//
-//            cluster.stopAll();
-//        }
-//        finally {
-//            RpcClientEx.onConnCreated = null;
-//        }
-//    }
+    @Test
+    @Ignore
+    public void testBlockedElection() throws Exception {
+        final List<PeerId> peers = TestUtils.generatePeers(3);
+        final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
+
+        for (final PeerId peer : peers) {
+            assertTrue(cluster.start(peer.getEndpoint()));
+        }
+
+        cluster.waitLeader();
+
+        Node leader = cluster.getLeader();
+
+        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), ((NodeImpl)leader).getOptions().getElectionTimeoutMs());
+
+        List<Node> followers = cluster.getFollowers();
+
+        for (Node follower : followers) {
+            NodeImpl follower0 = (NodeImpl) follower;
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcService();
+            RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
+            rpcClientEx.blockMessages(new BiPredicate<Object, String>() {
+                @Override public boolean test(Object msg, String nodeId) {
+                    if (msg instanceof RpcRequests.RequestVoteRequest) {
+                        RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest) msg;
+
+                        return !msg0.getPreVote();
+                    }
+
+                    return false;
+                }
+            });
+        }
+
+        LOG.warn("Stop leader {}, curTerm={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getCurrentTerm());
+
+        assertTrue(cluster.stop(leader.getNodeId().getPeerId().getEndpoint()));
+
+        assertNull(cluster.getLeader());
+
+        Thread.sleep(5000);
+
+        assertNull(cluster.getLeader());
+
+        for (Node follower : followers) {
+            NodeImpl follower0 = (NodeImpl) follower;
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcService();
+            RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
+            rpcClientEx.stopBlock();
+        }
+
+        // elect new leader
+        cluster.waitLeader();
+        leader = cluster.getLeader();
+        LOG.info("Elect new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
+
+        cluster.stopAll();
+    }
 
     private NodeOptions createNodeOptionsWithSharedTimer() {
         final NodeOptions options = new NodeOptions();

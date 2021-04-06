@@ -3,7 +3,6 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.error.RemotingException;
-import org.apache.ignite.raft.jraft.rpc.impl.LocalConnection;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
@@ -12,7 +11,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -237,7 +235,7 @@ public abstract class AbstractRpcTest {
 
         assertFalse(resp.isDone());
 
-        client1.unblockMessages();
+        client1.stopBlock();
 
         resp.get(5_000, TimeUnit.MILLISECONDS);
     }
@@ -269,7 +267,7 @@ public abstract class AbstractRpcTest {
 
         assertFalse(resp.isDone());
 
-        client1.unblockMessages();
+        client1.stopBlock();
 
         resp.get(5_000, TimeUnit.MILLISECONDS);
     }

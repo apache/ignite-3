@@ -24,7 +24,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
-import java.util.function.Predicate;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -32,7 +31,6 @@ import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
-import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
@@ -50,7 +48,7 @@ public class LocalRpcClient implements RpcClientEx {
     public volatile ReplicatorGroup replicatorGroup = null;
 
     private volatile BiPredicate<Object, String> recordPred;
-    private volatile BiPredicate<Object, String> blockPred;
+    private BiPredicate<Object, String> blockPred;
 
     private LinkedBlockingQueue<Object[]> blockedMsgs = new LinkedBlockingQueue<>();
     private LinkedBlockingQueue<Object[]> recordedMsgs = new LinkedBlockingQueue<>();
@@ -103,9 +101,16 @@ public class LocalRpcClient implements RpcClientEx {
         if (recordPred != null && recordPred.test(request, endpoint.toString()))
             recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
-        if (blockPred != null && blockPred.test(request, endpoint.toString()))
-            blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> locConn.send(request, fut)});
-        else
+        boolean wasBlocked;
+
+        synchronized (this) {
+            wasBlocked = blockPred != null && blockPred.test(request, endpoint.toString());
+
+            if (wasBlocked)
+                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> locConn.send(request, fut)});
+        }
+
+        if (!wasBlocked)
             locConn.send(request, fut);
 
         try {
@@ -116,7 +121,7 @@ public class LocalRpcClient implements RpcClientEx {
         } catch (ExecutionException e) {
             throw new RemotingException(e);
         } catch (TimeoutException e) {
-            throw new InvokeTimeoutException(e);
+            throw new InvokeTimeoutException();
         }
     }
 
@@ -139,24 +144,33 @@ public class LocalRpcClient implements RpcClientEx {
                 if (err == null && recordPred != null && recordPred.test(res, this.toString()))
                     recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
-                RpcUtils.runInThread(() -> callback.complete(res, err)); // Avoid deadlocks if a closure has completed in the same thread.
+                if (err instanceof ExecutionException)
+                    err = new RemotingException(err);
+                else if (err instanceof TimeoutException) // Translate timeout exception.
+                    err = new InvokeTimeoutException();
+
+                Throwable finalErr = err;
+
+                RpcUtils.runInThread(() -> callback.complete(res, finalErr)); // Avoid deadlocks if a closure has completed in the same thread.
             });
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, endpoint.toString()))
             recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
-        if (blockPred != null && blockPred.test(request, endpoint.toString())) {
-            blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
-                @Override public void run() {
-                    locConn.send(request, fut);
-                }
-            }});
+        synchronized (this) {
+            if (blockPred != null && blockPred.test(request, endpoint.toString())) {
+                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
+                    @Override public void run() {
+                        locConn.send(request, fut);
+                    }
+                }});
 
-            return;
+                return;
+            }
         }
-        else
-            locConn.send(request, fut);
+
+        locConn.send(request, fut);
     }
 
     @Override public boolean init(RpcOptions opts) {
@@ -173,10 +187,15 @@ public class LocalRpcClient implements RpcClientEx {
         this.blockPred = predicate;
     }
 
-    @Override public void unblockMessages() {
+    @Override public void stopBlock() {
         ArrayList<Object[]> msgs = new ArrayList<>();
 
-        blockedMsgs.drainTo(msgs);
+        synchronized (this) {
+            blockedMsgs.drainTo(msgs);
+
+
+            blockPred = null;
+        }
 
         for (Object[] msg : msgs) {
             Runnable r = (Runnable) msg[4];
@@ -187,6 +206,10 @@ public class LocalRpcClient implements RpcClientEx {
 
     @Override public void recordMessages(BiPredicate<Object, String> predicate) {
         this.recordPred = predicate;
+    }
+
+    @Override public void stopRecord() {
+        this.recordPred = null;
     }
 
     @Override public Queue<Object[]> recordedMessages() {
