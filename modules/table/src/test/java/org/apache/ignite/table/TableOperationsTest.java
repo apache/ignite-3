@@ -33,9 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Basic table operations test.
  * <p>
- * TODO: Add bulk operations tests.
- * TODO: Add async operations tests.
- * TODO: Refactor, to check different schema configurations (varlen fields, composite keys, binary fields and etc).
+ * TODO: Add tests for invoke operations.
+ * TODO: Add tests for bulk operations.
+ * TODO: Add tests for async operations.
  */
 public class TableOperationsTest {
     /**
@@ -160,20 +160,13 @@ public class TableOperationsTest {
 
         // Delete not existed tuple.
         assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).build()));
-        // TODO: check no tombstone exists.
 
         // Delete existed tuple.
         assertTrue(tbl.delete(tuple));
         assertNull(tbl.get(tuple));
-        // TODO: check tombstone exists.
 
         // Delete already deleted tuple.
         assertFalse(tbl.delete(tuple));
-        // TODO: check tombstone still exists.
-
-        // Check non-existed
-        assertNull(tbl.get(tbl.tupleBuilder().set("id", 2L).set("val", 22L).build()));
-        // TODO: check no tombstone created.
     }
 
     /**
@@ -194,15 +187,13 @@ public class TableOperationsTest {
         final Tuple tuple2 = tbl.tupleBuilder().set("id", 1L).set("val", 22L).build();
         final Tuple nonExistedTuple = tbl.tupleBuilder().set("id", 2L).set("val", 22L).build();
 
-        tbl.upsert(tuple);
+        tbl.insert(tuple);
 
         assertEqualsRows(schema, tuple, tbl.get(keyTuple));
-        // TODO: check no tombstone exists.
 
         // Fails to delete not existed tuple.
         assertFalse(tbl.deleteExact(nonExistedTuple));
         assertEqualsRows(schema, tuple, tbl.get(keyTuple));
-        // TODO: check no tombstone created.
 
         // Fails to delete tuple with unexpected value.
         assertFalse(tbl.deleteExact(tuple2));
@@ -215,21 +206,18 @@ public class TableOperationsTest {
         // Delete tuple with expected value.
         assertTrue(tbl.deleteExact(tuple));
         assertNull(tbl.get(keyTuple));
-        // TODO: check tombstone exists.
 
         // Once again.
         assertFalse(tbl.deleteExact(tuple));
         assertNull(tbl.get(keyTuple));
-        // TODO: check tombstone still exists.
 
-        // Overwrite tombstone.
+        // Insert new.
         tbl.insert(tuple2);
         assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
 
         // Delete tuple with expected value.
         assertTrue(tbl.deleteExact(tuple2));
         assertNull(tbl.get(keyTuple));
-        // TODO: check tombstone exists.
     }
 
     /**

@@ -77,9 +77,8 @@ public class KVViewOperationsTest {
         tbl.put(key, null);
 
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
-        // Overwrite tombstone.
+        // Put KV pair.
         tbl.put(key, val3);
         assertEqualsValues(schema, val3, tbl.get(key));
     }
@@ -168,31 +167,28 @@ public class KVViewOperationsTest {
         final Tuple val = tbl.tupleBuilder().set("val", 11L).build();
         final Tuple val2 = tbl.tupleBuilder().set("val", 22L).build();
 
+        // Put KV pair.
         tbl.put(key, val);
 
-        // Delete existed tuple.
+        // Delete existed key.
         assertEqualsValues(schema, val, tbl.get(key));
         assertTrue(tbl.remove(key));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
-        // Delete already deleted tuple.
+        // Delete already deleted key.
         assertFalse(tbl.remove(key));
-        // TODO: check tombstone still exists.
 
-        // Overwrite tombstone.
+        // Put KV pair.
         tbl.put(key, val2);
         assertEqualsValues(schema, val2, tbl.get(key));
 
-        // Delete existed tuple.
+        // Delete existed key.
         assertTrue(tbl.remove(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
-        // Delete not existed tuple.
+        // Delete not existed key.
         assertNull(tbl.get(key2));
         assertFalse(tbl.remove(key2));
-        // TODO: check no tombstone was created.
     }
 
     /**
@@ -213,6 +209,7 @@ public class KVViewOperationsTest {
         final Tuple val = tbl.tupleBuilder().set("val", 11L).build();
         final Tuple val2 = tbl.tupleBuilder().set("val", 22L).build();
 
+        // Put KV pair.
         tbl.put(key, val);
         assertEqualsValues(schema, val, tbl.get(key));
 
@@ -223,19 +220,16 @@ public class KVViewOperationsTest {
         // Delete KV pair with expected value.
         assertTrue(tbl.remove(key, val));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
         // Once again.
         assertFalse(tbl.remove(key, val));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
-        // Try to remove tombstone.
+        // Try to remove non-existed key.
         assertThrows(NullPointerException.class, () -> tbl.remove(key, null));
         assertNull(tbl.get(key));
-        // TODO: check tombstone still exists.
 
-        // Overwrite tombstone.
+        // Put KV pair.
         tbl.put(key, val2);
         assertEqualsValues(schema, val2, tbl.get(key));
 
@@ -246,14 +240,10 @@ public class KVViewOperationsTest {
         // Delete KV pair with expected value.
         assertTrue(tbl.remove(key, val2));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
         assertThrows(NullPointerException.class, () -> tbl.remove(key2, null));
-        // TODO: check no tombstone was created.
 
         assertFalse(tbl.remove(key2, val2));
-        // TODO: check no tombstone was created.
-
         assertNull(tbl.get(key2));
     }
 
@@ -279,7 +269,6 @@ public class KVViewOperationsTest {
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(key, val));
         assertNull(tbl.get(key));
-        // TODO: check no tombstone existed.
 
         tbl.put(key, val);
 
@@ -290,12 +279,10 @@ public class KVViewOperationsTest {
         // Remove existed KV pair.
         assertTrue(tbl.replace(key, null));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
-        // Try to overwrite tombstone.
+        // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(key, val3));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
         tbl.put(key, val3);
         assertEqualsValues(schema, val3, tbl.get(key));
@@ -303,9 +290,6 @@ public class KVViewOperationsTest {
         // Remove non-existed KV pair.
         assertFalse(tbl.replace(key2, null));
         assertNull(tbl.get(key2));
-        // TODO: check no tombstone existed.
-
-
     }
 
     /**
@@ -327,7 +311,7 @@ public class KVViewOperationsTest {
         final Tuple val2 = tbl.tupleBuilder().set("val", 22L).build();
         final Tuple val3 = tbl.tupleBuilder().set("val", 33L).build();
 
-        // Insert row.
+        // Insert KV pair.
         assertTrue(tbl.replace(key, null, val));
         assertEqualsValues(schema, val, tbl.get(key));
         assertNull(tbl.get(key2));
@@ -335,7 +319,6 @@ public class KVViewOperationsTest {
         // Ignore replace operation for non-existed KV pair.
         assertFalse(tbl.replace(key2, val, val2));
         assertNull(tbl.get(key2));
-        // TODO: check no tombstone existed.
 
         // Replace existed KV pair.
         assertTrue(tbl.replace(key, val, val2));
@@ -344,16 +327,13 @@ public class KVViewOperationsTest {
         // Remove existed KV pair.
         assertTrue(tbl.replace(key, val2, null));
         assertNull(tbl.get(key));
-        // TODO: check tombstone exists.
 
-        // Overwrite tombstone.
+        // Insert KV pair.
         assertTrue(tbl.replace(key, null, val3));
         assertEqualsValues(schema, val3, tbl.get(key));
-        // TODO: check tombstone exists.
 
         // Remove non-existed KV pair.
         assertTrue(tbl.replace(key2, null, null));
-        // TODO: check no tombstone existed.
     }
 
     /**
