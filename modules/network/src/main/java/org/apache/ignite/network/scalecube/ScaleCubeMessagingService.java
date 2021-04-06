@@ -27,7 +27,7 @@ import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
 import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 
@@ -51,7 +51,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      * Utility map for recognizing member for its address (ScaleCube doesn't provide such information in input
      * message).
      */
-    private final Map<Address, NetworkMember> addressMemberMap = new ConcurrentHashMap<>();
+    private final Map<Address, ClusterNode> addressMemberMap = new ConcurrentHashMap<>();
 
     /**
      *
@@ -72,7 +72,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      */
     void fireEvent(Message message) {
         NetworkMessage msg = message.data();
-        NetworkMember sender = memberForAddress(message.sender());
+        ClusterNode sender = memberForAddress(message.sender());
         String correlationId = message.correlationId();
         for (NetworkMessageHandler handler : getMessageHandlers())
             handler.onReceived(msg, sender, correlationId);
@@ -81,7 +81,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     /**
      * {@inheritDoc}
      */
-    @Override public void weakSend(NetworkMember recipient, NetworkMessage msg) {
+    @Override public void weakSend(ClusterNode recipient, NetworkMessage msg) {
         cluster
             .send(memberResolver.resolveMember(recipient), fromNetworkMessage(msg).build())
             .subscribe();
@@ -90,7 +90,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     /**
      * {@inheritDoc}
      */
-    @Override public CompletableFuture<Void> send(NetworkMember recipient, NetworkMessage msg) {
+    @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
         return cluster
             .send(memberResolver.resolveMember(recipient), fromNetworkMessage(msg).build())
             .toFuture();
@@ -99,7 +99,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     /**
      * {@inheritDoc}
      */
-    @Override public CompletableFuture<Void> send(NetworkMember recipient, NetworkMessage msg, String correlationId) {
+    @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg, String correlationId) {
         var message = fromNetworkMessage(msg)
             .correlationId(correlationId)
             .build();
@@ -111,7 +111,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     /**
      * {@inheritDoc}
      */
-    @Override public CompletableFuture<NetworkMessage> invoke(NetworkMember member, NetworkMessage msg, long timeout) {
+    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode member, NetworkMessage msg, long timeout) {
         var message = fromNetworkMessage(msg)
             .correlationId(UUID.randomUUID().toString())
             .build();
@@ -126,7 +126,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      * @param address Inet address.
      * @return Network member corresponded to input address.
      */
-    private NetworkMember memberForAddress(Address address) {
+    private ClusterNode memberForAddress(Address address) {
         return addressMemberMap.computeIfAbsent(
             address,
             addr -> cluster.members()

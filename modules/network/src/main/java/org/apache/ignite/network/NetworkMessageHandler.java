@@ -27,5 +27,5 @@ public interface NetworkMessageHandler {
      * @param sender Sender.
      * @param correlationId Correlation id.
      */
-    void onReceived(NetworkMessage message, NetworkMember sender, String correlationId);
+    void onReceived(NetworkMessage message, ClusterNode sender, String correlationId);
 }

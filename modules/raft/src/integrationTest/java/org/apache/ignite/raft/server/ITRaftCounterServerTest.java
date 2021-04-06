@@ -20,12 +20,12 @@ package org.apache.ignite.raft.server;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkContext;
-import org.apache.ignite.network.NetworkFactory;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.message.MessageMapperProviders;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkFactory;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
@@ -50,7 +50,7 @@ class ITRaftCounterServerTest {
     private static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Network factory. */
-    private static final NetworkFactory NETWORK_FACTORY = new ScaleCubeNetworkFactory();
+    private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
     /** */
     private static final MessageMapperProviders MESSAGE_MAPPER_PROVIDERS = new MessageMapperProviders();
@@ -69,7 +69,7 @@ class ITRaftCounterServerTest {
     private RaftServer server;
 
     /** */
-    private Network client;
+    private ClusterService client;
 
     /** */
     private static final String SERVER_ID = "testServer";
@@ -160,9 +160,9 @@ class ITRaftCounterServerTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private Network startClient(String name, int port, List<String> servers) {
-        var context = new NetworkContext(name, port, servers, MESSAGE_MAPPER_PROVIDERS);
-        var network = NETWORK_FACTORY.createNetwork(context);
+    private ClusterService startClient(String name, int port, List<String> servers) {
+        var context = new ClusterLocalConfiguration(name, port, servers, MESSAGE_MAPPER_PROVIDERS);
+        var network = NETWORK_FACTORY.createClusterService(context);
         network.start();
         return network;
     }
@@ -173,7 +173,7 @@ class ITRaftCounterServerTest {
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    private boolean waitForTopology(Network cluster, int expected, int timeout) {
+    private boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {

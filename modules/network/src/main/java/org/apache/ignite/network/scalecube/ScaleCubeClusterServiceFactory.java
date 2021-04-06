@@ -24,18 +24,18 @@ import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
-import org.apache.ignite.network.Network;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkConfigurationException;
-import org.apache.ignite.network.NetworkContext;
-import org.apache.ignite.network.NetworkFactory;
-import org.apache.ignite.network.NetworkImpl;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.ClusterServiceImpl;
 
 /**
- * {@link NetworkFactory} implementation that uses ScaleCube for messaging and topology services.
+ * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
  */
-public class ScaleCubeNetworkFactory implements NetworkFactory {
+public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
-    @Override public Network createNetwork(NetworkContext context) {
+    @Override public ClusterService createClusterService(ClusterLocalConfiguration context) {
         var memberResolver = new ScaleCubeMemberResolver();
         var topologyService = new ScaleCubeTopologyService(memberResolver);
         var messagingService = new ScaleCubeMessagingService(memberResolver);
@@ -60,7 +60,7 @@ public class ScaleCubeNetworkFactory implements NetworkFactory {
         topologyService.setCluster(cluster);
         messagingService.setCluster(cluster);
 
-        return new NetworkImpl(context, topologyService, messagingService) {
+        return new ClusterServiceImpl(context, topologyService, messagingService) {
             @Override public void start() {
                 cluster.startAwait();
             }

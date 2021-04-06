@@ -25,8 +25,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -80,7 +80,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private volatile List<Peer> learners;
 
     /** */
-    private final Network cluster;
+    private final ClusterService cluster;
 
     /** */
     private final long retryDelay;
@@ -100,7 +100,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      */
     public RaftGroupServiceImpl(
         String groupId,
-        Network cluster,
+        ClusterService cluster,
         RaftClientMessageFactory factory,
         int timeout,
         List<Peer> peers,
@@ -304,7 +304,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return fut.thenApply(resp -> ((ActionResponse<R>) resp).result());
     }
 
-    private <R> CompletableFuture<R> sendWithRetry(NetworkMember node, NetworkMessage req, long stopTime) {
+    private <R> CompletableFuture<R> sendWithRetry(ClusterNode node, NetworkMessage req, long stopTime) {
         if (currentTimeMillis() >= stopTime)
             return CompletableFuture.failedFuture(new TimeoutException());
         return cluster.getMessagingService().invoke(node, req, timeout)
@@ -343,7 +343,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /**
      * @return Random node.
      */
-    private NetworkMember randomNode() {
+    private ClusterNode randomNode() {
         List<Peer> peers0 = peers;
 
         if (peers0 == null || peers0.isEmpty())

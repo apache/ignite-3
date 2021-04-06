@@ -20,16 +20,16 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Representation of a network member.
+ * Representation of a node in a cluster.
  */
-public class NetworkMember implements Serializable {
+public class ClusterNode implements Serializable {
     /** Unique name of member in cluster. */
     private final String name;
 
     /**
      * @param name Unique name of member in cluster.
      */
-    public NetworkMember(String name) {
+    public ClusterNode(String name) {
         this.name = name;
     }
 
@@ -46,7 +46,7 @@ public class NetworkMember implements Serializable {
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-        NetworkMember member = (NetworkMember)o;
+        ClusterNode member = (ClusterNode)o;
         return Objects.equals(name, member.name);
     }
 

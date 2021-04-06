@@ -21,11 +21,9 @@ import java.util.List;
 import org.apache.ignite.network.message.MessageMapperProviders;
 
 /**
- * Network context.
- * <p>
- * It contains network-related configuration of the current node.
+ * Network configuration of a node.
  */
-public class NetworkContext {
+public class ClusterLocalConfiguration {
     /** Network alias of a node. */
     private final String name;
 
@@ -44,7 +42,7 @@ public class NetworkContext {
      * @param memberAddresses Member addresses.
      * @param messageMapperProviders Message mapper providers.
      */
-    public NetworkContext(
+    public ClusterLocalConfiguration(
         String name, int port, List<String> memberAddresses, MessageMapperProviders messageMapperProviders
     ) {
         this.name = name;

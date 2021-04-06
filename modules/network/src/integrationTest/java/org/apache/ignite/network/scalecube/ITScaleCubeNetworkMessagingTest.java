@@ -22,10 +22,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkContext;
-import org.apache.ignite.network.NetworkFactory;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.MessageMapperProviders;
@@ -47,18 +47,18 @@ class ITScaleCubeNetworkMessagingTest {
             .registerProvider(TestResponse.TYPE, new TestResponseMapperProvider());
 
     /** */
-    private static final NetworkFactory NETWORK_FACTORY = new ScaleCubeNetworkFactory();
+    private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
     /** */
     private final Map<String, NetworkMessage> messageStorage = new ConcurrentHashMap<>();
 
     /** */
-    private final List<Network> startedMembers = new ArrayList<>();
+    private final List<ClusterService> startedMembers = new ArrayList<>();
 
     /** */
     @AfterEach
     public void afterEach() {
-        startedMembers.forEach(Network::shutdown);
+        startedMembers.forEach(ClusterService::shutdown);
     }
 
     /**
@@ -71,9 +71,9 @@ class ITScaleCubeNetworkMessagingTest {
 
         CountDownLatch latch = new CountDownLatch(3);
 
-        Network alice = startNetwork("Alice", 3344, addresses);
-        Network bob = startNetwork("Bob", 3345, addresses);
-        Network carol = startNetwork("Carol", 3346, addresses);
+        ClusterService alice = startNetwork("Alice", 3344, addresses);
+        ClusterService bob = startNetwork("Bob", 3345, addresses);
+        ClusterService carol = startNetwork("Carol", 3346, addresses);
 
         NetworkMessageHandler messageWaiter = (message, sender, correlationId) -> latch.countDown();
 
@@ -84,7 +84,7 @@ class ITScaleCubeNetworkMessagingTest {
         TestMessage testMessage = new TestMessage("Message from Alice");
 
         //When: Send one message to all members in cluster.
-        for (NetworkMember member : alice.getTopologyService().allMembers()) {
+        for (ClusterNode member : alice.getTopologyService().allMembers()) {
             System.out.println("SEND : " + member);
 
             alice.getMessagingService().weakSend(member, testMessage);
@@ -100,37 +100,37 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /** */
-    private NetworkMessage getLastMessage(Network network) {
-        return messageStorage.get(network.getContext().getName());
+    private NetworkMessage getLastMessage(ClusterService clusterService) {
+        return messageStorage.get(clusterService.getLocalConfiguration().getName());
     }
 
     /** */
-    private Network startNetwork(String name, int port, List<String> addresses) {
-        var context = new NetworkContext(name, port, addresses, TEST_MESSAGE_MAPPER_PROVIDERS);
+    private ClusterService startNetwork(String name, int port, List<String> addresses) {
+        var context = new ClusterLocalConfiguration(name, port, addresses, TEST_MESSAGE_MAPPER_PROVIDERS);
 
-        Network network = NETWORK_FACTORY.createNetwork(context);
+        ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
         System.out.println("-----" + name + " started");
 
-        network.getMessagingService().addMessageHandler((message, sender, correlationId) -> {
+        clusterService.getMessagingService().addMessageHandler((message, sender, correlationId) -> {
             messageStorage.put(name, message);
 
             System.out.println(name + " handled messages : " + message);
         });
 
-        network.getTopologyService().addEventHandler(new TopologyEventHandler() {
-            @Override public void onAppeared(NetworkMember member) {
+        clusterService.getTopologyService().addEventHandler(new TopologyEventHandler() {
+            @Override public void onAppeared(ClusterNode member) {
                 System.out.println(name + " found member : " + member);
             }
 
-            @Override public void onDisappeared(NetworkMember member) {
+            @Override public void onDisappeared(ClusterNode member) {
                 System.out.println(name + " lost member : " + member);
             }
         });
 
-        network.start();
+        clusterService.start();
 
-        startedMembers.add(network);
+        startedMembers.add(clusterService);
 
-        return network;
+        return clusterService;
     }
 }

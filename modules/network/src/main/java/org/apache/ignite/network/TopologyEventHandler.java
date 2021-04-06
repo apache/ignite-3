@@ -23,11 +23,11 @@ public interface TopologyEventHandler {
     /**
      * Called when a new member has been detected joining a cluster.
      */
-    void onAppeared(NetworkMember member);
+    void onAppeared(ClusterNode member);
 
     /**
      * Indicates that a member has left a cluster. This method is only called when a member leaves permanently (i.e.
      * it is not possible to re-establish a connection to it).
      */
-    void onDisappeared(NetworkMember member);
+    void onDisappeared(ClusterNode member);
 }

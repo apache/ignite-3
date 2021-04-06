@@ -18,14 +18,14 @@
 package org.apache.ignite.network;
 
 /**
- * Default implementation of a {@link Network}.
+ * Default implementation of a {@link ClusterService}.
  * <p>
  * Implementing classes should use {@link #start()} and {@link #shutdown()} to allocate and free any network-related
  * resources.
  */
-public abstract class NetworkImpl implements Network {
+public abstract class ClusterServiceImpl implements ClusterService {
     /** Context. */
-    private final NetworkContext context;
+    private final ClusterLocalConfiguration context;
 
     /** Topology service. */
     private final TopologyService topologyService;
@@ -34,8 +34,8 @@ public abstract class NetworkImpl implements Network {
     private final MessagingService messagingService;
 
     /** */
-    public NetworkImpl(
-        NetworkContext context,
+    public ClusterServiceImpl(
+        ClusterLocalConfiguration context,
         TopologyService topologyService,
         MessagingService messagingService
     ) {
@@ -45,7 +45,7 @@ public abstract class NetworkImpl implements Network {
     }
 
     /** {@inheritDoc} */
-    @Override public final NetworkContext getContext() {
+    @Override public final ClusterLocalConfiguration getLocalConfiguration() {
         return context;
     }
 

@@ -25,13 +25,13 @@ public interface TopologyService {
     /**
      * @return Information about the local network member.
      */
-    NetworkMember localMember();
+    ClusterNode localMember();
 
     /**
      * @return Information about all members which have discovered by the local member (including the local member
      * itself).
      */
-    Collection<NetworkMember> allMembers();
+    Collection<ClusterNode> allMembers();
 
     /**
      * Registers a handler for topology change events.

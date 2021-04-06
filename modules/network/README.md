@@ -25,9 +25,9 @@ being sent has a unique identifier that can be matched with response on receipt.
 
 This module provides the following interfaces and implementations:
 
-1. `Network` interface represents the current node in a cluster, `NetworkImpl` being its default implementation.
-2. `NetworkContext` contains some state of the current node, e.g. its alias and configuration.
-3. `NetworkFactory` is the main way of starting a node.
+1. `ClusterService` interface represents the current node and the entry point for network-related activity in a cluster.
+2. `ClusterLocalConfiguration` contains some state of the current node, e.g. its alias and configuration.
+3. `ClusterServiceFactory` is the main way of starting a node.
 4. `TopologyService` provides information about the cluster members and allows registering listeners for topology change 
    events.
 5. `MessagingService` provides a mechanism for sending messages between network members in both weak and patient mode 

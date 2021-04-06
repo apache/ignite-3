@@ -23,9 +23,9 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -67,9 +67,9 @@ public class RaftGroupServiceTest {
 
     /** */
     private static final List<Peer> NODES = of(
-        new Peer(new NetworkMember("node1")),
-        new Peer(new NetworkMember("node2")),
-        new Peer(new NetworkMember("node3"))
+        new Peer(new ClusterNode("node1")),
+        new Peer(new ClusterNode("node2")),
+        new Peer(new ClusterNode("node3"))
     );
 
     /** */
@@ -86,7 +86,7 @@ public class RaftGroupServiceTest {
 
     /** Mock cluster. */
     @Mock
-    private Network cluster;
+    private ClusterService cluster;
 
     /** Mock messaging service */
     @Mock
@@ -369,7 +369,7 @@ public class RaftGroupServiceTest {
      */
     private void mockUserInput(boolean simulateTimeout) {
         Mockito.doAnswer(invocation -> {
-            NetworkMember target = invocation.getArgument(0);
+            ClusterNode target = invocation.getArgument(0);
 
             if (simulateTimeout)
                 return failedFuture(new TimeoutException());

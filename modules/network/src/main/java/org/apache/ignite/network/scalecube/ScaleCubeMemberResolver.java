@@ -19,7 +19,7 @@ package org.apache.ignite.network.scalecube;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import io.scalecube.cluster.Member;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterNode;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,10 +28,10 @@ import static java.util.Objects.requireNonNull;
  */
 final class ScaleCubeMemberResolver {
     /** Map of public network member by its unique name. */
-    private final Map<String, NetworkMember> directMemberMap = new ConcurrentHashMap<>();
+    private final Map<String, ClusterNode> directMemberMap = new ConcurrentHashMap<>();
 
     /** Map of scalecube member by its public member. */
-    private final Map<NetworkMember, Member> reverseMemberMap = new ConcurrentHashMap<>();
+    private final Map<ClusterNode, Member> reverseMemberMap = new ConcurrentHashMap<>();
 
     /**
      * Getting the existed member by scalecube member or create new one.
@@ -39,9 +39,9 @@ final class ScaleCubeMemberResolver {
      * @param member ScaleCube specific member.
      * @return Public network member instance.
      */
-    NetworkMember resolveNetworkMember(Member member) {
+    ClusterNode resolveNetworkMember(Member member) {
         return directMemberMap.computeIfAbsent(member.alias(), alias -> {
-            NetworkMember topologyMember = new NetworkMember(alias);
+            ClusterNode topologyMember = new ClusterNode(alias);
             reverseMemberMap.put(topologyMember, member);
             return topologyMember;
         });
@@ -51,7 +51,7 @@ final class ScaleCubeMemberResolver {
      * @param member Public network member.
      * @return ScaleCube specific member.
      */
-    Member resolveMember(NetworkMember member) {
+    Member resolveMember(ClusterNode member) {
         return requireNonNull(reverseMemberMap.get(member));
     }
 }

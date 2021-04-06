@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import io.scalecube.cluster.Cluster;
 import io.scalecube.cluster.membership.MembershipEvent;
 import org.apache.ignite.network.AbstractTopologyService;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 
@@ -51,7 +51,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * Delegates the received topology event to the registered event handlers.
      */
     void fireEvent(MembershipEvent event) {
-        NetworkMember member = memberResolver.resolveNetworkMember(event.member());
+        ClusterNode member = memberResolver.resolveNetworkMember(event.member());
         for (TopologyEventHandler handler : getEventHandlers()) {
             switch (event.type()) {
                 case ADDED:
@@ -71,12 +71,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     }
 
     /** {@inheritDoc} */
-    @Override public NetworkMember localMember() {
+    @Override public ClusterNode localMember() {
         return memberResolver.resolveNetworkMember(cluster.member());
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<NetworkMember> allMembers() {
+    @Override public Collection<ClusterNode> allMembers() {
         return cluster.members().stream()
             .map(memberResolver::resolveNetworkMember)
             .collect(Collectors.toList());

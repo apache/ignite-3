@@ -27,12 +27,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkContext;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.message.MessageMapperProviders;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkFactory;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -66,7 +66,7 @@ public class RaftServerImpl implements RaftServer {
     private final RaftClientMessageFactory clientMsgFactory;
 
     /** */
-    private final Network server;
+    private final ClusterService server;
 
     /** */
     private final ConcurrentMap<String, RaftGroupCommandListener> listeners = new ConcurrentHashMap<>();
@@ -118,10 +118,10 @@ public class RaftServerImpl implements RaftServer {
             .registerProvider((short)1006, defaultMessageMapper)
             .registerProvider((short)1009, defaultMessageMapper);
 
-        var context = new NetworkContext(id, localPort, List.of(), messageMappersProviders);
-        var factory = new ScaleCubeNetworkFactory();
+        var context = new ClusterLocalConfiguration(id, localPort, List.of(), messageMappersProviders);
+        var factory = new ScaleCubeClusterServiceFactory();
 
-        server = factory.createNetwork(context);
+        server = factory.createClusterService(context);
 
         server.getMessagingService().addMessageHandler((message, sender, correlationId) -> {
             if (message instanceof GetLeaderRequest) {
@@ -166,7 +166,7 @@ public class RaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public NetworkMember localMember() {
+    @Override public ClusterNode localMember() {
         return server.getTopologyService().localMember();
     }
 
@@ -194,7 +194,7 @@ public class RaftServerImpl implements RaftServer {
     }
 
     private <T extends Command> void handleActionRequest(
-        NetworkMember sender,
+        ClusterNode sender,
         ActionRequest<?> req,
         String corellationId,
         BlockingQueue<CommandClosureEx<T>> queue,
@@ -244,7 +244,7 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    private void sendError(NetworkMember sender, String corellationId, RaftErrorCode errorCode) {
+    private void sendError(ClusterNode sender, String corellationId, RaftErrorCode errorCode) {
         RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
         server.getMessagingService().send(sender, resp, corellationId);
