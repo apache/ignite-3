@@ -17,17 +17,43 @@
 
 package org.apache.ignite.metastorage.internal;
 
+import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.network.NetworkCluster;
+import org.apache.ignite.network.NetworkHandlersProvider;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.internal.RaftManager;
 
 public class MetaStorageManager {
-    private final NetworkCluster netMember;
+    private final NetworkCluster network;
 
     private final RaftManager raftMgr;
 
-    public MetaStorageManager(NetworkCluster netMember, RaftManager raftMgr) {
-        this.netMember = netMember;
+    private final ConfigurationManager locConfigurationMgr;
+
+    public MetaStorageManager(
+        NetworkCluster network,
+        RaftManager raftMgr,
+        ConfigurationManager locConfigurationMgr)
+    {
+        this.network = network;
         this.raftMgr = raftMgr;
+        this.locConfigurationMgr = locConfigurationMgr;
+
+        network.addHandlersProvider(new NetworkHandlersProvider() {
+            @Override public NetworkMessageHandler messageHandler() {
+                return (message, sender, corellationId) -> {
+                    // TODO sanpwc: Add MetaStorageMessageTypes.CLUSTER_INIT_REQUEST message handler.
+                };
+            }
+        });
+    }
+
+    public void registerWatch() {
+
+    }
+
+    public void deployWatches() {
+
     }
 }
 

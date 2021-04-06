@@ -19,8 +19,29 @@ package org.apache.ignite.runner.internal.app;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import org.apache.ignite.affinity.internal.AffinityManager;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
+import org.apache.ignite.baseline.internal.BaselineManager;
+import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.internal.ConfigurationManagerImpl;
+import org.apache.ignite.configuration.internal.DistributedConfigurationManagerImpl;
+import org.apache.ignite.configuration.internal.LocalConfigurationManagerImpl;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.metastorage.internal.MetaStorageManager;
+import org.apache.ignite.metastorage.internal.network.MetaStorageMessageTypes;
+import org.apache.ignite.network.Network;
+import org.apache.ignite.network.NetworkCluster;
+import org.apache.ignite.network.configuration.NetworkConfiguration;
+import org.apache.ignite.network.configuration.NetworkView;
+import org.apache.ignite.network.message.DefaultMessageMapperProvider;
+import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
+import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
+import org.apache.ignite.raft.internal.RaftManager;
+import org.apache.ignite.raft.internal.network.RaftMessageTypes;
+import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
+import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
+import org.apache.ignite.table.distributed.internal.DistributedTableManager;
 import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,14 +68,104 @@ public class IgnitionImpl implements Ignition {
     private static final String VER_KEY = "version";
 
     /** */
-    private static final Logger log = LoggerFactory.getLogger(org.apache.ignite.app.IgnitionImpl3.class);
+    private static final Logger log = LoggerFactory.getLogger(IgnitionImpl.class);
 
-    @Override public synchronized Ignite start() {
+    @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
         ackBanner();
+
+        // Vault Component startup.
+        VaultManager vaultMgr = new VaultManager();
+
+        boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
+
+        // Bootstrap local configuration manager.
+        ConfigurationManager locConfigurationMgr = new LocalConfigurationManagerImpl();
+
+        locConfigurationMgr.configurationRegistry().registerRootKey(NetworkConfiguration.KEY);
+
+        locConfigurationMgr.configurationRegistry().registerStorage(new LocalConfigurationStorage(vaultMgr));
+
+        if (!cfgBootstrappedFromPds)
+            locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
+        else if (jsonStrBootstrapCfg != null)
+            log.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
+
+        NetworkView netConfigurationView =
+            locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
+
+        // Network startup.
+        Network net = new Network(
+            new ScaleCubeNetworkClusterFactory(
+                "Node: " + netConfigurationView.port(),
+                netConfigurationView.port(),
+                Arrays.asList(netConfigurationView.networkMembersNames()),
+                new ScaleCubeMemberResolver())
+        );
+
+        // Register component message types.
+        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
+            msgTypeInstance -> net.registerMessageMapper(
+                msgTypeInstance.msgType(),
+                new DefaultMessageMapperProvider()
+            )
+        );
+
+        Arrays.stream(RaftMessageTypes.values()).forEach(
+            msgTypeInstance -> net.registerMessageMapper(
+                msgTypeInstance.msgType(),
+                new DefaultMessageMapperProvider()
+            )
+        );
+
+        NetworkCluster netMember = net.start();
+
+        // Raft Component startup.
+        RaftManager raftMgr = new RaftManager(netMember);
+
+        // MetaStorage Component startup.
+        MetaStorageManager metaStorageMgr = new MetaStorageManager(
+            netMember,
+            raftMgr,
+            locConfigurationMgr
+        );
+
+        // Start distributed configuration manager.
+        ConfigurationManager distributedConfigurationMgr = new DistributedConfigurationManagerImpl();
+
+        // TODO sanpwc: Register some root keys here.
+//        distrConfigurationModule.configurationRegistry().registerRootKey();
+
+        distributedConfigurationMgr.configurationRegistry().registerStorage(
+            new DistributedConfigurationStorage(metaStorageMgr));
+
+        // Configuration manager startup.
+        ConfigurationManagerImpl configurationMgr = new ConfigurationManagerImpl(
+            locConfigurationMgr,
+            distributedConfigurationMgr
+        );
+
+        // Baseline manager startup.
+        BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr);
+
+        // Affinity manager startup.
+        AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
+
+        // Distributed table manager startup.
+        DistributedTableManager distributedTblMgr = new DistributedTableManager(
+            raftMgr,
+            configurationMgr,
+            metaStorageMgr,
+            affinityMgr
+        );
+
+        // TODO sanpwc: Start raft manager.
+
+        // Deploy all resisted watches cause all components are ready and have registered their listeners.
+        metaStorageMgr.deployWatches();
 
         ackSuccessStart();
 
-        return null;
+        return new IgniteImpl(configurationMgr, distributedTblMgr);
     }
 
     /** */
