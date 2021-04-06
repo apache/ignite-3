@@ -21,12 +21,13 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteRuntimeException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
@@ -64,24 +65,18 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple key) {
-        Objects.requireNonNull(key);
-
-        try {
-            Row kRow = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.get(kRow)  // Load async.
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(t -> t == null ? null : t.valueChunk()) // Narrow to value.
-                .get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return sync(getAsync(key));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAsync(Tuple key) {
-        return null;
+    @Override public @NotNull CompletableFuture<Tuple> getAsync(Tuple key) {
+        Objects.requireNonNull(key);
+
+        Row kRow = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.get(kRow)  // Load async.
+            .thenApply(this::wrap) // Binary -> schema-aware row
+            .thenApply(t -> t == null ? null : t.valueChunk()); // Narrow to value.
     }
 
     /** {@inheritDoc} */
@@ -90,7 +85,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Map<Tuple, Tuple>> getAllAsync(Collection<Tuple> keys) {
+    @Override public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(Collection<Tuple> keys) {
         return null;
     }
 
@@ -101,21 +96,16 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public void put(Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-
-        try {
-            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
-
-            tbl.upsert(row).get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        sync(putAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> putAsync(Tuple key, Tuple val) {
-        return null;
+    @Override public @NotNull CompletableFuture<Void> putAsync(Tuple key, Tuple val) {
+        Objects.requireNonNull(key);
+
+        Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.upsert(row);
     }
 
     /** {@inheritDoc} */
@@ -124,89 +114,68 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> putAllAsync(Map<Tuple, Tuple> pairs) {
+    @Override public @NotNull CompletableFuture<Void> putAllAsync(Map<Tuple, Tuple> pairs) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public Tuple getAndPut(Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-
-        try {
-            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.getAndUpsert(row)
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(t -> t == null ? null : t.valueChunk()) // Narrow to value.
-                .get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return sync(getAndPutAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAndPutAsync(Tuple key, Tuple val) {
-        return null;
+    @Override public @NotNull CompletableFuture<Tuple> getAndPutAsync(Tuple key, Tuple val) {
+        Objects.requireNonNull(key);
+
+        Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.getAndUpsert(row)
+            .thenApply(this::wrap) // Binary -> schema-aware row
+            .thenApply(t -> t == null ? null : t.valueChunk()); // Narrow to value.
     }
 
     /** {@inheritDoc} */
     @Override public boolean putIfAbsent(Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
-
-        try {
-            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.insert(row).get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return sync(putIfAbsentAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> putIfAbsentAsync(Tuple key, Tuple val) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(Tuple key, Tuple val) {
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
+
+        Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.insert(row);
     }
 
     /** {@inheritDoc} */
     @Override public boolean remove(Tuple key) {
-        Objects.requireNonNull(key);
-
-        try {
-            Row row = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.delete(row).get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return sync(removeAsync(key));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> removeAsync(Tuple key) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> removeAsync(Tuple key) {
+        Objects.requireNonNull(key);
+
+        Row row = marshaller().marshal(key, null); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.delete(row);
     }
 
     /** {@inheritDoc} */
     @Override public boolean remove(Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
-
-        try {
-            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.deleteExact(row).get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return sync(removeAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> removeAsync(Tuple key, Tuple val) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> removeAsync(Tuple key, Tuple val) {
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
+
+        Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.deleteExact(row);
     }
 
     /** {@inheritDoc} */
@@ -215,7 +184,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> removeAllAsync(Collection<Tuple> keys) {
+    @Override public @NotNull CompletableFuture<Tuple> removeAllAsync(Collection<Tuple> keys) {
         return null;
     }
 
@@ -225,48 +194,37 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAndRemoveAsync(Tuple key) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(Tuple key) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-
-        try {
-            Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.replace(row).get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return sync(replaceAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(Tuple key, Tuple val) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(Tuple key, Tuple val) {
+        Objects.requireNonNull(key);
+
+        Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.replace(row);
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple key, Tuple oldVal, Tuple newVal) {
-        Objects.requireNonNull(key);
-
-        try {
-            Row oldRow = marshaller().marshal(key, oldVal); // Convert to portable format to pass TX/storage layer.
-            Row newRow = marshaller().marshal(key, newVal); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.replace(oldRow, newRow).get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return sync(replaceAsync(key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(Tuple key, Tuple oldVal,
-        Tuple newVal) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(Tuple key, Tuple oldVal, Tuple newVal) {
+        Objects.requireNonNull(key);
+
+        Row oldRow = marshaller().marshal(key, oldVal); // Convert to portable format to pass TX/storage layer.
+        Row newRow = marshaller().marshal(key, newVal); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.replace(oldRow, newRow);
     }
 
     /** {@inheritDoc} */
@@ -275,7 +233,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAndReplaceAsync(Tuple key, Tuple val) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(Tuple key, Tuple val) {
         return null;
     }
 
@@ -289,7 +247,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <R extends Serializable> IgniteFuture<R> invokeAsync(
+    @Override public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
         Tuple key,
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
@@ -307,7 +265,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <R extends Serializable> IgniteFuture<Map<Tuple, R>> invokeAllAsync(
+    @Override public @NotNull <R extends Serializable> CompletableFuture<Map<Tuple, R>> invokeAllAsync(
         Collection<Tuple> keys,
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
@@ -341,13 +299,22 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
     }
 
     /**
-     * @param e Exception.
-     * @return Runtime exception.
+     * Waits for operation completion.
+     *
+     * @param fut Future to wait to.
+     * @return Future result.
      */
-    private RuntimeException convertException(Exception e) {
-        if (e instanceof InterruptedException)
+    private <T> T sync(CompletableFuture<T> fut) {
+        try {
+            return fut.get();
+        }
+        catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-        return new RuntimeException(e);
+            throw new IgniteRuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new IgniteRuntimeException(e);
+        }
     }
 }

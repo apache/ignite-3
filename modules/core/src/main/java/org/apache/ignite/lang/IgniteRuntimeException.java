@@ -17,11 +17,18 @@
 
 package org.apache.ignite.lang;
 
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Future;
-
 /**
- * Future providing chaining capabilities for the construction of computation pipelines.
+ * Ignite runtime exception base class.
  */
-public interface IgniteFuture<T> extends CompletionStage<T>, Future<T> {
+public class IgniteRuntimeException extends RuntimeException {
+    /**
+     * Constructor.
+     *
+     * @param e Cause exception.
+     * TODO: To be replaced with constructor with mandatory errorCode parameter.
+     */
+    @Deprecated
+    public IgniteRuntimeException(Exception e) {
+        super(e);
+    }
 }

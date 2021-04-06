@@ -21,11 +21,13 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteRuntimeException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -80,21 +82,16 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple get(Tuple keyRec) {
-        Objects.requireNonNull(keyRec);
-
-        try {
-            final Row keyRow = marshaller().marshal(keyRec, null); // Convert to portable format to pass TX/storage layer.
-
-            return tbl.get(keyRow).thenApply(this::wrap).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        return sync(getAsync(keyRec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAsync(Tuple keyRec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Tuple> getAsync(Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
+
+        final Row keyRow = marshaller().marshal(keyRec, null); // Convert to portable format to pass TX/storage layer.
+
+        return tbl.get(keyRow).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -103,27 +100,22 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<Tuple>> getAllAsync(Collection<Tuple> keyRecs) {
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(Collection<Tuple> keyRecs) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public void upsert(Tuple rec) {
-        Objects.requireNonNull(rec);
-
-        try {
-            final Row keyRow = marshaller().marshal(rec);
-
-            tbl.upsert(keyRow).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        sync(upsertAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> upsertAsync(Tuple rec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Void> upsertAsync(Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        final Row keyRow = marshaller().marshal(rec);
+
+        return tbl.upsert(keyRow);
     }
 
     /** {@inheritDoc} */
@@ -132,46 +124,36 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> upsertAllAsync(Collection<Tuple> recs) {
+    @Override public @NotNull CompletableFuture<Void> upsertAllAsync(Collection<Tuple> recs) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public Tuple getAndUpsert(Tuple rec) {
-        Objects.requireNonNull(rec);
-
-        try {
-            final Row keyRow = marshaller().marshal(rec);
-
-            return tbl.getAndUpsert(keyRow).thenApply(this::wrap).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        return sync(getAndUpsertAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAndUpsertAsync(Tuple rec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        final Row keyRow = marshaller().marshal(rec);
+
+        return tbl.getAndUpsert(keyRow).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
     @Override public boolean insert(Tuple rec) {
-        Objects.requireNonNull(rec);
-
-        try {
-            final Row keyRow = marshaller().marshal(rec);
-
-            return tbl.insert(keyRow).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        return sync(insertAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> insertAsync(Tuple rec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> insertAsync(Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        final Row keyRow = marshaller().marshal(rec);
+
+        return tbl.insert(keyRow);
     }
 
     /** {@inheritDoc} */
@@ -180,48 +162,38 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<Tuple>> insertAllAsync(Collection<Tuple> recs) {
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(Collection<Tuple> recs) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple rec) {
-        Objects.requireNonNull(rec);
-
-        try {
-            final Row keyRow = marshaller().marshal(rec);
-
-            return tbl.replace(keyRow).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        return sync(replaceAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(Tuple rec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        final Row keyRow = marshaller().marshal(rec);
+
+        return tbl.replace(keyRow);
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(Tuple oldRec, Tuple newRec) {
-        Objects.requireNonNull(oldRec);
-        Objects.requireNonNull(newRec);
-
-        try {
-            final Row oldRow = marshaller().marshal(oldRec);
-            final Row newRow = marshaller().marshal(newRec);
-
-            return tbl.replace(oldRow, newRow).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        return sync(replaceAsync(oldRec, newRec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(Tuple oldRec, Tuple newRec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(Tuple oldRec, Tuple newRec) {
+        Objects.requireNonNull(oldRec);
+        Objects.requireNonNull(newRec);
+
+        final Row oldRow = marshaller().marshal(oldRec);
+        final Row newRow = marshaller().marshal(newRec);
+
+        return tbl.replace(oldRow, newRow);
     }
 
     /** {@inheritDoc} */
@@ -230,46 +202,36 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAndReplaceAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(Tuple rec) {
         return null;
     }
 
     /** {@inheritDoc} */
     @Override public boolean delete(Tuple keyRec) {
-        Objects.requireNonNull(keyRec);
-
-        try {
-            final Row keyRow = marshaller().marshal(keyRec, null);
-
-            return tbl.delete(keyRow).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        return sync(deleteAsync(keyRec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> deleteAsync(Tuple keyRec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> deleteAsync(Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
+
+        final Row keyRow = marshaller().marshal(keyRec, null);
+
+        return tbl.delete(keyRow);
     }
 
     /** {@inheritDoc} */
     @Override public boolean deleteExact(Tuple rec) {
-        Objects.requireNonNull(rec);
-
-        try {
-            final Row row = marshaller().marshal(rec);
-
-            return tbl.deleteExact(row).get();
-        }
-        catch (Exception e) {
-            throw convertException(e);
-        }
+        return sync(deleteExactAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(Tuple rec) {
-        return null;
+    @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        final Row row = marshaller().marshal(rec);
+
+        return tbl.deleteExact(row);
     }
 
     /** {@inheritDoc} */
@@ -278,7 +240,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Tuple> getAndDeleteAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(Tuple rec) {
         return null;
     }
 
@@ -288,7 +250,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<Tuple>> deleteAllAsync(Collection<Tuple> recs) {
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(Collection<Tuple> recs) {
         return null;
     }
 
@@ -298,7 +260,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<Tuple>> deleteAllExactAsync(
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(
         Collection<Tuple> recs) {
         return null;
     }
@@ -312,7 +274,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> IgniteFuture<T> invokeAsync(
+    @Override public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
         Tuple keyRec,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
@@ -328,7 +290,7 @@ public class TableImpl implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> IgniteFuture<Map<Tuple, T>> invokeAllAsync(
+    @Override public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(
         Collection<Tuple> keyRecs,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
@@ -358,14 +320,22 @@ public class TableImpl implements Table {
     }
 
     /**
-     * @param e Exception.
-     * @return Runtime exception.
+     * Waits for operation completion.
+     *
+     * @param fut Future to wait to.
+     * @return Future result.
      */
-    private RuntimeException convertException(Exception e) {
-        if (e instanceof InterruptedException)
+    private <T> T sync(CompletableFuture<T> fut) {
+        try {
+            return fut.get();
+        }
+        catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-        return new RuntimeException(e);
+            throw new IgniteRuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new IgniteRuntimeException(e);
+        }
     }
-
 }

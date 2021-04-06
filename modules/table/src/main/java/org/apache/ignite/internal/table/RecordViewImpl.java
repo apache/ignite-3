@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.RecordSerializer;
-import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteRuntimeException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -56,48 +56,39 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public R get(R keyRec) {
-        Objects.requireNonNull(keyRec);
-
-        RecordSerializer<R> marsh = serializer();
-
-        try {
-            Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
-
-            final CompletableFuture<R> fut = tbl.get(kRow)  // Load async.
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(marsh::deserialize); // Deserialize.
-
-            return fut.get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+    @Override public R fill(R recObjToFill) {
+        return sync(fillAsync(recObjToFill));
     }
 
     /** {@inheritDoc} */
-    @Override public R fill(R recObjToFill) {
+    @Override public CompletableFuture<R> fillAsync(R recObjToFill) {
         Objects.requireNonNull(recObjToFill);
 
         RecordSerializer<R> marsh = serializer();
 
-        try {
-            Row kRow = marsh.serialize(recObjToFill);  // Convert to portable format to pass TX/storage layer.
+        Row kRow = marsh.serialize(recObjToFill);  // Convert to portable format to pass TX/storage layer.
 
-            final CompletableFuture<R> fut = tbl.get(kRow)  // Load async.
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(r -> marsh.deserialize(r, recObjToFill)); // Deserialize and fill record.
-
-            return fut.get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
+        return tbl.get(kRow)  // Load async.
+            .thenApply(this::wrap) // Binary -> schema-aware row
+            .thenApply(r -> marsh.deserialize(r, recObjToFill)); // Deserialize and fill record.
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<R> getAsync(R keyRec) {
-        return null;
+    @Override public R get(R keyRec) {
+        return sync(getAsync(keyRec));
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull CompletableFuture<R> getAsync(R keyRec) {
+        Objects.requireNonNull(keyRec);
+
+        RecordSerializer<R> marsh = serializer();
+
+        Row kRow = marsh.serialize(keyRec);  // Convert to portable format to pass TX/storage layer.
+
+        return tbl.get(kRow)  // Load async.
+            .thenApply(this::wrap) // Binary -> schema-aware row
+            .thenApply(marsh::deserialize); // Deserialize.
     }
 
     /** {@inheritDoc} */
@@ -106,7 +97,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<R>> getAllAsync(Collection<R> keyRecs) {
+    @Override public @NotNull CompletableFuture<Collection<R>> getAllAsync(Collection<R> keyRecs) {
         return null;
     }
 
@@ -116,7 +107,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> upsertAsync(R rec) {
+    @Override public @NotNull CompletableFuture<Void> upsertAsync(R rec) {
         return null;
     }
 
@@ -126,7 +117,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> upsertAllAsync(Collection<R> recs) {
+    @Override public @NotNull CompletableFuture<Void> upsertAllAsync(Collection<R> recs) {
         return null;
     }
 
@@ -136,7 +127,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<R> getAndUpsertAsync(R rec) {
+    @Override public @NotNull CompletableFuture<R> getAndUpsertAsync(R rec) {
         return null;
     }
 
@@ -146,7 +137,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> insertAsync(R rec) {
+    @Override public @NotNull CompletableFuture<Boolean> insertAsync(R rec) {
         return null;
     }
 
@@ -156,7 +147,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<R>> insertAllAsync(Collection<R> recs) {
+    @Override public @NotNull CompletableFuture<Collection<R>> insertAllAsync(Collection<R> recs) {
         return null;
     }
 
@@ -166,7 +157,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(R rec) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(R rec) {
         return null;
     }
 
@@ -176,7 +167,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(R oldRec, R newRec) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(R oldRec, R newRec) {
         return null;
     }
 
@@ -186,7 +177,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<R> getAndReplaceAsync(R rec) {
+    @Override public @NotNull CompletableFuture<R> getAndReplaceAsync(R rec) {
         return null;
     }
 
@@ -196,7 +187,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> deleteAsync(R keyRec) {
+    @Override public @NotNull CompletableFuture<Boolean> deleteAsync(R keyRec) {
         return null;
     }
 
@@ -206,7 +197,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> deleteExactAsync(R rec) {
+    @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(R rec) {
         return null;
     }
 
@@ -216,7 +207,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<R> getAndDeleteAsync(R rec) {
+    @Override public @NotNull CompletableFuture<R> getAndDeleteAsync(R rec) {
         return null;
     }
 
@@ -226,7 +217,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<R>> deleteAllAsync(Collection<R> recs) {
+    @Override public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(Collection<R> recs) {
         return null;
     }
 
@@ -236,7 +227,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Collection<R>> deleteAllExactAsync(Collection<R> recs) {
+    @Override public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(Collection<R> recs) {
         return null;
     }
 
@@ -246,7 +237,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> IgniteFuture<T> invokeAsync(R keyRec,
+    @Override public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(R keyRec,
         InvokeProcessor<R, R, T> proc) {
         return null;
     }
@@ -260,7 +251,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <T extends Serializable> IgniteFuture<Map<R, T>> invokeAllAsync(
+    @Override public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(
         Collection<R> keyRecs,
         InvokeProcessor<R, R, T> proc
     ) {
@@ -288,13 +279,22 @@ public class RecordViewImpl<R> implements RecordView<R> {
     }
 
     /**
-     * @param e Exception.
-     * @return Runtime exception.
+     * Waits for operation completion.
+     *
+     * @param fut Future to wait to.
+     * @return Future result.
      */
-    private RuntimeException convertException(Exception e) {
-        if (e instanceof InterruptedException)
+    private <T> T sync(CompletableFuture<T> fut) {
+        try {
+            return fut.get();
+        }
+        catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-        return new RuntimeException(e);
+            throw new IgniteRuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new IgniteRuntimeException(e);
+        }
     }
 }

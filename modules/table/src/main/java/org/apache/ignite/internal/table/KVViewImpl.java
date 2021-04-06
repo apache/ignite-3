@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KVSerializer;
-import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteRuntimeException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.KeyMapper;
@@ -60,38 +60,20 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override public V get(K key) {
+        return sync(getAsync(key));
+    }
+
+    /** {@inheritDoc} */
+    @Override public @NotNull CompletableFuture<V> getAsync(K key) {
         Objects.requireNonNull(key);
 
         final KVSerializer<K, V> marsh = marshaller();
 
-        try {
-            Row kRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
+        Row kRow = marsh.serialize(key, null); // Convert to portable format to pass TX/storage layer.
 
-            final CompletableFuture<V> fut = tbl.get(kRow)  // Load async.
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(marsh::deserializeValue); // Deserialize.
-
-            return fut.get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw convertException(e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<V> getAsync(K key) {
-//        Objects.requireNonNull(key);
-//
-//        final Marshaller marsh = marshaller();
-//
-//        Row kRow = marsh.serialize(key); // Convert to portable format to pass TX/storage layer.
-//
-//        final CompletableFuture<BinaryRow> fut = tbl.get(kRow);
-//
-        //Binary -> schema-aware row -> deserialize.
-//        return fut.thenApply(r -> wrap(r))
-//            .thenApply(r -> marsh.deserializeValue(r));
-        return null;
+        return tbl.get(kRow)
+            .thenApply(this::wrap) // Binary -> schema-aware row
+            .thenApply(marsh::deserializeValue); // row -> deserialized obj.
     }
 
     /** {@inheritDoc} */
@@ -100,7 +82,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Map<K, V>> getAllAsync(Collection<K> keys) {
+    @Override public @NotNull CompletableFuture<Map<K, V>> getAllAsync(Collection<K> keys) {
         return null;
     }
 
@@ -115,7 +97,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> putAsync(K key, V val) {
+    @Override public @NotNull CompletableFuture<Void> putAsync(K key, V val) {
         return null;
     }
 
@@ -125,7 +107,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Void> putAllAsync(Map<K, V> pairs) {
+    @Override public @NotNull CompletableFuture<Void> putAllAsync(Map<K, V> pairs) {
         return null;
     }
 
@@ -135,7 +117,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<V> getAndPutAsync(K key, V val) {
+    @Override public @NotNull CompletableFuture<V> getAndPutAsync(K key, V val) {
         return null;
     }
 
@@ -145,7 +127,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> putIfAbsentAsync(K key, V val) {
+    @Override public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(K key, V val) {
         return null;
     }
 
@@ -155,7 +137,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> removeAsync(K key) {
+    @Override public @NotNull CompletableFuture<Boolean> removeAsync(K key) {
         return null;
     }
 
@@ -165,7 +147,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> removeAsync(K key, V val) {
+    @Override public @NotNull CompletableFuture<Boolean> removeAsync(K key, V val) {
         return null;
     }
 
@@ -175,7 +157,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<K> removeAllAsync(Collection<K> keys) {
+    @Override public @NotNull CompletableFuture<K> removeAllAsync(Collection<K> keys) {
         return null;
     }
 
@@ -185,7 +167,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<V> getAndRemoveAsync(K key) {
+    @Override public @NotNull CompletableFuture<V> getAndRemoveAsync(K key) {
         return null;
     }
 
@@ -195,7 +177,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(K key, V val) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(K key, V val) {
         return null;
     }
 
@@ -205,7 +187,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<Boolean> replaceAsync(K key, V oldVal, V newVal) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(K key, V oldVal, V newVal) {
         return null;
     }
 
@@ -215,7 +197,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull IgniteFuture<V> getAndReplaceAsync(K key, V val) {
+    @Override public @NotNull CompletableFuture<V> getAndReplaceAsync(K key, V val) {
         return null;
     }
 
@@ -225,7 +207,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <R extends Serializable> IgniteFuture<R> invokeAsync(
+    @Override public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
         K key,
         InvokeProcessor<K, V, R> proc,
         Serializable... args
@@ -243,7 +225,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull <R extends Serializable> IgniteFuture<Map<K, R>> invokeAllAsync(
+    @Override public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(
         Collection<K> keys,
         InvokeProcessor<K, V, R> proc, Serializable... args
     ) {
@@ -271,13 +253,22 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
     }
 
     /**
-     * @param e Exception.
-     * @return Runtime exception.
+     * Waits for operation completion.
+     *
+     * @param fut Future to wait to.
+     * @return Future result.
      */
-    private RuntimeException convertException(Exception e) {
-        if (e instanceof InterruptedException)
+    private <T> T sync(CompletableFuture<T> fut) {
+        try {
+            return fut.get();
+        }
+        catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-        return new RuntimeException(e);
+            throw new IgniteRuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new IgniteRuntimeException(e);
+        }
     }
 }
