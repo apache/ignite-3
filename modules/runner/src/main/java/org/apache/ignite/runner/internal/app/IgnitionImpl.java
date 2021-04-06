@@ -158,7 +158,7 @@ public class IgnitionImpl implements Ignition {
             affinityMgr
         );
 
-        // TODO sanpwc: Start raft manager.
+        // TODO sanpwc: Start rest manager.
 
         // Deploy all resisted watches cause all components are ready and have registered their listeners.
         metaStorageMgr.deployWatches();
