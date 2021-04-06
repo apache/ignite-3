@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 /**

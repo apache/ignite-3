@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
-import java.io.Serializable;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.table.InvokeProcessor;
 import org.jetbrains.annotations.NotNull;
 
 /**

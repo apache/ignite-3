@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table.impl;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
