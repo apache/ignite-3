@@ -21,18 +21,18 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.raft.internal.RaftManager;
+import org.apache.ignite.raft.internal.Loza;
 
 public class MetaStorageManager {
     private final NetworkCluster network;
 
-    private final RaftManager raftMgr;
+    private final Loza raftMgr;
 
     private final ConfigurationManager locConfigurationMgr;
 
     public MetaStorageManager(
         NetworkCluster network,
-        RaftManager raftMgr,
+        Loza raftMgr,
         ConfigurationManager locConfigurationMgr)
     {
         this.network = network;

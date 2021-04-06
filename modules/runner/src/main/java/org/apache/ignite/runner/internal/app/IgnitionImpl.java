@@ -37,7 +37,7 @@ import org.apache.ignite.network.configuration.NetworkView;
 import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
 import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
-import org.apache.ignite.raft.internal.RaftManager;
+import org.apache.ignite.raft.internal.Loza;
 import org.apache.ignite.raft.internal.network.RaftMessageTypes;
 import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
@@ -120,7 +120,7 @@ public class IgnitionImpl implements Ignition {
         NetworkCluster netMember = net.start();
 
         // Raft Component startup.
-        RaftManager raftMgr = new RaftManager(netMember);
+        Loza raftMgr = new Loza(netMember);
 
         // MetaStorage Component startup.
         MetaStorageManager metaStorageMgr = new MetaStorageManager(
