@@ -20,10 +20,10 @@ package org.apache.ignite.table.distributed.internal;
 import org.apache.ignite.affinity.internal.AffinityManager;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
-import org.apache.ignite.raft.internal.RaftManager;
+import org.apache.ignite.raft.internal.Loza;
 
 public class DistributedTableManager {
-    private final RaftManager raftManager;
+    private final Loza raftManager;
 
     private final ConfigurationManager configurationMgr;
 
@@ -31,7 +31,7 @@ public class DistributedTableManager {
 
     private final AffinityManager affinityMgr;
 
-    public DistributedTableManager(RaftManager raftManager,
+    public DistributedTableManager(Loza raftManager,
         ConfigurationManager configurationMgr,
         MetaStorageManager metastorageMgr, AffinityManager affinityMgr) {
         this.raftManager = raftManager;

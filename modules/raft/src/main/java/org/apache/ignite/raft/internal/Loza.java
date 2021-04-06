@@ -19,10 +19,13 @@ package org.apache.ignite.raft.internal;
 
 import org.apache.ignite.network.NetworkCluster;
 
-public class RaftManager {
+/**
+ * Best raft manager ever since 1982.
+ */
+public class Loza {
     private final NetworkCluster netMember;
 
-    public RaftManager(NetworkCluster netMember) {
+    public Loza(NetworkCluster netMember) {
         this.netMember = netMember;
     }
 }
