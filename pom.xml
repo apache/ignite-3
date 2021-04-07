@@ -41,11 +41,38 @@
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/core</module>
+        <module>modules/metastorage-client</module>
+        <module>modules/metastorage-common</module>
         <module>modules/network</module>
+        <module>modules/raft</module>
         <module>modules/raft-client</module>
         <module>modules/rest</module>
         <module>modules/runner</module>
         <module>modules/schema</module>
         <module>modules/table</module>
     </modules>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <descriptors>
+                                <descriptor>assembly/assembly.xml</descriptor>
+                            </descriptors>
+                            <finalName>apache-ignite-${project.version}</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

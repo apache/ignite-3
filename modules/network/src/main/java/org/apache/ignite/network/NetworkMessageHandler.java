@@ -16,12 +16,16 @@
  */
 package org.apache.ignite.network;
 
+import org.apache.ignite.network.message.NetworkMessage;
+
 /**
  * Handler of incoming messages.
  */
 public interface NetworkMessageHandler {
     /**
      * @param message Message which was received from cluster.
+     * @param sender Sender.
+     * @param corellationId Corellation id.
      */
-    void onReceived(NetworkMessage message);
+    void onReceived(NetworkMessage message, NetworkMember sender, String corellationId);
 }

@@ -25,10 +25,16 @@ public enum RaftErrorCode {
     SUCCESS(1000, "Successful"),
 
     /** */
-    NO_LEADER(1001, "No leader found within a timeout"),
+    NO_LEADER(1001, "No leader is found within a timeout"),
 
     /** */
-    LEADER_CHANGED(1002, "A peer is no longer a leader");
+    LEADER_CHANGED(1002, "A peer is no longer a leader"),
+
+    /** */
+    ILLEGAL_STATE(1003, "A peer is in illegal state"),
+
+    /** */
+    BUSY(1004, "A peer is busy, retry later");
 
     /** */
     private final int code;

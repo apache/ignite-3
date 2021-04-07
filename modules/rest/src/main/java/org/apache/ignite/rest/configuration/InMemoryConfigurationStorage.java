@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.sample.storage;
+package org.apache.ignite.rest.configuration;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.ConfigurationStorageListener;
@@ -31,43 +30,26 @@ import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 
 /**
- * Test configuration storage.
+ * Temporary configuration storage.
  */
-public class TestConfigurationStorage implements ConfigurationStorage {
+public class InMemoryConfigurationStorage implements ConfigurationStorage {
     /** Map to store values. */
     private Map<String, Serializable> map = new ConcurrentHashMap<>();
 
     /** Change listeners. */
-    private List<ConfigurationStorageListener> listeners = new ArrayList<>();
+    private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Storage version. */
     private AtomicLong version = new AtomicLong(0);
 
-    /** Should fail on every operation. */
-    private boolean fail = false;
-
-    /**
-     * Set fail flag.
-     * @param fail Fail flag.
-     */
-    public void fail(boolean fail) {
-        this.fail = fail;
-    }
-
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {
-        if (fail)
-            throw new StorageException("Failed to read data");
-
-        return new Data(new HashMap<>(map), version.get());
+        return new Data(new HashMap<>(map), version.get(), 0);
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long sentVersion) throws StorageException {
-        if (fail)
-            return CompletableFuture.failedFuture(new StorageException("Failed to write data"));
-
-        if (sentVersion != version.get())
+    @Override public synchronized CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long version) {
+        if (version != this.version.get())
             return CompletableFuture.completedFuture(false);
 
         for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
@@ -77,19 +59,11 @@ public class TestConfigurationStorage implements ConfigurationStorage {
                 map.remove(entry.getKey());
         }
 
-        version.incrementAndGet();
+        this.version.incrementAndGet();
 
-        listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, version.get())));
+        listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, this.version.get(), 0)));
 
         return CompletableFuture.completedFuture(true);
-    }
-
-    /** {@inheritDoc} */
-    @Override public synchronized Set<String> keys() throws StorageException {
-        if (fail)
-            throw new StorageException("Failed to get keys");
-
-        return map.keySet();
     }
 
     /** {@inheritDoc} */
@@ -100,5 +74,10 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override public void removeListener(ConfigurationStorageListener listener) {
         listeners.remove(listener);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void notifyApplied(long storageRevision) {
+        // No-op.
     }
 }
