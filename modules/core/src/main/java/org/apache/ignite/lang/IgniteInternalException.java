@@ -25,14 +25,14 @@ public class IgniteInternalException extends RuntimeException {
     private static final long serialVersionUID = 0L;
 
     /**
-     * Creates empty exception.
+     * Creates an empty exception.
      */
     public IgniteInternalException() {
         // No-op.
     }
 
     /**
-     * Creates new exception with given error message.
+     * Creates a new exception with the given error message.
      *
      * @param msg Error message.
      */
@@ -41,7 +41,7 @@ public class IgniteInternalException extends RuntimeException {
     }
 
     /**
-     * Creates new grid exception with given throwable as a cause and
+     * Creates new grid exception with the given throwable as a cause and
      * source of error message.
      *
      * @param cause Non-null throwable cause.
@@ -51,7 +51,7 @@ public class IgniteInternalException extends RuntimeException {
     }
 
     /**
-     * Creates new exception with given error message and optional nested exception.
+     * Creates a new exception with the given error message and optional nested exception.
      *
      * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
