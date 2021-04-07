@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationStorageType;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
@@ -83,7 +84,7 @@ public class ConfigurationRegistry {
     }
 
     /** */
-    public void startStorageConfigurations(Class<? extends ConfigurationStorage> storageType) {
+    public void startStorageConfigurations(ConfigurationStorageType storageType) {
         changer.initialize(storageType);
     }
 
@@ -173,7 +174,7 @@ public class ConfigurationRegistry {
      */
     public static <T extends ConfigurationTree<V, ?>, V> RootKey<T, V> newRootKey(
         String rootName,
-        Class<? extends ConfigurationStorage> storageType,
+        ConfigurationStorageType storageType,
         Supplier<InnerNode> rootSupplier,
         BiFunction<RootKey<T, V>, ConfigurationChanger, T> publicRootCreator
     ) {

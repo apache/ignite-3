@@ -19,12 +19,12 @@ package org.apache.ignite.configuration.sample;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationStorageType;
 
 /**
  * Test local configuration schema.
  */
-@ConfigurationRoot(rootName = "local", storage = TestConfigurationStorage.class)
+@ConfigurationRoot(rootName = "local", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
 public class LocalConfigurationSchema {
     /** Baseline. */
     @ConfigValue

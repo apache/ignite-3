@@ -15,29 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.configuration;
+package org.apache.ignite.configuration.storage;
 
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.storage.ConfigurationStorageType;
+public enum ConfigurationStorageType {
 
-import static org.apache.ignite.rest.RestModule.DFLT_PORT;
+    MEMORY_CONFIGURATION_STORAGE;
 
-/**
- * Configuration schema for REST endpoint subtree.
- */
-@ConfigurationRoot(rootName = "rest", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
-public class RestConfigurationSchema {
-    /** */
-    @Min(1024)
-    @Max(0xFFFF)
-    @Value(hasDefault = true)
-    public final int port = DFLT_PORT;
-
-    /** */
-    @Min(0)
-    @Value(hasDefault = true)
-    public final int portRange = 0;
 }

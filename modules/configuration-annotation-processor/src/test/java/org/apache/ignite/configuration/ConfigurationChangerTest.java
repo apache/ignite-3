@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.storage.ConfigurationStorageType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.configuration.validation.ValidationContext;
@@ -56,7 +57,7 @@ public class ConfigurationChangerTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "key", storage = TestConfigurationStorage.class)
+    @ConfigurationRoot(rootName = "key", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
     public static class AConfigurationSchema {
         /** */
         @ConfigValue
@@ -235,7 +236,7 @@ public class ConfigurationChangerTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "def", storage = TestConfigurationStorage.class)
+    @ConfigurationRoot(rootName = "def", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
     public static class DefaultsConfigurationSchema {
         /** */
         @ConfigValue
@@ -268,9 +269,11 @@ public class ConfigurationChangerTest {
 
         changer.addRootKey(DefaultsConfiguration.KEY);
 
-        changer.register(new TestConfigurationStorage());
+        TestConfigurationStorage storage = new TestConfigurationStorage();
 
-        changer.initialize(TestConfigurationStorage.class);
+        changer.register(storage);
+
+        changer.initialize(storage.type());
 
         DefaultsNode root = (DefaultsNode)changer.getRootNode(DefaultsConfiguration.KEY);
 
