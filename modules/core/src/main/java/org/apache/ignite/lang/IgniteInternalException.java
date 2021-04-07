@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * General internal exception. This exception is used to indicate any error condition within the node.
  */
@@ -41,7 +43,7 @@ public class IgniteInternalException extends RuntimeException {
     }
 
     /**
-     * Creates new grid exception with the given throwable as a cause and
+     * Creates a new grid exception with the given throwable as a cause and
      * source of error message.
      *
      * @param cause Non-null throwable cause.
@@ -56,7 +58,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalException(String msg, Throwable cause) {
+    public IgniteInternalException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 

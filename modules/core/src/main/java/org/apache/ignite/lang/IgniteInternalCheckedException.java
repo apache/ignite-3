@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * General internal checked exception. This exception is used to indicate any error condition within the node.
  */
@@ -58,7 +60,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param writableStackTrace Whether or not the stack trace should
      *                           be writable
      */
-    public IgniteInternalCheckedException(String msg, Throwable cause, boolean writableStackTrace) {
+    public IgniteInternalCheckedException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
         super(msg, cause, true, writableStackTrace);
     }
 
@@ -68,7 +70,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(String msg, Throwable cause) {
+    public IgniteInternalCheckedException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 
