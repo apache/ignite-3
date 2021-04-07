@@ -20,7 +20,7 @@ package org.apache.ignite.raft.client.service;
 import org.apache.ignite.raft.client.Command;
 
 /**
- * A closure to notify abbout command processing outcome.
+ * A closure to notify about command processing outcome.
  * @param <R> Command type.
  */
 public interface CommandClosure<R extends Command> {

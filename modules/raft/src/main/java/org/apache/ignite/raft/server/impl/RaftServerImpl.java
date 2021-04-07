@@ -138,7 +138,7 @@ public class RaftServerImpl implements RaftServer {
                         else if (req instanceof ActionRequest) {
                             ActionRequest req0 = (ActionRequest) req;
 
-                            RaftGroupCommandListener lsnr = listeners.get(req0.groupId());
+                            RaftGroupCommandListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
 
                             if (lsnr == null) {
                                 sendError(sender, corellationId, RaftErrorCode.ILLEGAL_STATE);
@@ -153,9 +153,8 @@ public class RaftServerImpl implements RaftServer {
                                 handleActionRequest(sender, req0, corellationId, writeQueue, lsnr);
                             }
                         }
-                        else {
+                        else
                             LOG.warn("Unsupported message class " + req.getClass().getName());
-                        }
                     }
                 };
             }
@@ -200,6 +199,14 @@ public class RaftServerImpl implements RaftServer {
         LOG.info("Stopped replication server [id=" + id + ", localPort=" + localPort + ']');
     }
 
+    /**
+     * @param sender The sender.
+     * @param req The request.
+     * @param corellationId Corellation id.
+     * @param queue The queue.
+     * @param lsnr The listener.
+     * @param <T> Command type.
+     */
     private <T extends Command> void handleActionRequest(
         NetworkMember sender,
         ActionRequest req,
@@ -231,6 +238,11 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
+    /**
+     * @param queue The queue.
+     * @param clo The closure.
+     * @param <T> Command type.
+     */
     private <T extends Command> void processQueue(
         BlockingQueue<CommandClosureEx<T>> queue,
         BiConsumer<RaftGroupCommandListener, Iterator<CommandClosure<T>>> clo
@@ -252,13 +264,22 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
+    /**
+     * @param sender The sender.
+     * @param corellationId Corellation id.
+     * @param errorCode Error code.
+     */
     private void sendError(NetworkMember sender, String corellationId, RaftErrorCode errorCode) {
         RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
         server.send(sender, resp, corellationId);
     }
 
+    /** */
     private interface CommandClosureEx<T extends Command> extends CommandClosure<T> {
+        /**
+         * @return The listener.
+         */
         RaftGroupCommandListener listener();
     }
 }

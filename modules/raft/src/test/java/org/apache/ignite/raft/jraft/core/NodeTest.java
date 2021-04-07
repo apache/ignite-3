@@ -515,6 +515,9 @@ public class NodeTest {
         // old leader try to elect self, it should fail.
         ((NodeImpl) leader).tryElectSelf();
         Thread.sleep(1500);
+
+        assertNull(cluster.getLeader());
+
         // Start followers
         for (Node node : followers) {
             assertTrue(cluster.start(node.getNodeId().getPeerId().getEndpoint()));
