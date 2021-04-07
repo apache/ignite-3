@@ -25,7 +25,7 @@ public class IgniteInternalCheckedException extends Exception {
     private static final long serialVersionUID = 0L;
 
     /**
-     * Create empty exception.
+     * Creates empty exception.
      */
     public IgniteInternalCheckedException() {
         // No-op.
@@ -55,7 +55,7 @@ public class IgniteInternalCheckedException extends Exception {
      *
      * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
-     * @param writableStackTrace whether or not the stack trace should
+     * @param writableStackTrace Whether or not the stack trace should
      *                           be writable
      */
     public IgniteInternalCheckedException(String msg, Throwable cause, boolean writableStackTrace) {

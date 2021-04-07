@@ -25,7 +25,7 @@ public class IgniteInternalException extends RuntimeException {
     private static final long serialVersionUID = 0L;
 
     /**
-     * Create empty exception.
+     * Creates empty exception.
      */
     public IgniteInternalException() {
         // No-op.
