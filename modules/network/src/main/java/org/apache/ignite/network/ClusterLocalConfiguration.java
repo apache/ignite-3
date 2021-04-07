@@ -22,6 +22,9 @@ import org.apache.ignite.network.message.MessageMapperProviders;
 
 /**
  * Network configuration of a node.
+ *
+ * TODO: migrate to common configuration class when it's available, see
+ *  https://issues.apache.org/jira/browse/IGNITE-14496
  */
 public class ClusterLocalConfiguration {
     /** Network alias of a node. */
