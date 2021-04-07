@@ -74,6 +74,8 @@
         <typesafe.version>1.4.1</typesafe.version>
         <hamcrest.version>2.2</hamcrest.version>
         <scalecube.version>2.6.6</scalecube.version>
+        <rocksdb.version>5.18.4</rocksdb.version>
+        <disruptor.version>3.3.7</disruptor.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -304,6 +306,18 @@
                 <groupId>io.netty</groupId>
                 <artifactId>netty-codec-http</artifactId>
                 <version>${netty.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.lmax</groupId>
+                <artifactId>disruptor</artifactId>
+                <version>${disruptor.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.rocksdb</groupId>
+                <artifactId>rocksdbjni</artifactId>
+                <version>${rocksdb.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

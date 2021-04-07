@@ -125,10 +125,10 @@ public class LogStorageBenchmark {
         System.out.println("Test log storage path: " + testPath);
         int batchSize = 100;
         int logSize = 16 * 1024;
-        int totalLogs = 1024 * 1024;
+        int totalLogs = 30 * 1024;
 
-        // LogStorage logStorage = new RocksDBLogStorage(testPath, new RaftOptions());
-        LogStorage logStorage = new LocalLogStorage(testPath, new RaftOptions());
+        LogStorage logStorage = new RocksDBLogStorage(testPath, new RaftOptions());
+        //LogStorage logStorage = new LocalLogStorage(testPath, new RaftOptions());
 
         LogStorageOptions opts = new LogStorageOptions();
         opts.setConfigurationManager(new ConfigurationManager());
