@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.lang.IgniteRuntimeException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
@@ -311,10 +311,10 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
         catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw new IgniteRuntimeException(e);
+            throw new IgniteInternalException(e);
         }
         catch (ExecutionException e) {
-            throw new IgniteRuntimeException(e);
+            throw new IgniteInternalException(e);
         }
     }
 }
