@@ -57,7 +57,7 @@ public class IgniteInternalCheckedException extends Exception {
      *
      * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
-     * @param writableStackTrace Whether or not the stack trace should be writableю
+     * @param writableStackTrace Whether or not the stack trace should be writable.
      */
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
         super(msg, cause, true, writableStackTrace);
