@@ -311,9 +311,11 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
         catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
+            //TODO: IGNITE-14500 Replace with public exception with an error code.
             throw new IgniteInternalException(e);
         }
         catch (ExecutionException e) {
+            //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
             throw new IgniteInternalException(e);
         }
     }

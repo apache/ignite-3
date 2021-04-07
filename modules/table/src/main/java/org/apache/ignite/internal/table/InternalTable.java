@@ -149,5 +149,5 @@ public interface InternalTable {
      */
     @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> recs);
 
-    //TODO: add invoke() methods.
+    //TODO: IGNTIE-14488. Add invoke() methods.
 }

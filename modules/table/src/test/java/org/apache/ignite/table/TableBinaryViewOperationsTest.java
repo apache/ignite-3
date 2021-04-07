@@ -33,11 +33,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Basic table operations test.
  * <p>
- * TODO: Add tests for invoke operations.
- * TODO: Add tests for bulk operations.
- * TODO: Add tests for async operations.
+ * TODO: IGNITE-14486 Add tests for invoke operations.
+ * TODO: IGNITE-14486 Add tests for bulk operations.
+ * TODO: IGNITE-14486 Add tests for async operations.
  */
-public class TableOperationsTest {
+public class TableBinaryViewOperationsTest {
     /**
      *
      */

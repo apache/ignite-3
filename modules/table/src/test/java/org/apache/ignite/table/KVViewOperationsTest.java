@@ -34,11 +34,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Basic table operations test.
  * <p>
- * TODO: Add bulk operations tests.
- * TODO: Add async operations tests.
- * TODO: Refactor, to check different schema configurations (varlen fields, composite keys, binary fields and etc).
- * TODO: Check non-key fields is ignored for keys.
- * TODO: Check non-value fields is ignored or exception is thrown
+ * TODO: IGNITE-14487 Add bulk operations tests.
+ * TODO: IGNITE-14487 Add async operations tests.
+ * TODO: IGNITE-14487 Check non-key fields in Tuple is ignored for keys.
+ * TODO: IGNITE-14487 Check key fields in Tuple is ignored for value or exception is thrown?
  */
 public class KVViewOperationsTest {
     /**

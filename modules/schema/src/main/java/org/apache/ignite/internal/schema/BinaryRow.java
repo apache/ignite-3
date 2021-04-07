@@ -51,7 +51,7 @@ public interface BinaryRow {
      */
     boolean hasValue();
 
-    // TODO: add row version.
+    // TODO: IGNITE-14199. Add row version.
     //GridRowVersion version();
 
     /**
