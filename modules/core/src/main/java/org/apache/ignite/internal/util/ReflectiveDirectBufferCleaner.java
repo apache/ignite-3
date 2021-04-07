@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
  * {@link DirectBufferCleaner} implementation based on {@code sun.misc.Cleaner} and
  * {@code sun.nio.ch.DirectBuffer.cleaner()} method.
  *
- * Mote: This implementation will not work on Java 9+.
+ * Note: This implementation will not work on Java 9+.
  */
 public class ReflectiveDirectBufferCleaner implements DirectBufferCleaner {
     /** Cleaner method. */

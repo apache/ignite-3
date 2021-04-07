@@ -37,7 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test Direct Message Writing/Reading works. This test won't be needed after we implement Netty Transport for Ignite.
+ * Test Direct Message Writing/Reading works. This test won't be needed after we implement Netty Transport
+ * for Ignite (IGNITE-14088).
  */
 public class DirectSerializationTest {
     /** */
