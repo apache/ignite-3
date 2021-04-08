@@ -22,7 +22,7 @@ package org.apache.ignite.network.internal.direct.state;
  */
 public interface DirectMessageStateItem {
     /**
-     * Resets state.
+     * Resets the state.
      */
     public void reset();
 }

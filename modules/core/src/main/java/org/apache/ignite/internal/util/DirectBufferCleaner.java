@@ -24,10 +24,9 @@ import java.nio.ByteBuffer;
  */
 public interface DirectBufferCleaner {
     /**
-     * Cleans direct buffer.
+     * Cleans the direct buffer.
      *
      * @param buf direct buffer.
      */
     public void clean(ByteBuffer buf);
 }
-

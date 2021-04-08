@@ -31,14 +31,14 @@ import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemTy
  */
 public interface MessageWriter {
     /**
-     * Sets a byte buffer to write to.
+     * Sets the byte buffer to write to.
      *
      * @param buf Byte buffer.
      */
     public void setBuffer(ByteBuffer buf);
 
     /**
-     * Sets the type of a message that is being currently written.
+     * Sets the type of the message that is currently being written.
      *
      * @param msgCls Message type.
      */

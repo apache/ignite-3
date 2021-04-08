@@ -32,28 +32,28 @@ import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemTy
  */
 public interface MessageReader {
     /**
-     * Sets a byte buffer to read from.
+     * Sets the byte buffer to read from.
      *
      * @param buf Byte buffer.
      */
     public void setBuffer(ByteBuffer buf);
 
     /**
-     * Sets the type of a message that is being currently read.
+     * Sets the type of the message that is currently being read.
      *
      * @param msgCls Message type.
      */
     public void setCurrentReadClass(Class<? extends NetworkMessage> msgCls);
 
     /**
-     * Callback that must be invoked by the implementation of a message serializer before message body started decoding.
+     * Callback that must be invoked by implementations of message serializers before they start decoding the message body.
      *
-     * @return {@code True} if a read operation can be proceeded, {@code false} otherwise.
+     * @return {@code True} if a read operation is allowed to proceed, {@code false} otherwise.
      */
     public boolean beforeMessageRead();
 
     /**
-     * Callback that must be invoked by the implementation of a message serializer after message body finished decoding.
+     * Callback that must be invoked by implementations of message serializers after they finished decoding the message body.
      *
      * @param msgCls Class of the message that is finishing read stage.
      * @return {@code True} if a read operation can be proceeded, {@code false} otherwise.
