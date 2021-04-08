@@ -25,10 +25,10 @@ import org.apache.ignite.network.internal.MessageWriter;
  */
 public interface MessageSerializer<M extends NetworkMessage> {
     /**
-     * Write message to writer.
+     * Write a message to writer.
      * @param message Message.
      * @param writer Message writer.
-     * @return {@code true } if message was completely written.
+     * @return {@code true } if the message was completely written.
      * @throws MessageMappingException If failed.
      */
     boolean writeMessage(M message, MessageWriter writer) throws MessageMappingException;

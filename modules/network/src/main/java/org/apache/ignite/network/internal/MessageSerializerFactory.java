@@ -36,7 +36,7 @@ public class MessageSerializerFactory {
     }
 
     /**
-     * Create deserializer for message by direct type.
+     * Create a deserializer for a message by the direct type.
      * @param directType Message's direct type.
      * @return Message deserializer.
      */
@@ -45,7 +45,7 @@ public class MessageSerializerFactory {
     }
 
     /**
-     * Create serializer for message by direct type.
+     * Create a serializer for a message by the direct type.
      * @param directType Message's direct type.
      * @return Message serializer.
      */

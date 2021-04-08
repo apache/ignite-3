@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 import sun.misc.Unsafe;
 
 /**
- * {@link DirectBufferCleaner} implementation based on {@code Unsafe.invokeCleaner} method.
+ * {@link DirectBufferCleaner} implementation based on the {@code Unsafe.invokeCleaner} method.
  *
  * Note: This implementation will work only for Java 9+.
  */

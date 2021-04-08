@@ -35,7 +35,7 @@ public class IgniteUtils {
     }
 
     /**
-     * Gets JDK version.
+     * Get JDK version.
      *
      * @return JDK version.
      */
@@ -44,7 +44,7 @@ public class IgniteUtils {
     }
 
     /**
-     * Get major Java version from string.
+     * Get major Java version from a string.
      *
      * @param verStr Version string.
      * @return Major version or zero if failed to resolve.
@@ -77,7 +77,7 @@ public class IgniteUtils {
      *
      * Copy pasted from guava. See com.google.common.collect.Maps#capacity(int)
      *
-     * @param expSize Expected size of created map.
+     * @param expSize Expected size of the created map.
      * @return Capacity.
      */
     public static int capacity(int expSize) {
@@ -93,9 +93,9 @@ public class IgniteUtils {
     /**
      * Creates new {@link HashMap} with expected size.
      *
-     * @param expSize Expected size of created map.
-     * @param <K> Type of map keys.
-     * @param <V> Type of map values.
+     * @param expSize Expected size of the created map.
+     * @param <K> Type of the map's keys.
+     * @param <V> Type of the map's values.
      * @return New map.
      */
     public static <K, V> HashMap<K, V> newHashMap(int expSize) {
@@ -106,8 +106,8 @@ public class IgniteUtils {
      * Creates new {@link LinkedHashMap} with expected size.
      *
      * @param expSize Expected size of created map.
-     * @param <K> Type of map keys.
-     * @param <V> Type of map values.
+     * @param <K> Type of the map's keys.
+     * @param <V> Type of the map's values.
      * @return New map.
      */
     public static <K, V> LinkedHashMap<K, V> newLinkedHashMap(int expSize) {

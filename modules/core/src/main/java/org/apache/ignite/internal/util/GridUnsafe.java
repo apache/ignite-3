@@ -36,7 +36,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.jdkVersion;
 import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
 
 /**
- * <p>Wrapper for {@link sun.misc.Unsafe} class.</p>
+ * <p>Wrapper for the {@link sun.misc.Unsafe} class.</p>
  *
  * <p>
  * The following statements for memory access operations  are true:
@@ -47,7 +47,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
  * <li>All {@code putXxxField(Object obj, long fieldOff, xxx val)} and {@code getXxxField(Object obj, long fieldOff)}
  * methods are not alignment aware and can't be safely used with unaligned pointers. This methods can be safely used
  * for object field values access because all object fields addresses are aligned.</li>
- * <li>All {@code putXxxLE(...)} and {@code getXxxLE(...)} methods assumes that byte order is fixed as little-endian
+ * <li>All {@code putXxxLE(...)} and {@code getXxxLE(...)} methods assumes that the byte order is fixed as little-endian
  * while native byte order is big-endian. So it is client code responsibility to check native byte order before
  * invoking of this methods.</li>
  * </ul>
@@ -202,9 +202,9 @@ public abstract class GridUnsafe {
         if (NEW_DIRECT_BUF_MTD != null && JAVA_NIO_ACCESS_OBJ != null)
             return wrapPointerJavaNio(ptr, len, NEW_DIRECT_BUF_MTD, JAVA_NIO_ACCESS_OBJ);
         else if (NEW_DIRECT_BUF_CONSTRUCTOR != null)
-            return wrapPointerDirectBufCtor(ptr, len, NEW_DIRECT_BUF_CONSTRUCTOR);
+            return wrapPointerDirectBufferConstructor(ptr, len, NEW_DIRECT_BUF_CONSTRUCTOR);
         else
-            throw new RuntimeException("All alternative for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_VER_SPECIFIC_WARN);
+            throw new RuntimeException("All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_VER_SPECIFIC_WARN);
     }
 
     /**
@@ -215,7 +215,7 @@ public abstract class GridUnsafe {
      * @param constructor Constructor to use. Should create an instance of a direct ByteBuffer.
      * @return Byte buffer wrapping the given memory.
      */
-    @NotNull private static ByteBuffer wrapPointerDirectBufCtor(long ptr, int len, Constructor<?> constructor) {
+    @NotNull private static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, int len, Constructor<?> constructor) {
         try {
             Object newDirectBuf = constructor.newInstance(ptr, len);
 
@@ -1630,7 +1630,7 @@ public abstract class GridUnsafe {
         long ptr = UNSAFE.allocateMemory(l);
 
         try {
-            ByteBuffer buf = wrapPointerDirectBufCtor(ptr, l, ctorCandidate);
+            ByteBuffer buf = wrapPointerDirectBufferConstructor(ptr, l, ctorCandidate);
 
             if (!buf.isDirect())
                 throw new IllegalArgumentException("Buffer expected to be direct, internal error during #wrapPointerDirectBufCtor()");

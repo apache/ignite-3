@@ -22,7 +22,7 @@ import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 
 /**
- * {@link DirectBufferCleaner} implementation based on {@code sun.misc.Cleaner} and
+ * {@link DirectBufferCleaner} implementation based on the {@code sun.misc.Cleaner} and the
  * {@code sun.nio.ch.DirectBuffer.cleaner()} method.
  *
  * Note: This implementation will not work on Java 9+.
