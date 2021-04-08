@@ -39,7 +39,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
  * <p>Wrapper for the {@link sun.misc.Unsafe} class.</p>
  *
  * <p>
- * The following statements for memory access operations  are true:
+ * All memory access operations have the following properties:
  * <ul>
  * <li>All {@code putXxx(long addr, xxx val)}, {@code getXxx(long addr)}, {@code putXxx(byte[] arr, long off, xxx val)},
  * {@code getXxx(byte[] arr, long off)} and corresponding methods with {@code LE} suffix are alignment aware
@@ -49,7 +49,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
  * for object field values access because all object fields addresses are aligned.</li>
  * <li>All {@code putXxxLE(...)} and {@code getXxxLE(...)} methods assumes that the byte order is fixed as little-endian
  * while native byte order is big-endian. So it is client code responsibility to check native byte order before
- * invoking of this methods.</li>
+ * invoking these methods.</li>
  * </ul>
  * </p>
  */
@@ -192,7 +192,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Wraps pointer to unmanaged memory into direct byte buffer.
+     * Wraps a pointer to unmanaged memory into a direct byte buffer.
      *
      * @param ptr Pointer to wrap.
      * @param len Memory location length.
@@ -208,7 +208,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Wraps pointer to unmanaged memory into direct byte buffer. Uses constructor of a direct byte buffer.
+     * Wraps a pointer to unmanaged memory with a direct byte buffer using the direct byte buffer's constructor.
      *
      * @param ptr Pointer to wrap.
      * @param len Memory location length.
@@ -228,7 +228,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Wraps pointer to unmanaged memory into direct byte buffer. Uses JavaNioAccess object.
+     * Wraps a pointer to unmanaged memory with a direct byte buffer using a JavaNioAccess object.
      *
      * @param ptr Pointer to wrap.
      * @param len Memory location length.
@@ -289,7 +289,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets boolean value from object field.
+     * Gets a boolean value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -300,7 +300,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores boolean value into object field.
+     * Stores a boolean value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -311,7 +311,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets byte value from object field.
+     * Gets a byte value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -2011,4 +2011,3 @@ public abstract class GridUnsafe {
         return true;
     }
 }
-
