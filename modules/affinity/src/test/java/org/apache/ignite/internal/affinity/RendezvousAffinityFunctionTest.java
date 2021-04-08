@@ -51,17 +51,21 @@ public class RendezvousAffinityFunctionTest {
 
         int parts = 10_000;
 
-        int backups = 3;
+        int replicas = 4;
 
         ArrayList<NetworkMember> members = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
-        AffinityFunction aff = new RendezvousAffinityFunction(false, parts);
+        int ideal = (parts * replicas) / nodes;
 
-        int ideal = (parts * (backups + 1)) / nodes;
-
-        List<List<NetworkMember>> assignment = aff.assignPartitions(members, backups);
+        List<List<NetworkMember>> assignment = RendezvousAffinityFunction.assignPartitions(
+            members,
+            parts,
+            replicas,
+            false,
+            null
+        );
 
         HashMap<NetworkMember, ArrayList<Integer>> assignmentByMember = new HashMap<>(nodes);
 
@@ -108,14 +112,19 @@ public class RendezvousAffinityFunctionTest {
 
         int parts = 10_000;
 
-        int backups = 3;
+        int replicas = 4;
 
         ArrayList<NetworkMember> members = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
-        List<List<NetworkMember>> assignment = new RendezvousAffinityFunction(false, parts)
-            .assignPartitions(members, backups);
+        List<List<NetworkMember>> assignment = RendezvousAffinityFunction.assignPartitions(
+            members,
+            parts,
+            replicas,
+            false,
+            null
+        );
 
         byte[] assignmentBytes = SerializationUtils.toBytes(assignment);
 

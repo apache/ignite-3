@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.extended;
+package org.apache.ignite.configuration.schemas.runner;
 
+import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
 /** */
 @Config
-public class DataStorageConfigurationSchema {
+public class AutoAdjustConfigurationSchema {
     /** */
     @Value
-    public int pageSize;
+    public boolean enabled;
 
     /** */
     @Value
-    public String storagePath;
-
-    /** */
-    @Value
-    public String walPath;
+    @Min(value = 0, message = "Minimum value is 0")
+    public int timeout;
 }

@@ -69,6 +69,9 @@ class ITRaftCounterServerTest {
     /** */
     private static final String SERVER_ID = "testServer";
 
+    /** Server id 2. */
+    private static final String SERVER_ID_2 = "testServer2";
+
     /** */
     private static final String CLIENT_ID = "testClient";
 
@@ -78,6 +81,9 @@ class ITRaftCounterServerTest {
     /** */
     private static final String COUNTER_GROUP_ID_1 = "counter1";
 
+    /** Counter group id 3. */
+    private static final String COUNTER_GROUP_ID_3 = "counter3";
+
     /**
      * @param testInfo Test info.
      */
@@ -85,8 +91,7 @@ class ITRaftCounterServerTest {
     void before(TestInfo testInfo) {
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
 
-        server = new RaftServerImpl(SERVER_ID,
-            20100,
+        server = new RaftServerImpl(startClient(SERVER_ID, 20100, List.of()),
             FACTORY,
             1000,
             Map.of(COUNTER_GROUP_ID_0, new CounterCommandListener(), COUNTER_GROUP_ID_1, new CounterCommandListener()));
@@ -103,6 +108,48 @@ class ITRaftCounterServerTest {
     void after() throws Exception {
         server.shutdown();
         client.shutdown();
+    }
+
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testTwoServer() throws Exception {
+        ClusterService client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
+
+        RaftServer raftServer2 = new RaftServerImpl(startClient(SERVER_ID_2, 20102, List.of("localhost:20100")),
+            FACTORY,
+            1000,
+            Map.of(COUNTER_GROUP_ID_3, new CounterCommandListener()));
+
+        assertTrue(waitForTopology(client, 3, 10_000), "Members: " + client.topologyService().allMembers().size());
+
+        Peer server = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer server2 = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID_2.equals(m.name())).findFirst().orElseThrow());
+
+        RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
+            List.of(server), true, 200);
+
+        RaftGroupService service2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_3, client, FACTORY, 1000,
+            List.of(server2), true, 200);
+
+        Peer leader = service.leader();
+        Peer leader2 = service2.leader();
+
+        assertEquals(server.getNode().name(), leader.getNode().name());
+        assertEquals(server2.getNode().name(), leader2.getNode().name());
+
+        assertEquals(0, service.<Integer>run(new GetValueCommand()).get());
+        assertEquals(0, service2.<Integer>run(new GetValueCommand()).get());
+
+        assertEquals(2, service.<Integer>run(new IncrementAndGetCommand(2)).get());
+        assertEquals(2, service2.<Integer>run(new IncrementAndGetCommand(2)).get());
+
+        assertEquals(2, service.<Integer>run(new GetValueCommand()).get());
+        assertEquals(2, service2.<Integer>run(new GetValueCommand()).get());
+
+        client.shutdown();
+        raftServer2.shutdown();
     }
 
     /**

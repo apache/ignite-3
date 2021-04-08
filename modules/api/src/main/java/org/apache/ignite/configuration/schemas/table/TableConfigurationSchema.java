@@ -1,4 +1,4 @@
-package org.apache.ignite.table.distributed.configuration;
+package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
@@ -12,5 +12,5 @@ public class TableConfigurationSchema {
     public int partitions;
 
     @Value
-    public int backups;
+    public int replicas;
 }

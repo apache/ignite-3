@@ -31,36 +31,30 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.NetworkMember;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * Affinity function for partitioned cache based on Highest Random Weight algorithm.
- * This function supports the following configuration:
+ * Affinity function for partitioned table based on Highest Random Weight algorithm. This function supports the
+ * following configuration:
  * <ul>
  * <li>
  *      {@code partitions} - Number of partitions to spread across nodes.
  * </li>
  * <li>
  *      {@code excludeNeighbors} - If set to {@code true}, will exclude same-host-neighbors
- *      from being backups of each other. This flag can be ignored in cases when topology has no enough nodes
- *      for assign backups.
- *      Note that {@code backupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
+ *      from being replicas of each other. This flag can be ignored in cases when topology has no enough nodes
+ *      for assign replicas.
+ *      Note that {@code memberFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
  * </li>
  * <li>
- *      {@code backupFilter} - Optional filter for back up nodes. If provided, then only
- *      nodes that pass this filter will be selected as backup nodes. If not provided, then
- *      primary and backup nodes will be selected out of all nodes available for this cache.
+ *      {@code memberFilter} - Optional filter for replica nodes. If provided, then only
+ *      nodes that pass this filter will be selected as replica nodes. If not provided, then
+ *      replicas nodes will be selected out of all nodes available for this table.
  * </li>
  * </ul>
  */
-public class RendezvousAffinityFunction implements AffinityFunction, Serializable {
-    /** */
-    private static final long serialVersionUID = 0L;
-
-    /** Default number of partitions. */
-    public static final int DFLT_PARTITION_COUNT = 1024;
+public class RendezvousAffinityFunction {
 
     /** Comparator. */
     private static final Comparator<IgniteBiTuple<Long, NetworkMember>> COMPARATOR = new HashComparator();
@@ -68,213 +62,11 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
     /** Maximum number of partitions. */
     public static final int MAX_PARTITIONS_COUNT = 65000;
 
-    /** Number of partitions. */
-    private int parts;
-
-    /** Mask to use in calculation when partitions count is power of 2. */
-    private int mask = -1;
-
-    /** Exclude neighbors flag. */
-    private boolean exclNeighbors;
-
     /** Exclude neighbors warning. */
-    private transient boolean exclNeighborsWarn;
-
-    /** Optional affinity backups filter. The first node is a node being tested,
-     *  the second is a list of nodes that are already assigned for a given partition (the first node in the list
-     *  is primary). */
-    private IgniteBiPredicate<NetworkMember, List<NetworkMember>> affinityBackupFilter;
+    private static boolean exclNeighborsWarn;
 
     /** Logger instance. */
-    private transient Logger log = LoggerFactory.getLogger(RendezvousAffinityFunction.class);
-
-    /**
-     * Helper method to calculates mask.
-     *
-     * @param parts Number of partitions.
-     * @return Mask to use in calculation when partitions count is power of 2.
-     */
-    public static int calculateMask(int parts) {
-        return (parts & (parts - 1)) == 0 ? parts - 1 : -1;
-    }
-
-    /**
-     * Helper method to calculate partition.
-     *
-     * @param key – Key to get partition for.
-     * @param mask Mask to use in calculation when partitions count is power of 2.
-     * @param parts Number of partitions.
-     * @return Partition number for a given key.
-     */
-    public static int calculatePartition(Object key, int mask, int parts) {
-        if (mask >= 0) {
-            int h;
-
-            return ((h = key.hashCode()) ^ (h >>> 16)) & mask;
-        }
-
-        return safeAbs(key.hashCode() % parts);
-    }
-
-    /**
-     * Initializes affinity with flag to exclude same-host-neighbors from being backups of each other
-     * and specified number of backups.
-     * <p>
-     * Note that {@code affinityBackupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
-     *
-     * @param exclNeighbors {@code True} if nodes residing on the same host may not act as backups
-     *      of each other.
-     */
-    public RendezvousAffinityFunction(boolean exclNeighbors) {
-        this(exclNeighbors, DFLT_PARTITION_COUNT);
-    }
-
-    /**
-     * Initializes affinity with flag to exclude same-host-neighbors from being backups of each other,
-     * and specified number of backups and partitions.
-     * <p>
-     * Note that {@code affinityBackupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
-     *
-     * @param exclNeighbors {@code True} if nodes residing on the same host may not act as backups
-     *      of each other.
-     * @param parts Total number of partitions.
-     */
-    public RendezvousAffinityFunction(
-        boolean exclNeighbors,
-        int parts) {
-        this(exclNeighbors, parts, null);
-    }
-
-    /**
-     * Initializes optional counts for replicas and backups.
-     * <p>
-     * Note that {@code affinityBackupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
-     *
-     * @param parts Total number of partitions.
-     * @param affinityBackupFilter Optional back up filter for nodes. If provided, backups will be selected
-     *      from all nodes that pass this filter. First argument for this filter is primary node, and second
-     *      argument is node being tested.
-     * <p>
-     * Note that {@code affinityBackupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
-     */
-    public RendezvousAffinityFunction(
-        int locallyGeneratedId,
-        int parts,
-        IgniteBiPredicate<NetworkMember, List<NetworkMember>> affinityBackupFilter
-    ) {
-        this(false, parts, affinityBackupFilter);
-    }
-
-    /**
-     * Private constructor.
-     *
-     * @param exclNeighbors Exclude neighbors flag.
-     * @param parts Partitions count.
-     * @param affinityBackupFilter Backup filter.
-     */
-    private RendezvousAffinityFunction(
-        boolean exclNeighbors,
-        int parts,
-        IgniteBiPredicate<NetworkMember, List<NetworkMember>> affinityBackupFilter
-    ) {
-        assert parts > 0 : "parts > 0";
-
-        this.exclNeighbors = exclNeighbors;
-        this.affinityBackupFilter = affinityBackupFilter;
-
-        setPartitions(parts);
-    }
-
-    /**
-     * Gets total number of key partitions. To ensure that all partitions are
-     * equally distributed across all nodes, please make sure that this
-     * number is significantly larger than a number of nodes. Also, partition
-     * size should be relatively small. Try to avoid having partitions with more
-     * than quarter million keys.
-     * <p>
-     * For fully replicated caches this method works the same way as a partitioned
-     * cache.
-     *
-     * @return Total partition count.
-     */
-    public int getPartitions() {
-        return parts;
-    }
-
-    /**
-     * Sets total number of partitions.If the number of partitions is a power of two,
-     * the PowerOfTwo hashing method will be used.  Otherwise the Standard hashing
-     * method will be applied.
-     *
-     * @param parts Total number of partitions.
-     * @return {@code this} for chaining.
-     */
-    public RendezvousAffinityFunction setPartitions(int parts) {
-        assert parts <= MAX_PARTITIONS_COUNT : "parts <= " + MAX_PARTITIONS_COUNT;
-        assert parts > 0: "parts > 0";
-
-        this.parts = parts;
-
-        mask = calculateMask(parts);
-
-        return this;
-    }
-
-    /**
-     * Gets optional backup filter. If not {@code null}, backups will be selected
-     * from all nodes that pass this filter. First node passed to this filter is a node being tested,
-     * and the second parameter is a list of nodes that are already assigned for a given partition (primary node is the first in the list).
-     * <p>
-     * Note that {@code affinityBackupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}. 
-     *
-     * @return Optional backup filter.
-     */
-    public IgniteBiPredicate<NetworkMember, List<NetworkMember>> getAffinityBackupFilter() {
-        return affinityBackupFilter;
-    }
-
-    /**
-     * Sets optional backup filter. If provided, then backups will be selected from all
-     * nodes that pass this filter. First node being passed to this filter is a node being tested,
-     * and the second parameter is a list of nodes that are already assigned for a given partition (primary node is the first in the list).
-     * <p>
-     * Note that {@code affinityBackupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.     
-     * <p>
-     *
-     * @param affinityBackupFilter Optional backup filter.
-     * @return {@code this} for chaining.
-     */
-    public RendezvousAffinityFunction setAffinityBackupFilter(
-        IgniteBiPredicate<NetworkMember, List<NetworkMember>> affinityBackupFilter) {
-        this.affinityBackupFilter = affinityBackupFilter;
-
-        return this;
-    }
-
-    /**
-     * Checks flag to exclude same-host-neighbors from being backups of each other (default is {@code false}).
-     * <p>
-     * Note that {@code backupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
-     *
-     * @return {@code True} if nodes residing on the same host may not act as backups of each other.
-     */
-    public boolean isExcludeNeighbors() {
-        return exclNeighbors;
-    }
-
-    /**
-     * Sets flag to exclude same-host-neighbors from being backups of each other (default is {@code false}).
-     * <p>
-     * Note that {@code backupFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
-     *
-     * @param exclNeighbors {@code True} if nodes residing on the same host may not act as backups of each other.
-     * @return {@code this} for chaining.
-     */
-    public RendezvousAffinityFunction setExcludeNeighbors(boolean exclNeighbors) {
-        this.exclNeighbors = exclNeighbors;
-
-        return this;
-    }
+    private static LogWrapper log = new LogWrapper(RendezvousAffinityFunction.class);
 
     /**
      * Resolves node hash.
@@ -282,23 +74,29 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
      * @param node Cluster node;
      * @return Node hash.
      */
-    public Object resolveNodeHash(NetworkMember node) {
+    public static Object resolveNodeHash(NetworkMember node) {
         return node.name();
     }
 
     /**
-     * Returns collection of nodes (primary first) for specified partition.
+     * Returns collection of nodes for specified partition.
      *
      * @param part Partition.
      * @param nodes Nodes.
-     * @param backups Number of backups.
+     * @param replicas Number partition replicas.
      * @param neighborhoodCache Neighborhood.
+     * @param exclNeighbors If true neighbors are excluded, false otherwise.
+     * @param memberFilter Filter for members.
      * @return Assignment.
      */
-    public List<NetworkMember> assignPartition(int part,
+    public static List<NetworkMember> assignPartition(
+        int part,
         List<NetworkMember> nodes,
-        int backups,
-        Map<UUID, Collection<NetworkMember>> neighborhoodCache) {
+        int replicas,
+        Map<UUID, Collection<NetworkMember>> neighborhoodCache,
+        boolean exclNeighbors,
+        IgniteBiPredicate<NetworkMember, List<NetworkMember>> memberFilter
+    ) {
         if (nodes.size() <= 1)
             return nodes;
 
@@ -315,30 +113,30 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
             hashArr[i] = new IgniteBiTuple<>(hash, node);
         }
 
-        final int primaryAndBackups = backups == Integer.MAX_VALUE ? nodes.size() : Math.min(backups + 1, nodes.size());
+        final int effectiveReplicas = replicas == Integer.MAX_VALUE ? nodes.size() : Math.min(replicas, nodes.size());
 
-        Iterable<NetworkMember> sortedNodes = new LazyLinearSortedContainer(hashArr, primaryAndBackups);
+        Iterable<NetworkMember> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
 
         // REPLICATED cache case
-        if (backups == Integer.MAX_VALUE)
+        if (replicas == Integer.MAX_VALUE)
             return replicatedAssign(nodes, sortedNodes);
 
         Iterator<NetworkMember> it = sortedNodes.iterator();
 
-        List<NetworkMember> res = new ArrayList<>(primaryAndBackups);
+        List<NetworkMember> res = new ArrayList<>(effectiveReplicas);
 
         Collection<NetworkMember> allNeighbors = new HashSet<>();
 
-        NetworkMember primary = it.next();
+        NetworkMember first = it.next();
 
-        res.add(primary);
+        res.add(first);
 
         if (exclNeighbors)
-            allNeighbors.addAll(neighborhoodCache.get(primary.id()));
+            allNeighbors.addAll(neighborhoodCache.get(first.id()));
 
-        // Select backups.
-        if (backups > 0) {
-            while (it.hasNext() && res.size() < primaryAndBackups) {
+        // Select another replicas.
+        if (replicas > 1) {
+            while (it.hasNext() && res.size() < effectiveReplicas) {
                 NetworkMember node = it.next();
 
                 if (exclNeighbors) {
@@ -348,8 +146,7 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
                         allNeighbors.addAll(neighborhoodCache.get(node.id()));
                     }
                 }
-                else if ((affinityBackupFilter != null && affinityBackupFilter.apply(node, res))
-                    || affinityBackupFilter == null) {
+                else if (memberFilter == null || memberFilter.apply(node, res)) {
                     res.add(node);
 
                     if (exclNeighbors)
@@ -358,13 +155,13 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
             }
         }
 
-        if (res.size() < primaryAndBackups && nodes.size() >= primaryAndBackups && exclNeighbors) {
-            // Need to iterate again in case if there are no nodes which pass exclude neighbors backups criteria.
+        if (res.size() < effectiveReplicas && nodes.size() >= effectiveReplicas && exclNeighbors) {
+            // Need to iterate again in case if there are no nodes which pass exclude neighbors replicas criteria.
             it = sortedNodes.iterator();
 
             it.next();
 
-            while (it.hasNext() && res.size() < primaryAndBackups) {
+            while (it.hasNext() && res.size() < effectiveReplicas) {
                 NetworkMember node = it.next();
 
                 if (!res.contains(node))
@@ -373,36 +170,37 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
 
             if (!exclNeighborsWarn) {
                 log.warn("Affinity function excludeNeighbors property is ignored " +
-                    "because topology has no enough nodes to assign backups.");
+                    "because topology has no enough nodes to assign all replicas.");
 
                 exclNeighborsWarn = true;
             }
         }
 
-        assert res.size() <= primaryAndBackups;
+        assert res.size() <= effectiveReplicas;
 
         return res;
     }
 
     /**
-     * Creates assignment for REPLICATED cache
+     * Creates assignment for REPLICATED table
      *
      * @param nodes Topology.
      * @param sortedNodes Sorted for specified partitions nodes.
      * @return Assignment.
      */
-    private List<NetworkMember> replicatedAssign(List<NetworkMember> nodes, Iterable<NetworkMember> sortedNodes) {
-        NetworkMember primary = sortedNodes.iterator().next();
+    private static List<NetworkMember> replicatedAssign(List<NetworkMember> nodes,
+        Iterable<NetworkMember> sortedNodes) {
+        NetworkMember first = sortedNodes.iterator().next();
 
         List<NetworkMember> res = new ArrayList<>(nodes.size());
 
-        res.add(primary);
+        res.add(first);
 
         for (NetworkMember n : nodes)
-            if (!n.equals(primary))
+            if (!n.equals(first))
                 res.add(n);
 
-        assert res.size() == nodes.size() : "Not enough backups: " + res.size();
+        assert res.size() == nodes.size() : "Not enough replicas: " + res.size();
 
         return res;
     }
@@ -413,8 +211,8 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
      *
      * @param key0 Hash key.
      * @param key1 Hash key.
-     * @see <a href="https://gist.github.com/badboy/6267743#64-bit-mix-functions">64 bit mix functions</a>
      * @return Long hash key.
+     * @see <a href="https://gist.github.com/badboy/6267743#64-bit-mix-functions">64 bit mix functions</a>
      */
     private static long hash(int key0, int key1) {
         long key = (key0 & 0xFFFFFFFFL)
@@ -431,36 +229,36 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
         return key;
     }
 
-    /** {@inheritDoc} */
-    @Override public void reset() {
-        // No-op.
-    }
+    /**
+     * Generates an assignment by the given parameters.
+     *
+     * @param currentTopologySnapshot List of topology members.
+     * @param partitions Number of table partitions.
+     * @param replicas Number partition replicas.
+     * @param exclNeighbors If true neighbors are excluded fro the one partition assignment, false otherwise.
+     * @param memberFilter Filter for members.
+     * @return List nodes by partition.
+     */
+    public static List<List<NetworkMember>> assignPartitions(
+        Collection<NetworkMember> currentTopologySnapshot,
+        int partitions,
+        int replicas,
+        boolean exclNeighbors,
+        IgniteBiPredicate<NetworkMember, List<NetworkMember>> memberFilter
+    ) {
+        assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
+        assert partitions > 0 : "parts > 0";
+        assert replicas > 0 : "replicas > 0";
 
-    /** {@inheritDoc} */
-    @Override public int partitions() {
-        return parts;
-    }
-
-    /** {@inheritDoc} */
-    @Override public int partition(Object key) {
-        if (key == null)
-            throw new IllegalArgumentException("Null key is passed for a partition calculation. " +
-                "Make sure that an affinity key that is used is initialized properly.");
-
-        return calculatePartition(key, mask, parts);
-    }
-
-    /** {@inheritDoc} */
-    @Override public List<List<NetworkMember>> assignPartitions(Collection<NetworkMember> currentTopologySnapshot, int backups) {
-        List<List<NetworkMember>> assignments = new ArrayList<>(parts);
+        List<List<NetworkMember>> assignments = new ArrayList<>(partitions);
 
         Map<UUID, Collection<NetworkMember>> neighborhoodCache = exclNeighbors ?
             neighbors(currentTopologySnapshot) : null;
 
         List<NetworkMember> nodes = new ArrayList<>(currentTopologySnapshot);
 
-        for (int i = 0; i < parts; i++) {
-            List<NetworkMember> partAssignment = assignPartition(i, nodes, backups, neighborhoodCache);
+        for (int i = 0; i < partitions; i++) {
+            List<NetworkMember> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, memberFilter);
 
             assignments.add(partAssignment);
         }
@@ -480,7 +278,7 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
         // Group by mac addresses.
         for (NetworkMember node : topSnapshot) {
             String macs = String.valueOf(node.hashCode());
-                //node.attribute(IgniteNodeAttributes.ATTR_MACS);
+            //node.attribute(IgniteNodeAttributes.ATTR_MACS);
 
             Collection<NetworkMember> nodes = macMap.get(macs);
 
@@ -499,16 +297,13 @@ public class RendezvousAffinityFunction implements AffinityFunction, Serializabl
         return neighbors;
     }
 
-    /** {@inheritDoc} */
-    @Override public void removeNode(UUID nodeId) {
-        // No-op.
-    }
-
     /**
      *
      */
     private static class HashComparator implements Comparator<IgniteBiTuple<Long, NetworkMember>>, Serializable {
-        /** */
+        /**
+         *
+         */
         private static final long serialVersionUID = 0L;
 
         /** {@inheritDoc} */

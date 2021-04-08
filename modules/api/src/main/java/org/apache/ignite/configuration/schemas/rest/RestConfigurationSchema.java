@@ -21,12 +21,11 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.storage.ConfigurationType;
 
 /**
  * Configuration schema for REST endpoint subtree.
  */
-@ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
+@ConfigurationRoot(rootName = "rest", storage = InMemoryConfigurationStorage.class)
 public class RestConfigurationSchema {
     /** */
     @Min(1024)

@@ -21,12 +21,24 @@
 package org.apache.ignite.table.manager;
 
 import java.util.List;
+import java.util.function.Consumer;
+import org.apache.ignite.configuration.schemas.table.TableInit;
 import org.apache.ignite.table.Table;
 
 /**
  * Interface that provides methods for managing tables.
  */
 public interface TableManager {
+    /**
+     * Creates a cluster table.
+     * The table changes if already exists.
+     *
+     * @param name Table name.
+     * @param tableInitChange Table changer.
+     * @return Table.
+     */
+    Table createTable(String name, Consumer<TableInit> tableInitChange);
+
     /**
      * Gets a list of all started tables.
      *

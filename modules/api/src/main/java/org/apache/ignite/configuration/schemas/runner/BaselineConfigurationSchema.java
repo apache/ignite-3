@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.extended;
+package org.apache.ignite.configuration.schemas.runner;
 
-import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /** */
+@SuppressWarnings("PMD.UnusedPrivateField")
 @Config
-public class AutoAdjustConfigurationSchema {
+public class BaselineConfigurationSchema {
     /** */
-    @Value
-    public boolean enabled;
-
-    /** */
-    @Value
-    @Min(value = 0, message = "Minimum value is 0")
-    public int timeout;
+    @ConfigValue
+    private AutoAdjustConfigurationSchema autoAdjust;
 }

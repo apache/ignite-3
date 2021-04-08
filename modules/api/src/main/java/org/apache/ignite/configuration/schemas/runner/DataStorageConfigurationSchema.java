@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.extended;
+package org.apache.ignite.configuration.schemas.runner;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
 
 /** */
-@SuppressWarnings("PMD.UnusedPrivateField")
 @Config
-public class BaselineConfigurationSchema {
+public class DataStorageConfigurationSchema {
     /** */
-    @ConfigValue
-    private AutoAdjustConfigurationSchema autoAdjust;
+    @Value
+    public int pageSize;
+
+    /** */
+    @Value
+    public String storagePath;
+
+    /** */
+    @Value
+    public String walPath;
 }

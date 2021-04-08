@@ -1,4 +1,4 @@
-package org.apache.ignite.table.distributed.configuration;
+package org.apache.ignite.configuration.schemas;
 
 import java.io.Serializable;
 import java.util.HashMap;
