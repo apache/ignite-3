@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.extended;
+package org.apache.ignite.configuration.schemas.rest;
 
-import org.apache.ignite.configuration.annotation.Config;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.schemas.TempConfigurationStorage;
 
-/** */
-@Config
-public class DataStorageConfigurationSchema {
+/**
+ * Configuration schema for REST endpoint subtree.
+ */
+@ConfigurationRoot(rootName = "rest", storage = TempConfigurationStorage.class)
+public class RestConfigurationSchema {
     /** */
-    @Value
-    public int pageSize;
+    @Min(1024)
+    @Max(0xFFFF)
+    @Value(hasDefault = true)
+    public final int port = 10300;
 
     /** */
-    @Value
-    public String storagePath;
-
-    /** */
-    @Value
-    public String walPath;
+    @Min(0)
+    @Value(hasDefault = true)
+    public final int portRange = 0;
 }

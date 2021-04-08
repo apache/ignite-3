@@ -9,19 +9,22 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.configuration.ConfigurationModule;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableInit;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.DistributedTableUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.storage.TableStorageImpl;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.metastorage.client.MetaStorageService;
 import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operations;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
-import org.apache.ignite.metastorage.configuration.MetastoreManagerConfiguration;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
@@ -31,8 +34,6 @@ import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.distributed.configuration.DistributedTableConfiguration;
-import org.apache.ignite.table.distributed.configuration.TableView;
 import org.apache.ignite.table.manager.TableManager;
 import org.jetbrains.annotations.NotNull;
 
@@ -49,16 +50,19 @@ public class TableManagerImpl implements TableManager {
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Logger. */
-    private LogWrapper log = new LogWrapper(TableManagerImpl.class);
+    private final LogWrapper log = new LogWrapper(TableManagerImpl.class);
 
     /** Meta storage service. */
-    private MetaStorageManager metaStorageMgr;
+    private final MetaStorageManager metaStorageMgr;
 
     /** Network cluster. */
-    private NetworkCluster networkCluster;
+    private final NetworkCluster networkCluster;
 
     /** Configuration manager. */
-    private ConfigurationManager configurationMgr;
+    private final ConfigurationManager configurationMgr;
+
+    /** Table creation subscription future. */
+    private CompletableFuture<IgniteUuid> tableCreationSubscriptionFut = null;
 
     /** Tables. */
     private Map<String, Table> tables;
@@ -68,76 +72,43 @@ public class TableManagerImpl implements TableManager {
         NetworkCluster networkCluster,
         MetaStorageManager metaStorageMgr
     ) {
-        int startRevision = 0;
+        long startRevision = 0;
+
         tables = new HashMap<>();
 
         this.configurationMgr = configurationMgr;
         this.networkCluster = networkCluster;
         this.metaStorageMgr = metaStorageMgr;
 
-        String[] metastoragePeerNames = configurationMgr.configurationRegistry()
-            .getConfiguration(MetastoreManagerConfiguration.KEY).names().value();
+        String localMemberName = configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
+            .name().value();
 
-        NetworkMember localMember = networkCluster.localMember();
-
-        boolean isLocalNodeHasMetasorage = false;
-
-        for (String name : metastoragePeerNames) {
-            if (name.equals(localMember.name())) {
-                isLocalNodeHasMetasorage = true;
-
-                break;
+        configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
+            .metastorageMembers().listen(ctx -> {
+            if (ctx.newValue() != null) {
+                if (hasMetastorageLocally(localMemberName, ctx.newValue()))
+                    subscribeForTableCreation();
+                else
+                    unsubscribeForTableCreation();
             }
-        }
+            return CompletableFuture.completedFuture(null);
 
-        if (isLocalNodeHasMetasorage) {
-            configurationMgr.configurationRegistry()
-                .getConfiguration(DistributedTableConfiguration.KEY).tables()
-                .listen(ctx -> {
-                    HashSet<String> tblNamesToStart = new HashSet<>(ctx.newValue().namedListKeys());
+        });
 
-                    long revision = ctx.storageRevision();
+        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
+            .metastorageMembers().value();
 
-                    if (ctx.oldValue() != null)
-                        tblNamesToStart.removeAll(ctx.oldValue().namedListKeys());
-
-                    for (String tblName : tblNamesToStart) {
-                        TableView tableView = ctx.newValue().get(tblName);
-                        long update = 0;
-
-                        UUID tblId = new UUID(revision, update);
-
-                        String tableInternalPrefix = INTERNAL_PREFIX + tblId.toString();
-
-                        CompletableFuture<Boolean> fut = metaStorageMgr.service().invoke(
-                            new Key(INTERNAL_PREFIX + tblId.toString()),
-                            Conditions.value().eq(null),
-                            Operations.put(tableView.name().getBytes(StandardCharsets.UTF_8)),
-                            Operations.noop());
-
-                        try {
-                            if (fut.get()) {
-                                metaStorageMgr.service().put(new Key(tableInternalPrefix + ".assignment"), null);
-
-                                log.info("Table manager created a table [name={}, revision={}]",
-                                    tableView.name(), revision);
-                            }
-                        }
-                        catch (InterruptedException | ExecutionException e) {
-                            log.error("Table was not fully initialized [name={}, revision={}]",
-                                tableView.name(), revision, e);
-                        }
-                    }
-                    return CompletableFuture.completedFuture(null);
-                });
-        }
+        if (hasMetastorageLocally(localMemberName, metastorageMembers))
+            subscribeForTableCreation();
 
         String tableInternalPrefix = INTERNAL_PREFIX + "#.assignment";
 
-        metaStorageMgr.service().watch(new Key(tableInternalPrefix), startRevision, new WatchListener() {
+        metaStorageMgr.watch(new Key(tableInternalPrefix), startRevision, new WatchListener() {
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                 for (WatchEvent evt : events) {
                     if (evt.newEntry().value() != null) {
+                        long evtRevision = evt.newEntry().revision();
+
                         String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
 
                         String placeholderValue = keyTail.substring(0, keyTail.indexOf('.'));
@@ -145,10 +116,10 @@ public class TableManagerImpl implements TableManager {
                         UUID tblId = UUID.fromString(placeholderValue);
 
                         try {
-                            String name = new String(metaStorageMgr.service().get(
-                                new Key(INTERNAL_PREFIX + tblId.toString())).get()
+                            String name = new String(metaStorageMgr.get(
+                                new Key(INTERNAL_PREFIX + tblId.toString()), evtRevision).get()
                                 .value(), StandardCharsets.UTF_8);
-                            int partitions = configurationMgr.configurationRegistry().getConfiguration(DistributedTableConfiguration.KEY)
+                            int partitions = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).partitions().value();
 
                             List<List<NetworkMember>> assignment = (List<List<NetworkMember>>)DistributedTableUtils.fromBytes(
@@ -167,10 +138,9 @@ public class TableManagerImpl implements TableManager {
                             }
 
                             tables.put(name, new TableImpl(new TableStorageImpl(
-                                configurationMgr,
-                                metaStorageMgr,
                                 tblId,
-                                partitionMap
+                                partitionMap,
+                                partitions
                             )));
                         }
                         catch (InterruptedException | ExecutionException e) {
@@ -187,6 +157,118 @@ public class TableManagerImpl implements TableManager {
                 log.error("Metastorage listener issue", e);
             }
         });
+    }
+
+    /**
+     * Tests a member has a distributed Metastorage peer.
+     *
+     * @param localMemberName Local member uniq name.
+     * @param metastorageMembers Metastorage members names.
+     * @return True if the member has Metastorage, false otherwise.
+     */
+    private boolean hasMetastorageLocally(String localMemberName, String[] metastorageMembers) {
+        boolean isLocalNodeHasMetasorage = false;
+
+        for (String name : metastorageMembers) {
+            if (name.equals(localMemberName)) {
+                isLocalNodeHasMetasorage = true;
+
+                break;
+            }
+        }
+        return isLocalNodeHasMetasorage;
+    }
+
+    /**
+     * Subscribes on table create.
+     */
+    private void subscribeForTableCreation() {
+        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
+            .tables().listen(ctx -> {
+            HashSet<String> tblNamesToStart = new HashSet<>(ctx.newValue().namedListKeys());
+
+            long revision = ctx.storageRevision();
+
+            if (ctx.oldValue() != null)
+                tblNamesToStart.removeAll(ctx.oldValue().namedListKeys());
+
+            for (String tblName : tblNamesToStart) {
+                TableView tableView = ctx.newValue().get(tblName);
+                long update = 0;
+
+                UUID tblId = new UUID(revision, update);
+
+                String tableInternalPrefix = INTERNAL_PREFIX + tblId.toString();
+
+                CompletableFuture<Boolean> fut = metaStorageMgr.invoke(
+                    new Key(INTERNAL_PREFIX + tblId.toString()),
+                    Conditions.value().eq(null),
+                    Operations.put(tableView.name().getBytes(StandardCharsets.UTF_8)),
+                    Operations.noop());
+
+                try {
+                    if (fut.get()) {
+                        metaStorageMgr.put(new Key(tableInternalPrefix + ".assignment"), null);
+
+                        log.info("Table manager created a table [name={}, revision={}]",
+                            tableView.name(), revision);
+                    }
+                }
+                catch (InterruptedException | ExecutionException e) {
+                    log.error("Table was not fully initialized [name={}, revision={}]",
+                        tableView.name(), revision, e);
+                }
+            }
+            return CompletableFuture.completedFuture(null);
+        });
+    }
+
+    /**
+     * Unsubscribe from table creation.
+     */
+    private void unsubscribeForTableCreation() {
+        if (tableCreationSubscriptionFut == null)
+            return;
+
+        try {
+            IgniteUuid subscriptionId = tableCreationSubscriptionFut.get();
+
+            metaStorageMgr.stopWatch(subscriptionId);
+
+            tableCreationSubscriptionFut = null;
+        }
+        catch (InterruptedException |ExecutionException e) {
+            log.error("Couldn't unsubscribe from table creation", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Table createTable(String name, Consumer<TableInit> tableInitChange) {
+        configurationMgr.configurationRegistry()
+            .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
+            change.create(name, tableInitChange));
+
+//        this.createTable("tbl1", change -> {
+//            change.initReplicas(2);
+//            change.initName("tbl1");
+//            change.initPartitions(1_000);
+//        });
+
+        //TODO: Get it honestly using some future.
+        Table tbl = null;
+
+        while (tbl == null) {
+            try {
+                Thread.sleep(50);
+
+                tbl = table(name);
+            }
+            catch (InterruptedException e) {
+                log.error("Waiting of creation of table was interrupted.", e);
+            }
+        }
+
+        return tbl;
     }
 
     /** {@inheritDoc} */

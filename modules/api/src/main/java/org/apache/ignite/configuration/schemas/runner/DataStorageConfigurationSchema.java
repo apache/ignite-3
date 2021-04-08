@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.extended;
+package org.apache.ignite.configuration.schemas.runner;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.rest.configuration.InMemoryConfigurationStorage;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
-/**
- *
- */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "local", storage = InMemoryConfigurationStorage.class)
-public class LocalConfigurationSchema {
+/** */
+@Config
+public class DataStorageConfigurationSchema {
     /** */
-    @ConfigValue
-    private BaselineConfigurationSchema baseline;
+    @Value
+    public int pageSize;
 
     /** */
-    @ConfigValue
-    private DataStorageConfigurationSchema dataStorage;
+    @Value
+    public String storagePath;
+
+    /** */
+    @Value
+    public String walPath;
 }

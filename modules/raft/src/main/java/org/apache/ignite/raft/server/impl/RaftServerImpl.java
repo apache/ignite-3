@@ -33,8 +33,6 @@ import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.message.NetworkMessage;
-import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -62,9 +60,6 @@ public class RaftServerImpl implements RaftServer {
     private final String id;
 
     /** */
-    private final int localPort;
-
-    /** */
     private final RaftClientMessageFactory clientMsgFactory;
 
     /** */
@@ -86,24 +81,20 @@ public class RaftServerImpl implements RaftServer {
     private final Thread writeWorker;
 
     /**
-     * @param id Server id.
-     * @param localPort Local port.
+     * @param net Network.
      * @param clientMsgFactory Client message factory.
      * @param queueSize Queue size.
      * @param listeners Command listeners.
      */
     public RaftServerImpl(
-        @NotNull String id,
-        int localPort,
+        NetworkCluster net,
         @NotNull RaftClientMessageFactory clientMsgFactory,
         int queueSize,
         Map<String, RaftGroupCommandListener> listeners
     ) {
-        Objects.requireNonNull(id);
         Objects.requireNonNull(clientMsgFactory);
 
-        this.id = id;
-        this.localPort = localPort;
+        this.id = net.localMember().name();
         this.clientMsgFactory = clientMsgFactory;
 
         if (listeners != null)
@@ -112,18 +103,7 @@ public class RaftServerImpl implements RaftServer {
         readQueue = new ArrayBlockingQueue<CommandClosureEx<ReadCommand>>(queueSize);
         writeQueue = new ArrayBlockingQueue<CommandClosureEx<WriteCommand>>(queueSize);
 
-        Network network = new Network(
-            new ScaleCubeNetworkClusterFactory(id, localPort, List.of(), new ScaleCubeMemberResolver())
-        );
-
-        // TODO: IGNITE-14088: Uncomment and use real serializer provider
-//        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
-
-        server = network.start();
+        server = net;
 
         server.addHandlersProvider(new NetworkHandlersProvider() {
             @Override public NetworkMessageHandler messageHandler() {
@@ -169,7 +149,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.setDaemon(true);
         writeWorker.start();
 
-        LOG.info("Started replication server [id=" + id + ", localPort=" + localPort + ']');
+        LOG.info("Started replication server [member=" + server.localMember() + ']');
     }
 
     /** {@inheritDoc} */
@@ -197,7 +177,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.interrupt();
         writeWorker.join();
 
-        LOG.info("Stopped replication server [id=" + id + ", localPort=" + localPort + ']');
+        LOG.info("Stopped replication server [member=" + server.localMember() + ']');
     }
 
     private <T extends Command> void handleActionRequest(

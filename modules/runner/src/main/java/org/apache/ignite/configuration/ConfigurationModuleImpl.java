@@ -21,8 +21,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.configuration.extended.LocalConfiguration;
-import org.apache.ignite.rest.configuration.InMemoryConfigurationStorage;
+import org.apache.ignite.configuration.schemas.TempConfigurationStorage;
+import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
 import org.apache.ignite.rest.presentation.json.JsonConverter;
 
 /**
@@ -45,7 +45,7 @@ public class ConfigurationModuleImpl implements ConfigurationModule {
     public void bootstrap(String jsonStr) throws InterruptedException {
         confRegistry.registerRootKey(LocalConfiguration.KEY);
 
-        InMemoryConfigurationStorage storage = new InMemoryConfigurationStorage();
+        TempConfigurationStorage storage = new TempConfigurationStorage();
 
         confRegistry.registerStorage(storage);
 

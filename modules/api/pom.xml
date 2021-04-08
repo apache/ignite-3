@@ -40,19 +40,7 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-affinity-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>metastorage-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-network-api</artifactId>
+            <artifactId>ignite-configuration-annotation-processor</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

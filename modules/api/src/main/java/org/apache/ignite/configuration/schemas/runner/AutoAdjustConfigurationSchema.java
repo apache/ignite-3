@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.configuration;
+package org.apache.ignite.configuration.schemas.runner;
 
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
-import static org.apache.ignite.rest.RestModule.DFLT_PORT;
-
-/**
- * Configuration schema for REST endpoint subtree.
- */
-@ConfigurationRoot(rootName = "rest", storage = InMemoryConfigurationStorage.class)
-public class RestConfigurationSchema {
+/** */
+@Config
+public class AutoAdjustConfigurationSchema {
     /** */
-    @Min(1024)
-    @Max(0xFFFF)
-    @Value(hasDefault = true)
-    public final int port = DFLT_PORT;
+    @Value
+    public boolean enabled;
 
     /** */
-    @Min(0)
-    @Value(hasDefault = true)
-    public final int portRange = 0;
+    @Value
+    @Min(value = 0, message = "Minimum value is 0")
+    public int timeout;
 }

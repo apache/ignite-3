@@ -17,6 +17,7 @@
 
 package org.apache.ignite.runner.internal.app;
 
+import io.netty.util.internal.StringUtil;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
@@ -26,6 +27,9 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.internal.ConfigurationManagerImpl;
 import org.apache.ignite.configuration.internal.DistributedConfigurationManagerImpl;
 import org.apache.ignite.configuration.internal.LocalConfigurationManagerImpl;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
 import org.apache.ignite.internal.affinity.ditributed.AffinityManager;
 import org.apache.ignite.internal.table.distributed.TableManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -33,8 +37,6 @@ import org.apache.ignite.metastorage.internal.MetaStorageManager;
 import org.apache.ignite.metastorage.internal.network.MetaStorageMessageTypes;
 import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.configuration.NetworkConfiguration;
-import org.apache.ignite.network.configuration.NetworkView;
 import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
 import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
@@ -94,10 +96,22 @@ public class IgnitionImpl implements Ignition {
         NetworkView netConfigurationView =
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
 
+        String localMemberName = locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
+            .name().value();
+
+        if (StringUtil.isNullOrEmpty(localMemberName)) {
+            localMemberName = "Node: " + netConfigurationView.port();
+
+            String finalName = localMemberName;
+
+            locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY).change(change ->
+                change.changeName(finalName));
+        }
+
         // Network startup.
         Network net = new Network(
             new ScaleCubeNetworkClusterFactory(
-                "Node: " + netConfigurationView.port(),
+                localMemberName,
                 netConfigurationView.port(),
                 Arrays.asList(netConfigurationView.networkMembersNames()),
                 new ScaleCubeMemberResolver())
@@ -146,10 +160,10 @@ public class IgnitionImpl implements Ignition {
         );
 
         // Baseline manager startup.
-        BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr);
+        BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, netMember);
 
         // Affinity manager startup.
-        AffinityManager affinityMgr = new AffinityManager(configurationMgr, netMember, metaStorageMgr, baselineMgr);
+        AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
 
         // Distributed table manager startup.
         TableManager distributedTblMgr = new TableManagerImpl(

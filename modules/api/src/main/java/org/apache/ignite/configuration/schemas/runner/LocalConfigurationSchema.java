@@ -15,16 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.extended;
+package org.apache.ignite.configuration.schemas.runner;
 
-import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.schemas.TempConfigurationStorage;
 
-/** */
+/**
+ * Local member configuration schema.
+ */
 @SuppressWarnings("PMD.UnusedPrivateField")
-@Config
-public class BaselineConfigurationSchema {
+@ConfigurationRoot(rootName = "local", storage = TempConfigurationStorage.class)
+public class LocalConfigurationSchema {
+    /** Uniq local member name. */
+    @Value
+    public String name;
+
+    /** It is a copy of appropriate property from the cluster configuration. */
+    @Value
+    String[] metastorageMembers;
+
     /** */
     @ConfigValue
-    private AutoAdjustConfigurationSchema autoAdjust;
+    private BaselineConfigurationSchema baseline;
+
+    /** */
+    @ConfigValue
+    private DataStorageConfigurationSchema dataStorage;
 }

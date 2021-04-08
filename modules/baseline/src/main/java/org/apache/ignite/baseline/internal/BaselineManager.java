@@ -17,17 +17,32 @@
 
 package org.apache.ignite.baseline.internal;
 
+import java.util.Collection;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
+import org.apache.ignite.network.NetworkCluster;
+import org.apache.ignite.network.NetworkMember;
 
 public class BaselineManager {
     private final ConfigurationManager configurationMgr;
 
     private final MetaStorageManager metastorageMgr;
 
-    public BaselineManager(ConfigurationManager configurationMgr, MetaStorageManager metastorageMgr) {
+    private final NetworkCluster networkCluster;
+
+    public BaselineManager(ConfigurationManager configurationMgr, MetaStorageManager metastorageMgr, NetworkCluster networkCluster) {
         this.configurationMgr = configurationMgr;
         this.metastorageMgr = metastorageMgr;
+        this.networkCluster = networkCluster;
+    }
+
+    /**
+     * Gets all nodes which participant in baseline and may process user data.
+     *
+     * @return All members which were in baseline.
+     */
+    public Collection<NetworkMember> nodes() {
+        return networkCluster.allMembers();
     }
 }
 
