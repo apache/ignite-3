@@ -38,32 +38,34 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 public class SystemPropertiesExtension implements
     BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback {
     /** Class properties. */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private List<Prop<String, String>> testMethodSysProps;
 
     /** Class properties. */
+    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private List<Prop<String, String>> testClassSysProps;
 
     /** {@inheritDoc} */
-    @Override public void beforeAll(ExtensionContext context) throws Exception {
+    @Override public void beforeAll(ExtensionContext context) {
         context.getTestClass().ifPresent(cls ->
             testClassSysProps = extractSystemPropertiesBeforeClass(cls));
     }
 
     /** {@inheritDoc} */
-    @Override public void afterAll(ExtensionContext context) throws Exception {
+    @Override public void afterAll(ExtensionContext context) {
         clearSystemProperties(testClassSysProps);
 
         testClassSysProps = null;
     }
 
     /** {@inheritDoc} */
-    @Override public void beforeEach(ExtensionContext context) throws Exception {
+    @Override public void beforeEach(ExtensionContext context) {
         context.getTestMethod().ifPresent(method ->
             testMethodSysProps = extractSystemPropertiesBeforeTestMethod(method));
     }
 
     /** {@inheritDoc} */
-    @Override public void afterEach(ExtensionContext context) throws Exception {
+    @Override public void afterEach(ExtensionContext context) {
         clearSystemProperties(testMethodSysProps);
 
         testMethodSysProps = null;

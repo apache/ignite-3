@@ -22,6 +22,7 @@ import java.util.Arrays;
 /**
  * Basic string builder over circular buffer.
  */
+//TODO: IGNITE-14501 Rewrite to CharBuffer to fix PMD checks.
 class CircularStringBuilder {
     /** Value */
     private final char value[];

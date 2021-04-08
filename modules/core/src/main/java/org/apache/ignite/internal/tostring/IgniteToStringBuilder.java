@@ -1878,75 +1878,74 @@ public class IgniteToStringBuilder {
 
         String key = cls.getName() + System.identityHashCode(cls.getClassLoader());
 
-        ClassDescriptor cd;
+        ClassDescriptor cd = classCache.get(key);
 
-        cd = classCache.get(key);
+        if (cd != null)
+            return cd;
 
-        if (cd == null) {
-            cd = new ClassDescriptor(cls);
+        cd = new ClassDescriptor(cls);
 
-            final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(cls, MethodHandles.lookup());
+        final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(cls, MethodHandles.lookup());
 
-            for (Field f : cls.getDeclaredFields()) {
-                boolean add = false;
+        for (Field f : cls.getDeclaredFields()) {
+            boolean add = false;
 
-                Class<?> type = f.getType();
+            Class<?> type = f.getType();
 
-                final IgniteToStringInclude incFld = f.getAnnotation(IgniteToStringInclude.class);
-                final IgniteToStringInclude incType = type.getAnnotation(IgniteToStringInclude.class);
+            final IgniteToStringInclude incFld = f.getAnnotation(IgniteToStringInclude.class);
+            final IgniteToStringInclude incType = type.getAnnotation(IgniteToStringInclude.class);
 
-                if (incFld != null || incType != null) {
-                    // Information is not sensitive when both the field and the field type are not sensitive.
-                    // When @IgniteToStringInclude is not present then the flag is false by default for that attribute.
-                    final boolean notSens = (incFld == null || !incFld.sensitive()) && (incType == null || !incType.sensitive());
-                    add = notSens || includeSensitive();
-                }
-                else if (!f.isAnnotationPresent(IgniteToStringExclude.class) &&
-                    !type.isAnnotationPresent(IgniteToStringExclude.class)
-                ) {
-                    if (
-                        // Include only private non-static
-                        Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers()) &&
+            if (incFld != null || incType != null) {
+                // Information is not sensitive when both the field and the field type are not sensitive.
+                // When @IgniteToStringInclude is not present then the flag is false by default for that attribute.
+                final boolean notSens = (incFld == null || !incFld.sensitive()) && (incType == null || !incType.sensitive());
+                add = notSens || includeSensitive();
+            }
+            else if (!f.isAnnotationPresent(IgniteToStringExclude.class) &&
+                !type.isAnnotationPresent(IgniteToStringExclude.class)
+            ) {
+                if (
+                    // Include only private non-static
+                    Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers()) &&
 
-                            // No direct objects & serializable.
-                            Object.class != type &&
-                            Serializable.class != type &&
-                            Externalizable.class != type &&
+                        // No direct objects & serializable.
+                        Object.class != type &&
+                        Serializable.class != type &&
+                        Externalizable.class != type &&
 
-                            // No arrays.
-                            !type.isArray() &&
+                        // No arrays.
+                        !type.isArray() &&
 
-                            // Exclude collections, IO, etc.
-                            !EventListener.class.isAssignableFrom(type) &&
-                            !Map.class.isAssignableFrom(type) &&
-                            !Collection.class.isAssignableFrom(type) &&
-                            !InputStream.class.isAssignableFrom(type) &&
-                            !OutputStream.class.isAssignableFrom(type) &&
-                            !Thread.class.isAssignableFrom(type) &&
-                            !Runnable.class.isAssignableFrom(type) &&
-                            !Lock.class.isAssignableFrom(type) &&
-                            !ReadWriteLock.class.isAssignableFrom(type) &&
-                            !Condition.class.isAssignableFrom(type)
-                    )
-                        add = true;
-                }
-
-                if (add) {
-                    FieldDescriptor fd = new FieldDescriptor(f, lookup.unreflectVarHandle(f));
-
-                    // Get order, if any.
-                    final IgniteToStringOrder annOrder = f.getAnnotation(IgniteToStringOrder.class);
-                    if (annOrder != null)
-                        fd.setOrder(annOrder.value());
-
-                    cd.addField(fd);
-                }
+                        // Exclude collections, IO, etc.
+                        !EventListener.class.isAssignableFrom(type) &&
+                        !Map.class.isAssignableFrom(type) &&
+                        !Collection.class.isAssignableFrom(type) &&
+                        !InputStream.class.isAssignableFrom(type) &&
+                        !OutputStream.class.isAssignableFrom(type) &&
+                        !Thread.class.isAssignableFrom(type) &&
+                        !Runnable.class.isAssignableFrom(type) &&
+                        !Lock.class.isAssignableFrom(type) &&
+                        !ReadWriteLock.class.isAssignableFrom(type) &&
+                        !Condition.class.isAssignableFrom(type)
+                )
+                    add = true;
             }
 
-            cd.sortFields();
+            if (add) {
+                FieldDescriptor fd = new FieldDescriptor(f, lookup.unreflectVarHandle(f));
 
-            classCache.putIfAbsent(key, cd);
+                // Get order, if any.
+                final IgniteToStringOrder annOrder = f.getAnnotation(IgniteToStringOrder.class);
+                if (annOrder != null)
+                    fd.setOrder(annOrder.value());
+
+                cd.addField(fd);
+            }
         }
+
+        cd.sortFields();
+
+        classCache.putIfAbsent(key, cd);
 
         return cd;
     }

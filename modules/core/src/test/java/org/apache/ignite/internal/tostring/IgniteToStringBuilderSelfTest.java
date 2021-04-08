@@ -938,7 +938,7 @@ public class IgniteToStringBuilderSelfTest {
                 Thread.sleep(1);
             }
             catch (InterruptedException e) {
-                e.printStackTrace();
+                LOG.error(e.getMessage(), e);
             }
 
             return super.toString();

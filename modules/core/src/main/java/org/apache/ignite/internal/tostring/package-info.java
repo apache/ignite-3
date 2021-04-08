@@ -16,11 +16,6 @@
  */
 
 /**
- * <!-- Package description. -->
- * Common utility classes for threads.
- */
-
-/**
  * Common utility classes for strings.
  */
 package org.apache.ignite.internal.tostring;
