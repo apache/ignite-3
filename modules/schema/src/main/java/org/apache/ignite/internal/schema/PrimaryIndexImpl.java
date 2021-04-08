@@ -62,7 +62,7 @@ public class PrimaryIndexImpl extends SortedIndexImpl implements PrimaryIndex {
     @Override public String toString() {
         return S.toString(PrimaryIndexImpl.class, this,
             "type", type(),
-            "name" , name() ,
+            "name", name(),
             "uniq", unique(),
             "cols", columns());
     }

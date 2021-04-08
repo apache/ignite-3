@@ -55,7 +55,7 @@ public class HashIndexImpl extends AbstractSchemaObject implements HashIndex {
     @Override public String toString() {
         return S.toString(HashIndexImpl.class, this,
             "type", type(),
-            "name" , name());
+            "name", name());
     }
 
 }

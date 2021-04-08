@@ -122,6 +122,7 @@ public class IgniteToStringBuilder {
      */
     //TODO: IGNTIE-14501: shrink IdentityHashMap when empty and capacity is larger than default.
     private static final ThreadLocal<IdentityHashMap<Object, EntryReference>> savedObjects = ThreadLocal.withInitial(IdentityHashMap::new);
+
     /**
      *
      */

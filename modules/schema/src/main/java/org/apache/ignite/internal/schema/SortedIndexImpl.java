@@ -68,6 +68,6 @@ public class SortedIndexImpl extends AbstractSchemaObject implements SortedIndex
     @Override public String toString() {
         return S.toString(SortedIndex.class, this,
             "type", type(),
-            "name" , name());
+            "name", name());
     }
 }
