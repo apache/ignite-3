@@ -46,9 +46,8 @@ public class SystemPropertiesExtension implements
     private List<Prop<String, String>> testClassSysProps;
 
     /** {@inheritDoc} */
-    @Override public void beforeAll(ExtensionContext context) {
-        context.getTestClass().ifPresent(cls ->
-            testClassSysProps = extractSystemPropertiesBeforeClass(cls));
+    @Override public void beforeAll(ExtensionContext ctx) {
+        testClassSysProps = extractSystemPropertiesBeforeClass(ctx.getRequiredTestClass());
     }
 
     /** {@inheritDoc} */
@@ -59,9 +58,8 @@ public class SystemPropertiesExtension implements
     }
 
     /** {@inheritDoc} */
-    @Override public void beforeEach(ExtensionContext context) {
-        context.getTestMethod().ifPresent(method ->
-            testMethodSysProps = extractSystemPropertiesBeforeTestMethod(method));
+    @Override public void beforeEach(ExtensionContext ctx) {
+        testMethodSysProps = extractSystemPropertiesBeforeTestMethod(ctx.getRequiredTestMethod());
     }
 
     /** {@inheritDoc} */
@@ -167,7 +165,7 @@ public class SystemPropertiesExtension implements
     /**
      * Property.
      */
-    private static class Prop<K, V> {
+    public static class Prop<K, V> {
         /** Property key. */
         private final K key;
 

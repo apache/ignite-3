@@ -23,6 +23,7 @@ import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.IgniteUtils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -42,16 +43,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(SystemPropertiesExtension.class)
 public class SensitiveDataToStringTest {
     /** Init SensitiveDataLoggingPolicy supplier. */
-    static {
+    @BeforeAll
+    static void init(){
         S.setSensitiveDataLoggingPolicySupplier(() ->
             SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase()));
     }
 
     /** Random int. */
-    int rndInt0 = 54321;
+    private static final int rndInt0 = 54321;
 
     /** Random string. */
-    String rndString = "qwer";
+    private static final String rndString = "qwer";
 
     /**
      *
