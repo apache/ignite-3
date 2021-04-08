@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tostring;
 /**
  * Log levels for sensitive data
  */
-enum SensitiveDataLoggingPolicy {
+public enum SensitiveDataLoggingPolicy {
     /**
      * Write sensitive information in {@code toString()} output.
      */

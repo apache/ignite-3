@@ -36,9 +36,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.lang.LogWrapper;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.identity;
@@ -51,10 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link IgniteToStringBuilder}.
  */
-public class IgniteToStringBuilderSelfTest {
-    /** Logger. */
-    private static final LogWrapper LOG = new LogWrapper(IgniteToStringBuilderSelfTest.class);
-
+public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      *
      */
@@ -228,14 +225,14 @@ public class IgniteToStringBuilderSelfTest {
         for (int i = 0; i < 100000; i++)
             obj.toStringManual();
 
-        LOG.info("Manual toString() took: " + (System.currentTimeMillis() - start) + "ms");
+        logger().info("Manual toString() took: " + (System.currentTimeMillis() - start) + "ms");
 
         start = System.currentTimeMillis();
 
         for (int i = 0; i < 100000; i++)
             obj.toStringAutomatic();
 
-        LOG.info("Automatic toString() took: " + (System.currentTimeMillis() - start) + "ms");
+        logger().info("Automatic toString() took: " + (System.currentTimeMillis() - start) + "ms");
     }
 
     /**
@@ -938,7 +935,7 @@ public class IgniteToStringBuilderSelfTest {
                 Thread.sleep(1);
             }
             catch (InterruptedException e) {
-                LOG.error(e.getMessage(), e);
+                log.error(e.getMessage(), e);
             }
 
             return super.toString();

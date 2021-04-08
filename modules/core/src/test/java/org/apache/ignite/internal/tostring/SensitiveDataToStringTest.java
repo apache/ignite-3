@@ -19,11 +19,11 @@ package org.apache.ignite.internal.tostring;
 
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.IgniteUtils;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.HAS
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.NONE;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.PLAIN;
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,14 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}
  */
 @ExtendWith(SystemPropertiesExtension.class)
-public class SensitiveDataToStringTest {
-    /** Init SensitiveDataLoggingPolicy supplier. */
-    @BeforeAll
-    static void init(){
-        S.setSensitiveDataLoggingPolicySupplier(() ->
-            SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase()));
-    }
-
+public class SensitiveDataToStringTest extends IgniteAbstractTest {
     /** Random int. */
     private static final int rndInt0 = 54321;
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tostring;
 
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  *
  */
-public class CircularStringBuilderSelfTest {
+public class CircularStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      *
      */
