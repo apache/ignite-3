@@ -322,7 +322,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores byte value into object field.
+     * Stores a byte value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -333,7 +333,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets short value from object field.
+     * Gets a short value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -344,7 +344,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores short value into object field.
+     * Stores a short value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -355,7 +355,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets char value from object field.
+     * Gets a char value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -366,7 +366,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores char value into object field.
+     * Stores a char value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -377,7 +377,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets integer value from object field.
+     * Gets an integer value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -388,7 +388,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores integer value into object field.
+     * Stores an integer value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -399,7 +399,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets long value from object field.
+     * Gets a long value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -410,7 +410,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores long value into object field.
+     * Stores a long value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -421,7 +421,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets float value from object field.
+     * Gets a float value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -432,7 +432,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores float value into object field.
+     * Stores a float value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -443,7 +443,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets double value from object field.
+     * Gets a double value from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -454,7 +454,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores double value into object field.
+     * Stores a double value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -465,7 +465,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets reference from object field.
+     * Gets a reference from an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -476,7 +476,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores reference value into object field.
+     * Stores a reference value into an object field.
      *
      * @param obj Object.
      * @param fieldOff Field offset.
@@ -487,7 +487,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets boolean value from byte array.
+     * Gets a boolean value from a byte array.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -498,7 +498,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores boolean value into byte array.
+     * Stores a boolean value into a byte array.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -509,7 +509,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets byte value from byte array.
+     * Gets a byte value from a byte array.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -520,7 +520,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores byte value into byte array.
+     * Stores a byte value into a byte array.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -531,7 +531,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets short value from byte array. Alignment aware.
+     * Gets a short value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -542,7 +542,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores short value into byte array. Alignment aware.
+     * Stores a short value into a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -556,7 +556,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets char value from byte array. Alignment aware.
+     * Gets a char value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -567,7 +567,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores char value into byte array. Alignment aware.
+     * Stores a char value into a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -581,7 +581,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets integer value from byte array. Alignment aware.
+     * Gets an integer value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -592,7 +592,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores integer value into byte array. Alignment aware.
+     * Stores an integer value into a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -606,7 +606,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets long value from byte array. Alignment aware.
+     * Gets a long value from a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -617,7 +617,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores long value into byte array. Alignment aware.
+     * Stores a long value into a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -631,7 +631,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets float value from byte array. Alignment aware.
+     * Gets a float value from a byte array. Alignment aware.
      *
      * @param arr Object.
      * @param off Offset.
@@ -642,7 +642,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores float value into byte array. Alignment aware.
+     * Stores a float value into a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
@@ -656,7 +656,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Gets double value from byte array. Alignment aware.
+     * Gets a double value from a byte array. Alignment aware.
      *
      * @param arr byte array.
      * @param off Offset.
@@ -667,7 +667,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Stores double value into byte array. Alignment aware.
+     * Stores a double value into a byte array. Alignment aware.
      *
      * @param arr Byte array.
      * @param off Offset.
