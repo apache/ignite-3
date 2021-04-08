@@ -1363,6 +1363,23 @@ public class IgniteToStringBuilder {
      * @param str Output prefix or {@code null} if empty.
      * @param name0 Property name.
      * @param val0 Property value.
+     * @param name1 Property name.
+     * @param val1 Property value.
+     * @param name2 Property name.
+     * @param val2 Property value.
+     * @return String presentation.
+     */
+    public static String toString(String str, String name0, @Nullable Object val0, String name1,
+        @Nullable Object val1, String name2, @Nullable Object val2) {
+        return toString(str, name0, val0, false, name1, val1, false, name2, val2, false);
+    }
+
+    /**
+     * Produces uniformed output of string with context properties
+     *
+     * @param str Output prefix or {@code null} if empty.
+     * @param name0 Property name.
+     * @param val0 Property value.
      * @param sens0 Property sensitive flag.
      * @param name1 Property name.
      * @param val1 Property value.

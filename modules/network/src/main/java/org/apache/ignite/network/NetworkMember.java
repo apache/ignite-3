@@ -18,6 +18,7 @@ package org.apache.ignite.network;
 
 import java.io.Serializable;
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Representation of the network member.
@@ -57,8 +58,6 @@ public class NetworkMember implements Serializable {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "NetworkMember{" +
-            "name='" + name + '\'' +
-            '}';
+        return S.toString(NetworkMember.class, this);
     }
 }

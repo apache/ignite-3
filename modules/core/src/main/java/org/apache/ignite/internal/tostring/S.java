@@ -23,5 +23,6 @@ package org.apache.ignite.internal.tostring;
  * use only and meant to provide for more terse code when readability of code is not compromised.
  */
 @SuppressWarnings({"ExtendsUtilityClass"})
-public final class S extends IgniteToStringBuilder { /* No-op. */
+public final class S extends IgniteToStringBuilder {
+    /* No-op. */
 }

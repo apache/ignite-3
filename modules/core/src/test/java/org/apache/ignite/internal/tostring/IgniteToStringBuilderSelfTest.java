@@ -32,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -53,14 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class IgniteToStringBuilderSelfTest {
     /** Logger. */
-    private final LogWrapper logger = new LogWrapper(getClass());
-
-    /**
-     * @param msg Message to log.
-     */
-    private void info(String msg) {
-        logger.info(msg);
-    }
+    private static final LogWrapper LOG = new LogWrapper(IgniteToStringBuilderSelfTest.class);
 
     /**
      *
@@ -97,8 +90,8 @@ public class IgniteToStringBuilderSelfTest {
         list2.add(list1);
         list1.add(list2);
 
-        info(IgniteToStringBuilder.toString(ArrayList.class, list1));
-        info(IgniteToStringBuilder.toString(ArrayList.class, list2));
+        assertEquals("ArrayList [size=1]", IgniteToStringBuilder.toString(ArrayList.class, list1));
+        assertEquals("ArrayList [size=1]", IgniteToStringBuilder.toString(ArrayList.class, list2));
     }
 
     /**
@@ -112,8 +105,8 @@ public class IgniteToStringBuilderSelfTest {
         map1.put("2", map2);
         map2.put("1", map1);
 
-        info(IgniteToStringBuilder.toString(HashMap.class, map1));
-        info(IgniteToStringBuilder.toString(HashMap.class, map2));
+        assertEquals("HashMap []", IgniteToStringBuilder.toString(HashMap.class, map1));
+        assertEquals("HashMap []", IgniteToStringBuilder.toString(HashMap.class, map2));
     }
 
     /**
@@ -127,8 +120,13 @@ public class IgniteToStringBuilderSelfTest {
         list2.add(list1);
         list1.add(list2);
 
-        info(IgniteToStringBuilder.toString(ArrayList.class, list1, "name", list2));
-        info(IgniteToStringBuilder.toString(ArrayList.class, list2, "name", list1));
+        final String hash1 = identity(list1);
+        final String hash2 = identity(list2);
+
+        assertEquals("ArrayList" + hash1 + " [size=1, name=ArrayList [ArrayList" + hash1 + "]]",
+            IgniteToStringBuilder.toString(ArrayList.class, list1, "name", list2));
+        assertEquals("ArrayList" + hash2 + " [size=1, name=ArrayList [ArrayList" + hash2 + "]]",
+            IgniteToStringBuilder.toString(ArrayList.class, list2, "name", list1));
     }
 
     /**
@@ -142,8 +140,13 @@ public class IgniteToStringBuilderSelfTest {
         map1.put("2", map2);
         map2.put("1", map1);
 
-        info(IgniteToStringBuilder.toString(HashMap.class, map1, "name", map2));
-        info(IgniteToStringBuilder.toString(HashMap.class, map2, "name", map1));
+        final String hash1 = identity(map1);
+        final String hash2 = identity(map2);
+
+        assertEquals("HashMap" + hash1 + " [name=HashMap {1=HashMap" + hash1 + "}]",
+            IgniteToStringBuilder.toString(HashMap.class, map1, "name", map2));
+        assertEquals("HashMap" + hash2 + " [name=HashMap {2=HashMap" + hash2 + "}]",
+            IgniteToStringBuilder.toString(HashMap.class, map2, "name", map1));
     }
 
     /**
@@ -181,14 +184,8 @@ public class IgniteToStringBuilderSelfTest {
         String expN3 = n3.toString();
         String expN4 = n4.toString();
 
-        info(expN1);
-        info(expN2);
-        info(expN3);
-        info(expN4);
-        info(IgniteToStringBuilder.toString("Test", "Appended vals", n1));
-
         CyclicBarrier bar = new CyclicBarrier(4);
-        final ForkJoinPool pool = new ForkJoinPool(4);
+        Executor pool = Executors.newFixedThreadPool(4);
 
         CompletableFuture<String> fut1 = runAsync(new BarrierCallable(bar, n1, expN1), pool);
         CompletableFuture<String> fut2 = runAsync(new BarrierCallable(bar, n2, expN2), pool);
@@ -231,14 +228,14 @@ public class IgniteToStringBuilderSelfTest {
         for (int i = 0; i < 100000; i++)
             obj.toStringManual();
 
-        info("Manual toString() took: " + (System.currentTimeMillis() - start) + "ms");
+        LOG.info("Manual toString() took: " + (System.currentTimeMillis() - start) + "ms");
 
         start = System.currentTimeMillis();
 
         for (int i = 0; i < 100000; i++)
             obj.toStringAutomatic();
 
-        info("Automatic toString() took: " + (System.currentTimeMillis() - start) + "ms");
+        LOG.info("Automatic toString() took: " + (System.currentTimeMillis() - start) + "ms");
     }
 
     /**
@@ -288,9 +285,6 @@ public class IgniteToStringBuilderSelfTest {
         resultSB.append("... and ").append(arrOf.length - limit).append(" more]");
 
         arrStr = resultSB.toString();
-
-        info(arrOfStr);
-        info(arrStr);
 
         assertEquals(arrStr, arrOfStr, "Collection limit error in array of type " +
             arrOf.getClass().getName() + " error, normal arr: <" + arrStr + ">, overflowed arr: <" + arrOfStr + ">");
@@ -447,10 +441,6 @@ public class IgniteToStringBuilderSelfTest {
 
         String testClsStrOfR = testClsStrOf.replaceAll("... and 1 more", "");
 
-        info(testClsStr);
-        info(testClsStrOf);
-        info(testClsStrOfR);
-
         assertEquals(testClsStr.length(), testClsStrOfR.length(),
             "Collection limit error in Map or List, normal: <" + testClsStr + ">, overflowed: <" + testClsStrOf + ">");
     }
@@ -487,35 +477,24 @@ public class IgniteToStringBuilderSelfTest {
     /**
      *
      */
-  /*  @Test
-    public void testObjectPlusStringToString() {
-        IgniteTxKey k = new IgniteTxKey(new KeyCacheObjectImpl(1, null, 1), 123);
-
-        info(k.toString());
-
-        assertTrue("Wrong string: " + k, k.toString().startsWith("IgniteTxKey ["));
-    }*/
-
-    /**
-     *
-     */
     @Test
     public void testHierarchy() {
         Wrapper w = new Wrapper();
         Parent p = w.p;
         String hash = identity(p);
 
-        checkHierarchy("Wrapper [p=Child [b=0, pb=Parent[] [null], super=Parent [a=0, pa=Parent[] [null]]]]", w);
+        assertEquals("Wrapper [p=Child [b=0, pb=Parent[] [null], super=Parent [a=0, pa=Parent[] [null]]]]",
+            w.toString());
 
         p.pa[0] = p;
 
-        checkHierarchy("Wrapper [p=Child" + hash +
-            " [b=0, pb=Parent[] [null], super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w);
+        assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [null]," +
+            " super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
 
         ((Child)p).pb[0] = p;
 
-        checkHierarchy("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [Child" + hash
-            + "], super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w);
+        assertEquals("Wrapper [p=Child" + hash + " [b=0, pb=Parent[] [Child" + hash
+            + "], super=Parent [a=0, pa=Parent[] [Child" + hash + "]]]]", w.toString());
     }
 
     /**
@@ -634,31 +613,25 @@ public class IgniteToStringBuilderSelfTest {
     }
 
     /**
-     * @param exp Expected.
-     * @param w Wrapper.
-     */
-    private void checkHierarchy(String exp, Wrapper w) {
-        String wS = w.toString();
-
-        info(wS);
-
-        assertEquals(exp, wS);
-    }
-
-    /**
      * Test class.
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private static class Node {
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         String name;
 
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         Node next;
 
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         Node[] nodes;
 
@@ -672,16 +645,22 @@ public class IgniteToStringBuilderSelfTest {
      * Test class.
      */
     private static class BarrierCallable implements Callable<String> {
-        /** */
+        /**
+         *
+         */
         CyclicBarrier bar;
 
-        /** */
+        /**
+         *
+         */
         Object obj;
 
         /** Expected value of {@code toString()} method. */
         String exp;
 
-        /** */
+        /**
+         *
+         */
         private BarrierCallable(CyclicBarrier bar, Object obj, String exp) {
             this.bar = bar;
             this.obj = obj;
@@ -705,22 +684,30 @@ public class IgniteToStringBuilderSelfTest {
      * to force IgniteToStringBuilder to call faulty toString.
      */
     private static class WrapperForFaultyToStringClass {
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringInclude
         private int id = 12345;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringInclude
         private ClassWithFaultyToString[] arr;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringInclude
         private String str = "str";
 
-        /** */
+        /**
+         *
+         */
         WrapperForFaultyToStringClass(ClassWithFaultyToString[] arr) {
             this.arr = arr;
         }
@@ -746,60 +733,86 @@ public class IgniteToStringBuilderSelfTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private static class TestClass1 {
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringOrder(0)
         private String id = "1234567890";
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private int intVar;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringInclude(sensitive = true)
         private long longVar;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringOrder(1)
         private UUID uuidVar = UUID.randomUUID();
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private boolean boolVar;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private byte byteVar;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private String name = "qwertyuiopasdfghjklzxcvbnm";
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private final Integer finalInt = 2;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private List<String> strList;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringInclude
         private Map<String, String> strMap;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringInclude
         private List<String> strListIncl;
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private Object obj = new Object();
 
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         private ReadWriteLock lock;
 
@@ -861,12 +874,16 @@ public class IgniteToStringBuilderSelfTest {
      */
     @SuppressWarnings("InstanceVariableMayNotBeInitialized")
     private static class TestClass2 {
-        /** */
+        /**
+         *
+         */
         @SuppressWarnings("unused")
         @IgniteToStringInclude
         private String str;
 
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         private Object[] nullArr;
 
@@ -882,7 +899,9 @@ public class IgniteToStringBuilderSelfTest {
      *
      */
     private static class ClassWithList {
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         private List<SlowToStringObject> list = new LinkedList<>();
 
@@ -896,7 +915,9 @@ public class IgniteToStringBuilderSelfTest {
      *
      */
     private static class ClassWithMap {
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         private Map<Integer, SlowToStringObject> map = new HashMap<>();
 
@@ -929,10 +950,14 @@ public class IgniteToStringBuilderSelfTest {
      */
     @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "MismatchedReadAndWriteOfArray"})
     private static class Parent {
-        /** */
+        /**
+         *
+         */
         private int a;
 
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         private Parent[] pa = new Parent[1];
 
@@ -947,10 +972,14 @@ public class IgniteToStringBuilderSelfTest {
      */
     @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "MismatchedReadAndWriteOfArray"})
     private static class Child extends Parent {
-        /** */
+        /**
+         *
+         */
         private int b;
 
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         private Parent[] pb = new Parent[1];
 
@@ -964,7 +993,9 @@ public class IgniteToStringBuilderSelfTest {
      *
      */
     private static class Wrapper {
-        /** */
+        /**
+         *
+         */
         @IgniteToStringInclude
         Parent p = new Child();
 

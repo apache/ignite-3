@@ -19,6 +19,7 @@
 package org.apache.ignite.network.scalecube;
 
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /** */
@@ -55,9 +56,7 @@ class TestMessage implements NetworkMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "TestMessage{" +
-            "msg='" + msg + '\'' +
-            '}';
+        return S.toString(TestMessage.class, this);
     }
 
     /** {@inheritDoc} */

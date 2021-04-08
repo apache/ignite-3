@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.SchemaObject;
 
 /**
@@ -42,9 +43,8 @@ public abstract class AbstractSchemaObject implements SchemaObject {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "SchemaObject[" +
-            "name='" + name + '\'' +
-            "class=" + getClass().getName() +
-            ']';
+        return S.toString("SchemaObject",
+            "name", name,
+            "class", getClass().getName());
     }
 }
