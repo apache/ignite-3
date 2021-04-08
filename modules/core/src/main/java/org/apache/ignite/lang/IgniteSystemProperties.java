@@ -36,7 +36,7 @@ public final class IgniteSystemProperties {
      * Default: {@code HASH}.
      * @see IgniteToStringBuilder
      */
-    public static final String IGNITE_SENSITIVE_DATA_LOGGING_POLICY = "IGNITE_SENSITIVE_DATA_LOGGING_POLICY";
+    public static final String IGNITE_SENSITIVE_DATA_LOGGING = "IGNITE_SENSITIVE_DATA_LOGGING";
 
     /**
      * Limit collection (map, array) elements number to output.

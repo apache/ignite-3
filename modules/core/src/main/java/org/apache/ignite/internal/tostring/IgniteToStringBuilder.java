@@ -50,12 +50,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.Objects.nonNull;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING_POLICY;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
 import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.lang.IgniteSystemProperties.getEnum;
 import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 
 /**
  * Provides auto-generation framework for {@code toString()} output.
@@ -100,7 +100,8 @@ public class IgniteToStringBuilder {
     private static final AtomicReference<Supplier<SensitiveDataLoggingPolicy>> SENS_DATA_LOG_SUP_REF =
         new AtomicReference<>(new Supplier<>() {
             /** Sensitive data logging policy. */
-            final SensitiveDataLoggingPolicy sensitiveDataLoggingPolicy = getEnum(IGNITE_SENSITIVE_DATA_LOGGING_POLICY, SensitiveDataLoggingPolicy.HASH);
+            final SensitiveDataLoggingPolicy sensitiveDataLoggingPolicy =
+                SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase());
 
             /** {@inheritDoc} */
             @Override public SensitiveDataLoggingPolicy get() {
@@ -147,7 +148,7 @@ public class IgniteToStringBuilder {
     /**
      * Setting the logic of the {@link #includeSensitive} and {@link #getSensitiveDataLogging} methods.
      * <p>
-     * Overrides default supplier that uses {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING_POLICY}
+     * Overrides default supplier that uses {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}
      * system property.
      *
      * <b>Important!</b> Changing the logic is possible only until the first
@@ -155,7 +156,7 @@ public class IgniteToStringBuilder {
      *
      * @param sup {@link SensitiveDataLoggingPolicy} supplier.
      */
-    public static void setSensitiveDataLoggingSupplier(Supplier<SensitiveDataLoggingPolicy> sup) {
+    public static void setSensitiveDataLoggingPolicySupplier(Supplier<SensitiveDataLoggingPolicy> sup) {
         assert nonNull(sup);
 
         SENS_DATA_LOG_SUP_REF.set(sup);
@@ -165,7 +166,7 @@ public class IgniteToStringBuilder {
      * Return include sensitive data flag.
      *
      * @return {@code true} if need to include sensitive data, {@code false} otherwise.
-     * @see IgniteToStringBuilder#setSensitiveDataLoggingSupplier(Supplier)
+     * @see IgniteToStringBuilder#setSensitiveDataLoggingPolicySupplier(Supplier)
      */
     public static boolean includeSensitive() {
         return Holder.SENS_DATA_LOG_SUP.get() == SensitiveDataLoggingPolicy.PLAIN;

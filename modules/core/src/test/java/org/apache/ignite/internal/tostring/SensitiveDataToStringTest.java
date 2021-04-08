@@ -45,18 +45,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.HASH;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.NONE;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.PLAIN;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING_POLICY;
+import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
+import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for output of {@code toString()} depending on the value of
- * {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING_POLICY}
+ * {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}
  */
-//TODO: IGNITE-14501 Fix SystemProperties extension.
 @ExtendWith(SystemPropertiesExtension.class)
 public class SensitiveDataToStringTest {
+    /** Init SensitiveDataLoggingPolicy supplier. */
+    static {
+        S.setSensitiveDataLoggingPolicySupplier(() ->
+            SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase()));
+    }
+
     /** Random int. */
     int rndInt0 = 54321;
 
@@ -75,7 +81,7 @@ public class SensitiveDataToStringTest {
      *
      */
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING_POLICY, value = "plain")
+    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "plain")
     public void testSensitivePropertiesResolving1() {
         assertSame(PLAIN, S.getSensitiveDataLogging(), S.getSensitiveDataLogging().toString());
     }
@@ -84,7 +90,7 @@ public class SensitiveDataToStringTest {
      *
      */
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING_POLICY, value = "hash")
+    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "hash")
     public void testSensitivePropertiesResolving2() {
         assertSame(HASH, S.getSensitiveDataLogging(), S.getSensitiveDataLogging().toString());
     }
@@ -93,7 +99,7 @@ public class SensitiveDataToStringTest {
      *
      */
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING_POLICY, value = "none")
+    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "none")
     public void testSensitivePropertiesResolving3() {
         assertSame(NONE, S.getSensitiveDataLogging(), S.getSensitiveDataLogging().toString());
     }
@@ -102,7 +108,7 @@ public class SensitiveDataToStringTest {
      *
      */
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING_POLICY, value = "plain")
+    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "plain")
     public void testTableObjectImplWithSensitive() {
         testTableObjectImpl((strToCheck, object) -> assertTrue(strToCheck.contains(object.toString()), strToCheck));
     }
@@ -111,7 +117,7 @@ public class SensitiveDataToStringTest {
      *
      */
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING_POLICY, value = "hash")
+    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "hash")
     public void testTableObjectImplWithHashSensitive() {
         testTableObjectImpl((strToCheck, object) -> assertTrue(strToCheck.contains(object.toString()), strToCheck));
     }
@@ -120,9 +126,9 @@ public class SensitiveDataToStringTest {
      *
      */
     @Test
-    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING_POLICY, value = "none")
+    @WithSystemProperty(key = IGNITE_SENSITIVE_DATA_LOGGING, value = "none")
     public void testTableObjectImplWithoutSensitive() {
-        testTableObjectImpl((strToCheck, object) -> assertEquals("TableObject", object, strToCheck));
+        testTableObjectImpl((strToCheck, object) -> assertEquals("TableObject", object.toString(), strToCheck));
     }
 
     /**
@@ -132,7 +138,7 @@ public class SensitiveDataToStringTest {
         Person person = new Person(rndInt0, rndString);
 
         TableObject testObject = new TableObject(person);
-        checker.accept(testObject.toString(), person);
+        checker.accept(testObject.toString(), testObject);
     }
 
     /**

@@ -36,7 +36,7 @@ public @interface IgniteToStringInclude {
     /**
      * A flag indicating if sensitive information stored in the field or fields of the class.<br/>
      * Such information will be included to {@code toString()} output according to
-     * {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING_POLICY}.
+     * {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING}.
      *
      * @return Attribute value.
      * @see SensitiveDataLoggingPolicy}.
