@@ -49,7 +49,7 @@ class ITRaftCounterServerTest {
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** */
-    private RaftServer server;
+    private RaftServer raftServer;
 
     /** */
     private static final String SERVER_ID = "testServer";
@@ -63,6 +63,9 @@ class ITRaftCounterServerTest {
     /** */
     private static final String COUNTER_GROUP_ID_1 = "counter1";
 
+    /** */
+    private NetworkCluster serverNode;
+
     /**
      * @param testInfo Test info.
      */
@@ -70,8 +73,9 @@ class ITRaftCounterServerTest {
     void before(TestInfo testInfo) throws Exception {
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
 
-        server = new RaftServerImpl(SERVER_ID,
-            20100,
+        serverNode = startNode(SERVER_ID, 20100, List.of());
+
+        raftServer = new RaftServerImpl(serverNode,
             FACTORY,
             1000,
             Map.of(COUNTER_GROUP_ID_0, new CounterCommandListener(), COUNTER_GROUP_ID_1, new CounterCommandListener()));
@@ -82,7 +86,9 @@ class ITRaftCounterServerTest {
      */
     @AfterEach
     void after() throws Exception {
-        server.shutdown();
+        raftServer.shutdown();
+
+        serverNode.shutdown();
     }
 
     /**
@@ -90,7 +96,7 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testRefreshLeader() throws Exception {
-        NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
+        NetworkCluster client = startNode(CLIENT_ID, 20101, List.of("localhost:20100"));
 
         assertTrue(waitForTopology(client, 2, 1000));
 
@@ -112,7 +118,7 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testCounterCommandListener() throws Exception {
-        NetworkCluster client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
+        NetworkCluster client = startNode(CLIENT_ID, 20101, List.of("localhost:20100"));
 
         assertTrue(waitForTopology(client, 2, 1000));
 
@@ -146,7 +152,7 @@ class ITRaftCounterServerTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private NetworkCluster startClient(String name, int port, List<String> servers) {
+    private NetworkCluster startNode(String name, int port, List<String> servers) {
         Network network = new Network(
             new ScaleCubeNetworkClusterFactory(name, port, servers, new ScaleCubeMemberResolver())
         );

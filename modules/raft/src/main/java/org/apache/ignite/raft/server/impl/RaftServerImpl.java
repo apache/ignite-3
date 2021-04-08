@@ -60,12 +60,6 @@ public class RaftServerImpl implements RaftServer {
     private static LogWrapper LOG = new LogWrapper(RaftServerImpl.class);
 
     /** */
-    private final String id;
-
-    /** */
-    private final int localPort;
-
-    /** */
     private final RaftClientMessageFactory clientMsgFactory;
 
     /** */
@@ -87,24 +81,22 @@ public class RaftServerImpl implements RaftServer {
     private final Thread writeWorker;
 
     /**
-     * @param id Server id.
+     * @param server Local server node.
      * @param localPort Local port.
      * @param clientMsgFactory Client message factory.
      * @param queueSize Queue size.
      * @param listeners Command listeners.
      */
     public RaftServerImpl(
-        @NotNull String id,
-        int localPort,
+        @NotNull NetworkCluster server,
         @NotNull RaftClientMessageFactory clientMsgFactory,
         int queueSize,
         Map<String, RaftGroupCommandListener> listeners
     ) {
-        Objects.requireNonNull(id);
+        Objects.requireNonNull(server);
         Objects.requireNonNull(clientMsgFactory);
 
-        this.id = id;
-        this.localPort = localPort;
+        this.server = server;
         this.clientMsgFactory = clientMsgFactory;
 
         if (listeners != null)
@@ -113,27 +105,15 @@ public class RaftServerImpl implements RaftServer {
         readQueue = new ArrayBlockingQueue<CommandClosureEx<ReadCommand>>(queueSize);
         writeQueue = new ArrayBlockingQueue<CommandClosureEx<WriteCommand>>(queueSize);
 
-        Network network = new Network(
-            new ScaleCubeNetworkClusterFactory(id, localPort, List.of(), new ScaleCubeMemberResolver())
-        );
-
-        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
-
-        server = network.start();
-
-        server.addHandlersProvider(new NetworkHandlersProvider() {
+        this.server.addHandlersProvider(new NetworkHandlersProvider() {
             @Override public NetworkMessageHandler messageHandler() {
                 return new NetworkMessageHandler() {
                     @Override public void onReceived(NetworkMessage req, NetworkMember sender, String corellationId) {
 
                         if (req instanceof GetLeaderRequest) {
-                            GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(server.localMember())).build();
+                            GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(RaftServerImpl.this.server.localMember())).build();
 
-                            server.send(sender, resp, corellationId);
+                            RaftServerImpl.this.server.send(sender, resp, corellationId);
                         }
                         else if (req instanceof ActionRequest) {
                             ActionRequest req0 = (ActionRequest) req;
@@ -160,15 +140,15 @@ public class RaftServerImpl implements RaftServer {
             }
         });
 
-        readWorker = new Thread(() -> processQueue(readQueue, (l, i) -> l.onRead(i)), "read-cmd-worker#" + id);
+        readWorker = new Thread(() -> processQueue(readQueue, (l, i) -> l.onRead(i)), "read-cmd-worker#" + server.toString());
         readWorker.setDaemon(true);
         readWorker.start();
 
-        writeWorker = new Thread(() -> processQueue(writeQueue, (l, i) -> l.onWrite(i)), "write-cmd-worker#" + id);
+        writeWorker = new Thread(() -> processQueue(writeQueue, (l, i) -> l.onWrite(i)), "write-cmd-worker#" + server.toString());
         writeWorker.setDaemon(true);
         writeWorker.start();
 
-        LOG.info("Started replication server [id=" + id + ", localPort=" + localPort + ']');
+        LOG.info("Started replication server [node=" + server.toString() + ']');
     }
 
     /** {@inheritDoc} */
@@ -188,15 +168,13 @@ public class RaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override public synchronized void shutdown() throws Exception {
-        server.shutdown();
-
         readWorker.interrupt();
         readWorker.join();
 
         writeWorker.interrupt();
         writeWorker.join();
 
-        LOG.info("Stopped replication server [id=" + id + ", localPort=" + localPort + ']');
+        LOG.info("Stopped replication server [node=" + server.toString() + ']');
     }
 
     /**
