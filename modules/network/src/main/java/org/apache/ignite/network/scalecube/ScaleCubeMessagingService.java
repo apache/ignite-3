@@ -46,14 +46,11 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     private final ScaleCubeMemberResolver memberResolver;
 
     /**
-     * Utility map for recognizing member for its address (ScaleCube doesn't provide such information in input
-     * message).
+     * Utility map for recognizing cluster members by their addresses (ScaleCube doesn't provide this information).
      */
     private final Map<Address, ClusterNode> addressMemberMap = new ConcurrentHashMap<>();
 
-    /**
-     *
-     */
+    /** */
     ScaleCubeMessagingService(ScaleCubeMemberResolver memberResolver) {
         this.memberResolver = memberResolver;
     }
@@ -76,27 +73,21 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             handler.onReceived(msg, sender, correlationId);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public void weakSend(ClusterNode recipient, NetworkMessage msg) {
         cluster
             .send(memberResolver.resolveMember(recipient), Message.fromData(msg))
             .subscribe();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
         return cluster
             .send(memberResolver.resolveMember(recipient), Message.fromData(msg))
             .toFuture();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg, String correlationId) {
         var message = Message
             .withData(msg)
@@ -107,9 +98,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             .toFuture();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode member, NetworkMessage msg, long timeout) {
         var message = Message
             .withData(msg)
@@ -123,8 +112,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * @param address Inet address.
-     * @return Network member corresponded to input address.
+     * Returns the {@link ClusterNode} with the specified network address.
      */
     private ClusterNode memberForAddress(Address address) {
         return addressMemberMap.computeIfAbsent(
