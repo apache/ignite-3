@@ -59,8 +59,8 @@ public abstract class AbstractCliRequestProcessorTest<T extends Message> {
         for (int i = 0; i < n; i++) {
             learners.add(JRaftUtils.getPeerId("learner:" + (8081 + i)));
         }
-        Mockito.when(this.node.listPeers()).thenReturn(peers);
-        Mockito.when(this.node.listLearners()).thenReturn(learners);
+        Mockito.lenient().when(this.node.listPeers()).thenReturn(peers);
+        Mockito.lenient().when(this.node.listLearners()).thenReturn(learners);
     }
 
     @Before

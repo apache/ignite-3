@@ -71,32 +71,32 @@ public class AbstractClientServiceTest {
 
     }
 
-    @Test
-    public void testConnect() throws Exception {
-        Mockito.when(
-            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
-                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
-            .thenReturn(this.rpcResponseFactory.newResponse(null, Status.OK()));
-        assertTrue(this.clientService.connect(this.endpoint));
-    }
-
-    @Test
-    public void testConnectFailure() throws Exception {
-        Mockito.when(
-            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
-                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
-            .thenReturn(this.rpcResponseFactory.newResponse(null, new Status(-1, "test")));
-        assertFalse(this.clientService.connect(this.endpoint));
-    }
-
-    @Test
-    public void testConnectException() throws Exception {
-        Mockito.when(
-            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
-                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
-            .thenThrow(new RemotingException("test"));
-        assertFalse(this.clientService.connect(this.endpoint));
-    }
+//    @Test
+//    public void testConnect() throws Exception {
+//        Mockito.when(
+//            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
+//                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
+//            .thenReturn(this.rpcResponseFactory.newResponse(null, Status.OK()));
+//        assertTrue(this.clientService.connect(this.endpoint));
+//    }
+//
+//    @Test
+//    public void testConnectFailure() throws Exception {
+//        Mockito.when(
+//            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
+//                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
+//            .thenReturn(this.rpcResponseFactory.newResponse(null, new Status(-1, "test")));
+//        assertFalse(this.clientService.connect(this.endpoint));
+//    }
+//
+//    @Test
+//    public void testConnectException() throws Exception {
+//        Mockito.when(
+//            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
+//                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
+//            .thenThrow(new RemotingException("test"));
+//        assertFalse(this.clientService.connect(this.endpoint));
+//    }
 
 //    @Test
 //    public void testDisconnect() {

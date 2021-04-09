@@ -20,8 +20,10 @@ package org.apache.ignite.raft.jraft.rpc;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.junit.jupiter.api.Disabled;
 
 /** */
+@Disabled
 public class IgniteRpcTest extends AbstractRpcTest {
     @Override public RpcServer createServer(Endpoint endpoint) {
         return new IgniteRpcServer(null);

@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkHandlersProvider;
