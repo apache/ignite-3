@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
+package org.apache.ignite.lang;
 
 import org.jetbrains.annotations.Nullable;
 
