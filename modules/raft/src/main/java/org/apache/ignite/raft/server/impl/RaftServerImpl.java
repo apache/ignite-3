@@ -30,8 +30,7 @@ import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.message.DefaultMessageMapperProvider;
-import org.apache.ignite.network.message.MessageMapperProviders;
+import org.apache.ignite.network.message.MessageSerializerProviders;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -112,7 +111,7 @@ public class RaftServerImpl implements RaftServer {
 
         // TODO: IGNITE-14088: Uncomment and use real serializer provider
 //        var defaultMessageMapper = new DefaultMessageMapperProvider();
-        var messageMappersProviders = new MessageMapperProviders();
+        var messageMappersProviders = new MessageSerializerProviders();
 //            .registerProvider((short)1000, defaultMessageMapper)
 //            .registerProvider((short)1001, defaultMessageMapper)
 //            .registerProvider((short)1005, defaultMessageMapper)

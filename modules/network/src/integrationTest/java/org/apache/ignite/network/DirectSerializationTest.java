@@ -20,11 +20,10 @@ package org.apache.ignite.network;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.network.internal.MessageSerializerFactory;
 import org.apache.ignite.network.internal.direct.DirectMessageReader;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
 import org.apache.ignite.network.message.MessageDeserializer;
-import org.apache.ignite.network.message.MessageMapperProviders;
+import org.apache.ignite.network.message.MessageSerializerProviders;
 import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.TestMessage;
@@ -43,10 +42,8 @@ public class DirectSerializationTest {
     /** */
     @Test
     public void test() {
-        var messageMapperProviders = new MessageMapperProviders()
+        var messageMapperProviders = new MessageSerializerProviders()
             .registerProvider(TestMessage.TYPE, new TestMessageSerializerProvider());
-
-        MessageSerializerFactory factory = new MessageSerializerFactory(messageMapperProviders);
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 10_000; i++) {
@@ -64,7 +61,7 @@ public class DirectSerializationTest {
         short directType = message.directType();
 
         DirectMessageWriter writer = new DirectMessageWriter((byte) 1);
-        MessageSerializer<NetworkMessage> serializer = factory.createSerializer(directType);
+        MessageSerializer<NetworkMessage> serializer = messageMapperProviders.getProvider(directType).createSerializer();
 
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4096);
 
@@ -85,7 +82,7 @@ public class DirectSerializationTest {
 
         byteBuffer.flip();
 
-        DirectMessageReader reader = new DirectMessageReader(factory, (byte) 1);
+        DirectMessageReader reader = new DirectMessageReader(messageMapperProviders, (byte) 1);
         reader.setBuffer(byteBuffer);
 
         byte type1 = byteBuffer.get();
@@ -93,7 +90,7 @@ public class DirectSerializationTest {
 
         short messageType = makeMessageType(type1, type2);
 
-        MessageDeserializer<NetworkMessage> deserializer = factory.createDeserializer(messageType);
+        MessageDeserializer<NetworkMessage> deserializer = messageMapperProviders.getProvider(messageType).createDeserializer();
         boolean read = deserializer.readMessage(reader);
 
         assertTrue(read);

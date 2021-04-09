@@ -22,23 +22,23 @@ import org.apache.ignite.network.NetworkConfigurationException;
 /**
  * Container that maps message types to {@link MessageSerializerProvider} instances.
  */
-public final class MessageMapperProviders {
-    /** Message mappers, messageMapperProviders[message type] -> message mapper provider for message with message type. */
-    private final MessageSerializerProvider<?>[] messageMapperProviders = new MessageSerializerProvider<?>[Short.MAX_VALUE << 1];
+public final class MessageSerializerProviders {
+    /** message type -> MessageSerializerProvider instance */
+    private final MessageSerializerProvider<?>[] providers = new MessageSerializerProvider<?>[Short.MAX_VALUE << 1];
 
     /**
      * Registers message mapper by message type.
      *
      * @param type Message type.
-     * @param mapperProvider Message mapper provider.
+     * @param provider Message serializer provider.
      */
-    public MessageMapperProviders registerProvider(
-        short type, MessageSerializerProvider<?> mapperProvider
+    public MessageSerializerProviders registerProvider(
+        short type, MessageSerializerProvider<?> provider
     ) throws NetworkConfigurationException {
-        if (this.messageMapperProviders[type] != null)
+        if (this.providers[type] != null)
             throw new NetworkConfigurationException("Message mapper for type " + type + " is already defined");
 
-        this.messageMapperProviders[type] = mapperProvider;
+        this.providers[type] = provider;
 
         return this;
     }
@@ -50,9 +50,9 @@ public final class MessageMapperProviders {
      * actual generic specialization of the returned provider relies on the caller of this method.
      */
     public <T extends NetworkMessage> MessageSerializerProvider<T> getProvider(short type) {
-        var provider = messageMapperProviders[type];
+        var provider = providers[type];
 
-        assert provider != null : "No mapper provider defined for type " + type;
+        assert provider != null : "No serializer provider defined for type " + type;
 
         return (MessageSerializerProvider<T>) provider;
     }

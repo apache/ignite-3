@@ -29,7 +29,7 @@ import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.message.MessageMapperProviders;
+import org.apache.ignite.network.message.MessageSerializerProviders;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -41,8 +41,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** */
 class ITScaleCubeNetworkMessagingTest {
     /** */
-    private static final MessageMapperProviders TEST_MESSAGE_MAPPER_PROVIDERS =
-        new MessageMapperProviders()
+    private static final MessageSerializerProviders TEST_MESSAGE_MAPPER_PROVIDERS =
+        new MessageSerializerProviders()
             .registerProvider(TestMessage.TYPE, new TestMessageSerializerProvider())
             .registerProvider(TestRequest.TYPE, new TestRequestSerializerProvider())
             .registerProvider(TestResponse.TYPE, new TestResponseSerializerProvider());
