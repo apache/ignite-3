@@ -20,11 +20,11 @@ package org.apache.ignite.network.message;
 import org.apache.ignite.network.NetworkConfigurationException;
 
 /**
- * Container that maps message types to {@link MessageSerializerProvider} instances.
+ * Container that maps message types to {@link MessageSerializationFactory} instances.
  */
 public final class MessageSerializerProviders {
     /** message type -> MessageSerializerProvider instance */
-    private final MessageSerializerProvider<?>[] providers = new MessageSerializerProvider<?>[Short.MAX_VALUE << 1];
+    private final MessageSerializationFactory<?>[] providers = new MessageSerializationFactory<?>[Short.MAX_VALUE << 1];
 
     /**
      * Registers message mapper by message type.
@@ -33,7 +33,7 @@ public final class MessageSerializerProviders {
      * @param provider Message serializer provider.
      */
     public MessageSerializerProviders registerProvider(
-        short type, MessageSerializerProvider<?> provider
+        short type, MessageSerializationFactory<?> provider
     ) throws NetworkConfigurationException {
         if (this.providers[type] != null)
             throw new NetworkConfigurationException("Message mapper for type " + type + " is already defined");
@@ -44,16 +44,16 @@ public final class MessageSerializerProviders {
     }
 
     /**
-     * Returns a {@link MessageSerializerProvider} for the given message type.
+     * Returns a {@link MessageSerializationFactory} for the given message type.
      * <p>
      * This class does not track the correspondence between a message type and its Java representation, so the
      * actual generic specialization of the returned provider relies on the caller of this method.
      */
-    public <T extends NetworkMessage> MessageSerializerProvider<T> getProvider(short type) {
+    public <T extends NetworkMessage> MessageSerializationFactory<T> getProvider(short type) {
         var provider = providers[type];
 
         assert provider != null : "No serializer provider defined for type " + type;
 
-        return (MessageSerializerProvider<T>) provider;
+        return (MessageSerializationFactory<T>) provider;
     }
 }

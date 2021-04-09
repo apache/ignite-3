@@ -23,11 +23,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
-import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.MessageSerializerProviders;
 import org.apache.ignite.network.message.NetworkMessage;
@@ -41,11 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** */
 class ITScaleCubeNetworkMessagingTest {
     /** */
-    private static final MessageSerializerProviders TEST_MESSAGE_MAPPER_PROVIDERS =
-        new MessageSerializerProviders()
-            .registerProvider(TestMessage.TYPE, new TestMessageSerializerProvider())
-            .registerProvider(TestRequest.TYPE, new TestRequestSerializerProvider())
-            .registerProvider(TestResponse.TYPE, new TestResponseSerializerProvider());
+    private static final MessageSerializerProviders MESSAGE_MAPPER_PROVIDERS = new MessageSerializerProviders();
 
     /** */
     private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
@@ -107,7 +104,7 @@ class ITScaleCubeNetworkMessagingTest {
 
     /** */
     private ClusterService startNetwork(String name, int port, List<String> addresses) {
-        var context = new ClusterLocalConfiguration(name, port, addresses, TEST_MESSAGE_MAPPER_PROVIDERS);
+        var context = new ClusterLocalConfiguration(name, port, addresses, MESSAGE_MAPPER_PROVIDERS);
 
         ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
         System.out.println("-----" + name + " started");

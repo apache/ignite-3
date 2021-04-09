@@ -15,36 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
-
-import org.apache.ignite.network.message.NetworkMessage;
+package org.apache.ignite.network.message;
 
 /**
- * Test response.
+ * Creates {@link MessageDeserializer} and {@link MessageSerializer} instances for working with
+ * {@link NetworkMessage} objects.
+ *
+ * @param <M> Message type.
  */
-public class TestResponse implements NetworkMessage {
-    /** Public type for tests. */
-    public static final short TYPE = 2;
+public interface MessageSerializationFactory<M extends NetworkMessage> {
+    /**
+     * Creates a deserializer.
+     * @return Message deserializer.
+     */
+    MessageDeserializer<M> createDeserializer();
 
     /**
-     * Some response test value.
+     * Creates a serializer.
+     * @return Message serializer.
      */
-    private final int responseNumber;
-
-    /** Constructor. */
-    public TestResponse(int responseNumber) {
-        this.responseNumber = responseNumber;
-    }
-
-    /**
-     * @return Response test value.
-     */
-    public int responseNumber() {
-        return responseNumber;
-    }
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return TYPE;
-    }
+    MessageSerializer<M> createSerializer();
 }

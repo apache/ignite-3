@@ -26,8 +26,6 @@ import org.apache.ignite.network.message.MessageDeserializer;
 import org.apache.ignite.network.message.MessageSerializerProviders;
 import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.NetworkMessage;
-import org.apache.ignite.network.scalecube.TestMessage;
-import org.apache.ignite.network.scalecube.TestMessageSerializerProvider;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,7 +41,7 @@ public class DirectSerializationTest {
     @Test
     public void test() {
         var messageMapperProviders = new MessageSerializerProviders()
-            .registerProvider(TestMessage.TYPE, new TestMessageSerializerProvider());
+            .registerProvider(TestMessage.TYPE, new TestMessageSerializationFactory());
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 10_000; i++) {
