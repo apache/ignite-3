@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /** */
 public class ConfigurationListenerTest {
     /** */
-    @ConfigurationRoot(rootName = "parent", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+    @ConfigurationRoot(rootName = "parent", storage = ConfigurationStorageType.LOCAL)
     public static class ParentConfigurationSchema {
         /** */
         @ConfigValue

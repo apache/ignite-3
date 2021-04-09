@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorageType;
  *
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "local", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+@ConfigurationRoot(rootName = "local", storage = ConfigurationStorageType.LOCAL)
 public class LocalConfigurationSchema {
     /** */
     @ConfigValue

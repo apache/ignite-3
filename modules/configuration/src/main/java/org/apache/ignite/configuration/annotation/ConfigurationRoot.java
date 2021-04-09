@@ -39,5 +39,5 @@ public @interface ConfigurationRoot {
     String rootName();
 
     /** @return Class of storage where to store configuration of the given root. */
-    ConfigurationStorageType storage() default ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE;
+    ConfigurationStorageType storage() default ConfigurationStorageType.LOCAL;
 }

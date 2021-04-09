@@ -28,7 +28,7 @@ import static org.apache.ignite.rest.RestModule.DFLT_PORT;
 /**
  * Configuration schema for REST endpoint subtree.
  */
-@ConfigurationRoot(rootName = "rest", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+@ConfigurationRoot(rootName = "rest", storage = ConfigurationStorageType.LOCAL)
 public class RestConfigurationSchema {
     /** */
     @Min(1024)

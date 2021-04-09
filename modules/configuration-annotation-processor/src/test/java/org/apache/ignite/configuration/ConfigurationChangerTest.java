@@ -57,7 +57,7 @@ public class ConfigurationChangerTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "key", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+    @ConfigurationRoot(rootName = "key", storage = ConfigurationStorageType.LOCAL)
     public static class AConfigurationSchema {
         /** */
         @ConfigValue
@@ -236,7 +236,7 @@ public class ConfigurationChangerTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "def", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+    @ConfigurationRoot(rootName = "def", storage = ConfigurationStorageType.LOCAL)
     public static class DefaultsConfigurationSchema {
         /** */
         @ConfigValue

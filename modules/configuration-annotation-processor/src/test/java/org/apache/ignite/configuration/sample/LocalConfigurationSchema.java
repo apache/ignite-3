@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorageType;
 /**
  * Test local configuration schema.
  */
-@ConfigurationRoot(rootName = "local", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+@ConfigurationRoot(rootName = "local", storage = ConfigurationStorageType.LOCAL)
 public class LocalConfigurationSchema {
     /** Baseline. */
     @ConfigValue

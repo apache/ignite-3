@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorageType;
 /**
  * Test network configuration schema.
  */
-@ConfigurationRoot(rootName = "network", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+@ConfigurationRoot(rootName = "network", storage = ConfigurationStorageType.LOCAL)
 public class NetworkConfigurationSchema {
     /** Discovery. */
     @ConfigValue

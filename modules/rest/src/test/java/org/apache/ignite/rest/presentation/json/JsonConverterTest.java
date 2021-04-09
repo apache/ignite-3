@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /** */
 public class JsonConverterTest {
     /** */
-    @ConfigurationRoot(rootName = "root", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+    @ConfigurationRoot(rootName = "root", storage = ConfigurationStorageType.LOCAL)
     public static class JsonRootConfigurationSchema {
         /** */
         @NamedConfigValue

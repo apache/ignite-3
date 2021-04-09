@@ -66,7 +66,7 @@ public class ValidationUtilTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "root", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+    @ConfigurationRoot(rootName = "root", storage = ConfigurationStorageType.LOCAL)
     public static class ValidatedRootConfigurationSchema {
         /** */
         @InnerValidation

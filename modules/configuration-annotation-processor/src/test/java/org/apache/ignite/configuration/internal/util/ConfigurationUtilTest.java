@@ -76,7 +76,7 @@ public class ConfigurationUtilTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "root", storage = ConfigurationStorageType.MEMORY_CONFIGURATION_STORAGE)
+    @ConfigurationRoot(rootName = "root", storage = ConfigurationStorageType.LOCAL)
     public static class ParentConfigurationSchema {
         /** */
         @NamedConfigValue

@@ -21,6 +21,6 @@ package org.apache.ignite.configuration.storage;
  * Type of configuration storage.
  */
 public enum ConfigurationStorageType {
-    /** In-memory configuration storage. */
-    MEMORY_CONFIGURATION_STORAGE;
+    /** Local configuration storage. */
+    LOCAL;
 }
