@@ -66,7 +66,7 @@ public class SchemaDescriptor {
      * @param idx Index to check.
      * @return {@code true} if the column belongs to the key chunk.
      */
-    public boolean keyColumn(int idx) {
+    public boolean isKeyColumn(int idx) {
         return idx < keyCols.length();
     }
 

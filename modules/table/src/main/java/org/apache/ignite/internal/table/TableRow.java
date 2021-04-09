@@ -94,7 +94,7 @@ public class TableRow extends RowChunkAdapter {
 
             final Column col = schema.column(colName);
 
-            if (col == null || !schema.keyColumn(col.schemaIndex()))
+            if (col == null || !schema.isKeyColumn(col.schemaIndex()))
                 throw new IllegalArgumentException("Invalid key column name: columnName=" + colName + ", schemaVersion=" + schema.version());
 
             return col;
@@ -114,7 +114,7 @@ public class TableRow extends RowChunkAdapter {
 
             final Column col = schema.column(colName);
 
-            if (col == null || schema.keyColumn(col.schemaIndex()))
+            if (col == null || schema.isKeyColumn(col.schemaIndex()))
                 throw new IllegalArgumentException("Invalid key column name: columnName=" + colName + ", schemaVersion=" + schema.version());
 
             return col;

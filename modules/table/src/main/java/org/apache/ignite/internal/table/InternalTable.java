@@ -1,18 +1,18 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) undeBinaryRow one oBinaryRow more
- * contributoBinaryRow license agreements.  See the NOTICE file distributed with
- * this work foBinaryRow additional information regarding copyright ownership.
- * The ASF licenses this file to You undeBinaryRow the Apache License, Version 2.0
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law oBinaryRow agreed to in writing, software
- * distributed undeBinaryRow the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OBinaryRow CONDITIONS OF ANY KIND, eitheBinaryRow express oBinaryRow implied.
- * See the License foBinaryRow the specific language governing permissions and
- * limitations undeBinaryRow the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.ignite.internal.table;
@@ -23,131 +23,131 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Internal table facade provides low-level methods foBinaryRow table operations.
- * The facade hides TX/replication protocol oBinaryRow table storage abstractions.
+ * Internal table facade provides low-level methods for table operations.
+ * The facade hides TX/replication protocol over table storage abstractions.
  */
 public interface InternalTable {
     /**
-     * Asynchronously gets a record with same key columns values as given one from the table.
+     * Asynchronously gets a row with same key columns values as given one from the table.
      *
-     * @param keyRec Record with key columns set.
+     * @param keyRow Row with key columns set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> get(BinaryRow keyRec);
+    @NotNull CompletableFuture<BinaryRow> get(BinaryRow keyRow);
 
     /**
-     * Asynchronously get records from the table.
+     * Asynchronously get rows from the table.
      *
-     * @param keyRecs Records with key columns set.
+     * @param keyRows Rows with key columns set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRecs);
+    @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows);
 
     /**
-     * Asynchronously inserts a record into the table if does not exist oBinaryRow replaces the existed one.
+     * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
-     * @param rec Record to insert into the table.
+     * @param row Row to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Void> upsert(BinaryRow rec);
+    @NotNull CompletableFuture<Void> upsert(BinaryRow row);
 
     /**
-     * Asynchronously inserts a record into the table if does not exist oBinaryRow replaces the existed one.
+     * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
-     * @param recs Records to insert into the table.
+     * @param rows Rows to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> recs);
+    @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows);
 
     /**
-     * Asynchronously inserts a record into the table oBinaryRow replaces if exists and return replaced previous record.
+     * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
      *
-     * @param rec Record to insert into the table.
+     * @param row Row to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> getAndUpsert(BinaryRow rec);
+    @NotNull CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row);
 
     /**
-     * Asynchronously inserts a record into the table if not exists.
+     * Asynchronously inserts a row into the table if not exists.
      *
-     * @param rec Record to insert into the table.
+     * @param row Row to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> insert(BinaryRow rec);
+    @NotNull CompletableFuture<Boolean> insert(BinaryRow row);
 
     /**
-     * Asynchronously insert records into the table which do not exist, skipping existed ones.
+     * Asynchronously insert rows into the table which do not exist, skipping existed ones.
      *
-     * @param recs Records to insert into the table.
+     * @param rows Rows to insert into the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> recs);
+    @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows);
 
     /**
-     * Asynchronously replaces an existed record associated with the same key columns values as the given one has.
+     * Asynchronously replaces an existed row associated with the same key columns values as the given one has.
      *
-     * @param rec Record to replace with.
+     * @param row Row to replace with.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replace(BinaryRow rec);
+    @NotNull CompletableFuture<Boolean> replace(BinaryRow row);
 
     /**
-     * Asynchronously replaces an expected record in the table with the given new one.
+     * Asynchronously replaces an expected row in the table with the given new one.
      *
-     * @param oldRec Record to replace.
-     * @param newRec Record to replace with.
+     * @param oldRow Row to replace.
+     * @param newRow Row to replace with.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRec, BinaryRow newRec);
+    @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow);
 
     /**
-     * Asynchronously gets an existed record associated with the same key columns values as the given one has,
+     * Asynchronously gets an existed row associated with the same key columns values as the given one has,
      * then replaces with the given one.
      *
-     * @param rec Record to replace with.
+     * @param row Row to replace with.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow rec);
+    @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow row);
 
     /**
-     * Asynchronously deletes a record with the same key columns values as the given one from the table.
+     * Asynchronously deletes a row with the same key columns values as the given one from the table.
      *
-     * @param keyRec Record with key columns set.
+     * @param keyRow Row with key columns set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> delete(BinaryRow keyRec);
+    @NotNull CompletableFuture<Boolean> delete(BinaryRow keyRow);
 
     /**
-     * Asynchronously deletes given record from the table.
+     * Asynchronously deletes given row from the table.
      *
-     * @param oldRec Record to delete.
+     * @param oldRow Row to delete.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow oldRec);
+    @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow oldRow);
 
     /**
-     * Asynchronously gets then deletes a record with the same key columns values from the table.
+     * Asynchronously gets then deletes a row with the same key columns values from the table.
      *
-     * @param rec Record with key columns set.
+     * @param row Row with key columns set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow rec);
+    @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow row);
 
     /**
-     * Asynchronously remove records with the same key columns values as the given one has from the table.
+     * Asynchronously remove rows with the same key columns values as the given one has from the table.
      *
-     * @param recs Records with key columns set.
+     * @param rows Rows with key columns set.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> recs);
+    @NotNull CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows);
 
     /**
-     * Asynchronously remove given records from the table.
+     * Asynchronously remove given rows from the table.
      *
-     * @param recs Records to delete.
+     * @param rows Rows to delete.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> recs);
+    @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows);
 
     //TODO: IGNTIE-14488. Add invoke() methods.
 }

@@ -321,7 +321,7 @@ public class TableBinaryViewOperationsTest {
 
             Assertions.assertEquals(val1, val2, "Value columns equality check failed: colIdx=" + col.schemaIndex());
 
-            if (schema.keyColumn(i) && val1 != null)
+            if (schema.isKeyColumn(i) && val1 != null)
                 nonNullKey++;
         }
 

@@ -65,117 +65,169 @@ public class Row implements BinaryRow {
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public byte byteValue(int col) {
+    public byte byteValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.BYTE);
 
         return off < 0 ? 0 : readByte(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public Byte byteValueBoxed(int col) {
+    public Byte byteValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.BYTE);
 
         return off < 0 ? null : readByte(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public short shortValue(int col) {
+    public short shortValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.SHORT);
 
         return off < 0 ? 0 : readShort(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public Short shortValueBoxed(int col) {
+    public Short shortValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.SHORT);
 
         return off < 0 ? null : readShort(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public int intValue(int col) {
+    public int intValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.INTEGER);
 
         return off < 0 ? 0 : readInteger(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public Integer intValueBoxed(int col) {
+    public Integer intValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.INTEGER);
 
         return off < 0 ? null : readInteger(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public long longValue(int col) {
+    public long longValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.LONG);
 
         return off < 0 ? 0 : readLong(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public Long longValueBoxed(int col) {
+    public Long longValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.LONG);
 
         return off < 0 ? null : readLong(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public float floatValue(int col) {
+    public float floatValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.FLOAT);
 
         return off < 0 ? 0.f : readFloat(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public Float floatValueBoxed(int col) {
+    public Float floatValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.FLOAT);
 
         return off < 0 ? null : readFloat(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public double doubleValue(int col) {
+    public double doubleValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
 
         return off < 0 ? 0.d : readDouble(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public Double doubleValueBoxed(int col) {
+    public Double doubleValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
 
         return off < 0 ? null : readDouble(offset(off));
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public String stringValue(int col) {
+    public String stringValue(int col) throws InvalidTypeException {
         long offLen = findColumn(col, NativeTypeSpec.STRING);
 
         if (offLen < 0)
@@ -188,9 +240,13 @@ public class Row implements BinaryRow {
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public byte[] bytesValue(int col) {
+    public byte[] bytesValue(int col) throws InvalidTypeException {
         long offLen = findColumn(col, NativeTypeSpec.BYTES);
 
         if (offLen < 0)
@@ -203,9 +259,13 @@ public class Row implements BinaryRow {
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public UUID uuidValue(int col) {
+    public UUID uuidValue(int col) throws InvalidTypeException {
         long found = findColumn(col, NativeTypeSpec.UUID);
 
         if (found < 0)
@@ -220,18 +280,22 @@ public class Row implements BinaryRow {
     }
 
     /**
+     * Reads value for specified column.
      *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    public BitSet bitmaskValue(int colIdx) {
-        long offLen = findColumn(colIdx, NativeTypeSpec.BITMASK);
+    public BitSet bitmaskValue(int col) throws InvalidTypeException {
+        long offLen = findColumn(col, NativeTypeSpec.BITMASK);
 
         if (offLen < 0)
             return null;
 
         int off = offset(offLen);
-        int colLen = columnLength(colIdx);
+        int len = columnLength(col);
 
-        return BitSet.valueOf(readBytes(off, colLen));
+        return BitSet.valueOf(readBytes(off, len));
     }
 
     /**
@@ -249,9 +313,9 @@ public class Row implements BinaryRow {
      * @see #length(long)
      * @see InvalidTypeException If actual column type does not match the requested column type.
      */
-    protected long findColumn(int colIdx, NativeTypeSpec type) {
+    protected long findColumn(int colIdx, NativeTypeSpec type) throws InvalidTypeException {
         // Get base offset (key start or value start) for the given column.
-        boolean keyCol = schema.keyColumn(colIdx);
+        boolean keyCol = schema.isKeyColumn(colIdx);
         Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
 
         int off = KEY_CHUNK_OFFSET;

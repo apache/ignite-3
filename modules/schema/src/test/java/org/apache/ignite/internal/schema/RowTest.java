@@ -211,7 +211,7 @@ public class RowTest {
             if (vals[i] != null && !type.fixedLength()) {
                 if (type == NativeTypeSpec.BYTES) {
                     byte[] val = (byte[])vals[i];
-                    if (schema.keyColumn(i)) {
+                    if (schema.isKeyColumn(i)) {
                         nonNullVarLenKeyCols++;
                         nonNullVarLenKeySize += val.length;
                     }
@@ -221,7 +221,7 @@ public class RowTest {
                     }
                 }
                 else if (type == NativeTypeSpec.STRING) {
-                    if (schema.keyColumn(i)) {
+                    if (schema.isKeyColumn(i)) {
                         nonNullVarLenKeyCols++;
                         nonNullVarLenKeySize += RowAssembler.utf8EncodedLength((CharSequence)vals[i]);
                     }

@@ -76,7 +76,6 @@ public interface BinaryRow {
      *
      * @throws IOException If write operation fails.
      */
-    // TODO: support other target types in writeTo() if needed.
     void writeTo(OutputStream stream) throws IOException;
 
     /**
