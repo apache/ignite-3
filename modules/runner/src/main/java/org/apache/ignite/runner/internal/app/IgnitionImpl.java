@@ -34,16 +34,14 @@ import org.apache.ignite.internal.affinity.ditributed.AffinityManager;
 import org.apache.ignite.internal.table.distributed.TableManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
-import org.apache.ignite.metastorage.internal.network.MetaStorageMessageTypes;
 import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
 import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
 import org.apache.ignite.raft.internal.Loza;
-import org.apache.ignite.raft.internal.network.RaftMessageTypes;
 import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
+import org.apache.ignite.schema.distributed.SchemaManager;
 import org.apache.ignite.table.manager.TableManager;
 import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
@@ -118,19 +116,20 @@ public class IgnitionImpl implements Ignition {
         );
 
         // Register component message types.
-        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
-            msgTypeInstance -> net.registerMessageMapper(
-                msgTypeInstance.msgType(),
-                new DefaultMessageMapperProvider()
-            )
-        );
-
-        Arrays.stream(RaftMessageTypes.values()).forEach(
-            msgTypeInstance -> net.registerMessageMapper(
-                msgTypeInstance.msgType(),
-                new DefaultMessageMapperProvider()
-            )
-        );
+        // TODO: IGNITE-14088: Uncomment and use real serializer provider
+//        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
+//            msgTypeInstance -> net.registerMessageMapper(
+//                msgTypeInstance.msgType(),
+//                new DefaultMessageMapperProvider()
+//            )
+//        );
+//
+//        Arrays.stream(RaftMessageTypes.values()).forEach(
+//            msgTypeInstance -> net.registerMessageMapper(
+//                msgTypeInstance.msgType(),
+//                new DefaultMessageMapperProvider()
+//            )
+//        );
 
         NetworkCluster netMember = net.start();
 
@@ -165,11 +164,14 @@ public class IgnitionImpl implements Ignition {
         // Affinity manager startup.
         AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
 
+        SchemaManager schemaManager = new SchemaManager(configurationMgr);
+
         // Distributed table manager startup.
         TableManager distributedTblMgr = new TableManagerImpl(
             configurationMgr,
             netMember,
-            metaStorageMgr
+            metaStorageMgr,
+            schemaManager
         );
 
         // TODO sanpwc: Start rest manager.

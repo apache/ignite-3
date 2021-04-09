@@ -16,10 +16,13 @@ import org.apache.ignite.configuration.schemas.table.TableInit;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.DistributedTableUtils;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.storage.TableStorageImpl;
+import org.apache.ignite.internal.table.TableSchemaView;
+import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operations;
@@ -33,6 +36,7 @@ import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
+import org.apache.ignite.schema.distributed.SchemaManager;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.TableManager;
 import org.jetbrains.annotations.NotNull;
@@ -40,6 +44,9 @@ import org.jetbrains.annotations.NotNull;
 public class TableManagerImpl implements TableManager {
     /** Internal prefix for the metasorage. */
     public static final String INTERNAL_PREFIX = "internal.tables.";
+
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerImpl.class);
 
     /** Timeout. */
     private static final int TIMEOUT = 1000;
@@ -49,14 +56,14 @@ public class TableManagerImpl implements TableManager {
 
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
-    /** Logger. */
-    private final LogWrapper log = new LogWrapper(TableManagerImpl.class);
-
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
 
     /** Network cluster. */
     private final NetworkCluster networkCluster;
+
+    /** Schema manager. */
+    private final SchemaManager schemaManager;
 
     /** Configuration manager. */
     private final ConfigurationManager configurationMgr;
@@ -70,7 +77,8 @@ public class TableManagerImpl implements TableManager {
     public TableManagerImpl(
         ConfigurationManager configurationMgr,
         NetworkCluster networkCluster,
-        MetaStorageManager metaStorageMgr
+        MetaStorageManager metaStorageMgr,
+        SchemaManager schemaManager
     ) {
         long startRevision = 0;
 
@@ -79,6 +87,7 @@ public class TableManagerImpl implements TableManager {
         this.configurationMgr = configurationMgr;
         this.networkCluster = networkCluster;
         this.metaStorageMgr = metaStorageMgr;
+        this.schemaManager = schemaManager;
 
         String localMemberName = configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
             .name().value();
@@ -137,14 +146,24 @@ public class TableManagerImpl implements TableManager {
                                     networkCluster, FACTORY, TIMEOUT, peers, true, DELAY));
                             }
 
-                            tables.put(name, new TableImpl(new TableStorageImpl(
-                                tblId,
-                                partitionMap,
-                                partitions
-                            )));
+                            tables.put(name, new TableImpl(
+                                new InternalTableImpl(
+                                    tblId,
+                                    partitionMap,
+                                    partitions
+                                ),
+                                new TableSchemaView() {
+                                    @Override public SchemaDescriptor schema() {
+                                        return schemaManager.schema(tblId);
+                                    }
+
+                                    @Override public SchemaDescriptor schema(int ver) {
+                                        return schemaManager.schema(tblId, ver);
+                                    }
+                                }));
                         }
                         catch (InterruptedException | ExecutionException e) {
-                            log.error("Failed to start table [key={}]",
+                            LOG.error("Failed to start table [key={}]",
                                 evt.newEntry().key(), e);
                         }
                     }
@@ -154,7 +173,7 @@ public class TableManagerImpl implements TableManager {
             }
 
             @Override public void onError(@NotNull Throwable e) {
-                log.error("Metastorage listener issue", e);
+                LOG.error("Metastorage listener issue", e);
             }
         });
     }
@@ -210,12 +229,12 @@ public class TableManagerImpl implements TableManager {
                     if (fut.get()) {
                         metaStorageMgr.put(new Key(tableInternalPrefix + ".assignment"), null);
 
-                        log.info("Table manager created a table [name={}, revision={}]",
+                        LOG.info("Table manager created a table [name={}, revision={}]",
                             tableView.name(), revision);
                     }
                 }
                 catch (InterruptedException | ExecutionException e) {
-                    log.error("Table was not fully initialized [name={}, revision={}]",
+                    LOG.error("Table was not fully initialized [name={}, revision={}]",
                         tableView.name(), revision, e);
                 }
             }
@@ -238,7 +257,7 @@ public class TableManagerImpl implements TableManager {
             tableCreationSubscriptionFut = null;
         }
         catch (InterruptedException |ExecutionException e) {
-            log.error("Couldn't unsubscribe from table creation", e);
+            LOG.error("Couldn't unsubscribe from table creation", e);
         }
     }
 
@@ -264,7 +283,7 @@ public class TableManagerImpl implements TableManager {
                 tbl = table(name);
             }
             catch (InterruptedException e) {
-                log.error("Waiting of creation of table was interrupted.", e);
+                LOG.error("Waiting of creation of table was interrupted.", e);
             }
         }
 

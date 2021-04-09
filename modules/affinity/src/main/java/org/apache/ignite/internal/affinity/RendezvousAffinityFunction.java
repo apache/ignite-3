@@ -31,7 +31,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMember;
 
 /**
@@ -59,14 +59,14 @@ public class RendezvousAffinityFunction {
     /** Comparator. */
     private static final Comparator<IgniteBiTuple<Long, NetworkMember>> COMPARATOR = new HashComparator();
 
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunction.class);
+
     /** Maximum number of partitions. */
     public static final int MAX_PARTITIONS_COUNT = 65000;
 
     /** Exclude neighbors warning. */
     private static boolean exclNeighborsWarn;
-
-    /** Logger instance. */
-    private static LogWrapper log = new LogWrapper(RendezvousAffinityFunction.class);
 
     /**
      * Resolves node hash.
@@ -169,7 +169,7 @@ public class RendezvousAffinityFunction {
             }
 
             if (!exclNeighborsWarn) {
-                log.warn("Affinity function excludeNeighbors property is ignored " +
+                LOG.warn("Affinity function excludeNeighbors property is ignored " +
                     "because topology has no enough nodes to assign all replicas.");
 
                 exclNeighborsWarn = true;

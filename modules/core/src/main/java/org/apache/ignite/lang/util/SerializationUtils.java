@@ -21,10 +21,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 
 public class SerializationUtils {
-    private static LogWrapper log = new LogWrapper(SerializationUtils.class);
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(SerializationUtils.class);
 
     public static byte[] toBytes(Object obj) {
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
@@ -38,7 +39,7 @@ public class SerializationUtils {
             }
         }
         catch (Exception e) {
-            log.warn("Could not serialize a class [cls=" + obj.getClass().getName() + "]", e);
+            LOG.warn("Could not serialize a class [cls=" + obj.getClass().getName() + "]", e);
 
             return null;
         }
@@ -51,7 +52,7 @@ public class SerializationUtils {
             }
         }
         catch (Exception e) {
-            log.warn("Could not deserialize an object", e);
+            LOG.warn("Could not deserialize an object", e);
 
             return null;
         }
