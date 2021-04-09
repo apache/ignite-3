@@ -22,12 +22,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
@@ -40,12 +38,7 @@ import org.jetbrains.annotations.NotNull;
  * @implNote Key-value {@link Tuple}s represents marshalled user-objects
  * regarding the binary object concept.
  */
-public class KVBinaryViewImpl implements KeyValueBinaryView {
-    /** Underlying storage. */
-    private final InternalTable tbl;
-
-    /** Schema manager. */
-    private final TableSchemaManager schemaMgr;
+public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinaryView {
 
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
@@ -57,8 +50,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
      * @param schemaMgr Schema manager.
      */
     public KVBinaryViewImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
-        this.tbl = tbl;
-        this.schemaMgr = schemaMgr;
+        super(tbl, schemaMgr);
 
         marsh = new TupleMarshallerImpl(schemaMgr);
     }
@@ -81,17 +73,17 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Map<Tuple, Tuple> getAll(Collection<Tuple> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(Collection<Tuple> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean contains(Tuple key) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -110,12 +102,12 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public void putAll(Map<Tuple, Tuple> pairs) {
-
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAllAsync(Map<Tuple, Tuple> pairs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -180,22 +172,22 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> removeAll(Collection<Tuple> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> removeAllAsync(Collection<Tuple> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public Tuple getAndRemove(Tuple key) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(Tuple key) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -229,12 +221,12 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndReplace(Tuple key, Tuple val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(Tuple key, Tuple val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -243,7 +235,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -252,7 +244,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -261,7 +253,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -270,7 +262,7 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -289,34 +281,12 @@ public class KVBinaryViewImpl implements KeyValueBinaryView {
      * @param row Binary row.
      * @return Table row.
      */
-    private TableRow wrap(BinaryRow row) {
+    protected TableRow wrap(BinaryRow row) {
         if (row == null)
             return null;
 
         final SchemaDescriptor schema = schemaMgr.schema(row.schemaVersion());
 
         return new TableRow(schema, new Row(schema, row));
-    }
-
-    /**
-     * Waits for operation completion.
-     *
-     * @param fut Future to wait to.
-     * @return Future result.
-     */
-    private <T> T sync(CompletableFuture<T> fut) {
-        try {
-            return fut.get();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            //TODO: IGNITE-14500 Replace with public exception with an error code.
-            throw new IgniteInternalException(e);
-        }
-        catch (ExecutionException e) {
-            //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-            throw new IgniteInternalException(e);
-        }
     }
 }

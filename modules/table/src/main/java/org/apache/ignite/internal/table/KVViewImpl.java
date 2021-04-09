@@ -22,12 +22,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KVSerializer;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.KeyMapper;
@@ -37,13 +35,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Key-value view implementation.
  */
-public class KVViewImpl<K, V> implements KeyValueView<K, V> {
-    /** Underlying storage. */
-    private final InternalTable tbl;
-
-    /** Schema manager. */
-    private final TableSchemaManager schemaMgr;
-
+public class KVViewImpl<K, V> extends AbstractTableView implements KeyValueView<K, V> {
     /**
      * Constructor.
      *
@@ -54,8 +46,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
      */
     public KVViewImpl(InternalTable tbl, TableSchemaManager schemaMgr, KeyMapper<K> keyMapper,
         ValueMapper<V> valueMapper) {
-        this.tbl = tbl;
-        this.schemaMgr = schemaMgr;
+        super(tbl, schemaMgr);
     }
 
     /** {@inheritDoc} */
@@ -78,132 +69,132 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override public Map<K, V> getAll(Collection<K> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<K, V>> getAllAsync(Collection<K> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean contains(K key) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public void put(K key, V val) {
-
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAsync(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public void putAll(Map<K, V> pairs) {
-
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAllAsync(Map<K, V> pairs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public V getAndPut(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<V> getAndPutAsync(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean putIfAbsent(K key, V val) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean remove(K key) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> removeAsync(K key) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean remove(K key, V val) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> removeAsync(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public Collection<K> removeAll(Collection<K> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<K> removeAllAsync(Collection<K> keys) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public V getAndRemove(K key) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<V> getAndRemoveAsync(K key) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(K key, V val) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(K key, V oldVal, V newVal) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(K key, V oldVal, V newVal) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public V getAndReplace(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<V> getAndReplaceAsync(K key, V val) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public <R extends Serializable> R invoke(K key, InvokeProcessor<K, V, R> proc, Serializable... args) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -212,7 +203,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
         InvokeProcessor<K, V, R> proc,
         Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -221,7 +212,7 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
         InvokeProcessor<K, V, R> proc,
         Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -229,14 +220,14 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
         Collection<K> keys,
         InvokeProcessor<K, V, R> proc, Serializable... args
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
      * @return Marshaller.
      */
     private KVSerializer<K, V> marshaller() {
-        return null;        // table.schemaManager().marshaller();
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
@@ -250,27 +241,5 @@ public class KVViewImpl<K, V> implements KeyValueView<K, V> {
         final SchemaDescriptor rowSchema = schemaMgr.schema(row.schemaVersion()); // Get a schema for row.
 
         return new Row(rowSchema, row);
-    }
-
-    /**
-     * Waits for operation completion.
-     *
-     * @param fut Future to wait to.
-     * @return Future result.
-     */
-    private <T> T sync(CompletableFuture<T> fut) {
-        try {
-            return fut.get();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            //TODO: IGNITE-14500 Replace with public exception with an error code.
-            throw new IgniteInternalException(e);
-        }
-        catch (ExecutionException e) {
-            //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-            throw new IgniteInternalException(e);
-        }
     }
 }

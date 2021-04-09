@@ -22,12 +22,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.RecordSerializer;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -36,13 +34,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Record view implementation.
  */
-public class RecordViewImpl<R> implements RecordView<R> {
-    /** Table */
-    private final InternalTable tbl;
-
-    /** Schema manager. */
-    private final TableSchemaManager schemaMgr;
-
+public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R> {
     /**
      * Constructor.
      *
@@ -51,8 +43,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
      * @param mapper Record class mapper.
      */
     public RecordViewImpl(InternalTable tbl, TableSchemaManager schemaMgr, RecordMapper<R> mapper) {
-        this.tbl = tbl;
-        this.schemaMgr = schemaMgr;
+        super(tbl, schemaMgr);
     }
 
     /** {@inheritDoc} */
@@ -93,153 +84,153 @@ public class RecordViewImpl<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override public Collection<R> getAll(Collection<R> keyRecs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<R>> getAllAsync(Collection<R> keyRecs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public void upsert(R rec) {
-
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAsync(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public void upsertAll(Collection<R> recs) {
-
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(Collection<R> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public R getAndUpsert(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<R> getAndUpsertAsync(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean insert(R rec) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> insertAsync(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public Collection<R> insertAll(Collection<R> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<R>> insertAllAsync(Collection<R> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(R rec) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean replace(R oldRec, R newRec) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replaceAsync(R oldRec, R newRec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public R getAndReplace(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<R> getAndReplaceAsync(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean delete(R keyRec) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> deleteAsync(R keyRec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public boolean deleteExact(R rec) {
-        return false;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public R getAndDelete(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<R> getAndDeleteAsync(R rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public Collection<R> deleteAll(Collection<R> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(Collection<R> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public Collection<R> deleteAllExact(Collection<R> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(Collection<R> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public <T extends Serializable> T invoke(R keyRec, InvokeProcessor<R, R, T> proc) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(R keyRec,
         InvokeProcessor<R, R, T> proc) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -247,7 +238,7 @@ public class RecordViewImpl<R> implements RecordView<R> {
         Collection<R> keyRecs,
         InvokeProcessor<R, R, T> proc
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -255,14 +246,14 @@ public class RecordViewImpl<R> implements RecordView<R> {
         Collection<R> keyRecs,
         InvokeProcessor<R, R, T> proc
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
      * @return Marshaller.
      */
     private RecordSerializer<R> serializer() {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
@@ -276,27 +267,5 @@ public class RecordViewImpl<R> implements RecordView<R> {
         final SchemaDescriptor rowSchema = schemaMgr.schema(row.schemaVersion()); // Get a schema for row.
 
         return new Row(rowSchema, row);
-    }
-
-    /**
-     * Waits for operation completion.
-     *
-     * @param fut Future to wait to.
-     * @return Future result.
-     */
-    private <T> T sync(CompletableFuture<T> fut) {
-        try {
-            return fut.get();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            //TODO: IGNITE-14500 Replace with public exception with an error code.
-            throw new IgniteInternalException(e);
-        }
-        catch (ExecutionException e) {
-            //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-            throw new IgniteInternalException(e);
-        }
     }
 }

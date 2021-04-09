@@ -22,12 +22,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -43,13 +41,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Table view implementation for binary objects.
  */
-public class TableImpl implements Table {
-    /** Table. */
-    private final InternalTable tbl;
-
-    /** Schema manager. */
-    private final TableSchemaManager schemaMgr;
-
+public class TableImpl extends AbstractTableView implements Table {
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
 
@@ -59,8 +51,7 @@ public class TableImpl implements Table {
      * @param tbl Table.
      */
     public TableImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
-        this.tbl = tbl;
-        this.schemaMgr = schemaMgr;
+        super(tbl, schemaMgr);
 
         marsh = new TupleMarshallerImpl(schemaMgr);
     }
@@ -96,12 +87,12 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> getAll(Collection<Tuple> keyRecs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(Collection<Tuple> keyRecs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -120,12 +111,12 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public void upsertAll(Collection<Tuple> recs) {
-
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -158,12 +149,12 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> insertAll(Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -198,12 +189,12 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndReplace(Tuple rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(Tuple rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -236,33 +227,33 @@ public class TableImpl implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndDelete(Tuple rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(Tuple rec) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> deleteAll(Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> deleteAllExact(Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(
         Collection<Tuple> recs) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -270,7 +261,7 @@ public class TableImpl implements Table {
         Tuple keyRec,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -278,7 +269,7 @@ public class TableImpl implements Table {
         Tuple keyRec,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -286,7 +277,7 @@ public class TableImpl implements Table {
         Collection<Tuple> keyRecs,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -294,7 +285,7 @@ public class TableImpl implements Table {
         Collection<Tuple> keyRecs,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -302,6 +293,9 @@ public class TableImpl implements Table {
         return new TupleBuilderImpl();
     }
 
+    /**
+     * @return Marshaller.
+     */
     private TupleMarshaller marshaller() {
         return marsh;
     }
@@ -317,27 +311,5 @@ public class TableImpl implements Table {
         final SchemaDescriptor schema = schemaMgr.schema(row.schemaVersion());
 
         return new TableRow(schema, new Row(schema, row));
-    }
-
-    /**
-     * Waits for operation completion.
-     *
-     * @param fut Future to wait to.
-     * @return Future result.
-     */
-    private <T> T sync(CompletableFuture<T> fut) {
-        try {
-            return fut.get();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            //TODO: IGNITE-14500 Replace with public exception with an error code.
-            throw new IgniteInternalException(e);
-        }
-        catch (ExecutionException e) {
-            //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-            throw new IgniteInternalException(e);
-        }
     }
 }
