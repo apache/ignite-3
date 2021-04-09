@@ -107,7 +107,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         return this.replicatorMap.get(peer);
     }
 
-    @Override
+    @Override // TODO asch sync flag is not used.
     public boolean addReplicator(final PeerId peer, final ReplicatorType replicatorType, final boolean sync) {
         Requires.requireTrue(this.commonOptions.getTerm() != 0);
         this.failureReplicators.remove(peer);
@@ -117,14 +117,34 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         final ReplicatorOptions opts = this.commonOptions == null ? new ReplicatorOptions() : this.commonOptions.copy();
         opts.setReplicatorType(replicatorType);
         opts.setPeerId(peer);
-        if (!sync) {
-            final RaftClientService client = opts.getRaftRpcService();
-            if (client != null && !client.checkConnection(peer.getEndpoint(), true)) {
-                LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
-                this.failureReplicators.put(peer, replicatorType);
-                return false;
-            }
+
+        final RaftClientService client = opts.getRaftRpcService();
+
+        assert client != null;
+
+        if (!client.connect(peer.getEndpoint())) {
+            LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+            this.failureReplicators.put(peer, replicatorType);
+            return false;
         }
+
+        // TODO asch replicator check must be done on node alive event.
+
+//        if (!sync) {
+//            final RaftClientService client = opts.getRaftRpcService();
+//
+//            assert client != null;
+//
+//            if (!client.connect(peer.getEndpoint())) {
+//                LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+//                this.failureReplicators.put(peer, replicatorType);
+//                return false;
+//            }
+//
+////            else
+////                RpcUtils.runInThread(() -> checkReplicator(peer, true));
+//        }
+
         final ThreadId rid = Replicator.start(opts, this.raftOptions);
         if (rid == null) {
             LOG.error("Fail to start replicator to peer={}, replicatorType={}.", peer, replicatorType);

@@ -491,25 +491,44 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     @SuppressWarnings("unchecked")
-    @Override
-    public void onClosed(final String remoteAddress, final Connection conn) {
-        final Set<PeerPair> pairs = (Set<PeerPair>) conn.getAttribute(PAIR_ATTR);
-        if (pairs != null && !pairs.isEmpty()) {
-            // Clear request contexts when connection disconnected.
-            for (final Map.Entry<String, ConcurrentMap<PeerPair, PeerRequestContext>> entry : this.peerRequestContexts
-                .entrySet()) {
-                final ConcurrentMap<PeerPair, PeerRequestContext> groupCtxs = entry.getValue();
-                synchronized (Utils.withLockObject(groupCtxs)) {
-                    for (PeerPair pair : pairs) {
-                        final PeerRequestContext ctx = groupCtxs.remove(pair);
-                        if (ctx != null) {
-                            ctx.destroy();
-                        }
+//    @Override
+//    public void onClosed(final String remoteAddress, final Connection conn) {
+//        // TODO asch should be triggered on node left.
+//        final Set<PeerPair> pairs = (Set<PeerPair>) conn.getAttribute(PAIR_ATTR);
+//        if (pairs != null && !pairs.isEmpty()) {
+//            // Clear request contexts when connection disconnected.
+//            for (final Map.Entry<String, ConcurrentMap<PeerPair, PeerRequestContext>> entry : this.peerRequestContexts
+//                .entrySet()) {
+//                final ConcurrentMap<PeerPair, PeerRequestContext> groupCtxs = entry.getValue();
+//                synchronized (Utils.withLockObject(groupCtxs)) {
+//                    for (PeerPair pair : pairs) {
+//                        final PeerRequestContext ctx = groupCtxs.remove(pair);
+//                        if (ctx != null) {
+//                            ctx.destroy();
+//                        }
+//                    }
+//                }
+//            }
+//        } else {
+//            LOG.info("Connection disconnected: {}", remoteAddress);
+//        }
+//    }
+
+    @Override public void onClosed(String local, String remote) {
+        PeerPair pair = new PeerPair(local, remote);
+
+        for (final Map.Entry<String, ConcurrentMap<PeerPair, PeerRequestContext>> entry : this.peerRequestContexts
+            .entrySet()) {
+            final ConcurrentMap<PeerPair, PeerRequestContext> groupCtxs = entry.getValue();
+            synchronized (Utils.withLockObject(groupCtxs)) {
+                //for (PeerPair pair : pairs) {
+                    final PeerRequestContext ctx = groupCtxs.remove(pair);
+                    if (ctx != null) {
+                        ctx.destroy();
                     }
-                }
+                //}
             }
-        } else {
-            LOG.info("Connection disconnected: {}", remoteAddress);
         }
+
     }
 }

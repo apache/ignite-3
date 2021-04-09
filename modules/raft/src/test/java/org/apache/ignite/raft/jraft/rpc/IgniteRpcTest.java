@@ -24,7 +24,7 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 /** */
 public class IgniteRpcTest extends AbstractRpcTest {
     @Override public RpcServer createServer(Endpoint endpoint) {
-        return new IgniteRpcServer();
+        return new IgniteRpcServer(null);
     }
 
     @Override public RpcClient createClient() {

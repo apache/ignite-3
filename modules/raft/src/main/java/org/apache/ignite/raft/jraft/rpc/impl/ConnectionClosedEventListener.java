@@ -24,5 +24,7 @@ import org.apache.ignite.raft.jraft.rpc.Connection;
  */
 public interface ConnectionClosedEventListener {
 
-    void onClosed(final String remoteAddress, final Connection conn);
+    //void onClosed(final String remoteAddress, final Connection conn);
+
+    void onClosed(final String local, final String remote);
 }

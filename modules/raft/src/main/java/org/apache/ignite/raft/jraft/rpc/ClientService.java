@@ -31,36 +31,12 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 public interface ClientService extends Lifecycle<RpcOptions> {
 
     /**
-     * Connect to endpoint, returns true when success.
+     * Connect to endpoint, returns true when success. TODO asch rename.
      *
      * @param endpoint server address
      * @return true on connect success
      */
     boolean connect(final Endpoint endpoint);
-
-    /**
-     * Check connection for given address and async to create a new one if there is no connection.
-     * @param endpoint       target address
-     * @param createIfAbsent create a new one if there is no connection
-     * @return true if there is a connection and the connection is active and writable.
-     */
-    boolean checkConnection(final Endpoint endpoint, final boolean createIfAbsent);
-
-    /**
-     * Disconnect from endpoint.
-     *
-     * @param endpoint server address
-     * @return true on disconnect success
-     */
-    boolean disconnect(final Endpoint endpoint);
-
-    /**
-     * Returns true when the endpoint's connection is active.
-     *
-     * @param endpoint server address
-     * @return true on connection is active
-     */
-    boolean isConnected(final Endpoint endpoint);
 
     /**
      * Send a requests and waits for response with callback, returns the request future.

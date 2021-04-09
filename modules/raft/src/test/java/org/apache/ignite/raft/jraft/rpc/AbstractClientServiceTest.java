@@ -98,11 +98,11 @@ public class AbstractClientServiceTest {
         assertFalse(this.clientService.connect(this.endpoint));
     }
 
-    @Test
-    public void testDisconnect() {
-        this.clientService.disconnect(this.endpoint);
-        Mockito.verify(this.rpcClient).closeConnection(this.endpoint);
-    }
+//    @Test
+//    public void testDisconnect() {
+//        this.clientService.disconnect(this.endpoint);
+//        Mockito.verify(this.rpcClient).closeConnection(this.endpoint);
+//    }
 
     static class MockRpcResponseClosure<T extends Message> extends RpcResponseClosureAdapter<T> {
 

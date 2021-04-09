@@ -54,7 +54,7 @@ import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
@@ -712,7 +712,7 @@ public class ReplicatorTest {
         final RpcRequests.InstallSnapshotResponse response = RpcRequests.InstallSnapshotResponse.newBuilder()
             .setSuccess(true).setTerm(1).build();
         assertEquals(-1, r.getWaitId());
-        Mockito.when(this.logManager.getTerm(11)).thenReturn(1L);
+        Mockito.lenient().when(this.logManager.getTerm(11)).thenReturn(1L);
         Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, new Status(-1, "test"), request, response,
             0, 0, -1);
         assertNotNull(r.getBlockTimer());
@@ -729,7 +729,7 @@ public class ReplicatorTest {
         final RpcRequests.InstallSnapshotResponse response = RpcRequests.InstallSnapshotResponse.newBuilder()
             .setSuccess(false).setTerm(1).build();
         assertEquals(-1, r.getWaitId());
-        Mockito.when(this.logManager.getTerm(11)).thenReturn(1L);
+        Mockito.lenient().when(this.logManager.getTerm(11)).thenReturn(1L);
         Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, Status.OK(), request, response, 0, 0, -1);
         assertNotNull(r.getBlockTimer());
         assertEquals(-1, r.getWaitId());
@@ -761,7 +761,7 @@ public class ReplicatorTest {
 
     private void mockSendEntries(@SuppressWarnings("SameParameterValue") final int n) {
         final RpcRequests.AppendEntriesRequest request = createEntriesRequest(n);
-        Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
+        Mockito.lenient().when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
             .thenReturn(new FutureImpl<>());
     }
 

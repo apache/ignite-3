@@ -22,8 +22,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
 public interface RpcClientEx extends RpcClient {
-    public static Consumer[] onConnCreated = new Consumer[1];
-
     void blockMessages(BiPredicate<Object, String> predicate);
 
     void stopBlock();

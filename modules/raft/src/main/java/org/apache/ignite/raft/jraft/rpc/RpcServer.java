@@ -23,7 +23,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.ConnectionClosedEventListener;
  *
  * @author jiachun.fjc
  */
-public interface RpcServer extends Lifecycle<Void> {
+public interface RpcServer<T> extends Lifecycle<T> {
 
     /**
      * Register a conn closed event listener.

@@ -119,7 +119,7 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         assertSame(ctx, processor.getPeerRequestContext(this.groupId, pair));
         assertSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn));
 
-        processor.onClosed(null, this.conn);
+        processor.onClosed(peerIdStr, this.serverId);
         assertNull(processor.getPeerRequestContext(this.groupId, pair));
         assertNotSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn));
     }

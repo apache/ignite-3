@@ -44,16 +44,13 @@ import org.slf4j.LoggerFactory;
  *
  * @author ascherbakov.
  */
-public class LocalRpcServer implements RpcServer {
+public class LocalRpcServer implements RpcServer<Void> {
     private static final Logger LOG                    = LoggerFactory.getLogger(LocalRpcServer.class);
 
     /** Running servers. */
     public static ConcurrentMap<Endpoint, LocalRpcServer> servers = new ConcurrentHashMap<>();
 
     Endpoint local;
-
-    /** Remote connections to this server. */
-    public ConcurrentMap<LocalRpcClient, LocalConnection> conns = new ConcurrentHashMap<>();
 
     private Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
@@ -70,43 +67,6 @@ public class LocalRpcServer implements RpcServer {
 
     public LocalRpcServer(Endpoint local) {
         this.local = local;
-    }
-
-    static boolean connect(LocalRpcClient client, Endpoint srv, boolean createIfAbsent, Consumer<LocalConnection> onCreated) {
-        LocalRpcServer locSrv = servers.get(srv);
-
-        if (locSrv == null)
-            return false; // Server is not ready.
-
-        LocalConnection conn = locSrv.conns.get(client);
-
-        if (conn == null) {
-            if (!createIfAbsent)
-                return false;
-
-            conn = new LocalConnection(client, locSrv);
-
-            LocalConnection oldConn = locSrv.conns.putIfAbsent(client, conn);
-
-            if (oldConn == null)
-                onCreated.accept(conn);
-        }
-
-        return true;
-    }
-
-    static void closeConnection(LocalRpcClient client, Endpoint srv) {
-        LocalRpcServer locSrv = servers.get(srv);
-
-        if (locSrv == null)
-            return;
-
-        LocalConnection conn = locSrv.conns.remove(client);
-
-        if (conn == null)
-            return;
-
-        locSrv.listeners.forEach(l -> l.onClosed(client.toString(), conn));
     }
 
     @Override public void registerConnectionClosedEventListener(ConnectionClosedEventListener listener) {
@@ -132,11 +92,6 @@ public class LocalRpcServer implements RpcServer {
                     try {
                         Object[] tuple = incoming.take();
                         LocalRpcClient sender = (LocalRpcClient) tuple[0];
-
-                        // Connection is not established, ignore message.
-                        LocalConnection conn = conns.get(sender);
-                        if (conn == null)
-                            continue;
 
                         Message msg = (Message) tuple[1];
                         CompletableFuture<Object> fut = (CompletableFuture) tuple[2];
@@ -174,7 +129,7 @@ public class LocalRpcServer implements RpcServer {
                                 }
 
                                 @Override public Connection getConnection() {
-                                    return conn;
+                                    return null;
                                 }
 
                                 @Override public String getRemoteAddress() {
@@ -197,6 +152,8 @@ public class LocalRpcServer implements RpcServer {
         worker.start();
 
         servers.put(local, this);
+
+        LocalRpcClient.clients.forEach(c -> c.onStart(this));
 
         return true;
     }
@@ -224,10 +181,6 @@ public class LocalRpcServer implements RpcServer {
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while waiting for RPC server to stop " + local);
         }
-
-        // Close all connections to this server.
-        for (LocalRpcClient client : conns.keySet())
-            closeConnection(client, local);
 
         servers.remove(local);
     }

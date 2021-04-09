@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
@@ -65,25 +64,6 @@ public abstract class AbstractClientService implements ClientService {
 
     public RpcClient getRpcClient() {
         return this.rpcClient;
-    }
-
-    @Override
-    public boolean isConnected(final Endpoint endpoint) {
-        final RpcClient rc = this.rpcClient;
-        return rc != null && isConnected(rc, endpoint);
-    }
-
-    private static boolean isConnected(final RpcClient rpcClient, final Endpoint endpoint) {
-        return rpcClient.checkConnection(endpoint);
-    }
-
-    @Override
-    public boolean checkConnection(final Endpoint endpoint, final boolean createIfAbsent) {
-        final RpcClient rc = this.rpcClient;
-        if (rc == null) {
-            throw new IllegalStateException("Client service is uninitialized.");
-        }
-        return rc.checkConnection(endpoint, createIfAbsent);
     }
 
     @Override
@@ -136,34 +116,27 @@ public abstract class AbstractClientService implements ClientService {
         if (rc == null) {
             throw new IllegalStateException("Client service is uninitialized.");
         }
-        if (isConnected(rc, endpoint)) {
-            return true;
-        }
-        try {
-            final PingRequest req = PingRequest.newBuilder() //
-                .setSendTimestamp(System.currentTimeMillis()) //
-                .build();
-            final ErrorResponse resp = (ErrorResponse) rc.invokeSync(endpoint, req,
-                this.rpcOptions.getRpcConnectTimeoutMs());
-            return resp.getErrorCode() == 0;
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        } catch (final RemotingException e) {
-            LOG.error("Fail to connect {}, remoting exception: {}.", endpoint, e.getMessage());
-            return false;
-        }
-    }
 
-    @Override
-    public boolean disconnect(final Endpoint endpoint) {
-        final RpcClient rc = this.rpcClient;
-        if (rc == null) {
-            return true;
-        }
-        LOG.info("Disconnect from {}.", endpoint);
-        rc.closeConnection(endpoint);
-        return true;
+        return rc.checkConnection(endpoint);
+
+        // TODO asch ping request ???
+//        if (isConnected(rc, endpoint))
+//            return true;
+//
+//        try {
+//            final PingRequest req = PingRequest.newBuilder() //
+//                .setSendTimestamp(System.currentTimeMillis()) //
+//                .build();
+//            final ErrorResponse resp = (ErrorResponse) rc.invokeSync(endpoint, req,
+//                this.rpcOptions.getRpcConnectTimeoutMs());
+//            return resp.getErrorCode() == 0;
+//        } catch (final InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//            return false;
+//        } catch (final RemotingException e) {
+//            LOG.error("Fail to connect {}, remoting exception: {}.", endpoint, e.getMessage());
+//            return false;
+//        }
     }
 
     @Override

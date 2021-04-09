@@ -42,17 +42,13 @@ public abstract class AbstractRpcTest {
     @After
     public void teardown() {
         server.shutdown();
-
-        RpcClientEx.onConnCreated[0] = null;
     }
 
     @Test
     public void testConnection() {
         RpcClient client = createClient();
 
-        assertFalse(client.checkConnection(endpoint));
-
-        assertTrue(client.checkConnection(endpoint, true));
+        assertTrue(client.checkConnection(endpoint));
     }
 
     @Test
@@ -89,31 +85,12 @@ public abstract class AbstractRpcTest {
     }
 
     @Test
-    public void testDisconnect1() {
+    public void testDisconnect() {
         RpcClient client1 = createClient();
         RpcClient client2 = createClient();
 
-        assertTrue(client1.checkConnection(endpoint, true));
-        assertTrue(client2.checkConnection(endpoint, true));
-
-        client1.shutdown();
-
-        assertFalse(client1.checkConnection(endpoint));
+        assertTrue(client1.checkConnection(endpoint));
         assertTrue(client2.checkConnection(endpoint));
-
-        client2.shutdown();
-
-        assertFalse(client1.checkConnection(endpoint));
-        assertFalse(client2.checkConnection(endpoint));
-    }
-
-    @Test
-    public void testDisconnect2() {
-        RpcClient client1 = createClient();
-        RpcClient client2 = createClient();
-
-        assertTrue(client1.checkConnection(endpoint, true));
-        assertTrue(client2.checkConnection(endpoint, true));
 
         server.shutdown();
 
@@ -126,7 +103,7 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.recordMessages((a, b) -> true);
 
-        assertTrue(client1.checkConnection(endpoint, true));
+        assertTrue(client1.checkConnection(endpoint));
 
         Response1 resp1 = (Response1) client1.invokeSync(endpoint, new Request1(), 500);
         Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
@@ -145,7 +122,7 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.recordMessages((a, b) -> true);
 
-        assertTrue(client1.checkConnection(endpoint, true));
+        assertTrue(client1.checkConnection(endpoint));
 
         try {
             Request1 request = new Request1();
@@ -168,7 +145,7 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.recordMessages((a, b) -> true);
 
-        assertTrue(client1.checkConnection(endpoint, true));
+        assertTrue(client1.checkConnection(endpoint));
 
         CountDownLatch l = new CountDownLatch(2);
 
@@ -187,7 +164,7 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.recordMessages((a, b) -> true);
 
-        assertTrue(client1.checkConnection(endpoint, true));
+        assertTrue(client1.checkConnection(endpoint));
 
         try {
             Request1 request = new Request1();
@@ -219,7 +196,7 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.blockMessages((msg, id) -> msg instanceof Request1);
 
-        assertTrue(client1.checkConnection(endpoint, true));
+        assertTrue(client1.checkConnection(endpoint));
 
         Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
 
@@ -245,7 +222,7 @@ public abstract class AbstractRpcTest {
         RpcClientEx client1 = (RpcClientEx) createClient();
         client1.blockMessages((msg, id) -> msg instanceof Request1);
 
-        assertTrue(client1.checkConnection(endpoint, true));
+        assertTrue(client1.checkConnection(endpoint));
 //
 //        Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
 //

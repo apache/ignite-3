@@ -106,7 +106,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
                                          final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
         final Executor executor = this.appendEntriesExecutorMap.computeIfAbsent(endpoint, k -> APPEND_ENTRIES_EXECUTORS.next());
 
-        if (checkConnection(endpoint, true)) {
+        if (connect(endpoint)) { // Replicator should be started asynchronously by node joined event.
             return invokeWithDone(endpoint, request, done, timeoutMs, executor);
         }
 

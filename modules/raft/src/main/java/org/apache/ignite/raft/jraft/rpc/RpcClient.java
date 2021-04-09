@@ -29,7 +29,7 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 public interface RpcClient extends Lifecycle<RpcOptions> {
 
     /**
-     * Check connection for given address.
+     * Check connection for given address. // TODO asch rename to isAlive.
      *
      * @param endpoint target address
      * @return true if there is a connection and the connection is active and writable.
@@ -37,22 +37,7 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     boolean checkConnection(final Endpoint endpoint);
 
     /**
-     * Check connection for given address and async to create a new one if there is no connection.
-     * @param endpoint       target address
-     * @param createIfAbsent create a new one if there is no connection
-     * @return true if there is a connection and the connection is active and writable.
-     * TODO asch it probably should return org.apache.ignite.raft.jraft.rpc.Connection.
-     */
-    boolean checkConnection(final Endpoint endpoint, final boolean createIfAbsent);
-
-    /**
-     * Close all connections of a address.
-     *
-     * @param endpoint target address
-     */
-    void closeConnection(final Endpoint endpoint);
-
-    /**
+     * TODO asch get rid.
      * Register a connect event listener for the replicator group.
      *
      * @param replicatorGroup replicator group

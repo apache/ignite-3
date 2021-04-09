@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
+import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -32,45 +34,22 @@ public class IgniteRpcClient implements RpcClientEx {
     private LinkedBlockingQueue<Object[]> blockedMsgs = new LinkedBlockingQueue<>();
     private LinkedBlockingQueue<Object[]> recordedMsgs = new LinkedBlockingQueue<>();
 
+    private NetworkCluster node;
+
     @Override public boolean checkConnection(Endpoint endpoint) {
         return true;
-    }
-
-    @Override public boolean checkConnection(Endpoint endpoint, boolean createIfAbsent) {
-        return true;
-    }
-
-    @Override public void closeConnection(Endpoint endpoint) {
     }
 
     @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
         this.replicatorGroup = replicatorGroup;
     }
 
-    private void onCreated(LocalConnection conn) {
-        if (replicatorGroup != null) {
-            final PeerId peer = new PeerId();
-            if (peer.parse(conn.srv.local.toString())) {
-                RpcUtils.runInThread(() -> replicatorGroup.checkReplicator(peer, true)); // Avoid deadlock.
-            }
-            else
-                LOG.warn("Failed to parse peer: {}", peer); // TODO asch how to handle ?
-        }
-
-        if (onConnCreated[0] != null)
-            onConnCreated[0].accept(conn);
-    }
-
     @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {
-        if (!checkConnection(endpoint, true))
+        if (!checkConnection(endpoint))
             throw new RemotingException("Server is dead " + endpoint);
 
         LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
         if (srv == null)
-            throw new RemotingException("Server is dead " + endpoint);
-
-        LocalConnection locConn = srv.conns.get(this);
-        if (locConn == null)
             throw new RemotingException("Server is dead " + endpoint);
 
         CompletableFuture<Object> fut = new CompletableFuture();
@@ -85,11 +64,11 @@ public class IgniteRpcClient implements RpcClientEx {
             wasBlocked = blockPred != null && blockPred.test(request, endpoint.toString());
 
             if (wasBlocked)
-                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> locConn.send(request, fut)});
+                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut)});
         }
 
         if (!wasBlocked)
-            locConn.send(request, fut);
+            send(endpoint, request, fut);
 
         try {
             return fut.whenComplete((res, err) -> {
@@ -104,15 +83,11 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback, long timeoutMs) throws InterruptedException, RemotingException {
-        if (!checkConnection(endpoint, true))
+        if (!checkConnection(endpoint))
             throw new RemotingException("Server is dead " + endpoint);
 
         LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
         if (srv == null)
-            throw new RemotingException("Server is dead " + endpoint);
-
-        LocalConnection locConn = srv.conns.get(this);
-        if (locConn == null)
             throw new RemotingException("Server is dead " + endpoint);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
@@ -140,7 +115,7 @@ public class IgniteRpcClient implements RpcClientEx {
             if (blockPred != null && blockPred.test(request, endpoint.toString())) {
                 blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
                     @Override public void run() {
-                        locConn.send(request, fut);
+                        send(endpoint, request, fut);
                     }
                 }});
 
@@ -148,7 +123,16 @@ public class IgniteRpcClient implements RpcClientEx {
             }
         }
 
-        locConn.send(request, fut);
+        send(endpoint, request, fut);
+    }
+
+    public void send(Endpoint endpoint, Object request, Future fut) {
+        Object[] tuple = {this, request, fut};
+
+        LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
+
+        if (srv != null)
+            srv.incoming.offer(tuple);
     }
 
     @Override public boolean init(RpcOptions opts) {
