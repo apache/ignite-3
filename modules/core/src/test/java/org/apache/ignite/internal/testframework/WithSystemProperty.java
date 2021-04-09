@@ -62,7 +62,6 @@ import org.junit.jupiter.api.BeforeEach;
  * {@link AfterEach}.
  * <br/><br/>
  * <pre>{@code  public class SomeTest {
- *
  *      @Test
  *      @WithSystemProperty(key = "name", value = "val")
  *      public void test() {

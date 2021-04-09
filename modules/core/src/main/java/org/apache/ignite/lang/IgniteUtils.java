@@ -21,7 +21,6 @@ package org.apache.ignite.lang;
  *
  */
 public final class IgniteUtils {
-
     /**
      * Applies a supplemental hash function to a given hashCode, which
      * defends against poor quality hash functions.  This is critical
@@ -57,11 +56,11 @@ public final class IgniteUtils {
      * This function has been taken from Java 8 ConcurrentHashMap with
      * slightly modifications.
      *
-     * @param key Value to hash.
+     * @param obj Value to hash.
      * @return Hash value.
      */
-    public static int hash(Object key) {
-        return hash(key.hashCode());
+    public static int hash(Object obj) {
+        return hash(obj.hashCode());
     }
 
     /**

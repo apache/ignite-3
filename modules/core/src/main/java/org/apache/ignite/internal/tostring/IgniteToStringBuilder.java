@@ -85,7 +85,7 @@ import static org.apache.ignite.lang.IgniteSystemProperties.getString;
  * <li>{@link Collection} implementations
  * </ul>
  */
-@SuppressWarnings("BooleanParameter")
+@SuppressWarnings({"BooleanParameter", "NonFinalUtilityClass"})
 public class IgniteToStringBuilder {
     /** Empty array instance. */
     private static final Object[] EMPTY_ARRAY = new Object[0];
@@ -120,7 +120,7 @@ public class IgniteToStringBuilder {
      * have to keep a map of this objects pointed to the position of previous occurrence
      * and remove/add them in each {@code toString(...)} apply.
      */
-    //TODO: IGNTIE-14501: shrink IdentityHashMap when empty and capacity is larger than default.
+    //TODO: IGNITE-14501: shrink IdentityHashMap when empty and capacity is larger than default.
     private static final ThreadLocal<IdentityHashMap<Object, EntryReference>> savedObjects = ThreadLocal.withInitial(IdentityHashMap::new);
 
     /**
@@ -1751,7 +1751,7 @@ public class IgniteToStringBuilder {
      * Produces uniformed output of string with context properties
      *
      * @param str Output prefix or {@code null} if empty.
-     * @param triplets Triplets {@code {name, value, sencitivity}}.
+     * @param triplets Triplets {@code {name, value, sensitivity}}.
      * @return String presentation.
      */
     public static String toString(String str, Object... triplets) {
@@ -1821,7 +1821,7 @@ public class IgniteToStringBuilder {
         if (newStr)
             return buf.toString();
 
-        // Called from another GTSB.toString(), so this string is already in the buffer and shouldn't be returned.
+        // Called from another ITSB.toString(), so this string is already in the buffer and shouldn't be returned.
         return "";
     }
 
@@ -2081,6 +2081,13 @@ public class IgniteToStringBuilder {
             if (pos > baseline)
                 ref.pos = pos + hashLen;
         }
+    }
+
+    /**
+     * Stub.
+     */
+    protected IgniteToStringBuilder() {
+        // No op.
     }
 
     /**

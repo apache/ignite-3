@@ -24,6 +24,9 @@ import org.apache.ignite.lang.LogWrapper;
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 
+/**
+ * Ignite base test class.
+ */
 public abstract class IgniteAbstractTest {
     /** Logger. */
     protected static LogWrapper log;
@@ -35,7 +38,7 @@ public abstract class IgniteAbstractTest {
     }
 
     /**
-     *
+     * Constructor.
      */
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     protected IgniteAbstractTest() {

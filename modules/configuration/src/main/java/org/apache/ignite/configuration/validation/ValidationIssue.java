@@ -33,7 +33,7 @@ public class ValidationIssue {
         return message;
     }
 
-    /** */
+    /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(ValidationIssue.class, this);
     }

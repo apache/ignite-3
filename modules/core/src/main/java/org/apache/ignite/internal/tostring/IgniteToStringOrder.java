@@ -24,11 +24,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Attach this annotation to a field to provide its order in
- * {@code toString()} output. By default, the order is the same as
- * the order of declaration in the class. Fields with smaller order value
- * will come before in {@code toString()} output. If order is not specified
- * the {@link Integer#MAX_VALUE} will be used.
+ * Indicates field order in {@code toString()} output if set.
+ * Fields with smaller order value will come earlier the others in {@code toString()} output.
+ * By default, the order is the same as the order of declaration in the class.
+ * If order is not specified the {@link Integer#MAX_VALUE} will be used.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
