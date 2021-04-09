@@ -27,7 +27,7 @@ class CircularStringBuilder {
     private final char[] buf;
 
     /** Writer position (0 if empty). */
-    private int pos = -1;
+    private int pos;
 
     /** Value is full flag. */
     private boolean full;
@@ -44,6 +44,7 @@ class CircularStringBuilder {
         assert capacity > 0 : "Can't allocate CircularStringBuilder with capacity: " + capacity;
 
         buf = new char[capacity];
+        pos = 0;
         skipped = 0;
         full = false;
     }
