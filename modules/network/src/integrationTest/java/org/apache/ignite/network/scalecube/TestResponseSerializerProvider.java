@@ -17,22 +17,26 @@
 
 package org.apache.ignite.network.scalecube;
 
-import java.io.ObjectOutputStream;
-import org.apache.ignite.network.internal.MessageWriter;
+import org.apache.ignite.network.message.MessageDeserializer;
+import org.apache.ignite.network.message.MessageSerializer;
+import org.apache.ignite.network.message.MessageSerializerProvider;
 
-/** */
-@Deprecated
-class ScaleCubeMessageWriter implements MessageWriter {
-    /** */
-    private final ObjectOutputStream stream;
-
-    /** */
-    ScaleCubeMessageWriter(ObjectOutputStream stream) {
-        this.stream = stream;
+/**
+ * Mapper provider for {@link TestResponse}.
+ */
+public class TestResponseSerializerProvider implements MessageSerializerProvider<TestResponse> {
+    /** {@inheritDoc} */
+    @Override public MessageDeserializer<TestResponse> createDeserializer() {
+        return null;
     }
 
     /** {@inheritDoc} */
-    @Override public ObjectOutputStream stream() {
-        return stream;
+    @Override public MessageSerializer<TestResponse> createSerializer() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte fieldsCount() {
+        return 0;
     }
 }

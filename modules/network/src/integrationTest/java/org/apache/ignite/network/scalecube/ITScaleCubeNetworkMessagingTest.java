@@ -17,6 +17,7 @@
 package org.apache.ignite.network.scalecube;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,9 +43,9 @@ class ITScaleCubeNetworkMessagingTest {
     /** */
     private static final MessageMapperProviders TEST_MESSAGE_MAPPER_PROVIDERS =
         new MessageMapperProviders()
-            .registerProvider(TestMessage.TYPE, new TestMessageMapperProvider())
-            .registerProvider(TestRequest.TYPE, new TestRequestMapperProvider())
-            .registerProvider(TestResponse.TYPE, new TestResponseMapperProvider());
+            .registerProvider(TestMessage.TYPE, new TestMessageSerializerProvider())
+            .registerProvider(TestRequest.TYPE, new TestRequestSerializerProvider())
+            .registerProvider(TestResponse.TYPE, new TestResponseSerializerProvider());
 
     /** */
     private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
@@ -81,7 +82,7 @@ class ITScaleCubeNetworkMessagingTest {
         bob.getMessagingService().addMessageHandler(messageWaiter);
         carol.getMessagingService().addMessageHandler(messageWaiter);
 
-        TestMessage testMessage = new TestMessage("Message from Alice");
+        TestMessage testMessage = new TestMessage("Message from Alice", Collections.emptyMap());
 
         //When: Send one message to all members in cluster.
         for (ClusterNode member : alice.getTopologyService().allMembers()) {

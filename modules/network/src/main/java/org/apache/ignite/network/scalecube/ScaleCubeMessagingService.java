@@ -31,8 +31,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 
-import static org.apache.ignite.network.scalecube.ScaleCubeMessageCodec.HEADER_MESSAGE_TYPE;
-
 /**
  * Implementation of {@link MessagingService} based on ScaleCube.
  */
@@ -83,7 +81,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      */
     @Override public void weakSend(ClusterNode recipient, NetworkMessage msg) {
         cluster
-            .send(memberResolver.resolveMember(recipient), fromNetworkMessage(msg).build())
+            .send(memberResolver.resolveMember(recipient), Message.fromData(msg))
             .subscribe();
     }
 
@@ -92,7 +90,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
         return cluster
-            .send(memberResolver.resolveMember(recipient), fromNetworkMessage(msg).build())
+            .send(memberResolver.resolveMember(recipient), Message.fromData(msg))
             .toFuture();
     }
 
@@ -100,7 +98,8 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      * {@inheritDoc}
      */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg, String correlationId) {
-        var message = fromNetworkMessage(msg)
+        var message = Message
+            .withData(msg)
             .correlationId(correlationId)
             .build();
         return cluster
@@ -112,7 +111,8 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      * {@inheritDoc}
      */
     @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode member, NetworkMessage msg, long timeout) {
-        var message = fromNetworkMessage(msg)
+        var message = Message
+            .withData(msg)
             .correlationId(UUID.randomUUID().toString())
             .build();
         return cluster
@@ -138,17 +138,5 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
                     "Network member with address %s could not be found", addr
                 )))
         );
-    }
-
-    /**
-     * Creates a ScaleCube {@link Message} from a {@link NetworkMessage}.
-     *
-     * @param message Network message.
-     * @return ScaleCube {@link Message}.
-     */
-    private Message.Builder fromNetworkMessage(NetworkMessage message) {
-        return Message.builder()
-            .data(message)
-            .header(HEADER_MESSAGE_TYPE, Short.toString(message.directType()));
     }
 }

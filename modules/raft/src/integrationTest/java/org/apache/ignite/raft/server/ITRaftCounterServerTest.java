@@ -55,15 +55,16 @@ class ITRaftCounterServerTest {
     /** */
     private static final MessageMapperProviders MESSAGE_MAPPER_PROVIDERS = new MessageMapperProviders();
 
-    static {
-        var defaultMessageMapperProvider = new DefaultMessageMapperProvider();
-        MESSAGE_MAPPER_PROVIDERS
-            .registerProvider((short)1000, defaultMessageMapperProvider)
-            .registerProvider((short)1001, defaultMessageMapperProvider)
-            .registerProvider((short)1005, defaultMessageMapperProvider)
-            .registerProvider((short)1006, defaultMessageMapperProvider)
-            .registerProvider((short)1009, defaultMessageMapperProvider);
-    }
+    // TODO: IGNITE-14088: Uncomment and use real serializer provider
+//    static {
+//        var defaultMessageMapperProvider = new DefaultMessageMapperProvider();
+//        MESSAGE_MAPPER_PROVIDERS
+//            .registerProvider((short)1000, defaultMessageMapperProvider)
+//            .registerProvider((short)1001, defaultMessageMapperProvider)
+//            .registerProvider((short)1005, defaultMessageMapperProvider)
+//            .registerProvider((short)1006, defaultMessageMapperProvider)
+//            .registerProvider((short)1009, defaultMessageMapperProvider);
+//    }
 
     /** */
     private RaftServer server;

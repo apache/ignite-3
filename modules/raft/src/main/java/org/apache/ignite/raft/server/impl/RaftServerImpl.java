@@ -110,13 +110,14 @@ public class RaftServerImpl implements RaftServer {
         readQueue = new ArrayBlockingQueue<>(queueSize);
         writeQueue = new ArrayBlockingQueue<>(queueSize);
 
-        var defaultMessageMapper = new DefaultMessageMapperProvider();
-        var messageMappersProviders = new MessageMapperProviders()
-            .registerProvider((short)1000, defaultMessageMapper)
-            .registerProvider((short)1001, defaultMessageMapper)
-            .registerProvider((short)1005, defaultMessageMapper)
-            .registerProvider((short)1006, defaultMessageMapper)
-            .registerProvider((short)1009, defaultMessageMapper);
+        // TODO: IGNITE-14088: Uncomment and use real serializer provider
+//        var defaultMessageMapper = new DefaultMessageMapperProvider();
+        var messageMappersProviders = new MessageMapperProviders();
+//            .registerProvider((short)1000, defaultMessageMapper)
+//            .registerProvider((short)1001, defaultMessageMapper)
+//            .registerProvider((short)1005, defaultMessageMapper)
+//            .registerProvider((short)1006, defaultMessageMapper)
+//            .registerProvider((short)1009, defaultMessageMapper);
 
         var context = new ClusterLocalConfiguration(id, localPort, List.of(), messageMappersProviders);
         var factory = new ScaleCubeClusterServiceFactory();

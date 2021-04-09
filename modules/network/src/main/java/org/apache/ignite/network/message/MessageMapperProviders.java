@@ -20,11 +20,11 @@ package org.apache.ignite.network.message;
 import org.apache.ignite.network.NetworkConfigurationException;
 
 /**
- * Container that maps message types to {@link MessageMapperProvider} instances.
+ * Container that maps message types to {@link MessageSerializerProvider} instances.
  */
 public final class MessageMapperProviders {
     /** Message mappers, messageMapperProviders[message type] -> message mapper provider for message with message type. */
-    private final MessageMapperProvider<?>[] messageMapperProviders = new MessageMapperProvider<?>[Short.MAX_VALUE << 1];
+    private final MessageSerializerProvider<?>[] messageMapperProviders = new MessageSerializerProvider<?>[Short.MAX_VALUE << 1];
 
     /**
      * Registers message mapper by message type.
@@ -33,7 +33,7 @@ public final class MessageMapperProviders {
      * @param mapperProvider Message mapper provider.
      */
     public MessageMapperProviders registerProvider(
-        short type, MessageMapperProvider<?> mapperProvider
+        short type, MessageSerializerProvider<?> mapperProvider
     ) throws NetworkConfigurationException {
         if (this.messageMapperProviders[type] != null)
             throw new NetworkConfigurationException("Message mapper for type " + type + " is already defined");
@@ -44,16 +44,16 @@ public final class MessageMapperProviders {
     }
 
     /**
-     * Returns a {@link MessageMapperProvider} for the given message type.
+     * Returns a {@link MessageSerializerProvider} for the given message type.
      * <p>
      * This class does not track the correspondence between a message type and its Java representation, so the
      * actual generic specialization of the returned provider relies on the caller of this method.
      */
-    public <T extends NetworkMessage> MessageMapperProvider<T> getProvider(short type) {
+    public <T extends NetworkMessage> MessageSerializerProvider<T> getProvider(short type) {
         var provider = messageMapperProviders[type];
 
         assert provider != null : "No mapper provider defined for type " + type;
 
-        return (MessageMapperProvider<T>) provider;
+        return (MessageSerializerProvider<T>) provider;
     }
 }

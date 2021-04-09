@@ -51,9 +51,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                 }
             })
             .config(opts -> opts.memberAlias(context.getName()))
-            .transport(opts -> opts
-                .port(context.getPort())
-                .messageCodec(new ScaleCubeMessageCodec(context.getMessageMapperProviders())))
+            .transport(opts -> opts.port(context.getPort()))
             .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())));
 
         // resolve cyclic dependencies
