@@ -19,7 +19,7 @@ package org.apache.ignite.raft.server;
 
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** */
 class ITRaftCounterServerTest {
     /** */
-    private static final LogWrapper LOG = new LogWrapper(ITRaftCounterServerTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ITRaftCounterServerTest.class);
 
     /** */
     private static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
@@ -92,6 +92,8 @@ class ITRaftCounterServerTest {
             Map.of(COUNTER_GROUP_ID_0, new CounterCommandListener(), COUNTER_GROUP_ID_1, new CounterCommandListener()));
 
         client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
+
+        assertTrue(waitForTopology(client, 2, 1000));
     }
 
     /**
@@ -107,8 +109,6 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testRefreshLeader() {
-        assertTrue(waitForTopology(client, 2, 1000));
-
         Peer server = new Peer(client.getTopologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
@@ -125,8 +125,6 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testCounterCommandListener() throws Exception {
-        assertTrue(waitForTopology(client, 2, 1000));
-
         Peer server = new Peer(client.getTopologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,

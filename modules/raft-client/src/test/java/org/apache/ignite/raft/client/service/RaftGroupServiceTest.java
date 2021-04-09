@@ -22,7 +22,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.ClusterNode;
@@ -63,7 +63,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest {
     /** */
-    private static final LogWrapper LOG = new LogWrapper(RaftGroupServiceTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceTest.class);
 
     /** */
     private static final List<Peer> NODES = of(

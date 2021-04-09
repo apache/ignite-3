@@ -26,7 +26,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
@@ -53,7 +53,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class RaftServerImpl implements RaftServer {
     /** */
-    private static LogWrapper LOG = new LogWrapper(RaftServerImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
 
     /** */
     private final String id;
