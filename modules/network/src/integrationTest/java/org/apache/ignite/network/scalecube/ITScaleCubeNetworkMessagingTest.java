@@ -30,7 +30,7 @@ import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.message.MessageSerializerProviders;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** */
 class ITScaleCubeNetworkMessagingTest {
     /** */
-    private static final MessageSerializerProviders MESSAGE_MAPPER_PROVIDERS = new MessageSerializerProviders();
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
 
     /** */
     private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
@@ -104,7 +104,7 @@ class ITScaleCubeNetworkMessagingTest {
 
     /** */
     private ClusterService startNetwork(String name, int port, List<String> addresses) {
-        var context = new ClusterLocalConfiguration(name, port, addresses, MESSAGE_MAPPER_PROVIDERS);
+        var context = new ClusterLocalConfiguration(name, port, addresses, SERIALIZATION_REGISTRY);
 
         ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
         System.out.println("-----" + name + " started");

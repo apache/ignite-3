@@ -23,7 +23,7 @@ package org.apache.ignite.network;
  * Implementing classes should use {@link #start()} and {@link #shutdown()} to allocate and free any network-related
  * resources.
  */
-public abstract class ClusterServiceImpl implements ClusterService {
+public abstract class AbstractClusterService implements ClusterService {
     /** Context. */
     private final ClusterLocalConfiguration context;
 
@@ -34,7 +34,7 @@ public abstract class ClusterServiceImpl implements ClusterService {
     private final MessagingService messagingService;
 
     /** */
-    public ClusterServiceImpl(
+    public AbstractClusterService(
         ClusterLocalConfiguration context,
         TopologyService topologyService,
         MessagingService messagingService

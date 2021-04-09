@@ -28,7 +28,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.ClusterServiceImpl;
+import org.apache.ignite.network.AbstractClusterService;
 
 /**
  * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
@@ -58,7 +58,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
         topologyService.setCluster(cluster);
         messagingService.setCluster(cluster);
 
-        return new ClusterServiceImpl(context, topologyService, messagingService) {
+        return new AbstractClusterService(context, topologyService, messagingService) {
             @Override public void start() {
                 cluster.startAwait();
             }

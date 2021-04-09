@@ -18,7 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.List;
-import org.apache.ignite.network.message.MessageSerializerProviders;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 
 /**
  * Network configuration of a node.
@@ -37,21 +37,21 @@ public class ClusterLocalConfiguration {
     private final List<String> memberAddresses;
 
     /** Message mapper providers. */
-    private final MessageSerializerProviders messageSerializerProviders;
+    private final MessageSerializationRegistry serializationRegistry;
 
     /**
-     * @param name Name.
-     * @param port Port.
-     * @param memberAddresses Member addresses.
-     * @param messageSerializerProviders Message mapper providers.
+     * @param name Local name.
+     * @param port Local port.
+     * @param memberAddresses Other cluster member addresses.
+     * @param serializationRegistry Message serialization registry.
      */
     public ClusterLocalConfiguration(
-        String name, int port, List<String> memberAddresses, MessageSerializerProviders messageSerializerProviders
+        String name, int port, List<String> memberAddresses, MessageSerializationRegistry serializationRegistry
     ) {
         this.name = name;
         this.port = port;
         this.memberAddresses = List.copyOf(memberAddresses);
-        this.messageSerializerProviders = messageSerializerProviders;
+        this.serializationRegistry = serializationRegistry;
     }
 
     /**
@@ -78,7 +78,7 @@ public class ClusterLocalConfiguration {
     /**
      * Message mapper providers.
      */
-    public MessageSerializerProviders getMessageMapperProviders() {
-        return messageSerializerProviders;
+    public MessageSerializationRegistry getSerializationRegistry() {
+        return serializationRegistry;
     }
 }

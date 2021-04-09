@@ -30,7 +30,7 @@ import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.message.MessageSerializerProviders;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -109,16 +109,15 @@ public class RaftServerImpl implements RaftServer {
         readQueue = new ArrayBlockingQueue<>(queueSize);
         writeQueue = new ArrayBlockingQueue<>(queueSize);
 
-        // TODO: IGNITE-14088: Uncomment and use real serializer provider
-//        var defaultMessageMapper = new DefaultMessageMapperProvider();
-        var messageMappersProviders = new MessageSerializerProviders();
-//            .registerProvider((short)1000, defaultMessageMapper)
-//            .registerProvider((short)1001, defaultMessageMapper)
-//            .registerProvider((short)1005, defaultMessageMapper)
-//            .registerProvider((short)1006, defaultMessageMapper)
-//            .registerProvider((short)1009, defaultMessageMapper);
+        // TODO: IGNITE-14088: Uncomment and use real serializer factory
+        var serializationRegistry = new MessageSerializationRegistry();
+//            .registerFactory((short)1000, ???)
+//            .registerFactory((short)1001, ???)
+//            .registerFactory((short)1005, ???)
+//            .registerFactory((short)1006, ???)
+//            .registerFactory((short)1009, ???);
 
-        var context = new ClusterLocalConfiguration(id, localPort, List.of(), messageMappersProviders);
+        var context = new ClusterLocalConfiguration(id, localPort, List.of(), serializationRegistry);
         var factory = new ScaleCubeClusterServiceFactory();
 
         server = factory.createClusterService(context);

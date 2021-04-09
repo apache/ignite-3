@@ -34,7 +34,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.internal.MessageReader;
 import org.apache.ignite.network.internal.MessageWriter;
 import org.apache.ignite.network.message.MessageDeserializer;
-import org.apache.ignite.network.message.MessageSerializerProviders;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
@@ -205,7 +205,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private static final Object NULL = new Object();
 
     /** */
-    private final MessageSerializerProviders msgMapperProviders;
+    private final MessageSerializationRegistry serializationRegistry;
 
     /** */
     private ByteBuffer buf;
@@ -298,10 +298,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private byte[] curStrBackingArr;
 
     /**
-     * @param msgMapperProviders Message mappers.
+     * @param serializationRegistry Message mappers.
      */
-    public DirectByteBufferStreamImplV1(MessageSerializerProviders msgMapperProviders) {
-        this.msgMapperProviders = msgMapperProviders;
+    public DirectByteBufferStreamImplV1(MessageSerializationRegistry serializationRegistry) {
+        this.serializationRegistry = serializationRegistry;
     }
 
     /** {@inheritDoc} */
@@ -679,7 +679,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     writer.setCurrentWriteClass(msg.getClass());
 
                     MessageSerializer<NetworkMessage> serializer =
-                        msgMapperProviders.getProvider(msg.directType()).createSerializer();
+                        serializationRegistry.createSerializer(msg.directType());
 
                     writer.setBuffer(buf);
 
@@ -1182,7 +1182,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             short type = readShort();
 
-            msgDeserializer = type == Short.MIN_VALUE ? null : msgMapperProviders.getProvider(type).createDeserializer();
+            msgDeserializer = type == Short.MIN_VALUE ? null : serializationRegistry.createDeserializer(type);
 
             msgTypeDone = true;
         }

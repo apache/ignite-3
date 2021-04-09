@@ -28,7 +28,7 @@ import org.apache.ignite.network.internal.direct.state.DirectMessageState;
 import org.apache.ignite.network.internal.direct.state.DirectMessageStateItem;
 import org.apache.ignite.network.internal.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.network.internal.direct.stream.DirectByteBufferStreamImplV1;
-import org.apache.ignite.network.message.MessageSerializerProviders;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
@@ -44,11 +44,11 @@ public class DirectMessageReader implements MessageReader {
     private boolean lastRead;
 
     /**
-     * @param msgSerializerProviders Message serializers.
+     * @param serializationRegistry Message serializers.
      * @param protoVer Protocol version.
      */
-    public DirectMessageReader(MessageSerializerProviders msgSerializerProviders, byte protoVer) {
-        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(msgSerializerProviders, protoVer));
+    public DirectMessageReader(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationRegistry, protoVer));
     }
 
     /** {@inheritDoc} */
@@ -382,13 +382,13 @@ public class DirectMessageReader implements MessageReader {
         private int state;
 
         /**
-         * @param msgSerializerProviders Message serializers.
+         * @param serializationRegistry Message serializers.
          * @param protoVer Protocol version.
          */
-        StateItem(MessageSerializerProviders msgSerializerProviders, byte protoVer) {
+        StateItem(MessageSerializationRegistry serializationRegistry, byte protoVer) {
             switch (protoVer) {
                 case 1:
-                    stream = new DirectByteBufferStreamImplV1(msgSerializerProviders);
+                    stream = new DirectByteBufferStreamImplV1(serializationRegistry);
 
                     break;
 

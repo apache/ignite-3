@@ -23,9 +23,8 @@ import java.util.Map;
 import org.apache.ignite.network.internal.direct.DirectMessageReader;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
 import org.apache.ignite.network.message.MessageDeserializer;
-import org.apache.ignite.network.message.MessageSerializerProviders;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.MessageSerializer;
-import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,8 +39,8 @@ public class DirectSerializationTest {
     /** */
     @Test
     public void test() {
-        var messageMapperProviders = new MessageSerializerProviders()
-            .registerProvider(TestMessage.TYPE, new TestMessageSerializationFactory());
+        var registry = new MessageSerializationRegistry()
+            .registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 10_000; i++) {
@@ -59,7 +58,7 @@ public class DirectSerializationTest {
         short directType = message.directType();
 
         DirectMessageWriter writer = new DirectMessageWriter((byte) 1);
-        MessageSerializer<NetworkMessage> serializer = messageMapperProviders.getProvider(directType).createSerializer();
+        MessageSerializer<TestMessage> serializer = registry.createSerializer(directType);
 
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4096);
 
@@ -80,7 +79,7 @@ public class DirectSerializationTest {
 
         byteBuffer.flip();
 
-        DirectMessageReader reader = new DirectMessageReader(messageMapperProviders, (byte) 1);
+        DirectMessageReader reader = new DirectMessageReader(registry, (byte) 1);
         reader.setBuffer(byteBuffer);
 
         byte type1 = byteBuffer.get();
@@ -88,15 +87,15 @@ public class DirectSerializationTest {
 
         short messageType = makeMessageType(type1, type2);
 
-        MessageDeserializer<NetworkMessage> deserializer = messageMapperProviders.getProvider(messageType).createDeserializer();
+        MessageDeserializer<TestMessage> deserializer = registry.createDeserializer(messageType);
         boolean read = deserializer.readMessage(reader);
 
         assertTrue(read);
 
-        TestMessage readMessage = (TestMessage) deserializer.getMessage();
+        TestMessage readMessage = deserializer.getMessage();
 
         assertEquals(message.msg(), readMessage.msg());
-        assertTrue(message.getMap().equals(readMessage.getMap()));
+        assertEquals(message.getMap(), readMessage.getMap());
     }
 
     /**
