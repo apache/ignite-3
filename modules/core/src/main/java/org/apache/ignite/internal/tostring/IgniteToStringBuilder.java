@@ -120,7 +120,6 @@ public class IgniteToStringBuilder {
      * have to keep a map of this objects pointed to the position of previous occurrence
      * and remove/add them in each {@code toString(...)} apply.
      */
-    //TODO: IGNITE-14501: shrink IdentityHashMap when empty and capacity is larger than default.
     private static final ThreadLocal<IdentityHashMap<Object, EntryReference>> savedObjects = ThreadLocal.withInitial(IdentityHashMap::new);
 
     /**
