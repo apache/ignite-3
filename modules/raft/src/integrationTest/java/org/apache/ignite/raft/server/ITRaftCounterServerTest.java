@@ -53,7 +53,7 @@ class ITRaftCounterServerTest {
 
     /** */
     // TODO: IGNITE-14088: Uncomment and use real serializer provider
-    private static final MessageSerializationRegistry MESSAGE_MAPPER_PROVIDERS = new MessageSerializationRegistry();
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
 //            .registerFactory((short)1000, ???)
 //            .registerFactory((short)1001, ???)
 //            .registerFactory((short)1005, ???)
@@ -156,7 +156,7 @@ class ITRaftCounterServerTest {
      * @return The client cluster view.
      */
     private ClusterService startClient(String name, int port, List<String> servers) {
-        var context = new ClusterLocalConfiguration(name, port, servers, MESSAGE_MAPPER_PROVIDERS);
+        var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
         var network = NETWORK_FACTORY.createClusterService(context);
         network.start();
         return network;
