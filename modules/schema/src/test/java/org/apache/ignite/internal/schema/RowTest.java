@@ -231,7 +231,7 @@ public class RowTest {
                     }
                 }
                 else
-                    throw new IllegalStateException("Unsupported test varlen type: " + type);
+                    throw new IllegalStateException("Unsupported variable-length type: " + type);
             }
         }
 

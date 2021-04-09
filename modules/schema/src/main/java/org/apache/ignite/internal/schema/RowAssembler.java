@@ -341,12 +341,12 @@ public class RowAssembler {
      */
     public byte[] build() {
         if (schema.keyColumns() == curCols)
-            throw new IllegalStateException("Key column missed: colIdx=" + curCol);
+            throw new AssemblyException("Key column missed: colIdx=" + curCol);
         else {
             if (curCol == 0)
                 flags |= BinaryRow.RowFlags.NULL_VALUE;
             else if (schema.valueColumns().length() != curCol)
-            throw new IllegalStateException("Value column missed: colIdx=" + curCol);
+            throw new AssemblyException("Value column missed: colIdx=" + curCol);
         }
 
         buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
