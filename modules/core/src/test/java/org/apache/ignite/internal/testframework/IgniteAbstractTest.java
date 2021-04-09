@@ -19,7 +19,7 @@ package org.apache.ignite.internal.testframework;
 
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.lang.IgniteSystemProperties.getString;
@@ -29,7 +29,7 @@ import static org.apache.ignite.lang.IgniteSystemProperties.getString;
  */
 public abstract class IgniteAbstractTest {
     /** Logger. */
-    protected static LogWrapper log;
+    protected static IgniteLogger log;
 
     /** Init test env. */
     static {
@@ -42,13 +42,13 @@ public abstract class IgniteAbstractTest {
      */
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     protected IgniteAbstractTest() {
-        log = new LogWrapper(getClass());
+        log = IgniteLogger.forClass(getClass());
     }
 
     /**
      * @return Logger.
      */
-    protected LogWrapper logger() {
+    protected IgniteLogger logger() {
         return log;
     }
 }
