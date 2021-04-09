@@ -41,6 +41,7 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- 3-rd party dependencies. -->
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
