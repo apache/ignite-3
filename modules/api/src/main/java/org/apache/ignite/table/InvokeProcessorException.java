@@ -20,6 +20,6 @@ package org.apache.ignite.table;
 /**
  * InvokeProcessor invocation exception.
  */
-public class InvokeProcessorException extends RuntimeException {
+public class InvokeProcessorException extends IgniteException {
 
 }
