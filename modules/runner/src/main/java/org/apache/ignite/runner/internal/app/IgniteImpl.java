@@ -3,15 +3,16 @@ package org.apache.ignite.runner.internal.app;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.manager.TableManager;
 
 /**
  * Ignite internal implementation.
  */
 public class IgniteImpl implements Ignite {
+
     /** Logger. */
-    LogWrapper log = new LogWrapper(IgniteImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteImpl.class);
 
     /** Configuration manager. */
     private final ConfigurationManager configurationMgr;

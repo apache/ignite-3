@@ -1,15 +1,15 @@
 package org.apache.ignite.internal.table.distributed.command.response;
 
-import org.apache.ignite.internal.table.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 
 public class TableRowResponse {
-    private TableRow row;
+    private BinaryRow row;
 
-    public TableRowResponse(TableRow row) {
+    public TableRowResponse(BinaryRow row) {
         this.row = row;
     }
 
-    public TableRow getValue() {
+    public BinaryRow getValue() {
         return row;
     }
 }

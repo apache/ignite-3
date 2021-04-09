@@ -23,7 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Function;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.util.SerializationUtils;
 import org.apache.ignite.network.NetworkMember;
 import org.jetbrains.annotations.NotNull;
@@ -39,11 +39,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class RendezvousAffinityFunctionTest {
 
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunctionTest.class);
+
     /** Affinity deviation ratio. */
     public static final double AFFINITY_DEVIATION_RATIO = 0.2;
-
-    /** Logger. */
-    private LogWrapper log = new LogWrapper(RendezvousAffinityFunctionTest.class);
 
     @Test
     public void partitionDistribution() {
@@ -130,7 +130,7 @@ public class RendezvousAffinityFunctionTest {
 
         assertNotNull(assignment);
 
-        log.info("Assignment is serialized successfully [bytes=" + assignmentBytes.length + ']');
+        LOG.info("Assignment is serialized successfully [bytes=" + assignmentBytes.length + ']');
 
         List<List<NetworkMember>> deserializedAssignment = (List<List<NetworkMember>>)SerializationUtils.fromBytes(assignmentBytes);
 

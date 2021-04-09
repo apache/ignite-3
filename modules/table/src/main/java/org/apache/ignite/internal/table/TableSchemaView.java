@@ -22,7 +22,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 /**
  * Table schema manager interface.
  */
-public interface TableSchemaManager {
+public interface TableSchemaView {
     /**
      * @return Current schema.
      */

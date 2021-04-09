@@ -26,8 +26,8 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.lang.util.SerializationUtils;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.WatchEvent;
@@ -39,6 +39,9 @@ public class AffinityManager {
     /** Tables prefix for the metasorage. */
     public static final String INTERNAL_PREFIX = "internal.tables.";
 
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(AffinityManager.class);
+
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
 
@@ -47,9 +50,6 @@ public class AffinityManager {
 
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
-
-    /** Logger. */
-    private final LogWrapper log = new LogWrapper(AffinityManager.class);
 
     /** Affinity calculate subscription future. */
     private CompletableFuture<IgniteUuid> affinityCalculateSubscriptionFut = null;
@@ -152,11 +152,11 @@ public class AffinityManager {
                                 ))
                             );
 
-                            log.info("Affinity manager calculated assignment for the table [name={}, tblId={}]",
+                            LOG.info("Affinity manager calculated assignment for the table [name={}, tblId={}]",
                                 name, tblId);
                         }
                         catch (InterruptedException | ExecutionException e) {
-                            log.error("Failed to initialize affinity [key={}]",
+                            LOG.error("Failed to initialize affinity [key={}]",
                                 evt.newEntry().key().toString(), e);
                         }
                     }
@@ -166,7 +166,7 @@ public class AffinityManager {
             }
 
             @Override public void onError(@NotNull Throwable e) {
-                log.error("Metastorage listener issue", e);
+                LOG.error("Metastorage listener issue", e);
             }
         });
     }
@@ -183,7 +183,7 @@ public class AffinityManager {
             affinityCalculateSubscriptionFut = null;
         }
         catch (InterruptedException |ExecutionException e) {
-            log.error("Couldn't unsubscribe for Metastorage updates", e);
+            LOG.error("Couldn't unsubscribe for Metastorage updates", e);
         }
     }
 }

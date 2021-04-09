@@ -9,13 +9,15 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.storage.TableStorageImpl;
-import org.apache.ignite.lang.LogWrapper;
+import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
 import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.message.DefaultMessageMapperProvider;
 import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
 import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
 import org.apache.ignite.raft.client.Peer;
@@ -30,6 +32,7 @@ import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.server.RaftServer;
 import org.apache.ignite.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.impl.DummySchemaManagerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,9 +46,10 @@ public class DistributedTableTest {
     public static final int PARTS = 10;
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
-    private ArrayList<NetworkCluster> cluster = new ArrayList<>();
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedTableTest.class);
 
-    private LogWrapper log = new LogWrapper(DistributedTableTest.class);
+    private ArrayList<NetworkCluster> cluster = new ArrayList<>();
 
     @BeforeEach
     public void beforeTest() {
@@ -57,11 +61,11 @@ public class DistributedTableTest {
                 new ScaleCubeMemberResolver()
             ));
 
-            network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
-            network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
-            network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
-            network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
-            network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
+//            network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
+//            network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
+//            network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
+//            network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
+//            network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
 
             cluster.add(network.start());
         }
@@ -69,7 +73,7 @@ public class DistributedTableTest {
         for (NetworkCluster node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
 
-        log.info("Cluster started.");
+        LOG.info("Cluster started.");
     }
 
     @AfterEach
@@ -146,11 +150,18 @@ public class DistributedTableTest {
             p++;
         }
 
-        Table tbl = new TableImpl(new TableStorageImpl(
+        Table tbl = new TableImpl(new InternalTableImpl(
             UUID.randomUUID(),
             partMap,
             PARTS
-        ));
+        ), new DummySchemaManagerImpl(new SchemaDescriptor(1,
+            new Column[] {
+                new Column("key", NativeType.INTEGER, false)
+            },
+            new Column[] {
+                new Column("value", NativeType.STRING, false)
+            }
+        )));
 
         //Nothing to do until marshaller will be implemented.
 //        tbl.kvView().get(new TestTableRowImpl("Hello!".getBytes()));
@@ -168,11 +179,11 @@ public class DistributedTableTest {
             new ScaleCubeNetworkClusterFactory(name, port, servers, new ScaleCubeMemberResolver())
         );
 
-        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
-        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
+//        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
+//        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
+//        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
+//        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
+//        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
 
         return network.start();
     }
