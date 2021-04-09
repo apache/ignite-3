@@ -140,6 +140,13 @@ public class Columns {
     }
 
     /**
+     * @return Sorted columns.
+     */
+    public Column[] columns() {
+        return cols;
+    }
+
+    /**
      * @return Number of columns in this chunk.
      */
     public int length() {
