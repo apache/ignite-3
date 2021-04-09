@@ -4,14 +4,15 @@ import java.util.ArrayList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import org.apache.ignite.network.NetworkCluster;
+import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
@@ -36,8 +37,12 @@ public class IgniteRpcClient implements RpcClientEx {
 
     private NetworkCluster node;
 
+    public IgniteRpcClient(NetworkCluster node) {
+        this.node = node;
+    }
+
     @Override public boolean checkConnection(Endpoint endpoint) {
-        return true;
+        return node.allMembers().stream().map(x -> x.name()).anyMatch(x -> x.equals(endpoint.toString()));
     }
 
     @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
@@ -46,10 +51,6 @@ public class IgniteRpcClient implements RpcClientEx {
 
     @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
-            throw new RemotingException("Server is dead " + endpoint);
-
-        LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
-        if (srv == null)
             throw new RemotingException("Server is dead " + endpoint);
 
         CompletableFuture<Object> fut = new CompletableFuture();
@@ -84,10 +85,6 @@ public class IgniteRpcClient implements RpcClientEx {
 
     @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback, long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
-            throw new RemotingException("Server is dead " + endpoint);
-
-        LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
-        if (srv == null)
             throw new RemotingException("Server is dead " + endpoint);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
@@ -126,13 +123,17 @@ public class IgniteRpcClient implements RpcClientEx {
         send(endpoint, request, fut);
     }
 
-    public void send(Endpoint endpoint, Object request, Future fut) {
-        Object[] tuple = {this, request, fut};
+    public void send(Endpoint endpoint, Object request, CompletableFuture<Object> fut) {
+        CompletableFuture<NetworkMessage> fut0 = node.invoke(new NetworkMember(endpoint.toString()), (NetworkMessage) request, 5000);
 
-        LocalRpcServer srv = LocalRpcServer.servers.get(endpoint);
-
-        if (srv != null)
-            srv.incoming.offer(tuple);
+        fut0.whenComplete(new BiConsumer<NetworkMessage, Throwable>() {
+            @Override public void accept(NetworkMessage resp, Throwable err) {
+                if (err != null)
+                    fut.completeExceptionally(err);
+                else
+                    fut.complete(resp);
+            }
+        });
     }
 
     @Override public boolean init(RpcOptions opts) {

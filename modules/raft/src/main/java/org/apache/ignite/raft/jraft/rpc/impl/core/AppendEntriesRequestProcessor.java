@@ -335,10 +335,11 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                     }
                 }
             } else {
-                final Connection connection = rpcCtx.getConnection();
-                LOG.warn("Closed connection to peer {}/{}, because of too many pending responses, queued={}, max={}",
-                    ctx.groupId, pair, respQueue.size(), ctx.maxPendingResponses);
-                connection.close();
+                // TODO asch test for this
+//                final Connection connection = rpcCtx.getConnection();
+//                LOG.warn("Closed connection to peer {}/{}, because of too many pending responses, queued={}, max={}",
+//                    ctx.groupId, pair, respQueue.size(), ctx.maxPendingResponses);
+//                connection.close();
                 // Close the connection if there are too many pending responses in queue.
                 removePeerRequestContext(groupId, pair);
             }

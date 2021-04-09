@@ -99,8 +99,8 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         this.reader = new LocalSnapshotReader(this.snapshotStorage, null, new Endpoint("localhost", 8081),
             this.raftOptions, this.path);
 
-        Mockito.when(this.snapshotStorage.open()).thenReturn(this.reader);
-        Mockito.when(this.snapshotStorage.create(true)).thenReturn(this.writer);
+        Mockito.lenient().when(this.snapshotStorage.open()).thenReturn(this.reader);
+        Mockito.lenient().when(this.snapshotStorage.create(true)).thenReturn(this.writer);
 
         this.table = new LocalSnapshotMetaTable(this.raftOptions);
         this.table.addFile("testFile", LocalFileMetaOutter.LocalFileMeta.newBuilder().setChecksum("test").build());

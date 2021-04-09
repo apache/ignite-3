@@ -55,7 +55,7 @@ public final class RpcUtils {
     /**
      * Global thread pool to run rpc closure.
      */
-    private static ThreadPoolExecutor RPC_CLOSURE_EXECUTOR               = ThreadPoolUtil
+    public static ThreadPoolExecutor RPC_CLOSURE_EXECUTOR               = ThreadPoolUtil
                                                                              .newBuilder()
                                                                              .poolName("JRAFT_RPC_CLOSURE_EXECUTOR")
                                                                              .enableMetric(true)

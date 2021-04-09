@@ -48,7 +48,7 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
 
     @Before
     public void setup() {
-        Mockito.when(node.getRaftOptions()).thenReturn(new RaftOptions());
+        Mockito.lenient().when(node.getRaftOptions()).thenReturn(new RaftOptions());
     }
 
     @After
