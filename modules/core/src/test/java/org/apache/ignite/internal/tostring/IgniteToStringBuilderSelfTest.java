@@ -294,12 +294,13 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     public void testToStringCollectionLimits() {
         int limit = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_COLLECTION_LIMIT, 100);
 
-        Object vals[] = new Object[] {
+        Object[] vals = new Object[] {
             Byte.MIN_VALUE, Boolean.TRUE, Short.MIN_VALUE, Integer.MIN_VALUE, Long.MIN_VALUE,
             Float.MIN_VALUE, Double.MIN_VALUE, Character.MIN_VALUE, new TestClass1()};
         for (Object val : vals)
             testArr(val, limit);
 
+        //noinspection ZeroLengthArrayAllocation
         int[] intArr1 = new int[0];
 
         assertEquals("[]", IgniteToStringBuilder.arrayToString(intArr1));
@@ -680,11 +681,11 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
      * Class containing another class with faulty toString implementation
      * to force IgniteToStringBuilder to call faulty toString.
      */
+    @SuppressWarnings({"FieldMayBeFinal", "unused"})
     private static class WrapperForFaultyToStringClass {
         /**
          *
          */
-        @SuppressWarnings("unused")
         @IgniteToStringInclude
         private int id = 12345;
 
@@ -728,89 +729,76 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      * Test class.
      */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "FieldMayBeFinal", "unused", "FieldMayBeStatic"})
     private static class TestClass1 {
         /**
          *
          */
-        @SuppressWarnings("unused")
         @IgniteToStringOrder(0)
         private String id = "1234567890";
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private int intVar;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         @IgniteToStringInclude(sensitive = true)
         private long longVar;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         @IgniteToStringOrder(1)
         private UUID uuidVar = UUID.randomUUID();
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private boolean boolVar;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private byte byteVar;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private String name = "qwertyuiopasdfghjklzxcvbnm";
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private final Integer finalInt = 2;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private List<String> strList;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         @IgniteToStringInclude
         private Map<String, String> strMap;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         @IgniteToStringInclude
         private List<String> strListIncl;
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private Object obj = new Object();
 
         /**
          *
          */
-        @SuppressWarnings("unused")
         private ReadWriteLock lock;
 
         /**
@@ -869,7 +857,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      *
      */
-    @SuppressWarnings("InstanceVariableMayNotBeInitialized")
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "FieldMayBeFinal", "unused"})
     private static class TestClass2 {
         /**
          *
@@ -895,6 +883,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      *
      */
+    @SuppressWarnings("FieldMayBeFinal")
     private static class ClassWithList {
         /**
          *
@@ -911,6 +900,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      *
      */
+    @SuppressWarnings("FieldMayBeFinal")
     private static class ClassWithMap {
         /**
          *
@@ -945,7 +935,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      *
      */
-    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "MismatchedReadAndWriteOfArray"})
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "MismatchedReadAndWriteOfArray", "unused", "FieldMayBeFinal"})
     private static class Parent {
         /**
          *
@@ -967,7 +957,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     /**
      *
      */
-    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "MismatchedReadAndWriteOfArray"})
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "MismatchedReadAndWriteOfArray", "unused", "FieldMayBeFinal"})
     private static class Child extends Parent {
         /**
          *

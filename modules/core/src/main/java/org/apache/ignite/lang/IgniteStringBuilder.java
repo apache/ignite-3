@@ -158,7 +158,7 @@ public class IgniteStringBuilder implements Serializable {
      * @param str Element to add.
      * @return This buffer for chaining method calls.
      */
-    public IgniteStringBuilder a(char str[]) {
+    public IgniteStringBuilder a(char[] str) {
         impl.append(str);
 
         return this;
@@ -171,7 +171,7 @@ public class IgniteStringBuilder implements Serializable {
      * @param len Length.
      * @return This buffer for chaining method calls.
      */
-    public IgniteStringBuilder a(char str[], int offset, int len) {
+    public IgniteStringBuilder a(char[] str, int offset, int len) {
         impl.append(str, offset, len);
 
         return this;
@@ -310,7 +310,7 @@ public class IgniteStringBuilder implements Serializable {
      * @param len Length of the substring to be inserted.
      * @return This buffer for chaining method calls.
      */
-    public IgniteStringBuilder i(int index, char str[], int off, int len) {
+    public IgniteStringBuilder i(int index, char[] str, int off, int len) {
         impl.insert(index, str, off, len);
 
         return this;
@@ -344,7 +344,7 @@ public class IgniteStringBuilder implements Serializable {
      * @param str String to be inserted.
      * @return This buffer for chaining method calls.
      */
-    public IgniteStringBuilder i(int off, char str[]) {
+    public IgniteStringBuilder i(int off, char[] str) {
         impl.insert(off, str);
 
         return this;

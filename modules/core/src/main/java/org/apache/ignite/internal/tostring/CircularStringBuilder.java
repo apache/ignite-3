@@ -22,13 +22,12 @@ import java.util.Arrays;
 /**
  * Basic string builder over circular buffer.
  */
-//TODO: IGNITE-14501 Rewrite to CharBuffer to fix PMD checks.
 class CircularStringBuilder {
     /** Value */
-    private final char value[];
+    private final char[] buf;
 
-    /** Last written character idx (-1 if empty). */
-    private int finishAt = -1;
+    /** Writer position (0 if empty). */
+    private int pos = -1;
 
     /** Value is full flag. */
     private boolean full;
@@ -44,7 +43,7 @@ class CircularStringBuilder {
     CircularStringBuilder(int capacity) {
         assert capacity > 0 : "Can't allocate CircularStringBuilder with capacity: " + capacity;
 
-        value = new char[capacity];
+        buf = new char[capacity];
         skipped = 0;
         full = false;
     }
@@ -53,9 +52,9 @@ class CircularStringBuilder {
      * Reset internal builder state
      */
     public void reset() {
-        Arrays.fill(value, (char)0);
+        Arrays.fill(buf, (char)0);
 
-        finishAt = -1;
+        pos = 0;
         full = false;
         skipped = 0;
     }
@@ -67,7 +66,7 @@ class CircularStringBuilder {
      * represented by this object
      */
     public int length() {
-        return full ? value.length : finishAt + 1;
+        return full ? buf.length : pos;
     }
 
     /**
@@ -76,7 +75,7 @@ class CircularStringBuilder {
      * @return the current capacity
      */
     public int capacity() {
-        return value.length;
+        return buf.length;
     }
 
     /**
@@ -99,43 +98,43 @@ class CircularStringBuilder {
         if (str == null)
             return appendNull();
 
-        int objStrLen = str.length();
+        int strLen = str.length();
 
-        if (objStrLen >= value.length) {
+        if (strLen == 0)
+            return this;
+        else if (strLen >= buf.length) {
             // String bigger or equal to value length
-            str.getChars(objStrLen - value.length, objStrLen, value, 0);
+            str.getChars(strLen - buf.length, strLen, buf, 0);
 
-            skipped += objStrLen - value.length + finishAt + 1;
+            skipped += strLen - buf.length + pos;
 
-            finishAt = value.length - 1;
+            pos = buf.length;
+
+            full = true;
+        }
+        // String is shorter value length
+        else if (buf.length - pos < strLen) {
+            // String doesn't fit into remaining part of value array
+            int firstPart = buf.length - pos;
+
+            if (firstPart > 0)
+                str.getChars(0, firstPart, buf, pos);
+
+            str.getChars(firstPart, strLen, buf, 0);
+
+            skipped += full ? strLen : strLen - firstPart;
+
+            pos = pos + strLen - buf.length;
 
             full = true;
         }
         else {
-            // String is shorter value length
-            if (value.length - finishAt - 1 < objStrLen) {
-                // String doesn't fit into remaining part of value array
-                int firstPart = value.length - finishAt - 1;
+            // Whole string fin into remaining part of value array
+            str.getChars(0, strLen, buf, pos);
 
-                if (firstPart > 0)
-                    str.getChars(0, firstPart, value, finishAt + 1);
+            skipped += full ? strLen : 0;
 
-                str.getChars(firstPart, objStrLen, value, 0);
-
-                skipped += full ? objStrLen : objStrLen - firstPart;
-
-                finishAt = finishAt + objStrLen - value.length;
-
-                full = true;
-            }
-            else {
-                // Whole string fin into remaining part of value array
-                str.getChars(0, objStrLen, value, finishAt + 1);
-
-                skipped += full ? objStrLen : 0;
-
-                finishAt += objStrLen;
-            }
+            pos += strLen;
         }
 
         return this;
@@ -151,14 +150,43 @@ class CircularStringBuilder {
         if (sb == null)
             return appendNull();
 
-        int len = sb.length();
+        int strLen = sb.length();
 
-        if (len < value.length)
-            append(sb.toString());
+        if (strLen == 0)
+            return this;
+        if (strLen >= buf.length) {
+            // String bigger or equal to value length
+            sb.getChars(strLen - buf.length, strLen, buf, 0);
+
+            skipped += strLen - buf.length + pos;
+
+            pos = buf.length;
+
+            full = true;
+        }
+        // String is shorter value length
+        else if (buf.length - pos < strLen) {
+            // String doesn't fit into remaining part of value array
+            int firstPart = buf.length - pos;
+
+            if (firstPart > 0)
+                sb.getChars(0, firstPart, buf, pos);
+
+            sb.getChars(firstPart, strLen, buf, 0);
+
+            skipped += full ? strLen : strLen - firstPart;
+
+            pos = pos + strLen - buf.length;
+
+            full = true;
+        }
         else {
-            skipped += len - value.length;
+            // Whole string fin into remaining part of value array
+            sb.getChars(0, strLen, buf, pos);
 
-            append(sb.substring(len - value.length));
+            skipped += full ? strLen : 0;
+
+            pos += strLen;
         }
 
         return this;
@@ -174,14 +202,43 @@ class CircularStringBuilder {
         if (sb == null)
             return appendNull();
 
-        int len = sb.length();
+        int strLen = sb.length();
 
-        if (len < value.length)
-            append(sb.toString());
+        if (strLen == 0)
+            return this;
+        if (strLen >= buf.length) {
+            // String bigger or equal to value length
+            sb.getChars(strLen - buf.length, strLen, buf, 0);
+
+            skipped += strLen - buf.length + pos;
+
+            pos = buf.length;
+
+            full = true;
+        }
+        // String is shorter value length
+        else if (buf.length - pos < strLen) {
+            // String doesn't fit into remaining part of value array
+            int firstPart = buf.length - pos;
+
+            if (firstPart > 0)
+                sb.getChars(0, firstPart, buf, pos);
+
+            sb.getChars(firstPart, strLen, buf, 0);
+
+            skipped += full ? strLen : strLen - firstPart;
+
+            pos = pos + strLen - buf.length;
+
+            full = true;
+        }
         else {
-            skipped += len - value.length;
+            // Whole string fin into remaining part of value array
+            sb.getChars(0, strLen, buf, pos);
 
-            append(sb.substring(len - value.length));
+            skipped += full ? strLen : 0;
+
+            pos += strLen;
         }
 
         return this;
@@ -191,9 +248,7 @@ class CircularStringBuilder {
      * @return {@code this} for chaining.
      */
     private CircularStringBuilder appendNull() {
-        append("null");
-
-        return this;
+        return append("null");
     }
 
     /**
@@ -206,16 +261,16 @@ class CircularStringBuilder {
     /** {@inheritDoc} */
     @Override public String toString() {
         // Create a copy, don't share the array
-        if (full) {
-            char strValue[] = new char[value.length];
-            int firstPart = value.length - finishAt - 1;
+        if (full && pos < buf.length) {
+            char[] tmpBuf = new char[buf.length];
+            int tailLen = buf.length - pos;
 
-            System.arraycopy(value, finishAt + 1, strValue, 0, firstPart);
-            System.arraycopy(value, 0, strValue, firstPart, value.length - firstPart);
+            System.arraycopy(buf, pos, tmpBuf, 0, tailLen);
+            System.arraycopy(buf, 0, tmpBuf, tailLen, buf.length - tailLen);
 
-            return new String(strValue, 0, strValue.length);
+            return new String(tmpBuf, 0, tmpBuf.length);
         }
         else
-            return new String(value, 0, finishAt + 1);
+            return new String(buf, 0, pos);
     }
 }
