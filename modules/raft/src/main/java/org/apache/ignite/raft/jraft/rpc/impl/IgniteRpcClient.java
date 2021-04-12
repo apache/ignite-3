@@ -10,12 +10,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkClusterEventHandler;
-import org.apache.ignite.network.NetworkHandlersProvider;
-import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -40,40 +36,28 @@ public class IgniteRpcClient implements RpcClientEx {
     private LinkedBlockingQueue<Object[]> blockedMsgs = new LinkedBlockingQueue<>();
     private LinkedBlockingQueue<Object[]> recordedMsgs = new LinkedBlockingQueue<>();
 
-    private NetworkCluster node;
+    private final ClusterService service;
 
-    public IgniteRpcClient(Network network) {
-        this.node = network.start();
+    private final boolean reuse;
 
-        node.addHandlersProvider(new NetworkHandlersProvider() {
-            @Override public NetworkMessageHandler messageHandler() {
-                return new NetworkMessageHandler() {
-                    @Override public void onReceived(NetworkMessage message, NetworkMember sender, String corellationId) {
+    /**
+     * @param service The service.
+     * @param reuse {@code True} to reuse already started service.
+     */
+    public IgniteRpcClient(ClusterService service, boolean reuse) {
+        this.service = service;
+        this.reuse = reuse;
 
-                    }
-                };
-            }
-
-            @Override public NetworkClusterEventHandler clusterEventHandler() {
-                return new NetworkClusterEventHandler() {
-                    @Override public void onAppeared(NetworkMember member) {
-
-                    }
-
-                    @Override public void onDisappeared(NetworkMember member) {
-                        System.out.println();
-                    }
-                };
-            }
-        });
+        if (!reuse)
+            service.start();
     }
 
-    public NetworkCluster localNode() {
-        return node;
+    public ClusterService clusterService() {
+        return service;
     }
 
     @Override public boolean checkConnection(Endpoint endpoint) {
-        return node.allMembers().stream().map(x -> x.name()).anyMatch(x -> x.equals(endpoint.toString()));
+        return service.topologyService().allMembers().stream().map(x -> x.name()).anyMatch(x -> x.equals(endpoint.toString()));
     }
 
     @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
@@ -155,7 +139,8 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     public void send(Endpoint endpoint, Object request, CompletableFuture<Object> fut) {
-        CompletableFuture<NetworkMessage> fut0 = node.invoke(new NetworkMember(endpoint.toString()), (NetworkMessage) request, 5000);
+        CompletableFuture<NetworkMessage> fut0 = service.messagingService().invoke(
+            new ClusterNode(endpoint.toString(), endpoint.getIp(), endpoint.getPort()), (NetworkMessage) request, 5000);
 
         fut0.whenComplete(new BiConsumer<NetworkMessage, Throwable>() {
             @Override public void accept(NetworkMessage resp, Throwable err) {
@@ -173,7 +158,8 @@ public class IgniteRpcClient implements RpcClientEx {
 
     @Override public void shutdown() {
         try {
-            node.shutdown();
+            if (!reuse)
+                service.shutdown();
         }
         catch (Exception e) {
             throw new IgniteInternalException(e);

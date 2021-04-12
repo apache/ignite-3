@@ -6,95 +6,88 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkClusterEventHandler;
-import org.apache.ignite.network.NetworkHandlersProvider;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.jraft.rpc.Connection;
-import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 
 public class IgniteRpcServer implements RpcServer<Void> {
-    private static final LogWrapper LOG = new LogWrapper(IgniteRpcServer.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
 
-    private NetworkCluster server;
+    private ClusterService service;
 
     private List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
 
     private Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
-    public IgniteRpcServer(Network network) {
-        this.server = network.start();
+    public IgniteRpcServer(ClusterService service) {
+        this.service = service;
 
-        server.addHandlersProvider(new NetworkHandlersProvider() {
-            @Override public NetworkMessageHandler messageHandler() {
-                return new NetworkMessageHandler() {
-                    @Override public void onReceived(NetworkMessage msg, NetworkMember sender, String corellationId) {
-                        Class<? extends NetworkMessage> cls = msg.getClass();
-                        RpcProcessor prc = processors.get(cls.getName());
+        service.messagingService().addMessageHandler(new NetworkMessageHandler() {
+            @Override public void onReceived(NetworkMessage msg, ClusterNode sender, String corellationId) {
+                Class<? extends NetworkMessage> cls = msg.getClass();
+                RpcProcessor prc = processors.get(cls.getName());
 
-                        // TODO asch cache it.
-                        if (prc == null) {
-                            for (Class<?> iface : cls.getInterfaces()) {
-                                prc = processors.get(iface.getName());
+                // TODO asch cache it.
+                if (prc == null) {
+                    for (Class<?> iface : cls.getInterfaces()) {
+                        prc = processors.get(iface.getName());
 
-                                if (prc != null)
-                                    break;
-                            }
+                        if (prc != null)
+                            break;
+                    }
+                }
+
+                RpcProcessor.ExecutorSelector selector = prc.executorSelector();
+
+                Executor executor = null;
+
+                if (selector != null) {
+                    executor = selector.select(null, msg);
+                }
+
+                if (executor == null)
+                    executor = RpcUtils.RPC_CLOSURE_EXECUTOR;
+
+                RpcProcessor finalPrc = prc;
+
+                executor.execute(() -> {
+                    finalPrc.handleRequest(new RpcContext() {
+                        @Override public void sendResponse(Object responseObj) {
+                            service.messagingService().send(sender, (NetworkMessage) responseObj, corellationId);
                         }
 
-                        RpcProcessor.ExecutorSelector selector = prc.executorSelector();
-
-                        Executor executor = null;
-
-                        if (selector != null) {
-                            executor = selector.select(null, msg);
+                        @Override public Connection getConnection() {
+                            return null;
                         }
 
-                        if (executor == null)
-                            executor = RpcUtils.RPC_CLOSURE_EXECUTOR;
-
-                        RpcProcessor finalPrc = prc;
-
-                        executor.execute(() -> {
-                            finalPrc.handleRequest(new RpcContext() {
-                                @Override public void sendResponse(Object responseObj) {
-                                    server.send(sender, (NetworkMessage) responseObj, corellationId);
-                                }
-
-                                @Override public Connection getConnection() {
-                                    return null;
-                                }
-
-                                @Override public String getRemoteAddress() {
-                                    return sender.name();
-                                }
-                            }, msg);
-                        });
-                    }
-                };
-            }
-
-            @Override public NetworkClusterEventHandler clusterEventHandler() {
-                return new NetworkClusterEventHandler() {
-                    @Override public void onAppeared(NetworkMember member) {
-                        // No-op.
-                    }
-
-                    @Override public void onDisappeared(NetworkMember member) {
-                        for (ConnectionClosedEventListener listener : listeners)
-                            listener.onClosed(server.localMember().name(), member.name());
-                    }
-                };
+                        @Override public String getRemoteAddress() {
+                            return sender.name();
+                        }
+                    }, msg);
+                });
             }
         });
+
+        service.topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override public void onAppeared(ClusterNode member) {
+
+            }
+
+            @Override public void onDisappeared(ClusterNode member) {
+                for (ConnectionClosedEventListener listener : listeners)
+                    listener.onClosed(service.topologyService().localMember().name(), member.name());
+            }
+        });
+
+        service.start();
     }
 
     @Override public void registerConnectionClosedEventListener(ConnectionClosedEventListener listener) {
@@ -116,7 +109,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     @Override public void shutdown() {
         try {
-            server.shutdown();
+            service.shutdown();
         }
         catch (Exception e) {
             throw new IgniteInternalException(e);

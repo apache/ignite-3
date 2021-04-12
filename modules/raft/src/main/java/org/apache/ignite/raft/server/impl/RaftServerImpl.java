@@ -26,15 +26,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
-import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkHandlersProvider;
-import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.network.message.NetworkMessage;
-import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -56,13 +53,19 @@ import org.jetbrains.annotations.NotNull;
  */
 public class RaftServerImpl implements RaftServer {
     /** */
-    private static LogWrapper LOG = new LogWrapper(RaftServerImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
+
+    /** */
+    private final String id;
+
+    /** */
+    private final int localPort;
 
     /** */
     private final RaftClientMessageFactory clientMsgFactory;
 
     /** */
-    private final NetworkCluster server;
+    private final ClusterService service;
 
     /** */
     private final ConcurrentMap<String, RaftGroupCommandListener> listeners = new ConcurrentHashMap<>();
@@ -80,79 +83,88 @@ public class RaftServerImpl implements RaftServer {
     private final Thread writeWorker;
 
     /**
-     * @param server Local server node.
+     * @param id Server id.
      * @param localPort Local port.
      * @param clientMsgFactory Client message factory.
      * @param queueSize Queue size.
      * @param listeners Command listeners.
      */
     public RaftServerImpl(
-        @NotNull NetworkCluster server,
+        @NotNull String id,
+        int localPort,
         @NotNull RaftClientMessageFactory clientMsgFactory,
         int queueSize,
         Map<String, RaftGroupCommandListener> listeners
     ) {
-        Objects.requireNonNull(server);
+        Objects.requireNonNull(id);
         Objects.requireNonNull(clientMsgFactory);
 
-        this.server = server;
+        this.id = id;
+        this.localPort = localPort;
         this.clientMsgFactory = clientMsgFactory;
 
         if (listeners != null)
             this.listeners.putAll(listeners);
 
-        readQueue = new ArrayBlockingQueue<CommandClosureEx<ReadCommand>>(queueSize);
-        writeQueue = new ArrayBlockingQueue<CommandClosureEx<WriteCommand>>(queueSize);
+        readQueue = new ArrayBlockingQueue<>(queueSize);
+        writeQueue = new ArrayBlockingQueue<>(queueSize);
 
-        this.server.addHandlersProvider(new NetworkHandlersProvider() {
-            @Override public NetworkMessageHandler messageHandler() {
-                return new NetworkMessageHandler() {
-                    @Override public void onReceived(NetworkMessage req, NetworkMember sender, String corellationId) {
+        // TODO: IGNITE-14088: Uncomment and use real serializer factory
+        var serializationRegistry = new MessageSerializationRegistry();
+//            .registerFactory((short)1000, ???)
+//            .registerFactory((short)1001, ???)
+//            .registerFactory((short)1005, ???)
+//            .registerFactory((short)1006, ???)
+//            .registerFactory((short)1009, ???);
 
-                        if (req instanceof GetLeaderRequest) {
-                            GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(RaftServerImpl.this.server.localMember())).build();
+        var context = new ClusterLocalConfiguration(id, localPort, List.of(), serializationRegistry);
+        var factory = new ScaleCubeClusterServiceFactory();
 
-                            RaftServerImpl.this.server.send(sender, resp, corellationId);
-                        }
-                        else if (req instanceof ActionRequest) {
-                            ActionRequest req0 = (ActionRequest) req;
+        service = factory.createClusterService(context);
 
-                            RaftGroupCommandListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
+        service.messagingService().addMessageHandler((message, sender, correlationId) -> {
+            if (message instanceof GetLeaderRequest) {
+                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(service.topologyService().localMember())).build();
 
-                            if (lsnr == null) {
-                                sendError(sender, corellationId, RaftErrorCode.ILLEGAL_STATE);
+                service.messagingService().send(sender, resp, correlationId);
+            }
+            else if (message instanceof ActionRequest) {
+                ActionRequest<?> req0 = (ActionRequest<?>) message;
 
-                                return;
-                            }
+                RaftGroupCommandListener lsnr = listeners.get(req0.groupId());
 
-                            if (req0.command() instanceof ReadCommand) {
-                                handleActionRequest(sender, req0, corellationId, readQueue, lsnr);
-                            }
-                            else {
-                                handleActionRequest(sender, req0, corellationId, writeQueue, lsnr);
-                            }
-                        }
-                        else
-                            LOG.warn("Unsupported message class " + req.getClass().getName());
-                    }
-                };
+                if (lsnr == null) {
+                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+
+                    return;
+                }
+
+                if (req0.command() instanceof ReadCommand)
+                    handleActionRequest(sender, req0, correlationId, readQueue, lsnr);
+                else
+                    handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
+            }
+            else {
+                LOG.warn("Unsupported message class " + message.getClass().getName());
             }
         });
 
-        readWorker = new Thread(() -> processQueue(readQueue, (l, i) -> l.onRead(i)), "read-cmd-worker#" + server.toString());
+        service.start();
+
+        readWorker = new Thread(() -> processQueue(readQueue, RaftGroupCommandListener::onRead), "read-cmd-worker#" + id);
         readWorker.setDaemon(true);
         readWorker.start();
 
-        writeWorker = new Thread(() -> processQueue(writeQueue, (l, i) -> l.onWrite(i)), "write-cmd-worker#" + server.toString());
+        writeWorker = new Thread(() -> processQueue(writeQueue, RaftGroupCommandListener::onWrite), "write-cmd-worker#" + id);
         writeWorker.setDaemon(true);
         writeWorker.start();
 
-        LOG.info("Started replication server [node=" + server.toString() + ']');
+        LOG.info("Started replication server [node=" + service.toString() + ']');
     }
 
     /** {@inheritDoc} */
-    @Override public NetworkMember localMember() {
-        return server.localMember();
+    @Override public ClusterNode localMember() {
+        return service.topologyService().localMember();
     }
 
     /** {@inheritDoc} */
@@ -173,7 +185,9 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.interrupt();
         writeWorker.join();
 
-        LOG.info("Stopped replication server [node=" + server.toString() + ']');
+        service.shutdown();
+
+        LOG.info("Stopped replication server [node=" + service.toString() + ']');
     }
 
     /**
@@ -185,23 +199,24 @@ public class RaftServerImpl implements RaftServer {
      * @param <T> Command type.
      */
     private <T extends Command> void handleActionRequest(
-        NetworkMember sender,
-        ActionRequest req,
+        ClusterNode sender,
+        ActionRequest<?> req,
         String corellationId,
         BlockingQueue<CommandClosureEx<T>> queue,
         RaftGroupCommandListener lsnr
     ) {
-        if (!queue.offer(new CommandClosureEx<T>() {
+        if (!queue.offer(new CommandClosureEx<>() {
             @Override public RaftGroupCommandListener listener() {
                 return lsnr;
             }
 
             @Override public T command() {
-                return (T) req.command();
+                return (T)req.command();
             }
 
             @Override public void success(Object res) {
-                server.send(sender, clientMsgFactory.actionResponse().result(res).build(), corellationId);
+                var msg = clientMsgFactory.actionResponse().result(res).build();
+                service.messagingService().send(sender, msg, corellationId);
             }
 
             @Override public void failure(Throwable t) {
@@ -210,8 +225,6 @@ public class RaftServerImpl implements RaftServer {
         })) {
             // Queue out of capacity.
             sendError(sender, corellationId, RaftErrorCode.BUSY);
-
-            return;
         }
     }
 
@@ -241,15 +254,10 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    /**
-     * @param sender The sender.
-     * @param corellationId Corellation id.
-     * @param errorCode Error code.
-     */
-    private void sendError(NetworkMember sender, String corellationId, RaftErrorCode errorCode) {
+    private void sendError(ClusterNode sender, String corellationId, RaftErrorCode errorCode) {
         RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
-        server.send(sender, resp, corellationId);
+        service.messagingService().send(sender, resp, corellationId);
     }
 
     /** */

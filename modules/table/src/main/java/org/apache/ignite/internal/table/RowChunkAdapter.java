@@ -21,12 +21,13 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Row;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Row to RowChunk adapter.
  */
-public abstract class RowChunkAdapter implements RowChunk {
+public abstract class RowChunkAdapter implements Tuple {
     /**
      * @param colName Column name.
      * @return Column.
@@ -37,9 +38,6 @@ public abstract class RowChunkAdapter implements RowChunk {
      * @return Underlying row.
      */
     protected abstract Row row();
-
-    /** {@inheritDoc} */
-    @Override public abstract byte[] toBytes();
 
     /** {@inheritDoc} */
     @Override public <T> T value(String colName) {

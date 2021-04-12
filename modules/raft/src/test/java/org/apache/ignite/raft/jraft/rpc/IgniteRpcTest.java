@@ -19,11 +19,11 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
@@ -32,20 +32,22 @@ import org.junit.jupiter.api.Disabled;
 /** */
 @Disabled
 public class IgniteRpcTest extends AbstractRpcTest {
-    private static final LogWrapper LOG = new LogWrapper(IgniteRpcTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcTest.class);
 
     private AtomicInteger cntr = new AtomicInteger();
 
     @Override public RpcServer createServer(Endpoint endpoint) {
-        return new IgniteRpcServer(startNetwork(endpoint.toString(), endpoint.getPort(), List.of()));
+        ClusterService service = createService(endpoint.toString(), endpoint.getPort(), List.of());
+
+        return new IgniteRpcServer(service);
     }
 
     @Override public RpcClient createClient() {
         int i = cntr.incrementAndGet();
 
-        Network clientNode = startNetwork("client" + i, endpoint.getPort() + i, List.of(endpoint.toString()));
+        ClusterService service = createService("client" + i, endpoint.getPort() + i, List.of(endpoint.toString()));
 
-        return new IgniteRpcClient(clientNode);
+        return new IgniteRpcClient(service, false);
     }
 
     /**
@@ -54,32 +56,31 @@ public class IgniteRpcTest extends AbstractRpcTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private Network startNetwork(String name, int port, List<String> servers) {
-        Network network = new Network(
-            new ScaleCubeNetworkClusterFactory(name, port, servers, new ScaleCubeMemberResolver())
-        );
+    private ClusterService createService(String name, int port, List<String> servers) {
+        var serializationRegistry = new MessageSerializationRegistry();
+//            .registerFactory((short)1000, ???)
+//            .registerFactory((short)1001, ???)
+//            .registerFactory((short)1005, ???)
+//            .registerFactory((short)1006, ???)
+//            .registerFactory((short)1009, ???);
 
-        // TODO: IGNITE-14088: Uncomment and use real serializer provider
-//        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
+        var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
+        var factory = new ScaleCubeClusterServiceFactory();
 
-        return network;
+        return factory.createClusterService(context);
     }
 
     /**
-     * @param cluster The cluster.
+     * @param service The service.
      * @param expected Expected count.
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    private boolean waitForNode(NetworkCluster cluster, String id, int timeout) {
+    private boolean waitForNode(ClusterService service, String id, int timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {
-            if (cluster.allMembers().stream().map(x -> x.name()).anyMatch(x -> x.equals(id)))
+            if (service.topologyService().allMembers().stream().map(x -> x.name()).anyMatch(x -> x.equals(id)))
                 return true;
 
             try {
@@ -97,12 +98,12 @@ public class IgniteRpcTest extends AbstractRpcTest {
     @Override protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
         IgniteRpcClient client0 = (IgniteRpcClient) client;
 
-        NetworkCluster cluster = client0.localNode();
+        ClusterService service = client0.clusterService();
 
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {
-            if (cluster.allMembers().size() == expected)
+            if (service.topologyService().allMembers().size() == expected)
                 return true;
 
             try {

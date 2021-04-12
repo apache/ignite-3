@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+
 /**
  * Serialization exception.
  */
-public class SerializationException extends Exception {
+public class SerializationException extends IgniteInternalCheckedException {
     /**
      * Constructor.
      *
