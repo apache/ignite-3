@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Schema manager test.
  */
-public class SchemaManagerTest {
+public class SchemaRegistryTest {
     /**
      * Check registration of schema with wrong versions.
      */
