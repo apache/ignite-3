@@ -9,8 +9,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
+import org.apache.ignite.network.NetworkClusterEventHandler;
+import org.apache.ignite.network.NetworkHandlersProvider;
 import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -37,8 +42,34 @@ public class IgniteRpcClient implements RpcClientEx {
 
     private NetworkCluster node;
 
-    public IgniteRpcClient(NetworkCluster node) {
-        this.node = node;
+    public IgniteRpcClient(Network network) {
+        this.node = network.start();
+
+        node.addHandlersProvider(new NetworkHandlersProvider() {
+            @Override public NetworkMessageHandler messageHandler() {
+                return new NetworkMessageHandler() {
+                    @Override public void onReceived(NetworkMessage message, NetworkMember sender, String corellationId) {
+
+                    }
+                };
+            }
+
+            @Override public NetworkClusterEventHandler clusterEventHandler() {
+                return new NetworkClusterEventHandler() {
+                    @Override public void onAppeared(NetworkMember member) {
+
+                    }
+
+                    @Override public void onDisappeared(NetworkMember member) {
+                        System.out.println();
+                    }
+                };
+            }
+        });
+    }
+
+    public NetworkCluster localNode() {
+        return node;
     }
 
     @Override public boolean checkConnection(Endpoint endpoint) {
@@ -141,7 +172,12 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     @Override public void shutdown() {
-        // Close all connection from this peer.
+        try {
+            node.shutdown();
+        }
+        catch (Exception e) {
+            throw new IgniteInternalException(e);
+        }
     }
 
     @Override public void blockMessages(BiPredicate<Object, String> predicate) {

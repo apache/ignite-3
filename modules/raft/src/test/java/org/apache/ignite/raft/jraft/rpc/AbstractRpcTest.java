@@ -23,32 +23,41 @@ import static org.junit.Assert.fail;
  * TODO add test for localconn.close, timeouts.
  */
 public abstract class AbstractRpcTest {
-    private Endpoint endpoint;
-    private RpcServer server;
+    protected Endpoint endpoint;
+    protected RpcServer server;
 
     @Before
     public void setup() {
-        endpoint = new Endpoint("localhost", 1000);
+        endpoint = new Endpoint("localhost", 20000);
         server = createServer(endpoint);
         server.registerProcessor(new Request1RpcProcessor());
         server.registerProcessor(new Request2RpcProcessor());
         server.init(null);
     }
 
-    public abstract RpcServer createServer(Endpoint endpoint);
-
-    public abstract RpcClient createClient();
-
     @After
     public void teardown() {
         server.shutdown();
     }
+
+    /**
+     * @param endpoint The endpoint.
+     * @return The server.
+     */
+    public abstract RpcServer createServer(Endpoint endpoint);
+
+    /**
+     * @return The client.
+     */
+    public abstract RpcClient createClient();
 
     @Test
     public void testConnection() {
         RpcClient client = createClient();
 
         assertTrue(client.checkConnection(endpoint));
+
+        client.shutdown();
     }
 
     @Test
@@ -59,6 +68,8 @@ public abstract class AbstractRpcTest {
 
         Response2 resp2 = (Response2) client.invokeSync(endpoint, new Request2(), new InvokeContext(), 5000);
         assertNotNull(resp2);
+
+        client.shutdown();
     }
 
     @Test
@@ -82,6 +93,8 @@ public abstract class AbstractRpcTest {
         }, 5000);
         l2.await(5_000, TimeUnit.MILLISECONDS);
         assertNotNull(resp2);
+
+        client.shutdown();
     }
 
     @Test
@@ -89,13 +102,22 @@ public abstract class AbstractRpcTest {
         RpcClient client1 = createClient();
         RpcClient client2 = createClient();
 
-        assertTrue(client1.checkConnection(endpoint));
-        assertTrue(client2.checkConnection(endpoint));
+        try {
+            assertTrue(waitForTopology(client1, 3, 5_000));
+            assertTrue(waitForTopology(client2, 3, 5_000));
 
-        server.shutdown();
+            assertTrue(client1.checkConnection(endpoint));
+            assertTrue(client2.checkConnection(endpoint));
 
-        assertFalse(client1.checkConnection(endpoint));
-        assertFalse(client2.checkConnection(endpoint));
+            server.shutdown();
+
+            assertFalse(client1.checkConnection(endpoint));
+            assertFalse(client2.checkConnection(endpoint));
+        }
+        finally {
+            client1.shutdown();
+            client2.shutdown();
+        }
     }
 
     @Test
@@ -115,6 +137,8 @@ public abstract class AbstractRpcTest {
         assertTrue(recorded.poll()[0] instanceof Response1);
         assertTrue(recorded.poll()[0] instanceof Request2);
         assertTrue(recorded.poll()[0] instanceof Response2);
+
+        client1.shutdown();
     }
 
     @Test
@@ -138,6 +162,8 @@ public abstract class AbstractRpcTest {
 
         assertEquals(1, recorded.size());
         assertTrue(recorded.poll()[0] instanceof Request1);
+
+        client1.shutdown();
     }
 
     @Test
@@ -157,6 +183,8 @@ public abstract class AbstractRpcTest {
         Queue<Object[]> recorded = client1.recordedMessages();
 
         assertEquals(4, recorded.size());
+
+        client1.shutdown();
     }
 
     @Test
@@ -189,6 +217,8 @@ public abstract class AbstractRpcTest {
 
         assertEquals(1, recorded.size());
         assertTrue(recorded.poll()[0] instanceof Request1);
+
+        client1.shutdown();
     }
 
     @Test
@@ -215,6 +245,8 @@ public abstract class AbstractRpcTest {
         client1.stopBlock();
 
         resp.get(5_000, TimeUnit.MILLISECONDS);
+
+        client1.shutdown();
     }
 
     @Test
@@ -247,6 +279,8 @@ public abstract class AbstractRpcTest {
         client1.stopBlock();
 
         resp.get(5_000, TimeUnit.MILLISECONDS);
+
+        client1.shutdown();
     }
 
     private static class Request1RpcProcessor implements RpcProcessor<Request1> {
@@ -295,4 +329,11 @@ public abstract class AbstractRpcTest {
     private static class Response2 implements Message {
         int val;
     }
+
+    /**
+     * @param client The client.
+     * @param expected Expected count.
+     * @param timeout The timeout in millis.
+     */
+    protected abstract boolean waitForTopology(RpcClient client, int expected, long timeout);
 }

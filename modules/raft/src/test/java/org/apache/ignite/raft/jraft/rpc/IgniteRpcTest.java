@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.Network;
@@ -28,62 +27,23 @@ import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.junit.After;
-import org.junit.Test;
 import org.junit.jupiter.api.Disabled;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /** */
 @Disabled
 public class IgniteRpcTest extends AbstractRpcTest {
     private static final LogWrapper LOG = new LogWrapper(IgniteRpcTest.class);
 
-    public static final int PORT = 20000;
-
-    private NetworkCluster serverNode;
-
-    private List<NetworkCluster> clients = new CopyOnWriteArrayList<>();
-
     private AtomicInteger cntr = new AtomicInteger();
 
-    @After
-    @Override public void teardown() {
-        super.teardown();
-
-        try {
-            serverNode.shutdown();
-        }
-        catch (Exception e) {
-            fail(e.toString());
-        }
-
-        for (NetworkCluster node : clients) {
-            try {
-                node.shutdown();
-            }
-            catch (Exception e) {
-                fail(e.toString());
-            }
-        }
-    }
-
     @Override public RpcServer createServer(Endpoint endpoint) {
-        serverNode = startNode(endpoint.toString(), endpoint.getPort(), List.of());
-
-        return new IgniteRpcServer(serverNode);
+        return new IgniteRpcServer(startNetwork(endpoint.toString(), endpoint.getPort(), List.of()));
     }
 
     @Override public RpcClient createClient() {
         int i = cntr.incrementAndGet();
 
-        NetworkCluster clientNode = startNode("client" + i, PORT + i, List.of(serverNode.localMember().name()));
-
-        assertTrue("The server is not found in the topology", waitForNode(clientNode, serverNode.localMember().name(), 5_000));
-
-        clients.add(clientNode);
+        Network clientNode = startNetwork("client" + i, endpoint.getPort() + i, List.of(endpoint.toString()));
 
         return new IgniteRpcClient(clientNode);
     }
@@ -94,7 +54,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private NetworkCluster startNode(String name, int port, List<String> servers) {
+    private Network startNetwork(String name, int port, List<String> servers) {
         Network network = new Network(
             new ScaleCubeNetworkClusterFactory(name, port, servers, new ScaleCubeMemberResolver())
         );
@@ -106,9 +66,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
 //        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
 //        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
 
-        LOG.info("Starting node id={0} port={1} peers={2}", name, port, servers);
-
-        return network.start();
+        return network;
     }
 
     /**
@@ -135,25 +93,26 @@ public class IgniteRpcTest extends AbstractRpcTest {
         return false;
     }
 
-    @Override @Test
-    public void testDisconnect() {
-        RpcClient client1 = createClient();
-        RpcClient client2 = createClient();
+    /** {@inheritDoc} */
+    @Override protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
+        IgniteRpcClient client0 = (IgniteRpcClient) client;
 
-        Endpoint srv = new Endpoint("localhost", 1000);
-        assertTrue(client1.checkConnection(srv));
-        assertTrue(client2.checkConnection(srv));
+        NetworkCluster cluster = client0.localNode();
 
-        try {
-            serverNode.shutdown();
+        long stop = System.currentTimeMillis() + timeout;
 
-            Thread.sleep(1000);
+        while(System.currentTimeMillis() < stop) {
+            if (cluster.allMembers().size() == expected)
+                return true;
+
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
         }
-        catch (Exception e) {
-            fail(e.getMessage());
-        }
 
-        assertFalse(client1.checkConnection(srv));
-        assertFalse(client2.checkConnection(srv));
+        return false;
     }
 }

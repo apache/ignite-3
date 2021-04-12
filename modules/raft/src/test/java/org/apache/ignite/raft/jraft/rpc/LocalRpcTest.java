@@ -23,11 +23,18 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /** */
 public class LocalRpcTest extends AbstractRpcTest {
+    /** {@inheritDoc} */
     @Override public RpcServer createServer(Endpoint endpoint) {
         return new LocalRpcServer(endpoint);
     }
 
+    /** {@inheritDoc} */
     @Override public RpcClient createClient() {
         return new LocalRpcClient();
+    }
+
+    /** {@inheritDoc} */
+    @Override protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
+        return true;
     }
 }

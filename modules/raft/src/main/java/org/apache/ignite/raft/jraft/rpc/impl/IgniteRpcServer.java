@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.LogWrapper;
 import org.apache.ignite.network.Network;
 import org.apache.ignite.network.NetworkCluster;
@@ -29,8 +30,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
-    public IgniteRpcServer(NetworkCluster server) {
-        this.server = server;
+    public IgniteRpcServer(Network network) {
+        this.server = network.start();
 
         server.addHandlersProvider(new NetworkHandlersProvider() {
             @Override public NetworkMessageHandler messageHandler() {
@@ -110,9 +111,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
     }
 
     @Override public boolean init(Void opts) {
-        return false;
+        return true;
     }
 
     @Override public void shutdown() {
+        try {
+            server.shutdown();
+        }
+        catch (Exception e) {
+            throw new IgniteInternalException(e);
+        }
     }
 }

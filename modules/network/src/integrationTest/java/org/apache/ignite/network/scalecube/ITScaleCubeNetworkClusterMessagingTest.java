@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.network.scalecube;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
@@ -31,10 +32,12 @@ import org.apache.ignite.network.NetworkMember;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** */
 class ITScaleCubeNetworkClusterMessagingTest {
@@ -74,7 +77,9 @@ class ITScaleCubeNetworkClusterMessagingTest {
         NetworkCluster carol = startMember("Carol", 3346, addresses);
 
         final NetworkHandlersProvider messageWaiter = new NetworkHandlersProvider() {
-            /** {@inheritDoc} */
+            /**
+             * {@inheritDoc}
+             */
             @Override public NetworkMessageHandler messageHandler() {
                 return (message, sender, corellationId) -> {
                     latch.countDown();
@@ -103,6 +108,14 @@ class ITScaleCubeNetworkClusterMessagingTest {
         assertThat(getLastMessage(alice), is(sentMessage));
         assertThat(getLastMessage(bob), is(sentMessage));
         assertThat(getLastMessage(carol), is(sentMessage));
+
+        alice.shutdown();
+
+        Thread.sleep(500);
+
+        Collection<NetworkMember> networkMembers = bob.allMembers();
+
+        assertEquals(2, networkMembers.size());
     }
 
     /** */
