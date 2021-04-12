@@ -22,6 +22,8 @@ import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Entry point for sending messages between network members in both weak and patient mode.
+ *
+ * TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
  */
 public interface MessagingService {
     /**

@@ -20,6 +20,8 @@ import java.util.Collection;
 
 /**
  * Entry point for obtaining information about a cluster's topology.
+ *
+ * TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
  */
 public interface TopologyService {
     /**
