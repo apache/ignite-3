@@ -19,6 +19,7 @@ package org.apache.ignite.network.scalecube;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import io.scalecube.cluster.Cluster;
+import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
@@ -32,14 +33,6 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Inner representation a ScaleCube cluster. */
     private Cluster cluster;
 
-    /** Resolver for ScaleCube specific member. */
-    private final ScaleCubeMemberResolver memberResolver;
-
-    /** */
-    ScaleCubeTopologyService(ScaleCubeMemberResolver memberResolver) {
-        this.memberResolver = memberResolver;
-    }
-
     /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
      */
@@ -51,7 +44,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * Delegates the received topology event to the registered event handlers.
      */
     void fireEvent(MembershipEvent event) {
-        ClusterNode member = memberResolver.resolveNetworkMember(event.member());
+        ClusterNode member = fromMember(event.member());
         for (TopologyEventHandler handler : getEventHandlers()) {
             switch (event.type()) {
                 case ADDED:
@@ -72,13 +65,20 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /** {@inheritDoc} */
     @Override public ClusterNode localMember() {
-        return memberResolver.resolveNetworkMember(cluster.member());
+        return fromMember(cluster.member());
     }
 
     /** {@inheritDoc} */
     @Override public Collection<ClusterNode> allMembers() {
         return cluster.members().stream()
-            .map(memberResolver::resolveNetworkMember)
+            .map(ScaleCubeTopologyService::fromMember)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Converts the given {@link Member} to a {@link ClusterNode}.
+     */
+    private static ClusterNode fromMember(Member member) {
+        return new ClusterNode(member.alias(), member.address().host(), member.address().port());
     }
 }

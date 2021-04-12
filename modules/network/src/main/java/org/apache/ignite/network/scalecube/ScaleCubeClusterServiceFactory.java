@@ -36,9 +36,8 @@ import org.apache.ignite.network.AbstractClusterService;
 public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
     @Override public ClusterService createClusterService(ClusterLocalConfiguration context) {
-        var memberResolver = new ScaleCubeMemberResolver();
-        var topologyService = new ScaleCubeTopologyService(memberResolver);
-        var messagingService = new ScaleCubeMessagingService(memberResolver);
+        var topologyService = new ScaleCubeTopologyService();
+        var messagingService = new ScaleCubeMessagingService(topologyService);
 
         var cluster = new ClusterImpl()
             .handler(cl -> new ClusterMessageHandler() {

@@ -122,11 +122,11 @@ public class RaftServerImpl implements RaftServer {
 
         server = factory.createClusterService(context);
 
-        server.getMessagingService().addMessageHandler((message, sender, correlationId) -> {
+        server.messagingService().addMessageHandler((message, sender, correlationId) -> {
             if (message instanceof GetLeaderRequest) {
-                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(server.getTopologyService().localMember())).build();
+                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(server.topologyService().localMember())).build();
 
-                server.getMessagingService().send(sender, resp, correlationId);
+                server.messagingService().send(sender, resp, correlationId);
             }
             else if (message instanceof ActionRequest) {
                 ActionRequest<?> req0 = (ActionRequest<?>) message;
@@ -166,7 +166,7 @@ public class RaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override public ClusterNode localMember() {
-        return server.getTopologyService().localMember();
+        return server.topologyService().localMember();
     }
 
     /** {@inheritDoc} */
@@ -210,7 +210,7 @@ public class RaftServerImpl implements RaftServer {
 
             @Override public void success(Object res) {
                 var msg = clientMsgFactory.actionResponse().result(res).build();
-                server.getMessagingService().send(sender, msg, corellationId);
+                server.messagingService().send(sender, msg, corellationId);
             }
 
             @Override public void failure(Throwable t) {
@@ -246,7 +246,7 @@ public class RaftServerImpl implements RaftServer {
     private void sendError(ClusterNode sender, String corellationId, RaftErrorCode errorCode) {
         RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
-        server.getMessagingService().send(sender, resp, corellationId);
+        server.messagingService().send(sender, resp, corellationId);
     }
 
     private interface CommandClosureEx<T extends Command> extends CommandClosure<T> {

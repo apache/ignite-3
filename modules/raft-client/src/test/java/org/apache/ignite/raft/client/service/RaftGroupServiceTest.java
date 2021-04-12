@@ -97,7 +97,7 @@ public class RaftGroupServiceTest {
      */
     @BeforeEach
     void before(TestInfo testInfo) {
-        when(cluster.getMessagingService()).thenReturn(messagingService);
+        when(cluster.messagingService()).thenReturn(messagingService);
 
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
     }

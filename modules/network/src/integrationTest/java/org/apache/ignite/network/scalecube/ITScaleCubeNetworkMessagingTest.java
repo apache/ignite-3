@@ -75,17 +75,17 @@ class ITScaleCubeNetworkMessagingTest {
 
         NetworkMessageHandler messageWaiter = (message, sender, correlationId) -> latch.countDown();
 
-        alice.getMessagingService().addMessageHandler(messageWaiter);
-        bob.getMessagingService().addMessageHandler(messageWaiter);
-        carol.getMessagingService().addMessageHandler(messageWaiter);
+        alice.messagingService().addMessageHandler(messageWaiter);
+        bob.messagingService().addMessageHandler(messageWaiter);
+        carol.messagingService().addMessageHandler(messageWaiter);
 
         TestMessage testMessage = new TestMessage("Message from Alice", Collections.emptyMap());
 
         //When: Send one message to all members in cluster.
-        for (ClusterNode member : alice.getTopologyService().allMembers()) {
+        for (ClusterNode member : alice.topologyService().allMembers()) {
             System.out.println("SEND : " + member);
 
-            alice.getMessagingService().weakSend(member, testMessage);
+            alice.messagingService().weakSend(member, testMessage);
         }
 
         boolean done = latch.await(3, TimeUnit.SECONDS);
@@ -99,7 +99,7 @@ class ITScaleCubeNetworkMessagingTest {
 
     /** */
     private NetworkMessage getLastMessage(ClusterService clusterService) {
-        return messageStorage.get(clusterService.getLocalConfiguration().getName());
+        return messageStorage.get(clusterService.localConfiguration().getName());
     }
 
     /** */
@@ -109,13 +109,13 @@ class ITScaleCubeNetworkMessagingTest {
         ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
         System.out.println("-----" + name + " started");
 
-        clusterService.getMessagingService().addMessageHandler((message, sender, correlationId) -> {
+        clusterService.messagingService().addMessageHandler((message, sender, correlationId) -> {
             messageStorage.put(name, message);
 
             System.out.println(name + " handled messages : " + message);
         });
 
-        clusterService.getTopologyService().addEventHandler(new TopologyEventHandler() {
+        clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
             @Override public void onAppeared(ClusterNode member) {
                 System.out.println(name + " found member : " + member);
             }

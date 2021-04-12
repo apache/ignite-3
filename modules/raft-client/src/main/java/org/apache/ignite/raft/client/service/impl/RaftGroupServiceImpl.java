@@ -262,7 +262,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public CompletableFuture<Void> snapshot(Peer peer) {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
-        CompletableFuture<?> fut = cluster.getMessagingService().invoke(peer.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -276,7 +276,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         TransferLeadershipRequest req = factory.transferLeaderRequest().groupId(groupId).peer(newLeader).build();
 
-        CompletableFuture<?> fut = cluster.getMessagingService().invoke(newLeader.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(newLeader.getNode(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -299,7 +299,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).build();
 
-        CompletableFuture<?> fut = cluster.getMessagingService().invoke(peer.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
 
         return fut.thenApply(resp -> ((ActionResponse<R>) resp).result());
     }
@@ -307,7 +307,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private <R> CompletableFuture<R> sendWithRetry(ClusterNode node, NetworkMessage req, long stopTime) {
         if (currentTimeMillis() >= stopTime)
             return CompletableFuture.failedFuture(new TimeoutException());
-        return cluster.getMessagingService().invoke(node, req, timeout)
+        return cluster.messagingService().invoke(node, req, timeout)
             .thenCompose(resp -> {
                 if (resp instanceof RaftErrorResponse) {
                     RaftErrorResponse resp0 = (RaftErrorResponse)resp;

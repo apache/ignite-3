@@ -45,17 +45,17 @@ public abstract class AbstractClusterService implements ClusterService {
     }
 
     /** {@inheritDoc} */
-    @Override public final ClusterLocalConfiguration getLocalConfiguration() {
+    @Override public final ClusterLocalConfiguration localConfiguration() {
         return context;
     }
 
     /** {@inheritDoc} */
-    @Override public final TopologyService getTopologyService() {
+    @Override public final TopologyService topologyService() {
         return topologyService;
     }
 
     /** {@inheritDoc} */
-    @Override public final MessagingService getMessagingService() {
+    @Override public final MessagingService messagingService() {
         return messagingService;
     }
 }

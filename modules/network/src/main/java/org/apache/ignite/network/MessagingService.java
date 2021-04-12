@@ -58,12 +58,12 @@ public interface MessagingService {
      * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and
      * returns a future that will be completed successfully upon receiving a response.
      *
-     * @param member Network member which should receive the message.
+     * @param recipient Recipient of the message.
      * @param msg A message.
      * @param timeout Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
-    CompletableFuture<NetworkMessage> invoke(ClusterNode member, NetworkMessage msg, long timeout);
+    CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout);
 
     /**
      * Registers a handler for network message events.

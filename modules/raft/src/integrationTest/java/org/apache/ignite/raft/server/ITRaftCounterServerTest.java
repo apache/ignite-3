@@ -109,7 +109,7 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testRefreshLeader() {
-        Peer server = new Peer(client.getTopologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer server = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
             List.of(server), true, 200);
@@ -125,7 +125,7 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testCounterCommandListener() throws Exception {
-        Peer server = new Peer(client.getTopologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        Peer server = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
         RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
             List.of(server), true, 200);
@@ -170,7 +170,7 @@ class ITRaftCounterServerTest {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {
-            if (cluster.getTopologyService().allMembers().size() >= expected)
+            if (cluster.topologyService().allMembers().size() >= expected)
                 return true;
 
             try {

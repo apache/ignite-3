@@ -27,10 +27,10 @@ import org.apache.ignite.network.message.MessageSerializationRegistry;
  *  https://issues.apache.org/jira/browse/IGNITE-14496
  */
 public class ClusterLocalConfiguration {
-    /** Network alias of a node. */
+    /** The network alias of a node. */
     private final String name;
 
-    /** Port. */
+    /** The port. */
     private final int port;
 
     /** Addresses of other nodes. */

@@ -26,9 +26,11 @@ import io.scalecube.cluster.Cluster;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
 import org.apache.ignite.network.AbstractMessagingService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /**
@@ -36,23 +38,26 @@ import org.apache.ignite.network.message.NetworkMessage;
  */
 final class ScaleCubeMessagingService extends AbstractMessagingService {
     /**
-     * Inner representation ScaleCube cluster.
+     * Inner representation of a ScaleCube cluster.
      */
     private Cluster cluster;
 
     /**
-     * Resolver for ScaleCube-specific member.
-     */
-    private final ScaleCubeMemberResolver memberResolver;
-
-    /**
-     * Utility map for recognizing cluster members by their addresses (ScaleCube doesn't provide this information).
+     * Utility map for recognizing cluster members by their addresses.
      */
     private final Map<Address, ClusterNode> addressMemberMap = new ConcurrentHashMap<>();
 
     /** */
-    ScaleCubeMessagingService(ScaleCubeMemberResolver memberResolver) {
-        this.memberResolver = memberResolver;
+    ScaleCubeMessagingService(TopologyService topologyService) {
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override public void onAppeared(ClusterNode member) {
+                addressMemberMap.put(clusterNodeAddress(member), member);
+            }
+
+            @Override public void onDisappeared(ClusterNode member) {
+                addressMemberMap.remove(clusterNodeAddress(member));
+            }
+        });
     }
 
     /**
@@ -67,7 +72,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      */
     void fireEvent(Message message) {
         NetworkMessage msg = message.data();
-        ClusterNode sender = memberForAddress(message.sender());
+        ClusterNode sender = addressMemberMap.get(message.sender());
         String correlationId = message.correlationId();
         for (NetworkMessageHandler handler : getMessageHandlers())
             handler.onReceived(msg, sender, correlationId);
@@ -76,14 +81,14 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     /** {@inheritDoc} */
     @Override public void weakSend(ClusterNode recipient, NetworkMessage msg) {
         cluster
-            .send(memberResolver.resolveMember(recipient), Message.fromData(msg))
+            .send(clusterNodeAddress(recipient), Message.fromData(msg))
             .subscribe();
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
         return cluster
-            .send(memberResolver.resolveMember(recipient), Message.fromData(msg))
+            .send(clusterNodeAddress(recipient), Message.fromData(msg))
             .toFuture();
     }
 
@@ -94,37 +99,27 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             .correlationId(correlationId)
             .build();
         return cluster
-            .send(memberResolver.resolveMember(recipient), message)
+            .send(clusterNodeAddress(recipient), message)
             .toFuture();
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode member, NetworkMessage msg, long timeout) {
+    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
         var message = Message
             .withData(msg)
             .correlationId(UUID.randomUUID().toString())
             .build();
         return cluster
-            .requestResponse(memberResolver.resolveMember(member), message)
+            .requestResponse(clusterNodeAddress(recipient), message)
             .timeout(Duration.ofMillis(timeout))
             .toFuture()
             .thenApply(Message::data);
     }
 
     /**
-     * Returns the {@link ClusterNode} with the specified network address.
+     * Extracts the given node's {@link Address}.
      */
-    private ClusterNode memberForAddress(Address address) {
-        return addressMemberMap.computeIfAbsent(
-            address,
-            addr -> cluster.members()
-                .stream()
-                .filter(mem -> mem.address().equals(addr))
-                .map(memberResolver::resolveNetworkMember)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(String.format(
-                    "Network member with address %s could not be found", addr
-                )))
-        );
+    private static Address clusterNodeAddress(ClusterNode node) {
+        return Address.create(node.host(), node.port());
     }
 }

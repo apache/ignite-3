@@ -25,17 +25,17 @@ public interface ClusterService {
     /**
      * Returns the {@link TopologyService} for working with the cluster topology.
      */
-    TopologyService getTopologyService();
+    TopologyService topologyService();
 
     /**
      * Returns the {@link TopologyService} for sending messages to the cluster members.
      */
-    MessagingService getMessagingService();
+    MessagingService messagingService();
 
     /**
      * Returns the context associated with the current node.
      */
-    ClusterLocalConfiguration getLocalConfiguration();
+    ClusterLocalConfiguration localConfiguration();
 
     /**
      * Starts the current node, allowing it to join the cluster and start receiving messages.

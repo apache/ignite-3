@@ -26,11 +26,17 @@ public class ClusterNode implements Serializable {
     /** Unique name of member in cluster. */
     private final String name;
 
+    private final String host;
+
+    private final int port;
+
     /**
      * @param name Unique name of member in cluster.
      */
-    public ClusterNode(String name) {
+    public ClusterNode(String name, String host, int port) {
         this.name = name;
+        this.host = host;
+        this.port = port;
     }
 
     /**
@@ -40,25 +46,35 @@ public class ClusterNode implements Serializable {
         return name;
     }
 
+    public String host() {
+        return host;
+    }
+
+    public int port() {
+        return port;
+    }
+
     /** {@inheritDoc} */
     @Override public boolean equals(Object o) {
         if (this == o)
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-        ClusterNode member = (ClusterNode)o;
-        return Objects.equals(name, member.name);
+        ClusterNode that = (ClusterNode)o;
+        return port == that.port && name.equals(that.name) && host.equals(that.host);
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return Objects.hash(name);
+        return Objects.hash(name, host, port);
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "NetworkMember{" +
+        return "ClusterNode{" +
             "name='" + name + '\'' +
+            ", host='" + host + '\'' +
+            ", port=" + port +
             '}';
     }
 }
