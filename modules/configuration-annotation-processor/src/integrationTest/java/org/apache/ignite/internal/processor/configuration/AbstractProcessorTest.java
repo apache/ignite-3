@@ -20,6 +20,7 @@ import com.google.common.base.Functions;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import com.squareup.javapoet.ClassName;
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +49,11 @@ public class AbstractProcessorTest {
 
         final List<JavaFileObject> fileObjects = fileNames.stream().map(JavaFileObjects::forResource).collect(Collectors.toList());
 
+        String modulePath = System.getProperty("jdk.module.path");
+        List<File> classPath = Arrays.stream(modulePath.split(":")).map(File::new).collect(Collectors.toList());
         final Compilation compilation = javac()
             .withProcessors(new Processor())
+            .withClasspath(classPath)
             .compile(fileObjects);
 
         return new BatchCompilation(Arrays.asList(schemaClasses), compilation);

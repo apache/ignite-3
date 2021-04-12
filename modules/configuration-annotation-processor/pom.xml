@@ -77,11 +77,6 @@
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <version>3.8.1</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -94,31 +89,22 @@
                         <id>default-compile</id>
                         <configuration>
                             <proc>none</proc>
-                            <includes>
-                                <include>org/apache/ignite/internal/processor/configuration/ConfigurationDescription.java</include>
-                                <include>org/apache/ignite/internal/processor/configuration/ConfigurationElement.java</include>
-                                <include>org/apache/ignite/internal/processor/configuration/Processor.java</include>
-                                <include>org/apache/ignite/internal/processor/configuration/ProcessorException.java</include>
-                                <include>org/apache/ignite/internal/processor/configuration/Utils.java</include>
-                                <include>module-info.java</include>
-                            </includes>
                         </configuration>
                     </execution>
                     <execution>
-                        <id>compile-project</id>
-                        <phase>compile</phase>
+                        <id>default-testCompile</id>
+                        <phase>test-compile</phase>
                         <goals>
-                            <goal>compile</goal>
+                            <goal>testCompile</goal>
                         </goals>
                         <configuration>
-                            <excludes>
-                                <exclude>org/apache/ignite/internal/processor/configuration/ConfigurationDescription.java</exclude>
-                                <exclude>org/apache/ignite/internal/processor/configuration/ConfigurationElement.java</exclude>
-                                <exclude>org/apache/ignite/internal/processor/configuration/Processor.java</exclude>
-                                <exclude>org/apache/ignite/internal/processor/configuration/ProcessorException.java</exclude>
-                                <exclude>org/apache/ignite/internal/processor/configuration/Utils.java</exclude>
-                                <exclude>module-info.java</exclude>
-                            </excludes>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>org.apache.ignite</groupId>
+                                    <artifactId>ignite-configuration-annotation-processor</artifactId>
+                                    <version>${project.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
                             <annotationProcessors>
                                 <annotationProcessor>org.apache.ignite.internal.processor.configuration.Processor</annotationProcessor>
                             </annotationProcessors>

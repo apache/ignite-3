@@ -36,7 +36,7 @@ public class RouteTest {
      *
      */
     @Test
-    void testMatchByUri() {
+    public void testMatchByUri() {
        var route = new Route("/user", GET, null, (request, response) -> {});
        var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user");
        assertTrue(route.match(req));
@@ -46,7 +46,7 @@ public class RouteTest {
      *
      */
     @Test
-    void testNonMatchByUri() {
+    public void testNonMatchByUri() {
         var route = new Route("/user", GET, null, (request, response) -> {});
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/1");
         assertFalse(route.match(req));
@@ -56,7 +56,7 @@ public class RouteTest {
      *
      */
     @Test
-    void testMatchByContentTypeIfAcceptTypeEmpty() {
+    public void testMatchByContentTypeIfAcceptTypeEmpty() {
         var route = new Route("/user", GET, null, (request, response) -> {});
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/");
         req.headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_PLAIN);
@@ -67,7 +67,7 @@ public class RouteTest {
      *
      */
     @Test
-    void testMatchByContentTypeIfAcceptTypeNonEmpty() {
+    public void testMatchByContentTypeIfAcceptTypeNonEmpty() {
         var route = new Route("/user", PUT, "text/plain", (request, response) -> {});
         var req = new DefaultHttpRequest(HTTP_1_1, PUT, "/user");
         req.headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_PLAIN);
@@ -78,7 +78,7 @@ public class RouteTest {
      *
      */
     @Test
-    void testNonMatchByContentTypeIfAcceptTypeNonEmpty() {
+    public void testNonMatchByContentTypeIfAcceptTypeNonEmpty() {
         var route = new Route("/user", PUT, "text/plain", (request, response) -> {});
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/");
         req.headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON);
@@ -89,7 +89,7 @@ public class RouteTest {
      *
      */
     @Test
-    void testMatchByUriWithParams() {
+    public void testMatchByUriWithParams() {
         var route = new Route("/user/:user", GET, null, (request, response) -> {});
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/John");
         assertTrue(route.match(req));

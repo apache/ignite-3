@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.leafNodeVisitor;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 /**
