@@ -98,16 +98,15 @@ public class Processor extends AbstractProcessor {
 
     /** {@inheritDoc} */
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
-        boolean result = false;
         try {
-            result = process0(roundEnvironment);
+            return process0(roundEnvironment);
         } catch (Throwable t) {
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             t.printStackTrace(pw);
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Failed to process configuration: " + sw.toString());
         }
-        return result;
+        return false;
     }
 
     private boolean process0(RoundEnvironment roundEnvironment) {
