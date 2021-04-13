@@ -69,9 +69,6 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                     break;
 
                 case REMOVED:
-                    // No-op.
-                    break;
-
                 case UPDATED:
                     // No-op.
                     break;
