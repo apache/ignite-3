@@ -144,10 +144,12 @@ class ITScaleCubeNetworkMessagingTest {
         });
 
         clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
+            /** {@inheritDoc} */
             @Override public void onAppeared(ClusterNode member) {
                 System.out.println(name + " found member : " + member);
             }
 
+            /** {@inheritDoc} */
             @Override public void onDisappeared(ClusterNode member) {
                 System.out.println(name + " lost member : " + member);
             }

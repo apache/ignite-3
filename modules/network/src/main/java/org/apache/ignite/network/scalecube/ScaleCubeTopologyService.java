@@ -20,8 +20,8 @@ import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
@@ -36,7 +36,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     private ClusterNode localMember;
 
     /** Topology members. */
-    private Map<String, ClusterNode> members = new HashMap<>();
+    private final Map<String, ClusterNode> members = new ConcurrentHashMap<>();
 
     /**
      * Sets the ScaleCube's local {@link Member}.
@@ -62,15 +62,18 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                     break;
 
                 case LEAVING:
-                case REMOVED:
                     members.remove(member.name());
 
                     handler.onDisappeared(member);
 
                     break;
 
+                case REMOVED:
+                    // No-op.
+                    break;
+
                 case UPDATED:
-                    // do nothing
+                    // No-op.
                     break;
 
                 default:
