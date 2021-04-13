@@ -15,59 +15,62 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.table.distributed.command.response;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.raft.client.ReadCommand;
 
-public class GetCommand implements ReadCommand {
+/**
+ * It is a response object for handling a table get command.
+ * {@see org.apache.ignite.internal.table.distributed.command.GetCommand}
+ */
+public class KVGetResponse implements Serializable {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
 
-    /** Key row. */
-    private transient BinaryRow keyRow;
+    /** Row. */
+    private transient BinaryRow row;
 
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after.
      */
-    private byte[] keyRowBytes;
+    private byte[] rowBytes;
 
-    public GetCommand(BinaryRow keyRow) {
-        this.keyRow = keyRow;
+    public KVGetResponse(BinaryRow row) {
+        this.row = row;
 
-        keyToBytes(keyRow);
+        keyToBytes(row);
     }
 
-    private void keyToBytes(BinaryRow keyRow) {
+    private void keyToBytes(BinaryRow row) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            keyRow.writeTo(baos);
+            row.writeTo(baos);
 
             baos.flush();
 
-            keyRowBytes = baos.toByteArray();
+            rowBytes = baos.toByteArray();
         }
         catch (IOException e) {
-            LOG.error("Could not write key to stream [key=" + keyRow + ']', e);
+            LOG.error("Could not write row to stream [row=" + row + ']', e);
 
-            keyRowBytes = null;
+            rowBytes = null;
         }
     }
 
     /**
-     * Gets a key row.
-     *
-     * @return Key row.
+     * @return Data row.
      */
-    public BinaryRow getKeyRow() {
-        if (keyRow == null)
-            keyRow = new ByteBufferRow(keyRowBytes);
+    public BinaryRow getValue() {
+        if (row == null)
+            row = new ByteBufferRow(rowBytes);
 
-        return keyRow;
+        return row;
     }
 }
