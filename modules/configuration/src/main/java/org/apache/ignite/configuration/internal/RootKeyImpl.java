@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.storage.ConfigurationStorageType;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.tree.InnerNode;
 
 /** */
@@ -31,7 +31,7 @@ public class RootKeyImpl<T extends ConfigurationTree<VIEW, ?>, VIEW> extends Roo
     private final String rootName;
 
     /** */
-    private final ConfigurationStorageType storageType;
+    private final ConfigurationType storageType;
 
     /** */
     private final Supplier<InnerNode> rootSupplier;
@@ -42,7 +42,7 @@ public class RootKeyImpl<T extends ConfigurationTree<VIEW, ?>, VIEW> extends Roo
     /** */
     public RootKeyImpl(
         String rootName,
-        ConfigurationStorageType storageType,
+        ConfigurationType storageType,
         Supplier<InnerNode> rootSupplier,
         BiFunction<RootKey<T, VIEW>, ConfigurationChanger, T> publicRootCreator
     ) {
@@ -58,7 +58,7 @@ public class RootKeyImpl<T extends ConfigurationTree<VIEW, ?>, VIEW> extends Roo
     }
 
     /** {@inheritDoc} */
-    @Override protected ConfigurationStorageType storageType() {
+    @Override protected ConfigurationType type() {
         return storageType;
     }
 

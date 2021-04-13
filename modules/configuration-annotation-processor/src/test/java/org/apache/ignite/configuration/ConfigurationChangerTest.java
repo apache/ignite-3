@@ -29,7 +29,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.storage.ConfigurationStorageType;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.configuration.validation.ValidationContext;
@@ -57,7 +57,7 @@ public class ConfigurationChangerTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "key", storage = ConfigurationStorageType.LOCAL)
+    @ConfigurationRoot(rootName = "key", type = ConfigurationType.LOCAL)
     public static class AConfigurationSchema {
         /** */
         @ConfigValue
@@ -236,7 +236,7 @@ public class ConfigurationChangerTest {
     }
 
     /** */
-    @ConfigurationRoot(rootName = "def", storage = ConfigurationStorageType.LOCAL)
+    @ConfigurationRoot(rootName = "def", type = ConfigurationType.LOCAL)
     public static class DefaultsConfigurationSchema {
         /** */
         @ConfigValue

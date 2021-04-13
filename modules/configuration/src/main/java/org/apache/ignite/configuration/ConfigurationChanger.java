@@ -33,7 +33,7 @@ import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 import org.apache.ignite.configuration.internal.validation.ValidationUtil;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.configuration.storage.ConfigurationStorageType;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
@@ -62,7 +62,7 @@ public final class ConfigurationChanger {
     private final Map<String, RootKey<?, ?>> rootKeys = new TreeMap<>();
 
     /** Map that has all the trees in accordance to their storages. */
-    private final Map<ConfigurationStorageType, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
+    private final Map<ConfigurationType, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
 
     /** Annotation classes mapped to validator objects. */
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
@@ -108,7 +108,7 @@ public final class ConfigurationChanger {
     private final Map<MemberKey, Annotation[]> cachedAnnotations = new ConcurrentHashMap<>();
 
     /** Storage instances by their classes. Comes in handy when all you have is {@link RootKey}. */
-    private final Map<ConfigurationStorageType, ConfigurationStorage> storageInstances = new HashMap<>();
+    private final Map<ConfigurationType, ConfigurationStorage> storageInstances = new HashMap<>();
 
     /**
      * @param notificator Closure to execute when update from the storage is received.
@@ -126,7 +126,7 @@ public final class ConfigurationChanger {
 
     /** */
     public void addRootKey(RootKey<?, ?> rootKey) {
-        assert !storageInstances.containsKey(rootKey.storageType());
+        assert !storageInstances.containsKey(rootKey.type());
 
         rootKeys.put(rootKey.key(), rootKey);
     }
@@ -139,7 +139,7 @@ public final class ConfigurationChanger {
         storageInstances.put(configurationStorage.type(), configurationStorage);
 
         Set<RootKey<?, ?>> storageRootKeys = rootKeys.values().stream().filter(
-            rootKey -> configurationStorage.type() == rootKey.storageType()
+            rootKey -> configurationStorage.type() == rootKey.type()
         ).collect(Collectors.toSet());
 
         Data data;
@@ -177,7 +177,7 @@ public final class ConfigurationChanger {
     }
 
     /** */
-    public void initialize(ConfigurationStorageType storageType) {
+    public void initialize(ConfigurationType storageType) {
         ConfigurationStorage configurationStorage = storageInstances.get(storageType);
 
         assert configurationStorage != null : storageType;
@@ -236,7 +236,7 @@ public final class ConfigurationChanger {
      * @param rootKey Root key.
      */
     public InnerNode getRootNode(RootKey<?, ?> rootKey) {
-        return storagesRootsMap.get(rootKey.storageType()).roots.getRoot(rootKey);
+        return storagesRootsMap.get(rootKey.type()).roots.getRoot(rootKey);
     }
 
     /**
@@ -247,8 +247,8 @@ public final class ConfigurationChanger {
         if (changes.isEmpty())
             return completedFuture(null);
 
-        Set<ConfigurationStorageType> storagesTypes = changes.keySet().stream()
-            .map(RootKey::storageType)
+        Set<ConfigurationType> storagesTypes = changes.keySet().stream()
+            .map(RootKey::type)
             .collect(Collectors.toSet());
 
         assert !storagesTypes.isEmpty();
@@ -352,7 +352,7 @@ public final class ConfigurationChanger {
      * @param changedEntries Changed data.
      */
     private void updateFromListener(
-        ConfigurationStorageType storageType,
+        ConfigurationType storageType,
         Data changedEntries
     ) {
         StorageRoots oldStorageRoots = this.storagesRootsMap.get(storageType);

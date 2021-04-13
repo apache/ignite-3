@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.storage.ConfigurationStorageType;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /** */
 public class ConfigurationListenerTest {
     /** */
-    @ConfigurationRoot(rootName = "parent", storage = ConfigurationStorageType.LOCAL)
+    @ConfigurationRoot(rootName = "parent", type = ConfigurationType.LOCAL)
     public static class ParentConfigurationSchema {
         /** */
         @ConfigValue

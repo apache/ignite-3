@@ -61,5 +61,5 @@ public interface ConfigurationStorage {
     /**
      * @return Type of this configuration storage.
      */
-    ConfigurationStorageType type();
+    ConfigurationType type();
 }

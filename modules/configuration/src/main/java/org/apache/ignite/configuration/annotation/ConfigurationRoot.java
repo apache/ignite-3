@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.annotation;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import org.apache.ignite.configuration.storage.ConfigurationStorageType;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
@@ -38,6 +38,6 @@ public @interface ConfigurationRoot {
     /** @return Unique root name. */
     String rootName();
 
-    /** @return Class of storage where to store configuration of the given root. */
-    ConfigurationStorageType storage() default ConfigurationStorageType.LOCAL;
+    /** @return Type of the configuration. */
+    ConfigurationType type() default ConfigurationType.LOCAL;
 }

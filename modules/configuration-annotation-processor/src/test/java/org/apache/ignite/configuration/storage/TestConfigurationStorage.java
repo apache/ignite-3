@@ -94,7 +94,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public ConfigurationStorageType type() {
-        return ConfigurationStorageType.LOCAL;
+    @Override public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
     }
 }

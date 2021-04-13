@@ -58,7 +58,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
-import org.apache.ignite.configuration.storage.ConfigurationStorageType;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
@@ -274,7 +274,7 @@ public class Processor extends AbstractProcessor {
             createPojoBindings(clazz, fields, schemaClassName, configurationClassBuilder, configurationInterfaceBuilder);
 
             if (isRoot) {
-                ConfigurationStorageType storageType = rootAnnotation.storage();
+                ConfigurationType storageType = rootAnnotation.type();
                 createRootKeyField(configInterface, configurationInterfaceBuilder, configDesc, storageType, schemaClassName);
             }
 
@@ -295,7 +295,7 @@ public class Processor extends AbstractProcessor {
         ClassName configInterface,
         TypeSpec.Builder configurationClassBuilder,
         ConfigurationDescription configDesc,
-        ConfigurationStorageType storageType,
+        ConfigurationType storageType,
         ClassName schemaClassName
     ) {
         ClassName viewClassName = Utils.getViewName(schemaClassName);
@@ -309,7 +309,7 @@ public class Processor extends AbstractProcessor {
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
             .initializer(
                 "$T.newRootKey($S, $T.$L, $T::new, $T::new)",
-                cfgRegistryClassName, configDesc.getName(), ConfigurationStorageType.class, storageType, nodeClassName,
+                cfgRegistryClassName, configDesc.getName(), ConfigurationType.class, storageType, nodeClassName,
                 Utils.getConfigurationName(schemaClassName)
             )
             .build();

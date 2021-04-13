@@ -20,7 +20,10 @@ package org.apache.ignite.configuration.storage;
 /**
  * Type of configuration storage.
  */
-public enum ConfigurationStorageType {
-    /** Local configuration storage. */
-    LOCAL;
+public enum ConfigurationType {
+    /** Local configuration. */
+    LOCAL,
+
+    /** Distributed configuration. */
+    DISTRIBUTED;
 }
