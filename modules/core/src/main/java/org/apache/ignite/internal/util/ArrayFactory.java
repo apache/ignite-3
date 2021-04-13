@@ -17,32 +17,14 @@
 
 package org.apache.ignite.internal.util;
 
-import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
-import sun.misc.Unsafe;
-
 /**
- * {@link DirectBufferCleaner} implementation based on the {@code Unsafe.invokeCleaner} method.
- *
- * Note: This implementation will work only for Java 9+.
+ * Array creator.
  */
-public class UnsafeDirectBufferCleaner implements DirectBufferCleaner {
-    /** Cleaner method. */
-    private final Method cleanerMtd;
-
-    /** */
-    public UnsafeDirectBufferCleaner() {
-        try {
-            cleanerMtd = Unsafe.class.getMethod("invokeCleaner", ByteBuffer.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw new RuntimeException("Reflection failure: no sun.misc.Unsafe.invokeCleaner() method found", e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void clean(ByteBuffer buf) {
-        GridUnsafe.invoke(cleanerMtd, buf);
-    }
+@FunctionalInterface
+public interface ArrayFactory<T> {
+    /**
+     * @param len Array length.
+     * @return New array.
+     */
+    public T of(int len);
 }
-

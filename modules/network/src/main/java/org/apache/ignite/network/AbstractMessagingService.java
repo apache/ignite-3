@@ -15,28 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.scalecube;
+package org.apache.ignite.network;
 
-import org.apache.ignite.network.message.MessageDeserializer;
-import org.apache.ignite.network.message.MessageSerializer;
-import org.apache.ignite.network.message.MessageSerializerProvider;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Mapper provider for {@link TestResponse}.
+ * Base class for {@link MessagingService} implementations.
  */
-public class TestResponseSerializerProvider implements MessageSerializerProvider<TestResponse> {
-    /** {@inheritDoc} */
-    @Override public MessageDeserializer<TestResponse> createDeserializer() {
-        return null;
-    }
+public abstract class AbstractMessagingService implements MessagingService {
+    /** */
+    private final Collection<NetworkMessageHandler> messageHandlers = new CopyOnWriteArrayList<>();
 
     /** {@inheritDoc} */
-    @Override public MessageSerializer<TestResponse> createSerializer() {
-        return null;
+    @Override public void addMessageHandler(NetworkMessageHandler handler) {
+        messageHandlers.add(handler);
     }
 
-    /** {@inheritDoc} */
-    @Override public byte fieldsCount() {
-        return 0;
+    /**
+     * @return registered message handlers.
+     */
+    public Collection<NetworkMessageHandler> getMessageHandlers() {
+        return Collections.unmodifiableCollection(messageHandlers);
     }
 }

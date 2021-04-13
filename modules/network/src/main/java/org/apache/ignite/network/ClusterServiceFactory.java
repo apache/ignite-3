@@ -16,21 +16,10 @@
  */
 package org.apache.ignite.network;
 
-/**
- * Provider of handlers of different cluster events.
- */
-public interface NetworkHandlersProvider {
+/** */
+public interface ClusterServiceFactory {
     /**
-     * @return Handler for processing the received messages from the cluster.
+     * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      */
-    default NetworkMessageHandler messageHandler() {
-        return null;
-    }
-
-    /**
-     * @return Handler for processing the different cluster events.
-     */
-    default NetworkClusterEventHandler clusterEventHandler() {
-        return null;
-    }
+    ClusterService createClusterService(ClusterLocalConfiguration context);
 }

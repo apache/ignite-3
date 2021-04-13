@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.network;
 
-import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Cleaner interface for {@code java.nio.ByteBuffer}.
+ * Base class for {@link TopologyService} implementations.
  */
-public interface DirectBufferCleaner {
+public abstract class AbstractTopologyService implements TopologyService {
+    /** */
+    private final Collection<TopologyEventHandler> eventHandlers = new CopyOnWriteArrayList<>();
+
+    /** {@inheritDoc} */
+    @Override public void addEventHandler(TopologyEventHandler handler) {
+        eventHandlers.add(handler);
+    }
+
     /**
-     * Cleans the direct buffer.
-     *
-     * @param buf direct buffer.
+     * @return registered event handlers.
      */
-    public void clean(ByteBuffer buf);
+    public Collection<TopologyEventHandler> getEventHandlers() {
+        return Collections.unmodifiableCollection(eventHandlers);
+    }
 }

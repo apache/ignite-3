@@ -15,28 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.message;
+package org.apache.ignite.network;
 
 /**
- * MessageMapperProvider creates {@link MessageDeserializer} and {@link MessageSerializer} instances
- * for working with {@link NetworkMessage} objects.
- * @param <M> Message type.
+ * Class that represents the network-related resources of a node and provides entry points for working with the
+ * network members of a cluster.
  */
-public interface MessageSerializerProvider<M extends NetworkMessage> {
+public interface ClusterService {
     /**
-     * Create deserializer.
-     * @return Message deserializer.
+     * Returns the {@link TopologyService} for working with the cluster topology.
      */
-    MessageDeserializer<M> createDeserializer();
+    TopologyService topologyService();
 
     /**
-     * Create serializer.
-     * @return Message serializer.
+     * Returns the {@link TopologyService} for sending messages to the cluster members.
      */
-    MessageSerializer<M> createSerializer();
+    MessagingService messagingService();
 
     /**
-     * @return Message's field count.
+     * Returns the context associated with the current node.
      */
-    byte fieldsCount();
+    ClusterLocalConfiguration localConfiguration();
+
+    /**
+     * Starts the current node, allowing it to join the cluster and start receiving messages.
+     */
+    void start();
+
+    /**
+     * Stops the current node, gracefully freeing the encapsulated resources.
+     */
+    void shutdown();
 }
