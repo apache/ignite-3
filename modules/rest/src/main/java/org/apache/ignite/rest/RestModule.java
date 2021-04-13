@@ -78,7 +78,6 @@ public class RestModule {
     /** */
     public void prepareStart(ConfigurationRegistry sysCfg) {
         sysConf = sysCfg;
-        sysCfg.registerRootKey(RestConfiguration.KEY);
 
         presentation = new JsonPresentation();
     }

@@ -18,6 +18,8 @@
 package org.apache.ignite.rest.presentation.json;
 
 import com.google.gson.JsonNull;
+
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.annotation.Config;
@@ -99,7 +101,7 @@ public class JsonConverterTest {
     }
 
     /** */
-    private final ConfigurationRegistry registry = new ConfigurationRegistry();
+    private ConfigurationRegistry registry;
 
     /** */
     private JsonRootConfiguration configuration;
@@ -107,9 +109,11 @@ public class JsonConverterTest {
     /** */
     @BeforeEach
     public void before() {
-        registry.registerRootKey(JsonRootConfiguration.KEY);
-
-        registry.registerStorage(new TestConfigurationStorage());
+        registry = new ConfigurationRegistry(
+            Collections.singletonList(JsonRootConfiguration.KEY),
+            Collections.emptyMap(),
+            Collections.singletonList(new TestConfigurationStorage())
+        );
 
         configuration = registry.getConfiguration(JsonRootConfiguration.KEY);
     }

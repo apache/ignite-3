@@ -17,20 +17,23 @@
 
 package org.apache.ignite.runner.internal.app;
 
-import io.netty.util.internal.StringUtil;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
+import io.netty.util.internal.StringUtil;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.baseline.internal.BaselineManager;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.configuration.internal.ConfigurationManagerImpl;
-import org.apache.ignite.configuration.internal.DistributedConfigurationManagerImpl;
-import org.apache.ignite.configuration.internal.LocalConfigurationManagerImpl;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
 import org.apache.ignite.affinity.internal.AffinityManager;
+import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.affinity.ditributed.AffinityManager;
 import org.apache.ignite.internal.table.distributed.TableManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
@@ -79,15 +82,21 @@ public class IgnitionImpl implements Ignition {
 
         boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
 
+        List<RootKey<?, ?>> rootKeys = new ArrayList<>(Collections.singletonList(NetworkConfiguration.KEY));
+
+        List<ConfigurationStorage> configurationStorages =
+            new ArrayList<>(Collections.singletonList(new LocalConfigurationStorage(vaultMgr)));
+
         // Bootstrap local configuration manager.
-        ConfigurationManager locConfigurationMgr = new LocalConfigurationManagerImpl();
-
-        locConfigurationMgr.configurationRegistry().registerRootKey(NetworkConfiguration.KEY);
-
-        locConfigurationMgr.configurationRegistry().registerStorage(new LocalConfigurationStorage(vaultMgr));
+        ConfigurationManager locConfigurationMgr = new ConfigurationManager(rootKeys, configurationStorages);
 
         if (!cfgBootstrappedFromPds)
-            locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
+            try {
+                locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
+            }
+            catch (Exception e) {
+                log.warn("Unable to parse user specific configuration, default configuration will be used", e);
+            }
         else if (jsonStrBootstrapCfg != null)
             log.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
 
@@ -143,20 +152,12 @@ public class IgnitionImpl implements Ignition {
             locConfigurationMgr
         );
 
-        // Start distributed configuration manager.
-        ConfigurationManager distributedConfigurationMgr = new DistributedConfigurationManagerImpl();
+        // TODO sanpwc: > Add distributed root keys.
+        // TODO sanpwc: > Bootstrap distributed configuration.
+        configurationStorages.add(new DistributedConfigurationStorage(metaStorageMgr));
 
-        // TODO sanpwc: Register some root keys here.
-//        distrConfigurationModule.configurationRegistry().registerRootKey();
-
-        distributedConfigurationMgr.configurationRegistry().registerStorage(
-            new DistributedConfigurationStorage(metaStorageMgr));
-
-        // Configuration manager startup.
-        ConfigurationManagerImpl configurationMgr = new ConfigurationManagerImpl(
-            locConfigurationMgr,
-            distributedConfigurationMgr
-        );
+        // Start configuration manager.
+        ConfigurationManager configurationMgr = new ConfigurationManager(rootKeys, configurationStorages);
 
         // Baseline manager startup.
         BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, netMember);

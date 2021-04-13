@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.notifications;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationRegistry;
@@ -61,7 +62,7 @@ public class ConfigurationListenerTest {
     }
 
     /** */
-    private final ConfigurationRegistry registry = new ConfigurationRegistry();
+    private ConfigurationRegistry registry;
 
     /** */
     private ParentConfiguration configuration;
@@ -69,11 +70,11 @@ public class ConfigurationListenerTest {
     /** */
     @BeforeEach
     public void before() {
-        registry.registerRootKey(ParentConfiguration.KEY);
-
-        TestConfigurationStorage storage = new TestConfigurationStorage();
-
-        registry.registerStorage(storage);
+        registry = new ConfigurationRegistry(
+            Collections.singletonList(ParentConfiguration.KEY),
+            Collections.emptyMap(),
+            Collections.singletonList(new TestConfigurationStorage())
+        );
 
         registry.startStorageConfigurations(storage.type());
 

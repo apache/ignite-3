@@ -15,7 +15,24 @@
  * limitations under the License.
  */
 
-/**
- * Contains internal tests or test related classes and interfaces.
- */
-package org.apache.ignite.internal.testframework;
+package org.apache.ignite.configuration.internal.rest;
+
+import java.io.Reader;
+
+/** */
+public interface FormatConverter {
+    /** */
+    String convertTo(Object obj);
+
+    /** */
+    String convertTo(String rootName, Object obj);
+
+    /** */
+    String rootName(String source);
+
+    /** */
+    Object convertFrom(String source, String rootName, Class<?> clazz);
+
+    /** */
+    <T> T convertFrom(Reader source, String rootName, Class<T> clazz);
+}
