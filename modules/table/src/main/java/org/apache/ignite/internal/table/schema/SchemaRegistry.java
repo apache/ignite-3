@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Holds schema descriptors for actual schema versions.
@@ -95,7 +96,7 @@ public class SchemaRegistry {
      *
      * @param ver Schema version to get descriptor for.
      * @return Schema descriptor.
-     * @throws SchemaRegistryException If no schema for given version.
+     * @throws SchemaRegistryException If no schema found for given version.
      */
     public SchemaDescriptor schema(int ver) {
         final SchemaDescriptor desc = history.get(ver);
@@ -117,7 +118,7 @@ public class SchemaRegistry {
      * @return Schema descriptor if initialized, {@code null} otherwise.
      * @throws SchemaRegistryException If failed.
      */
-    public SchemaDescriptor schema() {
+    public @Nullable SchemaDescriptor schema() {
         final int lastVer0 = lastVer;
 
         final SchemaDescriptor desc = history.get(lastVer0);
@@ -139,7 +140,7 @@ public class SchemaRegistry {
     }
 
     /**
-     * Register new schema.
+     * Registers new schema.
      *
      * @param desc Schema descriptor.
      * @throws SchemaRegistrationConflictException If schema of provided version was already registered.
