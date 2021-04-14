@@ -80,17 +80,16 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <reportOutputDirectory>${basedir}/target/javadoc</reportOutputDirectory>
+                    <excludePackageNames>com.facebook.presto.*:*.internal.*</excludePackageNames>
+                </configuration>
                 <executions>
                     <execution>
                         <id>ignite-javadoc</id>
                         <goals>
                             <goal>aggregate</goal>
                         </goals>
-                        <phase>validate</phase>
-                        <configuration>
-                            <reportOutputDirectory>${basedir}/target/javadoc</reportOutputDirectory>
-                            <excludePackageNames>com.facebook.presto.bytecode:*.internal.*</excludePackageNames>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
