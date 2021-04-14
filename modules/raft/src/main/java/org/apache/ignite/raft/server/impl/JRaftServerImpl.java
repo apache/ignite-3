@@ -2,6 +2,7 @@ package org.apache.ignite.raft.server.impl;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -13,6 +14,7 @@ import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
+import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.message.ActionRequest;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
@@ -25,7 +27,9 @@ import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
@@ -42,6 +46,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.impl.RocksDBLogStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
+import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.server.RaftServer;
@@ -99,16 +104,16 @@ public class JRaftServerImpl implements RaftServer {
             else if (message instanceof ActionRequest) {
                 ActionRequest<?> req0 = (ActionRequest<?>) message;
 
-                NodeImpl lsnr = groups.get(req0.groupId());
+                NodeImpl node = groups.get(req0.groupId());
 
-                if (lsnr == null) {
+                if (node == null) {
                     sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
 
                     return;
                 }
 
                 if (req0.command() instanceof WriteCommand) {
-                    lsnr.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(req0.command())), new MyClosure<>(req0.command()) {
+                    node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(req0.command())), new MyClosure<>(req0.command()) {
                         @Override public void success(Object res) {
                             var msg = clientMsgFactory.actionResponse().result(res).build();
                             service.messagingService().send(sender, msg, correlationId);
@@ -119,11 +124,43 @@ public class JRaftServerImpl implements RaftServer {
                         }
                     }));
                 }
+                else {
+                    // TODO asch purpose of request context ?
+                    node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
+                        @Override public void run(Status status, long index, byte[] reqCtx) {
+                            if (status.isOk()) {
+                                DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
+
+                                List<CommandClosure<ReadCommand>> l = new ArrayList<>(1);
+                                l.add(new CommandClosure<ReadCommand>() {
+                                    @Override public ReadCommand command() {
+                                        return (ReadCommand) req0.command();
+                                    }
+
+                                    @Override public void success(Object res) {
+                                        var msg = clientMsgFactory.actionResponse().result(res).build();
+                                        service.messagingService().send(sender, msg, correlationId);
+                                    }
+
+                                    @Override public void failure(Throwable err) {
+                                        sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                                    }
+                                });
+
+                                fsm.listener.onRead(l.iterator());
+                            }
+                            else {
+                                // TODO asch state machine error.
+                                sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                            }
+                        }
+                    });
+                }
 
 //                if (req0.command() instanceof ReadCommand)
-//                    handleActionRequest(sender, req0, correlationId, readQueue, lsnr);
+//                    handleActionRequest(sender, req0, correlationId, readQueue, node);
 //                else
-//                    handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
+//                    handleActionRequest(sender, req0, correlationId, writeQueue, node);
             }
             else {
                 LOG.warn("Unsupported message class " + message.getClass().getName());
@@ -214,13 +251,8 @@ public class JRaftServerImpl implements RaftServer {
                 }
 
                 @Override public CommandClosure<WriteCommand> next() {
-                    @Nullable Closure done = iter.done();
+                    @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                     ByteBuffer data = iter.getData();
-
-                    iter.next();
-
-                    if (done != null) // This is a leader.
-                        return (CommandClosure<WriteCommand>) done;
 
                     return new CommandClosure<WriteCommand>() {
                         @Override public WriteCommand command() {
@@ -228,10 +260,16 @@ public class JRaftServerImpl implements RaftServer {
                         }
 
                         @Override public void success(Object res) {
-                            // No-op.
+                            if (done != null)
+                                done.success(res);
+
+                            iter.next();
                         }
 
                         @Override public void failure(Throwable err) {
+                            if (done != null)
+                                done.failure(err);
+
                             iter.setErrorAndRollback(1, new Status(-1, err.getMessage()));
                         }
                     };

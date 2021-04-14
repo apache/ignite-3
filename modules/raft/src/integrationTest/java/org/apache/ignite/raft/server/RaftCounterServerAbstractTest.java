@@ -18,6 +18,7 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -122,24 +123,24 @@ abstract class RaftCounterServerAbstractTest {
     public void testCounterCommandListener() throws Exception {
         Peer server = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
 
-        RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
+        RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 5000,
             List.of(server), true, 200);
 
-        RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 1000,
+        RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 5000,
             List.of(server), true, 200);
 
         assertNotNull(service0.leader());
         assertNotNull(service1.leader());
 
         assertEquals(2, service0.<Integer>run(new IncrementAndGetCommand(2)).get());
-        //assertEquals(2, service0.<Integer>run(new GetValueCommand()).get());
+        assertEquals(2, service0.<Integer>run(new GetValueCommand()).get());
         assertEquals(3, service0.<Integer>run(new IncrementAndGetCommand(1)).get());
-        //assertEquals(3, service0.<Integer>run(new GetValueCommand()).get());
+        assertEquals(3, service0.<Integer>run(new GetValueCommand()).get());
 
         assertEquals(4, service1.<Integer>run(new IncrementAndGetCommand(4)).get());
-        //assertEquals(4, service1.<Integer>run(new GetValueCommand()).get());
+        assertEquals(4, service1.<Integer>run(new GetValueCommand()).get());
         assertEquals(7, service1.<Integer>run(new IncrementAndGetCommand(3)).get());
-        //assertEquals(7, service1.<Integer>run(new GetValueCommand()).get());
+        assertEquals(7, service1.<Integer>run(new GetValueCommand()).get());
     }
 
     /**
