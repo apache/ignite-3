@@ -13,7 +13,7 @@ import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.Assert.assertTrue;
 
-class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
+public class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
     private String dataPath;
 
     @BeforeEach
