@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -48,6 +49,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
 class ITScaleCubeNetworkMessagingTest {
+    /** */
+    private static final long CHECK_INTERVAL = 200;
+
+    /** */
+    private static final long CLUSTER_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
+
     /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
 
@@ -81,6 +88,8 @@ class ITScaleCubeNetworkMessagingTest {
         ClusterService alice = startNetwork(aliceName, 3344, addresses);
         ClusterService bob = startNetwork("Bob", 3345, addresses);
         ClusterService carol = startNetwork("Carol", 3346, addresses);
+
+        waitForCluster(alice);
 
         NetworkMessageHandler messageWaiter = (message, sender, correlationId) -> messageReceivedLatch.countDown();
 
@@ -135,6 +144,8 @@ class ITScaleCubeNetworkMessagingTest {
 
         ClusterService alice = startNetwork(aliceName, 3344, addresses);
         ClusterService bob = startNetwork("Bob", 3345, addresses);
+
+        waitForCluster(alice);
 
         CountDownLatch aliceShutdownLatch = new CountDownLatch(1);
 
@@ -205,5 +216,48 @@ class ITScaleCubeNetworkMessagingTest {
 
         Mono invoke = (Mono) stop.invoke(transport);
         invoke.block();
+    }
+
+    /**
+     * Wait for cluster to come up.
+     * @param cluster Network cluster.
+     */
+    private void waitForCluster(ClusterService cluster) {
+        AtomicInteger integer = new AtomicInteger(0);
+
+        cluster.topologyService().addEventHandler(new TopologyEventHandler() {
+            /** {@inheritDoc} */
+            @Override public void onAppeared(ClusterNode member) {
+                integer.set(cluster.topologyService().allMembers().size());
+            }
+
+            /** {@inheritDoc} */
+            @Override public void onDisappeared(ClusterNode member) {
+                integer.decrementAndGet();
+            }
+        });
+
+        integer.set(cluster.topologyService().allMembers().size());
+
+        long curTime = System.currentTimeMillis();
+        long endTime = curTime + CLUSTER_TIMEOUT;
+
+        while (curTime < endTime) {
+            if (integer.get() == startedMembers.size()) {
+                return;
+            }
+
+            if (CHECK_INTERVAL > 0) {
+                try {
+                    Thread.sleep(CHECK_INTERVAL);
+                }
+                catch (InterruptedException ignored) {
+                }
+            }
+
+            curTime = System.currentTimeMillis();
+        }
+
+        throw new RuntimeException("Failed to wait for cluster startup");
     }
 }
