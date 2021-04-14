@@ -48,6 +48,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
                     }
                 }
 
+                if (prc == null)
+                    return; // TODO use single message handler.
+
                 RpcProcessor.ExecutorSelector selector = prc.executorSelector();
 
                 Executor executor = null;

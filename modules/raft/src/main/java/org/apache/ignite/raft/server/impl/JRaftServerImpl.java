@@ -69,10 +69,15 @@ public class JRaftServerImpl implements RaftServer {
                     return;
                 }
 
-                // TODO asch handle no leader.
                 PeerId leaderId = lsnr.getLeaderId();
 
-                // Find by host and port
+                if (leaderId == null) {
+                    sendError(sender, correlationId, RaftErrorCode.NO_LEADER);
+
+                    return;
+                }
+
+                // Find by host and port.
                 Peer leader0 = new Peer(service.topologyService().allMembers().stream().
                     filter(m -> m.host().equals(leaderId.getIp()) && m.port() == leaderId.getPort()).findFirst().orElse(null));
 
@@ -150,6 +155,10 @@ public class JRaftServerImpl implements RaftServer {
         NodeImpl node = (NodeImpl) server.start(false);
 
         groups.put(groupId, node);
+    }
+
+    public NodeImpl node(String groupId) {
+        return groups.get(groupId);
     }
 
     @Override public void shutdown() {

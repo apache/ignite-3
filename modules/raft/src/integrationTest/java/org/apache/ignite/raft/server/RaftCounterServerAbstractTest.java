@@ -56,18 +56,18 @@ abstract class RaftCounterServerAbstractTest {
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
 
     /** */
-    private RaftServer server;
+    protected RaftServer server;
 
     /** */
-    private ClusterService client;
+    protected ClusterService client;
 
     protected static final String SERVER_ID = "localhost:" + PORT;
 
     /** */
-    private static final String COUNTER_GROUP_ID_0 = "counter0";
+    protected static final String COUNTER_GROUP_ID_0 = "counter0";
 
     /** */
-    private static final String COUNTER_GROUP_ID_1 = "counter1";
+    protected static final String COUNTER_GROUP_ID_1 = "counter1";
 
     /**
      * @param testInfo Test info.
@@ -78,8 +78,10 @@ abstract class RaftCounterServerAbstractTest {
 
         server = createServer();
 
-        server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of());
-        server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of());
+        server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterCommandListener(),
+            List.of(new Peer(server.clusterService().topologyService().localMember())));
+        server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterCommandListener(),
+            List.of(new Peer(server.clusterService().topologyService().localMember())));
 
         client = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(SERVER_ID));
 
