@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -30,7 +29,6 @@ import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.raft.server.impl.RaftServerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,24 +39,21 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
-class ITRaftCounterServerTest {
+abstract class RaftCounterServerAbstractTest {
     /** */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ITRaftCounterServerTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftCounterServerAbstractTest.class);
 
     /** */
-    private static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
+    protected static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Network factory. */
-    private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
+    protected static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
     /** */
-    // TODO: IGNITE-14088: Uncomment and use real serializer provider
+    protected static final int PORT = 20010;
+
+    /** TODO: IGNITE-14088: Uncomment and use real serializer provider */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
-//            .registerFactory((short)1000, ???)
-//            .registerFactory((short)1001, ???)
-//            .registerFactory((short)1005, ???)
-//            .registerFactory((short)1006, ???)
-//            .registerFactory((short)1009, ???);
 
     /** */
     private RaftServer server;
@@ -66,11 +61,7 @@ class ITRaftCounterServerTest {
     /** */
     private ClusterService client;
 
-    /** */
-    private static final String SERVER_ID = "testServer";
-
-    /** */
-    private static final String CLIENT_ID = "testClient";
+    protected static final String SERVER_ID = "localhost:" + PORT;
 
     /** */
     private static final String COUNTER_GROUP_ID_0 = "counter0";
@@ -85,16 +76,17 @@ class ITRaftCounterServerTest {
     void before(TestInfo testInfo) {
         LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
 
-        server = new RaftServerImpl(SERVER_ID,
-            20100,
-            FACTORY,
-            1000,
-            Map.of(COUNTER_GROUP_ID_0, new CounterCommandListener(), COUNTER_GROUP_ID_1, new CounterCommandListener()));
+        server = createServer();
 
-        client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
+        server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of());
+        server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of());
+
+        client = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(SERVER_ID));
 
         assertTrue(waitForTopology(client, 2, 1000));
     }
+
+    protected abstract RaftServer createServer();
 
     /**
      * @throws Exception
@@ -153,7 +145,7 @@ class ITRaftCounterServerTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private ClusterService startClient(String name, int port, List<String> servers) {
+    protected ClusterService clusterService(String name, int port, List<String> servers) {
         var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
         var network = NETWORK_FACTORY.createClusterService(context);
         network.start();

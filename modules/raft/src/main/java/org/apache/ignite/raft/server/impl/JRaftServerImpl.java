@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -32,11 +33,11 @@ import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.server.RaftManager;
+import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
-public class JRaftManagerImpl implements RaftManager {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftManagerImpl.class);
+public class JRaftServerImpl implements RaftServer {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftServerImpl.class);
 
     private final ClusterService service;
     private final boolean reuse;
@@ -47,7 +48,7 @@ public class JRaftManagerImpl implements RaftManager {
 
     private ConcurrentMap<String, NodeImpl> groups = new ConcurrentHashMap<>();
 
-    public JRaftManagerImpl(ClusterService service, boolean reuse, String dataPath, RaftClientMessageFactory factory) {
+    public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessageFactory factory, boolean reuse) {
         this.service = service;
         this.reuse = reuse;
         this.dataPath = dataPath;
@@ -203,7 +204,7 @@ public class JRaftManagerImpl implements RaftManager {
         service.messagingService().send(sender, resp, corellationId);
     }
 
-    private abstract class MyClosure<T> implements Closure, CommandClosure<T> {
+    private abstract class MyClosure<T extends Command> implements Closure, CommandClosure<T> {
         private final T command;
 
         MyClosure(T command) {

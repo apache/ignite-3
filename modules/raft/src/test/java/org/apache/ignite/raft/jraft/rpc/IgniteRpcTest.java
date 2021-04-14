@@ -39,7 +39,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
     @Override public RpcServer createServer(Endpoint endpoint) {
         ClusterService service = createService(endpoint.toString(), endpoint.getPort(), List.of());
 
-        return new IgniteRpcServer(service);
+        return new IgniteRpcServer(service, false);
     }
 
     @Override public RpcClient createClient() {
@@ -57,12 +57,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
      * @return The client cluster view.
      */
     private ClusterService createService(String name, int port, List<String> servers) {
+        // TODO: IGNITE-14088: Uncomment and use real serializer provider
         var serializationRegistry = new MessageSerializationRegistry();
-//            .registerFactory((short)1000, ???)
-//            .registerFactory((short)1001, ???)
-//            .registerFactory((short)1005, ???)
-//            .registerFactory((short)1006, ???)
-//            .registerFactory((short)1009, ???);
 
         var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
         var factory = new ScaleCubeClusterServiceFactory();

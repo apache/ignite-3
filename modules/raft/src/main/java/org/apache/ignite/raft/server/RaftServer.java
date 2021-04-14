@@ -17,7 +17,10 @@
 
 package org.apache.ignite.raft.server;
 
+import java.util.List;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 
 /**
@@ -32,20 +35,14 @@ public interface RaftServer {
     /**
      * @return Local member.
      */
-    ClusterNode localMember();
+    ClusterService clusterService();
 
     /**
      * Set a listener for group commands.
      * @param groupId group id.
      * @param lsnr Listener.
      */
-    void setListener(String groupId, RaftGroupCommandListener lsnr);
-
-    /**
-     * Remove a command listener.
-     * @param groupId Group id.
-     */
-    void clearListener(String groupId);
+    void startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
 
     /**
      * Shutdown a server.

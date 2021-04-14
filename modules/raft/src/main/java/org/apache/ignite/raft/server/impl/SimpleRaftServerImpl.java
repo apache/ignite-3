@@ -19,7 +19,6 @@ package org.apache.ignite.raft.server.impl;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -27,11 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -46,20 +42,16 @@ import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 import org.apache.ignite.raft.server.RaftServer;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A single node server implementation.
  */
-public class RaftServerImpl implements RaftServer {
+public class SimpleRaftServerImpl implements RaftServer {
     /** */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
+    private static final int QUEUE_SIZE = 1000;
 
     /** */
-    private final String id;
-
-    /** */
-    private final int localPort;
+    private static final IgniteLogger LOG = IgniteLogger.forClass(SimpleRaftServerImpl.class);
 
     /** */
     private final RaftClientMessageFactory clientMsgFactory;
@@ -82,6 +74,9 @@ public class RaftServerImpl implements RaftServer {
     /** */
     private final Thread writeWorker;
 
+    /** */
+    private final boolean reuse;
+
     /**
      * @param id Server id.
      * @param localPort Local port.
@@ -89,38 +84,24 @@ public class RaftServerImpl implements RaftServer {
      * @param queueSize Queue size.
      * @param listeners Command listeners.
      */
-    public RaftServerImpl(
-        @NotNull String id,
-        int localPort,
-        @NotNull RaftClientMessageFactory clientMsgFactory,
-        int queueSize,
-        Map<String, RaftGroupCommandListener> listeners
+    public SimpleRaftServerImpl(
+        ClusterService service,
+        String dataPath,
+        RaftClientMessageFactory clientMsgFactory,
+        boolean reuse
     ) {
-        Objects.requireNonNull(id);
+        Objects.requireNonNull(service);
         Objects.requireNonNull(clientMsgFactory);
 
-        this.id = id;
-        this.localPort = localPort;
+        this.service = service;
         this.clientMsgFactory = clientMsgFactory;
+        this.reuse = reuse;
 
         if (listeners != null)
             this.listeners.putAll(listeners);
 
-        readQueue = new ArrayBlockingQueue<>(queueSize);
-        writeQueue = new ArrayBlockingQueue<>(queueSize);
-
-        // TODO: IGNITE-14088: Uncomment and use real serializer factory
-        var serializationRegistry = new MessageSerializationRegistry();
-//            .registerFactory((short)1000, ???)
-//            .registerFactory((short)1001, ???)
-//            .registerFactory((short)1005, ???)
-//            .registerFactory((short)1006, ???)
-//            .registerFactory((short)1009, ???);
-
-        var context = new ClusterLocalConfiguration(id, localPort, List.of(), serializationRegistry);
-        var factory = new ScaleCubeClusterServiceFactory();
-
-        service = factory.createClusterService(context);
+        readQueue = new ArrayBlockingQueue<>(QUEUE_SIZE);
+        writeQueue = new ArrayBlockingQueue<>(QUEUE_SIZE);
 
         service.messagingService().addMessageHandler((message, sender, correlationId) -> {
             if (message instanceof GetLeaderRequest) {
@@ -131,7 +112,7 @@ public class RaftServerImpl implements RaftServer {
             else if (message instanceof ActionRequest) {
                 ActionRequest<?> req0 = (ActionRequest<?>) message;
 
-                RaftGroupCommandListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
+                RaftGroupCommandListener lsnr = SimpleRaftServerImpl.this.listeners.get(req0.groupId());
 
                 if (lsnr == null) {
                     sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
@@ -149,32 +130,26 @@ public class RaftServerImpl implements RaftServer {
             }
         });
 
-        service.start();
+        if (!reuse)
+            service.start();
 
-        readWorker = new Thread(() -> processQueue(readQueue, RaftGroupCommandListener::onRead), "read-cmd-worker#" + id);
+        readWorker = new Thread(() -> processQueue(readQueue, RaftGroupCommandListener::onRead), "read-cmd-worker#" + service.topologyService().localMember().toString());
         readWorker.setDaemon(true);
         readWorker.start();
 
-        writeWorker = new Thread(() -> processQueue(writeQueue, RaftGroupCommandListener::onWrite), "write-cmd-worker#" + id);
+        writeWorker = new Thread(() -> processQueue(writeQueue, RaftGroupCommandListener::onWrite), "write-cmd-worker#" + service.topologyService().localMember().toString());
         writeWorker.setDaemon(true);
         writeWorker.start();
 
         LOG.info("Started replication server [node=" + service.toString() + ']');
     }
 
-    /** {@inheritDoc} */
-    @Override public ClusterNode localMember() {
-        return service.topologyService().localMember();
+    @Override public ClusterService clusterService() {
+        return service;
     }
 
-    /** {@inheritDoc} */
-    @Override public void setListener(String groupId, RaftGroupCommandListener lsnr) {
+    @Override public void startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
         listeners.put(groupId, lsnr);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void clearListener(String groupId) {
-        listeners.remove(groupId);
     }
 
     /** {@inheritDoc} */
@@ -185,7 +160,8 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.interrupt();
         writeWorker.join();
 
-        service.shutdown();
+        if (!reuse)
+            service.shutdown();
 
         LOG.info("Stopped replication server [node=" + service.toString() + ']');
     }
