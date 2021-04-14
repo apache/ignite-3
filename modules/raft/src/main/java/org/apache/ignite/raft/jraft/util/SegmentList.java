@@ -345,11 +345,6 @@ public class SegmentList<T> {
         }
     }
 
-    private static final ReferenceFieldUpdater<ArrayList<?>, Object[]> LIST_ARRAY_GETTER = Updaters
-                                                                                             .newReferenceFieldUpdater(
-                                                                                                 ArrayList.class,
-                                                                                                 "elementData");
-
     @SuppressWarnings("unchecked")
     public void addAll(final Collection<T> coll) {
         Object[] src = coll2Array(coll);

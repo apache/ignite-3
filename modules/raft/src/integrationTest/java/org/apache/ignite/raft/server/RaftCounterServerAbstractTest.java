@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
-public abstract class RaftCounterServerAbstractTest {
+abstract class RaftCounterServerAbstractTest {
     /** */
     private static final IgniteLogger LOG = IgniteLogger.forClass(RaftCounterServerAbstractTest.class);
 
