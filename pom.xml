@@ -83,6 +83,7 @@
                 <configuration>
                     <reportOutputDirectory>${basedir}/target/javadoc</reportOutputDirectory>
                     <excludePackageNames>com.facebook.presto.*:*.internal.*</excludePackageNames>
+                    <goal>aggregate</goal>
                 </configuration>
                 <executions>
                     <execution>
