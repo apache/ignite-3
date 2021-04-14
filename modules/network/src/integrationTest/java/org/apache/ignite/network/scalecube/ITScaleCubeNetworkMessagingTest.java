@@ -87,8 +87,6 @@ class ITScaleCubeNetworkMessagingTest {
 
         //When: Send one message to all members in cluster.
         for (ClusterNode member : alice.topologyService().allMembers()) {
-            System.out.println("SEND : " + member);
-
             alice.messagingService().weakSend(member, testMessage);
         }
 
@@ -135,24 +133,9 @@ class ITScaleCubeNetworkMessagingTest {
         var context = new ClusterLocalConfiguration(name, port, addresses, SERIALIZATION_REGISTRY);
 
         ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
-        System.out.println("-----" + name + " started");
 
         clusterService.messagingService().addMessageHandler((message, sender, correlationId) -> {
             messageStorage.put(name, message);
-
-            System.out.println(name + " handled messages : " + message);
-        });
-
-        clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
-            /** {@inheritDoc} */
-            @Override public void onAppeared(ClusterNode member) {
-                System.out.println(name + " found member : " + member);
-            }
-
-            /** {@inheritDoc} */
-            @Override public void onDisappeared(ClusterNode member) {
-                System.out.println(name + " lost member : " + member);
-            }
         });
 
         clusterService.start();
