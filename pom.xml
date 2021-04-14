@@ -89,10 +89,7 @@
                         <phase>validate</phase>
                         <configuration>
                             <reportOutputDirectory>${basedir}/target/javadoc</reportOutputDirectory>
-                            <destDir>core</destDir>
-                            <subpackages>org.apache.ignite -exclude
-                                com.facebook.presto.bytecode:org.apache.ignite.internal
-                            </subpackages>
+                            <excludePackageNames>com.facebook.presto.bytecode:*.internal.*</excludePackageNames>
                         </configuration>
                     </execution>
                 </executions>
