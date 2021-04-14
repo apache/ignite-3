@@ -131,7 +131,7 @@ public class RaftServerImpl implements RaftServer {
             else if (message instanceof ActionRequest) {
                 ActionRequest<?> req0 = (ActionRequest<?>) message;
 
-                RaftGroupCommandListener lsnr = listeners.get(req0.groupId());
+                RaftGroupCommandListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
 
                 if (lsnr == null) {
                     sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);

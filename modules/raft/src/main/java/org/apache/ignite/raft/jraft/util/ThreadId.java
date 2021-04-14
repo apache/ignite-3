@@ -66,6 +66,7 @@ public class ThreadId {
         this.destroyed = false;
     }
 
+    // TODO asch why Object here ?
     public Object getData() {
         return this.data;
     }

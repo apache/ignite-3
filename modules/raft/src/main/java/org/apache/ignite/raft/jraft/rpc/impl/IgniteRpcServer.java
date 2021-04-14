@@ -21,14 +21,17 @@ import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 public class IgniteRpcServer implements RpcServer<Void> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
 
+    private final boolean reuse;
+
     private ClusterService service;
 
     private List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
 
     private Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
-    public IgniteRpcServer(ClusterService service) {
+    public IgniteRpcServer(ClusterService service, boolean reuse) {
         this.service = service;
+        this.reuse = reuse;
 
         service.messagingService().addMessageHandler(new NetworkMessageHandler() {
             @Override public void onReceived(NetworkMessage msg, ClusterNode sender, String corellationId) {
@@ -87,7 +90,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
             }
         });
 
-        service.start();
+        if (!reuse)
+            service.start();
     }
 
     @Override public void registerConnectionClosedEventListener(ConnectionClosedEventListener listener) {
@@ -108,6 +112,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
     }
 
     @Override public void shutdown() {
+        if (reuse)
+            return;
+
         try {
             service.shutdown();
         }
