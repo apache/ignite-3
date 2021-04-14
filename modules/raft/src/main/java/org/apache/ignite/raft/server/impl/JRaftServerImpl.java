@@ -23,15 +23,26 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
+import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
+import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
+import org.apache.ignite.raft.jraft.storage.impl.RocksDBLogStorage;
+import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
@@ -138,6 +149,23 @@ public class JRaftServerImpl implements RaftServer {
         nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
         nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
+        nodeOptions.setServiceFactory(new JRaftServiceFactory() {
+            @Override public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
+                return new RocksDBLogStorage(uri, raftOptions);
+            }
+
+            @Override public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+                return new LocalSnapshotStorage(uri, raftOptions);
+            }
+
+            @Override public RaftMetaStorage createRaftMetaStorage(String uri, RaftOptions raftOptions) {
+                return new LocalRaftMetaStorage(uri, raftOptions);
+            }
+
+            @Override public LogEntryCodecFactory createLogEntryCodecFactory() {
+                return LogEntryV1CodecFactory.getInstance();
+            }
+        });
 
         nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
 
@@ -161,9 +189,15 @@ public class JRaftServerImpl implements RaftServer {
         return groups.get(groupId);
     }
 
-    @Override public void shutdown() {
-        if (!reuse)
+    @Override public void shutdown() throws Exception {
+        if (!reuse) {
             rpcServer.shutdown();
+
+            for (NodeImpl value : groups.values()) {
+                value.shutdown();
+                value.join();
+            }
+        }
     }
 
     private class DelegatingStateMachine extends StateMachineAdapter {

@@ -40,7 +40,7 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected RaftServer createServer() {
-        ClusterService service = clusterService(SERVER_ID, PORT, List.of(SERVER_ID));
+        ClusterService service = clusterService(SERVER_ID, PORT, List.of());
 
         return new JRaftServerImpl(service, dataPath, FACTORY, false);
     }
