@@ -287,7 +287,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         if (leader == null)
             return refreshLeader().thenCompose(res -> run(cmd));
 
-        ActionRequest<R> req = factory.actionRequest().command(cmd).groupId(groupId).build();
+        ActionRequest<R> req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(true).build();
 
         CompletableFuture<ActionResponse<R>> fut = sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout);
 
@@ -296,7 +296,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** {@inheritDoc} */
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
-        ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).build();
+        ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(false).build();
 
         CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
 
@@ -310,14 +310,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             .thenCompose(resp -> {
                 if (resp instanceof RaftErrorResponse) {
                     RaftErrorResponse resp0 = (RaftErrorResponse)resp;
+
                     switch (resp0.errorCode()) {
                         case NO_LEADER:
                             return composeWithDelay(() -> sendWithRetry(randomNode(), req, stopTime));
+
                         case LEADER_CHANGED:
                             leader = resp0.newLeader();
                             return composeWithDelay(() -> sendWithRetry(resp0.newLeader().getNode(), req, stopTime));
+
                         case SUCCESS:
                             return CompletableFuture.completedFuture(null);
+
                         default:
                             return CompletableFuture.failedFuture(new RaftException(resp0.errorCode()));
                     }

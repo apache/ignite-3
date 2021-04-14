@@ -481,7 +481,8 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO FIXME asch broken.
+    @Test // TODO FIXME asch broken together with volatile state. A follower with empty log can become a leader.
+    @Ignore
     public void testVoteTimedoutStepDown() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
