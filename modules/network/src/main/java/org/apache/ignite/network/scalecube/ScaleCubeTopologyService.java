@@ -52,31 +52,50 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      */
     void onMembershipEvent(MembershipEvent event) {
         ClusterNode member = fromMember(event.member());
+
+        String memberName = member.name();
+
+        boolean appeared = false;
+        boolean disappeared = false;
+
+        switch (event.type()) {
+            case ADDED:
+                members.put(memberName, member);
+
+                appeared = true;
+
+                break;
+
+            case LEAVING:
+                members.remove(memberName);
+
+                disappeared = true;
+
+                break;
+
+            case REMOVED:
+                if (members.containsKey(memberName)) {
+                    members.remove(memberName);
+
+                    disappeared = true;
+                }
+
+                break;
+
+            case UPDATED:
+                // No-op.
+                break;
+
+            default:
+                throw new IgniteInternalException("This event is not supported: event = " + event);
+
+        }
+
         for (TopologyEventHandler handler : getEventHandlers()) {
-            switch (event.type()) {
-                case ADDED:
-                    members.put(member.name(), member);
-
-                    handler.onAppeared(member);
-
-                    break;
-
-                case LEAVING:
-                    members.remove(member.name());
-
-                    handler.onDisappeared(member);
-
-                    break;
-
-                case REMOVED:
-                case UPDATED:
-                    // No-op.
-                    break;
-
-                default:
-                    throw new IgniteInternalException("This event is not supported: event = " + event);
-
-            }
+            if (appeared)
+                handler.onAppeared(member);
+            else if (disappeared)
+                handler.onDisappeared(member);
         }
     }
 

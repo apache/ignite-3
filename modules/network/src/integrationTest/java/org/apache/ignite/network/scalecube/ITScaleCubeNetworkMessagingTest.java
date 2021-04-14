@@ -16,6 +16,10 @@
  */
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.ClusterImpl;
+import io.scalecube.cluster.transport.api.Transport;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,6 +39,7 @@ import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -97,6 +102,39 @@ class ITScaleCubeNetworkMessagingTest {
         assertThat(getLastMessage(alice), is(testMessage));
         assertThat(getLastMessage(bob), is(testMessage));
         assertThat(getLastMessage(carol), is(testMessage));
+    }
+
+    /**
+     * Test graceful shutdown.
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testShutdown() throws Exception {
+        testShutdown0(false);
+    }
+
+    /**
+     * Test forceful shutdown.
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testForcefulShutdown() throws Exception {
+        testShutdown0(true);
+    }
+
+    /**
+     * Test shutdown.
+     * @param forceful Whether shutdown should be forceful.
+     * @throws Exception If failed.
+     */
+    private void testShutdown0(boolean forceful) throws Exception {
+        //Given: Three started member which are gathered to cluster.
+        List<String> addresses = List.of("localhost:3344", "localhost:3345");
+
+        String aliceName = "Alice";
+
+        ClusterService alice = startNetwork(aliceName, 3344, addresses);
+        ClusterService bob = startNetwork("Bob", 3345, addresses);
 
         CountDownLatch aliceShutdownLatch = new CountDownLatch(1);
 
@@ -113,14 +151,17 @@ class ITScaleCubeNetworkMessagingTest {
             }
         });
 
-        alice.shutdown();
+        if (forceful)
+            stopForcefully(alice);
+        else
+            alice.shutdown();
 
-        boolean aliceShutdownReceived = aliceShutdownLatch.await(3, TimeUnit.SECONDS);
+        boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, TimeUnit.SECONDS);
         assertTrue(aliceShutdownReceived);
 
         Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
 
-        assertEquals(2, networkMembers.size());
+        assertEquals(1, networkMembers.size());
     }
 
     /** */
@@ -143,5 +184,26 @@ class ITScaleCubeNetworkMessagingTest {
         startedMembers.add(clusterService);
 
         return clusterService;
+    }
+
+    /**
+     * Find cluster's transport and force it to stop.
+     * @param cluster Cluster to be shutdown.
+     * @throws Exception If failed to stop.
+     */
+    private static void stopForcefully(ClusterService cluster) throws Exception {
+        Field clusterImplField = cluster.getClass().getDeclaredField("val$cluster");
+        clusterImplField.setAccessible(true);
+
+        ClusterImpl clusterImpl = (ClusterImpl) clusterImplField.get(cluster);
+        Field transportField = clusterImpl.getClass().getDeclaredField("transport");
+        transportField.setAccessible(true);
+
+        Transport transport = (Transport) transportField.get(clusterImpl);
+        Method stop = transport.getClass().getDeclaredMethod("stop");
+        stop.setAccessible(true);
+
+        Mono invoke = (Mono) stop.invoke(transport);
+        invoke.block();
     }
 }
