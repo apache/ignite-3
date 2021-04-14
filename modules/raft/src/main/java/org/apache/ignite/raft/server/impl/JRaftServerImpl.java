@@ -27,7 +27,6 @@ import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -44,6 +43,7 @@ import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.impl.RocksDBLogStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
@@ -108,7 +108,7 @@ public class JRaftServerImpl implements RaftServer {
                 }
 
                 if (req0.command() instanceof WriteCommand) {
-                    lsnr.apply(new Task(null, new MyClosure<>(req0.command()) {
+                    lsnr.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(req0.command())), new MyClosure<>(req0.command()) {
                         @Override public void success(Object res) {
                             var msg = clientMsgFactory.actionResponse().result(res).build();
                             service.messagingService().send(sender, msg, correlationId);
@@ -214,18 +214,17 @@ public class JRaftServerImpl implements RaftServer {
                 }
 
                 @Override public CommandClosure<WriteCommand> next() {
-                    iter.next();
-
                     @Nullable Closure done = iter.done();
+                    ByteBuffer data = iter.getData();
+
+                    iter.next();
 
                     if (done != null) // This is a leader.
                         return (CommandClosure<WriteCommand>) done;
 
                     return new CommandClosure<WriteCommand>() {
                         @Override public WriteCommand command() {
-                            ByteBuffer data = iter.getData();
-
-                            return null; // To BO.
+                            return JDKMarshaller.DEFAULT.unmarshall(data.array());
                         }
 
                         @Override public void success(Object res) {
