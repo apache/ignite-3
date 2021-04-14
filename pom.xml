@@ -73,6 +73,30 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!--
+                Plugin to build aggregated javadoc
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ignite-javadoc</id>
+                        <goals>
+                            <goal>aggregate</goal>
+                        </goals>
+                        <phase>validate</phase>
+                        <configuration>
+                            <reportOutputDirectory>${basedir}/target/javadoc</reportOutputDirectory>
+                            <destDir>core</destDir>
+                            <subpackages>org.apache.ignite -exclude
+                                com.facebook.presto.bytecode:org.apache.ignite.internal
+                            </subpackages>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
