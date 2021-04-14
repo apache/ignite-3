@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.schema.NativeType.STRING;
 import static org.apache.ignite.internal.table.schema.SchemaRegistry.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,13 +56,13 @@ public class SchemaRegistryTest {
         final SchemaRegistry reg = new SchemaRegistry();
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
-        assertThrows(SchemaRegistryException.class, () -> reg.schema());
+        assertNull(reg.schema());
 
         // Try to register schema with initial version.
         assertThrows(SchemaRegistryException.class, () -> reg.registerSchema(schemaV0));
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
-        assertThrows(SchemaRegistryException.class, () -> reg.schema());
+        assertNull(reg.schema());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(INITIAL_SCHEMA_VERSION));
 
         // Try to register schema with version of 0-zero.
@@ -107,7 +108,7 @@ public class SchemaRegistryTest {
         final SchemaRegistry reg = new SchemaRegistry();
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
-        assertThrows(SchemaRegistryException.class, () -> reg.schema());
+        assertNull(reg.schema());
 
         // Register schema with very first version.
         reg.registerSchema(schemaV1);

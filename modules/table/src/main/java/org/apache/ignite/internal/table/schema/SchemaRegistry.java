@@ -95,6 +95,7 @@ public class SchemaRegistry {
      *
      * @param ver Schema version to get descriptor for.
      * @return Schema descriptor.
+     * @throws SchemaRegistryException If no schema for given version.
      */
     public SchemaDescriptor schema(int ver) {
         final SchemaDescriptor desc = history.get(ver);
@@ -111,9 +112,10 @@ public class SchemaRegistry {
     }
 
     /**
-     * Gets schema descriptor for the latest version.
+     * Gets schema descriptor for the latest version if initialized.
      *
-     * @return Schema descriptor.
+     * @return Schema descriptor if initialized, {@code null} otherwise.
+     * @throws SchemaRegistryException If failed.
      */
     public SchemaDescriptor schema() {
         final int lastVer0 = lastVer;
@@ -124,11 +126,9 @@ public class SchemaRegistry {
             return desc;
 
         if (lastVer0 == INITIAL_SCHEMA_VERSION)
-            throw new SchemaRegistryException("Table schema was not initialized yet.");
+            return null;
 
-        assert lastVer0 < history.firstKey();
-
-        throw new SchemaRegistryException("Outdated schema version requested: " + lastVer0);
+        throw new SchemaRegistryException("Failed to find last schema version: " + lastVer0);
     }
 
     /**
