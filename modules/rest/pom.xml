@@ -111,6 +111,9 @@
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
 
+            <!--
+                Include javadoc from generated sources
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>

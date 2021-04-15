@@ -633,7 +633,7 @@
                     <windowtitle>Ignite ${project.version}</windowtitle>
                     <breakiterator>true</breakiterator>
                     <verbose>true</verbose>
-                    <show>protected</show>
+                    <show>package</show>
                     <use>true</use>
                     <author>false</author>
                     <version>false</version>
@@ -711,9 +711,6 @@
                         <goals>
                             <goal>jar</goal>
                         </goals>
-                        <configuration>
-                            <excludePackageNames>com.facebook.presto.*</excludePackageNames>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>

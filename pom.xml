@@ -80,10 +80,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
+                <inherited>false</inherited>
                 <configuration>
                     <reportOutputDirectory>${basedir}/target/javadoc</reportOutputDirectory>
-                    <excludePackageNames>com.facebook.presto.*:*.internal.*</excludePackageNames>
+                    <excludePackageNames>org.apache.ignite.internal:org.apache.ignite.internal.*</excludePackageNames>
                     <goal>aggregate</goal>
+                    <show>protected</show>
                 </configuration>
                 <executions>
                     <execution>
