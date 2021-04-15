@@ -50,9 +50,10 @@ public class TableSchemaManagerImpl implements TableSchemaManager {
     }
 
     /**
-     * Gets schema description for version.
+     * Gets schema descriptor for the latest version if initialized.
      *
-     * @return Schema descriptor.
+     * @return Schema descriptor if initialized, {@code null} otherwise.
+     * @throws SchemaRegistryException If failed.
      */
     @Override public SchemaDescriptor schema() {
         return schemaReg.schema();
@@ -62,13 +63,15 @@ public class TableSchemaManagerImpl implements TableSchemaManager {
      * Registers schema in local registry.
      *
      * @param desc Schema descriptor.
+     * @throws SchemaRegistrationConflictException If schema of provided version was already registered.
+     * @throws SchemaRegistryException If schema of incorrect version provided.
      */
     private void registerSchemaLocal(SchemaDescriptor desc) {
         schemaReg.registerSchema(desc);
     }
 
     /**
-     * Metastore callback is triggered when new schema was registered in grid.
+     * Configuratiln changed callback is triggered when new schema was registered in grid.
      *
      * @param schemaDesc Schema descriptor.
      */
