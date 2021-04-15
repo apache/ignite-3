@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.affinity.ditributed;
+package org.apache.ignite.affinity.internal;
 
 import org.apache.ignite.baseline.internal.BaselineManager;
 import org.apache.ignite.configuration.internal.ConfigurationManager;

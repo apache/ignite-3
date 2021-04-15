@@ -17,7 +17,6 @@
 
 package org.apache.ignite.app;
 
-import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.table.manager.TableManager;
 
 public interface Ignite extends AutoCloseable {
@@ -27,11 +26,4 @@ public interface Ignite extends AutoCloseable {
      * @return Table manager.
      */
     TableManager tableManager();
-
-    /**
-     * Gets interactive object for configure cluster.
-     *
-     * @return Ignite configuration.
-     */
-    ConfigurationRegistry configuration();
 }

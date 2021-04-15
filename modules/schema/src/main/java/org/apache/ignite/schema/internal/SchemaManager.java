@@ -1,7 +1,6 @@
-package org.apache.ignite.schema.distributed;
+package org.apache.ignite.schema.internal;
 
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
  * This implementation has only one schema.
@@ -9,9 +8,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
  */
 public class SchemaManager {
     private final ConfigurationManager configurationMgr;
-
-    /** Schema. */
-    private final SchemaDescriptor schema;
 
     /**
      * @param configurationMgr Configuration manager.

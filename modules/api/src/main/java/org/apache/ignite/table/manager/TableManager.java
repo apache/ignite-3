@@ -15,10 +15,10 @@ public interface TableManager {
      * The table changes if already exists.
      *
      * @param name Table name.
-     * @param tableInitChange Table changer.
+     * @param tblInitChange Table changer.
      * @return Table.
      */
-    Table createTable(String name, Consumer<TableInit> tableInitChange);
+    Table createTable(String name, Consumer<TableInit> tblInitChange);
 
     /**
      * Gets a list of all started tables.

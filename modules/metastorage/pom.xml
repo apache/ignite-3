@@ -47,14 +47,15 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>metastorage-client</artifactId>
+            <artifactId>ignite-vault</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-api</artifactId>
+            <artifactId>metastorage-client</artifactId>
             <version>${project.version}</version>
         </dependency>
+
     </dependencies>
 </project>

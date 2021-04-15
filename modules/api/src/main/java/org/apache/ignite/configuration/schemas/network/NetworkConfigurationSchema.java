@@ -4,9 +4,12 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.schemas.TempConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 
-@ConfigurationRoot(rootName = "network", storage = TempConfigurationStorage.class)
+/**
+ * Configuration schema for network endpoint subtree.
+ */
+@ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
 public class NetworkConfigurationSchema {
     /** */
     @Min(1024)
@@ -15,8 +18,5 @@ public class NetworkConfigurationSchema {
     public int port;
 
     @Value
-    public String[] networkMembersNames;
-//
-//    @ConfigValue
-//    private DiscoveryConfigurationSchema discovery;
+    public String[] netMembersNames;
 }
