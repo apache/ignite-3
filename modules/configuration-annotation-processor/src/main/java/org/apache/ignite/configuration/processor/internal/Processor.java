@@ -109,6 +109,11 @@ public class Processor extends AbstractProcessor {
         return false;
     }
 
+    /**
+     * Processes a set of annotation types on type elements.
+     * @param roundEnvironment Processing environment.
+     * @return Whether or not the set of annotation types are claimed by this processor.
+     */
     private boolean process0(RoundEnvironment roundEnvironment) {
         final Elements elementUtils = processingEnv.getElementUtils();
 
