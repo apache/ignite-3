@@ -52,9 +52,9 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                     topologyService.onMembershipEvent(event);
                 }
             })
-            .config(opts -> opts.memberAlias(context.getName()).membership(config -> config.suspicionMult(1)))
+            .config(opts -> opts.memberAlias(context.getName()))
             .transport(opts -> opts.port(context.getPort()))
-            .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())));
+            .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())).suspicionMult(1));
 
         // resolve cyclic dependencies
         messagingService.setCluster(cluster);

@@ -55,30 +55,25 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
         String memberName = member.name();
 
-        boolean appeared = false;
-        boolean disappeared = false;
-
         switch (event.type()) {
             case ADDED:
                 members.put(memberName, member);
 
-                appeared = true;
+                fireAppearedEvent(member);
 
                 break;
 
             case LEAVING:
                 members.remove(memberName);
 
-                disappeared = true;
+                fireDisappearedEvent(member);
 
                 break;
 
             case REMOVED:
-                if (members.containsKey(memberName)) {
-                    members.remove(memberName);
-
-                    disappeared = true;
-                }
+                // In case if member left non-gracefully, without sending LEAVING event.
+                if (members.remove(memberName) != null)
+                    fireDisappearedEvent(member);
 
                 break;
 
@@ -90,13 +85,26 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 throw new IgniteInternalException("This event is not supported: event = " + event);
 
         }
+    }
 
-        for (TopologyEventHandler handler : getEventHandlers()) {
-            if (appeared)
-                handler.onAppeared(member);
-            else if (disappeared)
-                handler.onDisappeared(member);
-        }
+    /**
+     * Fire a cluster member appearance event.
+     *
+     * @param member Appeared cluster member.
+     */
+    private void fireAppearedEvent(ClusterNode member) {
+        for (TopologyEventHandler handler : getEventHandlers())
+            handler.onAppeared(member);
+    }
+
+    /**
+     * Fire a cluster member disappearance event.
+     *
+     * @param member Disappeared cluster member.
+     */
+    private void fireDisappearedEvent(ClusterNode member) {
+        for (TopologyEventHandler handler : getEventHandlers())
+            handler.onDisappeared(member);
     }
 
     /** {@inheritDoc} */

@@ -171,7 +171,7 @@ class ITScaleCubeNetworkMessagingTest {
         Method stop = transport.getClass().getDeclaredMethod("stop");
         stop.setAccessible(true);
 
-        Mono invoke = (Mono) stop.invoke(transport);
+        Mono<?> invoke = (Mono<?>) stop.invoke(transport);
         invoke.block();
     }
 
