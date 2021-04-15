@@ -20,7 +20,6 @@ import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -28,12 +27,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
@@ -99,7 +98,8 @@ class ITScaleCubeNetworkMessagingTest {
 
         TestMessage testMessage = new TestMessage("Message from Alice", Collections.emptyMap());
 
-        //When: Send one message to all members in cluster.
+        ClusterService alice = testCluster.members.get(0);
+
         for (ClusterNode member : alice.topologyService().allMembers()) {
             alice.messagingService().weakSend(member, testMessage);
         }
@@ -173,28 +173,6 @@ class ITScaleCubeNetworkMessagingTest {
         Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
 
         assertEquals(1, networkMembers.size());
-    }
-
-    /** */
-    private NetworkMessage getLastMessage(ClusterService clusterService) {
-        return messageStorage.get(clusterService.localConfiguration().getName());
-    }
-
-    /** */
-    private ClusterService startNetwork(String name, int port, List<String> addresses) {
-        var context = new ClusterLocalConfiguration(name, port, addresses, SERIALIZATION_REGISTRY);
-
-        ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
-
-        clusterService.messagingService().addMessageHandler((message, sender, correlationId) -> {
-            messageStorage.put(name, message);
-        });
-
-        clusterService.start();
-
-        startedMembers.add(clusterService);
-
-        return clusterService;
     }
 
     /**
