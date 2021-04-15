@@ -638,6 +638,7 @@
                     <author>false</author>
                     <version>false</version>
                     <additionalJOptions>${javadoc.opts}</additionalJOptions>
+                    <excludePackageNames>com.facebook.presto.*</excludePackageNames>
                     <links>
                         <link>https://ignite.apache.org/releases/latest/javadoc/</link>
                     </links>
@@ -705,14 +706,6 @@
                         ]]>
                     </bottom>
                 </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
