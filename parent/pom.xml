@@ -309,10 +309,11 @@
         </dependencies>
     </dependencyManagement>
 
-    <!--
-        Profile to exclude running surefire (unit) tests but do not prevent running integration ones
-    -->
     <profiles>
+
+        <!--
+            Profile to exclude running surefire (unit) tests but do not prevent running integration ones
+        -->
         <profile>
             <activation>
                 <property>
@@ -330,6 +331,32 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <!--
+            Profile to exclude internal packages from Javadoc release build
+        -->
+        <profile>
+            <id>javadoc</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <configuration>
+                            <subpackages>org.apache.ignite -exclude org.apache.ignite.internal:org.apache.ignite.internal.schema.builder:org.apache.ignite.internal.schema.marshaller:org.apache.ignite.internal.schema.marshaller.asm:org.apache.ignite.internal.schema.marshaller.reflection:org.apache.ignite.internal.schema.modification:org.apache.ignite.configuration.internal:org.apache.ignite.configuration.processor.internal:org.apache.ignite.network.internal:org.apache.ignite.network.internal.direct.state:org.apache.ignite.network.internal.direct.stream:org.apache.ignite.configuration.internal.notifications:org.apache.ignite.configuration.internal.util:org.apache.ignite.configuration.internal.validation:org.apache.ignite.network.internal.direct</subpackages>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>    
         </profile>
     </profiles>
 
