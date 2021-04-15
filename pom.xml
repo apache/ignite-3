@@ -73,29 +73,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <!--
-                Plugin to build aggregated javadoc
-            -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <inherited>false</inherited>
-                <configuration>
-                    <reportOutputDirectory>${basedir}/target/javadoc</reportOutputDirectory>
-                    <excludePackageNames>org.apache.ignite.internal:org.apache.ignite.internal.*</excludePackageNames>
-                    <goal>aggregate</goal>
-                    <show>protected</show>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>ignite-javadoc</id>
-                        <goals>
-                            <goal>aggregate</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 </project>
