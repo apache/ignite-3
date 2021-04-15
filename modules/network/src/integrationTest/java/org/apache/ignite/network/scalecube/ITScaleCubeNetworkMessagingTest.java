@@ -48,28 +48,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
 class ITScaleCubeNetworkMessagingTest {
-    /** */
-    private static final long CHECK_INTERVAL = 200;
-
-    /** */
-    private static final long CLUSTER_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
-
-    /** */
-    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
-
-    /** */
-    private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
-
-    /** */
-    private final Map<String, NetworkMessage> messageStorage = new ConcurrentHashMap<>();
-
-    /** */
-    private final List<ClusterService> startedMembers = new ArrayList<>();
+    private Cluster testCluster;
 
     /** */
     @AfterEach
     public void afterEach() {
-        startedMembers.forEach(ClusterService::shutdown);
+        testCluster.shutdown();
     }
 
     /**
@@ -77,24 +61,22 @@ class ITScaleCubeNetworkMessagingTest {
      */
     @Test
     public void messageWasSentToAllMembersSuccessfully() throws Exception {
-        //Given: Three started member which are gathered to cluster.
-        List<String> addresses = List.of("localhost:3344", "localhost:3345", "localhost:3346");
+        Map<String, NetworkMessage> messageStorage = new ConcurrentHashMap<>();
 
         CountDownLatch messageReceivedLatch = new CountDownLatch(3);
 
-        String aliceName = "Alice";
+        testCluster = new Cluster(3);
 
-        ClusterService alice = startNetwork(aliceName, 3344, addresses);
-        ClusterService bob = startNetwork("Bob", 3345, addresses);
-        ClusterService carol = startNetwork("Carol", 3346, addresses);
+        for (ClusterService member : testCluster.members) {
+            member.messagingService().addMessageHandler(
+                (message, sender, correlationId) -> {
+                    messageStorage.put(member.localConfiguration().getName(), message);
+                    messageReceivedLatch.countDown();
+                }
+            );
+        }
 
-        waitForCluster(alice);
-
-        NetworkMessageHandler messageWaiter = (message, sender, correlationId) -> messageReceivedLatch.countDown();
-
-        alice.messagingService().addMessageHandler(messageWaiter);
-        bob.messagingService().addMessageHandler(messageWaiter);
-        carol.messagingService().addMessageHandler(messageWaiter);
+        testCluster.startAwait();
 
         TestMessage testMessage = new TestMessage("Message from Alice", Collections.emptyMap());
 
@@ -107,10 +89,10 @@ class ITScaleCubeNetworkMessagingTest {
         boolean messagesReceived = messageReceivedLatch.await(3, TimeUnit.SECONDS);
         assertTrue(messagesReceived);
 
-        //Then: All members successfully received message.
-        assertThat(getLastMessage(alice), is(testMessage));
-        assertThat(getLastMessage(bob), is(testMessage));
-        assertThat(getLastMessage(carol), is(testMessage));
+        testCluster.members.stream()
+            .map(member -> member.localConfiguration().getName())
+            .map(messageStorage::get)
+            .forEach(msg -> assertThat(msg, is(testMessage)));
     }
 
     /**
@@ -137,15 +119,12 @@ class ITScaleCubeNetworkMessagingTest {
      * @throws Exception If failed.
      */
     private void testShutdown0(boolean forceful) throws Exception {
-        //Given: Three started member which are gathered to cluster.
-        List<String> addresses = List.of("localhost:3344", "localhost:3345");
+        testCluster = new Cluster(2);
+        testCluster.startAwait();
 
-        String aliceName = "Alice";
-
-        ClusterService alice = startNetwork(aliceName, 3344, addresses);
-        ClusterService bob = startNetwork("Bob", 3345, addresses);
-
-        waitForCluster(alice);
+        ClusterService alice = testCluster.members.get(0);
+        ClusterService bob = testCluster.members.get(1);
+        String aliceName = alice.localConfiguration().getName();
 
         CountDownLatch aliceShutdownLatch = new CountDownLatch(1);
 
@@ -197,45 +176,80 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Wait for cluster to come up.
-     * @param cluster Network cluster.
+     * Wrapper for cluster.
      */
-    private void waitForCluster(ClusterService cluster) {
-        AtomicInteger integer = new AtomicInteger(0);
+    private static final class Cluster {
+        /** */
+        private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
+        /** */
+        private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
-        cluster.topologyService().addEventHandler(new TopologyEventHandler() {
-            /** {@inheritDoc} */
-            @Override public void onAppeared(ClusterNode member) {
-                integer.set(cluster.topologyService().allMembers().size());
-            }
+        /** */
+        final List<ClusterService> members;
 
-            /** {@inheritDoc} */
-            @Override public void onDisappeared(ClusterNode member) {
-                integer.decrementAndGet();
-            }
-        });
+        /** */
+        private final CountDownLatch startupLatch;
 
-        integer.set(cluster.topologyService().allMembers().size());
+        /** Constructor. */
+        Cluster(int numOfNodes) {
+            startupLatch = new CountDownLatch(numOfNodes - 1);
 
-        long curTime = System.currentTimeMillis();
-        long endTime = curTime + CLUSTER_TIMEOUT;
+            int initialPort = 3344;
 
-        while (curTime < endTime) {
-            if (integer.get() == startedMembers.size()) {
-                return;
-            }
+            List<String> addresses = IntStream.range(0, numOfNodes)
+                .mapToObj(i -> String.format("localhost:%d", initialPort + i))
+                .collect(Collectors.toUnmodifiableList());
 
-            if (CHECK_INTERVAL > 0) {
-                try {
-                    Thread.sleep(CHECK_INTERVAL);
-                }
-                catch (InterruptedException ignored) {
-                }
-            }
-
-            curTime = System.currentTimeMillis();
+            members = IntStream.range(0, numOfNodes)
+                .mapToObj(i -> startNode("Node #" + i, initialPort + i, addresses, i == 0))
+                .collect(Collectors.toUnmodifiableList());
         }
 
-        throw new RuntimeException("Failed to wait for cluster startup");
+        /**
+         * Start cluster node.
+         *
+         * @param name Node name.
+         * @param port Node port.
+         * @param addresses Addresses of other nodes.
+         * @param initial Whether this node is the first one.
+         * @return Started cluster node.
+         */
+        private ClusterService startNode(String name, int port, List<String> addresses, boolean initial) {
+            var context = new ClusterLocalConfiguration(name, port, addresses, SERIALIZATION_REGISTRY);
+
+            ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
+
+            if (initial)
+                clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
+                    /** {@inheritDoc} */
+                    @Override public void onAppeared(ClusterNode member) {
+                        startupLatch.countDown();
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override public void onDisappeared(ClusterNode member) {
+                    }
+                });
+
+            return clusterService;
+        }
+
+        /**
+         * Start and wait for cluster to come up.
+         * @throws InterruptedException If failed.
+         */
+        void startAwait() throws InterruptedException {
+            members.forEach(ClusterService::start);
+
+            if (!startupLatch.await(3, TimeUnit.SECONDS))
+                throw new AssertionError();
+        }
+
+        /**
+         * Shutdown cluster.
+         */
+        void shutdown() {
+            members.forEach(ClusterService::shutdown);
+        }
     }
 }
