@@ -420,83 +420,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>${maven.javadoc.plugin.version}</version>
-                    <configuration>
-                        <doctitle>Ignite ${project.version}</doctitle>
-                        <windowtitle>Ignite ${project.version}</windowtitle>
-                        <breakiterator>true</breakiterator>
-                        <verbose>true</verbose>
-                        <show>protected</show>
-                        <use>true</use>
-                        <author>false</author>
-                        <version>false</version>
-                        <additionalJOptions>${javadoc.opts}</additionalJOptions>
-                        <links>
-                            <link>https://ignite.apache.org/releases/latest/javadoc/</link>
-                        </links>
-                        <tags>
-                            <tag>
-                                <name>apiNote</name>
-                                <placement>a</placement>
-                                <head>API Note:</head>
-                            </tag>
-                            <tag>
-                                <name>implSpec</name>
-                                <placement>a</placement>
-                                <head>Implementation Requirements:</head>
-                            </tag>
-                            <tag>
-                                <name>implNote</name>
-                                <placement>a</placement>
-                                <head>Implementation Note:</head>
-                            </tag>
-                        </tags>
-                        <bottom>
-                            <![CDATA[
-                                    <table width="100%" border="0" cellspacing=0 cellpadding=0 style="padding: 5px">
-                                    <tr>
-                                        <td>
-                                            <table style="padding-left: 0; margin: 0">
-                                                <tbody style="padding: 0; margin: 0">
-                                                    <tr style="padding: 0; margin: 0">
-                                                        <td>
-                                                            <a target=_blank href="https://ignite.apache.org"><nobr>${current.year} Copyright &#169; Apache Software Foundation</nobr></a>
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                        <td width="100%" align="right" valign="center">
-                                            <a href="https://twitter.com/ApacheIgnite" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @ApacheIgnite</a>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="2" valign="top" align="left">
-                                            <table style="padding-left: 0; margin: 0">
-                                                <tbody style="padding: 0; margin: 0">
-                                                    <tr style="padding: 0; margin: 0">
-                                                        <td>
-                                                            <b>Ignite Database and Caching Platform</b>
-                                                        </td>
-                                                        <td>:&nbsp;&nbsp;
-                                                            ver. <strong>${project.version}</strong>
-                                                        </td>
-                                                    </tr>
-                                                    <tr style="padding: 0; margin: 0">
-                                                        <td>
-                                                            <b>Release Date</b>
-                                                        </td>
-                                                        <td>:&nbsp;&nbsp;
-                                                            ${maven.build.timestamp}
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                    </table>
-                                ]]>
-                        </bottom>
-                    </configuration>
                 </plugin>
 
                 <plugin>
@@ -705,9 +628,85 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <doctitle>Ignite ${project.version}</doctitle>
+                    <windowtitle>Ignite ${project.version}</windowtitle>
+                    <breakiterator>true</breakiterator>
+                    <verbose>true</verbose>
+                    <show>protected</show>
+                    <use>true</use>
+                    <author>false</author>
+                    <version>false</version>
+                    <additionalJOptions>${javadoc.opts}</additionalJOptions>
+                    <links>
+                        <link>https://ignite.apache.org/releases/latest/javadoc/</link>
+                    </links>
+                    <tags>
+                        <tag>
+                            <name>apiNote</name>
+                            <placement>a</placement>
+                            <head>API Note:</head>
+                        </tag>
+                        <tag>
+                            <name>implSpec</name>
+                            <placement>a</placement>
+                            <head>Implementation Requirements:</head>
+                        </tag>
+                        <tag>
+                            <name>implNote</name>
+                            <placement>a</placement>
+                            <head>Implementation Note:</head>
+                        </tag>
+                    </tags>
+                    <bottom>
+                        <![CDATA[
+                            <table width="100%" border="0" cellspacing=0 cellpadding=0 style="padding: 5px">
+                            <tr>
+                                <td>
+                                    <table style="padding-left: 0; margin: 0">
+                                        <tbody style="padding: 0; margin: 0">
+                                            <tr style="padding: 0; margin: 0">
+                                                <td>
+                                                    <a target=_blank href="https://ignite.apache.org"><nobr>${current.year} Copyright &#169; Apache Software Foundation</nobr></a>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                                <td width="100%" align="right" valign="center">
+                                    <a href="https://twitter.com/ApacheIgnite" class="twitter-follow-button" data-show-count="false" data-size="large">Follow @ApacheIgnite</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" valign="top" align="left">
+                                    <table style="padding-left: 0; margin: 0">
+                                        <tbody style="padding: 0; margin: 0">
+                                            <tr style="padding: 0; margin: 0">
+                                                <td>
+                                                    <b>Ignite Database and Caching Platform</b>
+                                                </td>
+                                                <td>:&nbsp;&nbsp;
+                                                    ver. <strong>${project.version}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr style="padding: 0; margin: 0">
+                                                <td>
+                                                    <b>Release Date</b>
+                                                </td>
+                                                <td>:&nbsp;&nbsp;
+                                                    ${maven.build.timestamp}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            </table>
+                        ]]>
+                    </bottom>
+                </configuration>
                 <executions>
                     <execution>
-                        <id>module-javadoc</id>
                         <phase>package</phase>
                         <goals>
                             <goal>jar</goal>
