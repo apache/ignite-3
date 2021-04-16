@@ -23,38 +23,33 @@ import org.apache.ignite.metastorage.client.MetaStorageService;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.WatchListener;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.internal.Loza;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class MetaStorageManager {
-    // TODO: sanpwc Consider using NetworkManager instead.
-    private final ClusterService network;
+    private final ClusterService clusterNetSvc;
 
     private final Loza raftMgr;
 
     private MetaStorageService service;
 
     public MetaStorageManager(
-        ClusterService network,
+        ClusterService clusterNetSvc,
         Loza raftMgr,
         ConfigurationManager locConfigurationMgr
     ) {
-        this.network = network;
+        this.clusterNetSvc = clusterNetSvc;
         this.raftMgr = raftMgr;
 
-        network.addHandlersProvider(new NetworkHandlersProvider() {
-            @Override public NetworkMessageHandler messageHandler() {
-                return (message, sender, corellationId) -> {
-                    // TODO sanpwc: Add MetaStorageMessageTypes.CLUSTER_INIT_REQUEST message handler.
-                };
-            }
+        clusterNetSvc.messagingService().addMessageHandler((message, sender, correlationId) -> {
+            // TODO: IGNITE-14414 Cluster initialization flow.
         });
     }
 
     public synchronized CompletableFuture<Long> registerWatch(@Nullable Key key, @NotNull WatchListener lsnr) {
         // TODO: IGNITE-14446 Implement DMS manager with watch registry.
+        return null;
     }
 
     public synchronized void deployWatches() {

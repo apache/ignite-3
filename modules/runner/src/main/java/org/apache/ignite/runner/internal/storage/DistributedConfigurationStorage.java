@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.ConfigurationStorageListener;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
@@ -51,5 +52,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     @Override public void notifyApplied(long storageRevision) {
 
+    }
+
+    @Override public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
     }
 }

@@ -14,29 +14,19 @@ public class IgniteImpl implements Ignite {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteImpl.class);
 
-    /** Configuration manager. */
-    private final ConfigurationManager configurationMgr;
-
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
 
     /**
-     * @param configurationMgr Configuration manager.
      * @param TblMgr Table manager.
      */
-    IgniteImpl(ConfigurationManager configurationMgr, TableManager TblMgr) {
-        this.configurationMgr = configurationMgr;
+    IgniteImpl(TableManager TblMgr) {
         this.distributedTblMgr = TblMgr;
     }
 
     /** {@inheritDoc} */
     @Override public TableManager tableManager() {
         return distributedTblMgr;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ConfigurationRegistry configuration() {
-        return configurationMgr.configurationRegistry();
     }
 
     /** {@inheritDoc} */

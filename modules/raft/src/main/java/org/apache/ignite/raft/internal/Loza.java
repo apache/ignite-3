@@ -17,15 +17,15 @@
 
 package org.apache.ignite.raft.internal;
 
-import org.apache.ignite.network.NetworkCluster;
+import org.apache.ignite.network.ClusterService;
 
 /**
  * Best raft manager ever since 1982.
  */
 public class Loza {
-    private final NetworkCluster netMember;
+    private final ClusterService clusterNetSvc;
 
-    public Loza(NetworkCluster netMember) {
-        this.netMember = netMember;
+    public Loza(ClusterService clusterNetSvc) {
+        this.clusterNetSvc = clusterNetSvc;
     }
 }

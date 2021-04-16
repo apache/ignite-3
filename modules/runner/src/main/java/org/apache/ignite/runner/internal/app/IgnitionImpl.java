@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
-import io.netty.util.internal.StringUtil;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.baseline.internal.BaselineManager;
@@ -30,17 +30,15 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
 import org.apache.ignite.affinity.internal.AffinityManager;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.affinity.ditributed.AffinityManager;
 import org.apache.ignite.internal.table.distributed.TableManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.metastorage.internal.MetaStorageManager;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.internal.Loza;
 import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
@@ -103,51 +101,46 @@ public class IgnitionImpl implements Ignition {
         NetworkView netConfigurationView =
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
 
-        String localMemberName = locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
-            .name().value();
+        // TODO sanpwc: > localMemberName?
+        String localMemberName = UUID.randomUUID().toString();
+//        String localMemberName = locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
+//            .name().value();
+//
+//        if (StringUtil.isNullOrEmpty(localMemberName)) {
+//            localMemberName = "Node: " + netConfigurationView.port();
+//
+//            String finalName = localMemberName;
+//
+//            locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY).change(change ->
+//                change.changeName(finalName));
+//        }
 
-        if (StringUtil.isNullOrEmpty(localMemberName)) {
-            localMemberName = "Node: " + netConfigurationView.port();
-
-            String finalName = localMemberName;
-
-            locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY).change(change ->
-                change.changeName(finalName));
-        }
+        // TODO: IGNITE-14088: Uncomment and use real serializer factory
+        var serializationRegistry = new MessageSerializationRegistry();
+        // TODO sanpwc: should be registerd inside metastorage 16.04.21
+ //        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
+//            msgTypeInstance -> net.registerMessageMapper(
+//                msgTypeInstance.msgType(),
+//                new DefaultMessageMapperProvider()
+//            )
+//        );
 
         // Network startup.
-        Network net = new Network(
-            new ScaleCubeNetworkClusterFactory(
+        ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
+            new ClusterLocalConfiguration(
                 localMemberName,
                 netConfigurationView.port(),
-                Arrays.asList(netConfigurationView.networkMembersNames()),
-                new ScaleCubeMemberResolver())
+                Arrays.asList(netConfigurationView.netMembersNames()),
+                serializationRegistry
+            )
         );
 
-        // Register component message types.
-        // TODO: IGNITE-14088: Uncomment and use real serializer provider
-//        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
-//            msgTypeInstance -> net.registerMessageMapper(
-//                msgTypeInstance.msgType(),
-//                new DefaultMessageMapperProvider()
-//            )
-//        );
-//
-//        Arrays.stream(RaftMessageTypes.values()).forEach(
-//            msgTypeInstance -> net.registerMessageMapper(
-//                msgTypeInstance.msgType(),
-//                new DefaultMessageMapperProvider()
-//            )
-//        );
-
-        NetworkCluster netMember = net.start();
-
         // Raft Component startup.
-        Loza raftMgr = new Loza(netMember);
+        Loza raftMgr = new Loza(clusterNetSvc);
 
         // MetaStorage Component startup.
         MetaStorageManager metaStorageMgr = new MetaStorageManager(
-            netMember,
+            clusterNetSvc,
             raftMgr,
             locConfigurationMgr
         );
@@ -160,7 +153,7 @@ public class IgnitionImpl implements Ignition {
         ConfigurationManager configurationMgr = new ConfigurationManager(rootKeys, configurationStorages);
 
         // Baseline manager startup.
-        BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, netMember);
+        BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, clusterNetSvc);
 
         // Affinity manager startup.
         AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
@@ -170,7 +163,7 @@ public class IgnitionImpl implements Ignition {
         // Distributed table manager startup.
         TableManager distributedTblMgr = new TableManagerImpl(
             configurationMgr,
-            netMember,
+            clusterNetSvc,
             metaStorageMgr,
             schemaManager
         );
@@ -180,9 +173,11 @@ public class IgnitionImpl implements Ignition {
         // Deploy all resisted watches cause all components are ready and have registered their listeners.
         metaStorageMgr.deployWatches();
 
+        clusterNetSvc.start();
+
         ackSuccessStart();
 
-        return new IgniteImpl(configurationMgr, distributedTblMgr);
+        return new IgniteImpl(distributedTblMgr);
     }
 
     /** */

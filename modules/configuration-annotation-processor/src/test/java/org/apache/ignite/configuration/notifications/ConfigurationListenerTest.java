@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
@@ -70,13 +71,15 @@ public class ConfigurationListenerTest {
     /** */
     @BeforeEach
     public void before() {
+        ConfigurationStorage testConfigurationStorage = new TestConfigurationStorage();
+
         registry = new ConfigurationRegistry(
             Collections.singletonList(ParentConfiguration.KEY),
             Collections.emptyMap(),
-            Collections.singletonList(new TestConfigurationStorage())
+            Collections.singletonList(testConfigurationStorage)
         );
 
-        registry.startStorageConfigurations(storage.type());
+        registry.startStorageConfigurations(testConfigurationStorage.type());
 
         configuration = registry.getConfiguration(ParentConfiguration.KEY);
     }
