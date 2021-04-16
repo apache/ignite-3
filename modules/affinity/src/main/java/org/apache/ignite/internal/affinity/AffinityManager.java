@@ -24,7 +24,8 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 /**
  * Affinity manager is responsible for affinity function related logic including calculating affinity assignments.
  */
-public class AffinityManager {
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class AffinityManager {
     /**
      * MetaStorage manager in order to watch private distributed affinity specific configuration,
      * cause ConfigurationManger handles only public configuration.

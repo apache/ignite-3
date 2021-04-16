@@ -30,7 +30,9 @@ import org.apache.ignite.internal.vault.VaultManager;
 /**
  * Local configuration storage.
  */
-public class LocalConfigurationStorage implements ConfigurationStorage {
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class LocalConfigurationStorage implements ConfigurationStorage {
+    /** Vault manager. */
     private final VaultManager vaultMgr;
 
     /**

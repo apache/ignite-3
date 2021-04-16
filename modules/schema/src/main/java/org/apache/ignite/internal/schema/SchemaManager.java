@@ -22,7 +22,8 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
 /**
  * Schema Manager.
  */
-public class SchemaManager {
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class SchemaManager {
     /** Configuration manager in order to handle and listen schema specific configuration.*/
     private final ConfigurationManager configurationMgr;
 

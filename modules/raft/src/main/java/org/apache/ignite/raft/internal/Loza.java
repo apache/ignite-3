@@ -22,9 +22,16 @@ import org.apache.ignite.network.ClusterService;
 /**
  * Best raft manager ever since 1982.
  */
-public class Loza {
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class Loza {
+    /** Cluster network service. */
     private final ClusterService clusterNetSvc;
 
+    /**
+     * Constructor.
+     *
+     * @param clusterNetSvc Cluster network service.
+     */
     public Loza(ClusterService clusterNetSvc) {
         this.clusterNetSvc = clusterNetSvc;
     }

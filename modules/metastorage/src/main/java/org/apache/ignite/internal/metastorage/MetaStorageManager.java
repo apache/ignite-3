@@ -36,9 +36,10 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Providing corresponding meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManager {
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings({"FieldCanBeLocal", "unused", "WeakerAccess"}) public class MetaStorageManager {
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
-    VaultManager vaultMgr;
+    private final VaultManager vaultMgr;
 
     /** Cluster network service that is used in order to handle cluster init message. */
     private final ClusterService clusterNetSvc;

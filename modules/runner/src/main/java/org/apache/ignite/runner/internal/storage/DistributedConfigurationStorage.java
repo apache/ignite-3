@@ -30,8 +30,9 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 /**
  * Distributed configuration storage.
  */
-public class DistributedConfigurationStorage implements ConfigurationStorage {
-    /** */
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class DistributedConfigurationStorage implements ConfigurationStorage {
+    /** MetaStorage manager */
     private final MetaStorageManager metaStorageMgr;
 
     /**

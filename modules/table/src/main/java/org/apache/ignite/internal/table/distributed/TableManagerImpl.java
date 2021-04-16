@@ -27,7 +27,8 @@ import org.apache.ignite.table.manager.TableManager;
 /**
  * Table Manager that handles inner table lifecycle and provide corresponding API methods.
  */
-public class TableManagerImpl implements TableManager {
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class TableManagerImpl implements TableManager {
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
 

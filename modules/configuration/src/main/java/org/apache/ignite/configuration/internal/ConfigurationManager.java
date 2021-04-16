@@ -34,7 +34,8 @@ import org.apache.ignite.configuration.validation.Validator;
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
  */
-public class ConfigurationManager {
+// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
+@SuppressWarnings("WeakerAccess") public class ConfigurationManager {
     /** Configuration registry. */
     private final ConfigurationRegistry confRegistry;
 
