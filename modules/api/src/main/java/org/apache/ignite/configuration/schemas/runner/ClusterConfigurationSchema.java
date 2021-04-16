@@ -5,11 +5,11 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.storage.ConfigurationType;
 
 /**
- * Cluster wide distributed configuration schema.
+ * Configuration schema for cluster endpoint subtree.
  */
 @ConfigurationRoot(rootName = "cluster", type = ConfigurationType.DISTRIBUTED)
 public class ClusterConfigurationSchema {
-    /** It is a list of uniq names of those members which will be stored metadata. */
+    /** List of unique names of those cluster nodes that will host distributed metastorage instances. */
     @Value
-    String[] metastorageMembers;
+    String[] metastorageClusterNodeNames;
 }

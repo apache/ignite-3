@@ -27,33 +27,47 @@ import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.internal.vault.VaultManager;
 
+/**
+ * Local configuration storage.
+ */
 public class LocalConfigurationStorage implements ConfigurationStorage {
     private final VaultManager vaultMgr;
 
+    /**
+     * Constructor.
+     *
+     * @param vaultMgr Vault manager.
+     */
     public LocalConfigurationStorage(VaultManager vaultMgr) {
         this.vaultMgr = vaultMgr;
     }
 
+    /** {@inheritDoc} */
     @Override public Data readAll() throws StorageException {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long version) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public void addListener(ConfigurationStorageListener listener) {
 
     }
 
+    /** {@inheritDoc} */
     @Override public void removeListener(ConfigurationStorageListener listener) {
 
     }
 
+    /** {@inheritDoc} */
     @Override public void notifyApplied(long storageRevision) {
 
     }
 
+    /** {@inheritDoc} */
     @Override public ConfigurationType type() {
         return ConfigurationType.LOCAL;
     }

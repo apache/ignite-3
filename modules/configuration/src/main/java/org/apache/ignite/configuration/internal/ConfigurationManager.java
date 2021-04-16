@@ -31,12 +31,23 @@ import org.apache.ignite.configuration.internal.rest.JsonConverter;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.validation.Validator;
 
+/**
+ * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
+ */
 public class ConfigurationManager {
-
+    /** Configuration registry. */
     private final ConfigurationRegistry confRegistry;
 
+    /** Set of configuration storages. */
     private final Set<ConfigurationStorage> configurationStorages;
 
+    /**
+     * Constructor.
+     *
+     * @param rootKeys Configuration root keys.
+     * @param validators Validators.
+     * @param configurationStorages Configuration storages.
+     */
     public <A extends Annotation> ConfigurationManager(
         Collection<RootKey<?, ?>> rootKeys,
         Map<Class<A>, Set<Validator<A, ?>>> validators,
@@ -47,7 +58,13 @@ public class ConfigurationManager {
         confRegistry = new ConfigurationRegistry(rootKeys, validators, configurationStorages);
     }
 
-    public <A extends Annotation> ConfigurationManager(
+    /**
+     * Constructor.
+     *
+     * @param rootKeys Configuration root keys.
+     * @param configurationStorages Configuration storages.
+     */
+    public ConfigurationManager(
         Collection<RootKey<?, ?>> rootKeys,
         Collection<ConfigurationStorage> configurationStorages
     ) {
@@ -55,7 +72,8 @@ public class ConfigurationManager {
     }
 
     /**
-     * @param jsonStr
+     * Bootstrap configuration manager with customer user cfg.
+     * @param jsonStr Customer configuration in json format.
      */
     public void bootstrap(String jsonStr) throws InterruptedException, ExecutionException{
         JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
@@ -64,7 +82,9 @@ public class ConfigurationManager {
             confRegistry.change(Collections.emptyList(), JsonConverter.jsonSource(jsonCfg), configurationStorage).get();
     }
 
-    /** */
+    /**
+     * @return Configuration registry.
+     */
     public ConfigurationRegistry configurationRegistry() {
         return confRegistry;
     }

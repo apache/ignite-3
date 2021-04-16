@@ -69,6 +69,13 @@ public class ConfigurationRegistry {
         changer.addValidator(Max.class, new MaxValidator());
     }
 
+    /**
+     * Constructor.
+     *
+     * @param rootKeys Configuration root keys.
+     * @param validators Validators.
+     * @param configurationStorages Configuration Storages.
+     */
     public <A extends Annotation> ConfigurationRegistry(
         Collection<RootKey<?, ?>> rootKeys,
         Map<Class<A>, Set<Validator<A, ?>>> validators,

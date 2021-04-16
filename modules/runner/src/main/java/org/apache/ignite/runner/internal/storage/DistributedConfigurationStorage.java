@@ -27,33 +27,48 @@ import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
+/**
+ * Distributed configuration storage.
+ */
 public class DistributedConfigurationStorage implements ConfigurationStorage {
+    /** */
     private final MetaStorageManager metaStorageMgr;
 
+    /**
+     * Constructor.
+     *
+     * @param metaStorageMgr MetaStorage Manager.
+     */
     public DistributedConfigurationStorage(MetaStorageManager metaStorageMgr) {
         this.metaStorageMgr = metaStorageMgr;
     }
 
+    /** {@inheritDoc} */
     @Override public Data readAll() throws StorageException {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long version) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public void addListener(ConfigurationStorageListener listener) {
 
     }
 
+    /** {@inheritDoc} */
     @Override public void removeListener(ConfigurationStorageListener listener) {
 
     }
 
+    /** {@inheritDoc} */
     @Override public void notifyApplied(long storageRevision) {
 
     }
 
+    /** {@inheritDoc} */
     @Override public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }

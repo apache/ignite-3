@@ -17,17 +17,30 @@
 
 package org.apache.ignite.internal.metastorage.network;
 
-// TODO sanpwc: Uncomment when message generation will be ready.
+/**
+ * Metastorage message types
+ */
+// TODO: IGNITE-14088: Uncomment and use real serializer factory
 //@DirectlyMarshallableTypes(moduleType = 11)
 public enum MetaStorageMessageTypes {
+    /** */
     CLUSTER_INIT_REQUEST((short)1100);
 
+    /** */
     private short msgType;
 
+    /**
+     * Constructor.
+     *
+     * @param msgType Message type.
+     */
     MetaStorageMessageTypes(short msgType) {
         this.msgType = msgType;
     }
 
+    /**
+     * @return Message type.
+     */
     public short msgType() {
         return msgType;
     }

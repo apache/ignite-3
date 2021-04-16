@@ -17,6 +17,7 @@ public class NetworkConfigurationSchema {
     @Value
     public int port;
 
+    /** */
     @Value
     public String[] netMembersNames;
 }
