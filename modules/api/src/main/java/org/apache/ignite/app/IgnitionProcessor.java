@@ -32,12 +32,13 @@ public enum IgnitionProcessor implements Ignition {
     /** Constructor. */
     IgnitionProcessor() {
         ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
-        // TODO sanpwc: add service-implementation-not-found logic.
+        // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
         ignition = ldr.iterator().next();
     }
 
     /** {@inheritDoc} */
     @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
+        // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
         return ignition.start(jsonStrBootstrapCfg);
     }
 }

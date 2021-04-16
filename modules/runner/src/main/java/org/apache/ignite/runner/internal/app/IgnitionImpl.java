@@ -126,8 +126,7 @@ public class IgnitionImpl implements Ignition {
             raftMgr
         );
 
-        // TODO sanpwc: Add distributed root keys.
-        // TODO sanpwc: Bootstrap distributed configuration.
+        // TODO IGNITE-14578 Bootstrap configuation manager with distributed configuration.
         configurationStorages.add(new DistributedConfigurationStorage(metaStorageMgr));
 
         // Start configuration manager.
@@ -139,18 +138,18 @@ public class IgnitionImpl implements Ignition {
         // Affinity manager startup.
         new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
 
-        SchemaManager schemaManager = new SchemaManager(configurationMgr);
+        SchemaManager schemaMgr = new SchemaManager(configurationMgr);
 
         // Distributed table manager startup.
         TableManager distributedTblMgr = new TableManagerImpl(
             configurationMgr,
             clusterNetSvc,
             metaStorageMgr,
-            schemaManager,
+            schemaMgr,
             raftMgr
         );
 
-        // TODO sanpwc: Start rest manager.
+        // TODO IGNITE-14579 Start rest manager.
 
         // Deploy all resisted watches cause all components are ready and have registered their listeners.
         metaStorageMgr.deployWatches();
