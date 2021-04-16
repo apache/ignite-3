@@ -101,26 +101,12 @@ public class IgnitionImpl implements Ignition {
         NetworkView netConfigurationView =
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
 
-        // TODO sanpwc: > localMemberName?
-        String localMemberName = UUID.randomUUID().toString();
-//        String localMemberName = locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
-//            .name().value();
-//
-//        if (StringUtil.isNullOrEmpty(localMemberName)) {
-//            localMemberName = "Node: " + netConfigurationView.port();
-//
-//            String finalName = localMemberName;
-//
-//            locConfigurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY).change(change ->
-//                change.changeName(finalName));
-//        }
-
         var serializationRegistry = new MessageSerializationRegistry();
 
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
             new ClusterLocalConfiguration(
-                localMemberName,
+                "Node" + netConfigurationView.port(),
                 netConfigurationView.port(),
                 Arrays.asList(netConfigurationView.netMembersNames()),
                 serializationRegistry
@@ -132,9 +118,9 @@ public class IgnitionImpl implements Ignition {
 
         // MetaStorage Component startup.
         MetaStorageManager metaStorageMgr = new MetaStorageManager(
+            vaultMgr,
             clusterNetSvc,
-            raftMgr,
-            locConfigurationMgr
+            raftMgr
         );
 
         // TODO sanpwc: Add distributed root keys.
@@ -148,7 +134,7 @@ public class IgnitionImpl implements Ignition {
         BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, clusterNetSvc);
 
         // Affinity manager startup.
-        AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
+        new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
 
         SchemaManager schemaManager = new SchemaManager(configurationMgr);
 
@@ -157,7 +143,8 @@ public class IgnitionImpl implements Ignition {
             configurationMgr,
             clusterNetSvc,
             metaStorageMgr,
-            schemaManager
+            schemaManager,
+            raftMgr
         );
 
         // TODO sanpwc: Start rest manager.
