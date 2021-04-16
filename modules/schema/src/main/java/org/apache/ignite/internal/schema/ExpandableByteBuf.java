@@ -71,7 +71,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code byte} value to the buffer,
+     * Writes {@code byte} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.
@@ -83,7 +83,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code short} value to the buffer,
+     * Writes {@code short} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.
@@ -95,7 +95,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code int} value to the buffer,
+     * Writes {@code int} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.
@@ -107,7 +107,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code float} value to the buffer,
+     * Writes {@code float} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.
@@ -119,7 +119,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code long} value to the buffer,
+     * Writes {@code long} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.
@@ -131,7 +131,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code double} value to the buffer,
+     * Writes {@code double} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.
@@ -143,7 +143,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code byte[]} value to the buffer,
+     * Writes {@code byte[]} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.
@@ -162,7 +162,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Writes {@code String} value to the buffer,
+     * Writes {@code String} value to the buffer.
      *
      * @param off Buffer offset.
      * @param val Value.

@@ -276,7 +276,7 @@ public class Columns {
     }
 
     /**
-     * Returns columns index for given column name,
+     * Returns columns index for given column name.
      *
      * @param colName Column name.
      * @return Column index.
