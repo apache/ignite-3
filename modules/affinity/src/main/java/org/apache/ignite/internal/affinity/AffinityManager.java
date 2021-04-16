@@ -15,29 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.affinity.internal;
+package org.apache.ignite.internal.affinity;
 
-import org.apache.ignite.baseline.internal.BaselineManager;
+import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.metastorage.internal.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
+/**
+ * Affinity manager is responsible for affinity function related logic including calculating affinity assignments.
+ */
 public class AffinityManager {
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AffinityManager.class);
-
-    /** Meta storage service. */
+    /**
+     * MetaStorage manager in order to watch private distributed affinity specific configuration,
+     * cause ConfigurationManger handles only public configuration.
+     */
     private final MetaStorageManager metaStorageMgr;
 
-    /** Configuration manager. */
+    /** Configuration manager in order to handle and listen affinity specific configuration.*/
     private final ConfigurationManager configurationMgr;
 
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
     /**
-     * @param configurationMgr Configuration module.
-     * @param metaStorageMgr Meta storage service.
+     * Constructor.
+     *
+     * @param configurationMgr Configuration manager.
+     * @param metaStorageMgr Meta storage manager.
      */
     public AffinityManager(
         ConfigurationManager configurationMgr,

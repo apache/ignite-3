@@ -15,20 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.baseline.internal;
+package org.apache.ignite.internal.baseline;
 
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.metastorage.internal.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.network.ClusterService;
 
+/**
+ * Baseline manager is responsible for handling baseline related logic.
+ */
 public class BaselineManager {
+    /** Configuration manager in order to handle and listen baseline specific configuration.*/
     private final ConfigurationManager configurationMgr;
 
+    /**
+     * MetaStorage manager in order to watch private distributed baseline specific configuration,
+     * cause ConfigurationManger handles only public configuration.
+     */
     private final MetaStorageManager metastorageMgr;
 
-    // TODO sanpwc: > Use ClusterNetworkManager instead.
+    /** Cluster network service in order to retrieve information about current network members. */
     private final ClusterService clusterSvc;
 
+    /**
+     * Constructor.
+     *
+     * @param configurationMgr Configuration manager.
+     * @param metastorageMgr MetaStorage manager.
+     * @param clusterSvc Cluster network service.
+     */
     public BaselineManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metastorageMgr,

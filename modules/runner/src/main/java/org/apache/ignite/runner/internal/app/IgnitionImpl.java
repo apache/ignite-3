@@ -25,16 +25,16 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
-import org.apache.ignite.baseline.internal.BaselineManager;
+import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.affinity.internal.AffinityManager;
+import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.metastorage.internal.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
@@ -42,7 +42,7 @@ import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.internal.Loza;
 import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
-import org.apache.ignite.schema.internal.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.table.manager.TableManager;
 import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
@@ -115,15 +115,7 @@ public class IgnitionImpl implements Ignition {
 //                change.changeName(finalName));
 //        }
 
-        // TODO: IGNITE-14088: Uncomment and use real serializer factory
         var serializationRegistry = new MessageSerializationRegistry();
-        // TODO sanpwc: should be registerd inside metastorage 16.04.21
- //        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
-//            msgTypeInstance -> net.registerMessageMapper(
-//                msgTypeInstance.msgType(),
-//                new DefaultMessageMapperProvider()
-//            )
-//        );
 
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(

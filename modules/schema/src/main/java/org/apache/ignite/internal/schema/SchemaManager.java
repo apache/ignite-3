@@ -1,15 +1,17 @@
-package org.apache.ignite.schema.internal;
+package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 
 /**
- * This implementation has only one schema.
- * In the future it has schema per version.
+ * Schema Manager.
  */
 public class SchemaManager {
+    /** Configuration manager in order to handle and listen schema specific configuration.*/
     private final ConfigurationManager configurationMgr;
 
     /**
+     * Constructor.
+     *
      * @param configurationMgr Configuration manager.
      */
     public SchemaManager(ConfigurationManager configurationMgr) {

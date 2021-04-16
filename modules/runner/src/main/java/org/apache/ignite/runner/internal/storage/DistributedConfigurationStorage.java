@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
-import org.apache.ignite.metastorage.internal.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
 public class DistributedConfigurationStorage implements ConfigurationStorage {
     private final MetaStorageManager metaStorageMgr;

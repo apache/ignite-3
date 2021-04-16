@@ -17,9 +17,18 @@
 
 package org.apache.ignite.internal.vault;
 
+/**
+ * VaultManager is responsible for handling VaultService lifecycle and providing interface for managing local keys.
+ */
 public class VaultManager {
 
+    /**
+     * @return {@code true} if VaultService beneath given VaultManager was bootstrapped with data
+     * either from PDS or from user initial bootstrap configuration.
+     */
     public boolean bootstrapped() {
         return false;
     }
+
+    // TODO: IGNITE-14405 Local persistent key-value storage (Vault).
 }

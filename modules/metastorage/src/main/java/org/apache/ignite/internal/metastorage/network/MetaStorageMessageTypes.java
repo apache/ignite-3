@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.metastorage.internal.network;
+package org.apache.ignite.internal.metastorage.network;
 
 // TODO sanpwc: Uncomment when message generation will be ready.
 //@DirectlyMarshallableTypes(moduleType = 11)
