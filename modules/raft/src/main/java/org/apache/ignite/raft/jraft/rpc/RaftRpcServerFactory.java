@@ -38,6 +38,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
+ * TODO asch refactor
  * Raft RPC server factory.
  *
  * @author boyan (boyan@alibaba-inc.com)

@@ -20,6 +20,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 
 /**
+ * TODO asch refactor
  * Helper to create error response.
  *
  * @author boyan (boyan@alibaba-inc.com)

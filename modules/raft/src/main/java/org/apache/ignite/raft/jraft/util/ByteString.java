@@ -1,16 +1,23 @@
 package org.apache.ignite.raft.jraft.util;
 
+import java.io.Externalizable;
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 
-// TODO asch get rid
-public class ByteString {
+// TODO asch readResolve for empty string. Get rid ?
+public class ByteString implements Externalizable {
     public static final ByteString EMPTY = new ByteString(ByteBuffer.wrap(new byte[0]));
 
     private ByteBuffer buf;
+
+    public ByteString() {
+        // Externalizable.
+    }
 
     public ByteString(ByteBuffer buf) {
         this.buf = buf;
@@ -60,5 +67,19 @@ public class ByteString {
 
     @Override public int hashCode() {
         return buf.hashCode();
+    }
+
+    @Override public void writeExternal(ObjectOutput out) throws IOException {
+        byte[] bytes = toByteArray();
+        out.writeInt(bytes.length);
+        out.write(bytes);
+    }
+
+    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        int len = in.readInt();
+        byte[] data = new byte[len];
+        in.readFully(data);
+
+        buf = ByteBuffer.wrap(data);
     }
 }

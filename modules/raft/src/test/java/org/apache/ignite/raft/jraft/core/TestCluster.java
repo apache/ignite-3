@@ -193,7 +193,10 @@ public class TestCluster {
 
         List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
 
-        final RpcServer rpcServer = new IgniteRpcServer(listenAddr, servers);
+        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers);
+
+        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
+
         final RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0, priority),
             nodeOptions, rpcServer);
 
