@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
@@ -48,6 +47,9 @@ import org.apache.ignite.utils.IgniteProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Implementation of an entry point for handling grid lifecycle.
+ */
 public class IgnitionImpl implements Ignition {
     /** */
     private static final String[] BANNER = new String[] {
@@ -72,6 +74,7 @@ public class IgnitionImpl implements Ignition {
     /** */
     private static final Logger log = LoggerFactory.getLogger(IgnitionImpl.class);
 
+    /** {@inheritDoc} */
     @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
         ackBanner();
 

@@ -17,7 +17,17 @@
 
 package org.apache.ignite.app;
 
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Entry point for handling grid lifecycle.
+ */
 @SuppressWarnings("UnnecessaryInterfaceModifier")
 public interface Ignition {
-    public Ignite start(String jsonStrBootstrapCfg);
+    /**
+     * Starts Ignite node with optional bootstrap configuration in json format.
+     * @param jsonStrBootstrapCfg node configuration in json format.
+     * @return Started Ignite node.
+     */
+    public Ignite start(@Nullable String jsonStrBootstrapCfg);
 }

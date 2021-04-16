@@ -19,17 +19,24 @@ package org.apache.ignite.app;
 
 import java.util.ServiceLoader;
 
+/**
+ * Service loader based implementation of an entry point for handling grid lifecycle.
+ */
 public enum IgnitionProcessor implements Ignition {
+    /** */
     INSTANCE;
 
+    /** Loaded ignition instance. */
     private Ignition ignition;
 
+    /** Constructor. */
     IgnitionProcessor() {
-        ServiceLoader<Ignition> loader = ServiceLoader.load(Ignition.class);
+        ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
         // TODO sanpwc: add service-implementation-not-found logic.
-        ignition = loader.iterator().next();
+        ignition = ldr.iterator().next();
     }
 
+    /** {@inheritDoc} */
     @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
         return ignition.start(jsonStrBootstrapCfg);
     }
