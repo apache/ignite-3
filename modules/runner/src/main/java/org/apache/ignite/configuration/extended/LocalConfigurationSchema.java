@@ -19,13 +19,13 @@ package org.apache.ignite.configuration.extended;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.rest.configuration.InMemoryConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 
 /**
  *
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "local", storage = InMemoryConfigurationStorage.class)
+@ConfigurationRoot(rootName = "local", type = ConfigurationType.LOCAL)
 public class LocalConfigurationSchema {
     /** */
     @ConfigValue

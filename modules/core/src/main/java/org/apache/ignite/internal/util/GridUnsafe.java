@@ -36,8 +36,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.jdkVersion;
 import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
 
 /**
- * <p>Wrapper for the {@link sun.misc.Unsafe} class.</p>
- *
+ * Wrapper for the {@link sun.misc.Unsafe} class.
  * <p>
  * All memory access operations have the following properties:
  * <ul>
@@ -51,7 +50,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
  * while native byte order is big-endian. So it is client code responsibility to check native byte order before
  * invoking these methods.</li>
  * </ul>
- * </p>
  */
 public abstract class GridUnsafe {
     /** */
@@ -101,12 +99,6 @@ public abstract class GridUnsafe {
 
     /** {@link java.nio.Buffer#address} field offset. */
     private static final long DIRECT_BUF_ADDR_OFF = bufferAddressOffset();
-
-    /** Cleaner code for direct {@code java.nio.ByteBuffer}. */
-    private static final DirectBufferCleaner DIRECT_BUF_CLEANER =
-        majorJavaVersion(jdkVersion()) < 9
-            ? new ReflectiveDirectBufferCleaner()
-            : new UnsafeDirectBufferCleaner();
 
     /** JavaNioAccess object. If {@code null} then {@link #NEW_DIRECT_BUF_CONSTRUCTOR} should be available. */
     @Nullable private static final Object JAVA_NIO_ACCESS_OBJ;
@@ -1500,7 +1492,7 @@ public abstract class GridUnsafe {
     public static void cleanDirectBuffer(ByteBuffer buf) {
         assert buf.isDirect();
 
-        DIRECT_BUF_CLEANER.clean(buf);
+        UNSAFE.invokeCleaner(buf);
     }
 
     /**

@@ -27,7 +27,7 @@ public class IgniteUtils {
     /** Version of the JDK. */
     private static String jdkVer;
 
-    /*
+    /**
      * Initializes enterprise check.
      */
     static {
@@ -72,7 +72,7 @@ public class IgniteUtils {
 
     /**
      * Returns a capacity that is sufficient to keep the map from being resized as
-     * long as it grows no larger than expSize and the load factor is >= its
+     * long as it grows no larger than expSize and the load factor is &gt;= its
      * default (0.75).
      *
      * Copy pasted from guava. See com.google.common.collect.Maps#capacity(int)
@@ -112,5 +112,59 @@ public class IgniteUtils {
      */
     public static <K, V> LinkedHashMap<K, V> newLinkedHashMap(int expSize) {
         return new LinkedHashMap<>(capacity(expSize));
+    }
+
+    /**
+     * Applies a supplemental hash function to a given hashCode, which
+     * defends against poor quality hash functions.  This is critical
+     * because ConcurrentHashMap uses power-of-two length hash tables,
+     * that otherwise encounter collisions for hashCodes that do not
+     * differ in lower or upper bits.
+     * <p>
+     * This function has been taken from Java 8 ConcurrentHashMap with
+     * slightly modifications.
+     *
+     * @param h Value to hash.
+     * @return Hash value.
+     */
+    public static int hash(int h) {
+        // Spread bits to regularize both segment and index locations,
+        // using variant of single-word Wang/Jenkins hash.
+        h += (h << 15) ^ 0xffffcd7d;
+        h ^= (h >>> 10);
+        h += (h << 3);
+        h ^= (h >>> 6);
+        h += (h << 2) + (h << 14);
+
+        return h ^ (h >>> 16);
+    }
+
+    /**
+     * Applies a supplemental hash function to a given hashCode, which
+     * defends against poor quality hash functions.  This is critical
+     * because ConcurrentHashMap uses power-of-two length hash tables,
+     * that otherwise encounter collisions for hashCodes that do not
+     * differ in lower or upper bits.
+     * <p>
+     * This function has been taken from Java 8 ConcurrentHashMap with
+     * slightly modifications.
+     *
+     * @param obj Value to hash.
+     * @return Hash value.
+     */
+    public static int hash(Object obj) {
+        return hash(obj.hashCode());
+    }
+
+    /**
+     * A primitive override of {@link #hash(Object)} to avoid unnecessary boxing.
+     *
+     * @param key Value to hash.
+     * @return Hash value.
+     */
+    public static int hash(long key) {
+        int val = (int)(key ^ (key >>> 32));
+
+        return hash(val);
     }
 }
