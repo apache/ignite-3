@@ -39,6 +39,7 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
     protected final String     groupId   = "test";
     protected final String     peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;
+    protected NodeManager nodeManager = new NodeManager();
 
     public abstract T createRequest(String groupId, PeerId peerId);
 
@@ -53,7 +54,7 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
 
     @After
     public void teardown() {
-        NodeManager.getInstance().clear();
+        nodeManager.clear();
     }
 
     @Test
@@ -70,8 +71,7 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
         final PeerId peerId = new PeerId();
         peerId.parse(this.peerIdStr);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId(groupId, peerId));
-        NodeManager.getInstance().addAddress(peerId.getEndpoint());
-        NodeManager.getInstance().add(node);
+        nodeManager.add(node);
         return peerId;
     }
 }

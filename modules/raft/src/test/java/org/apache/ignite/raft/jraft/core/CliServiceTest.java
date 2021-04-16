@@ -108,7 +108,6 @@ public class CliServiceTest {
             assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
         }
         Utils.delete(new File(this.dataPath));
-        NodeManager.getInstance().clear();
         RouteTable.getInstance().reset();
         System.out.println(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());
     }

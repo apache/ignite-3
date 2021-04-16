@@ -64,7 +64,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         }
 
         @Override // TODO asch should be select(Message msg)
-        public Executor select(final String reqClass, final Object reqHeader) {
+        public Executor select(final String reqClass, final Object reqHeader, NodeManager nodeManager) {
             final AppendEntriesRequest header = (AppendEntriesRequest) reqHeader;
             final String groupId = header.getGroupId();
             final String peerId = header.getPeerId();
@@ -76,16 +76,17 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                 return executor();
             }
 
-            final Node node = NodeManager.getInstance().get(groupId, peer);
+            // TODO asch fixme
+//            final Node node = NodeManager.getInstance().get(groupId, peer);
+//
+//            if (node == null || !node.getRaftOptions().isReplicatorPipeline()) {
+//                return executor();
+//            }
 
-            if (node == null || !node.getRaftOptions().isReplicatorPipeline()) {
-                return executor();
-            }
-
-            // The node enable pipeline, we should ensure bolt support it.
+            // The node enable pipeline, we should ensure bolt support it. TODO asch fixme
             //RpcFactoryHelper.rpcFactory().ensurePipeline();
 
-            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pairOf(peerId, serverId), null);
+            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pairOf(peerId, serverId), null, nodeManager);
 
             return ctx.executor;
         }
@@ -346,7 +347,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     @SuppressWarnings("unchecked")
-    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair, final Connection conn) {
+    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair, final Connection conn, NodeManager nodeManager) {
         ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);
         if (groupContexts == null) {
             groupContexts = new ConcurrentHashMap<>();
@@ -367,10 +368,9 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                     final PeerId peer = new PeerId();
                     final boolean parsed = peer.parse(pair.local);
                     assert (parsed);
-                    final Node node = NodeManager.getInstance().get(groupId, peer);
+                    final Node node = nodeManager.get(groupId, peer);
                     assert (node != null);
-                    peerCtx = new PeerRequestContext(groupId, pair, node.getRaftOptions()
-                        .getMaxReplicatorInflightMsgs());
+                    peerCtx = new PeerRequestContext(groupId, pair, node.getRaftOptions().getMaxReplicatorInflightMsgs());
                     groupContexts.put(pair, peerCtx);
                 }
             }
@@ -430,8 +430,8 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         return request.getGroupId();
     }
 
-    private int getAndIncrementSequence(final String groupId, final PeerPair pair, final Connection conn) {
-        return getOrCreatePeerRequestContext(groupId, pair, conn).getAndIncrementSequence();
+    private int getAndIncrementSequence(final String groupId, final PeerPair pair, final Connection conn, NodeManager nodeManager) {
+        return getOrCreatePeerRequestContext(groupId, pair, conn, nodeManager).getAndIncrementSequence();
     }
 
     private boolean isHeartbeatRequest(final AppendEntriesRequest request) {
@@ -453,7 +453,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             boolean isHeartbeat = isHeartbeatRequest(request);
             int reqSequence = -1;
             if (!isHeartbeat) {
-                reqSequence = getAndIncrementSequence(groupId, pair, done.getRpcCtx().getConnection());
+                reqSequence = getAndIncrementSequence(groupId, pair, done.getRpcCtx().getConnection(), done.getRpcCtx().getNodeManager());
             }
             final Message response = service.handleAppendEntriesRequest(request, new SequenceRpcRequestClosure(done,
                 defaultResp(), groupId, pair, reqSequence, isHeartbeat));

@@ -16,19 +16,16 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
-import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 
 /**
  * Raft nodes manager. TODO asch refactor to component. Duplicates raft server.
@@ -38,55 +35,48 @@ import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
  * 2018-Mar-22 5:58:23 PM
  */
 public class NodeManager {
-
-    private static final NodeManager INSTANCE = new NodeManager();
-
     private final ConcurrentMap<NodeId, Node>       nodeMap  = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<Node>> groupMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashSet<Endpoint> addrSet  = new ConcurrentHashSet<>(); // TODO asch useless ?
-
-    public static NodeManager getInstance() {
-        return INSTANCE;
-    }
+    //private final ConcurrentHashSet<Endpoint> addrSet  = new ConcurrentHashSet<>(); // TODO asch useless ?
 
     /**
      * Return true when RPC service is registered.
      */
-    public boolean serverExists(final Endpoint addr) {
-        if (addr.getIp().equals(Utils.IP_ANY)) {
-            return this.addrSet.contains(new Endpoint(Utils.IP_ANY, addr.getPort()));
-        }
-        return this.addrSet.contains(addr);
-    }
+//    public boolean serverExists(final Endpoint addr) {
+//        if (addr.getIp().equals(Utils.IP_ANY)) {
+//            return this.addrSet.contains(new Endpoint(Utils.IP_ANY, addr.getPort()));
+//        }
+//        return this.addrSet.contains(addr);
+//    }
 
-    /**
-     * Remove a RPC service address.
-     */
-    public boolean removeAddress(final Endpoint addr) {
-        return this.addrSet.remove(addr);
-    }
-
-    /**
-     * Adds a RPC service address.
-     */
-    public void addAddress(final Endpoint addr) {
-        this.addrSet.add(addr);
-    }
+//    /**
+//     * Remove a RPC service address.
+//     */
+//    public boolean removeAddress(final Endpoint addr) {
+//        return this.addrSet.remove(addr);
+//    }
+//
+//    /**
+//     * Adds a RPC service address.
+//     */
+//    public void addAddress(final Endpoint addr) {
+//        this.addrSet.add(addr);
+//    }
 
     /**
      * Adds a node.
      */
     public boolean add(final Node node) {
         // check address ok?
-        if (!serverExists(node.getNodeId().getPeerId().getEndpoint())) {
-            return false;
-        }
+//        if (!serverExists(node.getNodeId().getPeerId().getEndpoint())) {
+//            return false;
+//        }
         final NodeId nodeId = node.getNodeId();
         if (this.nodeMap.putIfAbsent(nodeId, node) == null) {
             final String groupId = node.getGroupId();
             List<Node> nodes = this.groupMap.get(groupId);
             if (nodes == null) {
-                nodes = Collections.synchronizedList(new ArrayList<>());
+                nodes = new CopyOnWriteArrayList<>();
                 List<Node> existsNode = this.groupMap.putIfAbsent(groupId, nodes);
                 if (existsNode != null) {
                     nodes = existsNode;
@@ -105,7 +95,7 @@ public class NodeManager {
     public void clear() {
         this.groupMap.clear();
         this.nodeMap.clear();
-        this.addrSet.clear();
+        //this.addrSet.clear();
     }
 
     /**
@@ -140,8 +130,5 @@ public class NodeManager {
      */
     public List<Node> getAllNodes() {
         return this.groupMap.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
-    }
-
-    private NodeManager() {
     }
 }

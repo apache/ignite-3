@@ -107,7 +107,7 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
         }
 
         Status st = new Status();
-        Node node = getNode(groupId, peerId, st);
+        Node node = getNode(groupId, peerId, st, done.getRpcCtx().getNodeManager());
         if (!st.isOk()) {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), st.getCode(), st.getErrorMsg());
@@ -116,16 +116,16 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
         }
     }
 
-    protected Node getNode(String groupId, PeerId peerId, Status st) {
+    protected Node getNode(String groupId, PeerId peerId, Status st, NodeManager nodeManager) {
         Node node = null;
 
         if (peerId != null) {
-            node = NodeManager.getInstance().get(groupId, peerId);
+            node = nodeManager.get(groupId, peerId);
             if (node == null) {
                 st.setError(RaftError.ENOENT, "Fail to find node %s in group %s", peerId, groupId);
             }
         } else {
-            List<Node> nodes = NodeManager.getInstance().getNodesByGroupId(groupId);
+            List<Node> nodes = nodeManager.getNodesByGroupId(groupId);
             if (nodes == null || nodes.isEmpty()) {
                 st.setError(RaftError.ENOENT, "Empty nodes in group %s", groupId);
             } else if (nodes.size() > 1) {

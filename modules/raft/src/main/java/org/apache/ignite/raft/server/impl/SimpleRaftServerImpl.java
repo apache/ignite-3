@@ -148,7 +148,7 @@ public class SimpleRaftServerImpl implements RaftServer {
         return service;
     }
 
-    @Override public void startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
+    @Override public void startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
         listeners.put(groupId, lsnr);
     }
 

@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 import org.apache.ignite.raft.jraft.rpc.Connection;
 
 /**
- *
+ * TODO asch rename.
  * @author jiachun.fjc
  */
 public interface ConnectionClosedEventListener {

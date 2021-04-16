@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -85,7 +84,7 @@ public class NodeRequestProcessorTest {
 
     @After
     public void teardown() {
-        NodeManager.getInstance().clear();
+        // No-op.
     }
 
     @Test
@@ -94,8 +93,6 @@ public class NodeRequestProcessorTest {
         Mockito.when(node.getGroupId()).thenReturn("test");
         PeerId peerId = new PeerId("localhost", 8081);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId("test", peerId));
-        NodeManager.getInstance().addAddress(peerId.getEndpoint());
-        NodeManager.getInstance().add(node);
 
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();

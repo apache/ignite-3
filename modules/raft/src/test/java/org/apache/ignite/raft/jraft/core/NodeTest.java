@@ -40,8 +40,6 @@ import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -175,7 +173,6 @@ public class NodeTest {
             assertEquals(0, NodeImpl.GLOBAL_NUM_NODES.get());
         }
         assertTrue(Utils.delete(new File(this.dataPath)));
-        NodeManager.getInstance().clear();
         this.startedCounter.set(0);
         this.stoppedCounter.set(0);
         System.out.println(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName() + ", cost:"
@@ -185,7 +182,6 @@ public class NodeTest {
     @Test
     public void testInitShutdown() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
-        NodeManager.getInstance().addAddress(addr);
         final NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setFsm(new MockStateMachine(addr));
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -204,7 +200,6 @@ public class NodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final PeerId peer = new PeerId(addr, 0);
 
-        NodeManager.getInstance().addAddress(addr);
         final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
         final RaftOptions raftOptions = new RaftOptions();
         raftOptions.setDisruptorBufferSize(2);
@@ -258,7 +253,6 @@ public class NodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final PeerId peer = new PeerId(addr, 0);
 
-        NodeManager.getInstance().addAddress(addr);
         final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
         final CountDownLatch applyCompleteLatch = new CountDownLatch(1);
         final CountDownLatch applyLatch = new CountDownLatch(1);
@@ -363,7 +357,6 @@ public class NodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final PeerId peer = new PeerId(addr, 0);
 
-        NodeManager.getInstance().addAddress(addr);
         final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
         final MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
@@ -649,8 +642,6 @@ public class NodeTest {
         final Endpoint learnerAddr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT + 1);
         final PeerId learnerPeer = new PeerId(learnerAddr, 0);
 
-        NodeManager.getInstance().addAddress(addr);
-        NodeManager.getInstance().addAddress(learnerAddr);
         MockStateMachine learnerFsm = null;
         Node learner = null;
         RaftGroupService learnerServer = null;
@@ -665,7 +656,7 @@ public class NodeTest {
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
                 .singletonList(learnerPeer)));
 
-            final RpcServer rpcServer = new IgniteRpcServer(learnerAddr);
+            final RpcServer rpcServer = new IgniteRpcServer(learnerAddr, new NodeManager());
             learnerServer = new RaftGroupService("unittest", new PeerId(learnerAddr, 0), nodeOptions, rpcServer);
             learner = learnerServer.start();
         }
@@ -2329,7 +2320,6 @@ public class NodeTest {
     @Test
     public void testNoSnapshot() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
-        NodeManager.getInstance().addAddress(addr);
         final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
         final MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
@@ -2361,7 +2351,6 @@ public class NodeTest {
     @Test
     public void testAutoSnapshot() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
-        NodeManager.getInstance().addAddress(addr);
         final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
         final MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
@@ -2605,7 +2594,6 @@ public class NodeTest {
     @Test
     public void testShutdownAndJoinWorkAfterInitFails() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
-        NodeManager.getInstance().addAddress(addr);
         {
             final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
             final MockStateMachine fsm = new MockStateMachine(addr);
@@ -2989,7 +2977,6 @@ public class NodeTest {
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
 
-        NodeManager.getInstance().addAddress(addr);
         assertTrue(JRaftUtils.bootstrap(opts));
 
         final NodeOptions nodeOpts = createNodeOptionsWithSharedTimer();
@@ -3030,7 +3017,6 @@ public class NodeTest {
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
 
-        NodeManager.getInstance().addAddress(addr);
         assertTrue(JRaftUtils.bootstrap(opts));
 
         final NodeOptions nodeOpts = createNodeOptionsWithSharedTimer();

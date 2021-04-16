@@ -15,12 +15,18 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.Connection;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.RpcUtils;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
 public class IgniteRpcServer implements RpcServer<Void> {
@@ -34,27 +40,31 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
-    public IgniteRpcServer(Endpoint endpoint) {
-        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), List.of());
+    private final NodeManager nodeManager;
+
+    public IgniteRpcServer(Endpoint endpoint, NodeManager nodeManager) {
+        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), List.of(), nodeManager);
     }
 
-    public IgniteRpcServer(Endpoint endpoint, List<String> servers) {
-        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), servers);
+    public IgniteRpcServer(Endpoint endpoint, List<String> servers, NodeManager nodeManager) {
+        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), servers, nodeManager);
     }
 
-    public IgniteRpcServer(String name, int port, List<String> servers) {
+    public IgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
         var serializationRegistry = new MessageSerializationRegistry();
 
         var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
         var factory = new ScaleCubeClusterServiceFactory();
 
         reuse = false;
+        this.nodeManager = nodeManager;
 
         init(factory.createClusterService(context));
     }
 
-    public IgniteRpcServer(ClusterService service, boolean reuse) {
+    public IgniteRpcServer(ClusterService service, boolean reuse, NodeManager nodeManager) {
         this.reuse = reuse;
+        this.nodeManager = nodeManager;
 
         init(service);
     }
@@ -66,7 +76,30 @@ public class IgniteRpcServer implements RpcServer<Void> {
     private void init(ClusterService service) {
         this.service = service;
 
-        RaftRpcServerFactory.addRaftRequestProcessors(this);
+        final Executor raftExecutor = null;
+        final Executor cliExecutor = null;
+
+        AppendEntriesRequestProcessor appendEntriesRequestProcessor = new AppendEntriesRequestProcessor(raftExecutor);
+        registerConnectionClosedEventListener(appendEntriesRequestProcessor);
+        registerProcessor(appendEntriesRequestProcessor);
+        registerProcessor(new GetFileRequestProcessor(raftExecutor));
+        registerProcessor(new InstallSnapshotRequestProcessor(raftExecutor));
+        registerProcessor(new RequestVoteRequestProcessor(raftExecutor));
+        registerProcessor(new PingRequestProcessor());
+        registerProcessor(new TimeoutNowRequestProcessor(raftExecutor));
+        registerProcessor(new ReadIndexRequestProcessor(raftExecutor));
+        // raft cli service
+//        registerProcessor(new AddPeerRequestProcessor(cliExecutor));
+//        registerProcessor(new RemovePeerRequestProcessor(cliExecutor));
+//        registerProcessor(new ResetPeerRequestProcessor(cliExecutor));
+//        registerProcessor(new ChangePeersRequestProcessor(cliExecutor));
+//        registerProcessor(new GetLeaderRequestProcessor(cliExecutor));
+//        registerProcessor(new SnapshotRequestProcessor(cliExecutor));
+//        registerProcessor(new TransferLeaderRequestProcessor(cliExecutor));
+//        registerProcessor(new GetPeersRequestProcessor(cliExecutor));
+//        registerProcessor(new AddLearnersRequestProcessor(cliExecutor));
+//        registerProcessor(new RemoveLearnersRequestProcessor(cliExecutor));
+//        registerProcessor(new ResetLearnersRequestProcessor(cliExecutor));
 
         service.messagingService().addMessageHandler(new NetworkMessageHandler() {
             @Override public void onReceived(NetworkMessage msg, ClusterNode sender, String corellationId) {
@@ -91,7 +124,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 Executor executor = null;
 
                 if (selector != null) {
-                    executor = selector.select(null, msg);
+                    executor = selector.select(null, msg, nodeManager);
                 }
 
                 if (executor == null)
@@ -101,6 +134,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
                 executor.execute(() -> {
                     finalPrc.handleRequest(new RpcContext() {
+                        @Override public NodeManager getNodeManager() {
+                            return nodeManager;
+                        }
+
                         @Override public void sendResponse(Object responseObj) {
                             service.messagingService().send(sender, (NetworkMessage) responseObj, corellationId);
                         }

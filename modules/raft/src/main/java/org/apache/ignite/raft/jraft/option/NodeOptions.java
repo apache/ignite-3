@@ -21,6 +21,7 @@ import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
+import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.Copiable;
@@ -168,8 +169,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * The rpc client.
      */
-    private IgniteRpcClient rcpClient;
-
     public JRaftServiceFactory getServiceFactory() {
         return this.serviceFactory;
     }
@@ -401,14 +400,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setSharedSnapshotTimer(boolean sharedSnapshotTimer) {
         this.sharedSnapshotTimer = sharedSnapshotTimer;
-    }
-
-    public void setRcpClient(IgniteRpcClient rcpClient) {
-        this.rcpClient = rcpClient;
-    }
-
-    public IgniteRpcClient getRcpClient() {
-        return rcpClient;
     }
 
     @Override

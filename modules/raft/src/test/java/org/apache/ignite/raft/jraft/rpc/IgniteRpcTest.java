@@ -38,7 +38,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
     @Override public RpcServer createServer(Endpoint endpoint) {
         ClusterService service = createService(endpoint.toString(), endpoint.getPort(), List.of());
 
-        return new IgniteRpcServer(service, false);
+        return new IgniteRpcServer(service, false, null);
     }
 
     @Override public RpcClient createClient() {

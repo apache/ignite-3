@@ -17,11 +17,11 @@
 package org.apache.ignite.raft.jraft.counter;
 
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import java.io.File;
 import java.io.IOException;
@@ -51,7 +51,7 @@ public class CounterServer {
                          final NodeOptions nodeOptions) throws IOException {
         new File(dataPath).mkdirs();
 
-        final RpcServer rpcServer = new IgniteRpcServer(serverId.getEndpoint());
+        final RpcServer rpcServer = new IgniteRpcServer(serverId.getEndpoint(), new NodeManager());
 
         CounterService counterService = new CounterServiceImpl(this);
         rpcServer.registerProcessor(new GetValueRequestProcessor(counterService));

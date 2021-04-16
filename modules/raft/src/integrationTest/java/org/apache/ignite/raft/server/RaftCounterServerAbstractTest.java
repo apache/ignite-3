@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -82,8 +81,8 @@ abstract class RaftCounterServerAbstractTest {
 
         ClusterNode serverNode = server.clusterService().topologyService().localMember();
 
-        server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of(new Peer(serverNode)));
-        server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of(new Peer(serverNode)));
+        server.startRaftNode(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of(new Peer(serverNode)));
+        server.startRaftNode(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of(new Peer(serverNode)));
 
         client = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(SERVER_ID));
 

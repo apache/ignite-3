@@ -1,15 +1,5 @@
 package org.apache.ignite.raft.jraft.counter;
 
-import org.apache.ignite.raft.jraft.NodeManager;
-import org.apache.ignite.raft.jraft.RouteTable;
-import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.NodeImpl;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RemotingException;
-import org.apache.ignite.raft.jraft.option.CliOptions;
-import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
-import org.apache.ignite.raft.jraft.rpc.impl.cli.CliClientServiceImpl;
-import org.apache.ignite.raft.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -17,9 +7,18 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.raft.jraft.RouteTable;
+import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.NodeTest;
 import org.apache.ignite.raft.jraft.counter.rpc.IncrementAndGetRequest;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RemotingException;
+import org.apache.ignite.raft.jraft.option.CliOptions;
+import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.CliClientServiceImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -32,10 +31,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class CounterExampleTest {
-    static final Logger LOG            = LoggerFactory.getLogger(NodeTest.class);
+    static final Logger LOG = LoggerFactory.getLogger(NodeTest.class);
     @Rule
-    public TestName testName       = new TestName();
-    private String              dataPath;
+    public TestName testName = new TestName();
+    private String dataPath;
 
     @Before
     public void setup() throws Exception {
@@ -52,7 +51,6 @@ public class CounterExampleTest {
             assertEquals(0, NodeImpl.GLOBAL_NUM_NODES.get());
         }
         assertTrue(Utils.delete(new File(this.dataPath)));
-        NodeManager.getInstance().clear();
 
         System.out.println(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());
     }
@@ -97,8 +95,7 @@ public class CounterExampleTest {
             }
             latch.await();
             System.out.println(n + " ops, cost : " + (System.currentTimeMillis() - start) + " ms.");
-        }
-        finally {
+        } finally {
             CounterServer.stopAll();
         }
     }

@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.Connection;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -114,7 +114,7 @@ public class LocalRpcServer implements RpcServer<Void> {
                         Executor executor = null;
 
                         if (selector != null) {
-                            executor = selector.select(null, msg);
+                            executor = selector.select(null, msg, null);
                         }
 
                         if (executor == null)
@@ -124,6 +124,10 @@ public class LocalRpcServer implements RpcServer<Void> {
 
                         executor.execute(() -> {
                             finalPrc.handleRequest(new RpcContext() {
+                                @Override public NodeManager getNodeManager() {
+                                    return null;
+                                }
+
                                 @Override public void sendResponse(Object responseObj) {
                                     fut.complete(responseObj);
                                 }

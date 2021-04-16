@@ -16,12 +16,17 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * @author jiachun.fjc
  */
 public interface RpcContext {
+    /**
+     * @return Node manager.
+     */
+    NodeManager getNodeManager();
 
     /**
      * Send a response back.

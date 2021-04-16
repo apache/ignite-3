@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -68,7 +67,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {
                 final Status st = new Status();
-                nodes.add(getNode(groupId, peer, st));
+                nodes.add(getNode(groupId, peer, st, done.getRpcCtx().getNodeManager()));
                 if (!st.isOk()) {
                     return RaftRpcFactory.DEFAULT //
                         .newResponse(defaultResp(), st);
@@ -78,7 +77,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         } else {
-            nodes = NodeManager.getInstance().getNodesByGroupId(groupId);
+            nodes = done.getRpcCtx().getNodeManager().getNodesByGroupId(groupId);
         }
         if (nodes == null || nodes.isEmpty()) {
             return RaftRpcFactory.DEFAULT //

@@ -43,7 +43,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     /** Peer address. */
     private Endpoint endpoint         = new Endpoint(Utils.IP_ANY, 0);
     /** Index in same addr, default is 0. */
-    private int                 idx;
+    private int                 idx; // TODO asch seem we not need this, drop ?
     /** Cached toString result. */
     private String              str;
 

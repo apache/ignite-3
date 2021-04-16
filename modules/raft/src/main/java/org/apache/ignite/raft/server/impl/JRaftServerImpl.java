@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
@@ -26,6 +27,7 @@ import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
@@ -40,6 +42,13 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.PingRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
@@ -64,15 +73,19 @@ public class JRaftServerImpl implements RaftServer {
 
     private ConcurrentMap<String, NodeImpl> groups = new ConcurrentHashMap<>();
 
+    /** The manager of nodes belonging to this server. */
+    private NodeManager nodeManager;
+
     public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessageFactory factory, boolean reuse) {
         this.service = service;
         this.reuse = reuse;
         this.dataPath = dataPath;
         this.clientMsgFactory = factory;
+        this.nodeManager = new NodeManager();
 
-        assert service.topologyService().localMember() != null;
+        assert !reuse || service.topologyService().localMember() != null;
 
-        // RAFT client messages.
+        // RAFT client messages. TODO asch refactor to processors
         service.messagingService().addMessageHandler((message, sender, correlationId) -> {
             if (message instanceof GetLeaderRequest) {
                 GetLeaderRequest req0 = (GetLeaderRequest) message;
@@ -148,8 +161,7 @@ public class JRaftServerImpl implements RaftServer {
                                 });
 
                                 fsm.listener.onRead(l.iterator());
-                            }
-                            else {
+                            } else {
                                 // TODO asch state machine error.
                                 sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
                             }
@@ -167,14 +179,14 @@ public class JRaftServerImpl implements RaftServer {
             }
         });
 
-        rpcServer = new IgniteRpcServer(service, reuse);
+        rpcServer = new IgniteRpcServer(service, reuse, nodeManager);
     }
 
     @Override public ClusterService clusterService() {
         return service;
     }
 
-    @Override public void startRaftGroup(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
+    @Override public void startRaftNode(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
         final NodeOptions nodeOptions = new NodeOptions();
 
         ClusterNode clusterNode = service.topologyService().localMember();
@@ -199,12 +211,14 @@ public class JRaftServerImpl implements RaftServer {
 
         IgniteRpcClient client = new IgniteRpcClient(service, true);
 
-        nodeOptions.setRcpClient(client);
+        nodeOptions.setRpcClient(client);
 
         final RaftGroupService server = new RaftGroupService(groupId, new PeerId(endpoint, 0, ElectionPriority.DISABLED),
             nodeOptions, rpcServer, true);
 
         NodeImpl node = (NodeImpl) server.start(false);
+
+        nodeManager.add(node);
 
         groups.put(groupId, node);
     }
@@ -218,6 +232,8 @@ public class JRaftServerImpl implements RaftServer {
             rpcServer.shutdown();
 
             for (NodeImpl value : groups.values()) {
+                nodeManager.remove(value);
+
                 value.shutdown();
                 value.join();
             }

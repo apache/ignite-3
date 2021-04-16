@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -31,12 +30,10 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestProcessor;
  * Node handle requests processor template.
  *
  * @param <T> Message
- *
  * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public abstract class NodeRequestProcessor<T extends Message> extends RpcRequestProcessor<T> {
-
     public NodeRequestProcessor(Executor executor, Message defaultResp) {
         super(executor, defaultResp);
     }
@@ -54,7 +51,7 @@ public abstract class NodeRequestProcessor<T extends Message> extends RpcRequest
         final String peerIdStr = getPeerId(request);
         if (peer.parse(peerIdStr)) {
             final String groupId = getGroupId(request);
-            final Node node = NodeManager.getInstance().get(groupId, peer);
+            final Node node = done.getRpcCtx().getNodeManager().get(groupId, peer);
             if (node != null) {
                 return processRequest0((RaftServerService) node, request, done);
             } else {

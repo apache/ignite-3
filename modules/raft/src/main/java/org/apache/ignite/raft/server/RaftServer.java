@@ -42,7 +42,7 @@ public interface RaftServer {
      * @param groupId group id.
      * @param lsnr Listener.
      */
-    void startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
+    void startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
 
     /**
      * Shutdown a server.

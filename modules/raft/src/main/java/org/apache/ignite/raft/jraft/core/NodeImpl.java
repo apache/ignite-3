@@ -889,10 +889,10 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
-        if (!NodeManager.getInstance().serverExists(this.serverId.getEndpoint())) {
-            LOG.error("No RPC server attached to, did you forget to call addService?");
-            return false;
-        }
+//        if (!NodeManager.getInstance().serverExists(this.serverId.getEndpoint())) { // TODO asch fixme
+//            LOG.error("No RPC server attached to, did you forget to call addService?");
+//            return false;
+//        }
 
         this.timerManager = this.timerFactory.getRaftScheduler(this.options.isSharedTimerPool(),
             this.options.getTimerPoolSize(), "JRaft-Node-ScheduleThreadPool");
@@ -1081,10 +1081,10 @@ public class NodeImpl implements Node, RaftServerService {
             stepDown(this.currTerm, false, new Status());
         }
 
-        if (!NodeManager.getInstance().add(this)) {
-            LOG.error("NodeManager add {} failed.", getNodeId());
-            return false;
-        }
+//        if (!NodeManager.getInstance().add(this)) { // TODO asch fixme
+//            LOG.error("NodeManager add {} failed.", getNodeId());
+//            return false;
+//        }
 
         // Now the raft node is started , have to acquire the writeLock to avoid race
         // conditions
@@ -2712,7 +2712,7 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             LOG.info("Node {} shutdown, currTerm={} state={}.", getNodeId(), this.currTerm, this.state);
             if (this.state.compareTo(State.STATE_SHUTTING) < 0) {
-                NodeManager.getInstance().remove(this);
+                //NodeManager.getInstance().remove(this); // TODO asch fixme
                 // If it is leader, set the wakeup_a_candidate with true;
                 // If it is follower, call on_stop_following in step_down
                 if (this.state.compareTo(State.STATE_FOLLOWER) <= 0) {

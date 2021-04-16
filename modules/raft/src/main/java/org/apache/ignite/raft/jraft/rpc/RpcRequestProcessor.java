@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,15 +25,14 @@ import org.slf4j.LoggerFactory;
  * Abstract AsyncUserProcessor for RPC processors.
  *
  * @param <T> Message
- *
  * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public abstract class RpcRequestProcessor<T extends Message> implements RpcProcessor<T> {
-
+    /** */
     protected static final Logger LOG = LoggerFactory.getLogger(RpcRequestProcessor.class);
 
-    private final Executor        executor;
+    private final Executor executor;
     private final Message defaultResp;
 
     public abstract Message processRequest(final T request, final RpcRequestClosure done);

@@ -29,7 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.After;
@@ -85,17 +84,19 @@ public class BaseCliRequestProcessorTest {
     private MockCliRequestProcessor processor;
     private PeerId                  peer;
     private MockAsyncContext asyncContext;
+    private NodeManager nodeManager;
 
     @Before
     public void setup() {
         this.asyncContext = new MockAsyncContext();
         this.peer = JRaftUtils.getPeerId("localhost:8081");
         this.processor = new MockCliRequestProcessor(this.peer.toString(), "test");
+        this.nodeManager = new NodeManager();
     }
 
     @After
     public void teardown() {
-        NodeManager.getInstance().clear();
+        // No-op.
     }
 
     @Test
@@ -128,8 +129,7 @@ public class BaseCliRequestProcessorTest {
         NodeOptions opts = new NodeOptions();
         opts.setDisableCli(disableCli);
         Mockito.when(node.getOptions()).thenReturn(opts);
-        NodeManager.getInstance().addAddress(this.peer.getEndpoint());
-        NodeManager.getInstance().add(node);
+        nodeManager.add(node);
         return node;
     }
 
@@ -160,15 +160,13 @@ public class BaseCliRequestProcessorTest {
         Mockito.when(node1.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8081)));
         NodeOptions opts = new NodeOptions();
         Mockito.when(node1.getOptions()).thenReturn(opts);
-        NodeManager.getInstance().addAddress(new Endpoint("localhost", 8081));
-        NodeManager.getInstance().add(node1);
+        nodeManager.add(node1);
 
         Node node2 = Mockito.mock(Node.class);
         Mockito.when(node2.getGroupId()).thenReturn("test");
         Mockito.when(node2.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8082)));
         Mockito.when(node2.getOptions()).thenReturn(opts);
-        NodeManager.getInstance().addAddress(new Endpoint("localhost", 8082));
-        NodeManager.getInstance().add(node2);
+        nodeManager.add(node2);
 
         this.processor = new MockCliRequestProcessor(null, "test");
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());

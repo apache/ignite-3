@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 /**
- *
+ * TODO asch remove.
  * RPC connection
  * @author jiachun.fjc
  */

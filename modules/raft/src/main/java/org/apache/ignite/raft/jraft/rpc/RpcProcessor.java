@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.raft.jraft.NodeManager;
 
 /**
  * Defined functions for process user defined request.
@@ -68,8 +69,9 @@ public interface RpcProcessor<T> {
          *
          * @param reqClass  request class name
          * @param reqHeader request header
+         * @param nodeManager
          * @return a executor
          */
-        Executor select(final String reqClass, final Object reqHeader);
+        Executor select(final String reqClass, final Object reqHeader, NodeManager nodeManager);
     }
 }

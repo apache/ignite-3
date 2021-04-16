@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -76,6 +77,7 @@ public class TestCluster {
         }
     }
 
+    // TODO asch remove ?
     public static final Clusters                          CLUSTERS           = new Clusters();
 
     private final String                                  dataPath;
@@ -90,6 +92,7 @@ public class TestCluster {
     private JRaftServiceFactory                           raftServiceFactory = new TestJRaftServiceFactory();
 
     private LinkedHashSet<PeerId>                         learners;
+    private NodeManager nodeManager = new NodeManager();
 
     public JRaftServiceFactory getRaftServiceFactory() {
         return this.raftServiceFactory;
@@ -193,7 +196,7 @@ public class TestCluster {
 
         List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
 
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers);
+        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers, nodeManager);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
@@ -248,7 +251,7 @@ public class TestCluster {
 
         List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
 
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers);
+        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers, nodeManager);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 

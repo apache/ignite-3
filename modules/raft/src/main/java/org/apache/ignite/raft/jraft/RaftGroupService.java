@@ -19,8 +19,6 @@ package org.apache.ignite.raft.jraft;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
-import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -111,8 +109,10 @@ public class RaftGroupService {
         if (StringUtils.isBlank(this.groupId)) {
             throw new IllegalArgumentException("Blank group id" + this.groupId);
         }
-        //Adds RPC server to Server.
-        NodeManager.getInstance().addAddress(this.serverId.getEndpoint());
+        //Adds RPC server to Server. // TODO asch fixme
+        // NodeManager.getInstance().addAddress(this.serverId.getEndpoint());
+
+        assert this.nodeOptions.getRpcClient() != null;
 
         this.node = RaftServiceFactory.createAndInitRaftNode(this.groupId, this.serverId, this.nodeOptions);
         if (startRpcServer) {
@@ -153,7 +153,7 @@ public class RaftGroupService {
             this.rpcServer = null;
         }
         this.node.shutdown();
-        NodeManager.getInstance().removeAddress(this.serverId.getEndpoint());
+        // NodeManager.getInstance().removeAddress(this.serverId.getEndpoint()); // TODO asch fixme
         this.started = false;
         LOG.info("Stop the RaftGroupService successfully.");
     }

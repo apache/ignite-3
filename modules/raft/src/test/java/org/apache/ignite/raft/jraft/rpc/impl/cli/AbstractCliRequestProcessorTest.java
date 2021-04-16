@@ -43,6 +43,7 @@ public abstract class AbstractCliRequestProcessorTest<T extends Message> {
     private final String       groupId   = "test";
     private final String       peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;
+    protected NodeManager nodeManager = new NodeManager();
 
     public abstract T createRequest(String groupId, PeerId peerId);
 
@@ -70,7 +71,7 @@ public abstract class AbstractCliRequestProcessorTest<T extends Message> {
 
     @After
     public void teardown() {
-        NodeManager.getInstance().clear();
+        nodeManager.clear();
     }
 
     @Test
@@ -81,8 +82,7 @@ public abstract class AbstractCliRequestProcessorTest<T extends Message> {
         peerId.parse(this.peerIdStr);
         Mockito.when(this.node.getOptions()).thenReturn(new NodeOptions());
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", peerId));
-        NodeManager.getInstance().addAddress(peerId.getEndpoint());
-        NodeManager.getInstance().add(this.node);
+        nodeManager.add(this.node);
 
         BaseCliRequestProcessor<T> processor = newProcessor();
         processor.handleRequest(this.asyncContext, createRequest(this.groupId, peerId));
