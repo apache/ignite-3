@@ -31,6 +31,6 @@ public class IgniteImpl implements Ignite {
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        // TODO sanpwc: Implement.
+        // TODO IGNITE-14581 Implement IgniteImpl close method.
     }
 }
