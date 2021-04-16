@@ -22,10 +22,10 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestProcessor;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Node handle requests processor template.
@@ -58,14 +58,12 @@ public abstract class NodeRequestProcessor<T extends Message> extends RpcRequest
             if (node != null) {
                 return processRequest0((RaftServerService) node, request, done);
             } else {
-                return RpcFactoryHelper //
-                    .responseFactory() //
+                return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.ENOENT, "Peer id not found: %s, group: %s", peerIdStr,
                         groupId);
             }
         } else {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peerId: %s", peerIdStr);
         }
     }

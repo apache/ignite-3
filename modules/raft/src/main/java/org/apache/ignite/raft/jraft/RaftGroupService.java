@@ -20,6 +20,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
+import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -31,18 +32,13 @@ import org.slf4j.LoggerFactory;
  * A framework to implement a raft group service.
  *
  * @author boyan (boyan@alibaba-inc.com)
- *
+ * <p>
  * 2018-Apr-08 7:53:03 PM
  */
 public class RaftGroupService {
+    private static final Logger LOG = LoggerFactory.getLogger(RaftGroupService.class);
 
-    private static final Logger LOG     = LoggerFactory.getLogger(RaftGroupService.class);
-
-//    static {
-//        ProtobufMsgFactory.load();
-//    }
-
-    private volatile boolean    started = false;
+    private volatile boolean started = false;
 
     /**
      * This node serverId
@@ -62,22 +58,16 @@ public class RaftGroupService {
     /**
      * If we want to share the rpcServer instance, then we can't stop it when shutdown.
      */
-    private final boolean       sharedRpcServer;
+    private final boolean sharedRpcServer;
 
     /**
      * The raft group id
      */
-    private String              groupId;
+    private String groupId;
     /**
      * The raft node.
      */
     private Node node;
-
-    public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions) {
-        this(groupId, serverId, nodeOptions, RaftRpcServerFactory.createRaftRpcServer(serverId.getEndpoint(),
-            JRaftUtils.createExecutor("RAFT-RPC-executor-", nodeOptions.getRaftRpcThreadPoolSize()),
-            JRaftUtils.createExecutor("CLI-RPC-executor-", nodeOptions.getCliRpcThreadPoolSize())));
-    }
 
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
                             final RpcServer rpcServer) {
@@ -139,7 +129,7 @@ public class RaftGroupService {
      * Block thread to wait the server shutdown.
      *
      * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     *                              while waiting
      */
     public synchronized void join() throws InterruptedException {
         if (this.node != null) {

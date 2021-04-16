@@ -29,7 +29,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @author jiachun.fjc
  */
 public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
-
     public enum AcquireMode {
         Read, Write
     }

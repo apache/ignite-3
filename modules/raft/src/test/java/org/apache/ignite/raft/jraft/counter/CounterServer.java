@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.raft.jraft.counter.rpc.GetValueRequestProcessor;
 import org.apache.ignite.raft.jraft.counter.rpc.IncrementAndGetRequestProcessor;
 import org.apache.ignite.raft.jraft.counter.rpc.ValueResponse;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 
 /**
  * Counter server that keeps a counter value in a raft group.
@@ -50,7 +51,7 @@ public class CounterServer {
                          final NodeOptions nodeOptions) throws IOException {
         new File(dataPath).mkdirs();
 
-        final RpcServer rpcServer = RaftRpcServerFactory.createRaftRpcServer(serverId.getEndpoint());
+        final RpcServer rpcServer = new IgniteRpcServer(serverId.getEndpoint());
 
         CounterService counterService = new CounterServiceImpl(this);
         rpcServer.registerProcessor(new GetValueRequestProcessor(counterService));

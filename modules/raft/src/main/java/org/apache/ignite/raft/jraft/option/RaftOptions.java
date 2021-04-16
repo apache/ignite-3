@@ -17,75 +17,103 @@
 package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.util.Copiable;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Raft options.
  *
  * @author boyan (boyan@alibaba-inc.com)
- *
+ * <p>
  * 2018-Apr-03 4:38:40 PM
  */
 public class RaftOptions implements Copiable<RaftOptions> {
-
-    /** Maximum of block size per RPC */
-    private int            maxByteCountPerRpc                   = 128 * 1024;
-    /** File service check hole switch, default disable */
-    private boolean        fileCheckHole                        = false;
-    /** The maximum number of entries in AppendEntriesRequest */
-    private int            maxEntriesSize                       = 1024;
-    /** The maximum byte size of AppendEntriesRequest */
-    private int            maxBodySize                          = 512 * 1024;
-    /** Flush buffer to LogStorage if the buffer size reaches the limit */
-    private int            maxAppendBufferSize                  = 256 * 1024;
-    /** Maximum election delay time allowed by user */
-    private int            maxElectionDelayMs                   = 1000;
-    /** Raft election:heartbeat timeout factor */
-    private int            electionHeartbeatFactor              = 10;
-    /** Maximum number of tasks that can be applied in a batch */
-    private int            applyBatch                           = 32;
-    /** Call fsync when need */
-    private boolean        sync                                 = true;
-    /** Sync log meta, snapshot meta and raft meta */
-    private boolean        syncMeta                             = false;
-    /** Statistics to analyze the performance of db */
-    private boolean        openStatistics                       = true;
-    /** Whether to enable replicator pipeline. */
-    private boolean        replicatorPipeline                   = true;
-    /** The maximum replicator pipeline in-flight requests/responses, only valid when enable replicator pipeline. */
-    private int            maxReplicatorInflightMsgs            = 256;
-    /** Internal disruptor buffers size for Node/FSMCaller/LogManager etc. */
-    private int            disruptorBufferSize                  = 16384;
+    /**
+     * Maximum of block size per RPC
+     */
+    private int maxByteCountPerRpc = 128 * 1024;
+    /**
+     * File service check hole switch, default disable
+     */
+    private boolean fileCheckHole = false;
+    /**
+     * The maximum number of entries in AppendEntriesRequest
+     */
+    private int maxEntriesSize = 1024;
+    /**
+     * The maximum byte size of AppendEntriesRequest
+     */
+    private int maxBodySize = 512 * 1024;
+    /**
+     * Flush buffer to LogStorage if the buffer size reaches the limit
+     */
+    private int maxAppendBufferSize = 256 * 1024;
+    /**
+     * Maximum election delay time allowed by user
+     */
+    private int maxElectionDelayMs = 1000;
+    /**
+     * Raft election:heartbeat timeout factor
+     */
+    private int electionHeartbeatFactor = 10;
+    /**
+     * Maximum number of tasks that can be applied in a batch
+     */
+    private int applyBatch = 32;
+    /**
+     * Call fsync when need
+     */
+    private boolean sync = true;
+    /**
+     * Sync log meta, snapshot meta and raft meta
+     */
+    private boolean syncMeta = false;
+    /**
+     * Statistics to analyze the performance of db
+     */
+    private boolean openStatistics = true;
+    /**
+     * Whether to enable replicator pipeline.
+     */
+    private boolean replicatorPipeline = true;
+    /**
+     * The maximum replicator pipeline in-flight requests/responses, only valid when enable replicator pipeline.
+     */
+    private int maxReplicatorInflightMsgs = 256;
+    /**
+     * Internal disruptor buffers size for Node/FSMCaller/LogManager etc.
+     */
+    private int disruptorBufferSize = 16384;
     /**
      * The maximum timeout in seconds to wait when publishing events into disruptor, default is 10 seconds.
      * If the timeout happens, it may halt the node.
-     * */
-    private int            disruptorPublishEventWaitTimeoutSecs = 10;
-    /**
-     *  When true, validate log entry checksum when transferring the log entry from disk or network, default is false.
-     *  If true, it would hurt the performance of JRAft but gain the data safety.
-     *  @since 1.2.6
      */
-    private boolean        enableLogEntryChecksum               = false;
+    private int disruptorPublishEventWaitTimeoutSecs = 10;
+    /**
+     * When true, validate log entry checksum when transferring the log entry from disk or network, default is false.
+     * If true, it would hurt the performance of JRAft but gain the data safety.
+     *
+     * @since 1.2.6
+     */
+    private boolean enableLogEntryChecksum = false;
 
     /**
      * ReadOnlyOption specifies how the read only request is processed.
-     *
+     * <p>
      * {@link ReadOnlyOption#ReadOnlySafe} guarantees the linearizability of the read only request by
      * communicating with the quorum. It is the default and suggested option.
-
+     * <p>
      * {@link ReadOnlyOption#ReadOnlyLeaseBased} ensures linearizability of the read only request by
      * relying on the leader lease. It can be affected by clock drift.
      * If the clock drift is unbounded, leader might keep the lease longer than it
      * should (clock can move backward/pause without any bound). ReadIndex is not safe
      * in that case.
      */
-    private ReadOnlyOption readOnlyOptions                      = ReadOnlyOption.ReadOnlySafe;
+    private ReadOnlyOption readOnlyOptions = ReadOnlyOption.ReadOnlySafe;
     /**
      * Candidate steps down when election reaching timeout, default is true(enabled).
+     *
      * @since 1.3.0
      */
-    private boolean        stepDownWhenVoteTimedout             = true;
+    private boolean stepDownWhenVoteTimedout = true;
 
     public boolean isStepDownWhenVoteTimedout() {
         return this.stepDownWhenVoteTimedout;
@@ -120,7 +148,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
     }
 
     public boolean isReplicatorPipeline() {
-        return this.replicatorPipeline && RpcFactoryHelper.rpcFactory().isReplicatorPipelineEnabled();
+        return this.replicatorPipeline;
     }
 
     public void setReplicatorPipeline(final boolean replicatorPipeline) {
@@ -257,14 +285,14 @@ public class RaftOptions implements Copiable<RaftOptions> {
     @Override
     public String toString() {
         return "RaftOptions{" + "maxByteCountPerRpc=" + this.maxByteCountPerRpc + ", fileCheckHole="
-               + this.fileCheckHole + ", maxEntriesSize=" + this.maxEntriesSize + ", maxBodySize=" + this.maxBodySize
-               + ", maxAppendBufferSize=" + this.maxAppendBufferSize + ", maxElectionDelayMs="
-               + this.maxElectionDelayMs + ", electionHeartbeatFactor=" + this.electionHeartbeatFactor
-               + ", applyBatch=" + this.applyBatch + ", sync=" + this.sync + ", syncMeta=" + this.syncMeta
-               + ", openStatistics=" + this.openStatistics + ", replicatorPipeline=" + this.replicatorPipeline
-               + ", maxReplicatorInflightMsgs=" + this.maxReplicatorInflightMsgs + ", disruptorBufferSize="
-               + this.disruptorBufferSize + ", disruptorPublishEventWaitTimeoutSecs="
-               + this.disruptorPublishEventWaitTimeoutSecs + ", enableLogEntryChecksum=" + this.enableLogEntryChecksum
-               + ", readOnlyOptions=" + this.readOnlyOptions + '}';
+            + this.fileCheckHole + ", maxEntriesSize=" + this.maxEntriesSize + ", maxBodySize=" + this.maxBodySize
+            + ", maxAppendBufferSize=" + this.maxAppendBufferSize + ", maxElectionDelayMs="
+            + this.maxElectionDelayMs + ", electionHeartbeatFactor=" + this.electionHeartbeatFactor
+            + ", applyBatch=" + this.applyBatch + ", sync=" + this.sync + ", syncMeta=" + this.syncMeta
+            + ", openStatistics=" + this.openStatistics + ", replicatorPipeline=" + this.replicatorPipeline
+            + ", maxReplicatorInflightMsgs=" + this.maxReplicatorInflightMsgs + ", disruptorBufferSize="
+            + this.disruptorBufferSize + ", disruptorPublishEventWaitTimeoutSecs="
+            + this.disruptorPublishEventWaitTimeoutSecs + ", enableLogEntryChecksum=" + this.enableLogEntryChecksum
+            + ", readOnlyOptions=" + this.readOnlyOptions + '}';
     }
 }

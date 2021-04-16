@@ -110,9 +110,9 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         Mockito.when(this.node.getRaftOptions()).thenReturn(new RaftOptions());
         Mockito.when(this.node.getOptions()).thenReturn(new NodeOptions());
-        Mockito.when(this.node.getRpcService()).thenReturn(this.raftClientService);
+        Mockito.when(this.node.getRpcClientService()).thenReturn(this.raftClientService);
         Mockito.when(this.node.getTimerManager()).thenReturn(this.timerManager);
-        Mockito.when(this.node.getServiceFactory()).thenReturn(DefaultJRaftServiceFactory.newInstance());
+        Mockito.when(this.node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory());
         this.executor = new SnapshotExecutorImpl();
         final SnapshotExecutorOptions opts = new SnapshotExecutorOptions();
         opts.setFsmCaller(this.fSMCaller);

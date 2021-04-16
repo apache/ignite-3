@@ -23,46 +23,38 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
+import org.apache.ignite.raft.jraft.storage.impl.RocksDBLogStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Requires;
-import org.apache.ignite.raft.jraft.util.SPI;
 import org.apache.ignite.raft.jraft.util.StringUtils;
+import org.apache.ignite.raft.jraft.util.timer.DefaultRaftTimerFactory;
+import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
  * The default factory for JRaft services.
- * @author boyan(boyan@antfin.com)
- * @since 1.2.6
- *
  */
-@SPI
 public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
-
-    public static DefaultJRaftServiceFactory newInstance() {
-        return new DefaultJRaftServiceFactory();
-    }
-
-    @Override
-    public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
+    @Override public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
-        return new LocalLogStorage(uri, raftOptions);
+        return new RocksDBLogStorage(uri, raftOptions);
     }
 
-    @Override
-    public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
+    @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank snapshot storage uri.");
         return new LocalSnapshotStorage(uri, raftOptions);
     }
 
-    @Override
-    public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
+    @Override public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank raft meta storage uri.");
         return new LocalRaftMetaStorage(uri, raftOptions);
     }
 
-    @Override
-    public LogEntryCodecFactory createLogEntryCodecFactory() {
+    @Override public LogEntryCodecFactory createLogEntryCodecFactory() {
         return LogEntryV1CodecFactory.getInstance();
+    }
+
+    @Override public RaftTimerFactory createRaftTimerFactory() {
+        return new DefaultRaftTimerFactory();
     }
 }

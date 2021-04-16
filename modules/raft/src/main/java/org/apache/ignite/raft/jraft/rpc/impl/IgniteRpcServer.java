@@ -7,16 +7,21 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.rpc.Connection;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.RpcUtils;
+import org.apache.ignite.raft.jraft.util.Endpoint;
 
 public class IgniteRpcServer implements RpcServer<Void> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
@@ -29,9 +34,39 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
+    public IgniteRpcServer(Endpoint endpoint) {
+        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), List.of());
+    }
+
+    public IgniteRpcServer(Endpoint endpoint, List<String> servers) {
+        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), servers);
+    }
+
+    public IgniteRpcServer(String name, int port, List<String> servers) {
+        var serializationRegistry = new MessageSerializationRegistry();
+
+        var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
+        var factory = new ScaleCubeClusterServiceFactory();
+
+        reuse = false;
+
+        init(factory.createClusterService(context));
+    }
+
     public IgniteRpcServer(ClusterService service, boolean reuse) {
-        this.service = service;
         this.reuse = reuse;
+
+        init(service);
+    }
+
+    public ClusterService clusterService() {
+        return service;
+    }
+
+    private void init(ClusterService service) {
+        this.service = service;
+
+        RaftRpcServerFactory.addRaftRequestProcessors(this);
 
         service.messagingService().addMessageHandler(new NetworkMessageHandler() {
             @Override public void onReceived(NetworkMessage msg, ClusterNode sender, String corellationId) {

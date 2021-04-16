@@ -25,7 +25,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -59,7 +58,7 @@ public class AbstractClientServiceTest {
     private MockClientService  clientService;
     @Mock
     private RpcClient          rpcClient;
-    private RpcResponseFactory rpcResponseFactory = RpcFactoryHelper.responseFactory();
+    private RpcResponseFactory rpcResponseFactory = RaftRpcFactory.DEFAULT;
     private final Endpoint     endpoint           = new Endpoint("localhost", 8081);
 
     @Before

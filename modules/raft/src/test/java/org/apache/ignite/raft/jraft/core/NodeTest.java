@@ -40,10 +40,12 @@ import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -663,7 +665,7 @@ public class NodeTest {
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
                 .singletonList(learnerPeer)));
 
-            final RpcServer rpcServer = RaftRpcServerFactory.createRaftRpcServer(learnerAddr);
+            final RpcServer rpcServer = new IgniteRpcServer(learnerAddr);
             learnerServer = new RaftGroupService("unittest", new PeerId(learnerAddr, 0), nodeOptions, rpcServer);
             learner = learnerServer.start();
         }
@@ -1297,7 +1299,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch will fail
     public void testReadIndexTimeout() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1330,7 +1332,7 @@ public class NodeTest {
         // read with null request context
         final CountDownLatch latch = new CountDownLatch(1);
         final long start = System.currentTimeMillis();
-        leader.readIndex(null, new ReadIndexClosure(0) {
+        leader.readIndex(null, new ReadIndexClosure() {
 
             @Override
             public void run(final Status status, final long index, final byte[] reqCtx) {
@@ -1550,7 +1552,7 @@ public class NodeTest {
 
         for (Node follower : followers) {
             NodeImpl follower0 = (NodeImpl) follower;
-            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcService();
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
             rpcClientEx.blockMessages(new BiPredicate<Object, String>() {
                 @Override public boolean test(Object msg, String nodeId) {
@@ -1577,7 +1579,7 @@ public class NodeTest {
 
         for (Node follower : followers) {
             NodeImpl follower0 = (NodeImpl) follower;
-            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcService();
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
             rpcClientEx.stopBlock();
         }
@@ -3425,7 +3427,6 @@ public class NodeTest {
     }
 
     @Test
-    @Ignore
     public void testBlockedElection() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
         final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
@@ -3444,7 +3445,7 @@ public class NodeTest {
 
         for (Node follower : followers) {
             NodeImpl follower0 = (NodeImpl) follower;
-            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcService();
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
             rpcClientEx.blockMessages(new BiPredicate<Object, String>() {
                 @Override public boolean test(Object msg, String nodeId) {
@@ -3465,13 +3466,13 @@ public class NodeTest {
 
         assertNull(cluster.getLeader());
 
-        Thread.sleep(5000);
+        Thread.sleep(3000);
 
         assertNull(cluster.getLeader());
 
         for (Node follower : followers) {
             NodeImpl follower0 = (NodeImpl) follower;
-            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcService();
+            DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
             rpcClientEx.stopBlock();
         }

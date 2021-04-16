@@ -27,8 +27,8 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Process get leader request.
@@ -70,21 +70,18 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
                 final Status st = new Status();
                 nodes.add(getNode(groupId, peer, st));
                 if (!st.isOk()) {
-                    return RpcFactoryHelper //
-                        .responseFactory() //
+                    return RaftRpcFactory.DEFAULT //
                         .newResponse(defaultResp(), st);
                 }
             } else {
-                return RpcFactoryHelper //
-                    .responseFactory() //
+                return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         } else {
             nodes = NodeManager.getInstance().getNodesByGroupId(groupId);
         }
         if (nodes == null || nodes.isEmpty()) {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), RaftError.ENOENT, "No nodes in group %s", groupId);
         }
         for (final Node node : nodes) {
@@ -93,8 +90,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
                 return GetLeaderResponse.newBuilder().setLeaderId(leader.toString()).build();
             }
         }
-        return RpcFactoryHelper //
-            .responseFactory() //
+        return RaftRpcFactory.DEFAULT //
             .newResponse(defaultResp(), RaftError.EAGAIN, "Unknown leader");
     }
 

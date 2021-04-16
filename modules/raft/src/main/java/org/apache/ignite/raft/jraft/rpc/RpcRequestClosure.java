@@ -19,7 +19,6 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,22 +29,20 @@ import org.slf4j.LoggerFactory;
  * @author jiachun.fjc
  */
 public class RpcRequestClosure implements Closure {
-
-    private static final Logger                                       LOG           = LoggerFactory
-                                                                                        .getLogger(RpcRequestClosure.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RpcRequestClosure.class);
 
     private static final AtomicIntegerFieldUpdater<RpcRequestClosure> STATE_UPDATER = AtomicIntegerFieldUpdater
-                                                                                        .newUpdater(
-                                                                                            RpcRequestClosure.class,
-                                                                                            "state");
+        .newUpdater(
+            RpcRequestClosure.class,
+            "state");
 
-    private static final int                                          PENDING       = 0;
-    private static final int                                          RESPOND       = 1;
+    private static final int PENDING = 0;
+    private static final int RESPOND = 1;
 
     private final RpcContext rpcCtx;
     private final Message defaultResp;
 
-    private volatile int                                              state         = PENDING;
+    private volatile int state = PENDING;
 
     public RpcRequestClosure(RpcContext rpcCtx) {
         this(rpcCtx, null);
@@ -71,6 +68,6 @@ public class RpcRequestClosure implements Closure {
 
     @Override
     public void run(final Status status) {
-        sendResponse(RpcFactoryHelper.responseFactory().newResponse(this.defaultResp, status));
+        sendResponse(RaftRpcFactory.DEFAULT.newResponse(this.defaultResp, status));
     }
 }

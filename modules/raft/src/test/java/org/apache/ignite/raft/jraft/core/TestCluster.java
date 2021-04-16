@@ -23,8 +23,9 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcServerFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -186,11 +187,13 @@ public class TestCluster {
         final MockStateMachine fsm = new MockStateMachine(listenAddr);
         nodeOptions.setFsm(fsm);
 
-        if (!emptyPeers) {
-            nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
-        }
+        assert !emptyPeers;
 
-        final RpcServer rpcServer = RaftRpcServerFactory.createRaftRpcServer(listenAddr);
+        nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
+
+        List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
+
+        final RpcServer rpcServer = new IgniteRpcServer(listenAddr, servers);
         final RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0, priority),
             nodeOptions, rpcServer);
 
@@ -234,11 +237,18 @@ public class TestCluster {
         final MockStateMachine fsm = new MockStateMachine(listenAddr);
         nodeOptions.setFsm(fsm);
 
-        if (!emptyPeers) {
-            nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
-        }
+        assert !emptyPeers; // TODO asch fixme
 
-        final RpcServer rpcServer = RaftRpcServerFactory.createRaftRpcServer(listenAddr);
+        //if (!emptyPeers) {
+            nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
+        //}
+
+        List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
+
+        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers);
+
+        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
+
         final RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0), nodeOptions,
             rpcServer);
 
@@ -437,6 +447,7 @@ public class TestCluster {
     }
 
     /**
+     * TODO asch rewrite.
      * Ensure all logs is the same in all nodes.
      * @param waitTimes
      * @return

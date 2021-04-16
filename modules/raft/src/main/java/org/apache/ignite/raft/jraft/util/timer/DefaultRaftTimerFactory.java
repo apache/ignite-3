@@ -25,49 +25,48 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
-import org.apache.ignite.raft.jraft.util.SPI;
 import org.apache.ignite.raft.jraft.util.SystemPropertyUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
- *
  * @author jiachun.fjc
  */
-@SPI
 public class DefaultRaftTimerFactory implements RaftTimerFactory {
+    private static final String GLOBAL_ELECTION_TIMER_WORKERS = "jraft.timer.global_election_timer_workers";
+    private static final String GLOBAL_VOTE_TIMER_WORKERS = "jraft.timer.global_vote_timer_workers";
+    private static final String GLOBAL_STEP_DOWN_TIMER_WORKERS = "jraft.timer.global_step_down_timer_workers";
+    private static final String GLOBAL_SNAPSHOT_TIMER_WORKERS = "jraft.timer.global_snapshot_timer_workers";
+    private static final String GLOBAL_SCHEDULER_WORKERS = "jraft.timer.global_scheduler_workers";
 
-    private static final String             GLOBAL_ELECTION_TIMER_WORKERS  = "jraft.timer.global_election_timer_workers";
-    private static final String             GLOBAL_VOTE_TIMER_WORKERS      = "jraft.timer.global_vote_timer_workers";
-    private static final String             GLOBAL_STEP_DOWN_TIMER_WORKERS = "jraft.timer.global_step_down_timer_workers";
-    private static final String             GLOBAL_SNAPSHOT_TIMER_WORKERS  = "jraft.timer.global_snapshot_timer_workers";
-    private static final String             GLOBAL_SCHEDULER_WORKERS       = "jraft.timer.global_scheduler_workers";
+    private static final TimerSharedRef ELECTION_TIMER_REF = new TimerSharedRef(
+        SystemPropertyUtil.getInt(
+            GLOBAL_ELECTION_TIMER_WORKERS,
+            Utils.cpus()),
+        "JRaft-Global-ElectionTimer");
 
-    private static final TimerSharedRef     ELECTION_TIMER_REF             = new TimerSharedRef(
-                                                                               SystemPropertyUtil.getInt(
-                                                                                   GLOBAL_ELECTION_TIMER_WORKERS,
-                                                                                   Utils.cpus()),
-                                                                               "JRaft-Global-ElectionTimer");
-    private static final TimerSharedRef     VOTE_TIMER_REF                 = new TimerSharedRef(
-                                                                               SystemPropertyUtil.getInt(
-                                                                                   GLOBAL_VOTE_TIMER_WORKERS,
-                                                                                   Utils.cpus()),
-                                                                               "JRaft-Global-VoteTimer");
-    private static final TimerSharedRef     STEP_DOWN_TIMER_REF            = new TimerSharedRef(
-                                                                               SystemPropertyUtil.getInt(
-                                                                                   GLOBAL_STEP_DOWN_TIMER_WORKERS,
-                                                                                   Utils.cpus()),
-                                                                               "JRaft-Global-StepDownTimer");
-    private static final TimerSharedRef     SNAPSHOT_TIMER_REF             = new TimerSharedRef(
-                                                                               SystemPropertyUtil.getInt(
-                                                                                   GLOBAL_SNAPSHOT_TIMER_WORKERS,
-                                                                                   Utils.cpus()),
-                                                                               "JRaft-Global-SnapshotTimer");
-    private static final SchedulerSharedRef SCHEDULER_REF                  = new SchedulerSharedRef(
-                                                                               SystemPropertyUtil.getInt(
-                                                                                   GLOBAL_SCHEDULER_WORKERS,
-                                                                                   Utils.cpus() * 3 > 20 ? 20 : Utils
-                                                                                       .cpus() * 3),
-                                                                               "JRaft-Node-ScheduleThreadPool");
+    private static final TimerSharedRef VOTE_TIMER_REF = new TimerSharedRef(
+        SystemPropertyUtil.getInt(
+            GLOBAL_VOTE_TIMER_WORKERS,
+            Utils.cpus()),
+        "JRaft-Global-VoteTimer");
+
+    private static final TimerSharedRef STEP_DOWN_TIMER_REF = new TimerSharedRef(
+        SystemPropertyUtil.getInt(
+            GLOBAL_STEP_DOWN_TIMER_WORKERS,
+            Utils.cpus()),
+        "JRaft-Global-StepDownTimer");
+    private static final TimerSharedRef SNAPSHOT_TIMER_REF = new TimerSharedRef(
+        SystemPropertyUtil.getInt(
+            GLOBAL_SNAPSHOT_TIMER_WORKERS,
+            Utils.cpus()),
+        "JRaft-Global-SnapshotTimer");
+
+    private static final SchedulerSharedRef SCHEDULER_REF = new SchedulerSharedRef(
+        SystemPropertyUtil.getInt(
+            GLOBAL_SCHEDULER_WORKERS,
+            Utils.cpus() * 3 > 20 ? 20 : Utils
+                .cpus() * 3),
+        "JRaft-Node-ScheduleThreadPool");
 
     @Override
     public Timer getElectionTimer(final boolean shared, final String name) {
@@ -107,8 +106,8 @@ public class DefaultRaftTimerFactory implements RaftTimerFactory {
     private static abstract class Shared<T> {
 
         private AtomicInteger refCount = new AtomicInteger(0);
-        private AtomicBoolean started  = new AtomicBoolean(true);
-        protected final T     shared;
+        private AtomicBoolean started = new AtomicBoolean(true);
+        protected final T shared;
 
         protected Shared(T shared) {
             this.shared = shared;
@@ -135,9 +134,9 @@ public class DefaultRaftTimerFactory implements RaftTimerFactory {
 
     private static abstract class SharedRef<T> {
 
-        private final int    workerNum;
+        private final int workerNum;
         private final String name;
-        private Shared<T>    shared;
+        private Shared<T> shared;
 
         public SharedRef(int workerNum, String name) {
             this.workerNum = workerNum;

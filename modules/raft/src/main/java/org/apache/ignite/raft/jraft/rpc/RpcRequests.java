@@ -289,9 +289,6 @@ public final class RpcRequests {
             return MessageBuilderFactory.DEFAULT.createAppendEntriesRequest();
         }
 
-        /**
-         * <code>required string group_id = 1;</code>
-         */
         String getGroupId();
 
         String getServerId();

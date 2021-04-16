@@ -23,9 +23,9 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Reset peer request processor.
@@ -58,16 +58,14 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
             if (peer.parse(peerIdStr)) {
                 newConf.addPeer(peer);
             } else {
-                return RpcFactoryHelper //
-                    .responseFactory() //
+                return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }
         LOG.info("Receive ResetPeerRequest to {} from {}, new conf is {}", ctx.node.getNodeId(), done.getRpcCtx()
             .getRemoteAddress(), newConf);
         final Status st = ctx.node.resetPeers(newConf);
-        return RpcFactoryHelper //
-            .responseFactory() //
+        return RaftRpcFactory.DEFAULT //
             .newResponse(defaultResp(), st);
     }
 

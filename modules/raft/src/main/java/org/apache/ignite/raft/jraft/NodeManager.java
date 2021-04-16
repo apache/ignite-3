@@ -31,7 +31,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 
 /**
- * Raft nodes manager. TODO refactor to component.
+ * Raft nodes manager. TODO asch refactor to component. Duplicates raft server.
  *
  * @author boyan (boyan@alibaba-inc.com)
  *

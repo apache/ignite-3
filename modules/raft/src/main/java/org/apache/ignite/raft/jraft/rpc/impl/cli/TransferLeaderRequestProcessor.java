@@ -22,9 +22,9 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Snapshot request processor.
@@ -53,15 +53,13 @@ public class TransferLeaderRequestProcessor extends BaseCliRequestProcessor<Tran
                                       final RpcRequestClosure done) {
         final PeerId peer = new PeerId();
         if (request.hasPeerId() && !peer.parse(request.getPeerId())) {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", request.getPeerId());
         }
         LOG.info("Receive TransferLeaderRequest to {} from {}, newLeader will be {}.", ctx.node.getNodeId(), done
             .getRpcCtx().getRemoteAddress(), peer);
         final Status st = ctx.node.transferLeadershipTo(peer);
-        return RpcFactoryHelper //
-            .responseFactory() //
+        return RaftRpcFactory.DEFAULT //
             .newResponse(defaultResp(), st);
     }
 

@@ -35,7 +35,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.ConnectionClosedEventListener;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor;
@@ -84,7 +83,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             }
 
             // The node enable pipeline, we should ensure bolt support it.
-            RpcFactoryHelper.rpcFactory().ensurePipeline();
+            //RpcFactoryHelper.rpcFactory().ensurePipeline();
 
             final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pairOf(peerId, serverId), null);
 

@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage;
 
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import java.io.IOException;
@@ -32,7 +33,6 @@ import org.apache.ignite.raft.jraft.storage.io.FileReader;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,14 +79,12 @@ public final class FileService {
      */
     public Message handleGetFile(final GetFileRequest request, final RpcRequestClosure done) {
         if (request.getCount() <= 0 || request.getOffset() < 0) {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EREQUEST, "Invalid request: %s", request);
         }
         final FileReader reader = this.fileReaderMap.get(request.getReaderId());
         if (reader == null) {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.ENOENT, "Fail to find reader=%d",
                     request.getReaderId());
         }
@@ -114,15 +112,13 @@ public final class FileService {
             }
             return responseBuilder.build();
         } catch (final RetryAgainException e) {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EAGAIN,
                     "Fail to read from path=%s filename=%s with error: %s", reader.getPath(), request.getFilename(),
                     e.getMessage());
         } catch (final IOException e) {
             LOG.error("Fail to read file path={} filename={}", reader.getPath(), request.getFilename(), e);
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EIO,
                     "Fail to read from path=%s filename=%s", reader.getPath(), request.getFilename());
         }

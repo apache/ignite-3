@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +52,7 @@ public abstract class RpcRequestProcessor<T extends Message> implements RpcProce
             }
         } catch (final Throwable t) {
             LOG.error("handleRequest {} failed", request, t);
-            rpcCtx.sendResponse(RpcFactoryHelper //
-                .responseFactory() //
+            rpcCtx.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), -1, "handleRequest internal error"));
         }
     }

@@ -24,9 +24,9 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestProcessor;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,8 +101,7 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
         if (!StringUtils.isBlank(peerIdStr)) {
             peerId = new PeerId();
             if (!peerId.parse(peerIdStr)) {
-                return RpcFactoryHelper //
-                    .responseFactory() //
+                return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer: %s", peerIdStr);
             }
         }
@@ -110,8 +109,7 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
         Status st = new Status();
         Node node = getNode(groupId, peerId, st);
         if (!st.isOk()) {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), st.getCode(), st.getErrorMsg());
         } else {
             return processRequest0(new CliRequestContext(node, groupId, peerId), request, done);

@@ -16,17 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.closure;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.raft.jraft.Closure;
-import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.util.SystemPropertyUtil;
-import org.apache.ignite.raft.jraft.util.timer.Timeout;
-import org.apache.ignite.raft.jraft.util.timer.Timer;
-import org.apache.ignite.raft.jraft.util.timer.TimerTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,48 +29,24 @@ import org.slf4j.LoggerFactory;
  * @author dennis
  */
 public abstract class ReadIndexClosure implements Closure {
+    private static final Logger LOG = LoggerFactory.getLogger(ReadIndexClosure.class);
 
-    private static final Logger                                      LOG               = LoggerFactory
-                                                                                           .getLogger(ReadIndexClosure.class);
+    private static final AtomicIntegerFieldUpdater<ReadIndexClosure> STATE_UPDATER =
+        AtomicIntegerFieldUpdater.newUpdater(ReadIndexClosure.class, "state");
 
-    private static final AtomicIntegerFieldUpdater<ReadIndexClosure> STATE_UPDATER     = AtomicIntegerFieldUpdater
-                                                                                           .newUpdater(
-                                                                                               ReadIndexClosure.class,
-                                                                                               "state");
-
-    private static final long                                        DEFAULT_TIMEOUT   = SystemPropertyUtil.getInt(
-                                                                                           "jraft.read-index.timeout",
-                                                                                           2 * 1000);
-
-    private static final int                                         PENDING           = 0;
-    private static final int                                         COMPLETE          = 1;
-    private static final int                                         TIMEOUT           = 2;
+    private static final int PENDING = 0;
+    private static final int COMPLETE = 1;
+    private static final int TIMEOUT = 2;
 
     /**
      * Invalid log index -1.
      */
-    public static final long                                         INVALID_LOG_INDEX = -1;
+    public static final long INVALID_LOG_INDEX = -1;
 
-    private long                                                     index             = INVALID_LOG_INDEX;
-    private byte[]                                                   requestContext;
+    private long index = INVALID_LOG_INDEX;
+    private byte[] requestContext;
 
-    private volatile int                                             state             = PENDING;
-
-    public ReadIndexClosure() {
-        this(DEFAULT_TIMEOUT);
-    }
-
-    /**
-     * Create a read-index closure with a timeout parameter.
-     *
-     * @param timeoutMs timeout millis
-     */
-    public ReadIndexClosure(long timeoutMs) {
-        if (timeoutMs >= 0) {
-            // Lazy to init the timer
-            TimeoutScanner.TIMER.newTimeout(new TimeoutTask(this), timeoutMs, TimeUnit.MILLISECONDS);
-        }
-    }
+    private volatile int state = PENDING;
 
     /**
      * Called when ReadIndex can be executed.
@@ -130,35 +99,5 @@ public abstract class ReadIndexClosure implements Closure {
         } catch (final Throwable t) {
             LOG.error("Fail to run ReadIndexClosure with status: {}.", status, t);
         }
-    }
-
-    static class TimeoutTask implements TimerTask {
-
-        private final ReadIndexClosure closure;
-
-        TimeoutTask(ReadIndexClosure closure) {
-            this.closure = closure;
-        }
-
-        @Override
-        public void run(final Timeout timeout) throws Exception {
-            if (!STATE_UPDATER.compareAndSet(this.closure, PENDING, TIMEOUT)) {
-                return;
-            }
-
-            final Status status = new Status(RaftError.ETIMEDOUT, "read-index request timeout");
-            try {
-                this.closure.run(status, INVALID_LOG_INDEX, null);
-            } catch (final Throwable t) {
-                LOG.error("[Timeout] fail to run ReadIndexClosure with status: {}.", status, t);
-            }
-        }
-    }
-
-    /**
-     * Lazy to create a timer
-     */
-    static class TimeoutScanner {
-        private static final Timer TIMER = JRaftUtils.raftTimerFactory().createTimer("read-index.timeout.scanner");
     }
 }

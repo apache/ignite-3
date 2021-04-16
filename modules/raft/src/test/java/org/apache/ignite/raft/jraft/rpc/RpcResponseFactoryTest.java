@@ -19,7 +19,6 @@ package org.apache.ignite.raft.jraft.rpc;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -27,14 +26,14 @@ import static org.junit.Assert.assertEquals;
 public class RpcResponseFactoryTest {
     @Test
     public void testNewResponseFromStatus() {
-        ErrorResponse response = (ErrorResponse) RpcFactoryHelper.responseFactory().newResponse(null, Status.OK());
+        ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(null, Status.OK());
         assertEquals(response.getErrorCode(), 0);
         assertEquals(response.getErrorMsg(), "");
     }
 
     @Test
     public void testNewResponseWithErrorStatus() {
-        ErrorResponse response = (ErrorResponse) RpcFactoryHelper.responseFactory().newResponse(null,
+        ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(null,
             new Status(300, "test"));
         assertEquals(response.getErrorCode(), 300);
         assertEquals(response.getErrorMsg(), "test");
@@ -42,7 +41,7 @@ public class RpcResponseFactoryTest {
 
     @Test
     public void testNewResponseWithVaridicArgs() {
-        ErrorResponse response = (ErrorResponse) RpcFactoryHelper.responseFactory().newResponse(null, 300,
+        ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(null, 300,
             "hello %s %d", "world", 99);
         assertEquals(response.getErrorCode(), 300);
         assertEquals(response.getErrorMsg(), "hello world 99");
@@ -50,7 +49,7 @@ public class RpcResponseFactoryTest {
 
     @Test
     public void testNewResponseWithArgs() {
-        ErrorResponse response = (ErrorResponse) RpcFactoryHelper.responseFactory().newResponse(null, 300,
+        ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(null, 300,
             "hello world");
         assertEquals(response.getErrorCode(), 300);
         assertEquals(response.getErrorMsg(), "hello world");
@@ -58,7 +57,7 @@ public class RpcResponseFactoryTest {
 
     @Test
     public void testNewResponseWithRaftError() {
-        ErrorResponse response = (ErrorResponse) RpcFactoryHelper.responseFactory().newResponse(null, RaftError.EAGAIN,
+        ErrorResponse response = (ErrorResponse) RaftRpcFactory.DEFAULT.newResponse(null, RaftError.EAGAIN,
             "hello world");
         assertEquals(response.getErrorCode(), RaftError.EAGAIN.getNumber());
         assertEquals(response.getErrorMsg(), "hello world");

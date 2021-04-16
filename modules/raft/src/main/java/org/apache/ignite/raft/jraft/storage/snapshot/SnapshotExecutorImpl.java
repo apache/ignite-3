@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.storage.snapshot;
 
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotResponse;
 import java.io.IOException;
@@ -43,7 +44,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.CountDownEvent;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.slf4j.Logger;
@@ -522,8 +522,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             if (reader == null || !reader.isOk()) {
                 Utils.closeQuietly(reader);
                 this.downloadingSnapshot.set(null);
-                ds.done.sendResponse(RpcFactoryHelper //
-                    .responseFactory() //
+                ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                     .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EINTERNAL,
                         "Fail to copy snapshot from %s", ds.request.getUri()));
                 this.runningJobs.countDown();
@@ -551,16 +550,15 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             if (this.stopped) {
                 LOG.warn("Register DownloadingSnapshot failed: node is stopped.");
                 ds.done
-                    .sendResponse(RpcFactoryHelper //
-                        .responseFactory() //
+                    .sendResponse(RaftRpcFactory.DEFAULT //
                         .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EHOSTDOWN,
                             "Node is stopped."));
                 return false;
             }
             if (this.savingSnapshot) {
                 LOG.warn("Register DownloadingSnapshot failed: is saving snapshot.");
-                ds.done.sendResponse(RpcFactoryHelper //
-                    .responseFactory().newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EBUSY,
+                ds.done.sendResponse(RaftRpcFactory.DEFAULT //
+                    .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EBUSY,
                         "Node is saving snapshot."));
                 return false;
             }
@@ -589,8 +587,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 if (this.curCopier == null) {
                     this.downloadingSnapshot.set(null);
                     LOG.warn("Register DownloadingSnapshot failed: fail to copy file from {}.", ds.request.getUri());
-                    ds.done.sendResponse(RpcFactoryHelper //
-                        .responseFactory() //
+                    ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                         .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EINVAL,
                             "Fail to copy from: %s", ds.request.getUri()));
                     return false;
@@ -614,8 +611,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 // |is| is older
                 LOG.warn("Register DownloadingSnapshot failed: is installing a newer one, lastIncludeIndex={}.",
                     m.request.getMeta().getLastIncludedIndex());
-                ds.done.sendResponse(RpcFactoryHelper //
-                    .responseFactory() //
+                ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                     .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EINVAL,
                         "A newer snapshot is under installing"));
                 return false;
@@ -624,8 +620,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 if (this.loadingSnapshot) {
                     LOG.warn("Register DownloadingSnapshot failed: is loading an older snapshot, lastIncludeIndex={}.",
                         m.request.getMeta().getLastIncludedIndex());
-                    ds.done.sendResponse(RpcFactoryHelper //
-                        .responseFactory() //
+                    ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                         .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EBUSY,
                             "A former snapshot is under loading"));
                     return false;
@@ -635,8 +630,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 LOG.warn(
                     "Register DownloadingSnapshot failed: an older snapshot is under installing, cancel downloading, lastIncludeIndex={}.",
                     m.request.getMeta().getLastIncludedIndex());
-                ds.done.sendResponse(RpcFactoryHelper //
-                    .responseFactory() //
+                ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                     .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EBUSY,
                         "A former snapshot is under installing, trying to cancel"));
                 return false;
@@ -647,8 +641,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         if (saved != null) {
             // Respond replaced session
             LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installling request.");
-            saved.done.sendResponse(RpcFactoryHelper //
-                .responseFactory() //
+            saved.done.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EINTR,
                     "Interrupted by the retry InstallSnapshotRequest"));
         }
@@ -658,7 +651,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private SnapshotCopierOptions newCopierOpts() {
         final SnapshotCopierOptions copierOpts = new SnapshotCopierOptions();
         copierOpts.setNodeOptions(this.node.getOptions());
-        copierOpts.setRaftClientService(this.node.getRpcService());
+        copierOpts.setRaftClientService(this.node.getRpcClientService());
         copierOpts.setTimerManager(this.node.getTimerManager());
         copierOpts.setRaftOptions(this.node.getRaftOptions());
         return copierOpts;

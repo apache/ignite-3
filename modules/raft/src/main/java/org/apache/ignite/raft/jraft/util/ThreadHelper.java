@@ -16,16 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  *
  */
 public final class ThreadHelper {
-
-    private static final Logger  LOG = LoggerFactory.getLogger(ThreadHelper.class);
-
     private static final Spinner SPINNER = new DefaultSpinner();
 
     public static void onSpinWait() {
@@ -36,7 +30,6 @@ public final class ThreadHelper {
     }
 
     public static abstract class Spinner {
-
         public abstract void onSpinWait();
     }
 

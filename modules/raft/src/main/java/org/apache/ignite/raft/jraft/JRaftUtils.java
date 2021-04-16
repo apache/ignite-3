@@ -25,11 +25,9 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.JRaftServiceLoader;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
-import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
  * Some helper methods for jraft usage.
@@ -39,19 +37,6 @@ import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
  * 2018-Apr-23 3:48:45 PM
  */
 public final class JRaftUtils {
-
-    private final static RaftTimerFactory TIMER_FACTORY = JRaftServiceLoader.load(RaftTimerFactory.class) //
-                                                            .first();
-
-    /**
-     * Get raft timer factory.
-     *
-     * @return {@link RaftTimerFactory}
-     */
-    public static RaftTimerFactory raftTimerFactory() {
-        return TIMER_FACTORY;
-    }
-
     /**
      * Bootstrap a non-empty raft node.
      *

@@ -23,8 +23,8 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * AddPeer request processor.
@@ -76,8 +76,7 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
                 }
             });
         } else {
-            return RpcFactoryHelper //
-                .responseFactory() //
+            return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", addingPeerIdStr);
         }
 

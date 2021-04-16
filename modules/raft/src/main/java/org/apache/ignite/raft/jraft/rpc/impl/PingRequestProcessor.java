@@ -16,11 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Ping request processor.
@@ -33,8 +33,7 @@ public class PingRequestProcessor implements RpcProcessor<PingRequest> {
     @Override
     public void handleRequest(final RpcContext rpcCtx, final PingRequest request) {
         rpcCtx.sendResponse( //
-            RpcFactoryHelper //
-                .responseFactory() //
+            RaftRpcFactory.DEFAULT //
                 .newResponse(RpcRequests.ErrorResponse.getDefaultInstance(), 0, "OK"));
     }
 

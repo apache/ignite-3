@@ -39,6 +39,7 @@ public final class RaftServiceFactory {
     }
 
     /**
+     * TODO asch not used.
      * Create and initialize a raft node with node options.
      * Throw {@link IllegalStateException} when fail to initialize.
      */

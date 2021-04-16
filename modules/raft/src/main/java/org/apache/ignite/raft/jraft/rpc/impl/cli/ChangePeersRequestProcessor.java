@@ -24,8 +24,8 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Change peers request processor.
@@ -59,8 +59,7 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
             if (peer.parse(peerIdStr)) {
                 conf.addPeer(peer);
             } else {
-                return RpcFactoryHelper //
-                    .responseFactory() //
+                return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }

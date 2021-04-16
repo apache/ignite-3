@@ -57,13 +57,13 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
  * @author jiachun.fjc
  */
 public class DefaultRaftClientService extends AbstractClientService implements RaftClientService {
-
+    // TODO asch remove.
     private static final FixedThreadsExecutorGroup APPEND_ENTRIES_EXECUTORS = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
-                                                                                 .newExecutorGroup(
-                                                                                     Utils.APPEND_ENTRIES_THREADS_SEND,
-                                                                                     "Append-Entries-Thread-Send",
-                                                                                     Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
-                                                                                     true);
+        .newExecutorGroup(
+            Utils.APPEND_ENTRIES_THREADS_SEND,
+            "Append-Entries-Thread-Send",
+            Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
+            true);
 
     private final ConcurrentMap<Endpoint, Executor> appendEntriesExecutorMap = new ConcurrentHashMap<>();
 
@@ -122,7 +122,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
             }
             if (!future.isDone()) {
                 future.failure(new RemotingException("Check connection[" +
-                        endpoint.toString()  + "] fail and try to create new one"));
+                    endpoint.toString() + "] fail and try to create new one"));
             }
         });
         return future;

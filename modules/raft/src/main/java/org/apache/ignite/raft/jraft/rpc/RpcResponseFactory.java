@@ -26,7 +26,6 @@ import org.apache.ignite.raft.jraft.error.RaftError;
  * @author jiachun.fjc
  */
 public interface RpcResponseFactory {
-
     /**
      * This is a convention that if a {@link Message} contains an {@link RpcRequests.ErrorResponse} field,
      * it can only be in position 99.

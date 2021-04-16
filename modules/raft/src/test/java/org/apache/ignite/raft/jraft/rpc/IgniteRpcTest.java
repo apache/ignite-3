@@ -30,7 +30,6 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.junit.jupiter.api.Disabled;
 
 /** */
-@Disabled
 public class IgniteRpcTest extends AbstractRpcTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcTest.class);
 

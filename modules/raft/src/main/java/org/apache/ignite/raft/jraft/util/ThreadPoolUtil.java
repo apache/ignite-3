@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
  * @author jiachun.fjc
  */
 public final class ThreadPoolUtil {
-
     /**
      * The default rejected execution handler
      */

@@ -19,9 +19,11 @@ package org.apache.ignite.raft.jraft;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
  * Abstract factory to create services for SOFAJRaft. TODO kill this.
@@ -59,4 +61,10 @@ public interface JRaftServiceFactory {
      * @return a codec factory to create encoder/decoder for raft log entry.
      */
     LogEntryCodecFactory createLogEntryCodecFactory();
+
+    /**
+     * Creates raft timer factory.
+     * @return The factory.
+     */
+    RaftTimerFactory createRaftTimerFactory();
 }

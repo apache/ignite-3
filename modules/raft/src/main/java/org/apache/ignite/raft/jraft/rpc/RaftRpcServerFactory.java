@@ -36,7 +36,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 
 /**
  * Raft RPC server factory.
@@ -45,32 +44,6 @@ import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
  * @author jiachun.fjc
  */
 public class RaftRpcServerFactory {
-
-    /**
-     * Creates a raft RPC server with default request executors.
-     *
-     * @param endpoint server address to bind
-     * @return a rpc server instance
-     */
-    public static RpcServer createRaftRpcServer(final Endpoint endpoint) {
-        return createRaftRpcServer(endpoint, null, null);
-    }
-
-    /**
-     * Creates a raft RPC server with executors to handle requests.
-     *
-     * @param endpoint      server address to bind
-     * @param raftExecutor  executor to handle RAFT requests.
-     * @param cliExecutor   executor to handle CLI service requests.
-     * @return a rpc server instance
-     */
-    public static RpcServer createRaftRpcServer(final Endpoint endpoint, final Executor raftExecutor,
-                                                final Executor cliExecutor) {
-        final RpcServer rpcServer = RpcFactoryHelper.rpcFactory().createRpcServer(endpoint);
-        addRaftRequestProcessors(rpcServer, raftExecutor, cliExecutor);
-        return rpcServer;
-    }
-
     /**
      * Adds RAFT and CLI service request processors with default executor.
      *
@@ -112,30 +85,5 @@ public class RaftRpcServerFactory {
         rpcServer.registerProcessor(new AddLearnersRequestProcessor(cliExecutor));
         rpcServer.registerProcessor(new RemoveLearnersRequestProcessor(cliExecutor));
         rpcServer.registerProcessor(new ResetLearnersRequestProcessor(cliExecutor));
-    }
-
-    /**
-     * Creates a raft RPC server and starts it.
-     *
-     * @param endpoint server address to bind
-     * @return a rpc server instance
-     */
-    public static RpcServer createAndStartRaftRpcServer(final Endpoint endpoint) {
-        return createAndStartRaftRpcServer(endpoint, null, null);
-    }
-
-    /**
-     * Creates a raft RPC server and starts it.
-     *
-     * @param endpoint     server address to bind
-     * @param raftExecutor executor to handle RAFT requests.
-     * @param cliExecutor  executor to handle CLI service requests.
-     * @return a rpc server instance
-     */
-    public static RpcServer createAndStartRaftRpcServer(final Endpoint endpoint, final Executor raftExecutor,
-                                                        final Executor cliExecutor) {
-        final RpcServer server = createRaftRpcServer(endpoint, raftExecutor, cliExecutor);
-        server.init(null);
-        return server;
     }
 }

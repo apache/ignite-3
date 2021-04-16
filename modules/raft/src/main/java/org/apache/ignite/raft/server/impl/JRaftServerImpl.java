@@ -38,6 +38,7 @@ import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
@@ -185,23 +186,6 @@ public class JRaftServerImpl implements RaftServer {
         nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
         nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
-        nodeOptions.setServiceFactory(new JRaftServiceFactory() {
-            @Override public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
-                return new RocksDBLogStorage(uri, raftOptions);
-            }
-
-            @Override public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-                return new LocalSnapshotStorage(uri, raftOptions);
-            }
-
-            @Override public RaftMetaStorage createRaftMetaStorage(String uri, RaftOptions raftOptions) {
-                return new LocalRaftMetaStorage(uri, raftOptions);
-            }
-
-            @Override public LogEntryCodecFactory createLogEntryCodecFactory() {
-                return LogEntryV1CodecFactory.getInstance();
-            }
-        });
 
         nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
 
@@ -212,6 +196,10 @@ public class JRaftServerImpl implements RaftServer {
 
             nodeOptions.setInitialConf(new Configuration(mapped, null));
         }
+
+        IgniteRpcClient client = new IgniteRpcClient(service, true);
+
+        nodeOptions.setRcpClient(client);
 
         final RaftGroupService server = new RaftGroupService(groupId, new PeerId(endpoint, 0, ElectionPriority.DISABLED),
             nodeOptions, rpcServer, true);

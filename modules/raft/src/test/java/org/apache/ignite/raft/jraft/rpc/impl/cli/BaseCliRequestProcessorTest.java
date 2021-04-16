@@ -25,11 +25,11 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.RpcFactoryHelper;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.After;
@@ -72,7 +72,7 @@ public class BaseCliRequestProcessorTest {
         protected Message processRequest0(CliRequestContext ctx, PingRequest request, RpcRequestClosure done) {
             this.ctx = ctx;
             this.done = done;
-            return RpcFactoryHelper.responseFactory().newResponse(null, Status.OK());
+            return RaftRpcFactory.DEFAULT.newResponse(null, Status.OK());
         }
 
         @Override
