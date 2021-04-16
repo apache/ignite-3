@@ -75,7 +75,7 @@ public class ConfigurationManager {
      * Bootstrap configuration manager with customer user cfg.
      * @param jsonStr Customer configuration in json format.
      */
-    public void bootstrap(String jsonStr) throws InterruptedException, ExecutionException{
+    public void bootstrap(String jsonStr) throws InterruptedException, ExecutionException {
         JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
 
         for (ConfigurationStorage configurationStorage : configurationStorages)
