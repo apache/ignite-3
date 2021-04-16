@@ -36,8 +36,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.jdkVersion;
 import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
 
 /**
- * <p>Wrapper for the {@link sun.misc.Unsafe} class.</p>
- *
+ * Wrapper for the {@link sun.misc.Unsafe} class.
  * <p>
  * All memory access operations have the following properties:
  * <ul>
@@ -51,7 +50,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.majorJavaVersion;
  * while native byte order is big-endian. So it is client code responsibility to check native byte order before
  * invoking these methods.</li>
  * </ul>
- * </p>
  */
 public abstract class GridUnsafe {
     /** */
@@ -1323,6 +1321,7 @@ public abstract class GridUnsafe {
      *
      * @param cls Class.
      * @return Allocated instance.
+     * @throws InstantiationException If failed to instantiate class.
      */
     public static Object allocateInstance(Class cls) throws InstantiationException {
         return UNSAFE.allocateInstance(cls);
@@ -1476,6 +1475,7 @@ public abstract class GridUnsafe {
      *
      * @param mtd Method.
      * @param args Arguments.
+     * @return Method invocation result.
      */
     public static Object invoke(Method mtd, Object... args) {
         try {
