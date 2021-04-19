@@ -19,11 +19,16 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.ReadCommand;
+import org.jetbrains.annotations.NotNull;
 
+/**
+ * The command gets a value by key specified.
+ */
 public class GetCommand implements ReadCommand {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
@@ -38,24 +43,35 @@ public class GetCommand implements ReadCommand {
      */
     private byte[] keyRowBytes;
 
-    public GetCommand(BinaryRow keyRow) {
+    /**
+     * @param keyRow Key row.
+     */
+    public GetCommand(@NotNull BinaryRow keyRow) {
+        assert keyRow != null;
+
         this.keyRow = keyRow;
 
-        keyToBytes(keyRow);
+        rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
     }
 
-    private void keyToBytes(BinaryRow keyRow) {
+    /**
+     * Writes a row to byte array.
+     *
+     * @param row Row.
+     * @param consumer Byte array consumer.
+     */
+    private void rowToBytes(BinaryRow row, Consumer<byte[]> consumer) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            keyRow.writeTo(baos);
+            row.writeTo(baos);
 
             baos.flush();
 
-            keyRowBytes = baos.toByteArray();
+            consumer.accept(baos.toByteArray());
         }
         catch (IOException e) {
-            LOG.error("Could not write key to stream [key=" + keyRow + ']', e);
+            LOG.error("Could not write row to stream [row=" + row + ']', e);
 
-            keyRowBytes = null;
+            consumer.accept(null);
         }
     }
 

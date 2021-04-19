@@ -21,10 +21,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
+import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
+import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
-import org.apache.ignite.internal.table.distributed.command.response.KVInsertResponse;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -54,16 +56,61 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
         while (iterator.hasNext()) {
             CommandClosure<WriteCommand> clo = iterator.next();
 
-            assert clo.command() instanceof InsertCommand;
+            if (clo.command() instanceof InsertCommand) {
+                BinaryRow previous = storage.putIfAbsent(
+                    extractAndWrapKey(((InsertCommand)clo.command()).getRow()),
+                    ((InsertCommand)clo.command()).getRow()
+                );
 
-            BinaryRow previous = storage.putIfAbsent(
-                extractAndWrapKey(((InsertCommand)clo.command()).getRow()),
-                ((InsertCommand)clo.command()).getRow()
-            );
+                clo.success(previous == null);
+            }
+            else if (clo.command() instanceof DeleteCommand) {
+                BinaryRow deleted = storage.remove(
+                    extractAndWrapKey(((DeleteCommand)clo.command()).getKeyRow())
+                );
 
-            clo.success(new KVInsertResponse(previous == null));
+                clo.success(deleted != null);
+            }
+            else if (clo.command() instanceof ReplaceCommand) {
+                ReplaceCommand cmd = ((ReplaceCommand)clo.command());
+
+                BinaryRow expected = cmd.getOldRow();
+
+                KeyWrapper key = extractAndWrapKey(expected);
+
+                BinaryRow current = storage.get(key);
+
+                if ((current == null && !expected.hasValue()) ||
+                    equalValues(current, expected)) {
+                    storage.put(key, cmd.getRow());
+
+                    clo.success(true);
+                }
+                else
+                    clo.success(false);
+            }
+            else if (clo.command() instanceof UpsertCommand) {
+                storage.put(
+                    extractAndWrapKey(((UpsertCommand)clo.command()).getRow()),
+                    ((UpsertCommand)clo.command()).getRow()
+                );
+
+                clo.success(null);
+            }
+            else
+                assert false : "Command was not found [cmd=" + clo.command() + ']';
         }
+    }
 
+    /**
+     * @param row Row.
+     * @return Extracted key.
+     */
+    @NotNull private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
+        if (row.hasValue() ^ row2.hasValue())
+            return false;
+
+        return row.valueSlice().compareTo(row2.valueSlice()) == 0;
     }
 
     /**

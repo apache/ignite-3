@@ -27,14 +27,17 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command inserts a row.
+ * The command replaces an old entry to a new one.
  */
-public class InsertCommand implements WriteCommand {
+public class ReplaceCommand implements WriteCommand {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ReplaceCommand.class);
 
     /** Row. */
     private transient BinaryRow row;
+
+    /** Old row. */
+    private transient BinaryRow oldRow;
 
     /*
      * Row bytes.
@@ -44,13 +47,23 @@ public class InsertCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
+     * Old row bytes.
+     * TODO: Remove the field after.
+     */
+    private byte[] oldRowBytes;
+
+    /**
+     * @param oldRow Old row.
      * @param row Row.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
+    public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row) {
+        assert oldRow != null;
         assert row != null;
 
+        this.oldRow = oldRow;
         this.row = row;
 
+        rowToBytes(oldRow, bytes -> oldRowBytes = bytes);
         rowToBytes(row, bytes -> rowBytes = bytes);
     }
 
@@ -85,5 +98,17 @@ public class InsertCommand implements WriteCommand {
             row = new ByteBufferRow(rowBytes);
 
         return row;
+    }
+
+    /**
+     * Gets an old row.
+     *
+     * @return Data row.
+     */
+    public BinaryRow getOldRow() {
+        if (oldRow == null)
+            oldRow = new ByteBufferRow(oldRowBytes);
+
+        return oldRow;
     }
 }

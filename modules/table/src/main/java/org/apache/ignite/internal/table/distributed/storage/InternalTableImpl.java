@@ -23,8 +23,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
+import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
+import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -62,64 +65,82 @@ public class InternalTableImpl implements InternalTable {
         this.partitions = partitions;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> get(BinaryRow keyRow) {
         return partitionMap.get(keyRow.hash() % partitions).<KVGetResponse>run(new GetCommand(keyRow))
             .thenApply(response -> response.getValue());
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsert(BinaryRow row) {
-        return null;
+        return partitionMap.get(row.hash() % partitions).<Void>run(new UpsertCommand(row))
+            .thenApply(response -> response);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> insert(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).run(new InsertCommand(row))
-            .thenApply(response -> true);
+        return partitionMap.get(row.hash() % partitions).<Boolean>run(new InsertCommand(row))
+            .thenApply(response -> response);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow row) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow) {
-        return null;
+        return partitionMap.get(oldRow.hash() % partitions).<Boolean>run(new ReplaceCommand(oldRow, newRow))
+            .thenApply(response -> response);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow row) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> delete(BinaryRow keyRow) {
-        return null;
+        return partitionMap.get(keyRow.hash() % partitions).<Boolean>run(new DeleteCommand(keyRow))
+            .thenApply(response -> response);
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow oldRow) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow row) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows) {
         return null;
     }

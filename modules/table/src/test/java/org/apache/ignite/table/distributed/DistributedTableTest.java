@@ -37,7 +37,6 @@ import org.apache.ignite.internal.table.TableSchemaView;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
-import org.apache.ignite.internal.table.distributed.command.response.KVInsertResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteLogger;
@@ -62,16 +61,29 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Distributed internal table tests.
+ */
 public class DistributedTableTest {
-
+    /** Base network port. */
     public static final int NODE_PORT_BASE = 20_000;
+
+    /** Nodes. */
     public static final int NODES = 5;
+
+    /** Partitions. */
     public static final int PARTS = 10;
+
+    /** Factory. */
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
+
+    /** Client. */
     private NetworkCluster client;
 
+    /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(1, new Column[] {
         new Column("key", NativeType.LONG, false)
     }, new Column[] {
@@ -81,6 +93,7 @@ public class DistributedTableTest {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedTableTest.class);
 
+    /** Cluster. */
     private ArrayList<NetworkCluster> cluster = new ArrayList<>();
 
     @BeforeEach
@@ -134,9 +147,9 @@ public class DistributedTableTest {
 
         Row testRow = getTestRow();
 
-        CompletableFuture<KVInsertResponse> insertFur = partRaftGrp.run(new InsertCommand(testRow));
+        CompletableFuture<Boolean> insertFur = partRaftGrp.run(new InsertCommand(testRow));
 
-        assertTrue(insertFur.get().isResult());
+        assertTrue(insertFur.get());
 
 //        Row keyChunk = new Row(SCHEMA, new ByteBufferRow(testRow.keySlice()));
         Row keyChunk = getTestKey();
@@ -238,8 +251,53 @@ public class DistributedTableTest {
             assertEquals(Long.valueOf(i + 2), entry.longValue("value"));
         }
 
-        //Nothing to do until marshaller will be implemented.
-//        tbl.kvView().get(new TestTableRowImpl("Hello!".getBytes()));
+        for (int i = 0; i < PARTS * 10; i++) {
+            tbl.kvView().put(
+                tbl.kvView().tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build(),
+                tbl.kvView().tupleBuilder()
+                    .set("value", Long.valueOf(i + 5))
+                    .build());
+
+            Tuple entry = tbl.kvView().get(
+                tbl.kvView().tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build());
+
+            assertEquals(Long.valueOf(i + 5), entry.longValue("value"));
+        }
+
+        for (int i = 0; i < PARTS * 10; i++) {
+            boolean res = tbl.kvView().replace(
+                tbl.kvView().tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build(),
+                tbl.kvView().tupleBuilder()
+                    .set("value", Long.valueOf(i + 5))
+                    .build(),
+                tbl.kvView().tupleBuilder()
+                    .set("value", Long.valueOf(i + 2))
+                    .build());
+
+            assertTrue(res);
+        }
+
+        for (int i = 0; i < PARTS * 10; i++) {
+            boolean res = tbl.kvView().remove(
+                tbl.kvView().tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build());
+
+            assertTrue(res);
+
+            Tuple entry = tbl.kvView().get(
+                tbl.kvView().tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build());
+
+            assertNull(entry);
+        }
     }
 
     /**

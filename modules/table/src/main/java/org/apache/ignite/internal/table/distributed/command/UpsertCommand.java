@@ -27,11 +27,11 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command inserts a row.
+ * The command inserts or updates a value for the key specified.
  */
-public class InsertCommand implements WriteCommand {
+public class UpsertCommand implements WriteCommand {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(UpsertCommand.class);
 
     /** Row. */
     private transient BinaryRow row;
@@ -46,7 +46,7 @@ public class InsertCommand implements WriteCommand {
     /**
      * @param row Row.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
+    public UpsertCommand(@NotNull BinaryRow row) {
         assert row != null;
 
         this.row = row;

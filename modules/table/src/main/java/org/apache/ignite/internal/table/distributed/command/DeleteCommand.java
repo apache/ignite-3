@@ -27,31 +27,31 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command inserts a row.
+ * The command deletes a entry by passed key.
  */
-public class InsertCommand implements WriteCommand {
+public class DeleteCommand implements WriteCommand {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(DeleteCommand.class);
 
-    /** Row. */
-    private transient BinaryRow row;
+    /** Key row. */
+    private transient BinaryRow keyRow;
 
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after.
      */
-    private byte[] rowBytes;
+    private byte[] keyRowBytes;
 
     /**
-     * @param row Row.
+     * @param keyRow Key row.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
-        assert row != null;
+    public DeleteCommand(@NotNull BinaryRow keyRow) {
+        assert keyRow != null;
 
-        this.row = row;
+        this.keyRow = keyRow;
 
-        rowToBytes(row, bytes -> rowBytes = bytes);
+        rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
     }
 
     /**
@@ -76,14 +76,15 @@ public class InsertCommand implements WriteCommand {
     }
 
     /**
-     * Gets a data row.
+     * Gets a key row.
      *
-     * @return Data row.
+     * @return Key row.
      */
-    public BinaryRow getRow() {
-        if (row == null)
-            row = new ByteBufferRow(rowBytes);
+    public BinaryRow getKeyRow() {
+        if (keyRow == null)
+            keyRow = new ByteBufferRow(keyRowBytes);
 
-        return row;
+        return keyRow;
     }
+
 }

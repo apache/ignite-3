@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.command.response;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
@@ -46,21 +47,33 @@ public class KVGetResponse implements Serializable {
     public KVGetResponse(BinaryRow row) {
         this.row = row;
 
-        keyToBytes(row);
+        rowToBytes(row, bytes -> rowBytes = bytes);
     }
 
-    private void keyToBytes(BinaryRow row) {
+    /**
+     * Writes a row to byte array.
+     *
+     * @param row Row.
+     * @param consumer Byte array consumer.
+     */
+    private void rowToBytes(BinaryRow row, Consumer<byte[]> consumer) {
+        if (row == null) {
+            consumer.accept(null);
+
+            return;
+        }
+
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             row.writeTo(baos);
 
             baos.flush();
 
-            rowBytes = baos.toByteArray();
+            consumer.accept(baos.toByteArray());
         }
         catch (IOException e) {
             LOG.error("Could not write row to stream [row=" + row + ']', e);
 
-            rowBytes = null;
+            consumer.accept(null);
         }
     }
 
@@ -68,7 +81,7 @@ public class KVGetResponse implements Serializable {
      * @return Data row.
      */
     public BinaryRow getValue() {
-        if (row == null)
+        if (row == null && rowBytes != null)
             row = new ByteBufferRow(rowBytes);
 
         return row;
