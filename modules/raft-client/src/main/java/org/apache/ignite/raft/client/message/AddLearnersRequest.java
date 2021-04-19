@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Peer;
@@ -24,7 +25,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * Add learners.
  */
-public interface AddLearnersRequest extends NetworkMessage {
+public interface AddLearnersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.
      */
@@ -47,7 +48,7 @@ public interface AddLearnersRequest extends NetworkMessage {
          * @param learners Learners.
          * @return The builder.
          */
-        Builder learners(List<Peer> learner);
+        Builder learners(List<Peer> learners);
 
         /**
          * @return The complete message.

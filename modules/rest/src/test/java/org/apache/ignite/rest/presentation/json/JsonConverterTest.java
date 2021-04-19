@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** */
 public class JsonConverterTest {
     /** */
-    @ConfigurationRoot(rootName = "root", storage = TestConfigurationStorage.class)
+    @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
     public static class JsonRootConfigurationSchema {
         /** */
         @NamedConfigValue

@@ -17,13 +17,14 @@
 
 package org.apache.ignite.raft.client.message;
 
+import java.io.Serializable;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * A current leader.
  */
-public interface GetLeaderResponse extends NetworkMessage {
+public interface GetLeaderResponse extends NetworkMessage, Serializable {
     /**
      * @return The leader.
      */
@@ -35,7 +36,7 @@ public interface GetLeaderResponse extends NetworkMessage {
          * @param leader Leader
          * @return The builder.
          */
-        Builder leader(Peer leaderId);
+        Builder leader(Peer leader);
 
         /**
          * @return The complete message.

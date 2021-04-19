@@ -17,16 +17,18 @@
 
 package org.apache.ignite.raft.client;
 
-import org.apache.ignite.network.NetworkMember;
+import java.io.Serializable;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * A participant of a replication group.
  */
-public final class Peer {
+public final class Peer implements Serializable {
     /**
      * Network node.
      */
-    private final NetworkMember node;
+    private final ClusterNode node;
 
     /**
      * Peer's local priority value, if node don't support priority election,
@@ -45,7 +47,7 @@ public final class Peer {
     /**
      * @param node Node.
      */
-    public Peer(NetworkMember node) {
+    public Peer(ClusterNode node) {
         this(node, ElectionPriority.DISABLED);
     }
 
@@ -53,7 +55,7 @@ public final class Peer {
      * @param node Node.
      * @param priority Election priority.
      */
-    public Peer(NetworkMember node, int priority) {
+    public Peer(ClusterNode node, int priority) {
         this.node = node;
         this.priority = priority;
     }
@@ -61,7 +63,7 @@ public final class Peer {
     /**
      * @return Node.
      */
-    public NetworkMember getNode() {
+    public ClusterNode getNode() {
         return this.node;
     }
 
@@ -72,6 +74,7 @@ public final class Peer {
         return priority;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
@@ -84,13 +87,15 @@ public final class Peer {
         return true;
     }
 
+    /** {@inheritDoc} */
     @Override public int hashCode() {
         int result = node.hashCode();
         result = 31 * result + priority;
         return result;
     }
 
+    /** {@inheritDoc} */
     @Override public String toString() {
-        return node.name() + ":" + priority;
+        return S.toString(Peer.class, this);
     }
 }

@@ -50,8 +50,8 @@ import org.apache.ignite.internal.schema.marshaller.SerializationException;
 import org.apache.ignite.internal.schema.marshaller.Serializer;
 import org.apache.ignite.internal.schema.marshaller.SerializerFactory;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * {@link Serializer} code generator.
@@ -65,10 +65,10 @@ public class AsmSerializerGenerator implements SerializerFactory {
     public static final String SERIALIZER_CLASS_NAME_PREFIX = "SerializerForSchema_";
 
     /** Logger. */
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private static final IgniteLogger LOG = IgniteLogger.forClass(AsmSerializerGenerator.class);
 
     /** Dump generated code. */
-    private final boolean dumpCode = log.isTraceEnabled();
+    private final boolean dumpCode = LOG.isTraceEnabled();
 
     /** {@inheritDoc} */
     @Override public Serializer create(
@@ -101,12 +101,12 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
             compilationTime = System.nanoTime() - compilationTime;
 
-            if (log.isTraceEnabled()) {
-                log.trace("ASM serializer created: codeGenStage=" + TimeUnit.NANOSECONDS.toMicros(generation) + "us" +
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("ASM serializer created: codeGenStage=" + TimeUnit.NANOSECONDS.toMicros(generation) + "us" +
                     ", compileStage=" + TimeUnit.NANOSECONDS.toMicros(compilationTime) + "us." + "Code: " + writer.toString());
             }
-            else if (log.isDebugEnabled()) {
-                log.debug("ASM serializer created: codeGenStage=" + TimeUnit.NANOSECONDS.toMicros(generation) + "us" +
+            else if (LOG.isDebugEnabled()) {
+                LOG.debug("ASM serializer created: codeGenStage=" + TimeUnit.NANOSECONDS.toMicros(generation) + "us" +
                     ", compileStage=" + TimeUnit.NANOSECONDS.toMicros(compilationTime) + "us.");
             }
 
@@ -123,7 +123,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
         }
         catch (Exception | LinkageError e) {
-            throw new IllegalStateException("Failed to create serializer for key-value pair: schemaVer=" + schema.version() +
+            throw new IgniteInternalException("Failed to create serializer for key-value pair: schemaVer=" + schema.version() +
                 ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }
     }
@@ -337,7 +337,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
         methodDef.getBody().append(new IfStatement().condition(BytecodeExpressions.isNull(asm)).ifTrue(
             new BytecodeBlock()
-                .append(BytecodeExpressions.newInstance(IllegalStateException.class, BytecodeExpressions.constantString("ASM can't be null.")))
+                .append(BytecodeExpressions.newInstance(IgniteInternalException.class, BytecodeExpressions.constantString("ASM can't be null.")))
                 .throwObject()
         ));
 

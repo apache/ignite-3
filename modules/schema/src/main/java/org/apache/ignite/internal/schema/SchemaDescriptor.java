@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,8 +52,8 @@ public class SchemaDescriptor {
 
         colMap = new HashMap<>(keyCols.length + valCols.length);
 
-        Arrays.stream(keyCols).forEach(c -> colMap.put(c.name(), c));
-        Arrays.stream(valCols).forEach(c -> colMap.put(c.name(), c));
+        Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
+        Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
     }
 
     /**
@@ -66,7 +67,7 @@ public class SchemaDescriptor {
      * @param idx Index to check.
      * @return {@code true} if the column belongs to the key chunk.
      */
-    public boolean keyColumn(int idx) {
+    public boolean isKeyColumn(int idx) {
         return idx < keyCols.length();
     }
 
@@ -105,5 +106,10 @@ public class SchemaDescriptor {
      */
     public @Nullable Column column(@NotNull String name) {
         return colMap.get(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(SchemaDescriptor.class, this);
     }
 }

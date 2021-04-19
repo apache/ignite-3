@@ -24,9 +24,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
-import org.apache.ignite.lang.LogWrapper;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -41,12 +41,12 @@ import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.GetPeersRequest;
 import org.apache.ignite.raft.client.message.GetPeersResponse;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.message.RemoveLearnersRequest;
 import org.apache.ignite.raft.client.message.RemovePeersRequest;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
 import org.apache.ignite.raft.client.message.TransferLeadershipRequest;
-import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 
@@ -58,8 +58,8 @@ import static java.util.concurrent.ThreadLocalRandom.current;
  * The implementation of {@link RaftGroupService}
  */
 public class RaftGroupServiceImpl implements RaftGroupService {
-    /** */
-    private static LogWrapper LOG = new LogWrapper(RaftGroupServiceImpl.class);
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceImpl.class);
 
     /** */
     private volatile int timeout;
@@ -80,7 +80,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private volatile List<Peer> learners;
 
     /** */
-    private final NetworkCluster cluster;
+    private final ClusterService cluster;
 
     /** */
     private final long retryDelay;
@@ -96,11 +96,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param peers Initial group configuration.
      * @param refreshLeader {@code True} to synchronously refresh leader on service creation.
      * @param retryDelay Retry delay.
-     * @param executor Request executor.
      */
     public RaftGroupServiceImpl(
         String groupId,
-        NetworkCluster cluster,
+        ClusterService cluster,
         RaftClientMessageFactory factory,
         int timeout,
         List<Peer> peers,
@@ -262,7 +261,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public CompletableFuture<Void> snapshot(Peer peer) {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
-        CompletableFuture<?> fut = cluster.sendWithResponse(peer.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -276,7 +275,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         TransferLeadershipRequest req = factory.transferLeaderRequest().groupId(groupId).peer(newLeader).build();
 
-        CompletableFuture<?> fut = cluster.sendWithResponse(newLeader.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(newLeader.getNode(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -299,15 +298,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).build();
 
-        CompletableFuture fut = cluster.sendWithResponse(peer.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
 
-        return fut.thenApply(resp -> ((ActionResponse) resp).result());
+        return fut.thenApply(resp -> ((ActionResponse<R>) resp).result());
     }
 
-    private <R> CompletableFuture<R> sendWithRetry(NetworkMember node, NetworkMessage req, long stopTime) {
+    private <R> CompletableFuture<R> sendWithRetry(ClusterNode node, NetworkMessage req, long stopTime) {
         if (currentTimeMillis() >= stopTime)
             return CompletableFuture.failedFuture(new TimeoutException());
-        return cluster.sendWithResponse(node, req, timeout)
+        return cluster.messagingService().invoke(node, req, timeout)
             .thenCompose(resp -> {
                 if (resp instanceof RaftErrorResponse) {
                     RaftErrorResponse resp0 = (RaftErrorResponse)resp;
@@ -343,7 +342,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /**
      * @return Random node.
      */
-    private NetworkMember randomNode() {
+    private ClusterNode randomNode() {
         List<Peer> peers0 = peers;
 
         if (peers0 == null || peers0.isEmpty())

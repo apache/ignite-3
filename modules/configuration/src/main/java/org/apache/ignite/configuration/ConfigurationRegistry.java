@@ -39,19 +39,21 @@ import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.lang.IgniteLogger;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
 
 /** */
 public class ConfigurationRegistry {
-    /** */
-    private static final System.Logger logger = System.getLogger(ConfigurationRegistry.class.getName());
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationRegistry.class);
 
     /** */
     private final Map<String, DynamicConfiguration<?, ?, ?>> configs = new HashMap<>();
@@ -83,7 +85,7 @@ public class ConfigurationRegistry {
     }
 
     /** */
-    public void startStorageConfigurations(Class<? extends ConfigurationStorage> storageType) {
+    public void startStorageConfigurations(ConfigurationType storageType) {
         changer.initialize(storageType);
     }
 
@@ -152,7 +154,7 @@ public class ConfigurationRegistry {
         // Map futures into a "suppressed" future that won't throw any exceptions on completion.
         Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.handle((res, throwable) -> {
             if (throwable != null)
-                logger.log(System.Logger.Level.ERROR, "Failed to notify configuration listener.", throwable);
+                LOG.error("Failed to notify configuration listener.", throwable);
 
             return res;
         });
@@ -167,13 +169,13 @@ public class ConfigurationRegistry {
      * Does not register this root anywhere, used for static object initialization only.
      *
      * @param rootName Name of the root as described in {@link ConfigurationRoot#rootName()}.
-     * @param storageType Storage class as described in {@link ConfigurationRoot#storage()}.
+     * @param storageType Storage class as described in {@link ConfigurationRoot#type()}.
      * @param rootSupplier Closure to instantiate internal configuration tree roots.
      * @param publicRootCreator Function to create public user-facing tree instance.
      */
     public static <T extends ConfigurationTree<V, ?>, V> RootKey<T, V> newRootKey(
         String rootName,
-        Class<? extends ConfigurationStorage> storageType,
+        ConfigurationType storageType,
         Supplier<InnerNode> rootSupplier,
         BiFunction<RootKey<T, V>, ConfigurationChanger, T> publicRootCreator
     ) {
