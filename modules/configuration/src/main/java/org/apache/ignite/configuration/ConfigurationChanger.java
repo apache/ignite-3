@@ -18,12 +18,7 @@ package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -45,12 +40,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.jetbrains.annotations.NotNull;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.addDefaults;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.cleanupMatchingValues;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.nodeToFlatMap;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.patch;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.*;
 
 /**
  * Class that handles configuration changes, by validating them, passing to storage and listening to storage updates.
@@ -220,13 +210,13 @@ public final class ConfigurationChanger {
 
         source.descend(superRoot);
 
-        Set<Class<? extends ConfigurationStorage>> storagesTypes = new HashSet<>();
+        Set<ConfigurationType> storagesTypes = new HashSet<>();
 
         superRoot.traverseChildren(new ConfigurationVisitor<Object>() {
             @Override public Object visitInnerNode(String key, InnerNode node) {
                 RootKey<?, ?> rootKey = rootKeys.get(key);
 
-                return storagesTypes.add(rootKey.getStorageType());
+                return storagesTypes.add(rootKey.type());
             }
         });
 
