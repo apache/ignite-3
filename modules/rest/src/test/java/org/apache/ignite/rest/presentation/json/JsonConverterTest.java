@@ -126,7 +126,7 @@ public class JsonConverterTest {
 
     /** */
     @Test
-    public void toJson() throws Exception {
+    public void toJsonBasic() throws Exception {
         assertEquals(
             parseString("{'root':{'arraysList':{},'primitivesList':{}}}"),
             registry.represent(emptyList(), jsonVisitor())
@@ -142,48 +142,28 @@ public class JsonConverterTest {
             registry.represent(List.of("root", "arraysList"), jsonVisitor())
         );
 
+        assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("doot"), jsonVisitor()));
+
+        assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("root", "x"), jsonVisitor()));
+
+        assertEquals(
+            JsonNull.INSTANCE,
+            registry.represent(List.of("root", "primitivesList", "foo"), jsonVisitor())
+        );
+    }
+
+    /** */
+    @Test
+    public void toJsonPrimitives() throws Exception {
         configuration.change(cfg -> cfg
-            .changeArraysList(arraysList -> arraysList
-                .create("name", arrays -> {})
-            )
             .changePrimitivesList(primitivesList -> primitivesList
                 .create("name", primitives -> {})
             )
         ).get(1, SECONDS);
 
         assertEquals(
-            parseString("{'name':{'booleans':[false],'ints':[0],'longs':[0],'doubles':[0.0],'strings':['']}}"),
-            registry.represent(List.of("root", "arraysList"), jsonVisitor())
-        );
-
-        assertEquals(
             parseString("{'booleanVal':false,'intVal':0,'longVal':0,'doubleVal':0.0,'stringVal':''}"),
             registry.represent(List.of("root", "primitivesList", "name"), jsonVisitor())
-        );
-
-        assertEquals(
-            parseString("[false]"),
-            registry.represent(List.of("root", "arraysList", "name", "booleans"), jsonVisitor())
-        );
-
-        assertEquals(
-            parseString("[0]"),
-            registry.represent(List.of("root", "arraysList", "name", "ints"), jsonVisitor())
-        );
-
-        assertEquals(
-            parseString("[0]"),
-            registry.represent(List.of("root", "arraysList", "name", "longs"), jsonVisitor())
-        );
-
-        assertEquals(
-            parseString("[0.0]"),
-            registry.represent(List.of("root", "arraysList", "name", "doubles"), jsonVisitor())
-        );
-
-        assertEquals(
-            parseString("['']"),
-            registry.represent(List.of("root", "arraysList", "name", "strings"), jsonVisitor())
         );
 
         assertEquals(
@@ -210,14 +190,45 @@ public class JsonConverterTest {
             parseString("''"),
             registry.represent(List.of("root", "primitivesList", "name", "stringVal"), jsonVisitor())
         );
+    }
 
-        assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("doot"), jsonVisitor()));
-
-        assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("root", "x"), jsonVisitor()));
+    /** */
+    @Test
+    public void toJsonArrays() throws Exception {
+        configuration.change(cfg -> cfg
+            .changeArraysList(arraysList -> arraysList
+                .create("name", arrays -> {})
+            )
+        ).get(1, SECONDS);
 
         assertEquals(
-            JsonNull.INSTANCE,
-            registry.represent(List.of("root", "primitivesList", "foo"), jsonVisitor())
+            parseString("{'name':{'booleans':[false],'ints':[0],'longs':[0],'doubles':[0.0],'strings':['']}}"),
+            registry.represent(List.of("root", "arraysList"), jsonVisitor())
+        );
+
+        assertEquals(
+            parseString("[false]"),
+            registry.represent(List.of("root", "arraysList", "name", "booleans"), jsonVisitor())
+        );
+
+        assertEquals(
+            parseString("[0]"),
+            registry.represent(List.of("root", "arraysList", "name", "ints"), jsonVisitor())
+        );
+
+        assertEquals(
+            parseString("[0]"),
+            registry.represent(List.of("root", "arraysList", "name", "longs"), jsonVisitor())
+        );
+
+        assertEquals(
+            parseString("[0.0]"),
+            registry.represent(List.of("root", "arraysList", "name", "doubles"), jsonVisitor())
+        );
+
+        assertEquals(
+            parseString("['']"),
+            registry.represent(List.of("root", "arraysList", "name", "strings"), jsonVisitor())
         );
     }
 
