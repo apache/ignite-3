@@ -37,6 +37,8 @@ import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.NamedListNode;
 import org.jetbrains.annotations.NotNull;
 
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.join;
+
 /** */
 public class JsonConverter {
     /** */
@@ -143,14 +145,6 @@ public class JsonConverter {
             throw new IllegalArgumentException("JSON object is expected as a configuration source");
 
         return new JsonObjectConfigurationSource(new ArrayList<>(), jsonElement.getAsJsonObject());
-    }
-
-    /**
-     * @param path List to join.
-     * @return Dot-separated string.
-     */
-    @NotNull private static String join(List<String> path) {
-        return String.join(".", path);
     }
 
     private static class JsonObjectConfigurationSource implements ConfigurationSource {
