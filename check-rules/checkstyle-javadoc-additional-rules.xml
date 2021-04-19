@@ -32,13 +32,6 @@
     <!-- SuppressWarning Filter. https://checkstyle.sourceforge.io/config_filters.html#SuppressWarningsFilter -->
     <module name="SuppressWarningsFilter"/>
 
-    <!--
-        Checks that each Java package has a Javadoc file used for commenting.
-        By default it only allows a package-info.java file.
-        See: https://checkstyle.org/config_javadoc.html#JavadocPackage
-    -->
-    <module name="JavadocPackage"/>
-
     <module name="TreeWalker">
         <!--
             Validates Javadoc comments to help ensure they are well formed.
