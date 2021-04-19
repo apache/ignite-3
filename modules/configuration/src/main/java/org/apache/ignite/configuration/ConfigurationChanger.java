@@ -18,7 +18,12 @@ package org.apache.ignite.configuration;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -40,7 +45,13 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.jetbrains.annotations.NotNull;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.*;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.addDefaults;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.cleanupMatchingValues;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.nodeToFlatMap;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.patch;
+import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.toPrefixMap;
 
 /**
  * Class that handles configuration changes, by validating them, passing to storage and listening to storage updates.
@@ -278,12 +289,7 @@ public final class ConfigurationChanger {
 
     /** */
     public SuperRoot mergedSuperRoot() {
-        SuperRoot mergedSuperRoot = new SuperRoot(rootKeys);
-
-        for (StorageRoots storageRoots : storagesRootsMap.values())
-            mergedSuperRoot.append(storageRoots.roots);
-
-        return mergedSuperRoot;
+        return new SuperRoot(rootKeys, storagesRootsMap.values().stream().map(roots -> roots.roots).collect(toList()));
     }
 
     /**
