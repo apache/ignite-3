@@ -135,7 +135,10 @@ public class JsonConverter {
         };
     }
 
-    /** */
+    /**
+     * @param jsonElement JSON that has to be converted to the configuration source.
+     * @return JSON-based configuration source.
+     */
     public static ConfigurationSource jsonSource(JsonElement jsonElement) {
         assert jsonElement.isJsonObject();
 

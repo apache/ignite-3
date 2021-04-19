@@ -69,12 +69,16 @@ public class RestModule {
     /** */
     private final Logger log;
 
-    /** */
+    /**
+     * @param log Logger.
+     */
     public RestModule(Logger log) {
         this.log = log;
     }
 
-    /** */
+    /**
+     * @param sysCfg Configuration registry.
+     */
     public void prepareStart(ConfigurationRegistry sysCfg) {
         sysConf = sysCfg;
         sysCfg.registerRootKey(RestConfiguration.KEY);
@@ -83,7 +87,8 @@ public class RestModule {
     }
 
     /**
-     *
+     * @return REST channel future.
+     * @throws InterruptedException If thread has been interupted during the start.
      */
     public ChannelFuture start() throws InterruptedException {
         var router = new Router();
