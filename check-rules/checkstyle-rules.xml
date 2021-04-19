@@ -112,5 +112,117 @@
             See: https://checkstyle.sourceforge.io/config_whitespace.html#SingleSpaceSeparator
         -->
         <module name="SingleSpaceSeparator"/>
+
+        <!--
+            Javdoc style checks.
+        -->
+
+        <!--
+            Checks the order of javadoc block-tags or javadoc tags.
+            See: https://checkstyle.org/config_javadoc.html#AtclauseOrder
+        -->
+        <module name="AtclauseOrder"/>
+
+        <!--
+            Checks that Javadocs are located at the correct position.
+            See: https://checkstyle.org/config_javadoc.html#InvalidJavadocPosition
+        -->
+        <module name="InvalidJavadocPosition"/>
+
+        <!--
+           Checks that a javadoc block tag (starts with @) appears only at the beginning of a line,
+           ignoring leading asterisks and white space.
+           This check ignores block tags in comments and inside inline tags {@code } and {@literal }.
+           See: https://checkstyle.org/config_javadoc.html#JavadocBlockTagLocation
+       -->
+        <module name="JavadocBlockTagLocation">
+            <!-- default tags -->
+            <property name="tags" value="author, deprecated, exception, hidden"/>
+            <property name="tags" value="param, provides, return, see, serial"/>
+            <property name="tags" value="serialData, serialField, since, throws"/>
+            <property name="tags" value="uses, version"/>
+            <!-- additional tags can be used in the project -->
+            <property name="tags" value="apiNote, implSpec, implNote"/>
+            <property name="tags" value="noinspection"/>
+        </module>
+
+        <!--
+            Checks that the Javadoc content begins from the same position for all Javadoc comments in the project.
+            Any leading asterisks and spaces are not counted as the beginning of the content and are therefore ignored.
+            https://checkstyle.org/config_javadoc.html#JavadocContentLocation
+        -->
+        <module name="JavadocContentLocationCheck"/>
+
+        <!--
+            Checks if the javadoc has leading asterisks on each line.
+            See: https://checkstyle.org/config_javadoc.html#JavadocMissingLeadingAsterisk
+        -->
+        <module name="JavadocMissingLeadingAsterisk"/>
+
+        <!--
+            Checks that there is at least one whitespace after the leading asterisk.
+            See: https://checkstyle.org/config_javadoc.html#JavadocMissingWhitespaceAfterAsterisk
+        -->
+        <module name="JavadocMissingWhitespaceAfterAsterisk"/>
+
+        <!--
+            Checks that one blank line before the block tag if it is present in Javadoc.
+            See: https://checkstyle.org/config_javadoc.html#RequireEmptyLineBeforeBlockTagGroup
+        -->
+        <module name="RequireEmptyLineBeforeBlockTagGroup"/>
+
+        <!--
+            Checks that the block tag is followed by description.
+            See: https://checkstyle.org/config_javadoc.html#NonEmptyAtclauseDescription
+        -->
+        <module name="NonEmptyAtclauseDescription"/>
+
+        <!--
+            Checks that a Javadoc block can fit in a single line and doesn't contain block tags.
+            See: https://checkstyle.org/config_javadoc.html#SingleLineJavadoc
+        -->
+        <module name="SingleLineJavadoc">
+            <property name="ignoredTags" value="@inheritDoc"/>
+        </module>
+
+        <!--
+            Checks the Javadoc of a method or constructor.
+            See: https://checkstyle.org/config_javadoc.html#JavadocMethod
+        -->
+        <module name="JavadocMethod">
+            <property name="scope" value="package"/>
+            <property name="validateThrows" value="true"/>
+        </module>
+
+        <!--
+            Checks the Javadoc comments for type definitions.
+            See: https://checkstyle.org/config_javadoc.html#JavadocType
+        -->
+        <module name="JavadocType">
+            <property name="scope" value="package"/>
+            <property name="allowUnknownTags" value="true"/>
+        </module>
+
+        <!--
+            Checks for missing Javadoc comments for a method or constructor.
+            See: https://checkstyle.org/config_javadoc.html#MissingJavadocMethod
+        -->
+        <module name="MissingJavadocMethod">
+            <property name="scope" value="anoninner"/>
+        </module>
+
+        <!--
+            Checks for missing Javadoc comments for class, enum, interface, and annotation interface definitions.
+            See: https://checkstyle.org/config_javadoc.html#MissingJavadocType
+        -->
+        <module name="MissingJavadocType">
+            <property name="scope" value="private"/>
+        </module>
+
+        <!--
+            Checks that a variable has a Javadoc comment. Ignores serialVersionUID fields.
+            See: https://checkstyle.org/config_javadoc.html#JavadocVariable
+        -->
+        <module name="JavadocVariable"/>
     </module>
 </module>
