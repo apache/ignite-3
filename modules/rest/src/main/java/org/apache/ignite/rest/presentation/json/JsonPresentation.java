@@ -19,6 +19,7 @@ package org.apache.ignite.rest.presentation.json;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import java.util.Collections;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
@@ -51,8 +52,13 @@ public class JsonPresentation implements ConfigurationPresentation<String> {
 
     /** {@inheritDoc} */
     @Override public void update(String configUpdate) {
-        JsonElement jsonUpdate = JsonParser.parseString(configUpdate);
+        try {
+            JsonElement jsonUpdate = JsonParser.parseString(configUpdate);
 
-        sysCfg.change(JsonConverter.jsonSource(jsonUpdate), null);
+            sysCfg.change(JsonConverter.jsonSource(jsonUpdate), null);
+        }
+        catch (JsonSyntaxException e) {
+            throw new IllegalArgumentException("JSON syntax error: " + e.getMessage(), e);
+        }
     }
 }

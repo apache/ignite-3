@@ -35,6 +35,7 @@ import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.rest.presentation.json.JsonConverter.jsonSource;
 import static org.apache.ignite.rest.presentation.json.JsonConverter.jsonVisitor;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -142,9 +143,12 @@ public class JsonConverterTest {
             registry.represent(List.of("root", "arraysList"), jsonVisitor())
         );
 
-        assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("doot"), jsonVisitor()));
+        IllegalArgumentException e
+            = assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("doot"), jsonVisitor()));
+        assertEquals("Configuration 'doot' is not found", e.getMessage());
 
-        assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("root", "x"), jsonVisitor()));
+        e = assertThrows(IllegalArgumentException.class, () -> registry.represent(List.of("root", "x"), jsonVisitor()));
+        assertEquals("Configuration 'root.x' is not found", e.getMessage());
 
         assertEquals(
             JsonNull.INSTANCE,
@@ -232,11 +236,65 @@ public class JsonConverterTest {
         );
     }
 
-    //TODO Arrays
     /** */
     @Test
-    public void fromJson() throws Exception {
-        change("{'root':{'primitivesList':{'name' : {}},'arraysList':{'name' : {}}}}");
+    public void fromJsonBasic() throws Exception {
+        // Wrong names:
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> change("{'doot' : {}}"));
+
+        assertEquals("'doot' configuration root doesn't exist", e.getMessage());
+
+        e = assertThrows(IllegalArgumentException.class, () -> change("{'root':{'foo' : {}}}"));
+
+        assertEquals("'root' configuration doesn't have 'foo' subconfiguration", e.getMessage());
+
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'arraysList':{'name':{'x' : 1}}}}")
+        );
+
+        assertEquals("'root.arraysList.name' configuration doesn't have 'x' subconfiguration", e.getMessage());
+
+        // Wrong node types:
+        e = assertThrows(IllegalArgumentException.class, () -> change("{'root' : 'foo'}"));
+
+        assertEquals(
+            "'root' is expected to be a composite configuration node, not a single value",
+            e.getMessage()
+        );
+
+        e = assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList' : 'foo'}}"));
+
+        assertEquals(
+            "'root.arraysList' is expected to be a composite configuration node, not a single value",
+            e.getMessage()
+        );
+
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'arraysList':{'name' : 'foo'}}}")
+        );
+
+        assertEquals(
+            "'root.arraysList.name' is expected to be a composite configuration node, not a single value",
+            e.getMessage()
+        );
+
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'arraysList':{'name':{'ints' : {}}}}}")
+        );
+
+        assertEquals(
+            "'int[]' is expected as a type for 'root.arraysList.name.ints' configuration value",
+            e.getMessage()
+        );
+    }
+
+    /** */
+    @Test
+    public void fromJsonPrimitives() throws Exception {
+        change("{'root':{'primitivesList':{'name' : {}}}}");
 
         JsonPrimitivesConfiguration primitives = configuration.primitivesList().get("name");
         assertNotNull(primitives);
@@ -256,39 +314,120 @@ public class JsonConverterTest {
         change("{'root':{'primitivesList':{'name':{'stringVal' : 'foo'}}}}");
         assertEquals("foo", primitives.stringVal().value());
 
-        JsonArraysConfiguration arrays = configuration.arraysList().get("name");
-        assertNotNull(arrays);
-
-        // Wrong names:
-        assertThrows(IllegalArgumentException.class, () -> change("{'doot' : {}}"));
-        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'foo' : {}}}"));
-        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList':{'name':{'x' : 1}}}}"));
-
-        // Wrong node types:
-        assertThrows(IllegalArgumentException.class, () -> change("{'root' : 'foo'}"));
-        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList' : 'foo'}}"));
-        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList':{'name' : 'foo'}}}"));
-        assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList':{'name':{'intVal' : {}}}}}"));
-
         // Wrong value types:
-        assertThrows(
+        IllegalArgumentException e = assertThrows(
             IllegalArgumentException.class,
             () -> change("{'root':{'primitivesList':{'name':{'booleanVal' : 'true'}}}}")
         );
 
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'primitivesList':{'name':{'intVal' : 12345678900}}}}") // Integer overflow.
+        assertEquals(
+            "'boolean' is expected as a type for 'root.primitivesList.name.booleanVal' configuration value",
+            e.getMessage()
         );
 
-        assertThrows(
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'primitivesList':{'name':{'intVal' : 12345678900}}}}")
+        );
+
+        assertEquals(
+            "'root.primitivesList.name.intVal' has integer type and the value 12345678900 is out of bounds",
+            e.getMessage()
+        );
+
+        e = assertThrows(
             IllegalArgumentException.class,
             () -> change("{'root':{'primitivesList':{'name':{'intVal' : false}}}}")
         );
 
-        assertThrows(
+        assertEquals(
+            "'int' is expected as a type for 'root.primitivesList.name.intVal' configuration value",
+            e.getMessage()
+        );
+
+        e = assertThrows(
             IllegalArgumentException.class,
             () -> change("{'root':{'primitivesList':{'name':{'stringVal' : 10}}}}")
+        );
+
+        assertEquals(
+            "'String' is expected as a type for 'root.primitivesList.name.stringVal' configuration value",
+            e.getMessage()
+        );
+
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'primitivesList':{'name':{'doubleVal' : []}}}}")
+        );
+
+        assertEquals(
+            "'double' is expected as a type for 'root.primitivesList.name.doubleVal' configuration value",
+            e.getMessage()
+        );
+    }
+
+    /** */
+    @Test
+    public void fromJsonArrays() throws Exception {
+        change("{'root':{'arraysList':{'name' : {}}}}");
+
+        JsonArraysConfiguration arrays = configuration.arraysList().get("name");
+        assertNotNull(arrays);
+
+        change("{'root':{'arraysList':{'name':{'booleans' : [true]}}}}");
+        assertArrayEquals(new boolean[] {true}, arrays.booleans().value());
+
+        change("{'root':{'arraysList':{'name':{'ints' : [12345]}}}}");
+        assertArrayEquals(new int[] {12345}, arrays.ints().value());
+
+        change("{'root':{'arraysList':{'name':{'longs' : [12345678900]}}}}");
+        assertArrayEquals(new long[] {12345678900L}, arrays.longs().value());
+
+        change("{'root':{'arraysList':{'name':{'doubles' : [2.5]}}}}");
+        assertArrayEquals(new double[] {2.5d}, arrays.doubles().value());
+
+        change("{'root':{'arraysList':{'name':{'strings' : ['foo']}}}}");
+        assertArrayEquals(new String[] {"foo"}, arrays.strings().value());
+
+        // Wrong value types:
+        IllegalArgumentException e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'arraysList':{'name':{'booleans' : true}}}}")
+        );
+
+        assertEquals(
+            "'boolean[]' is expected as a type for 'root.arraysList.name.booleans' configuration value",
+            e.getMessage()
+        );
+
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'arraysList':{'name':{'ints' : ['0',0]}}}}")
+        );
+
+        assertEquals(
+            "'int' is expected as a type for 'root.arraysList.name.ints[0]' configuration value",
+            e.getMessage()
+        );
+
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'arraysList':{'name':{'longs' : [0,'0']}}}}")
+        );
+
+        assertEquals(
+            "'long' is expected as a type for 'root.arraysList.name.longs[1]' configuration value",
+            e.getMessage()
+        );
+
+        e = assertThrows(
+            IllegalArgumentException.class,
+            () -> change("{'root':{'arraysList':{'name':{'booleans' : [{}]}}}}")
+        );
+
+        assertEquals(
+            "'boolean' is expected as a type for 'root.arraysList.name.booleans[0]' configuration value",
+            e.getMessage()
         );
     }
 
