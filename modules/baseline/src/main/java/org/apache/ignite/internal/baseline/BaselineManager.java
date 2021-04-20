@@ -35,11 +35,11 @@ import org.apache.ignite.network.ClusterService;
      */
     private final MetaStorageManager metastorageMgr;
 
-    /** Cluster network service in order to retrieve information about current network members. */
+    /** Cluster network service in order to retrieve information about current cluster nodes. */
     private final ClusterService clusterSvc;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param configurationMgr Configuration manager.
      * @param metastorageMgr MetaStorage manager.

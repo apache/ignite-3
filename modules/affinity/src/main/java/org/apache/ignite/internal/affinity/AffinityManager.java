@@ -39,7 +39,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
     private final BaselineManager baselineMgr;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param configurationMgr Configuration manager.
      * @param metaStorageMgr Meta storage manager.

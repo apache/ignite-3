@@ -36,5 +36,5 @@ public class NetworkConfigurationSchema {
 
     /** */
     @Value
-    public String[] netMembersNames;
+    public String[] netClusterNodes;
 }

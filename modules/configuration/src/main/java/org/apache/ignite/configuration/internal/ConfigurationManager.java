@@ -43,7 +43,7 @@ import org.apache.ignite.configuration.validation.Validator;
     private final Set<ConfigurationStorage> configurationStorages;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param rootKeys Configuration root keys.
      * @param validators Validators.

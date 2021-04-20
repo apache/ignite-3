@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManagerImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
@@ -72,7 +73,7 @@ public class IgnitionImpl implements Ignition {
     private static final String VER_KEY = "version";
 
     /** */
-    private static final Logger log = LoggerFactory.getLogger(IgnitionImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
 
     /** {@inheritDoc} */
     @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
@@ -96,10 +97,10 @@ public class IgnitionImpl implements Ignition {
                 locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
             }
             catch (Exception e) {
-                log.warn("Unable to parse user specific configuration, default configuration will be used", e);
+                LOG.warn("Unable to parse user specific configuration, default configuration will be used", e);
             }
         else if (jsonStrBootstrapCfg != null)
-            log.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
+            LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
 
         NetworkView netConfigurationView =
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
@@ -163,7 +164,7 @@ public class IgnitionImpl implements Ignition {
 
     /** */
     private static void ackSuccessStart() {
-        log.info("Apache Ignite started successfully!");
+        LOG.info("Apache Ignite started successfully!");
     }
 
     /** */
@@ -174,6 +175,6 @@ public class IgnitionImpl implements Ignition {
             .stream(BANNER)
             .collect(Collectors.joining("\n"));
 
-        log.info(banner + '\n' + " ".repeat(22) + "Apache Ignite ver. " + ver + '\n');
+        LOG.info(banner + '\n' + " ".repeat(22) + "Apache Ignite ver. " + ver + '\n');
     }
 }

@@ -51,7 +51,7 @@ import org.jetbrains.annotations.Nullable;
     private MetaStorageService metaStorageSvc;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param vaultMgr Vault manager.
      * @param clusterNetSvc Cluster network service.

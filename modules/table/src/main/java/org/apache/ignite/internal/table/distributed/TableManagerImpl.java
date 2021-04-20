@@ -45,7 +45,7 @@ import org.apache.ignite.table.manager.TableManager;
     private final Loza raftMgr;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param configurationMgr Configuration table.
      * @param clusterNetSvc Cluster network service.

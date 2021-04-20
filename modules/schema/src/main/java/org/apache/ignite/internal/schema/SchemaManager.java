@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
     private final ConfigurationManager configurationMgr;
 
     /**
-     * Constructor.
+     * The constructor.
      *
      * @param configurationMgr Configuration manager.
      */
