@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import static com.google.gson.JsonParser.parseString;
 import static java.util.Collections.emptyList;
@@ -240,54 +241,40 @@ public class JsonConverterTest {
     @Test
     public void fromJsonBasic() throws Exception {
         // Wrong names:
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> change("{'doot' : {}}"));
-
-        assertEquals("'doot' configuration root doesn't exist", e.getMessage());
-
-        e = assertThrows(IllegalArgumentException.class, () -> change("{'root':{'foo' : {}}}"));
-
-        assertEquals("'root' configuration doesn't have 'foo' subconfiguration", e.getMessage());
-
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'arraysList':{'name':{'x' : 1}}}}")
+        assertThrowsIllegalArgException(
+            () -> change("{'doot' : {}}"),
+            "'doot' configuration root doesn't exist"
         );
 
-        assertEquals("'root.arraysList.name' configuration doesn't have 'x' subconfiguration", e.getMessage());
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'foo' : {}}}"),
+            "'root' configuration doesn't have 'foo' subconfiguration"
+        );
+
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList':{'name':{'x' : 1}}}}"),
+            "'root.arraysList.name' configuration doesn't have 'x' subconfiguration"
+        );
 
         // Wrong node types:
-        e = assertThrows(IllegalArgumentException.class, () -> change("{'root' : 'foo'}"));
-
-        assertEquals(
-            "'root' is expected to be a composite configuration node, not a single value",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root' : 'foo'}"),
+            "'root' is expected to be a composite configuration node, not a single value"
         );
 
-        e = assertThrows(IllegalArgumentException.class, () -> change("{'root':{'arraysList' : 'foo'}}"));
-
-        assertEquals(
-            "'root.arraysList' is expected to be a composite configuration node, not a single value",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList' : 'foo'}}"),
+            "'root.arraysList' is expected to be a composite configuration node, not a single value"
         );
 
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'arraysList':{'name' : 'foo'}}}")
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList':{'name' : 'foo'}}}"),
+            "'root.arraysList.name' is expected to be a composite configuration node, not a single value"
         );
 
-        assertEquals(
-            "'root.arraysList.name' is expected to be a composite configuration node, not a single value",
-            e.getMessage()
-        );
-
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'arraysList':{'name':{'ints' : {}}}}}")
-        );
-
-        assertEquals(
-            "'int[]' is expected as a type for 'root.arraysList.name.ints' configuration value",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList':{'name':{'ints' : {}}}}}"),
+            "'int[]' is expected as a type for 'root.arraysList.name.ints' configuration value"
         );
     }
 
@@ -315,54 +302,29 @@ public class JsonConverterTest {
         assertEquals("foo", primitives.stringVal().value());
 
         // Wrong value types:
-        IllegalArgumentException e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'primitivesList':{'name':{'booleanVal' : 'true'}}}}")
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'primitivesList':{'name':{'booleanVal' : 'true'}}}}"),
+            "'boolean' is expected as a type for 'root.primitivesList.name.booleanVal' configuration value"
         );
 
-        assertEquals(
-            "'boolean' is expected as a type for 'root.primitivesList.name.booleanVal' configuration value",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'primitivesList':{'name':{'intVal' : 12345678900}}}}"),
+            "'root.primitivesList.name.intVal' has integer type and the value 12345678900 is out of bounds"
         );
 
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'primitivesList':{'name':{'intVal' : 12345678900}}}}")
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'primitivesList':{'name':{'intVal' : false}}}}"),
+            "'int' is expected as a type for 'root.primitivesList.name.intVal' configuration value"
         );
 
-        assertEquals(
-            "'root.primitivesList.name.intVal' has integer type and the value 12345678900 is out of bounds",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'primitivesList':{'name':{'stringVal' : 10}}}}"),
+            "'String' is expected as a type for 'root.primitivesList.name.stringVal' configuration value"
         );
 
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'primitivesList':{'name':{'intVal' : false}}}}")
-        );
-
-        assertEquals(
-            "'int' is expected as a type for 'root.primitivesList.name.intVal' configuration value",
-            e.getMessage()
-        );
-
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'primitivesList':{'name':{'stringVal' : 10}}}}")
-        );
-
-        assertEquals(
-            "'String' is expected as a type for 'root.primitivesList.name.stringVal' configuration value",
-            e.getMessage()
-        );
-
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'primitivesList':{'name':{'doubleVal' : []}}}}")
-        );
-
-        assertEquals(
-            "'double' is expected as a type for 'root.primitivesList.name.doubleVal' configuration value",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'primitivesList':{'name':{'doubleVal' : []}}}}"),
+            "'double' is expected as a type for 'root.primitivesList.name.doubleVal' configuration value"
         );
     }
 
@@ -390,44 +352,24 @@ public class JsonConverterTest {
         assertArrayEquals(new String[] {"foo"}, arrays.strings().value());
 
         // Wrong value types:
-        IllegalArgumentException e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'arraysList':{'name':{'booleans' : true}}}}")
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList':{'name':{'booleans' : true}}}}"),
+            "'boolean[]' is expected as a type for 'root.arraysList.name.booleans' configuration value"
         );
 
-        assertEquals(
-            "'boolean[]' is expected as a type for 'root.arraysList.name.booleans' configuration value",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList':{'name':{'ints' : ['0',0]}}}}"),
+            "'int' is expected as a type for 'root.arraysList.name.ints[0]' configuration value"
         );
 
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'arraysList':{'name':{'ints' : ['0',0]}}}}")
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList':{'name':{'longs' : [0,'0']}}}}"),
+            "'long' is expected as a type for 'root.arraysList.name.longs[1]' configuration value"
         );
 
-        assertEquals(
-            "'int' is expected as a type for 'root.arraysList.name.ints[0]' configuration value",
-            e.getMessage()
-        );
-
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'arraysList':{'name':{'longs' : [0,'0']}}}}")
-        );
-
-        assertEquals(
-            "'long' is expected as a type for 'root.arraysList.name.longs[1]' configuration value",
-            e.getMessage()
-        );
-
-        e = assertThrows(
-            IllegalArgumentException.class,
-            () -> change("{'root':{'arraysList':{'name':{'booleans' : [{}]}}}}")
-        );
-
-        assertEquals(
-            "'boolean' is expected as a type for 'root.arraysList.name.booleans[0]' configuration value",
-            e.getMessage()
+        assertThrowsIllegalArgException(
+            () -> change("{'root':{'arraysList':{'name':{'booleans' : [{}]}}}}"),
+            "'boolean' is expected as a type for 'root.arraysList.name.booleans[0]' configuration value"
         );
     }
 
@@ -444,5 +386,12 @@ public class JsonConverterTest {
 
             throw e;
         }
+    }
+
+    /** */
+    private static void assertThrowsIllegalArgException(Executable executable, String msg) {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, executable);
+
+        assertEquals(msg, e.getMessage());
     }
 }
