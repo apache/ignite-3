@@ -35,7 +35,7 @@ public interface BinaryRow {
     /** */
     int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4;
     /** */
-    int TOTAL_LEN_FIELD_SIZE = 4;
+    int CHUNK_LEN_FIELD_SIZE = 4;
     /** */
     int VARLEN_TABLE_SIZE_FIELD_SIZE = 2;
     /** */

@@ -76,7 +76,7 @@ public class RowAssembler {
      * @return Total size of the varlen table.
      */
     public static int varlenTableSize(int nonNullVarlenCols) {
-        return nonNullVarlenCols * 2;
+        return nonNullVarlenCols * BinaryRow.VARLEN_COLUMN_OFFSET_FIELD_SIZE;
     }
 
     /**
@@ -114,8 +114,8 @@ public class RowAssembler {
      * @return Row's chunk size.
      */
     public static int rowChunkSize(Columns cols, int nonNullVarlenCols, int nonNullVarlenSize) {
-        int size = BinaryRow.TOTAL_LEN_FIELD_SIZE + BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE +
-            varlenTableSize(nonNullVarlenCols) + cols.nullMapSize();
+        int size = BinaryRow.CHUNK_LEN_FIELD_SIZE + cols.nullMapSize() +
+            BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE + varlenTableSize(nonNullVarlenCols);
 
         for (int i = 0; i < cols.numberOfFixsizeColumns(); i++)
             size += cols.column(i).type().length();
@@ -147,7 +147,7 @@ public class RowAssembler {
         initOffsets(BinaryRow.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
 
         buf.putShort(0, (short)schema.version());
-        buf.putShort(baseOff + BinaryRow.TOTAL_LEN_FIELD_SIZE, (short)nonNullVarlenKeyCols);
+        buf.putShort(nullMapOff + curCols.nullMapSize(), (short)nonNullVarlenKeyCols);
     }
 
     /**
@@ -443,7 +443,8 @@ public class RowAssembler {
             buf.putShort(baseOff, (short)keyLen);
 
             if (schema.valueColumns() == curCols) {
-                buf.putShort(baseOff + BinaryRow.TOTAL_LEN_FIELD_SIZE, (short)nonNullVarlenValCols);
+                buf.putShort(nullMapOff + curCols.nullMapSize(), (short)nonNullVarlenValCols);
+
                 return; // No more columns.
             }
 
@@ -463,8 +464,9 @@ public class RowAssembler {
         curCol = 0;
         curVarlenTblEntry = 0;
 
-        varlenTblOff = baseOff + BinaryRow.TOTAL_LEN_FIELD_SIZE + BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE;
-        nullMapOff = varlenTblOff + varlenTableSize(nonNullVarlenCols);
-        curOff = nullMapOff + curCols.nullMapSize();
+        nullMapOff = baseOff + BinaryRow.CHUNK_LEN_FIELD_SIZE;
+        varlenTblOff = nullMapOff + curCols.nullMapSize() + BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE;
+
+        curOff = varlenTblOff + varlenTableSize(nonNullVarlenCols);
     }
 }
