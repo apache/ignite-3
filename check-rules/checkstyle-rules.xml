@@ -193,5 +193,14 @@
             <property name="scope" value="package"/>
             <property name="allowUnknownTags" value="true"/>
         </module>
+
+        <!--
+           Checks for missing Javadoc comments for interface, and annotation interface definitions.
+           See: https://checkstyle.org/config_javadoc.html#MissingJavadocType
+       -->
+        <module name="MissingJavadocType">
+            <property name="allowUnknownTags" value="true"/>
+            <property name="tokens" value="INTERFACE_DEF,ANNOTATION_DEF"/>
+        </module>
     </module>
 </module>
