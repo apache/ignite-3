@@ -112,7 +112,7 @@ public class IgnitionImpl implements Ignition {
             new ClusterLocalConfiguration(
                 "Node" + netConfigurationView.port(),
                 netConfigurationView.port(),
-                Arrays.asList(netConfigurationView.netMembersNames()),
+                Arrays.asList(netConfigurationView.netClusterNodes()),
                 serializationRegistry
             )
         );
