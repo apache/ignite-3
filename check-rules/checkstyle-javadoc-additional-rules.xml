@@ -26,7 +26,7 @@
     <property name="fileExtensions" value="java, properties, xml"/>
 
     <module name="BeforeExecutionExclusionFileFilter">
-        <property name="fileNamePattern" value=".*/test/.*"/>
+        <property name="fileNamePattern" value=".*/(test|internal)/.*"/>
     </module>
 
     <!-- SuppressWarning Filter. https://checkstyle.sourceforge.io/config_filters.html#SuppressWarningsFilter -->
@@ -38,13 +38,49 @@
             See: https://checkstyle.org/config_javadoc.html#JavadocStyle
         -->
         <module name="JavadocStyle">
-            <property name="scope" value="package"/>
+            <property name="scope" value="public"/>
             <property name="checkEmptyJavadoc" value="true"/>
         </module>
 
         <module name="JavadocStyle">
             <property name="scope" value="private"/>
-            <property name="excludeScope" value="package"/>
+            <property name="excludeScope" value="protected"/>
+        </module>
+
+        <!--
+            Checks for missing Javadoc comments for a method or constructor.
+            See: https://checkstyle.org/config_javadoc.html#MissingJavadocMethod
+        -->
+        <module name="MissingJavadocMethod">
+            <property name="scope" value="protected"/>
+        </module>
+
+        <!--
+            Checks for missing Javadoc comments for class, enum, interface, and annotation interface definitions.
+            See: https://checkstyle.org/config_javadoc.html#MissingJavadocType
+        -->
+        <module name="MissingJavadocType"/>
+
+        <!--
+            Checks that a variable has a Javadoc comment. Ignores serialVersionUID fields.
+            See: https://checkstyle.org/config_javadoc.html#JavadocVariable
+        -->
+        <module name="JavadocVariable">
+            <property name="scope" value="protected"/>
+        </module>
+
+        <!--
+            Checks the Javadoc of a method or constructor.
+            See: https://checkstyle.org/config_javadoc.html#JavadocMethod
+        -->
+        <module name="JavadocMethod">
+            <property name="scope" value="protected"/>
+            <property name="validateThrows" value="true"/>
+        </module>
+
+        <module name="JavadocMethod">
+            <property name="scope" value="package"/>
+            <property name="excludeScope" value="protected"/>
         </module>
     </module>
 </module>

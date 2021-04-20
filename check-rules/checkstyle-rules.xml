@@ -182,16 +182,7 @@
             See: https://checkstyle.org/config_javadoc.html#SingleLineJavadoc
         -->
         <module name="SingleLineJavadoc">
-            <property name="ignoredTags" value="@inheritDoc"/>
-        </module>
-
-        <!--
-            Checks the Javadoc of a method or constructor.
-            See: https://checkstyle.org/config_javadoc.html#JavadocMethod
-        -->
-        <module name="JavadocMethod">
-            <property name="scope" value="package"/>
-            <property name="validateThrows" value="true"/>
+            <property name="ignoredTags" value="@inheritDoc, @see"/>
         </module>
 
         <!--
@@ -202,27 +193,5 @@
             <property name="scope" value="package"/>
             <property name="allowUnknownTags" value="true"/>
         </module>
-
-        <!--
-            Checks for missing Javadoc comments for a method or constructor.
-            See: https://checkstyle.org/config_javadoc.html#MissingJavadocMethod
-        -->
-        <module name="MissingJavadocMethod">
-            <property name="scope" value="anoninner"/>
-        </module>
-
-        <!--
-            Checks for missing Javadoc comments for class, enum, interface, and annotation interface definitions.
-            See: https://checkstyle.org/config_javadoc.html#MissingJavadocType
-        -->
-        <module name="MissingJavadocType">
-            <property name="scope" value="private"/>
-        </module>
-
-        <!--
-            Checks that a variable has a Javadoc comment. Ignores serialVersionUID fields.
-            See: https://checkstyle.org/config_javadoc.html#JavadocVariable
-        -->
-        <module name="JavadocVariable"/>
     </module>
 </module>
