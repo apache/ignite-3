@@ -18,6 +18,7 @@
 package org.apache.ignite.app;
 
 import java.util.ServiceLoader;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Service loader based implementation of an entry point for handling grid lifecycle.
@@ -37,7 +38,7 @@ public enum IgnitionProcessor implements Ignition {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
+    @Override public synchronized Ignite start(@Nullable String jsonStrBootstrapCfg) {
         // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
         return ignition.start(jsonStrBootstrapCfg);
     }

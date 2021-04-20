@@ -45,8 +45,6 @@ import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.table.manager.TableManager;
 import org.apache.ignite.utils.IgniteProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of an entry point for handling grid lifecycle.
