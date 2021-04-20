@@ -235,7 +235,9 @@ public final class ConfigurationChanger {
 
         if (storagesTypes.size() != 1) {
             return CompletableFuture.failedFuture(
-                new ConfigurationChangeException("Cannot change configurations belonging to different storages.")
+                new ConfigurationChangeException(
+                    "Cannot handle change request with configuration patches belonging to different storages."
+                )
             );
         }
 
