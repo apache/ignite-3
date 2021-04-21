@@ -24,7 +24,6 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
@@ -92,7 +91,6 @@ public class TestCluster {
     private JRaftServiceFactory                           raftServiceFactory = new TestJRaftServiceFactory();
 
     private LinkedHashSet<PeerId>                         learners;
-    private NodeManager nodeManager = new NodeManager();
 
     public JRaftServiceFactory getRaftServiceFactory() {
         return this.raftServiceFactory;
@@ -196,12 +194,14 @@ public class TestCluster {
 
         List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
 
+        NodeManager nodeManager = new NodeManager();
+
         final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers, nodeManager);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
         final RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0, priority),
-            nodeOptions, rpcServer);
+            nodeOptions, rpcServer, nodeManager);
 
         this.lock.lock();
         try {
@@ -251,12 +251,14 @@ public class TestCluster {
 
         List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
 
+        NodeManager nodeManager = new NodeManager();
+
         final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers, nodeManager);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
         final RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0), nodeOptions,
-            rpcServer);
+            rpcServer, nodeManager);
 
         this.lock.lock();
         try {
@@ -316,7 +318,6 @@ public class TestCluster {
         }
         final RaftGroupService raftGroupService = this.serverMap.remove(listenAddr.toString());
         raftGroupService.shutdown();
-        raftGroupService.join();
         return node != null;
     }
 

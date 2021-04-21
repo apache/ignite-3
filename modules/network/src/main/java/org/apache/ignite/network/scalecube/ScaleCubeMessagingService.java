@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import io.scalecube.cluster.Cluster;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
+import java.util.function.Function;
 import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -73,6 +74,10 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     void fireEvent(Message message) {
         NetworkMessage msg = message.data();
         ClusterNode sender = addressMemberMap.get(message.sender());
+
+        if (sender == null) // Ignore message from dead node.
+            return;
+
         String correlationId = message.correlationId();
         for (NetworkMessageHandler handler : getMessageHandlers())
             handler.onReceived(msg, sender, correlationId);
@@ -104,16 +109,17 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
+    @Override public CompletableFuture<NetworkMessage> invoke(final ClusterNode recipient, final NetworkMessage msg, long timeout) {
         var message = Message
             .withData(msg)
             .correlationId(UUID.randomUUID().toString())
             .build();
+        Address address = clusterNodeAddress(recipient);
         return cluster
-            .requestResponse(clusterNodeAddress(recipient), message)
+            .requestResponse(address, message)
             .timeout(Duration.ofMillis(timeout))
             .toFuture()
-            .thenApply(Message::data);
+            .thenApply(m -> m == null ? null : m.data()); // The result can be null on node stopping.
     }
 
     /**

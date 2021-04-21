@@ -119,6 +119,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.retryDelay = retryDelay;
         this.reuse = reuse;
 
+        if (!reuse)
+            cluster.start();
+
         if (refreshLeader) {
             try {
                 refreshLeader().get();
@@ -127,9 +130,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 LOG.error("Failed to refresh a leader", e);
             }
         }
-
-        if (!reuse)
-            cluster.start();
     }
 
     /** {@inheritDoc} */

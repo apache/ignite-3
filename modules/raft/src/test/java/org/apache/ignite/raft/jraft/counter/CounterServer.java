@@ -51,7 +51,9 @@ public class CounterServer {
                          final NodeOptions nodeOptions) throws IOException {
         new File(dataPath).mkdirs();
 
-        final RpcServer rpcServer = new IgniteRpcServer(serverId.getEndpoint(), new NodeManager());
+        NodeManager nodeManager = new NodeManager();
+
+        final RpcServer rpcServer = new IgniteRpcServer(serverId.getEndpoint(), nodeManager);
 
         CounterService counterService = new CounterServiceImpl(this);
         rpcServer.registerProcessor(new GetValueRequestProcessor(counterService));
@@ -64,7 +66,7 @@ public class CounterServer {
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "raft_meta");
         nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
 
-        this.raftGroupService = new RaftGroupService(groupId, serverId, nodeOptions, rpcServer);
+        this.raftGroupService = new RaftGroupService(groupId, serverId, nodeOptions, rpcServer, nodeManager);
         this.node = this.raftGroupService.start();
     }
 

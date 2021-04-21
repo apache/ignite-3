@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
@@ -54,7 +55,6 @@ import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.ReadOnlyService;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.Status;
@@ -120,8 +120,6 @@ import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
-import org.apache.ignite.raft.server.RaftNode;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,7 +130,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * 2018-Apr-03 4:26:51 PM
  */
-public class NodeImpl implements Node, RaftServerService, RaftNode {
+public class NodeImpl implements Node, RaftServerService {
     private static final Logger LOG = LoggerFactory.getLogger(NodeImpl.class);
 
     // Max retry times when applying tasks.
@@ -3448,22 +3446,6 @@ public class NodeImpl implements Node, RaftServerService, RaftNode {
             out.println("logStorage: ");
             ((Describer) this.logStorage).describe(out);
         }
-    }
-
-    @Override public String groupId() {
-        return getGroupId();
-    }
-
-    @Override public Peer peer() {
-        return this.peer;
-    }
-
-    public void setPeer(Peer peer) {
-        this.peer = peer;
-    }
-
-    @Override public @Nullable Peer leader() {
-        return null;
     }
 
     @Override

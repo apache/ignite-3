@@ -656,8 +656,9 @@ public class NodeTest {
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
                 .singletonList(learnerPeer)));
 
-            final RpcServer rpcServer = new IgniteRpcServer(learnerAddr, new NodeManager());
-            learnerServer = new RaftGroupService("unittest", new PeerId(learnerAddr, 0), nodeOptions, rpcServer);
+            NodeManager nodeManager = new NodeManager();
+            final RpcServer rpcServer = new IgniteRpcServer(learnerAddr, nodeManager);
+            learnerServer = new RaftGroupService("unittest", new PeerId(learnerAddr, 0), nodeOptions, rpcServer, nodeManager);
             learner = learnerServer.start();
         }
 
@@ -697,7 +698,6 @@ public class NodeTest {
                 assertEquals("hello" + i++, new String(data.array()));
             }
             learnerServer.shutdown();
-            learnerServer.join();
         }
     }
 

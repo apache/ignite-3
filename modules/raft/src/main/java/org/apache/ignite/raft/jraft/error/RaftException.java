@@ -20,6 +20,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 
 /**
+ * // TODO asch 2 similar exceptions.
  * A raft exception.
  *
  * @author boyan (boyan@alibaba-inc.com)

@@ -57,7 +57,7 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     @Override public boolean checkConnection(Endpoint endpoint) {
-        return service.topologyService().allMembers().stream().map(x -> x.name()).anyMatch(x -> x.equals(endpoint.toString()));
+        return service.topologyService().allMembers().stream().anyMatch(n -> n.host().equals(endpoint.getIp()) && n.port() == endpoint.getPort());
     }
 
     @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
@@ -106,11 +106,13 @@ public class IgniteRpcClient implements RpcClientEx {
 
         fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS).
             whenComplete((res, err) -> {
+                assert !(res == null && err == null) : res + " " + err;
+
                 if (err == null && recordPred != null && recordPred.test(res, this.toString()))
                     recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
                 if (err instanceof ExecutionException)
-                    err = new RemotingException(err);
+                    err = new RemotingException(err); // TODO asch use IgniteException.
                 else if (err instanceof TimeoutException) // Translate timeout exception.
                     err = new InvokeTimeoutException();
 

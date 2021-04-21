@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
@@ -23,18 +25,19 @@ import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.server.RaftNode;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * TODO asch this is a wrapper around node, actually not needed.
  * A framework to implement a raft group service.
  *
  * @author boyan (boyan@alibaba-inc.com)
  * <p>
  * 2018-Apr-08 7:53:03 PM
  */
-public class RaftGroupService {
+public class RaftGroupService implements RaftNode {
     private static final Logger LOG = LoggerFactory.getLogger(RaftGroupService.class);
 
     private volatile boolean started = false;
@@ -68,18 +71,37 @@ public class RaftGroupService {
      */
     private Node node;
 
+    /** */
+    private NodeManager nodeManager;
+
+    /**
+     * @param groupId Group Id.
+     * @param serverId Server id.
+     * @param nodeOptions Node options.
+     * @param rpcServer RPC server.
+     * @param nodeManager Node manager.
+     */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-                            final RpcServer rpcServer) {
-        this(groupId, serverId, nodeOptions, rpcServer, false);
+                            final RpcServer rpcServer, final NodeManager nodeManager) {
+        this(groupId, serverId, nodeOptions, rpcServer, nodeManager, false);
     }
 
+    /**
+     * @param groupId Group Id.
+     * @param serverId Server id.
+     * @param nodeOptions Node options.
+     * @param rpcServer RPC server.
+     * @param nodeManager Node manager.
+     * @param sharedRpcServer {@code True} if a shared server.
+     */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-                            final RpcServer rpcServer, final boolean sharedRpcServer) {
+                            final RpcServer rpcServer, final NodeManager nodeManager, final boolean sharedRpcServer) {
         super();
         this.groupId = groupId;
         this.serverId = serverId;
         this.nodeOptions = nodeOptions;
         this.rpcServer = rpcServer;
+        this.nodeManager = nodeManager;
         this.sharedRpcServer = sharedRpcServer;
     }
 
@@ -121,6 +143,7 @@ public class RaftGroupService {
         } else {
             LOG.warn("RPC server is not started in RaftGroupService.");
         }
+        this.nodeManager.add(this.node);
         this.started = true;
         LOG.info("Start the RaftGroupService successfully.");
         return this.node;
@@ -132,14 +155,14 @@ public class RaftGroupService {
      * @throws InterruptedException if the current thread is interrupted
      *                              while waiting
      */
-    public synchronized void join() throws InterruptedException {
-        if (this.node != null) {
-            this.node.join();
-            this.node = null;
-        }
-    }
+//    public synchronized void join() throws InterruptedException {
+//        if (this.node != null) {
+//            this.node.join();
+//            this.node = null;
+//        }
+//    }
 
-    public synchronized void shutdown() {
+    @Override public synchronized void shutdown() {
         if (!this.started) {
             return;
         }
@@ -148,13 +171,21 @@ public class RaftGroupService {
                 if (!this.sharedRpcServer) {
                     this.rpcServer.shutdown();
                 }
-            } catch (final Exception ignored) {
+            }
+            catch (final Exception ignored) {
                 // ignore TODO asch not good to ignore ?
             }
             this.rpcServer = null;
         }
         this.node.shutdown();
-        // NodeManager.getInstance().removeAddress(this.serverId.getEndpoint()); // TODO asch fixme
+        try {
+            this.node.join();
+        }
+        catch (InterruptedException e) {
+            LOG.error("Interrupted while waiting for the node to shutdown");
+        }
+
+        nodeManager.remove(this.node);
         this.started = false;
         LOG.info("Stop the RaftGroupService successfully.");
     }
@@ -242,5 +273,26 @@ public class RaftGroupService {
             throw new IllegalArgumentException("RPC server port mismatch");
         }
         this.rpcServer = rpcServer;
+    }
+
+    @Override public String groupId() {
+        return getGroupId();
+    }
+
+    @Override public Peer peer() {
+        return convert(this.serverId);
+    }
+
+    @Override public @Nullable Peer leader() {
+        PeerId leaderId = node.getLeaderId();
+
+        if (leaderId == null)
+            return null;
+
+        return convert(leaderId);
+    }
+
+    private Peer convert(PeerId peerId) {
+        return new Peer(new ClusterNode(peerId.getEndpoint().toString(), peerId.getEndpoint().getIp(), peerId.getEndpoint().getPort()), peerId.getPriority());
     }
 }
