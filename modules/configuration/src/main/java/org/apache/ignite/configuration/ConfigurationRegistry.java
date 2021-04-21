@@ -58,7 +58,7 @@ public class ConfigurationRegistry {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationRegistry.class);
 
     /** */
-    private final Map<String, DynamicConfiguration<?, ?, ?>> configs = new HashMap<>();
+    private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
 
     /** */
     private final ConfigurationChanger changer = new ConfigurationChanger(this::notificator);
@@ -84,7 +84,7 @@ public class ConfigurationRegistry {
         rootKeys.forEach(rootKey ->
         {
             changer.addRootKey(rootKey);
-            configs.put(rootKey.key(), (DynamicConfiguration<?, ?, ?>)rootKey.createPublicRoot(changer));
+            configs.put(rootKey.key(), (DynamicConfiguration<?, ?>)rootKey.createPublicRoot(changer));
         });
 
         validators.forEach(changer::addValidators);
@@ -148,7 +148,7 @@ public class ConfigurationRegistry {
             @Override public Void visitInnerNode(String key, InnerNode newRoot) {
                 InnerNode oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor());
 
-                var cfg = (DynamicConfiguration<InnerNode, ?, ?>)configs.get(key);
+                var cfg = (DynamicConfiguration<InnerNode, ?>)configs.get(key);
 
                 assert oldRoot != null && cfg != null : key;
 

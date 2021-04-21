@@ -30,7 +30,6 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  * Annotation processor generates several classes for each configuration schema:
  * <ul>
  * <li>Config - Represents configuration itself, provides API to init, change and view it. Extends {@link DynamicConfiguration}</li>
- * <li>Init - initializes config tree</li>
  * <li>Change - changes config tree</li>
  * <li>View - immutable object to view config tree</li>
  * </ul>
