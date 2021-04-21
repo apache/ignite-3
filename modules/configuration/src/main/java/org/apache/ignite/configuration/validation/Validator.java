@@ -18,7 +18,6 @@
 package org.apache.ignite.configuration.validation;
 
 import java.lang.annotation.Annotation;
-import org.apache.ignite.configuration.ConfigurationRegistry;
 
 /**
  * Interface for all configuration validators. Recommended to be a stateless class.
