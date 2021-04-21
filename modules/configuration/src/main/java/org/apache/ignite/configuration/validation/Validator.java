@@ -27,7 +27,6 @@ import org.apache.ignite.configuration.ConfigurationRegistry;
  *
  * @param <A> Type of the annotation that puts current validator to the field.
  * @param <VIEW> Upper bound for field types that can be validated with this validator.
- * @see ConfigurationRegistry#ConfigurationRegistry(java.util.Collection, java.util.Map, java.util.Collection
  */
 public interface Validator<A extends Annotation, VIEW> {
     /**
