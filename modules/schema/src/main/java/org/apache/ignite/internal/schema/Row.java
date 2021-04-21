@@ -25,7 +25,7 @@ import java.util.UUID;
 
 /**
  * Schema-aware row.
- *
+ * <p>
  * The class contains non-generic methods to read boxed and unboxed primitives based on the schema column types.
  * Any type conversions and coercions should be implemented outside the row by the key-value or query runtime.
  * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
@@ -36,6 +36,14 @@ public class Row implements BinaryRow {
 
     /** Binary row. */
     private final BinaryRow row;
+
+    /**
+     * @param itemIdx Varlen table item index.
+     * @return Varlen item offset.
+     */
+    public static int varlenItemOffset(int itemIdx) {
+        return VARLEN_TABLE_SIZE_FIELD_SIZE + itemIdx * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
+    }
 
     /**
      * Constructor.
@@ -431,15 +439,15 @@ public class Row implements BinaryRow {
         idx -= cols.numberOfFixsizeColumns() + numNullsBefore;
         int vartableSize = readShort(vartableOffset(baseOff, cols));
 
-        int vartableOff = vartableOffset(baseOff, cols) + VARLEN_TABLE_SIZE_FIELD_SIZE;
+        int vartableOff = vartableOffset(baseOff, cols);
         // Offset of idx-th column is from base offset.
-        int resOff = readShort(vartableOff + VARLEN_COLUMN_OFFSET_FIELD_SIZE * idx);
+        int resOff = readShort(vartableOff + varlenItemOffset(idx));
 
         long len = idx == vartableSize - 1 ?
             // totalLength - columnStartOffset
             readInteger(baseOff) - resOff :
             // nextColumnStartOffset - columnStartOffset
-            readShort(vartableOff + VARLEN_COLUMN_OFFSET_FIELD_SIZE * (idx + 1)) - resOff;
+            readShort(vartableOff + varlenItemOffset(idx + 1)) - resOff;
 
         return (len << 32) | (resOff + baseOff);
     }
@@ -470,9 +478,9 @@ public class Row implements BinaryRow {
 
         off += cols.foldFixedLength(nullMapIdx, readByte(nullMapOff + nullMapIdx) | mask);
 
-        final int vartableOffset = vartableOffset(baseOff, cols);
+        int vartableOffset = vartableOffset(baseOff, cols);
 
-        int vartableLen = VARLEN_TABLE_SIZE_FIELD_SIZE + readShort(vartableOffset) * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
+        int vartableLen = varlenItemOffset(readShort(vartableOffset));
 
         return vartableOffset + vartableLen + off;
     }

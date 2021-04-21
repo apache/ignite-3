@@ -134,19 +134,19 @@ public interface BinaryRow {
      */
     final class RowFlags {
         /** Flag indicated is row has no value chunk. */
-        public static final int NO_VALUE = 1;
+        public static final int NO_VALUE_FLAG = 1;
 
         /** Flag indicates key chunk omits null map. */
-        public static final int NO_KEY_NULL_MAP = 1 << 1;
+        public static final int OMIT_KEY_NULL_MAP_FLAG = 1 << 1;
 
         /** Flag indicates value chunk omits null map. */
-        public static final int NO_VALUE_NULL_MAP = 1 << 2;
+        public static final int OMIT_VAL_NULL_MAP_FLAG = 1 << 2;
 
         /** Flag indicates key chunk omits varlen table. */
-        public static final int NO_VARLEN_KEY_COL = 1 << 3;
+        public static final int OMIT_KEY_VARTBL_FLAG = 1 << 3;
 
         /** Flag indicates value chunk omits varlen table. */
-        public static final int NO_VARLEN_VALUE_COL = 1 << 4;
+        public static final int OMIT_VAL_VARTBL_FLAG = 1 << 4;
 
         /** Stub. */
         private RowFlags() {
