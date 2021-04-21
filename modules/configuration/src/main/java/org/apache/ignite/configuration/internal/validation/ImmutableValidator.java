@@ -33,8 +33,7 @@ public class ImmutableValidator implements Validator<Immutable, Object> {
             ctx.addIssue(new ValidationIssue(
                 "'" + ctx.currentKey() + "' configuration value is immutable and cannot be updated [curVal="
                     + oldValue + ", newVal=" + newValue + ']'
-                )
-            );
+            ));
         }
     }
 }
