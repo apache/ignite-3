@@ -1,1 +1,1 @@
-org.apache.ignite.runner.internal.app.IgnitionImpl
+org.apache.ignite.internal.app.IgnitionImpl

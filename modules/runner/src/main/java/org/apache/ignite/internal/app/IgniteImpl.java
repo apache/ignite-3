@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.runner.internal.app;
+package org.apache.ignite.internal.app;
 
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.table.manager.TableManager;

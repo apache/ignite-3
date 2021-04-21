@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.runner.internal.app;
+package org.apache.ignite.internal.runner.app;
 
 import java.util.ArrayList;
 import java.util.List;

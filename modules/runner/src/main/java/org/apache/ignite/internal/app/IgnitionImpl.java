@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.runner.internal.app;
+package org.apache.ignite.internal.app;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,8 +41,8 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
-import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
+import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.table.manager.TableManager;
 import org.apache.ignite.utils.IgniteProperties;
