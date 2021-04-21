@@ -66,7 +66,7 @@ public class RowAssemblerTest {
 
             asm.appendInt(-33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, -33, -1, -1, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, -33, -1, -1, -1}, asm.build());
         }
     }
 
@@ -91,7 +91,7 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)-33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, -33, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, -33, -1}, asm.build());
         }
     }
 
@@ -125,7 +125,7 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 33, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 33, 0}, asm.build());
         }
     }
 
@@ -150,7 +150,7 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 33, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 33, 0}, asm.build());
         }
     }
 
@@ -184,7 +184,7 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 33, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 33, 0}, asm.build());
         }
     }
 
@@ -236,7 +236,7 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)1133);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 109, 4}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 109, 4}, asm.build());
         }
     }
 
@@ -288,7 +288,7 @@ public class RowAssemblerTest {
 
             asm.appendInt(33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0}, asm.build());
         }
     }
 
@@ -322,7 +322,7 @@ public class RowAssemblerTest {
 
             asm.appendByte((byte)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 33}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 33}, asm.build());
         }
     }
 
@@ -358,7 +358,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -385,7 +385,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -419,7 +419,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -444,7 +444,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -496,7 +496,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -530,7 +530,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -582,7 +582,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -616,7 +616,7 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121,}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 1, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121,}, asm.build());
         }
     }
 

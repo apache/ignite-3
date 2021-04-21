@@ -22,6 +22,7 @@ import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryRow.RowFlags;
 
 /**
  * Utility class to build rows using column appending pattern. The external user of this class must consult
@@ -349,9 +350,9 @@ public class RowAssembler {
             throw new AssemblyException("Key column missed: colIdx=" + curCol);
         else {
             if (curCol == 0)
-                flags |= BinaryRow.RowFlags.NULL_VALUE;
+                flags |= RowFlags.NO_VALUE;
             else if (schema.valueColumns().length() != curCol)
-            throw new AssemblyException("Value column missed: colIdx=" + curCol);
+                throw new AssemblyException("Value column missed: colIdx=" + curCol);
         }
 
         buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
@@ -376,6 +377,8 @@ public class RowAssembler {
      * @param off Offset to write.
      */
     private void writeOffset(int tblEntryIdx, int off) {
+        assert (flags & (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? RowFlags.NO_VARLEN_KEY_COL : RowFlags.NO_VARLEN_VALUE_COL)) == 0;
+
         buf.putShort(varlenTblOff + BinaryRow.VARLEN_COLUMN_OFFSET_FIELD_SIZE * tblEntryIdx, (short)off);
     }
 
@@ -407,6 +410,8 @@ public class RowAssembler {
      * @param colIdx Column index.
      */
     private void setNull(int colIdx) {
+        assert (flags & (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? RowFlags.NO_KEY_NULL_MAP : RowFlags.NO_VALUE_NULL_MAP)) == 0;
+
         int byteInMap = colIdx / 8;
         int bitInByte = colIdx % 8;
 
