@@ -30,7 +30,7 @@ import java.util.UUID;
  * unnecessary data copies. The assembler provides some utility methods to calculate the resulting row size
  * based on the number of null columns and size calculation for strings.
  *
- * @see #rowChunkSize(Columns, int, int, Columns, int, int)
+ * @see #rowSize(Columns, int, int, Columns, int, int)
  * @see #rowChunkSize(Columns, int, int)
  * @see #utf8EncodedLength(CharSequence)
  */
@@ -108,12 +108,34 @@ public class RowAssembler {
     }
 
     /**
+     * @param keyCols Key columns.
+     * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
+     * @param nonNullVarlenKeySize Size of non-null varlen columns in key chunk.
+     * @param valCols Value columns.
+     * @param nonNullVarlenValCols Number of non-null varlen columns in value chunk.
+     * @param nonNullVarlenValSize Size of non-null varlen columns in value chunk.
+     * @return Total row size.
+     */
+    public static int rowSize(
+        Columns keyCols,
+        int nonNullVarlenKeyCols,
+        int nonNullVarlenKeySize,
+        Columns valCols,
+        int nonNullVarlenValCols,
+        int nonNullVarlenValSize
+    ) {
+        return BinaryRow.KEY_CHUNK_OFFSET /* Header size */ +
+            rowChunkSize(keyCols, nonNullVarlenKeyCols, nonNullVarlenKeySize) +
+            rowChunkSize(valCols, nonNullVarlenValCols, nonNullVarlenValSize);
+    }
+
+    /**
      * @param cols Columns.
      * @param nonNullVarlenCols Number of non-null varlen columns in chunk.
      * @param nonNullVarlenSize Size of non-null varlen columns in chunk.
      * @return Row's chunk size.
      */
-    public static int rowChunkSize(Columns cols, int nonNullVarlenCols, int nonNullVarlenSize) {
+    static int rowChunkSize(Columns cols, int nonNullVarlenCols, int nonNullVarlenSize) {
         int size = BinaryRow.CHUNK_LEN_FIELD_SIZE + cols.nullMapSize() +
             BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE + varlenTableSize(nonNullVarlenCols);
 
@@ -137,39 +159,18 @@ public class RowAssembler {
         int nonNullVarlenValCols
     ) {
         this.schema = schema;
-
         this.nonNullVarlenValCols = nonNullVarlenValCols;
 
-        buf = new ExpandableByteBuf(size);
-
         curCols = schema.keyColumns();
+        flags = 0;
+        strEncoder = null;
 
         initOffsets(BinaryRow.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
 
+        buf = new ExpandableByteBuf(size);
+
         buf.putShort(0, (short)schema.version());
         buf.putShort(nullMapOff + curCols.nullMapSize(), (short)nonNullVarlenKeyCols);
-    }
-
-    /**
-     * @param keyCols Key columns.
-     * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
-     * @param nonNullVarlenKeySize Size of non-null varlen columns in key chunk.
-     * @param valCols Value columns.
-     * @param nonNullVarlenValCols Number of non-null varlen columns in value chunk.
-     * @param nonNullVarlenValSize Size of non-null varlen columns in value chunk.
-     * @return Total row size.
-     */
-    public static int rowChunkSize(
-        Columns keyCols,
-        int nonNullVarlenKeyCols,
-        int nonNullVarlenKeySize,
-        Columns valCols,
-        int nonNullVarlenValCols,
-        int nonNullVarlenValSize
-    ) {
-        return BinaryRow.KEY_CHUNK_OFFSET +
-            rowChunkSize(keyCols, nonNullVarlenKeyCols, nonNullVarlenKeySize) +
-            rowChunkSize(valCols, nonNullVarlenValCols, nonNullVarlenValSize);
     }
 
     /**
@@ -408,6 +409,8 @@ public class RowAssembler {
     private void setNull(int colIdx) {
         int byteInMap = colIdx / 8;
         int bitInByte = colIdx % 8;
+
+        buf.ensureCapacity(nullMapOff + byteInMap + 1);
 
         buf.put(nullMapOff + byteInMap, (byte)(buf.get(nullMapOff + byteInMap) | (1 << bitInByte)));
     }
