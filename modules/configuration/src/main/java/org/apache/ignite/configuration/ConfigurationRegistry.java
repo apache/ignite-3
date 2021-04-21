@@ -38,6 +38,7 @@ import org.apache.ignite.configuration.internal.RootKeyImpl;
 import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
+import org.apache.ignite.configuration.internal.validation.ImmutableValidator;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
@@ -46,6 +47,7 @@ import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.lang.IgniteLogger;
 
@@ -67,6 +69,7 @@ public class ConfigurationRegistry {
         // Default vaildators implemented in current module.
         changer.addValidator(Min.class, new MinValidator());
         changer.addValidator(Max.class, new MaxValidator());
+        changer.addValidator(Immutable.class, new ImmutableValidator());
     }
 
     /**
