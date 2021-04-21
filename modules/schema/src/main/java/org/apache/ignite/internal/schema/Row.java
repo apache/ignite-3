@@ -307,6 +307,13 @@ public class Row implements BinaryRow {
     }
 
     /**
+     * @return Row flags.
+     */
+    private boolean hasFlag(int flag) {
+        return ((readShort(FLAGS_FIELD_OFFSET) & flag)) != 0;
+    }
+
+    /**
      * Gets the column offset and length encoded into a single 8-byte value (4 least significant bytes encoding the
      * offset from the beginning of the row and 4 most significant bytes encoding the field length for varlength
      * columns). The offset and length should be extracted using {@link #offset(long)} and {@link #length(long)}
@@ -345,8 +352,12 @@ public class Row implements BinaryRow {
         if (isNull(off, colIdx))
             return -1;
 
+        short flags = readShort(FLAGS_FIELD_OFFSET);
+
+        boolean noVarTable = ((keyCol ? RowFlags.OMIT_KEY_VARTBL_FLAG : RowFlags.OMIT_VAL_VARTBL_FLAG) & flags) != 0;
+
         return type.fixedLength() ?
-            fixlenColumnOffset(cols, off, colIdx) :
+            fixlenColumnOffset(cols, off, colIdx, noVarTable) :
             varlenColumnOffsetAndLength(cols, off, colIdx);
     }
 
@@ -459,9 +470,10 @@ public class Row implements BinaryRow {
      * @param cols Columns chunk.
      * @param baseOff Chunk base offset.
      * @param idx Column index in the chunk.
+     * @param noVarlen Varlen table is ommited.
      * @return Encoded offset (from the row start) of the requested fixlen column.
      */
-    int fixlenColumnOffset(Columns cols, int baseOff, int idx) {
+    int fixlenColumnOffset(Columns cols, int baseOff, int idx, boolean noVarlen) {
         int nullMapOff = nullMapOffset(baseOff);
 
         int off = 0;
@@ -480,7 +492,7 @@ public class Row implements BinaryRow {
 
         int vartableOffset = vartableOffset(baseOff, cols);
 
-        int vartableLen = varlenItemOffset(readShort(vartableOffset));
+        int vartableLen = noVarlen ? 0 : varlenItemOffset(readShort(vartableOffset));
 
         return vartableOffset + vartableLen + off;
     }

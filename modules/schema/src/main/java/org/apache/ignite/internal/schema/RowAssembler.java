@@ -80,7 +80,8 @@ public class RowAssembler {
      * @return Total size of the varlen table.
      */
     public static int varlenTableSize(int nonNullVarlenCols) {
-        return VARLEN_TABLE_SIZE_FIELD_SIZE + nonNullVarlenCols * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
+        return nonNullVarlenCols == 0 ? 0 :
+            VARLEN_TABLE_SIZE_FIELD_SIZE + nonNullVarlenCols * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
     }
 
     /**
@@ -171,10 +172,17 @@ public class RowAssembler {
 
         initOffsets(BinaryRow.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
 
+//        if (nullMapSize == 0)
+//            flags |= (baseOff == KEY_CHUNK_OFFSET ? RowFlags.NO_KEY_NULL_MAP : RowFlags.NO_VALUE_NULL_MAP);
+
         buf = new ExpandableByteBuf(size);
 
         buf.putShort(0, (short)schema.version());
-        buf.putShort(nullMapOff + curCols.nullMapSize(), (short)nonNullVarlenKeyCols);
+
+        if (nonNullVarlenKeyCols == 0)
+            flags |= RowFlags.OMIT_KEY_VARTBL_FLAG;
+        else
+            buf.putShort(varlenTblOff, (short)nonNullVarlenKeyCols);
     }
 
     /**
@@ -453,15 +461,17 @@ public class RowAssembler {
 
             buf.putShort(baseOff, (short)keyLen);
 
-            if (schema.valueColumns() == curCols) {
-                buf.putShort(nullMapOff + curCols.nullMapSize(), (short)nonNullVarlenValCols);
-
+            if (schema.valueColumns() == curCols)
                 return; // No more columns.
-            }
 
             curCols = schema.valueColumns(); // Switch key->value columns.
 
             initOffsets(baseOff + keyLen, nonNullVarlenValCols);
+
+            if (nonNullVarlenValCols == 0)
+                flags |= RowFlags.OMIT_VAL_VARTBL_FLAG;
+            else
+                buf.putShort(varlenTblOff, (short)nonNullVarlenValCols);
         }
     }
 
