@@ -31,10 +31,10 @@ public class NetworkConfigurationSchema {
     /** */
     @Min(1024)
     @Max(0xFFFF)
-    @Value
-    public int port;
+    @Value(hasDefault = true)
+    public final int port = 3040;
 
     /** */
-    @Value
-    public String[] netClusterNodes;
+    @Value(hasDefault = true)
+    public String[] netClusterNodes = {"localhost:" + port};
 }

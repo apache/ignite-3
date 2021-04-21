@@ -27,6 +27,7 @@ import org.apache.ignite.app.Ignition;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.affinity.AffinityManager;
@@ -90,7 +91,7 @@ public class IgnitionImpl implements Ignition {
         // Bootstrap local configuration manager.
         ConfigurationManager locConfigurationMgr = new ConfigurationManager(rootKeys, configurationStorages);
 
-        if (!cfgBootstrappedFromPds)
+        if (!cfgBootstrappedFromPds && jsonStrBootstrapCfg != null)
             try {
                 locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
             }
@@ -99,6 +100,8 @@ public class IgnitionImpl implements Ignition {
             }
         else if (jsonStrBootstrapCfg != null)
             LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
+        else
+            locConfigurationMgr.configurationRegistry().startStorageConfigurations(ConfigurationType.LOCAL);
 
         NetworkView netConfigurationView =
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
@@ -125,7 +128,7 @@ public class IgnitionImpl implements Ignition {
             raftMgr
         );
 
-        // TODO IGNITE-14578 Bootstrap configuation manager with distributed configuration.
+        // TODO IGNITE-14578 Bootstrap configuration manager with distributed configuration.
         configurationStorages.add(new DistributedConfigurationStorage(metaStorageMgr));
 
         // Start configuration manager.

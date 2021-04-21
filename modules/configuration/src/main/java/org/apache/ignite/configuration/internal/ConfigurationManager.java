@@ -80,7 +80,7 @@ import org.apache.ignite.configuration.validation.Validator;
         JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
 
         for (ConfigurationStorage configurationStorage : configurationStorages)
-            confRegistry.change(Collections.emptyList(), JsonConverter.jsonSource(jsonCfg), configurationStorage).get();
+            confRegistry.change(JsonConverter.jsonSource(jsonCfg), configurationStorage).get();
     }
 
     /**
