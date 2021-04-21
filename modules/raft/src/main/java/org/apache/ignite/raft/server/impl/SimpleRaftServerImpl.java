@@ -41,7 +41,9 @@ import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.server.RaftNode;
 import org.apache.ignite.raft.server.RaftServer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A single node server implementation.
@@ -83,6 +85,7 @@ public class SimpleRaftServerImpl implements RaftServer {
      * @param clientMsgFactory Client message factory.
      * @param queueSize Queue size.
      * @param listeners Command listeners.
+     * @param reuse {@code True} to reuse cluster service.
      */
     public SimpleRaftServerImpl(
         ClusterService service,
@@ -148,8 +151,28 @@ public class SimpleRaftServerImpl implements RaftServer {
         return service;
     }
 
-    @Override public void startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
+    @Override public RaftNode startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
         listeners.put(groupId, lsnr);
+
+        final Peer peer = new Peer(service.topologyService().localMember());
+
+        return new RaftNode() {
+            @Override public String groupId() {
+                return groupId;
+            }
+
+            @Override public Peer peer() {
+                return peer;
+            }
+
+            @Override public @Nullable Peer leader() {
+                return peer;
+            }
+
+            @Override public void shutdown() {
+                listeners.remove(lsnr);
+            }
+        };
     }
 
     /** {@inheritDoc} */

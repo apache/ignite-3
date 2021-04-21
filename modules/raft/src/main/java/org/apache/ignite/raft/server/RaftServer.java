@@ -33,16 +33,16 @@ import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
  */
 public interface RaftServer {
     /**
-     * @return Local member.
+     * @return Cluster service.
      */
     ClusterService clusterService();
 
     /**
-     * Set a listener for group commands.
+     * Start a raft group on this cluster node.
      * @param groupId group id.
      * @param lsnr Listener.
      */
-    void startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
+    RaftNode startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
 
     /**
      * Shutdown a server.

@@ -88,6 +88,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** */
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 
+    /** */
+    private final boolean reuse;
+
     /**
      * @param groupId Group id.
      * @param cluster The cluster.
@@ -96,6 +99,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param peers Initial group configuration.
      * @param refreshLeader {@code True} to synchronously refresh leader on service creation.
      * @param retryDelay Retry delay.
+     * @param reuse {@code True} to reuse cluster service.
      */
     public RaftGroupServiceImpl(
         String groupId,
@@ -104,7 +108,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         int timeout,
         List<Peer> peers,
         boolean refreshLeader,
-        long retryDelay
+        long retryDelay,
+        boolean reuse
     ) {
         this.cluster = requireNonNull(cluster);
         this.peers = requireNonNull(peers);
@@ -112,6 +117,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.timeout = timeout;
         this.groupId = groupId;
         this.retryDelay = retryDelay;
+        this.reuse = reuse;
 
         if (refreshLeader) {
             try {
@@ -121,6 +127,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 LOG.error("Failed to refresh a leader", e);
             }
         }
+
+        if (!reuse)
+            cluster.start();
     }
 
     /** {@inheritDoc} */
@@ -301,6 +310,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
 
         return fut.thenApply(resp -> ((ActionResponse<R>) resp).result());
+    }
+
+    @Override public void shutdown() {
+        if (!reuse)
+            cluster.shutdown();
     }
 
     private <R> CompletableFuture<R> sendWithRetry(ClusterNode node, NetworkMessage req, long stopTime) {

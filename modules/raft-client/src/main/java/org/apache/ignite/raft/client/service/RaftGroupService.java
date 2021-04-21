@@ -193,4 +193,9 @@ public interface RaftGroupService {
      * @return A future with the execution result.
      */
     <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd);
+
+    /**
+     * Shutdown and cleanup resources for this instance.
+     */
+    void shutdown();
 }

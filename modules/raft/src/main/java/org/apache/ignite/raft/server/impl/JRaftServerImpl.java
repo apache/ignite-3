@@ -38,6 +38,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
@@ -58,6 +59,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.server.RaftNode;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,8 +75,8 @@ public class JRaftServerImpl implements RaftServer {
 
     private ConcurrentMap<String, NodeImpl> groups = new ConcurrentHashMap<>();
 
-    /** The manager of nodes belonging to this server. */
-    private NodeManager nodeManager;
+    /** The manager of raft nodes belonging to this server. */
+    private NodeManager nodeManager; // TODO asch Use either groups or nodemanager.
 
     public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessageFactory factory, boolean reuse) {
         this.service = service;
@@ -161,7 +163,8 @@ public class JRaftServerImpl implements RaftServer {
                                 });
 
                                 fsm.listener.onRead(l.iterator());
-                            } else {
+                            }
+                            else {
                                 // TODO asch state machine error.
                                 sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
                             }
@@ -186,7 +189,7 @@ public class JRaftServerImpl implements RaftServer {
         return service;
     }
 
-    @Override public void startRaftNode(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
+    @Override public RaftNode startRaftNode(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
         final NodeOptions nodeOptions = new NodeOptions();
 
         ClusterNode clusterNode = service.topologyService().localMember();
@@ -195,6 +198,7 @@ public class JRaftServerImpl implements RaftServer {
 
         final String serverDataPath = this.dataPath + File.separator + groupId + "_" + endpoint.toString().replace(':', '_');
         new File(serverDataPath).mkdirs();
+
         nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
         nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
@@ -218,9 +222,13 @@ public class JRaftServerImpl implements RaftServer {
 
         NodeImpl node = (NodeImpl) server.start(false);
 
+        node.setPeer(new Peer(clusterNode));
+
         nodeManager.add(node);
 
         groups.put(groupId, node);
+
+        return node;
     }
 
     public NodeImpl node(String groupId) {
@@ -231,11 +239,11 @@ public class JRaftServerImpl implements RaftServer {
         if (!reuse) {
             rpcServer.shutdown();
 
-            for (NodeImpl value : groups.values()) {
-                nodeManager.remove(value);
+            for (NodeImpl node : groups.values()) {
+                nodeManager.remove(node);
 
-                value.shutdown();
-                value.join();
+                node.shutdown();
+                node.join();
             }
         }
     }
@@ -273,7 +281,7 @@ public class JRaftServerImpl implements RaftServer {
                             if (done != null)
                                 done.failure(err);
 
-                            iter.setErrorAndRollback(1, new Status(-1, err.getMessage()));
+                            iter.setErrorAndRollback(1, new Status(RaftError.ESTATEMACHINE, err.getMessage()));
                         }
                     };
                 }

@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
@@ -119,6 +120,8 @@ import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
+import org.apache.ignite.raft.server.RaftNode;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,7 +132,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * 2018-Apr-03 4:26:51 PM
  */
-public class NodeImpl implements Node, RaftServerService {
+public class NodeImpl implements Node, RaftServerService, RaftNode {
     private static final Logger LOG = LoggerFactory.getLogger(NodeImpl.class);
 
     // Max retry times when applying tasks.
@@ -163,6 +166,9 @@ public class NodeImpl implements Node, RaftServerService {
     private NodeOptions options;
     private RaftOptions raftOptions;
     private final PeerId serverId;
+
+    private Peer peer;
+
     /**
      * Other services
      */
@@ -498,7 +504,8 @@ public class NodeImpl implements Node, RaftServerService {
                             new Configuration(this.oldPeers), false);
                         return;
                     }
-                case STAGE_JOINT: // TODO asch fixme
+                    // fallthrough.
+                case STAGE_JOINT:
                     this.stage = Stage.STAGE_STABLE;
                     this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners), null, false);
                     break;
@@ -3441,6 +3448,22 @@ public class NodeImpl implements Node, RaftServerService {
             out.println("logStorage: ");
             ((Describer) this.logStorage).describe(out);
         }
+    }
+
+    @Override public String groupId() {
+        return getGroupId();
+    }
+
+    @Override public Peer peer() {
+        return this.peer;
+    }
+
+    public void setPeer(Peer peer) {
+        this.peer = peer;
+    }
+
+    @Override public @Nullable Peer leader() {
+        return null;
     }
 
     @Override

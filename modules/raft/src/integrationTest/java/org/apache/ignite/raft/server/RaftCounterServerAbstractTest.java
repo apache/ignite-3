@@ -18,8 +18,8 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -30,19 +30,17 @@ import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
 abstract class RaftCounterServerAbstractTest {
     /** */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftCounterServerAbstractTest.class);
+    protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftCounterServerAbstractTest.class);
 
     /** */
     protected static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
@@ -57,62 +55,28 @@ abstract class RaftCounterServerAbstractTest {
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
 
     /** */
-    protected RaftServer server;
-
-    /** */
-    protected ClusterService client;
-
-    protected static final String SERVER_ID = "localhost:" + PORT;
-
-    /** */
     protected static final String COUNTER_GROUP_ID_0 = "counter0";
 
     /** */
     protected static final String COUNTER_GROUP_ID_1 = "counter1";
 
-    /**
-     * @param testInfo Test info.
-     */
-    @BeforeEach
-    void before(TestInfo testInfo) {
-        LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
+    /** */
+    protected RaftGroupService client1;
 
-        server = createServer();
-
-        ClusterNode serverNode = server.clusterService().topologyService().localMember();
-
-        server.startRaftNode(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of(new Peer(serverNode)));
-        server.startRaftNode(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of(new Peer(serverNode)));
-
-        client = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(SERVER_ID));
-
-        assertTrue(waitForTopology(client, 2, 1000));
-    }
-
-    protected abstract RaftServer createServer();
-
-    /**
-     * @throws Exception
-     */
-    @AfterEach
-    void after() throws Exception {
-        server.shutdown();
-        client.shutdown();
-    }
+    /** */
+    protected RaftGroupService client2;
 
     /**
      */
     @Test
-    public void testRefreshLeader() {
-        Peer server = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+    public void testRefreshLeader() throws Exception {
+        Peer leader = client1.leader();
 
-        RaftGroupService service = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
-            List.of(server), true, 200);
+        assertNull(leader);
 
-        Peer leader = service.leader();
+        client1.refreshLeader().get();
 
-        assertNotNull(leader);
-        assertEquals(server.getNode().name(), leader.getNode().name());
+        assertNotNull(client1.leader());
     }
 
     /**
@@ -120,26 +84,21 @@ abstract class RaftCounterServerAbstractTest {
      */
     @Test
     public void testCounterCommandListener() throws Exception {
-        Peer server = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
 
-        RaftGroupService service0 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, client, FACTORY, 1000,
-            List.of(server), true, 200);
+        assertNotNull(client1.leader());
+        assertNotNull(client2.leader());
 
-        RaftGroupService service1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, client, FACTORY, 1000,
-            List.of(server), true, 200);
+        assertEquals(2, client1.<Integer>run(new IncrementAndGetCommand(2)).get());
+        assertEquals(2, client1.<Integer>run(new GetValueCommand()).get());
+        assertEquals(3, client1.<Integer>run(new IncrementAndGetCommand(1)).get());
+        assertEquals(3, client1.<Integer>run(new GetValueCommand()).get());
 
-        assertNotNull(service0.leader());
-        assertNotNull(service1.leader());
-
-        assertEquals(2, service0.<Integer>run(new IncrementAndGetCommand(2)).get());
-        assertEquals(2, service0.<Integer>run(new GetValueCommand()).get());
-        assertEquals(3, service0.<Integer>run(new IncrementAndGetCommand(1)).get());
-        assertEquals(3, service0.<Integer>run(new GetValueCommand()).get());
-
-        assertEquals(4, service1.<Integer>run(new IncrementAndGetCommand(4)).get());
-        assertEquals(4, service1.<Integer>run(new GetValueCommand()).get());
-        assertEquals(7, service1.<Integer>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(7, service1.<Integer>run(new GetValueCommand()).get());
+        assertEquals(4, client2.<Integer>run(new IncrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Integer>run(new GetValueCommand()).get());
+        assertEquals(7, client2.<Integer>run(new IncrementAndGetCommand(3)).get());
+        assertEquals(7, client2.<Integer>run(new GetValueCommand()).get());
     }
 
     /**
@@ -148,10 +107,14 @@ abstract class RaftCounterServerAbstractTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    protected ClusterService clusterService(String name, int port, List<String> servers) {
+    protected ClusterService clusterService(String name, int port, List<String> servers, boolean start) {
         var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
+
         var network = NETWORK_FACTORY.createClusterService(context);
-        network.start();
+
+        if (start)
+            network.start();
+
         return network;
     }
 
@@ -161,7 +124,7 @@ abstract class RaftCounterServerAbstractTest {
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    private boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
+    protected boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {

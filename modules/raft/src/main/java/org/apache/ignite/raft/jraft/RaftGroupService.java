@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * TODO asch this is a wrapper around node, actually not needed.
  * A framework to implement a raft group service.
  *
  * @author boyan (boyan@alibaba-inc.com)
