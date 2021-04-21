@@ -40,7 +40,7 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.raft.internal.Loza;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.runner.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.runner.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.schema.SchemaManager;

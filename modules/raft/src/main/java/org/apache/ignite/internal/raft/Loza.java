@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.internal;
+package org.apache.ignite.internal.raft;
 
 import org.apache.ignite.network.ClusterService;
 

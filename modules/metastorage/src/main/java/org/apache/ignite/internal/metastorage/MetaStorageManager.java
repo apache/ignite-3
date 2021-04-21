@@ -24,7 +24,7 @@ import org.apache.ignite.metastorage.client.MetaStorageService;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.WatchListener;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.internal.Loza;
+import org.apache.ignite.internal.raft.Loza;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

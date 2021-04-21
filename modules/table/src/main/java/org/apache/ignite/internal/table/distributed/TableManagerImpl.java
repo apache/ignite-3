@@ -21,7 +21,7 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.raft.internal.Loza;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.table.manager.TableManager;
 
 /**
