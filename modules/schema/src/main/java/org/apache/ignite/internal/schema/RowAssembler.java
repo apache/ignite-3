@@ -375,7 +375,7 @@ public class RowAssembler {
      * @param off Offset to write.
      */
     private void writeOffset(int tblEntryIdx, int off) {
-        buf.putShort(varlenTblOff + 2 * tblEntryIdx, (short)off);
+        buf.putShort(varlenTblOff + BinaryRow.VARLEN_COLUMN_OFFSET_FIELD_SIZE * tblEntryIdx, (short)off);
     }
 
     /**
