@@ -32,7 +32,8 @@ public class ImmutableValidator implements Validator<Immutable, Object> {
         if (oldValue != null && !Objects.deepEquals(oldValue, newValue)) {
             ctx.addIssue(new ValidationIssue(
                 "'" + ctx.currentKey() + "' configuration value is immutable and cannot be updated [curVal="
-                    + oldValue + ", newVal=" +  newValue + ']')
+                    + oldValue + ", newVal=" + newValue + ']'
+                )
             );
         }
     }
