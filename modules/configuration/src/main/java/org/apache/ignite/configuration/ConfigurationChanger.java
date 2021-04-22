@@ -136,9 +136,8 @@ public final class ConfigurationChanger {
      * Add multiple validators instances.
      * @param annotationType Annotation type for validated fields.
      * @param validators Set of validator instancec for this annotation.
-     * @param <A> Annotation type.
      */
-    public <A extends Annotation> void addValidators(Class<A> annotationType, Set<Validator<A, ?>> validators) {
+    public void addValidators(Class<? extends Annotation> annotationType, Set<Validator<? extends Annotation, ?>> validators) {
         this.validators
             .computeIfAbsent(annotationType, a -> new HashSet<>())
             .addAll(validators);

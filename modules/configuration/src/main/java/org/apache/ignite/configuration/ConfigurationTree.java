@@ -28,7 +28,10 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
  * @param <CHANGE> Type of the object that changes this node's value.
  */
 public interface ConfigurationTree<VIEW, CHANGE> extends ConfigurationProperty<VIEW, CHANGE> {
-    /** Children of the tree. */
+    /**
+     * Children of the tree.
+     * @return Map from {@code String} to corresponding {@link ConfigurationProperty}.
+     */
     Map<String, ConfigurationProperty<?, ?>> members();
 
     /**
