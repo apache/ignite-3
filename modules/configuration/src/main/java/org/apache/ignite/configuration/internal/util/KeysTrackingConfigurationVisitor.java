@@ -70,19 +70,38 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         }
     }
 
-    /** To be used instead of {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}. */
+    /**
+     * To be used instead of {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}.
+     *
+     * @param key Name of the node retrieved from its holder object.
+     * @param node Configuration value.
+     * @return Anything that implementation decides to return.
+     */
     protected T doVisitLeafNode(String key, Serializable val) {
         return null;
     }
 
-    /** To be used instead of {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}. */
+    /**
+     * To be used instead of {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}.
+     *
+     * @param key Name of the node retrieved from its holder object.
+     * @param node Inner configuration node.
+     * @return Anything that implementation decides to return.
+     */
     protected T doVisitInnerNode(String key, InnerNode node) {
         node.traverseChildren(this);
 
         return null;
     }
 
-    /** To be used instead of {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}. */
+    /**
+     * To be used instead of {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}.
+     *
+     * @param key Name of the node retrieved from its holder object.
+     * @param node Named list inner configuration node.
+     * @param <N> Type of element nodes in the named list.
+     * @return Anything that implementation decides to return.
+     */
     protected <N extends InnerNode> T doVisitNamedListNode(String key, NamedListNode<N> node) {
         for (String namedListKey : node.namedListKeys()) {
             int prevPos = startVisit(namedListKey, true, false);
