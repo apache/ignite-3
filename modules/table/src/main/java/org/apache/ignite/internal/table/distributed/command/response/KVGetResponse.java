@@ -28,7 +28,6 @@ import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * It is a response object for handling a table get command.
- * {@see org.apache.ignite.internal.table.distributed.command.GetCommand}
  */
 public class KVGetResponse implements Serializable {
     /** Logger. */

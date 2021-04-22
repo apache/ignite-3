@@ -72,6 +72,8 @@ public class ByteBufferRow implements BinaryRow {
         WritableByteChannel channel = Channels.newChannel(stream);
 
         channel.write(buf);
+
+        buf.rewind();
     }
 
     /** {@inheritDoc} */
