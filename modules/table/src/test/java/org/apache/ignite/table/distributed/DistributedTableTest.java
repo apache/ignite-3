@@ -167,6 +167,8 @@ public class DistributedTableTest {
         assertNotNull(getFur.get().getValue());
 
         assertEquals(testRow.longValue(1), new Row(SCHEMA, getFur.get().getValue()).longValue(1));
+
+        partSrv.shutdown();
     }
 
     @NotNull private Row getTestKey() {

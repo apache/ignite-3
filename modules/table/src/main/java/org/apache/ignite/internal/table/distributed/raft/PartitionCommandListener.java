@@ -124,7 +124,6 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
         return new KeyWrapper(bytes, row.hash());
     }
 
-
     /**
      * Wrapper provides correct byte[] comparison.
      */

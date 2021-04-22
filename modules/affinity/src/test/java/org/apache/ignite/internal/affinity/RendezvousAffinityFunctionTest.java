@@ -139,8 +139,6 @@ public class RendezvousAffinityFunctionTest {
         assertEquals(assignment, deserializedAssignment);
     }
 
-
-
     /**
      * Returns sorted and compacted string representation of given {@code col}. Two nearby numbers with difference at
      * most 1 are compacted to one continuous segment. E.g. collection of [1, 2, 3, 5, 6, 7, 10] will be compacted to

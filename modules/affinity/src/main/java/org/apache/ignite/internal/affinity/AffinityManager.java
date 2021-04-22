@@ -39,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
  * Affinity manager is responsible for affinity function related logic including calculating affinity assignments.
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class AffinityManager {
+public class AffinityManager {
     /** Tables prefix for the metasorage. */
     public static final String INTERNAL_PREFIX = "internal.tables.";
 
@@ -74,8 +74,6 @@ import org.jetbrains.annotations.NotNull;
         this.metaStorageMgr = metaStorageMgr;
         this.baselineMgr = baselineMgr;
 
-        long startRevision = 0;
-
         String localMemberName = configurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
             .name().value();
 
@@ -83,7 +81,7 @@ import org.jetbrains.annotations.NotNull;
             .metastorageMembers().listen(ctx -> {
                 if (ctx.newValue() != null) {
                     if (hasMetastorageLocally(localMemberName, ctx.newValue()))
-                        subscribeToCalculateAssignment(ctx.storageRevision());
+                        subscribeToCalculateAssignment();
                     else
                         unsubscribeToCalculateAssignment();
                 }
@@ -94,7 +92,7 @@ import org.jetbrains.annotations.NotNull;
             .metastorageMembers().value();
 
         if (hasMetastorageLocally(localMemberName, metastorageMembers))
-            subscribeToCalculateAssignment(startRevision);
+            subscribeToCalculateAssignment();
     }
 
     /**
@@ -119,10 +117,8 @@ import org.jetbrains.annotations.NotNull;
 
     /**
      * Subscribes to metastorage members update.
-     *
-     * @param startRevision Metastorage revision to start subscription.
      */
-    private void subscribeToCalculateAssignment(long startRevision) {
+    private void subscribeToCalculateAssignment() {
         assert affinityCalculateSubscriptionFut == null : "Affinity calculation already subscribed";
 
         String tableInternalPrefix = INTERNAL_PREFIX + "assignment.#";
@@ -190,7 +186,7 @@ import org.jetbrains.annotations.NotNull;
 
             affinityCalculateSubscriptionFut = null;
         }
-        catch (InterruptedException |ExecutionException e) {
+        catch (InterruptedException | ExecutionException e) {
             LOG.error("Couldn't unsubscribe for Metastorage updates", e);
         }
     }

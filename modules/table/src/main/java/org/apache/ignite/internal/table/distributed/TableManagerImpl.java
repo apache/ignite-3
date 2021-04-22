@@ -33,7 +33,6 @@ import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableInit;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.DistributedTableUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListene
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.util.SerializationUtils;
 import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operations;
@@ -51,7 +51,6 @@ import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.TableManager;
@@ -80,7 +79,7 @@ public class TableManagerImpl implements TableManager {
     private final ConfigurationManager configurationMgr;
 
     /** Table creation subscription future. */
-    private CompletableFuture<Long> tableCreationSubscriptionFut = null;
+    private CompletableFuture<Long> tableCreationSubscriptionFut;
 
     /** Tables. */
     private Map<String, Table> tables;
@@ -147,14 +146,12 @@ public class TableManagerImpl implements TableManager {
                             int partitions = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).partitions().value();
 
-                            List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)DistributedTableUtils.fromBytes(
+                            List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)SerializationUtils.fromBytes(
                                 evt.newEntry().value());
 
                             HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
 
                             for (int p = 0; p < partitions; p++) {
-                                List<Peer> peers = new ArrayList<>();
-
                                 partitionMap.put(p, raftMgr.startRaftGroup(
                                     name + "_part_" + p,
                                     assignment.get(p),
@@ -272,7 +269,7 @@ public class TableManagerImpl implements TableManager {
 
             tableCreationSubscriptionFut = null;
         }
-        catch (InterruptedException |ExecutionException e) {
+        catch (InterruptedException | ExecutionException e) {
             LOG.error("Couldn't unsubscribe from table creation", e);
         }
     }
