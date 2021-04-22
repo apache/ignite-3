@@ -45,9 +45,6 @@ public class ConnectionManager {
     /** Clients. */
     private Map<InetSocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
 
-    /** Server port. */
-    private final int port;
-
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
 
@@ -55,7 +52,6 @@ public class ConnectionManager {
     private List<BiConsumer<InetSocketAddress, NetworkMessage>> listeners = Collections.synchronizedList(new ArrayList<>());
 
     public ConnectionManager(int port, MessageSerializationRegistry provider) {
-        this.port = port;
         this.serializationRegistry = provider;
         this.server = new NettyServer(port, this::onNewIncomingChannel, this::onMessage, serializationRegistry);
     }

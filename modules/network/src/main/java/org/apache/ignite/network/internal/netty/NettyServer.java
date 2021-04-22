@@ -107,6 +107,8 @@ public class NettyServer {
                          */
                         new ChunkedWriteHandler()
                     );
+
+                    newConnectionListener.accept(ch);
                 }
             })
             /**
