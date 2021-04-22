@@ -43,6 +43,7 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
@@ -119,21 +120,34 @@ public final class ConfigurationChanger {
         this.notificator = notificator;
     }
 
-    /** */
+    /**
+     * Add single validator instance.
+     * @param annotationType Annotation type for validated fields.
+     * @param validator Validator instance for this annotation.
+     * @param <A> Annotation type.
+     */
     public <A extends Annotation> void addValidator(Class<A> annotationType, Validator<A, ?> validator) {
         validators
             .computeIfAbsent(annotationType, a -> new HashSet<>())
             .add(validator);
     }
 
-    /** */
+    /**
+     * Add multiple validators instances.
+     * @param annotationType Annotation type for validated fields.
+     * @param validators Set of validator instancec for this annotation.
+     * @param <A> Annotation type.
+     */
     public <A extends Annotation> void addValidators(Class<A> annotationType, Set<Validator<A, ?>> validators) {
         this.validators
             .computeIfAbsent(annotationType, a -> new HashSet<>())
             .addAll(validators);
     }
 
-    /** */
+    /**
+     * Register additional root key.
+     * @param rootKey Root key instance.
+     */
     public void addRootKey(RootKey<?, ?> rootKey) {
         assert !storageInstances.containsKey(rootKey.type());
 
@@ -141,7 +155,8 @@ public final class ConfigurationChanger {
     }
 
     /**
-     * Register changer.
+     * Register storage.
+     * @param configurationStorage Configuration storage instance.
      */
     // ConfigurationChangeException, really?
     public void register(ConfigurationStorage configurationStorage) throws ConfigurationChangeException {
@@ -185,7 +200,10 @@ public final class ConfigurationChanger {
         ));
     }
 
-    /** */
+    /**
+     * Initialize configuration storage - read data and set default values for missing configuration properties.
+     * @param storageType Storage type.
+     */
     public void initialize(ConfigurationType storageType) {
         ConfigurationStorage configurationStorage = storageInstances.get(storageType);
 
@@ -219,10 +237,16 @@ public final class ConfigurationChanger {
         }
     }
 
-    /** */
+    /**
+     * Change configuration.
+     * @param source Configuration source to create patch from it.
+     * @param storage Expected storage for the changes. Can be null, this will mean that derived storage will be used
+     * unconditionaly.
+     * @return Future that is completed on change completion.
+     */
     public CompletableFuture<Void> change(
         ConfigurationSource source,
-        ConfigurationStorage storage
+        @Nullable ConfigurationStorage storage
     ) {
         SuperRoot superRoot = new SuperRoot(rootKeys);
 
@@ -268,6 +292,7 @@ public final class ConfigurationChanger {
      * Get root node by root key. Subject to revisiting.
      *
      * @param rootKey Root key.
+     * @return Root node.
      */
     public InnerNode getRootNode(RootKey<?, ?> rootKey) {
         return storagesRootsMap.get(rootKey.type()).roots.getRoot(rootKey);
@@ -276,6 +301,7 @@ public final class ConfigurationChanger {
     /**
      * Change configuration.
      * @param changes Map of changes by root key.
+     * @return Future that is completed on change completion.
      */
     public CompletableFuture<Void> change(Map<RootKey<?, ?>, InnerNode> changes) {
         if (changes.isEmpty())
@@ -296,7 +322,9 @@ public final class ConfigurationChanger {
         return changeInternally(new SuperRoot(rootKeys, changes), storageInstances.get(storagesTypes.iterator().next()));
     }
 
-    /** */
+    /**
+     * @return Super root chat contains roots belonging to all storages.
+     */
     public SuperRoot mergedSuperRoot() {
         return new SuperRoot(rootKeys, storagesRootsMap.values().stream().map(roots -> roots.roots).collect(toList()));
     }
