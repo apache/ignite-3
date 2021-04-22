@@ -75,6 +75,8 @@ import org.apache.ignite.configuration.validation.Validator;
     /**
      * Bootstrap configuration manager with customer user cfg.
      * @param jsonStr Customer configuration in json format.
+     * @throws InterruptedException If thread is interrupted during bootstrap.
+     * @throws ExecutionException If configuration update failed for some reason.
      */
     public void bootstrap(String jsonStr) throws InterruptedException, ExecutionException {
         JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
