@@ -29,7 +29,6 @@ import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 
@@ -37,13 +36,6 @@ import org.jetbrains.annotations.NotNull;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
-
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(InternalTableImpl.class);
-
-    /** Table id. */
-    private final UUID tblId;
-
     /** Partition map. */
     private Map<Integer, RaftGroupService> partitionMap;
 
@@ -60,7 +52,6 @@ public class InternalTableImpl implements InternalTable {
         Map<Integer, RaftGroupService> partMap,
         int partitions
     ) {
-        this.tblId = tableId;
         this.partitionMap = partMap;
         this.partitions = partitions;
     }

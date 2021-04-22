@@ -163,7 +163,6 @@ public class IgnitionImpl implements Ignition {
         // Distributed table manager startup.
         TableManager distributedTblMgr = new TableManagerImpl(
             configurationMgr,
-            clusterNetSvc,
             metaStorageMgr,
             schemaMgr,
             raftMgr

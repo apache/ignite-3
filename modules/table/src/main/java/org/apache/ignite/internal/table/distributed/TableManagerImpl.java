@@ -50,7 +50,6 @@ import org.apache.ignite.metastorage.common.Operations;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.TableManager;
@@ -66,15 +65,6 @@ public class TableManagerImpl implements TableManager {
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
 
-    /** Network cluster. */
-    private final ClusterService networkCluster;
-
-    /** Schema manager. */
-    private final SchemaManager schemaManager;
-
-    /** Raft manager. */
-    private final Loza raftMgr;
-
     /** Configuration manager. */
     private final ConfigurationManager configurationMgr;
 
@@ -86,14 +76,12 @@ public class TableManagerImpl implements TableManager {
 
     /**
      * @param configurationMgr Configuration manager.
-     * @param networkCluster Network cluster.
      * @param metaStorageMgr Meta storage manager.
      * @param schemaManager Schema manager.
      * @param raftMgr Raft manager.
      */
     public TableManagerImpl(
         ConfigurationManager configurationMgr,
-        ClusterService networkCluster,
         MetaStorageManager metaStorageMgr,
         SchemaManager schemaManager,
         Loza raftMgr
@@ -101,10 +89,7 @@ public class TableManagerImpl implements TableManager {
         tables = new HashMap<>();
 
         this.configurationMgr = configurationMgr;
-        this.networkCluster = networkCluster;
         this.metaStorageMgr = metaStorageMgr;
-        this.schemaManager = schemaManager;
-        this.raftMgr = raftMgr;
 
         String localMemberName = configurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
             .name().value();
@@ -229,8 +214,6 @@ public class TableManagerImpl implements TableManager {
                 long update = 0;
 
                 UUID tblId = new UUID(revision, update);
-
-                String tableInternalPrefix = INTERNAL_PREFIX + tblId.toString();
 
                 CompletableFuture<Boolean> fut = metaStorageMgr.invoke(
                     new Key(INTERNAL_PREFIX + tblId.toString()),
