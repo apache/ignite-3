@@ -89,7 +89,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *     switch (key) {
      *         case "namedList":
      *             if (src == null)
-     *                 namedList = new NamedListNode&lt;>(Foo::new);
+     *                 namedList = new NamedListNode&lt;&gt;(Foo::new);
      *             else
      *                 src.descend(namedList = namedList.copy());
      *             break;
