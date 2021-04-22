@@ -74,7 +74,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * To be used instead of {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}.
      *
      * @param key Name of the node retrieved from its holder object.
-     * @param node Configuration value.
+     * @param val Configuration value.
      * @return Anything that implementation decides to return.
      */
     protected T doVisitLeafNode(String key, Serializable val) {
@@ -124,6 +124,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param escape Whether the key needs escaping or not.
      * @param leaf Add dot at the end of {@link #currentKey()} if {@code leaf} is {@code false}.
      * @param closure Closure to execute when {@link #currentKey()} and {@link #currentPath()} have updated values.
+     * @return Closure result.
      */
     protected final T withTracking(String key, boolean escape, boolean leaf, Supplier<T> closure) {
         int prevPos = startVisit(key, escape, leaf);
