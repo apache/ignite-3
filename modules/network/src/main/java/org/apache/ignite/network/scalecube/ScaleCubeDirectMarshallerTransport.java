@@ -29,6 +29,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
@@ -41,22 +42,37 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoProcessor;
-import reactor.netty.resources.LoopResources;
 
+/**
+ * ScaleCube transport over {@link ConnectionManager}.
+ */
 public class ScaleCubeDirectMarshallerTransport implements Transport {
-
+    /** Logger. */
     private static final Logger LOGGER = LoggerFactory.getLogger(Transport.class);
 
-    // Subject
+    /** Message subject. */
     private final DirectProcessor<Message> subject = DirectProcessor.create();
+
+    /** Message sink. */
     private final FluxSink<Message> sink = subject.sink();
-    // Close handler
+
+    /** Close handler */
     private final MonoProcessor<Void> stop = MonoProcessor.create();
+
+    /** On stop. */
     private final MonoProcessor<Void> onStop = MonoProcessor.create();
-    private final LoopResources loopResources = LoopResources.create("sc-cluster-io", 1, true);
+
+    /** Connection manager. */
     private final ConnectionManager connectionManager;
+
+    /** Node address. */
     private final Address address;
 
+    /**
+     * Constructor.
+     *
+     * @param connectionManager Connection manager.
+     */
     public ScaleCubeDirectMarshallerTransport(ConnectionManager connectionManager) {
         this.connectionManager = connectionManager;
         this.connectionManager.addListener(this::onMessage);
@@ -65,56 +81,69 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         stop.then(doStop())
             .doFinally(s -> onStop.onComplete())
             .subscribe(
-                null, ex -> LOGGER.warn("[{}][doStop] Exception occurred: {}", address, ex.toString()));
+                null,
+                ex -> LOGGER.warn("[{}][doStop] Exception occurred: {}", address, ex.toString())
+            );
     }
 
+    /**
+     * Convert {@link InetSocketAddress} to {@link Address}.
+     *
+     * @param addr Address.
+     * @return ScaleCube address.
+     */
     private static Address prepareAddress(InetSocketAddress addr) {
         InetAddress address = addr.getAddress();
+
         int port = addr.getPort();
-        if (address.isAnyLocalAddress()) {
+
+        if (address.isAnyLocalAddress())
             return Address.create(Address.getLocalIpAddress().getHostAddress(), port);
-        } else {
+        else
             return Address.create(address.getHostAddress(), port);
-        }
     }
 
+    /**
+     * Cleanup resources on stop.
+     *
+     * @return A mono, that resolves when the stop operation is finished.
+     */
     private Mono<Void> doStop() {
-        return Mono.defer(
-            () -> {
-                LOGGER.info("[{}][doStop] Stopping", address);
-                // Complete incoming messages observable
-                sink.complete();
-                return Flux.concatDelayError(shutdownLoopResources())
-                    .then()
-                    .doOnSuccess(avoid -> LOGGER.info("[{}][doStop] Stopped", address));
-            });
+        return Mono.defer(() -> {
+            LOGGER.info("[{}][doStop] Stopping", address);
+
+            // Complete incoming messages observable
+            sink.complete();
+
+            LOGGER.info("[{}][doStop] Stopped", address);
+            return Mono.empty();
+        });
     }
 
-
-    private Mono<Void> shutdownLoopResources() {
-        return Mono.fromRunnable(loopResources::dispose).then(loopResources.disposeLater());
-    }
-
+    /** {@inheritDoc} */
     @Override public Address address() {
         return address;
     }
 
+    /** {@inheritDoc} */
     @Override public Mono<Transport> start() {
         return Mono.just(this);
     }
 
+    /** {@inheritDoc} */
     @Override public Mono<Void> stop() {
-        return Mono.defer(
-            () -> {
-                stop.onComplete();
-                return onStop;
-            });
+        return Mono.defer(() -> {
+            stop.onComplete();
+            return onStop;
+        });
     }
 
+    /** {@inheritDoc} */
     @Override public boolean isStopped() {
         return onStop.isDisposed();
     }
 
+    /** {@inheritDoc} */
     @Override public Mono<Void> send(Address address, Message message) {
         return Mono.defer(() -> {
             return Mono.fromFuture(connectionManager.channel(InetSocketAddress.createUnresolved(address.host(), address.port())));
@@ -124,65 +153,63 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         });
     }
 
+    /**
+     * Handles new network messages from {@link #connectionManager}.
+     *
+     * @param source Message source.
+     * @param msg Network message.
+     */
     private void onMessage(InetSocketAddress source, NetworkMessage msg) {
-        Message t = fromNetworkMessage(msg);
-        if (t != null) {
-            sink.next(t);
-        }
+        Message message = fromNetworkMessage(msg);
+
+        if (message != null)
+            sink.next(message);
     }
 
-    NetworkMessage fromMessage(Message message) {
+    /**
+     * Wrap ScaleCube {@link Message} with {@link NetworkMessage}.
+     *
+     * @param message ScaleCube message.
+     * @return Netowork message that wraps ScaleCube message.
+     * @throws IgniteInternalException If failed to write message to ObjectOutputStream.
+     */
+    private NetworkMessage fromMessage(Message message) throws IgniteInternalException {
         Object dataObj = message.data();
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
+
         ObjectOutputStream o;
+
         try {
             o = new ObjectOutputStream(stream);
             o.writeObject(dataObj);
         }
         catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
+            throw new IgniteInternalException(e);
         }
+
         return new ScaleCubeMessage(stream.toByteArray(), message.headers());
     }
 
-    @Override public Mono<Message> requestResponse(Address address, final Message request) {
-        return Mono.create(
-            sink -> {
-                Objects.requireNonNull(request, "request must be not null");
-                Objects.requireNonNull(request.correlationId(), "correlationId must be not null");
-
-                Disposable receive =
-                    listen()
-                        .filter(resp -> resp.correlationId() != null)
-                        .filter(resp -> resp.correlationId().equals(request.correlationId()))
-                        .take(1)
-                        .subscribe(sink::success, sink::error, sink::success);
-
-                Disposable send =
-                    send(address, request)
-                        .subscribe(
-                            null,
-                            ex -> {
-                                receive.dispose();
-                                sink.error(ex);
-                            });
-
-                sink.onDispose(Disposables.composite(send, receive));
-            });
-    }
-
-    Message fromNetworkMessage(NetworkMessage networkMessage) {
+    /**
+     * Unwrap ScaleCube {@link Message} from {@link NetworkMessage}.
+     *
+     * @param networkMessage Network message.
+     * @return ScaleCube message.
+     * @throws IgniteInternalException If failed to read ScaleCube message byte array.
+     */
+    private Message fromNetworkMessage(NetworkMessage networkMessage) throws IgniteInternalException {
         if (networkMessage instanceof ScaleCubeMessage) {
             ScaleCubeMessage msg = (ScaleCubeMessage) networkMessage;
 
             Map<String, String> headers = msg.getHeaders();
 
-            Object obj = null;
+            Object obj;
+
             try {
                 obj = new ObjectInputStream(new ByteArrayInputStream(msg.getArray())).readObject();
             }
-            catch (Exception ignored) {
+            catch (Exception e) {
+                throw new IgniteInternalException(e);
             }
 
             return Message.withHeaders(headers).data(obj).build();
@@ -190,6 +217,33 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         return null;
     }
 
+    /** {@inheritDoc} */
+    @Override public Mono<Message> requestResponse(Address address, final Message request) {
+        return Mono.create(sink -> {
+            Objects.requireNonNull(request, "request must be not null");
+            Objects.requireNonNull(request.correlationId(), "correlationId must be not null");
+
+            Disposable receive =
+                listen()
+                    .filter(resp -> resp.correlationId() != null)
+                    .filter(resp -> resp.correlationId().equals(request.correlationId()))
+                    .take(1)
+                    .subscribe(sink::success, sink::error, sink::success);
+
+            Disposable send =
+                send(address, request)
+                    .subscribe(
+                        null,
+                        ex -> {
+                            receive.dispose();
+                            sink.error(ex);
+                        });
+
+            sink.onDispose(Disposables.composite(send, receive));
+        });
+    }
+
+    /** {@inheritDoc} */
     @Override public final Flux<Message> listen() {
         return subject.onBackpressureBuffer();
     }
