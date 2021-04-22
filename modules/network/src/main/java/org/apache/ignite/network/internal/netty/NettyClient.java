@@ -41,7 +41,7 @@ public class NettyClient {
     private final Bootstrap bootstrap = new Bootstrap();
 
     /** Socket channel handler event loop group. */
-    private final EventLoopGroup workerGroup = new NioEventLoopGroup();;
+    private final EventLoopGroup workerGroup = new NioEventLoopGroup();
 
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;

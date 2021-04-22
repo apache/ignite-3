@@ -30,8 +30,6 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import org.apache.ignite.network.internal.MessageReader;
-import org.apache.ignite.network.internal.MessageWriter;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 
@@ -96,11 +94,17 @@ public class NettyServer {
                 @Override public void initChannel(SocketChannel ch)
                     throws Exception {
                     ch.pipeline().addLast(
-                        /** Decoder that uses {@link MessageReader} to read chunked data. */
+                        /**
+                         * Decoder that uses {@link org.apache.ignite.network.internal.MessageReader}
+                         *  to read chunked data.
+                         */
                         new InboundDecoder(serializationRegistry),
                         /** Handles decoded {@link NetworkMessage}s. */
                         new MessageHandler(messageListener),
-                        /** Encoder that uses {@link MessageWriter} to write chunked data. */
+                        /**
+                         * Encoder that uses {@link org.apache.ignite.network.internal.MessageWriter}
+                         * to write chunked data.
+                         */
                         new ChunkedWriteHandler()
                     );
                 }
