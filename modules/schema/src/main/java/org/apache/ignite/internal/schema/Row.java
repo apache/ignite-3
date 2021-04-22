@@ -331,7 +331,10 @@ public class Row implements BinaryRow {
     protected long findColumn(int colIdx, NativeTypeSpec type) throws InvalidTypeException {
         // Get base offset (key start or value start) for the given column.
         boolean keyCol = schema.isKeyColumn(colIdx);
-        Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
+
+        final short flags = readShort(FLAGS_FIELD_OFFSET);
+
+        assert keyCol || (flags & RowFlags.NO_VALUE_FLAG) == 0;
 
         int off = KEY_CHUNK_OFFSET;
 
@@ -343,22 +346,23 @@ public class Row implements BinaryRow {
             colIdx -= schema.keyColumns().length();
         }
 
-        Column col = cols.column(colIdx);
+        Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
 
-        if (col.type().spec() != type)
+        if (cols.column(colIdx).type().spec() != type)
             throw new InvalidTypeException("Invalid column type requested [requested=" + type +
-                ", column=" + col + ']');
+                ", column=" + cols.column(colIdx) + ']');
 
-        if (isNull(off, colIdx))
+        boolean hasVarTable = ((keyCol ? RowFlags.OMIT_KEY_VARTBL_FLAG : RowFlags.OMIT_VAL_VARTBL_FLAG) & flags) == 0;
+        boolean hasNullMap = ((keyCol ? RowFlags.OMIT_KEY_NULL_MAP_FLAG : RowFlags.OMIT_VAL_NULL_MAP_FLAG) & flags) == 0;
+
+        if (hasNullMap && isNull(off, colIdx))
             return -1;
 
-        short flags = readShort(FLAGS_FIELD_OFFSET);
-
-        boolean noVarTable = ((keyCol ? RowFlags.OMIT_KEY_VARTBL_FLAG : RowFlags.OMIT_VAL_VARTBL_FLAG) & flags) != 0;
+        assert hasVarTable || type.fixedLength();
 
         return type.fixedLength() ?
-            fixlenColumnOffset(cols, off, colIdx, noVarTable) :
-            varlenColumnOffsetAndLength(cols, off, colIdx);
+            fixlenColumnOffset(cols, off, colIdx, hasVarTable, hasNullMap) :
+            varlenColumnOffsetAndLength(cols, off, colIdx, hasNullMap);
     }
 
     /**
@@ -421,40 +425,47 @@ public class Row implements BinaryRow {
      * @param cols Columns chunk.
      * @param baseOff Chunk base offset.
      * @param idx Column index in the chunk.
+     * @param hasNullMap Has null map flag.
      * @return Encoded offset (from the row start) and length of the column with the given index.
      */
-    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx) {
-        int nullMapOff = nullMapOffset(baseOff);
+    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasNullMap) {
+        int vartableOff = baseOff + CHUNK_LEN_FIELD_SIZE;
 
-        int nullStartByte = cols.firstVarlengthColumn() / 8;
-        int startBitInByte = cols.firstVarlengthColumn() % 8;
-
-        int nullEndByte = idx / 8;
-        int endBitInByte = idx % 8;
         int numNullsBefore = 0;
 
-        for (int i = nullStartByte; i <= nullEndByte; i++) {
-            byte nullmapByte = readByte(nullMapOff + i);
+        if (hasNullMap) {
+            vartableOff += cols.nullMapSize();
 
-            if (i == nullStartByte)
-                // We need to clear startBitInByte least significant bits
-                nullmapByte &= (0xFF << startBitInByte);
+            int nullMapOff = nullMapOffset(baseOff);
 
-            if (i == nullEndByte)
-                // We need to clear 8-endBitInByte most significant bits
-                nullmapByte &= (0xFF >> (8 - endBitInByte));
+            int nullStartByte = cols.firstVarlengthColumn() / 8;
+            int startBitInByte = cols.firstVarlengthColumn() % 8;
 
-            numNullsBefore += Columns.numberOfNullColumns(nullmapByte);
+            int nullEndByte = idx / 8;
+            int endBitInByte = idx % 8;
+
+            for (int i = nullStartByte; i <= nullEndByte; i++) {
+                byte nullmapByte = readByte(nullMapOff + i);
+
+                if (i == nullStartByte)
+                    // We need to clear startBitInByte least significant bits
+                    nullmapByte &= (0xFF << startBitInByte);
+
+                if (i == nullEndByte)
+                    // We need to clear 8-endBitInByte most significant bits
+                    nullmapByte &= (0xFF >> (8 - endBitInByte));
+
+                numNullsBefore += Columns.numberOfNullColumns(nullmapByte);
+            }
         }
 
         idx -= cols.numberOfFixsizeColumns() + numNullsBefore;
-        int vartableSize = readShort(vartableOffset(baseOff, cols));
+        int vartableSize = readShort(vartableOff);
 
-        int vartableOff = vartableOffset(baseOff, cols);
         // Offset of idx-th column is from base offset.
         int resOff = readShort(vartableOff + varlenItemOffset(idx));
 
-        long len = idx == vartableSize - 1 ?
+        long len = (idx == vartableSize - 1) ?
             // totalLength - columnStartOffset
             readInteger(baseOff) - resOff :
             // nextColumnStartOffset - columnStartOffset
@@ -470,31 +481,38 @@ public class Row implements BinaryRow {
      * @param cols Columns chunk.
      * @param baseOff Chunk base offset.
      * @param idx Column index in the chunk.
-     * @param noVarlen Varlen table is ommited.
+     * @param hasVarTbl Has varlen table flag.
+     * @param hasNullMap Has null map flag.
      * @return Encoded offset (from the row start) of the requested fixlen column.
      */
-    int fixlenColumnOffset(Columns cols, int baseOff, int idx, boolean noVarlen) {
-        int nullMapOff = nullMapOffset(baseOff);
-
+    int fixlenColumnOffset(Columns cols, int baseOff, int idx, boolean hasVarTbl, boolean hasNullMap) {
         int off = 0;
-        int nullMapIdx = idx / 8;
 
-        // Fold offset based on the whole map bytes in the schema
-        for (int i = 0; i < nullMapIdx; i++)
-            off += cols.foldFixedLength(i, readByte(nullMapOff + i));
+        int payloadOff = baseOff + CHUNK_LEN_FIELD_SIZE;
 
-        // Set bits starting from posInByte, inclusive, up to either the end of the byte or the last column index, inclusive
-        int startBit = idx % 8;
-        int endBit = nullMapIdx == cols.nullMapSize() - 1 ? ((cols.numberOfFixsizeColumns() - 1) % 8) : 7;
-        int mask = (0xFF >> (7 - endBit)) & (0xFF << startBit);
+        if (hasNullMap) {
+            payloadOff += cols.nullMapSize();
 
-        off += cols.foldFixedLength(nullMapIdx, readByte(nullMapOff + nullMapIdx) | mask);
+            int nullMapOff = nullMapOffset(baseOff);
 
-        int vartableOffset = vartableOffset(baseOff, cols);
+            int nullMapIdx = idx / 8;
 
-        int vartableLen = noVarlen ? 0 : varlenItemOffset(readShort(vartableOffset));
+            // Fold offset based on the whole map bytes in the schema
+            for (int i = 0; i < nullMapIdx; i++)
+                off += cols.foldFixedLength(i, readByte(nullMapOff + i));
 
-        return vartableOffset + vartableLen + off;
+            // Set bits starting from posInByte, inclusive, up to either the end of the byte or the last column index, inclusive
+            int startBit = idx % 8;
+            int endBit = nullMapIdx == cols.nullMapSize() - 1 ? ((cols.numberOfFixsizeColumns() - 1) % 8) : 7;
+            int mask = (0xFF >> (7 - endBit)) & (0xFF << startBit);
+
+            off += cols.foldFixedLength(nullMapIdx, readByte(nullMapOff + nullMapIdx) | mask);
+        }
+
+        if (hasVarTbl)
+            payloadOff += varlenItemOffset(readShort(payloadOff));
+
+        return payloadOff + off;
     }
 
     /**
@@ -503,15 +521,6 @@ public class Row implements BinaryRow {
      */
     private int nullMapOffset(int baseOff) {
         return baseOff + CHUNK_LEN_FIELD_SIZE;
-    }
-
-    /**
-     * @param baseOff Chunk base offset.
-     * @param cols Columns.
-     * @return Offset of the varlen table from the row start for the chunk with the given base.
-     */
-    private int vartableOffset(int baseOff, Columns cols) {
-        return baseOff + CHUNK_LEN_FIELD_SIZE + cols.nullMapSize();
     }
 
     /** {@inheritDoc} */
