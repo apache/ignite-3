@@ -32,7 +32,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Affinity function for partitioned table based on Highest Random Weight algorithm. This function supports the
@@ -57,7 +57,7 @@ import org.apache.ignite.network.NetworkMember;
 public class RendezvousAffinityFunction {
 
     /** Comparator. */
-    private static final Comparator<IgniteBiTuple<Long, NetworkMember>> COMPARATOR = new HashComparator();
+    private static final Comparator<IgniteBiTuple<Long, ClusterNode>> COMPARATOR = new HashComparator();
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunction.class);
@@ -74,7 +74,7 @@ public class RendezvousAffinityFunction {
      * @param node Cluster node;
      * @return Node hash.
      */
-    public static Object resolveNodeHash(NetworkMember node) {
+    public static Object resolveNodeHash(ClusterNode node) {
         return node.name();
     }
 
@@ -89,22 +89,22 @@ public class RendezvousAffinityFunction {
      * @param memberFilter Filter for members.
      * @return Assignment.
      */
-    public static List<NetworkMember> assignPartition(
+    public static List<ClusterNode> assignPartition(
         int part,
-        List<NetworkMember> nodes,
+        List<ClusterNode> nodes,
         int replicas,
-        Map<UUID, Collection<NetworkMember>> neighborhoodCache,
+        Map<UUID, Collection<ClusterNode>> neighborhoodCache,
         boolean exclNeighbors,
-        IgniteBiPredicate<NetworkMember, List<NetworkMember>> memberFilter
+        IgniteBiPredicate<ClusterNode, List<ClusterNode>> memberFilter
     ) {
         if (nodes.size() <= 1)
             return nodes;
 
-        IgniteBiTuple<Long, NetworkMember>[] hashArr =
-            (IgniteBiTuple<Long, NetworkMember>[])new IgniteBiTuple[nodes.size()];
+        IgniteBiTuple<Long, ClusterNode>[] hashArr =
+            (IgniteBiTuple<Long, ClusterNode>[])new IgniteBiTuple[nodes.size()];
 
         for (int i = 0; i < nodes.size(); i++) {
-            NetworkMember node = nodes.get(i);
+            ClusterNode node = nodes.get(i);
 
             Object nodeHash = resolveNodeHash(node);
 
@@ -115,19 +115,19 @@ public class RendezvousAffinityFunction {
 
         final int effectiveReplicas = replicas == Integer.MAX_VALUE ? nodes.size() : Math.min(replicas, nodes.size());
 
-        Iterable<NetworkMember> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
+        Iterable<ClusterNode> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
 
         // REPLICATED cache case
         if (replicas == Integer.MAX_VALUE)
             return replicatedAssign(nodes, sortedNodes);
 
-        Iterator<NetworkMember> it = sortedNodes.iterator();
+        Iterator<ClusterNode> it = sortedNodes.iterator();
 
-        List<NetworkMember> res = new ArrayList<>(effectiveReplicas);
+        List<ClusterNode> res = new ArrayList<>(effectiveReplicas);
 
-        Collection<NetworkMember> allNeighbors = new HashSet<>();
+        Collection<ClusterNode> allNeighbors = new HashSet<>();
 
-        NetworkMember first = it.next();
+        ClusterNode first = it.next();
 
         res.add(first);
 
@@ -137,7 +137,7 @@ public class RendezvousAffinityFunction {
         // Select another replicas.
         if (replicas > 1) {
             while (it.hasNext() && res.size() < effectiveReplicas) {
-                NetworkMember node = it.next();
+                ClusterNode node = it.next();
 
                 if (exclNeighbors) {
                     if (!allNeighbors.contains(node)) {
@@ -162,7 +162,7 @@ public class RendezvousAffinityFunction {
             it.next();
 
             while (it.hasNext() && res.size() < effectiveReplicas) {
-                NetworkMember node = it.next();
+                ClusterNode node = it.next();
 
                 if (!res.contains(node))
                     res.add(node);
@@ -188,15 +188,15 @@ public class RendezvousAffinityFunction {
      * @param sortedNodes Sorted for specified partitions nodes.
      * @return Assignment.
      */
-    private static List<NetworkMember> replicatedAssign(List<NetworkMember> nodes,
-        Iterable<NetworkMember> sortedNodes) {
-        NetworkMember first = sortedNodes.iterator().next();
+    private static List<ClusterNode> replicatedAssign(List<ClusterNode> nodes,
+        Iterable<ClusterNode> sortedNodes) {
+        ClusterNode first = sortedNodes.iterator().next();
 
-        List<NetworkMember> res = new ArrayList<>(nodes.size());
+        List<ClusterNode> res = new ArrayList<>(nodes.size());
 
         res.add(first);
 
-        for (NetworkMember n : nodes)
+        for (ClusterNode n : nodes)
             if (!n.equals(first))
                 res.add(n);
 
@@ -239,26 +239,26 @@ public class RendezvousAffinityFunction {
      * @param memberFilter Filter for members.
      * @return List nodes by partition.
      */
-    public static List<List<NetworkMember>> assignPartitions(
-        Collection<NetworkMember> currentTopologySnapshot,
+    public static List<List<ClusterNode>> assignPartitions(
+        Collection<ClusterNode> currentTopologySnapshot,
         int partitions,
         int replicas,
         boolean exclNeighbors,
-        IgniteBiPredicate<NetworkMember, List<NetworkMember>> memberFilter
+        IgniteBiPredicate<ClusterNode, List<ClusterNode>> memberFilter
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";
         assert replicas > 0 : "replicas > 0";
 
-        List<List<NetworkMember>> assignments = new ArrayList<>(partitions);
+        List<List<ClusterNode>> assignments = new ArrayList<>(partitions);
 
-        Map<UUID, Collection<NetworkMember>> neighborhoodCache = exclNeighbors ?
+        Map<UUID, Collection<ClusterNode>> neighborhoodCache = exclNeighbors ?
             neighbors(currentTopologySnapshot) : null;
 
-        List<NetworkMember> nodes = new ArrayList<>(currentTopologySnapshot);
+        List<ClusterNode> nodes = new ArrayList<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
-            List<NetworkMember> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, memberFilter);
+            List<ClusterNode> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, memberFilter);
 
             assignments.add(partAssignment);
         }
@@ -272,15 +272,15 @@ public class RendezvousAffinityFunction {
      * @param topSnapshot Topology snapshot.
      * @return Neighbors map.
      */
-    public static Map<UUID, Collection<NetworkMember>> neighbors(Collection<NetworkMember> topSnapshot) {
-        Map<String, Collection<NetworkMember>> macMap = new HashMap<>(topSnapshot.size(), 1.0f);
+    public static Map<UUID, Collection<ClusterNode>> neighbors(Collection<ClusterNode> topSnapshot) {
+        Map<String, Collection<ClusterNode>> macMap = new HashMap<>(topSnapshot.size(), 1.0f);
 
         // Group by mac addresses.
-        for (NetworkMember node : topSnapshot) {
+        for (ClusterNode node : topSnapshot) {
             String macs = String.valueOf(node.hashCode());
             //node.attribute(IgniteNodeAttributes.ATTR_MACS);
 
-            Collection<NetworkMember> nodes = macMap.get(macs);
+            Collection<ClusterNode> nodes = macMap.get(macs);
 
             if (nodes == null)
                 macMap.put(macs, nodes = new HashSet<>());
@@ -288,10 +288,10 @@ public class RendezvousAffinityFunction {
             nodes.add(node);
         }
 
-        Map<UUID, Collection<NetworkMember>> neighbors = new HashMap<>(topSnapshot.size(), 1.0f);
+        Map<UUID, Collection<ClusterNode>> neighbors = new HashMap<>(topSnapshot.size(), 1.0f);
 
-        for (Collection<NetworkMember> group : macMap.values())
-            for (NetworkMember node : group)
+        for (Collection<ClusterNode> group : macMap.values())
+            for (ClusterNode node : group)
                 neighbors.put(node.id(), group);
 
         return neighbors;
@@ -300,14 +300,14 @@ public class RendezvousAffinityFunction {
     /**
      *
      */
-    private static class HashComparator implements Comparator<IgniteBiTuple<Long, NetworkMember>>, Serializable {
+    private static class HashComparator implements Comparator<IgniteBiTuple<Long, ClusterNode>>, Serializable {
         /**
          *
          */
         private static final long serialVersionUID = 0L;
 
         /** {@inheritDoc} */
-        @Override public int compare(IgniteBiTuple<Long, NetworkMember> o1, IgniteBiTuple<Long, NetworkMember> o2) {
+        @Override public int compare(IgniteBiTuple<Long, ClusterNode> o1, IgniteBiTuple<Long, ClusterNode> o2) {
             return o1.get1() < o2.get1() ? -1 : o1.get1() > o2.get1() ? 1 :
                 o1.get2().id().compareTo(o2.get2().id());
         }
@@ -316,9 +316,9 @@ public class RendezvousAffinityFunction {
     /**
      * Sorts the initial array with linear sort algorithm array
      */
-    private static class LazyLinearSortedContainer implements Iterable<NetworkMember> {
+    private static class LazyLinearSortedContainer implements Iterable<ClusterNode> {
         /** Initial node-hash array. */
-        private final IgniteBiTuple<Long, NetworkMember>[] arr;
+        private final IgniteBiTuple<Long, ClusterNode>[] arr;
 
         /** Count of the sorted elements */
         private int sorted;
@@ -327,7 +327,7 @@ public class RendezvousAffinityFunction {
          * @param arr Node / partition hash list.
          * @param needFirstSortedCnt Estimate count of elements to return by iterator.
          */
-        LazyLinearSortedContainer(IgniteBiTuple<Long, NetworkMember>[] arr, int needFirstSortedCnt) {
+        LazyLinearSortedContainer(IgniteBiTuple<Long, ClusterNode>[] arr, int needFirstSortedCnt) {
             this.arr = arr;
 
             if (needFirstSortedCnt > (int)Math.log(arr.length)) {
@@ -338,14 +338,14 @@ public class RendezvousAffinityFunction {
         }
 
         /** {@inheritDoc} */
-        @Override public Iterator<NetworkMember> iterator() {
+        @Override public Iterator<ClusterNode> iterator() {
             return new SortIterator();
         }
 
         /**
          *
          */
-        private class SortIterator implements Iterator<NetworkMember> {
+        private class SortIterator implements Iterator<ClusterNode> {
             /** Index of the first unsorted element. */
             private int cur;
 
@@ -355,14 +355,14 @@ public class RendezvousAffinityFunction {
             }
 
             /** {@inheritDoc} */
-            @Override public NetworkMember next() {
+            @Override public ClusterNode next() {
                 if (!hasNext())
                     throw new NoSuchElementException();
 
                 if (cur < sorted)
                     return arr[cur++].get2();
 
-                IgniteBiTuple<Long, NetworkMember> min = arr[cur];
+                IgniteBiTuple<Long, ClusterNode> min = arr[cur];
 
                 int minIdx = cur;
 

@@ -20,18 +20,26 @@ package org.apache.ignite.configuration.schemas.runner;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
-/** */
+/**
+ *
+ */
 @Config
 public class DataStorageConfigurationSchema {
-    /** */
-    @Value
-    public int pageSize;
+    /**
+     *
+     */
+    @Value (hasDefault = true)
+    public int pageSize = 4 * 1024;
 
-    /** */
-    @Value
-    public String storagePath;
+    /**
+     *
+     */
+    @Value (hasDefault = true)
+    public String storagePath = "";
 
-    /** */
-    @Value
-    public String walPath;
+    /**
+     *
+     */
+    @Value (hasDefault = true)
+    public String walPath = "";
 }

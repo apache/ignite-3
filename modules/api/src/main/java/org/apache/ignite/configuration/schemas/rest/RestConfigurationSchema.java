@@ -21,19 +21,25 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 
 /**
  * Configuration schema for REST endpoint subtree.
  */
-@ConfigurationRoot(rootName = "rest", storage = InMemoryConfigurationStorage.class)
+@SuppressWarnings("PMD.UnusedPrivateField")
+@ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
 public class RestConfigurationSchema {
-    /** */
+    /**
+     *
+     */
     @Min(1024)
     @Max(0xFFFF)
     @Value(hasDefault = true)
     public final int port = 10300;
 
-    /** */
+    /**
+     *
+     */
     @Min(0)
     @Value(hasDefault = true)
     public final int portRange = 0;

@@ -20,8 +20,8 @@ package org.apache.ignite.raft.server;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
@@ -115,8 +115,6 @@ class ITRaftCounterServerTest {
      */
     @Test
     public void testTwoServer() throws Exception {
-        ClusterService client = startClient(CLIENT_ID, 20101, List.of("localhost:20100"));
-
         RaftServer raftServer2 = new RaftServerImpl(startClient(SERVER_ID_2, 20102, List.of("localhost:20100")),
             FACTORY,
             1000,
@@ -148,7 +146,6 @@ class ITRaftCounterServerTest {
         assertEquals(2, service.<Integer>run(new GetValueCommand()).get());
         assertEquals(2, service2.<Integer>run(new GetValueCommand()).get());
 
-        client.shutdown();
         raftServer2.shutdown();
     }
 

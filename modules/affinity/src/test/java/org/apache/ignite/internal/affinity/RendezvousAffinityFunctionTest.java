@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.function.Function;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.util.SerializationUtils;
-import org.apache.ignite.network.NetworkMember;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -53,13 +53,13 @@ public class RendezvousAffinityFunctionTest {
 
         int replicas = 4;
 
-        ArrayList<NetworkMember> members = prepareNetworkTopology(nodes);
+        ArrayList<ClusterNode> members = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
         int ideal = (parts * replicas) / nodes;
 
-        List<List<NetworkMember>> assignment = RendezvousAffinityFunction.assignPartitions(
+        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             members,
             parts,
             replicas,
@@ -67,12 +67,12 @@ public class RendezvousAffinityFunctionTest {
             null
         );
 
-        HashMap<NetworkMember, ArrayList<Integer>> assignmentByMember = new HashMap<>(nodes);
+        HashMap<ClusterNode, ArrayList<Integer>> assignmentByMember = new HashMap<>(nodes);
 
         int part = 0;
 
-        for (List<NetworkMember> partMembers : assignment) {
-            for (NetworkMember member : partMembers) {
+        for (List<ClusterNode> partMembers : assignment) {
+            for (ClusterNode member : partMembers) {
                 ArrayList<Integer> memberParts = assignmentByMember.get(member);
 
                 if (memberParts == null)
@@ -84,7 +84,7 @@ public class RendezvousAffinityFunctionTest {
             part++;
         }
 
-        for (NetworkMember member : members) {
+        for (ClusterNode member : members) {
             ArrayList<Integer> memberParts = assignmentByMember.get(member);
 
             assertNotNull(memberParts);
@@ -98,11 +98,11 @@ public class RendezvousAffinityFunctionTest {
         }
     }
 
-    @NotNull private ArrayList<NetworkMember> prepareNetworkTopology(int nodes) {
-        ArrayList<NetworkMember> members = new ArrayList<>(nodes);
+    @NotNull private ArrayList<ClusterNode> prepareNetworkTopology(int nodes) {
+        ArrayList<ClusterNode> members = new ArrayList<>(nodes);
 
         for (int i = 0; i < nodes; i++)
-            members.add(new NetworkMember("Member " + i));
+            members.add(new ClusterNode("Member " + i, "127.0.0.1", 121212));
         return members;
     }
 
@@ -114,11 +114,11 @@ public class RendezvousAffinityFunctionTest {
 
         int replicas = 4;
 
-        ArrayList<NetworkMember> members = prepareNetworkTopology(nodes);
+        ArrayList<ClusterNode> members = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
-        List<List<NetworkMember>> assignment = RendezvousAffinityFunction.assignPartitions(
+        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             members,
             parts,
             replicas,
@@ -132,7 +132,7 @@ public class RendezvousAffinityFunctionTest {
 
         LOG.info("Assignment is serialized successfully [bytes=" + assignmentBytes.length + ']');
 
-        List<List<NetworkMember>> deserializedAssignment = (List<List<NetworkMember>>)SerializationUtils.fromBytes(assignmentBytes);
+        List<List<ClusterNode>> deserializedAssignment = (List<List<ClusterNode>>)SerializationUtils.fromBytes(assignmentBytes);
 
         assertNotNull(deserializedAssignment);
 

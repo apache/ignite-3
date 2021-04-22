@@ -21,15 +21,21 @@ import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
-/** */
+/**
+ *
+ */
 @Config
 public class AutoAdjustConfigurationSchema {
-    /** */
-    @Value
-    public boolean enabled;
+    /**
+     *
+     */
+    @Value (hasDefault = true)
+    public boolean enabled = true;
 
-    /** */
-    @Value
+    /**
+     *
+     */
+    @Value (hasDefault = true)
     @Min(value = 0, message = "Minimum value is 0")
-    public int timeout;
+    public int timeout = 0;
 }

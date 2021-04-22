@@ -40,11 +40,12 @@ import org.apache.ignite.internal.table.distributed.command.response.KVGetRespon
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.Network;
-import org.apache.ignite.network.NetworkCluster;
-import org.apache.ignite.network.NetworkMember;
-import org.apache.ignite.network.scalecube.ScaleCubeMemberResolver;
-import org.apache.ignite.network.scalecube.ScaleCubeNetworkClusterFactory;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
@@ -80,8 +81,15 @@ public class DistributedTableTest {
     /** Factory. */
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
+    /** Network factory. */
+    private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
+
+    /** */
+    // TODO: IGNITE-14088: Uncomment and use real serializer provider
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
+
     /** Client. */
-    private NetworkCluster client;
+    private ClusterService client;
 
     /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(1, new Column[] {
@@ -94,7 +102,7 @@ public class DistributedTableTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedTableTest.class);
 
     /** Cluster. */
-    private ArrayList<NetworkCluster> cluster = new ArrayList<>();
+    private ArrayList<ClusterService> cluster = new ArrayList<>();
 
     @BeforeEach
     public void beforeTest() {
@@ -106,7 +114,7 @@ public class DistributedTableTest {
             ));
         }
 
-        for (NetworkCluster node : cluster)
+        for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
 
         LOG.info("Cluster started.");
@@ -124,7 +132,7 @@ public class DistributedTableTest {
 
     @AfterEach
     public void afterTest() throws Exception {
-        for (NetworkCluster node : cluster) {
+        for (ClusterService node : cluster) {
             node.shutdown();
         }
 
@@ -143,7 +151,7 @@ public class DistributedTableTest {
         );
 
         RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000,
-            List.of(new Peer(cluster.get(0).localMember())), true, 200);
+            List.of(new Peer(cluster.get(0).topologyService().localMember())), true, 200);
 
         Row testRow = getTestRow();
 
@@ -180,10 +188,10 @@ public class DistributedTableTest {
 
     @Test
     public void partitionedTable() {
-        HashMap<NetworkMember, RaftServer> raftServers = new HashMap<>(NODES);
+        HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
 
         for (int i = 0; i < NODES; i++) {
-            raftServers.put(cluster.get(i).localMember(), new RaftServerImpl(
+            raftServers.put(cluster.get(i).topologyService().localMember(), new RaftServerImpl(
                 cluster.get(i),
                 FACTORY,
                 1000,
@@ -191,8 +199,8 @@ public class DistributedTableTest {
             ));
         }
 
-        List<List<NetworkMember>> assignment = RendezvousAffinityFunction.assignPartitions(
-            cluster.stream().map(node -> node.localMember()).collect(Collectors.toList()),
+        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
+            cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
             PARTS,
             1,
             false,
@@ -203,7 +211,7 @@ public class DistributedTableTest {
 
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
-        for (List<NetworkMember> partMembers : assignment) {
+        for (List<ClusterNode> partMembers : assignment) {
             RaftServer rs = raftServers.get(partMembers.get(0));
 
             String grpId = "part-" + p;
@@ -306,18 +314,11 @@ public class DistributedTableTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private NetworkCluster startClient(String name, int port, List<String> servers) {
-        Network network = new Network(
-            new ScaleCubeNetworkClusterFactory(name, port, servers, new ScaleCubeMemberResolver())
-        );
-
-//        network.registerMessageMapper((short)1000, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1001, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1005, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1006, new DefaultMessageMapperProvider());
-//        network.registerMessageMapper((short)1009, new DefaultMessageMapperProvider());
-
-        return network.start();
+    private ClusterService startClient(String name, int port, List<String> servers) {
+        var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
+        var network = NETWORK_FACTORY.createClusterService(context);
+        network.start();
+        return network;
     }
 
     /**
@@ -326,11 +327,11 @@ public class DistributedTableTest {
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    private boolean waitForTopology(NetworkCluster cluster, int expected, int timeout) {
+    private boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while (System.currentTimeMillis() < stop) {
-            if (cluster.allMembers().size() >= expected)
+            if (cluster.topologyService().allMembers().size() >= expected)
                 return true;
 
             try {
