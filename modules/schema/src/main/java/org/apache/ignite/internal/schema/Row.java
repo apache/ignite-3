@@ -334,11 +334,11 @@ public class Row implements BinaryRow {
 
         final short flags = readShort(FLAGS_FIELD_OFFSET);
 
-        assert keyCol || (flags & RowFlags.NO_VALUE_FLAG) == 0;
-
         int off = KEY_CHUNK_OFFSET;
 
         if (!keyCol) {
+            assert (flags & RowFlags.NO_VALUE_FLAG) == 0;
+
             // Jump to the next chunk, the size of the first chunk is written at the chunk start.
             off += readInteger(off);
 

@@ -172,8 +172,11 @@ public class RowAssembler {
 
         initOffsets(BinaryRow.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
 
-        if (curCols.nullMapSize() == 0)
+        if (schema.keyColumns().nullMapSize() == 0)
             flags |= RowFlags.OMIT_KEY_NULL_MAP_FLAG;
+
+        if (schema.valueColumns().nullMapSize() == 0)
+            flags |= RowFlags.OMIT_VAL_NULL_MAP_FLAG;
 
         buf = new ExpandableByteBuf(size);
 
@@ -457,19 +460,16 @@ public class RowAssembler {
             curVarlenTblEntry++;
 
         if (curCol == curCols.length()) {
-            int keyLen = curOff - baseOff;
+            int chunkLen = curOff - baseOff;
 
-            buf.putShort(baseOff, (short)keyLen);
+            buf.putInt(baseOff, chunkLen);
 
             if (schema.valueColumns() == curCols)
                 return; // No more columns.
 
             curCols = schema.valueColumns(); // Switch key->value columns.
 
-            initOffsets(baseOff + keyLen, nonNullVarlenValCols);
-
-            if (curCols.nullMapSize() == 0)
-                flags |= RowFlags.OMIT_VAL_NULL_MAP_FLAG;
+            initOffsets(baseOff + chunkLen, nonNullVarlenValCols);
 
             if (nonNullVarlenValCols == 0)
                 flags |= RowFlags.OMIT_VAL_VARTBL_FLAG;

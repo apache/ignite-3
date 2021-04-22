@@ -176,6 +176,13 @@ public class Columns {
     }
 
     /**
+     * @return {@code True} if there is at least one varlength column.
+     */
+    public boolean hasVarlengthColumns() {
+        return firstVarlenColIdx != -1;
+    }
+
+    /**
      * @param schemaBaseIdx Base index of this columns object in its schema.
      * @param cols User columns.
      * @return A copy of user columns array sorted in column order.
