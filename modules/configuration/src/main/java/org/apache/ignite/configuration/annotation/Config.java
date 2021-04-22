@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.SOURCE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * This annotation, if applied to a class, marks it as a configuration schema.
@@ -52,7 +52,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  * </code></pre>
  */
 @Target({ TYPE })
-@Retention(SOURCE)
+@Retention(RUNTIME)
 @Documented
 public @interface Config {
 }
