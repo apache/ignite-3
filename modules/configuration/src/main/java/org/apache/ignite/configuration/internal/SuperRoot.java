@@ -72,7 +72,7 @@ public final class SuperRoot extends InnerNode {
     }
 
     /**
-     * Add root to the super root.
+     * Adds a root to the super root.
      * @param rootKey Root key.
      * @param root Root node.
      */
