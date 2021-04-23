@@ -84,7 +84,7 @@ public final class SuperRoot extends InnerNode {
     }
 
     /**
-     * Get root.
+     * Gets a root.
      * @param rootKey Root key of the desired root.
      * @return Root node.
      */
