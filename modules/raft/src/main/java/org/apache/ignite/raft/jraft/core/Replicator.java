@@ -69,58 +69,55 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Replicator for replicating log entry from leader to followers.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 10:32:02 AM
  */
 @ThreadSafe
 public class Replicator implements ThreadId.OnError {
-
-    private static final Logger              LOG                    = LoggerFactory.getLogger(Replicator.class);
+    /** The log. */
+    private static final Logger LOG = LoggerFactory.getLogger(Replicator.class);
 
     private final RaftClientService rpcService;
     // Next sending log index
-    private volatile long                    nextIndex;
-    private int                              consecutiveErrorTimes  = 0;
-    private boolean                          hasSucceeded;
-    private long                             timeoutNowIndex;
-    private volatile long                    lastRpcSendTimestamp;
-    private volatile long                    heartbeatCounter       = 0;
-    private volatile long                    appendEntriesCounter   = 0;
-    private volatile long                    installSnapshotCounter = 0;
-    protected Stat                           statInfo               = new Stat();
-    private ScheduledFuture<?>               blockTimer;
+    private volatile long nextIndex;
+    private int consecutiveErrorTimes = 0;
+    private boolean hasSucceeded;
+    private long timeoutNowIndex;
+    private volatile long lastRpcSendTimestamp;
+    private volatile long heartbeatCounter = 0;
+    private volatile long appendEntriesCounter = 0;
+    private volatile long installSnapshotCounter = 0;
+    protected Stat statInfo = new Stat();
+    private ScheduledFuture<?> blockTimer;
 
     // Cached the latest RPC in-flight request.
-    private Inflight                         rpcInFly;
+    private Inflight rpcInFly;
     // Heartbeat RPC future
-    private Future<Message>                  heartbeatInFly;
+    private Future<Message> heartbeatInFly;
     // Timeout request RPC future
-    private Future<Message>                  timeoutNowInFly;
+    private Future<Message> timeoutNowInFly;
     // In-flight RPC requests, FIFO queue
-    private final ArrayDeque<Inflight>       inflights              = new ArrayDeque<>();
+    private final ArrayDeque<Inflight> inflights = new ArrayDeque<>();
 
-    private long                             waitId                 = -1L;
+    private long waitId = -1L;
     protected ThreadId id;
     private final ReplicatorOptions options;
     private final RaftOptions raftOptions;
 
-    private ScheduledFuture<?>               heartbeatTimer;
+    private ScheduledFuture<?> heartbeatTimer;
     private volatile SnapshotReader reader;
     private CatchUpClosure catchUpClosure;
     private final Scheduler timerManager;
     private final NodeMetrics nodeMetrics;
-    private volatile State                   state;
+    private volatile State state;
 
     // Request sequence
-    private int                              reqSeq                 = 0;
+    private int reqSeq = 0;
     // Response sequence
-    private int                              requiredNextSeq        = 0;
+    private int requiredNextSeq = 0;
     // Replicator state reset version
-    private int                              version                = 0;
+    private int version = 0;
 
     // Pending response queue;
-    private final PriorityQueue<RpcResponse> pendingResponses       = new PriorityQueue<>(50);
+    private final PriorityQueue<RpcResponse> pendingResponses = new PriorityQueue<>(50);
 
     private int getAndIncrementReqSeq() {
         final int prev = this.reqSeq;
@@ -142,8 +139,6 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * Replicator state
-     * @author dennis
-     *
      */
     public enum State {
         Probe, // probe follower state
@@ -164,8 +159,6 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * Replicator metric set.
-     * @author dennis
-     *
      */
     private static final class ReplicatorMetricSet implements MetricSet {
         private final ReplicatorOptions opts;
@@ -191,9 +184,6 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * Internal state
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-04 10:38:45 AM
      */
     enum RunningState {
         IDLE, // idle
@@ -211,17 +201,13 @@ public class Replicator implements ThreadId.OnError {
     /**
      * User can implement the ReplicatorStateListener interface by themselves.
      * So they can do some their own logic codes when replicator created, destroyed or had some errors.
-     *
-     * @author zongtanghu
-     *
-     * 2019-Aug-20 2:32:10 PM
      */
     public interface ReplicatorStateListener {
 
         /**
          * Called when this replicator has been created.
          *
-         * @param peer   replicator related peerId
+         * @param peer replicator related peerId
          */
         void onCreated(final PeerId peer);
 
@@ -236,7 +222,7 @@ public class Replicator implements ThreadId.OnError {
         /**
          * Called when this replicator has been destroyed.
          *
-         * @param peer   replicator related peerId
+         * @param peer replicator related peerId
          */
         void onDestroyed(final PeerId peer);
     }
@@ -291,22 +277,19 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * Statistics structure
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-04 10:38:53 AM
      */
     static class Stat {
         RunningState runningState;
-        long         firstLogIndex;
-        long         lastLogIncluded;
-        long         lastLogIndex;
-        long         lastTermIncluded;
+        long firstLogIndex;
+        long lastLogIncluded;
+        long lastLogIndex;
+        long lastTermIncluded;
 
         @Override
         public String toString() {
             return "<running=" + this.runningState + ", firstLogIndex=" + this.firstLogIndex + ", lastLogIncluded="
-                   + this.lastLogIncluded + ", lastLogIndex=" + this.lastLogIndex + ", lastTermIncluded="
-                   + this.lastTermIncluded + ">";
+                + this.lastLogIncluded + ", lastLogIndex=" + this.lastLogIndex + ", lastTermIncluded="
+                + this.lastTermIncluded + ">";
         }
 
     }
@@ -319,21 +302,19 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * In-flight request.
-     * @author dennis
-     *
      */
     static class Inflight {
         // In-flight request count
-        final int             count;
+        final int count;
         // Start log index
-        final long            startIndex;
+        final long startIndex;
         // Entries size in bytes
-        final int             size;
+        final int size;
         // RPC future
         final Future<Message> rpcFuture;
-        final RequestType     requestType;
+        final RequestType requestType;
         // Request sequence.
-        final int             seq;
+        final int seq;
 
         public Inflight(final RequestType requestType, final long startIndex, final int count, final int size,
                         final int seq, final Future<Message> rpcFuture) {
@@ -349,7 +330,7 @@ public class Replicator implements ThreadId.OnError {
         @Override
         public String toString() {
             return "Inflight [count=" + this.count + ", startIndex=" + this.startIndex + ", size=" + this.size
-                   + ", rpcFuture=" + this.rpcFuture + ", requestType=" + this.requestType + ", seq=" + this.seq + "]";
+                + ", rpcFuture=" + this.rpcFuture + ", requestType=" + this.requestType + ", seq=" + this.seq + "]";
         }
 
         boolean isSendingLogEntries() {
@@ -359,15 +340,13 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * RPC response for AppendEntries/InstallSnapshot.
-     * @author dennis
-     *
      */
     static class RpcResponse implements Comparable<RpcResponse> {
         final Status status;
         final Message request;
         final Message response;
-        final long        rpcSendTime;
-        final int         seq;
+        final long rpcSendTime;
+        final int seq;
         final RequestType requestType;
 
         public RpcResponse(final RequestType reqType, final int seq, final Status status, final Message request,
@@ -384,8 +363,8 @@ public class Replicator implements ThreadId.OnError {
         @Override
         public String toString() {
             return "RpcResponse [status=" + this.status + ", request=" + this.request + ", response=" + this.response
-                   + ", rpcSendTime=" + this.rpcSendTime + ", seq=" + this.seq + ", requestType=" + this.requestType
-                   + "]";
+                + ", rpcSendTime=" + this.rpcSendTime + ", seq=" + this.seq + ", requestType=" + this.requestType
+                + "]";
         }
 
         /**
@@ -487,9 +466,10 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * Adds a in-flight request
-     * @param reqType   type of request
-     * @param count     count if request
-     * @param size      size in bytes
+     *
+     * @param reqType type of request
+     * @param count   count if request
+     * @param size    size in bytes
      */
     private void addInflight(final RequestType reqType, final long startIndex, final int count, final int size,
                              final int seq, final Future<Message> rpcInfly) {
@@ -673,6 +653,7 @@ public class Replicator implements ThreadId.OnError {
 
     /**
      * Send probe or heartbeat request
+     *
      * @param isHeartbeat      if current entries is heartbeat
      * @param heartBeatClosure heartbeat callback
      */
@@ -727,9 +708,7 @@ public class Replicator implements ThreadId.OnError {
                 final int seq = getAndIncrementReqSeq();
                 final Future<Message> rpcFuture = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(),
                     request, -1, new RpcResponseClosureAdapter<AppendEntriesResponse>() {
-
-                        @Override
-                        public void run(final Status status) {
+                        @Override public void run(final Status status) {
                             onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request,
                                 getResponse(), seq, stateVersion, monotonicSendTimeMs);
                         }
@@ -864,7 +843,7 @@ public class Replicator implements ThreadId.OnError {
     @Override
     public String toString() {
         return "Replicator [state=" + this.state + ", statInfo=" + this.statInfo + ", peerId="
-               + this.options.getPeerId() + ", type=" + this.options.getReplicatorType() + "]";
+            + this.options.getPeerId() + ", type=" + this.options.getReplicatorType() + "]";
     }
 
     static void onBlockTimeoutInNewThread(final ThreadId id) {
@@ -933,7 +912,7 @@ public class Replicator implements ThreadId.OnError {
         // each individual error (e.g. we don't need check every
         // heartbeat_timeout_ms whether a dead follower has come back), but it's just
         // fine now.
-        if(this.blockTimer != null) {
+        if (this.blockTimer != null) {
             // already in blocking state,return immediately.
             this.id.unlock();
             return;
@@ -960,7 +939,7 @@ public class Replicator implements ThreadId.OnError {
             try {
                 for (final Inflight inflight : r.inflights) {
                     if (inflight != r.rpcInFly) {
-                        inflight.rpcFuture.cancel(true);
+                        inflight.rpcFuture.cancel(true); // TODO asch makes sense to cancel scalecube future ?
                     }
                 }
                 if (r.rpcInFly != null) {
@@ -1165,6 +1144,8 @@ public class Replicator implements ThreadId.OnError {
     @SuppressWarnings("ContinueOrBreakFromFinallyBlock")
     static void onRpcReturned(final ThreadId id, final RequestType reqType, final Status status, final Message request,
                               final Message response, final int seq, final int stateVersion, final long rpcSendTime) {
+        LOG.info("onRpcReturned type={} seq={}", reqType, seq);
+
         if (id == null) {
             return;
         }

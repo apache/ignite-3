@@ -35,21 +35,18 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Ballot box for voting.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 2:32:10 PM
  */
 @ThreadSafe
 public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
 
-    private static final Logger       LOG                = LoggerFactory.getLogger(BallotBox.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BallotBox.class);
 
     private FSMCaller waiter;
     private ClosureQueue closureQueue;
-    private final StampedLock         stampedLock        = new StampedLock();
-    private long                      lastCommittedIndex = 0;
-    private long                      pendingIndex;
-    private final SegmentList<Ballot> pendingMetaQueue   = new SegmentList<>(false);
+    private final StampedLock stampedLock = new StampedLock();
+    private long lastCommittedIndex = 0;
+    private long pendingIndex; // Par. 3.6 prevent commits from previous terms
+    private final SegmentList<Ballot> pendingMetaQueue = new SegmentList<>(false);
 
     @OnlyForTest
     long getPendingIndex() {
@@ -89,6 +86,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
     /**
      * Called by leader, otherwise the behavior is undefined
      * Set logs in [first_log_index, last_log_index] are stable at |peer|.
+     * // TODO asch returned val is not used in raft impl
      */
     public boolean commitAt(final long firstLogIndex, final long lastLogIndex, final PeerId peer) {
         // TODO  use lock-free algorithm here?
@@ -107,7 +105,9 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
             }
 
             final long startAt = Math.max(this.pendingIndex, firstLogIndex);
+
             Ballot.PosHint hint = new Ballot.PosHint();
+
             for (long logIndex = startAt; logIndex <= lastLogIndex; logIndex++) {
                 final Ballot bl = this.pendingMetaQueue.get((int) (logIndex - this.pendingIndex));
                 hint = bl.grant(peer, hint);
@@ -115,9 +115,12 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                     lastCommittedIndex = logIndex;
                 }
             }
+
             if (lastCommittedIndex == 0) {
                 return true;
             }
+
+            // TODO asch investigate.
             // When removing a peer off the raft group which contains even number of
             // peers, the quorum would decrease by 1, e.g. 3 of 4 changes to 2 of 3. In
             // this case, the log after removal may be committed before some previous
@@ -158,6 +161,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
      * According the the raft algorithm, the logs from previous terms can't be
      * committed until a log at the new term becomes committed, so
      * |newPendingIndex| should be |last_log_index| + 1.
+     *
      * @param newPendingIndex pending index of new leader
      * @return returns true if reset success
      */
@@ -186,10 +190,10 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
      * Called by leader, otherwise the behavior is undefined
      * Store application context before replication.
      *
-     * @param conf      current configuration
-     * @param oldConf   old configuration
-     * @param done      callback
-     * @return          returns true on success
+     * @param conf    current configuration
+     * @param oldConf old configuration
+     * @param done    callback
+     * @return returns true on success
      */
     public boolean appendPendingTask(final Configuration conf, final Configuration oldConf, final Closure done) {
         final Ballot bl = new Ballot();

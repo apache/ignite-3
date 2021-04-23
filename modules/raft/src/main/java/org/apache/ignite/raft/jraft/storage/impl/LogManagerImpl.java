@@ -67,39 +67,34 @@ import org.slf4j.LoggerFactory;
 
 /**
  * LogManager implementation.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 4:42:20 PM
  */
 public class LogManagerImpl implements LogManager {
-    private static final int                                 APPEND_LOG_RETRY_TIMES = 50;
+    private static final int APPEND_LOG_RETRY_TIMES = 50;
 
-    private static final Logger                              LOG                    = LoggerFactory
-                                                                                        .getLogger(LogManagerImpl.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LogManagerImpl.class);
 
     private LogStorage logStorage;
     private ConfigurationManager configManager;
     private FSMCaller fsmCaller;
-    private final ReadWriteLock                              lock                   = new ReentrantReadWriteLock();
-    private final Lock                                       writeLock              = this.lock.writeLock();
-    private final Lock                                       readLock               = this.lock.readLock();
-    private volatile boolean                                 stopped;
-    private volatile boolean                                 hasError;
-    private long                                             nextWaitId;
-    private LogId diskId                 = new LogId(0, 0);
-    private LogId appliedId              = new LogId(0, 0);
-    private final SegmentList<LogEntry> logsInMemory           = new SegmentList<>(true);
-    private volatile long                                    firstLogIndex;
-    private volatile long                                    lastLogIndex;
-    private volatile LogId lastSnapshotId         = new LogId(0, 0);
-    private final Map<Long, WaitMeta>                        waitMap                = new HashMap<>();
-    private Disruptor<StableClosureEvent>                    disruptor;
-    private RingBuffer<StableClosureEvent>                   diskQueue;
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final Lock writeLock = this.lock.writeLock();
+    private final Lock readLock = this.lock.readLock();
+    private volatile boolean stopped;
+    private volatile boolean hasError;
+    private long nextWaitId;
+    private LogId diskId = new LogId(0, 0); // Last log entry written to disk.
+    private LogId appliedId = new LogId(0, 0);
+    private final SegmentList<LogEntry> logsInMemory = new SegmentList<>(true);
+    private volatile long firstLogIndex;
+    private volatile long lastLogIndex;
+    private volatile LogId lastSnapshotId = new LogId(0, 0);
+    private final Map<Long, WaitMeta> waitMap = new HashMap<>();
+    private Disruptor<StableClosureEvent> disruptor;
+    private RingBuffer<StableClosureEvent> diskQueue;
     private RaftOptions raftOptions;
-    private volatile CountDownLatch                          shutDownLatch;
+    private volatile CountDownLatch shutDownLatch;
     private NodeMetrics nodeMetrics;
-    private final CopyOnWriteArrayList<LastLogIndexListener> lastLogIndexListeners  = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<LastLogIndexListener> lastLogIndexListeners = new CopyOnWriteArrayList<>();
 
     private enum EventType {
         OTHER, // other event type.
@@ -112,7 +107,7 @@ public class LogManagerImpl implements LogManager {
 
     private static class StableClosureEvent {
         StableClosure done;
-        EventType     type;
+        EventType type;
 
         void reset() {
             this.done = null;
@@ -130,17 +125,20 @@ public class LogManagerImpl implements LogManager {
 
     /**
      * Waiter metadata
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-04 5:05:04 PM
      */
     private static class WaitMeta {
-        /** callback when new log come in*/
+        /**
+         * callback when new log come in
+         */
         NewLogCallback onNewLog;
-        /** callback error code*/
-        int            errorCode;
-        /** the waiter pass-in argument */
-        Object         arg;
+        /**
+         * callback error code
+         */
+        int errorCode;
+        /**
+         * the waiter pass-in argument
+         */
+        Object arg;
 
         public WaitMeta(final NewLogCallback onNewLog, final Object arg, final int errorCode) {
             super();
@@ -187,20 +185,20 @@ public class LogManagerImpl implements LogManager {
             this.lastLogIndex = this.logStorage.getLastLogIndex();
             this.diskId = new LogId(this.lastLogIndex, getTermFromLogStorage(this.lastLogIndex));
             this.fsmCaller = opts.getFsmCaller();
-            this.disruptor = DisruptorBuilder.<StableClosureEvent> newInstance() //
-                    .setEventFactory(new StableClosureEventFactory()) //
-                    .setRingBufferSize(opts.getDisruptorBufferSize()) //
-                    .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-", true)) //
-                    .setProducerType(ProducerType.MULTI) //
-                    /*
-                     *  Use timeout strategy in log manager. If timeout happens, it will called reportError to halt the node.
-                     */
-                    .setWaitStrategy(new TimeoutBlockingWaitStrategy(
-                        this.raftOptions.getDisruptorPublishEventWaitTimeoutSecs(), TimeUnit.SECONDS)) //
-                    .build();
+            this.disruptor = DisruptorBuilder.<StableClosureEvent>newInstance() //
+                .setEventFactory(new StableClosureEventFactory()) //
+                .setRingBufferSize(opts.getDisruptorBufferSize()) //
+                .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-", true)) //
+                .setProducerType(ProducerType.MULTI) //
+                /*
+                 *  Use timeout strategy in log manager. If timeout happens, it will called reportError to halt the node.
+                 */
+                .setWaitStrategy(new TimeoutBlockingWaitStrategy(
+                    this.raftOptions.getDisruptorPublishEventWaitTimeoutSecs(), TimeUnit.SECONDS)) //
+                .build();
             this.disruptor.handleEventsWith(new StableClosureEventHandler());
             this.disruptor.setDefaultExceptionHandler(new LogExceptionHandler<Object>(this.getClass().getSimpleName(),
-                    (event, ex) -> reportError(-1, "LogManager handle event error")));
+                (event, ex) -> reportError(-1, "LogManager handle event error")));
             this.diskQueue = this.disruptor.start();
             if (this.nodeMetrics.getMetricRegistry() != null) {
                 this.nodeMetrics.getMetricRegistry().register("jraft-log-manager-disruptor",
@@ -374,6 +372,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     private void notifyLastLogIndexListeners() {
+        // TODO asch fixme potential OOB.
         for (int i = 0; i < this.lastLogIndexListeners.size(); i++) {
             final LastLogIndexListener listener = this.lastLogIndexListeners.get(i);
             if (listener != null) {
@@ -400,7 +399,7 @@ public class LogManagerImpl implements LogManager {
         for (int i = 0; i < waiterCount; i++) {
             final WaitMeta wm = wms.get(i);
             wm.errorCode = errCode;
-            Utils.runInThread(() -> runOnNewLog(wm));
+            Utils.runInThread(() -> runOnNewLog(wm)); // TODO asch fix threading.
         }
         return true;
     }
@@ -437,10 +436,10 @@ public class LogManagerImpl implements LogManager {
 
     private class AppendBatcher {
         List<StableClosure> storage;
-        int                 cap;
-        int                 size;
-        int                 bufferSize;
-        List<LogEntry>      toAppend;
+        int cap;
+        int size;
+        int bufferSize;
+        List<LogEntry> toAppend;
         LogId lastId;
 
         public AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
@@ -492,14 +491,13 @@ public class LogManagerImpl implements LogManager {
     }
 
     private class StableClosureEventHandler implements EventHandler<StableClosureEvent> {
-        LogId lastId  = LogManagerImpl.this.diskId;
+        LogId lastId = LogManagerImpl.this.diskId;
         List<StableClosure> storage = new ArrayList<>(256);
-        AppendBatcher       ab      = new AppendBatcher(this.storage, 256, new ArrayList<>(),
-                                        LogManagerImpl.this.diskId);
+        AppendBatcher ab = new AppendBatcher(this.storage, 256, new ArrayList<>(), LogManagerImpl.this.diskId);
 
         @Override
         public void onEvent(final StableClosureEvent event, final long sequence, final boolean endOfBatch)
-                                                                                                          throws Exception {
+            throws Exception {
             if (event.type == EventType.SHUTDOWN) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
@@ -525,7 +523,7 @@ public class LogManagerImpl implements LogManager {
                             ret = LogManagerImpl.this.logStorage.truncatePrefix(tpc.firstIndexKept);
                         } finally {
                             LogManagerImpl.this.nodeMetrics.recordLatency("truncate-log-prefix", Utils.monotonicMs()
-                                                                                                 - startMs);
+                                - startMs);
                         }
                         break;
                     case TRUNCATE_SUFFIX:
@@ -541,7 +539,7 @@ public class LogManagerImpl implements LogManager {
                             }
                         } finally {
                             LogManagerImpl.this.nodeMetrics.recordLatency("truncate-log-suffix", Utils.monotonicMs()
-                                                                                                 - startMs);
+                                - startMs);
                         }
                         break;
                     case RESET:
@@ -936,7 +934,7 @@ public class LogManagerImpl implements LogManager {
 
         // TODO  maybe it's fine here
         Requires.requireTrue(firstIndexKept >= this.firstLogIndex,
-                "Try to truncate logs before %d, but the firstLogIndex is %d", firstIndexKept, this.firstLogIndex);
+            "Try to truncate logs before %d, but the firstLogIndex is %d", firstIndexKept, this.firstLogIndex);
 
         this.firstLogIndex = firstIndexKept;
         if (firstIndexKept > this.lastLogIndex) {
@@ -1037,7 +1035,7 @@ public class LogManagerImpl implements LogManager {
                     }
                     this.lastLogIndex = lastLogEntry.getId().getIndex();
                 } // else this is a duplicated AppendEntriesRequest, we have
-                  // nothing to do besides releasing all the entries
+                // nothing to do besides releasing all the entries
                 if (conflictingIndex > 0) {
                     // Remove duplication
                     entries.subList(0, conflictingIndex).clear();

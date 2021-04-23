@@ -1851,7 +1851,7 @@ public class NodeImpl implements Node, RaftServerService {
                     //    committed entries would never be truncated.
                     // So we have to respond failure to the old leader and set the new
                     // term to make it stepped down if it didn't.
-                    this.responseBuilder.setSuccess(false).setTerm(this.node.currTerm);
+                    this.responseBuilder.setSuccess(false).setTerm(this.node.currTerm); // TODO asch important, make scenario.
                     this.done.sendResponse(this.responseBuilder.build());
                     return;
                 }
@@ -2175,6 +2175,7 @@ public class NodeImpl implements Node, RaftServerService {
         return false;
     }
 
+    // TODO asch can use discovery to test aliveness.
     private boolean checkDeadNodes0(final List<PeerId> peers, final long monotonicNowMs, final boolean checkReplicator,
                                     final Configuration deadNodes) {
         final int leaderLeaseTimeoutMs = this.options.getLeaderLeaseTimeoutMs();

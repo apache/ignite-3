@@ -42,7 +42,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
@@ -414,16 +414,20 @@ public class NodeTest {
     }
 
     private void sendTestTaskAndWait(final Node node) throws InterruptedException {
-        this.sendTestTaskAndWait(node, 0, RaftError.SUCCESS);
+        this.sendTestTaskAndWait(node, 0, 10, RaftError.SUCCESS);
+    }
+
+    private void sendTestTaskAndWait(final Node node, int amount) throws InterruptedException {
+        this.sendTestTaskAndWait(node, 0, amount, RaftError.SUCCESS);
     }
 
     private void sendTestTaskAndWait(final Node node, final RaftError err) throws InterruptedException {
-        this.sendTestTaskAndWait(node, 0, err);
+        this.sendTestTaskAndWait(node, 0, 10, err);
     }
 
-    private void sendTestTaskAndWait(final Node node, final int start, final RaftError err) throws InterruptedException {
-        final CountDownLatch latch = new CountDownLatch(10);
-        for (int i = start; i < start + 10; i++) {
+    private void sendTestTaskAndWait(final Node node, final int start, int amount, final RaftError err) throws InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(amount);
+        for (int i = start; i < start + amount; i++) {
             final ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
             final Task task = new Task(data, new ExpectClosure(err, latch));
             node.apply(task);
@@ -431,10 +435,19 @@ public class NodeTest {
         waitLatch(latch);
     }
 
+    private void sendTestTaskAndWait(final Node node, final int start, final RaftError err) throws InterruptedException {
+        sendTestTaskAndWait(node, start, 10, err);
+    }
+
     @SuppressWarnings("SameParameterValue")
     private void sendTestTaskAndWait(final String prefix, final Node node, final int code) throws InterruptedException {
+        sendTestTaskAndWait(prefix, node, 10, code);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private void sendTestTaskAndWait(final String prefix, final Node node, int amount, final int code) throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(10);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < amount; i++) {
             final ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes());
             final Task task = new Task(data, new ExpectClosure(code, null, latch));
             node.apply(task);
@@ -642,6 +655,7 @@ public class NodeTest {
         final Endpoint learnerAddr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT + 1);
         final PeerId learnerPeer = new PeerId(learnerAddr, 0);
 
+        final int cnt = 10;
         MockStateMachine learnerFsm = null;
         Node learner = null;
         RaftGroupService learnerServer = null;
@@ -657,9 +671,10 @@ public class NodeTest {
                 .singletonList(learnerPeer)));
 
             NodeManager nodeManager = new NodeManager();
-            final RpcServer rpcServer = new IgniteRpcServer(learnerAddr, nodeManager);
+            final IgniteRpcServer rpcServer = new IgniteRpcServer(learnerAddr, nodeManager);
+            nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
             learnerServer = new RaftGroupService("unittest", new PeerId(learnerAddr, 0), nodeOptions, rpcServer, nodeManager);
-            learner = learnerServer.start();
+            learner = learnerServer.start(false);
         }
 
         {
@@ -672,27 +687,31 @@ public class NodeTest {
             nodeOptions.setSnapshotUri(this.dataPath + File.separator + "snapshot");
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
                 .singletonList(learnerPeer)));
-            final Node node = new NodeImpl("unittest", peer);
-            assertTrue(node.init(nodeOptions));
+
+            NodeManager nodeManager = new NodeManager();
+            final IgniteRpcServer rpcServer = new IgniteRpcServer(addr, List.of(addr.toString(), learnerAddr.toString()), nodeManager);
+            nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true)); // TODO asch move to raftgroupservice.
+            RaftGroupService server = new RaftGroupService("unittest", new PeerId(addr, 0), nodeOptions, rpcServer, nodeManager);
+            Node node = server.start(false);
 
             assertEquals(1, node.listPeers().size());
             assertTrue(node.listPeers().contains(peer));
             while (!node.isLeader()) {
                 ;
             }
-            sendTestTaskAndWait(node);
-            assertEquals(10, fsm.getLogs().size());
+
+            sendTestTaskAndWait(node, cnt);
+            assertEquals(cnt, fsm.getLogs().size());
             int i = 0;
             for (final ByteBuffer data : fsm.getLogs()) {
                 assertEquals("hello" + i++, new String(data.array()));
             }
             Thread.sleep(1000); //wait for entries to be replicated to learner.
-            node.shutdown();
-            node.join();
+            server.shutdown();
         }
         {
             // assert learner fsm
-            assertEquals(10, learnerFsm.getLogs().size());
+            assertEquals(cnt, learnerFsm.getLogs().size());
             int i = 0;
             for (final ByteBuffer data : learnerFsm.getLogs()) {
                 assertEquals("hello" + i++, new String(data.array()));

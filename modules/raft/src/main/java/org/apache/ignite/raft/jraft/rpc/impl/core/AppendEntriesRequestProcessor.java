@@ -44,8 +44,8 @@ import org.apache.ignite.raft.jraft.util.concurrent.SingleThreadExecutor;
  * Append entries request processor.
  *
  * @author boyan (boyan@alibaba-inc.com)
- *
- *         2018-Apr-04 3:00:13 PM
+ * <p>
+ * 2018-Apr-04 3:00:13 PM
  */
 public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEntriesRequest> implements
     ConnectionClosedEventListener {
@@ -76,12 +76,11 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                 return executor();
             }
 
-            // TODO asch fixme
-//            final Node node = NodeManager.getInstance().get(groupId, peer);
-//
-//            if (node == null || !node.getRaftOptions().isReplicatorPipeline()) {
-//                return executor();
-//            }
+            final Node node = nodeManager.get(groupId, peer);
+
+            if (node == null || !node.getRaftOptions().isReplicatorPipeline()) {
+                return executor();
+            }
 
             // The node enable pipeline, we should ensure bolt support it. TODO asch fixme
             //RpcFactoryHelper.rpcFactory().ensurePipeline();
@@ -99,10 +98,10 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
      */
     class SequenceRpcRequestClosure extends RpcRequestClosure {
 
-        private final int      reqSequence;
-        private final String   groupId;
+        private final int reqSequence;
+        private final String groupId;
         private final PeerPair pair;
-        private final boolean  isHeartbeat;
+        private final boolean isHeartbeat;
 
         public SequenceRpcRequestClosure(final RpcRequestClosure parent, final Message defaultResp,
                                          final String groupId, final PeerPair pair, final int sequence,
@@ -131,7 +130,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
      */
     static class SequenceMessage implements Comparable<SequenceMessage> {
         public final Message msg;
-        private final int        sequence;
+        private final int sequence;
         private final RpcContext rpcCtx;
 
         public SequenceMessage(final RpcContext rpcCtx, final Message msg, final int sequence) {
@@ -171,8 +170,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     /**
      * A peer pair
-     * @author boyan(boyan@antfin.com)
-     *
      */
     static class PeerPair {
         // peer in local node
@@ -231,25 +228,25 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     static class PeerRequestContext {
-
-        private final String                         groupId;
-        private final PeerPair                       pair;
+        private final String groupId;
+        private final PeerPair pair;
 
         // Executor to run the requests
         private SingleThreadExecutor executor;
         // The request sequence;
-        private int                                  sequence;
+        private int sequence;
         // The required sequence to be sent.
-        private int                                  nextRequiredSequence;
+        private int nextRequiredSequence;
         // The response queue,it's not thread-safe and protected by it self object monitor.
         private final PriorityQueue<SequenceMessage> responseQueue;
 
-        private final int                            maxPendingResponses;
+        private final int maxPendingResponses;
 
         public PeerRequestContext(final String groupId, final PeerPair pair, final int maxPendingResponses) {
             super();
             this.pair = pair;
             this.groupId = groupId;
+            // TODO asch refactor
             this.executor = new MpscSingleThreadExecutor(Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
                 JRaftUtils.createThreadFactory(groupId + "/" + pair + "-AppendEntriesThread"));
 
@@ -304,20 +301,23 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     /**
-     * Send request in pipeline mode.
+     * Send response in pipeline mode.
      */
     void sendSequenceResponse(final String groupId, final PeerPair pair, final int seq, final RpcContext rpcCtx,
                               final Message msg) {
         final PeerRequestContext ctx = getPeerRequestContext(groupId, pair);
+
         if (ctx == null) {
             // the context was destroyed, so the response can be ignored.
             return;
         }
-        final PriorityQueue<SequenceMessage> respQueue = ctx.responseQueue;
+        final PriorityQueue<SequenceMessage> respQueue = ctx.responseQueue; // TODO asch queue not needed if handled by single thread. Replicator should send message from the same thread per pair.
         assert (respQueue != null);
 
         synchronized (Utils.withLockObject(respQueue)) {
             respQueue.add(new SequenceMessage(rpcCtx, msg, seq));
+
+            LOG.info("sendSequenceResponse seq={}, size={}", seq, respQueue.size());
 
             if (!ctx.hasTooManyPendingResponses()) {
                 while (!respQueue.isEmpty()) {
@@ -327,20 +327,20 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                         // sequence mismatch, waiting for next response.
                         break;
                     }
+
                     respQueue.remove();
+
                     try {
                         queuedPipelinedResponse.sendResponse();
-                    } finally {
+                    }
+                    finally {
                         ctx.getAndIncrementNextRequiredSequence();
                     }
                 }
             } else {
-                // TODO asch test for this
-//                final Connection connection = rpcCtx.getConnection();
-//                LOG.warn("Closed connection to peer {}/{}, because of too many pending responses, queued={}, max={}",
-//                    ctx.groupId, pair, respQueue.size(), ctx.maxPendingResponses);
-//                connection.close();
-                // Close the connection if there are too many pending responses in queue.
+                LOG.warn("Dropping pipelined responses to peer {}/{}, because of too many pending responses, queued={}, max={}",
+                    ctx.groupId, pair, respQueue.size(), ctx.maxPendingResponses);
+
                 removePeerRequestContext(groupId, pair);
             }
         }
@@ -376,19 +376,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             }
         }
 
-        // Add the pair to connection attribute metadata.
-        if (conn != null) {
-            Set<PeerPair> pairs;
-            if ((pairs = (Set<AppendEntriesRequestProcessor.PeerPair>) conn.getAttribute(PAIR_ATTR)) == null) {
-                pairs = new ConcurrentHashSet<>();
-                Set<PeerPair> existsPairs = (Set<PeerPair>) conn.setAttributeIfAbsent(PAIR_ATTR, pairs);
-                if (existsPairs != null) {
-                    pairs = existsPairs;
-                }
-            }
-
-            pairs.add(pair);
-        }
         return peerCtx;
     }
 
@@ -413,7 +400,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     /**
      * The executor selector to select executor for processing request.
      */
-    private final ExecutorSelector                                                                executorSelector;
+    private final ExecutorSelector executorSelector;
 
     public AppendEntriesRequestProcessor(final Executor executor) {
         super(executor, RpcRequests.AppendEntriesResponse.getDefaultInstance());
@@ -431,6 +418,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     private int getAndIncrementSequence(final String groupId, final PeerPair pair, final Connection conn, NodeManager nodeManager) {
+        // TODO asch can use getPeerContext because it must already present (created before) ???
         return getOrCreatePeerRequestContext(groupId, pair, conn, nodeManager).getAndIncrementSequence();
     }
 
@@ -447,6 +435,9 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         final Node node = (Node) service;
 
         if (node.getRaftOptions().isReplicatorPipeline()) {
+            LOG.info("processRequest0: term={}, prevLogIdx={}, prevTerm={}, commitIdx={}, size={}, hasData={}",
+                request.getTerm(), request.getPrevLogIndex(), request.getPrevLogTerm(), request.getCommittedIndex(), request.getEntriesCount(), request.hasData());
+
             final String groupId = request.getGroupId();
             final PeerPair pair = pairOf(request.getPeerId(), request.getServerId());
 
@@ -458,6 +449,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             final Message response = service.handleAppendEntriesRequest(request, new SequenceRpcRequestClosure(done,
                 defaultResp(), groupId, pair, reqSequence, isHeartbeat));
             if (response != null) {
+                // heartbeat or probe request
                 if (isHeartbeat) {
                     done.getRpcCtx().sendResponse(response);
                 } else {
@@ -490,30 +482,10 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         this.peerRequestContexts.clear();
     }
 
-    @SuppressWarnings("unchecked")
-//    @Override
-//    public void onClosed(final String remoteAddress, final Connection conn) {
-//        // TODO asch should be triggered on node left.
-//        final Set<PeerPair> pairs = (Set<PeerPair>) conn.getAttribute(PAIR_ATTR);
-//        if (pairs != null && !pairs.isEmpty()) {
-//            // Clear request contexts when connection disconnected.
-//            for (final Map.Entry<String, ConcurrentMap<PeerPair, PeerRequestContext>> entry : this.peerRequestContexts
-//                .entrySet()) {
-//                final ConcurrentMap<PeerPair, PeerRequestContext> groupCtxs = entry.getValue();
-//                synchronized (Utils.withLockObject(groupCtxs)) {
-//                    for (PeerPair pair : pairs) {
-//                        final PeerRequestContext ctx = groupCtxs.remove(pair);
-//                        if (ctx != null) {
-//                            ctx.destroy();
-//                        }
-//                    }
-//                }
-//            }
-//        } else {
-//            LOG.info("Connection disconnected: {}", remoteAddress);
-//        }
-//    }
-
+    /**
+     * @param local Local peer.
+     * @param remote Remote peer.
+     */
     @Override public void onClosed(String local, String remote) {
         PeerPair pair = new PeerPair(local, remote);
 
@@ -521,12 +493,10 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             .entrySet()) {
             final ConcurrentMap<PeerPair, PeerRequestContext> groupCtxs = entry.getValue();
             synchronized (Utils.withLockObject(groupCtxs)) {
-                //for (PeerPair pair : pairs) {
-                    final PeerRequestContext ctx = groupCtxs.remove(pair);
-                    if (ctx != null) {
-                        ctx.destroy();
-                    }
-                //}
+                final PeerRequestContext ctx = groupCtxs.remove(pair);
+                if (ctx != null) {
+                    ctx.destroy();
+                }
             }
         }
 

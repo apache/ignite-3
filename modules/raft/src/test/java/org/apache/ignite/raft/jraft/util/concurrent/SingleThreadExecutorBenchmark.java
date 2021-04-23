@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.util.concurrent;
 
+import io.netty.util.concurrent.DefaultEventExecutor;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
@@ -95,11 +96,11 @@ public class SingleThreadExecutorBenchmark {
         ExecutorServiceHelper.shutdownAndAwaitTermination(this.producers);
     }
 
-//    @Benchmark
-//    public void nettyDefaultEventExecutor() throws InterruptedException {
-//        execute(new DefaultSingleThreadExecutor(
-//            new DefaultEventExecutor(new NamedThreadFactory("netty_executor", true))));
-//    }
+    @Benchmark
+    public void nettyDefaultEventExecutor() throws InterruptedException {
+        execute(new DefaultSingleThreadExecutor(
+            new DefaultEventExecutor(new NamedThreadFactory("netty_executor", true))));
+    }
 
     @Benchmark
     public void defaultSingleThreadPollExecutor() throws InterruptedException {

@@ -93,7 +93,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
      *
      * @since 1.2.6
      */
-    private boolean enableLogEntryChecksum = false;
+    private boolean enableLogEntryChecksum = false; // TODO asch fixme.
 
     /**
      * ReadOnlyOption specifies how the read only request is processed.

@@ -100,12 +100,12 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     /**
      * Adds a last log index listener
      */
-    void addLastLogIndexListener(final LastLogIndexListener listener);
+    void addLastLogIndexListener(final LastLogIndexListener listener); // TODO asch remove it ?
 
     /**
      * Remove the last log index listener.
      */
-    void removeLastLogIndexListener(final LastLogIndexListener listener);
+    void removeLastLogIndexListener(final LastLogIndexListener listener); // TODO asch remove it ?
 
     /**
      * Wait the log manager to be shut down.

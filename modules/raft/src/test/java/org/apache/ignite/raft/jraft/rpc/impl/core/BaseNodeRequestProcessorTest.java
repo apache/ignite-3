@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -39,7 +38,6 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
     protected final String     groupId   = "test";
     protected final String     peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;
-    protected NodeManager nodeManager = new NodeManager();
 
     public abstract T createRequest(String groupId, PeerId peerId);
 
@@ -50,11 +48,12 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
     @Before
     public void setup() {
         Mockito.lenient().when(node.getRaftOptions()).thenReturn(new RaftOptions());
+        this.asyncContext = new MockAsyncContext();
     }
 
     @After
     public void teardown() {
-        nodeManager.clear();
+        // No-op.
     }
 
     @Test
@@ -71,7 +70,8 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
         final PeerId peerId = new PeerId();
         peerId.parse(this.peerIdStr);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId(groupId, peerId));
-        nodeManager.add(node);
+        if (asyncContext != null)
+            asyncContext.getNodeManager().add(node);
         return peerId;
     }
 }

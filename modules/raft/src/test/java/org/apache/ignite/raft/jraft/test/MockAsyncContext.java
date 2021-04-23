@@ -29,6 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
  */
 public class MockAsyncContext implements RpcContext {
     private Object responseObject;
+    private NodeManager nodeManager = new NodeManager();
 
     public Object getResponseObject() {
         return this.responseObject;
@@ -44,7 +45,7 @@ public class MockAsyncContext implements RpcContext {
     }
 
     @Override public NodeManager getNodeManager() {
-        return null;
+        return nodeManager;
     }
 
     @Override

@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.Connection;
@@ -25,14 +27,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor.PeerPair;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor.PeerRequestContext;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.Test;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
@@ -47,7 +43,9 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
 
     private AppendEntriesRequest request;
 
-    private final String         serverId = "localhost:8082";
+    private final String serverId = "localhost:8082";
+
+    private NodeManager nodeManager;
 
     @Override
     public AppendEntriesRequest createRequest(final String groupId, final PeerId peerId) {
@@ -61,21 +59,15 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         return this.request;
     }
 
-    @Mock
     private Connection conn;
 
     @Override
     public void setup() {
         super.setup();
-        this.asyncContext = new MockAsyncContext() {
-            @Override
-            public Connection getConnection() {
-                return AppendEntriesRequestProcessorTest.this.conn;
-            }
-        };
-        Set<PeerPair> pairs = new ConcurrentHashSet<>();
-        pairs.add(new PeerPair(this.peerIdStr, this.serverId));
-        Mockito.when(this.conn.getAttribute(AppendEntriesRequestProcessor.PAIR_ATTR)).thenReturn(pairs);
+        this.nodeManager = this.asyncContext.getNodeManager();
+//        Set<PeerPair> pairs = new ConcurrentHashSet<>();
+//        pairs.add(new PeerPair(this.peerIdStr, this.serverId));
+        //Mockito.when(this.conn.getAttribute(AppendEntriesRequestProcessor.PAIR_ATTR)).thenReturn(pairs);
     }
 
     private ExecutorService executor;
@@ -188,15 +180,12 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         final AppendEntriesRequestProcessor processor = (AppendEntriesRequestProcessor) newProcessor();
         final PeerPair pair = processor.pairOf(this.peerIdStr, this.serverId);
         final PingRequest msg = TestUtils.createPingRequest();
-        final Connection conn = Mockito.mock(Connection.class);
-        Mockito.when(asyncContext.getConnection()).thenReturn(conn);
         final PeerRequestContext ctx = processor.getOrCreatePeerRequestContext(this.groupId, pair, conn, nodeManager);
         assertNotNull(ctx);
         processor.sendSequenceResponse(this.groupId, pair, 1, asyncContext, msg);
         processor.sendSequenceResponse(this.groupId, pair, 2, asyncContext, msg);
         processor.sendSequenceResponse(this.groupId, pair, 3, asyncContext, msg);
         Mockito.verify(asyncContext, Mockito.never()).sendResponse(msg);
-        Mockito.verify(conn).close();
 
         final PeerRequestContext newCtx = processor.getOrCreatePeerRequestContext(this.groupId, pair, conn, nodeManager);
         assertNotNull(newCtx);
