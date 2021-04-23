@@ -43,7 +43,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Order of fields must be the same as they are described in configuration schema.
      *
      * @param visitor Configuration visitor.
-     * @param <T> Parameter type of passed visitor.
+     * @param <T> Parameter type of the passed visitor.
      */
     public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor);
 
