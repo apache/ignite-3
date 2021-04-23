@@ -17,28 +17,80 @@
 
 package org.apache.ignite.internal.vault;
 
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.vault.common.VaultEntry;
+import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
+import org.apache.ignite.internal.vault.service.VaultService;
+import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * VaultManager is responsible for handling VaultService lifecycle and providing interface for managing local keys.
+ * VaultManager is responsible for handling {@link VaultService} lifecycle
+ * and providing interface for managing local keys.
  */
 public class VaultManager {
+    private VaultService vaultService;
+
+    /**
+     * Default constructor.
+     */
+    public VaultManager() {
+        this.vaultService = new VaultServiceImpl();
+    }
 
     /**
      * @return {@code true} if VaultService beneath given VaultManager was bootstrapped with data
      * either from PDS or from user initial bootstrap configuration.
+     *
+     * TODO: implement when IGNITE-14408 will be ready
      */
     public boolean bootstrapped() {
         return false;
     }
 
-    // TODO: IGNITE-14405 Local persistent key-value storage (Vault).
+    /**
+     * See {@link VaultService#get(ByteArray)}
+     */
+    public CompletableFuture<VaultEntry> get(ByteArray key) {
+        return vaultService.get(key);
+    }
 
     /**
-     * This is a proxy to Vault service method.
+     * See {@link VaultService#put(ByteArray, byte[])}
      */
-    public CompletableFuture<VaultEntry> get(byte[] key) {
-        return null;
+    public CompletableFuture<Void> put(ByteArray key, byte[] val) {
+        return vaultService.put(key, val);
+    }
+
+    /**
+     * See {@link VaultService#remove(ByteArray)}
+     */
+    public CompletableFuture<Void> remove(ByteArray key) {
+        return vaultService.remove(key);
+    }
+
+    /**
+     * See {@link VaultService#range(ByteArray, ByteArray)}
+     */
+    public Iterator<VaultEntry> range(ByteArray fromKey, ByteArray toKey) {
+        return vaultService.range(fromKey, toKey);
+    }
+
+    /**
+     * See {@link VaultService#putAll}
+     */
+    @NotNull
+    public CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals, long revision) {
+        return vaultService.putAll(vals, revision);
+    }
+
+    /**
+     * See {@link VaultService#appliedRevision()}
+     */
+    @NotNull
+    public CompletableFuture<Long> appliedRevision() {
+        return vaultService.appliedRevision();
     }
 }
