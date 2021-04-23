@@ -50,7 +50,7 @@ public class ConfigurationElement {
     }
 
     /**
-     * @return Name of configuration element.
+     * @return Name of a configuration element.
      */
     public String getName() {
         return name;
