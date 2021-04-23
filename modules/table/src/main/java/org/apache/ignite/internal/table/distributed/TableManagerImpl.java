@@ -30,7 +30,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableInit;
+import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -258,7 +258,7 @@ public class TableManagerImpl implements TableManager {
     }
 
     /** {@inheritDoc} */
-    @Override public Table createTable(String name, Consumer<TableInit> tableInitChange) {
+    @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
         configurationMgr.configurationRegistry()
             .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
             change.create(name, tableInitChange));

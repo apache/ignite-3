@@ -22,7 +22,7 @@ package org.apache.ignite.table.manager;
 
 import java.util.List;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.schemas.table.TableInit;
+import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;
 
 /**
@@ -37,7 +37,7 @@ public interface TableManager {
      * @param tableInitChange Table changer.
      * @return Table.
      */
-    Table createTable(String name, Consumer<TableInit> tableInitChange);
+    Table createTable(String name, Consumer<TableChange> tableInitChange);
 
     /**
      * Gets a list of all started tables.

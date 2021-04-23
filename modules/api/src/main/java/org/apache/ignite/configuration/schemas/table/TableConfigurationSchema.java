@@ -19,10 +19,12 @@ package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 
 @Config
 public class TableConfigurationSchema {
-    @Value(immutable = true)
+    @Value
+    @Immutable
     public String name;
 
     @Value
