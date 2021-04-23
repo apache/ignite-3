@@ -27,6 +27,7 @@ public interface NamedListChange<Change> {
      * @param key Key for the value to be created.
      * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
      *      passed to the closure, must not be reused anywhere else.
+     * @return {@code this} for chaining.
      */
     //TODO Replace with "createOrUpdate"
     NamedListChange<Change> create(String key, Consumer<Change> valConsumer);
