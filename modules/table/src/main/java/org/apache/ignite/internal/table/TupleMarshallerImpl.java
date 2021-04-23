@@ -136,17 +136,26 @@ class TupleMarshallerImpl implements TupleMarshaller {
 
                 break;
             }
-            case UUID:
-                throw new UnsupportedOperationException("Not implemented yet.");
+            case UUID:{
+                rowAsm.appendUuid(tup.value(col.name()));
+
+                break;
+            }
             case STRING: {
                 rowAsm.appendString(tup.stringValue(col.name()));
 
                 break;
             }
-            case BYTES:
-                throw new UnsupportedOperationException("Not implemented yet.");
-            case BITMASK:
-                throw new UnsupportedOperationException("Not implemented yet.");
+            case BYTES: {
+                rowAsm.appendBytes(tup.value(col.name()));
+
+                break;
+            }
+            case BITMASK: {
+                rowAsm.appendBitmask(tup.value(col.name()));
+
+                break;
+            }
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
         }
