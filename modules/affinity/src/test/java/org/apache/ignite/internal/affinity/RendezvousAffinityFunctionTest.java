@@ -38,15 +38,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Test for affinity function.
  */
 public class RendezvousAffinityFunctionTest {
-
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunctionTest.class);
 
     /** Affinity deviation ratio. */
     public static final double AFFINITY_DEVIATION_RATIO = 0.2;
 
     @Test
-    public void partitionDistribution() {
+    public void testPartitionDistribution() {
         int nodes = 50;
 
         int parts = 10_000;
@@ -91,7 +90,7 @@ public class RendezvousAffinityFunctionTest {
 
             assertTrue(nodeParts.size() > ideal * (1 - AFFINITY_DEVIATION_RATIO)
                     && nodeParts.size() < ideal * (1 + AFFINITY_DEVIATION_RATIO),
-                "Partition distribution too fare from ideal [node=" + node
+                "Partition distribution is too far from ideal [node=" + node
                     + ", size=" + nodeParts.size()
                     + ", idealSize=" + ideal
                     + ", parts=" + compact(nodeParts) + ']');

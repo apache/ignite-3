@@ -28,18 +28,18 @@ public class DataStorageConfigurationSchema {
     /**
      *
      */
-    @Value (hasDefault = true)
+    @Value(hasDefault = true)
     public int pageSize = 4 * 1024;
 
     /**
      *
      */
-    @Value (hasDefault = true)
+    @Value(hasDefault = true)
     public String storagePath = "";
 
     /**
      *
      */
-    @Value (hasDefault = true)
+    @Value(hasDefault = true)
     public String walPath = "";
 }

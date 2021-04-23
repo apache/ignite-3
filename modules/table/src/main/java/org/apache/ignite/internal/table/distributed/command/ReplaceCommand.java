@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  * The command replaces an old entry to a new one.
  */
 public class ReplaceCommand implements WriteCommand {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ReplaceCommand.class);
 
     /** Row. */

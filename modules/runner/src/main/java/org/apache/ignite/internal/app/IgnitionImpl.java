@@ -54,6 +54,9 @@ import org.apache.ignite.utils.IgniteProperties;
  * Implementation of an entry point for handling grid lifecycle.
  */
 public class IgnitionImpl implements Ignition {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
+
     /** */
     private static final String[] BANNER = new String[] {
         "",
@@ -73,9 +76,6 @@ public class IgnitionImpl implements Ignition {
 
     /** */
     private static final String VER_KEY = "version";
-
-    /** */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
 
     /** {@inheritDoc} */
     @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {

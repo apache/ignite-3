@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
@@ -38,7 +38,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class PartitionCommandListener implements RaftGroupCommandListener {
     /** Storage. */
-    private HashMap<KeyWrapper, BinaryRow> storage = new HashMap<>();
+    private ConcurrentHashMap<KeyWrapper, BinaryRow> storage = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
     @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {

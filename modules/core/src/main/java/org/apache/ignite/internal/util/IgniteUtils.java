@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteLogger;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteUtils.class);
 
     /** Version of the JDK. */

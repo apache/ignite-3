@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteBiPredicate;
+import java.util.function.BiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
@@ -55,12 +55,11 @@ import org.apache.ignite.network.ClusterNode;
  * </ul>
  */
 public class RendezvousAffinityFunction {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunction.class);
 
     /** Comparator. */
     private static final Comparator<IgniteBiTuple<Long, ClusterNode>> COMPARATOR = new HashComparator();
-
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunction.class);
 
     /** Maximum number of partitions. */
     public static final int MAX_PARTITIONS_COUNT = 65000;
@@ -95,7 +94,7 @@ public class RendezvousAffinityFunction {
         int replicas,
         Map<UUID, Collection<ClusterNode>> neighborhoodCache,
         boolean exclNeighbors,
-        IgniteBiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
+        BiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
     ) {
         if (nodes.size() <= 1)
             return nodes;
@@ -146,7 +145,7 @@ public class RendezvousAffinityFunction {
                         allNeighbors.addAll(neighborhoodCache.get(node.id()));
                     }
                 }
-                else if (nodeFilter == null || nodeFilter.apply(node, res)) {
+                else if (nodeFilter == null || nodeFilter.test(node, res)) {
                     res.add(node);
 
                     if (exclNeighbors)
@@ -244,7 +243,7 @@ public class RendezvousAffinityFunction {
         int partitions,
         int replicas,
         boolean exclNeighbors,
-        IgniteBiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
+        BiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";

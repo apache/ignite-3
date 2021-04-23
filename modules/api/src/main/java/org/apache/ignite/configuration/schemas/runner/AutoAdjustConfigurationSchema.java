@@ -29,13 +29,13 @@ public class AutoAdjustConfigurationSchema {
     /**
      *
      */
-    @Value (hasDefault = true)
+    @Value(hasDefault = true)
     public boolean enabled = true;
 
     /**
      *
      */
-    @Value (hasDefault = true)
+    @Value(hasDefault = true)
     @Min(value = 0, message = "Minimum value is 0")
     public int timeout = 0;
 }

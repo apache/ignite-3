@@ -56,11 +56,11 @@ import org.apache.ignite.table.manager.TableManager;
 import org.jetbrains.annotations.NotNull;
 
 public class TableManagerImpl implements TableManager {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerImpl.class);
+
     /** Internal prefix for the metasorage. */
     public static final String INTERNAL_PREFIX = "internal.tables.";
-
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerImpl.class);
 
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
@@ -269,7 +269,7 @@ public class TableManagerImpl implements TableManager {
 //            change.initPartitions(1_000);
 //        });
 
-        //TODO: Get it honestly using some future.
+        //TODO: IGNITE-14646 Support asynchronous table creation
         Table tbl = null;
 
         while (tbl == null) {

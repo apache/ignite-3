@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** */
 class ITRaftCounterServerTest {
-    /** */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITRaftCounterServerTest.class);
 
     /** */

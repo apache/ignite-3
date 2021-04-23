@@ -69,6 +69,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Distributed internal table tests.
  */
 public class DistributedTableTest {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedTableTest.class);
+
     /** Base network port. */
     public static final int NODE_PORT_BASE = 20_000;
 
@@ -97,9 +100,6 @@ public class DistributedTableTest {
     }, new Column[] {
         new Column("value", NativeType.LONG, false)
     });
-
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedTableTest.class);
 
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();

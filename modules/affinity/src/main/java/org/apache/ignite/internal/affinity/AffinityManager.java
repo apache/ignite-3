@@ -38,13 +38,12 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Affinity manager is responsible for affinity function related logic including calculating affinity assignments.
  */
-// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 public class AffinityManager {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(AffinityManager.class);
+
     /** Tables prefix for the metasorage. */
     public static final String INTERNAL_PREFIX = "internal.tables.";
-
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AffinityManager.class);
 
     /**
      * MetaStorage manager in order to watch private distributed affinity specific configuration,
@@ -81,9 +80,9 @@ public class AffinityManager {
             .metastorageMembers().listen(ctx -> {
                 if (ctx.newValue() != null) {
                     if (hasMetastorageLocally(localNodeName, ctx.newValue()))
-                        subscribeToCalculateAssignment();
+                        subscribeToAssignmentCalculation();
                     else
-                        unsubscribeToCalculateAssignment();
+                        unsubscribeFromAssignmentCalculation();
                 }
             return CompletableFuture.completedFuture(null);
         });
@@ -92,7 +91,7 @@ public class AffinityManager {
             .metastorageMembers().value();
 
         if (hasMetastorageLocally(localNodeName, metastorageMembers))
-            subscribeToCalculateAssignment();
+            subscribeToAssignmentCalculation();
     }
 
     /**
@@ -118,7 +117,7 @@ public class AffinityManager {
     /**
      * Subscribes to metastorage members update.
      */
-    private void subscribeToCalculateAssignment() {
+    private void subscribeToAssignmentCalculation() {
         assert affinityCalculateSubscriptionFut == null : "Affinity calculation already subscribed";
 
         String tableInternalPrefix = INTERNAL_PREFIX + "assignment.#";
@@ -175,7 +174,7 @@ public class AffinityManager {
     /**
      * Unsubscribes a listener form the affinity calculation.
      */
-    private void unsubscribeToCalculateAssignment() {
+    private void unsubscribeFromAssignmentCalculation() {
         if (affinityCalculateSubscriptionFut == null)
             return;
 

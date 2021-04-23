@@ -29,7 +29,7 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 @ConfigurationRoot(rootName = "local", type = ConfigurationType.LOCAL)
 public class LocalConfigurationSchema {
     /** It is a copy of appropriate property from the cluster configuration. */
-    @Value (hasDefault = true)
+    @Value(hasDefault = true)
     String[] metastorageMembers = new String[0];
 
     /**

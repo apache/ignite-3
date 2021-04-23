@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  * The command deletes a entry by passed key.
  */
 public class DeleteCommand implements WriteCommand {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(DeleteCommand.class);
 
     /** Key row. */

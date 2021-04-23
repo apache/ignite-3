@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  * The command gets a value by key specified.
  */
 public class GetCommand implements ReadCommand {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
 
     /** Key row. */

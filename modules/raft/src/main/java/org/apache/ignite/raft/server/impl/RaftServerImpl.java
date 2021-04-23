@@ -49,7 +49,7 @@ import org.jetbrains.annotations.NotNull;
  * A single node server implementation.
  */
 public class RaftServerImpl implements RaftServer {
-    /** */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
 
     /** */
@@ -77,20 +77,20 @@ public class RaftServerImpl implements RaftServer {
     private final Thread writeWorker;
 
     /**
-     * @param net Network.
+     * @param service Network service.
      * @param clientMsgFactory Client message factory.
      * @param queueSize Queue size.
      * @param listeners Command listeners.
      */
     public RaftServerImpl(
-        ClusterService net,
+        ClusterService service,
         @NotNull RaftClientMessageFactory clientMsgFactory,
         int queueSize,
         Map<String, RaftGroupCommandListener> listeners
     ) {
         Objects.requireNonNull(clientMsgFactory);
 
-        this.id = net.topologyService().localMember().name();
+        this.id = service.topologyService().localMember().name();
         this.clientMsgFactory = clientMsgFactory;
 
         if (listeners != null)
@@ -99,7 +99,7 @@ public class RaftServerImpl implements RaftServer {
         readQueue = new ArrayBlockingQueue<>(queueSize);
         writeQueue = new ArrayBlockingQueue<>(queueSize);
 
-        server = net;
+        server = service;
 
         server.messagingService().addMessageHandler((message, sender, correlationId) -> {
             if (message instanceof GetLeaderRequest) {

@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  * The command inserts a row.
  */
 public class InsertCommand implements WriteCommand {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
 
     /** Row. */

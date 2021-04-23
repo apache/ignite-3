@@ -30,7 +30,7 @@ import org.apache.ignite.lang.IgniteLogger;
  * It is a response object for handling a table get command.
  */
 public class KVGetResponse implements Serializable {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
 
     /** Row. */

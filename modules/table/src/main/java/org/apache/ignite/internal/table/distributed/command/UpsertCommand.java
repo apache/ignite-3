@@ -30,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  * The command inserts or updates a value for the key specified.
  */
 public class UpsertCommand implements WriteCommand {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(UpsertCommand.class);
 
     /** Row. */
