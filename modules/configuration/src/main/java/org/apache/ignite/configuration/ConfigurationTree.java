@@ -36,7 +36,7 @@ public interface ConfigurationTree<VIEW, CHANGE> extends ConfigurationProperty<V
     /**
      * Changes this configuration node value.
      * @param change CHANGE object.
-     * @return Future that is completed when configuration is changed or change has failed.
+     * @return Future that is completed when configuration change is finished either successfully or not.
      */
     Future<Void> change(Consumer<CHANGE> change);
 }
