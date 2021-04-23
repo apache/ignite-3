@@ -133,7 +133,7 @@ public interface BinaryRow {
      * Row flags.
      */
     final class RowFlags {
-        /** Flag indicated is row has no value chunk. */
+        /** Flag indicates row has no value chunk. */
         public static final int NO_VALUE_FLAG = 1;
 
         /** Flag indicates key chunk omits null map. */
