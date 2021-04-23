@@ -42,7 +42,7 @@ import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.jo
 /** */
 public class JsonConverter {
     /**
-     * @return Cisitor to cteate JSON representations.
+     * @return Visitor to create JSON representations.
      */
     public static ConfigurationVisitor<JsonElement> jsonVisitor() {
         return new ConfigurationVisitor<JsonElement>() {
