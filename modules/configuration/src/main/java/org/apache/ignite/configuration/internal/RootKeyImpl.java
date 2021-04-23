@@ -44,7 +44,7 @@ public class RootKeyImpl<T extends ConfigurationTree<VIEW, ?>, VIEW> extends Roo
      * @param rootName Name of the root as described in {@link ConfigurationRoot#rootName()}.
      * @param storageType Storage class as described in {@link ConfigurationRoot#type()}.
      * @param rootSupplier Closure to instantiate internal configuration tree roots.
-     * @param publicRootCreator Function to create public user-facing tree instance.
+     * @param publicRootCreator Function to create a public user-facing tree instance.
      */
     public RootKeyImpl(
         String rootName,
