@@ -40,7 +40,7 @@ public interface ConfigurationNotificationEvent<VIEW> {
 
     /**
      * @return Monotonously increasing counter, linked to the specific storage for current configuration values. Gives
-     * you a unique change identifier inside a specific configuration storage.
+     * a unique change identifier inside a specific configuration storage.
      */
     long storageRevision();
 }
