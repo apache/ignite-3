@@ -105,7 +105,7 @@ public class ConfigurationRegistry {
     }
 
     /**
-     * Get public configuration tree.
+     * Gets the public configuration tree.
      * @param rootKey Root key.
      * @param <V> View type.
      * @param <C> Change type.
