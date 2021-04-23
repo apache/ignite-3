@@ -32,9 +32,6 @@ public class ConfigurationElement {
     /** Configuration VIEW type. */
     private final TypeName view;
 
-    /** Configuration INIT type. */
-    private final TypeName init;
-
     /** Configuration CHANGE type. */
     private final TypeName change;
 
@@ -43,14 +40,12 @@ public class ConfigurationElement {
      * @param type Configuration type.
      * @param name Name of configuration element.
      * @param view Configuration VIEW type.
-     * @param init Configuration INIT type.
      * @param change Configuration CHANGE type.
      */
-    public ConfigurationElement(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
+    public ConfigurationElement(TypeName type, String name, TypeName view, TypeName change) {
         this.type = type;
         this.name = name;
         this.view = view;
-        this.init = init;
         this.change = change;
     }
 
@@ -73,13 +68,6 @@ public class ConfigurationElement {
      */
     public TypeName getView() {
         return view;
-    }
-
-    /**
-     * @return Configuration INIT type.
-     */
-    public TypeName getInit() {
-        return init;
     }
 
     /**

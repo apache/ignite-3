@@ -33,11 +33,10 @@ public class ConfigurationDescription extends ConfigurationElement {
      * @param type Configuration type.
      * @param name Name of configuration element.
      * @param view Configuration VIEW type.
-     * @param init Configuration INIT type.
      * @param change Configuration CHANGE type.
      */
-    public ConfigurationDescription(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
-        super(type, name, view, init, change);
+    public ConfigurationDescription(TypeName type, String name, TypeName view, TypeName change) {
+        super(type, name, view, change);
     }
 
     /**
