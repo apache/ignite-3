@@ -133,7 +133,7 @@ public final class ConfigurationChanger {
     }
 
     /**
-     * Add multiple validators instances.
+     * Adds multiple validators instances.
      * @param annotationType Annotation type for validated fields.
      * @param validators Set of validator instancec for this annotation.
      */
