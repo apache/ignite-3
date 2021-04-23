@@ -144,7 +144,7 @@ public final class ConfigurationChanger {
     }
 
     /**
-     * Register additional root key.
+     * Registers an additional root key.
      * @param rootKey Root key instance.
      */
     public void addRootKey(RootKey<?, ?> rootKey) {
