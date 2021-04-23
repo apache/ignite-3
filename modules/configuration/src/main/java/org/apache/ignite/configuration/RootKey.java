@@ -39,7 +39,7 @@ public abstract class RootKey<T extends ConfigurationTree<VIEW, ?>, VIEW> {
 
     /**
      * @param changer Configuration changer instance.
-     * @return New instance of the puvlic tree for the root.
+     * @return New instance of the public tree for the root.
      */
     protected abstract T createPublicRoot(ConfigurationChanger changer);
 }
