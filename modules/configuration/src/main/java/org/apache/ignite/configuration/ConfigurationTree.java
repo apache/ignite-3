@@ -34,7 +34,7 @@ public interface ConfigurationTree<VIEW, CHANGE> extends ConfigurationProperty<V
     Map<String, ConfigurationProperty<?, ?>> members();
 
     /**
-     * Change this configuration node value.
+     * Changes this configuration node value.
      * @param change CHANGE object.
      * @return Future that is completed when configuration is changed or change has failed.
      */
