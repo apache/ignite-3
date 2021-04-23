@@ -44,7 +44,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 @Documented
 public @interface Value {
     /**
-     * Indicator that current configuration value has default value. Value itself is derived from instantiated object
+     * Indicates that the current configuration value has a default value. Value itself is derived from the instantiated object
      * of corresponding schema type. This means that default is not necessarily a constant value.
      * @return {@code hasDefault} flag value.
      */
