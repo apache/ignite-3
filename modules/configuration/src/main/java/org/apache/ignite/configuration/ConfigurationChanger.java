@@ -200,7 +200,7 @@ public final class ConfigurationChanger {
     }
 
     /**
-     * Initialize configuration storage - read data and set default values for missing configuration properties.
+     * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
      * @param storageType Storage type.
      */
     public void initialize(ConfigurationType storageType) {
