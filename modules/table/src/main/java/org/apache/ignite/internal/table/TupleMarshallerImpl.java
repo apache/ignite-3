@@ -32,7 +32,7 @@ import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getVal
 /**
  * Marshaller implementation.
  */
-class TupleMarshallerImpl implements TupleMarshaller {
+public class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
     private final TableSchemaManager schemaMgr;
 
@@ -41,7 +41,7 @@ class TupleMarshallerImpl implements TupleMarshaller {
      *
      * @param schemaMgr Schema manager.
      */
-    TupleMarshallerImpl(TableSchemaManager schemaMgr) {
+    public TupleMarshallerImpl(TableSchemaManager schemaMgr) {
         this.schemaMgr = schemaMgr;
     }
 
@@ -136,7 +136,7 @@ class TupleMarshallerImpl implements TupleMarshaller {
 
                 break;
             }
-            case UUID:{
+            case UUID: {
                 rowAsm.appendUuid(tup.value(col.name()));
 
                 break;
