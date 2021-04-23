@@ -121,7 +121,7 @@ public final class ConfigurationChanger {
     }
 
     /**
-     * Add single validator instance.
+     * Adds a single validator instance.
      * @param annotationType Annotation type for validated fields.
      * @param validator Validator instance for this annotation.
      * @param <A> Annotation type.
