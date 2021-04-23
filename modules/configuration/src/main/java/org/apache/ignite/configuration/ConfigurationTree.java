@@ -29,7 +29,7 @@ import java.util.function.Consumer;
 public interface ConfigurationTree<VIEW, CHANGE> extends ConfigurationProperty<VIEW, CHANGE> {
     /**
      * Children of the tree.
-     * @return Map from {@code String} to corresponding {@link ConfigurationProperty}.
+     * @return Map from {@code String} to a corresponding {@link ConfigurationProperty}.
      */
     Map<String, ConfigurationProperty<?, ?>> members();
 
