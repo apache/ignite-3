@@ -154,7 +154,7 @@ public final class ConfigurationChanger {
     }
 
     /**
-     * Register storage.
+     * Registers a storage.
      * @param configurationStorage Configuration storage instance.
      */
     // ConfigurationChangeException, really?
