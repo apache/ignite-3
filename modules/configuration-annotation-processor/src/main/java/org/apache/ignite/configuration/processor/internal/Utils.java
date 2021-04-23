@@ -60,7 +60,7 @@ public class Utils {
     }
 
     /**
-     * Get {@link ClassName} for configuration node object class.
+     * Get {@link ClassName} for a configuration node object class.
      *
      * @param schemaClassName Configuration schema ClassName.
      * @return Configuration node object ClassName.
