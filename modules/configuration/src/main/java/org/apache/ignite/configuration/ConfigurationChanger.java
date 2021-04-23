@@ -237,7 +237,7 @@ public final class ConfigurationChanger {
     }
 
     /**
-     * Change configuration.
+     * Changes the configuration.
      * @param source Configuration source to create patch from it.
      * @param storage Expected storage for the changes. Can be null, this will mean that derived storage will be used
      * unconditionaly.
