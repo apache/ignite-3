@@ -74,13 +74,13 @@ public class AffinityManager {
         this.metaStorageMgr = metaStorageMgr;
         this.baselineMgr = baselineMgr;
 
-        String localMemberName = configurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
+        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
             .name().value();
 
         configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
             .metastorageMembers().listen(ctx -> {
                 if (ctx.newValue() != null) {
-                    if (hasMetastorageLocally(localMemberName, ctx.newValue()))
+                    if (hasMetastorageLocally(localNodeName, ctx.newValue()))
                         subscribeToCalculateAssignment();
                     else
                         unsubscribeToCalculateAssignment();
@@ -91,22 +91,22 @@ public class AffinityManager {
         String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
             .metastorageMembers().value();
 
-        if (hasMetastorageLocally(localMemberName, metastorageMembers))
+        if (hasMetastorageLocally(localNodeName, metastorageMembers))
             subscribeToCalculateAssignment();
     }
 
     /**
-     * Tests a member has a distributed Metastorage peer.
+     * Tests a node has a involved into Metastorage.
      *
-     * @param localMemberName Local member uniq name.
+     * @param localNodeName Local node uniq name.
      * @param metastorageMembers Metastorage members names.
-     * @return True if the member has Metastorage, false otherwise.
+     * @return True if the node has Metastorage, false otherwise.
      */
-    private boolean hasMetastorageLocally(String localMemberName, String[] metastorageMembers) {
+    private boolean hasMetastorageLocally(String localNodeName, String[] metastorageMembers) {
         boolean isLocalNodeHasMetasorage = false;
 
         for (String name : metastorageMembers) {
-            if (name.equals(localMemberName)) {
+            if (name.equals(localNodeName)) {
                 isLocalNodeHasMetasorage = true;
 
                 break;

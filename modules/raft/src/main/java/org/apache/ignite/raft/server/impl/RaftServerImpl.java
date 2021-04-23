@@ -108,9 +108,9 @@ public class RaftServerImpl implements RaftServer {
                 server.messagingService().send(sender, resp, correlationId);
             }
             else if (message instanceof ActionRequest) {
-                ActionRequest<?> req0 = (ActionRequest<?>) message;
+                ActionRequest<?> req0 = (ActionRequest<?>)message;
 
-                            RaftGroupCommandListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
+                RaftGroupCommandListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
 
                 if (lsnr == null) {
                     sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
@@ -140,7 +140,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.setDaemon(true);
         writeWorker.start();
 
-        LOG.info("Started replication server [member=" + server.topologyService().localMember() + ']');
+        LOG.info("Started replication server [node=" + server.topologyService().localMember() + ']');
     }
 
     /** {@inheritDoc} */
@@ -168,7 +168,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.interrupt();
         writeWorker.join();
 
-        LOG.info("Stopped replication server [member=" + server.topologyService().localMember() + ']');
+        LOG.info("Stopped replication server [node=" + server.topologyService().localMember() + ']');
     }
 
     private <T extends Command> void handleActionRequest(

@@ -120,7 +120,7 @@ class ITRaftCounterServerTest {
             1000,
             Map.of(COUNTER_GROUP_ID_3, new CounterCommandListener()));
 
-        assertTrue(waitForTopology(client, 3, 10_000), "Members: " + client.topologyService().allMembers().size());
+        assertTrue(waitForTopology(client, 3, 10_000), "Nodes: " + client.topologyService().allMembers().size());
 
         Peer server = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID.equals(m.name())).findFirst().orElseThrow());
         Peer server2 = new Peer(client.topologyService().allMembers().stream().filter(m -> SERVER_ID_2.equals(m.name())).findFirst().orElseThrow());

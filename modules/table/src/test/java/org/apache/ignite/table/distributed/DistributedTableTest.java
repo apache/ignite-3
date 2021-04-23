@@ -213,15 +213,15 @@ public class DistributedTableTest {
 
         Map<Integer, RaftGroupService> partMap = new HashMap<>();
 
-        for (List<ClusterNode> partMembers : assignment) {
-            RaftServer rs = raftServers.get(partMembers.get(0));
+        for (List<ClusterNode> partNodes : assignment) {
+            RaftServer rs = raftServers.get(partNodes.get(0));
 
             String grpId = "part-" + p;
 
             rs.setListener(grpId, new PartitionCommandListener());
 
             partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000,
-                List.of(new Peer(partMembers.get(0))), true, 200));
+                List.of(new Peer(partNodes.get(0))), true, 200));
 
             p++;
         }

@@ -115,12 +115,12 @@ public class IgnitionImpl implements Ignition {
 
         var serializationRegistry = new MessageSerializationRegistry();
 
-        String localMemberName = netConfigurationView.name();
+        String localNodeName = netConfigurationView.name();
 
-        if (StringUtil.isNullOrEmpty(localMemberName)) {
-            localMemberName = "Node: " + netConfigurationView.port();
+        if (StringUtil.isNullOrEmpty(localNodeName)) {
+            localNodeName = "Node: " + netConfigurationView.port();
 
-            String finalName = localMemberName;
+            String finalName = localNodeName;
 
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).change(change ->
                 change.changeName(finalName));
@@ -129,7 +129,7 @@ public class IgnitionImpl implements Ignition {
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
             new ClusterLocalConfiguration(
-                localMemberName,
+                localNodeName,
                 netConfigurationView.port(),
                 Arrays.asList(netConfigurationView.netClusterNodes()),
                 serializationRegistry

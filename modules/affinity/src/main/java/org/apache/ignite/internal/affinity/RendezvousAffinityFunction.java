@@ -45,10 +45,10 @@ import org.apache.ignite.network.ClusterNode;
  *      {@code excludeNeighbors} - If set to {@code true}, will exclude same-host-neighbors
  *      from being replicas of each other. This flag can be ignored in cases when topology has no enough nodes
  *      for assign replicas.
- *      Note that {@code memberFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
+ *      Note that {@code nodeFilter} is ignored if {@code excludeNeighbors} is set to {@code true}.
  * </li>
  * <li>
- *      {@code memberFilter} - Optional filter for replica nodes. If provided, then only
+ *      {@code nodeFilter} - Optional filter for replica nodes. If provided, then only
  *      nodes that pass this filter will be selected as replica nodes. If not provided, then
  *      replicas nodes will be selected out of all nodes available for this table.
  * </li>
@@ -86,7 +86,7 @@ public class RendezvousAffinityFunction {
      * @param replicas Number partition replicas.
      * @param neighborhoodCache Neighborhood.
      * @param exclNeighbors If true neighbors are excluded, false otherwise.
-     * @param memberFilter Filter for members.
+     * @param nodeFilter Filter for nodes.
      * @return Assignment.
      */
     public static List<ClusterNode> assignPartition(
@@ -95,7 +95,7 @@ public class RendezvousAffinityFunction {
         int replicas,
         Map<UUID, Collection<ClusterNode>> neighborhoodCache,
         boolean exclNeighbors,
-        IgniteBiPredicate<ClusterNode, List<ClusterNode>> memberFilter
+        IgniteBiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
     ) {
         if (nodes.size() <= 1)
             return nodes;
@@ -146,7 +146,7 @@ public class RendezvousAffinityFunction {
                         allNeighbors.addAll(neighborhoodCache.get(node.id()));
                     }
                 }
-                else if (memberFilter == null || memberFilter.apply(node, res)) {
+                else if (nodeFilter == null || nodeFilter.apply(node, res)) {
                     res.add(node);
 
                     if (exclNeighbors)
@@ -232,11 +232,11 @@ public class RendezvousAffinityFunction {
     /**
      * Generates an assignment by the given parameters.
      *
-     * @param currentTopologySnapshot List of topology members.
+     * @param currentTopologySnapshot List of topology nodes.
      * @param partitions Number of table partitions.
      * @param replicas Number partition replicas.
      * @param exclNeighbors If true neighbors are excluded fro the one partition assignment, false otherwise.
-     * @param memberFilter Filter for members.
+     * @param nodeFilter Filter for nodes.
      * @return List nodes by partition.
      */
     public static List<List<ClusterNode>> assignPartitions(
@@ -244,7 +244,7 @@ public class RendezvousAffinityFunction {
         int partitions,
         int replicas,
         boolean exclNeighbors,
-        IgniteBiPredicate<ClusterNode, List<ClusterNode>> memberFilter
+        IgniteBiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";
@@ -258,7 +258,7 @@ public class RendezvousAffinityFunction {
         List<ClusterNode> nodes = new ArrayList<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
-            List<ClusterNode> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, memberFilter);
+            List<ClusterNode> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter);
 
             assignments.add(partAssignment);
         }

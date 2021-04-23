@@ -53,57 +53,57 @@ public class RendezvousAffinityFunctionTest {
 
         int replicas = 4;
 
-        ArrayList<ClusterNode> members = prepareNetworkTopology(nodes);
+        ArrayList<ClusterNode> clusterNodes = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
         int ideal = (parts * replicas) / nodes;
 
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
-            members,
+            clusterNodes,
             parts,
             replicas,
             false,
             null
         );
 
-        HashMap<ClusterNode, ArrayList<Integer>> assignmentByMember = new HashMap<>(nodes);
+        HashMap<ClusterNode, ArrayList<Integer>> assignmentByNode = new HashMap<>(nodes);
 
         int part = 0;
 
-        for (List<ClusterNode> partMembers : assignment) {
-            for (ClusterNode member : partMembers) {
-                ArrayList<Integer> memberParts = assignmentByMember.get(member);
+        for (List<ClusterNode> partNodes : assignment) {
+            for (ClusterNode node : partNodes) {
+                ArrayList<Integer> nodeParts = assignmentByNode.get(node);
 
-                if (memberParts == null)
-                    assignmentByMember.put(member, memberParts = new ArrayList<>());
+                if (nodeParts == null)
+                    assignmentByNode.put(node, nodeParts = new ArrayList<>());
 
-                memberParts.add(part);
+                nodeParts.add(part);
             }
 
             part++;
         }
 
-        for (ClusterNode member : members) {
-            ArrayList<Integer> memberParts = assignmentByMember.get(member);
+        for (ClusterNode node : clusterNodes) {
+            ArrayList<Integer> nodeParts = assignmentByNode.get(node);
 
-            assertNotNull(memberParts);
+            assertNotNull(nodeParts);
 
-            assertTrue(memberParts.size() > ideal * (1 - AFFINITY_DEVIATION_RATIO)
-                    && memberParts.size() < ideal * (1 + AFFINITY_DEVIATION_RATIO),
-                "Partition distribution too fare from ideal [member=" + member
-                    + ", size=" + memberParts.size()
+            assertTrue(nodeParts.size() > ideal * (1 - AFFINITY_DEVIATION_RATIO)
+                    && nodeParts.size() < ideal * (1 + AFFINITY_DEVIATION_RATIO),
+                "Partition distribution too fare from ideal [node=" + node
+                    + ", size=" + nodeParts.size()
                     + ", idealSize=" + ideal
-                    + ", parts=" + compact(memberParts) + ']');
+                    + ", parts=" + compact(nodeParts) + ']');
         }
     }
 
     @NotNull private ArrayList<ClusterNode> prepareNetworkTopology(int nodes) {
-        ArrayList<ClusterNode> members = new ArrayList<>(nodes);
+        ArrayList<ClusterNode> clusterNodes = new ArrayList<>(nodes);
 
         for (int i = 0; i < nodes; i++)
-            members.add(new ClusterNode("Member " + i, "127.0.0.1", 121212));
-        return members;
+            clusterNodes.add(new ClusterNode("Node " + i, "127.0.0.1", 121212));
+        return clusterNodes;
     }
 
     @Test
@@ -114,12 +114,12 @@ public class RendezvousAffinityFunctionTest {
 
         int replicas = 4;
 
-        ArrayList<ClusterNode> members = prepareNetworkTopology(nodes);
+        ArrayList<ClusterNode> clusterNodes = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
-            members,
+            clusterNodes,
             parts,
             replicas,
             false,
