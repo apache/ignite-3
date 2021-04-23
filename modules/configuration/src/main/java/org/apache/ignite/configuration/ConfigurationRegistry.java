@@ -97,7 +97,7 @@ public class ConfigurationRegistry {
     }
 
     /**
-     * Start storage configurations.
+     * Starts storage configurations.
      * @param storageType Storage type.
      */
     public void startStorageConfigurations(ConfigurationType storageType) {
