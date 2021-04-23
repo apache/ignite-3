@@ -16,7 +16,6 @@ import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.NodeManager;
-import org.apache.ignite.raft.jraft.rpc.Connection;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -140,10 +139,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
                         @Override public void sendResponse(Object responseObj) {
                             service.messagingService().send(sender, (NetworkMessage) responseObj, corellationId);
-                        }
-
-                        @Override public Connection getConnection() {
-                            return null;
                         }
 
                         @Override public String getRemoteAddress() {

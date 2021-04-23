@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.test;
 
 import org.apache.ignite.raft.jraft.NodeManager;
-import org.apache.ignite.raft.jraft.rpc.Connection;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 
@@ -52,11 +51,6 @@ public class MockAsyncContext implements RpcContext {
     public void sendResponse(Object responseObject) {
         this.responseObject = responseObject;
 
-    }
-
-    @Override
-    public Connection getConnection() {
-        return null;
     }
 
     @Override

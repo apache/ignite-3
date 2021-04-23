@@ -20,7 +20,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.rpc.Connection;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
@@ -59,15 +58,10 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         return this.request;
     }
 
-    private Connection conn;
-
     @Override
     public void setup() {
         super.setup();
         this.nodeManager = this.asyncContext.getNodeManager();
-//        Set<PeerPair> pairs = new ConcurrentHashSet<>();
-//        pairs.add(new PeerPair(this.peerIdStr, this.serverId));
-        //Mockito.when(this.conn.getAttribute(AppendEntriesRequestProcessor.PAIR_ATTR)).thenReturn(pairs);
     }
 
     private ExecutorService executor;
@@ -106,14 +100,14 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         final AppendEntriesRequestProcessor processor = (AppendEntriesRequestProcessor) newProcessor();
 
         PeerPair pair = processor.pairOf(this.peerIdStr, this.serverId);
-        final PeerRequestContext ctx = processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn, nodeManager);
+        final PeerRequestContext ctx = processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager);
         assertNotNull(ctx);
         assertSame(ctx, processor.getPeerRequestContext(this.groupId, pair));
-        assertSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn, nodeManager));
+        assertSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager));
 
         processor.onClosed(peerIdStr, this.serverId);
         assertNull(processor.getPeerRequestContext(this.groupId, pair));
-        assertNotSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn, nodeManager));
+        assertNotSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager));
     }
 
     @Override
@@ -123,7 +117,7 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         Mockito.verify(service).handleAppendEntriesRequest(eq(this.request), Mockito.any());
         final PeerPair pair = ((AppendEntriesRequestProcessor) processor).pairOf(this.peerIdStr, this.serverId);
         final PeerRequestContext ctx = ((AppendEntriesRequestProcessor) processor).getOrCreatePeerRequestContext(
-            this.groupId, pair, this.conn, nodeManager);
+            this.groupId, pair, nodeManager);
         assertNotNull(ctx);
     }
 
@@ -133,9 +127,9 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
 
         final AppendEntriesRequestProcessor processor = (AppendEntriesRequestProcessor) newProcessor();
         final PeerPair pair = processor.pairOf(this.peerIdStr, this.serverId);
-        final PeerRequestContext ctx = processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn, nodeManager);
+        final PeerRequestContext ctx = processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager);
         assertNotNull(ctx);
-        assertSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn, nodeManager));
+        assertSame(ctx, processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager));
         assertEquals(0, ctx.getNextRequiredSequence());
         assertEquals(0, ctx.getAndIncrementSequence());
         assertEquals(1, ctx.getAndIncrementSequence());
@@ -144,7 +138,7 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         assertFalse(ctx.hasTooManyPendingResponses());
 
         processor.removePeerRequestContext(this.groupId, pair);
-        final PeerRequestContext newCtx = processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn, nodeManager);
+        final PeerRequestContext newCtx = processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager);
         assertNotNull(newCtx);
         assertNotSame(ctx, newCtx);
 
@@ -161,7 +155,7 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         mockNode();
         final AppendEntriesRequestProcessor processor = (AppendEntriesRequestProcessor) newProcessor();
         final PeerPair pair = processor.pairOf(this.peerIdStr, this.serverId);
-        processor.getOrCreatePeerRequestContext(this.groupId, pair, this.conn, nodeManager);
+        processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager);
         final PingRequest msg = TestUtils.createPingRequest();
         final RpcContext asyncContext = Mockito.mock(RpcContext.class);
         processor.sendSequenceResponse(this.groupId, pair, 1, asyncContext, msg);
@@ -180,14 +174,14 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
         final AppendEntriesRequestProcessor processor = (AppendEntriesRequestProcessor) newProcessor();
         final PeerPair pair = processor.pairOf(this.peerIdStr, this.serverId);
         final PingRequest msg = TestUtils.createPingRequest();
-        final PeerRequestContext ctx = processor.getOrCreatePeerRequestContext(this.groupId, pair, conn, nodeManager);
+        final PeerRequestContext ctx = processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager);
         assertNotNull(ctx);
         processor.sendSequenceResponse(this.groupId, pair, 1, asyncContext, msg);
         processor.sendSequenceResponse(this.groupId, pair, 2, asyncContext, msg);
         processor.sendSequenceResponse(this.groupId, pair, 3, asyncContext, msg);
         Mockito.verify(asyncContext, Mockito.never()).sendResponse(msg);
 
-        final PeerRequestContext newCtx = processor.getOrCreatePeerRequestContext(this.groupId, pair, conn, nodeManager);
+        final PeerRequestContext newCtx = processor.getOrCreatePeerRequestContext(this.groupId, pair, nodeManager);
         assertNotNull(newCtx);
         assertNotSame(ctx, newCtx);
     }

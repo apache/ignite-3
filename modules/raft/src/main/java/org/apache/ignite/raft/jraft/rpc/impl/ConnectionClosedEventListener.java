@@ -16,15 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.raft.jraft.rpc.Connection;
-
 /**
  * TODO asch rename.
  * @author jiachun.fjc
  */
 public interface ConnectionClosedEventListener {
-
-    //void onClosed(final String remoteAddress, final Connection conn);
-
     void onClosed(final String local, final String remote);
 }

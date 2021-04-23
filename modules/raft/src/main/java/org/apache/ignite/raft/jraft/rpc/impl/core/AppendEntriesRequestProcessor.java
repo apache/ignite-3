@@ -20,7 +20,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -28,7 +27,6 @@ import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.rpc.Connection;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -36,7 +34,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.ConnectionClosedEventListener;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor;
 import org.apache.ignite.raft.jraft.util.concurrent.SingleThreadExecutor;
 
@@ -85,7 +82,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             // The node enable pipeline, we should ensure bolt support it. TODO asch fixme
             //RpcFactoryHelper.rpcFactory().ensurePipeline();
 
-            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pairOf(peerId, serverId), null, nodeManager);
+            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pairOf(peerId, serverId), nodeManager);
 
             return ctx.executor;
         }
@@ -347,7 +344,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     @SuppressWarnings("unchecked")
-    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair, final Connection conn, NodeManager nodeManager) {
+    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair, NodeManager nodeManager) {
         ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);
         if (groupContexts == null) {
             groupContexts = new ConcurrentHashMap<>();
@@ -417,9 +414,9 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         return request.getGroupId();
     }
 
-    private int getAndIncrementSequence(final String groupId, final PeerPair pair, final Connection conn, NodeManager nodeManager) {
+    private int getAndIncrementSequence(final String groupId, final PeerPair pair, NodeManager nodeManager) {
         // TODO asch can use getPeerContext because it must already present (created before) ???
-        return getOrCreatePeerRequestContext(groupId, pair, conn, nodeManager).getAndIncrementSequence();
+        return getOrCreatePeerRequestContext(groupId, pair, nodeManager).getAndIncrementSequence();
     }
 
     private boolean isHeartbeatRequest(final AppendEntriesRequest request) {
@@ -444,7 +441,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             boolean isHeartbeat = isHeartbeatRequest(request);
             int reqSequence = -1;
             if (!isHeartbeat) {
-                reqSequence = getAndIncrementSequence(groupId, pair, done.getRpcCtx().getConnection(), done.getRpcCtx().getNodeManager());
+                reqSequence = getAndIncrementSequence(groupId, pair, done.getRpcCtx().getNodeManager());
             }
             final Message response = service.handleAppendEntriesRequest(request, new SequenceRpcRequestClosure(done,
                 defaultResp(), groupId, pair, reqSequence, isHeartbeat));

@@ -29,7 +29,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.raft.jraft.NodeManager;
-import org.apache.ignite.raft.jraft.rpc.Connection;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
@@ -130,10 +129,6 @@ public class LocalRpcServer implements RpcServer<Void> {
 
                                 @Override public void sendResponse(Object responseObj) {
                                     fut.complete(responseObj);
-                                }
-
-                                @Override public Connection getConnection() {
-                                    return null;
                                 }
 
                                 @Override public String getRemoteAddress() {
