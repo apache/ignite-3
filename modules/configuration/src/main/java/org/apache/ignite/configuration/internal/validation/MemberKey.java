@@ -31,7 +31,7 @@ public class MemberKey {
 
     /**
      * Constructor.
-     * @param clazz Class that contains member.
+     * @param clazz Class that contains a member.
      * @param fieldName Member name.
      */
     public MemberKey(Class<?> clazz, String fieldName) {
