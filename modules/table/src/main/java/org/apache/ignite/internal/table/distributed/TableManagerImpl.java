@@ -42,8 +42,8 @@ import org.apache.ignite.internal.table.TableSchemaView;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.util.SerializationUtils;
 import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operations;
@@ -131,7 +131,7 @@ public class TableManagerImpl implements TableManager {
                             int partitions = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).partitions().value();
 
-                            List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)SerializationUtils.fromBytes(
+                            List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)IgniteUtils.fromBytes(
                                 evt.newEntry().value());
 
                             HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);

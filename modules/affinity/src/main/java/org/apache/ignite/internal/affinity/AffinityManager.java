@@ -28,8 +28,8 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.util.SerializationUtils;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
@@ -143,7 +143,7 @@ public class AffinityManager {
                             int replicas = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).replicas().value();
 
-                            metaStorageMgr.put(evt.newEntry().key(), SerializationUtils.toBytes(
+                            metaStorageMgr.put(evt.newEntry().key(), IgniteUtils.toBytes(
                                 RendezvousAffinityFunction.assignPartitions(
                                     baselineMgr.nodes(),
                                     partitions,
