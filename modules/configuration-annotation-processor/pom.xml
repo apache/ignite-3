@@ -38,16 +38,15 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-configuration</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
-        <!-- 3-rd party dependencies. -->
+        <!-- 3-rd party dependencies -->
         <dependency>
             <groupId>com.squareup</groupId>
             <artifactId>javapoet</artifactId>
         </dependency>
 
-        <!-- Test dependencies. -->
+        <!-- Test dependencies -->
         <dependency>
             <groupId>com.google.testing.compile</groupId>
             <artifactId>compile-testing</artifactId>

@@ -29,16 +29,16 @@
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
-    <artifactId>metastorage-common</artifactId>
+    <artifactId>ignite-metastorage-common</artifactId>
     <version>3.0.0-SNAPSHOT</version>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
+        <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
