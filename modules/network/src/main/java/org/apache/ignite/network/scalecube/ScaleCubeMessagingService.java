@@ -51,6 +51,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     /** */
     ScaleCubeMessagingService(ScaleCubeTopologyService topologyService) {
         this.topologyService = topologyService;
+
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override public void onAppeared(ClusterNode member) {
                 // No-op.

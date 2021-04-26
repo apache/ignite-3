@@ -142,7 +142,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                         }
 
                         @Override public String getRemoteAddress() {
-                            return sender.name();
+                            return sender.address();
                         }
                     }, msg);
                 });

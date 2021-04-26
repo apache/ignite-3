@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.raft.jraft.NodeManager;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * @author jiachun.fjc
@@ -36,8 +35,7 @@ public interface RpcContext {
     void sendResponse(final Object responseObj);
 
     /**
-     * TODO asch user remote name.
-     * GFet the remote address.
+     * Get the remote address.
      *
      * @return remote address
      */
