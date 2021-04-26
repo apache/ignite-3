@@ -3,6 +3,7 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.error.RemotingException;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
@@ -20,7 +21,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
- * TODO add test for localconn.close, timeouts.
+ *
  */
 public abstract class AbstractRpcTest {
     protected Endpoint endpoint;
@@ -28,7 +29,7 @@ public abstract class AbstractRpcTest {
 
     @Before
     public void setup() {
-        endpoint = new Endpoint("localhost", 20000);
+        endpoint = new Endpoint(TestUtils.getMyIp(), 20000);
         server = createServer(endpoint);
         server.registerProcessor(new Request1RpcProcessor());
         server.registerProcessor(new Request2RpcProcessor());
@@ -98,18 +99,18 @@ public abstract class AbstractRpcTest {
     }
 
     @Test
-    public void testDisconnect() {
+    public void testDisconnect() throws Exception {
         RpcClient client1 = createClient();
         RpcClient client2 = createClient();
 
         try {
-            assertTrue(waitForTopology(client1, 3, 5_000));
-            assertTrue(waitForTopology(client2, 3, 5_000));
-
             assertTrue(client1.checkConnection(endpoint));
             assertTrue(client2.checkConnection(endpoint));
 
             server.shutdown();
+
+            assertTrue(waitForTopology(client1, 2, 5_000));
+            assertTrue(waitForTopology(client2, 2, 5_000));
 
             assertFalse(client1.checkConnection(endpoint));
             assertFalse(client2.checkConnection(endpoint));
@@ -129,6 +130,9 @@ public abstract class AbstractRpcTest {
 
         Response1 resp1 = (Response1) client1.invokeSync(endpoint, new Request1(), 500);
         Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
+
+        assertNotNull(resp1);
+        assertNotNull(resp2);
 
         Queue<Object[]> recorded = client1.recordedMessages();
 
@@ -255,10 +259,6 @@ public abstract class AbstractRpcTest {
         client1.blockMessages((msg, id) -> msg instanceof Request1);
 
         assertTrue(client1.checkConnection(endpoint));
-//
-//        Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
-//
-//        assertEquals(1, resp2.val);
 
         CompletableFuture resp = new CompletableFuture();
 

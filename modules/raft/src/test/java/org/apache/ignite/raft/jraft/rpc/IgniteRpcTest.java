@@ -24,10 +24,10 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.junit.jupiter.api.Disabled;
 
 /** */
 public class IgniteRpcTest extends AbstractRpcTest {
@@ -38,7 +38,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
     @Override public RpcServer createServer(Endpoint endpoint) {
         ClusterService service = createService(endpoint.toString(), endpoint.getPort(), List.of());
 
-        return new IgniteRpcServer(service, false, null);
+        return new IgniteRpcServer(service, false, new NodeManager());
     }
 
     @Override public RpcClient createClient() {
@@ -46,7 +46,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
 
         ClusterService service = createService("client" + i, endpoint.getPort() + i, List.of(endpoint.toString()));
 
-        return new IgniteRpcClient(service, false);
+        IgniteRpcClient client = new IgniteRpcClient(service, false);
+
+        waitForTopology(client, 1 + i, 5_000);
+
+        return client;
     }
 
     /**

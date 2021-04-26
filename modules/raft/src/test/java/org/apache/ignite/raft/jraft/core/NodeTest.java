@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.function.BiPredicate;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -42,6 +43,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
@@ -1945,16 +1947,16 @@ public class NodeTest {
         // set peer when no quorum die
         final Endpoint leaderAddr = leader.getLeaderId().getEndpoint().copy();
         LOG.info("Set peers to {}", leaderAddr);
-        final List<PeerId> newPeers = TestUtils.generatePeers(3);
-        assertTrue(newPeers.remove(followerPeer1));
 
         LOG.info("Stop and clean follower {}", followerPeer2);
         assertTrue(cluster.stop(followerAddr2));
         cluster.clean(followerAddr2);
 
+        assertTrue(waitForTopology(cluster, leaderAddr, 1, 5_000));
+
         // leader will step-down, become follower
         Thread.sleep(2000);
-        newPeers.clear();
+        List<PeerId> newPeers = new ArrayList<>();
         newPeers.add(new PeerId(leaderAddr, 0));
 
         // new peers equal to current conf
@@ -1972,6 +1974,8 @@ public class NodeTest {
         assertTrue(cluster.start(followerAddr1, true, 300));
         LOG.info("start follower {}", followerAddr2);
         assertTrue(cluster.start(followerAddr2, true, 300));
+
+        assertTrue(waitForTopology(cluster, leaderAddr, 3, 5_000));
 
         CountDownLatch latch = new CountDownLatch(1);
         LOG.info("Add old follower {}", followerAddr1);
@@ -3495,5 +3499,36 @@ public class NodeTest {
         options.setSharedElectionTimer(true);
         options.setSharedVoteTimer(true);
         return options;
+    }
+
+    /** {@inheritDoc} */
+    private boolean waitForTopology(TestCluster cluster, Endpoint addr, int expected, long timeout) {
+        RaftGroupService grp = cluster.getServer(addr);
+
+        if (grp == null)
+            return false;
+
+        RpcServer rpcServer = grp.getRpcServer();
+
+        if (!(rpcServer instanceof IgniteRpcServer))
+            return true;
+
+        ClusterService service = ((IgniteRpcServer)grp.getRpcServer()).clusterService();
+
+        long stop = System.currentTimeMillis() + timeout;
+
+        while(System.currentTimeMillis() < stop) {
+            if (service.topologyService().allMembers().size() >= expected)
+                return true;
+
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }

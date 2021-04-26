@@ -44,7 +44,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     void setLocalMember(Member member) {
         this.localMember = fromMember(member);
 
-        this.members.put(localMember.name(), localMember);
+        this.members.put(member.address().toString(), localMember);
     }
 
     /**
@@ -55,20 +55,24 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         for (TopologyEventHandler handler : getEventHandlers()) {
             switch (event.type()) {
                 case ADDED:
-                    members.put(member.name(), member);
+                    // TODO asch members called multiple times.
+                    members.put(event.member().address().toString(), member);
 
                     handler.onAppeared(member);
 
                     break;
 
                 case LEAVING:
-                    members.remove(member.name());
+
+                    break;
+
+                case REMOVED:
+                    members.remove(event.member().address().toString());
 
                     handler.onDisappeared(member);
 
                     break;
 
-                case REMOVED:
                 case UPDATED:
                     // No-op.
                     break;
@@ -88,6 +92,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** {@inheritDoc} */
     @Override public Collection<ClusterNode> allMembers() {
         return Collections.unmodifiableCollection(members.values());
+    }
+
+    /** {@inheritDoc} */
+    @Override public ClusterNode getByAddress(String addr) {
+        return members.get(addr);
     }
 
     /**

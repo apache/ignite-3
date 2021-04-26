@@ -243,13 +243,12 @@ public class TestCluster {
         final MockStateMachine fsm = new MockStateMachine(listenAddr);
         nodeOptions.setFsm(fsm);
 
-        assert !emptyPeers; // TODO asch fixme
-
-        //if (!emptyPeers) {
+        if (!emptyPeers) {
             nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
-        //}
+        }
 
-        List<String> servers = this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
+        List<String> servers = emptyPeers ? List.of() :
+            this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
 
         NodeManager nodeManager = new NodeManager();
 
@@ -289,6 +288,9 @@ public class TestCluster {
         return null;
     }
 
+    public RaftGroupService getServer(Endpoint endpoint) {
+        return serverMap.get(endpoint.toString());
+    }
 
     public MockStateMachine getFsmByPeer(final PeerId peer) {
         this.lock.lock();

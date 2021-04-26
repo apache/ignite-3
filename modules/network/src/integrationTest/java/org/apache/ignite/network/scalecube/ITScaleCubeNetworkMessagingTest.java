@@ -77,6 +77,10 @@ class ITScaleCubeNetworkMessagingTest {
         ClusterService bob = startNetwork("Bob", 3345, addresses);
         ClusterService carol = startNetwork("Carol", 3346, addresses);
 
+        assertTrue(waitForTopology(alice, 3, 5_000));
+        assertTrue(waitForTopology(bob, 3, 5_000));
+        assertTrue(waitForTopology(carol, 3, 5_000));
+
         NetworkMessageHandler messageWaiter = (message, sender, correlationId) -> messageReceivedLatch.countDown();
 
         alice.messagingService().addMessageHandler(messageWaiter);
@@ -143,5 +147,29 @@ class ITScaleCubeNetworkMessagingTest {
         startedMembers.add(clusterService);
 
         return clusterService;
+    }
+
+    /**
+     * @param cluster The cluster.
+     * @param expected Expected count.
+     * @param timeout The timeout in millis.
+     * @return {@code True} if topology size is equal to expected.
+     */
+    protected boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while(System.currentTimeMillis() < stop) {
+            if (cluster.topologyService().allMembers().size() >= expected)
+                return true;
+
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }

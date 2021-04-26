@@ -39,4 +39,12 @@ public interface TopologyService {
      * Registers a handler for topology change events.
      */
     void addEventHandler(TopologyEventHandler handler);
+
+    /**
+     * Get a node by it's address (ip + port).
+     *
+     * @param addr Address.
+     * @return Cluster node.
+     */
+    ClusterNode getByAddress(String addr);
 }

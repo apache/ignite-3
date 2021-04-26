@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
@@ -125,10 +124,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The raft replica node implementation.
- *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-03 4:26:51 PM
  */
 public class NodeImpl implements Node, RaftServerService {
     private static final Logger LOG = LoggerFactory.getLogger(NodeImpl.class);
@@ -136,6 +131,7 @@ public class NodeImpl implements Node, RaftServerService {
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
 
+    // TODO asch remove.
     public static final AtomicInteger GLOBAL_NUM_NODES = new AtomicInteger(0);
 
     /**

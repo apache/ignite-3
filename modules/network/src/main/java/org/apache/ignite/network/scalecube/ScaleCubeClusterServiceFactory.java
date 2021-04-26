@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
@@ -39,7 +40,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
         var topologyService = new ScaleCubeTopologyService();
         var messagingService = new ScaleCubeMessagingService(topologyService);
 
-        var cluster = new ClusterImpl()
+        var cluster = new ClusterImpl(ClusterConfig.defaultLocalConfig())
             .handler(cl -> new ClusterMessageHandler() {
                 /** {@inheritDoc} */
                 @Override public void onMessage(Message message) {
@@ -51,9 +52,12 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                     topologyService.onMembershipEvent(event);
                 }
             })
+            .failureDetector(opts -> opts)
+            .gossip(opts -> opts)
             .config(opts -> opts.memberAlias(context.getName()))
             .transport(opts -> opts.port(context.getPort()))
-            .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())));
+            .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses()))
+                .syncInterval(1000).syncTimeout(1000).suspicionMult(1));
 
         // resolve cyclic dependencies
         messagingService.setCluster(cluster);
