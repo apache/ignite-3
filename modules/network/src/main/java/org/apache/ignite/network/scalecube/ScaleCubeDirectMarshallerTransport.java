@@ -30,11 +30,10 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
 import reactor.core.publisher.DirectProcessor;
@@ -48,7 +47,7 @@ import reactor.core.publisher.MonoProcessor;
  */
 public class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Logger. */
-    private static final Logger LOGGER = LoggerFactory.getLogger(Transport.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(Transport.class);
 
     /** Message subject. */
     private final DirectProcessor<Message> subject = DirectProcessor.create();
@@ -82,7 +81,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
             .doFinally(s -> onStop.onComplete())
             .subscribe(
                 null,
-                ex -> LOGGER.warn("[{}][doStop] Exception occurred: {}", address, ex.toString())
+                ex -> LOG.warn("[{0}][doStop] Exception occurred: {1}", address, ex.toString())
             );
     }
 
@@ -110,12 +109,12 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
      */
     private Mono<Void> doStop() {
         return Mono.defer(() -> {
-            LOGGER.info("[{}][doStop] Stopping", address);
+            LOG.info("[{0}][doStop] Stopping", address);
 
             // Complete incoming messages observable
             sink.complete();
 
-            LOGGER.info("[{}][doStop] Stopped", address);
+            LOG.info("[{0}][doStop] Stopped", address);
             return Mono.empty();
         });
     }
@@ -132,10 +131,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
 
     /** {@inheritDoc} */
     @Override public Mono<Void> stop() {
-        return Mono.defer(() -> {
-            stop.onComplete();
-            return onStop;
-        });
+        return doStop();
     }
 
     /** {@inheritDoc} */
@@ -145,12 +141,12 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
 
     /** {@inheritDoc} */
     @Override public Mono<Void> send(Address address, Message message) {
-        return Mono.defer(() -> {
-            return Mono.fromFuture(connectionManager.channel(InetSocketAddress.createUnresolved(address.host(), address.port())));
-        }).flatMap(client -> {
-            client.send(fromMessage(message));
-            return Mono.empty().then();
-        });
+        var addr = InetSocketAddress.createUnresolved(address.host(), address.port());
+        return Mono.defer(() -> Mono.fromFuture(connectionManager.channel(addr)))
+            .flatMap(client -> {
+                client.send(fromMessage(message));
+                return Mono.empty();
+            });
     }
 
     /**
@@ -177,11 +173,8 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         Object dataObj = message.data();
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-        ObjectOutputStream o;
-
-        try {
-            o = new ObjectOutputStream(stream);
-            o.writeObject(dataObj);
+        try(ObjectOutputStream oos = new ObjectOutputStream(stream)) {
+            oos.writeObject(dataObj);
         }
         catch (IOException e) {
             throw new IgniteInternalException(e);
@@ -205,8 +198,8 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
 
             Object obj;
 
-            try {
-                obj = new ObjectInputStream(new ByteArrayInputStream(msg.getArray())).readObject();
+            try(ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(msg.getArray()))) {
+                obj = ois.readObject();
             }
             catch (Exception e) {
                 throw new IgniteInternalException(e);

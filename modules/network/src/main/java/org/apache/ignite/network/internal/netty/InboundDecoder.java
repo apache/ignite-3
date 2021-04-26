@@ -24,6 +24,7 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.internal.MessageReader;
 import org.apache.ignite.network.internal.direct.DirectMessageReader;
 import org.apache.ignite.network.message.MessageDeserializer;
@@ -31,9 +32,12 @@ import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /**
- *
+ * Decodes {@link ByteBuf}s into {@link NetworkMessage}s.
  */
 public class InboundDecoder extends ByteToMessageDecoder {
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(InboundDecoder.class);
+
     /** Message reader channel attribute key. */
     private static final AttributeKey<MessageReader> READER_KEY = AttributeKey.valueOf("READER");
 
@@ -56,13 +60,15 @@ public class InboundDecoder extends ByteToMessageDecoder {
     @Override public void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         ByteBuffer buffer = in.nioBuffer();
 
-        Attribute<MessageReader> readerAttr = ctx.channel().attr(READER_KEY);
+        Attribute<MessageReader> readerAttr = ctx.attr(READER_KEY);
         MessageReader reader = readerAttr.get();
 
-        if (reader == null)
-            readerAttr.set(reader = new DirectMessageReader(serializationRegistry, (byte) 1));
+        if (reader == null) {
+            reader = new DirectMessageReader(serializationRegistry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            readerAttr.set(reader);
+        }
 
-        Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.channel().attr(DESERIALIZER_KEY);
+        Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.attr(DESERIALIZER_KEY);
 
         while (buffer.hasRemaining()) {
             MessageDeserializer<NetworkMessage> msg = messageAttr.get();
@@ -99,9 +105,13 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     messageAttr.set(msg);
             }
             catch (Throwable e) {
-                System.err.println("Failed to read message [msg=" + msg +
-                    ", buf=" + buffer +
-                    ", reader=" + reader + "]: " + e.getMessage());
+                LOG.error(
+                    String.format(
+                        "Failed to read message [msg=%s, buf=%s, reader=%s]: %s",
+                        msg, buffer, reader, e.getMessage()
+                    ),
+                    e
+                );
 
                 throw e;
             }
@@ -114,7 +124,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
      * @param b0 The first byte.
      * @param b1 The second byte.
      */
-    public static short makeMessageType(byte b0, byte b1) {
+    private static short makeMessageType(byte b0, byte b1) {
         return (short)((b1 & 0xFF) << 8 | b0 & 0xFF);
     }
 }

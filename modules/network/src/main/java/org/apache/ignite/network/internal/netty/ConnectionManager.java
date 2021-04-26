@@ -17,16 +17,18 @@
 
 package org.apache.ignite.network.internal.netty;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
@@ -36,24 +38,34 @@ import org.apache.ignite.network.message.NetworkMessage;
  * Class that manages connections both incoming and outgoing.
  */
 public class ConnectionManager {
-    /** Server. */
-    private NettyServer server;
+    /** Latest version of the direct marshalling protocol. */
+    public static final byte DIRECT_PROTOCOL_VERSION = 1;
 
-    /** Senders that wrap channels both incoming and outgoing. */
-    private Map<InetSocketAddress, NettySender> channels = new ConcurrentHashMap<>();
+    /** Client bootstrap. */
+    private final Bootstrap clientBootstrap;
+
+    /** Client socket channel handler event loop group. */
+    private final EventLoopGroup clientWorkerGroup = new NioEventLoopGroup();
+
+    /** Server. */
+    private final NettyServer server;
+
+    /** Channels. */
+    private final Map<InetSocketAddress, NettySender> channels = new ConcurrentHashMap<>();
 
     /** Clients. */
-    private Map<InetSocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
+    private final Map<InetSocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
 
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
 
     /** Message listeners. */
-    private List<BiConsumer<InetSocketAddress, NetworkMessage>> listeners = Collections.synchronizedList(new ArrayList<>());
+    private final List<BiConsumer<InetSocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>(new ArrayList<>());
 
     public ConnectionManager(int port, MessageSerializationRegistry provider) {
         this.serializationRegistry = provider;
         this.server = new NettyServer(port, this::onNewIncomingChannel, this::onMessage, serializationRegistry);
+        this.clientBootstrap = NettyClient.setupBootstrap(clientWorkerGroup, serializationRegistry, this::onMessage);
     }
 
     /**
@@ -63,17 +75,11 @@ public class ConnectionManager {
      */
     public void start() throws IgniteInternalException {
         try {
-            server.start().get();
+            server.start().join();
         }
-        catch (ExecutionException e) {
+        catch (CompletionException e) {
             Throwable cause = e.getCause();
             throw new IgniteInternalException("Failed to start server: " + cause.getMessage(), cause);
-        }
-        catch (InterruptedException e) {
-            throw new IgniteInternalException(
-                "Got interrupted while waiting for server to start: " + e.getMessage(),
-                e
-            );
         }
     }
 
@@ -107,9 +113,7 @@ public class ConnectionManager {
      * @param message New message.
      */
     private void onMessage(InetSocketAddress from, NetworkMessage message) {
-        listeners.forEach(consumer -> {
-            consumer.accept(from, message);
-        });
+        listeners.forEach(consumer -> consumer.accept(from, message));
     }
 
     /**
@@ -130,11 +134,13 @@ public class ConnectionManager {
      * @return New netty client.
      */
     private NettyClient connect(InetSocketAddress address) {
-        NettyClient client = new NettyClient(address.getHostName(), address.getPort(), serializationRegistry, (src, message) -> {
-            this.onMessage(src, message);
-        });
+        NettyClient client = new NettyClient(
+            address.getHostName(),
+            address.getPort(),
+            serializationRegistry
+        );
 
-        client.start().whenComplete((sender, throwable) -> {
+        client.start(clientBootstrap).whenComplete((sender, throwable) -> {
             if (throwable != null)
                 clients.remove(address);
             else
@@ -157,11 +163,13 @@ public class ConnectionManager {
      * Stop server and all clients.
      */
     public void stop() {
-        // TODO: maybe add some flag that prohibts opening new connections from this moment?
+        // Stop clients' event loop, there will be no new client channels since this point
+        clientWorkerGroup.shutdownGracefully();
+
+        // Stop the server
         this.server.stop();
-        HashMap<InetSocketAddress, NettyClient> map = new HashMap<>(clients);
-        map.values().forEach(client -> {
-            client.stop();
-        });
+
+        // Wait for clients' channels to close
+        clients.values().forEach(NettyClient::stop);
     }
 }

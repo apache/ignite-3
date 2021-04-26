@@ -17,25 +17,40 @@
 
 package org.apache.ignite.network.scalecube.message;
 
+import io.scalecube.cluster.transport.api.Message;
 import java.util.Map;
 import org.apache.ignite.network.message.NetworkMessage;
 
+/**
+ * Wrapper for ScaleCube's {@link Message}.
+ * {@link Message#data} is stored in {@link #array} and {@link Message#headers} are stored in {@link #headers}.
+ */
 public class ScaleCubeMessage implements NetworkMessage {
+    /** Direct type. */
     public static final short TYPE = 100;
 
+    /** Message's data. */
     private final byte[] array;
 
+    /** Message's headers. */
     private final Map<String, String> headers;
 
+    /** Constructor. */
     public ScaleCubeMessage(byte[] array, Map<String, String> headers) {
         this.array = array;
         this.headers = headers;
     }
 
+    /**
+     * @return Message's data.
+     */
     public byte[] getArray() {
         return array;
     }
 
+    /**
+     * @return Message's headers.
+     */
     public Map<String, String> getHeaders() {
         return headers;
     }

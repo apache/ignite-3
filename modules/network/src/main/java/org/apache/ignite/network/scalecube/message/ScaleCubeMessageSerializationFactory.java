@@ -25,15 +25,21 @@ import org.apache.ignite.network.message.MessageSerializationFactory;
 import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
+/**
+ * Serialization factory for {@link ScaleCubeMessage}.
+ * TODO: IGNITE-14649 This class should be generated.
+ */
 public class ScaleCubeMessageSerializationFactory implements MessageSerializationFactory<ScaleCubeMessage> {
     /** {@inheritDoc} */
     @Override public MessageDeserializer<ScaleCubeMessage> createDeserializer() {
-        return new MessageDeserializer<ScaleCubeMessage>() {
-
+        return new MessageDeserializer<>() {
+            /** */
             ScaleCubeMessage obj;
 
+            /** */
             byte[] array;
 
+            /** */
             Map<String, String> headers;
 
             /** {@inheritDoc} */

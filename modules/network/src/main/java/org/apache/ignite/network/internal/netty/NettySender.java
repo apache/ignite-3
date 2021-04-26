@@ -70,7 +70,7 @@ public class NettySender {
         private final MessageSerializer<NetworkMessage> serializer;
 
         /** Message writer. */
-        private final DirectMessageWriter writer = new DirectMessageWriter((byte) 1);
+        private final DirectMessageWriter writer = new DirectMessageWriter(ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         /** Whether the message was fully written. */
         boolean finished = false;
@@ -106,7 +106,7 @@ public class NettySender {
         /** {@inheritDoc} */
         @Override public ByteBuf readChunk(ByteBufAllocator allocator) throws Exception {
             ByteBuf buffer = allocator.buffer(4096);
-            final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4096);
+            ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4096);
             writer.setBuffer(byteBuffer);
             finished = serializer.writeMessage(msg, writer);
             byteBuffer.limit(byteBuffer.position());

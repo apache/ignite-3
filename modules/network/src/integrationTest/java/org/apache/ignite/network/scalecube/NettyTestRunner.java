@@ -17,6 +17,8 @@
 
 package org.apache.ignite.network.scalecube;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.nio.NioEventLoopGroup;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
@@ -62,7 +64,7 @@ public class NettyTestRunner {
         final NettyServer server = new NettyServer(port, channel -> {}, listener, registry);
         server.start().get();
 
-        final NettyClient client = new NettyClient("localhost", port, registry, listener);
+        final NettyClient client = new NettyClient("localhost", port, registry);
 
         StringBuilder message = new StringBuilder("");
 
@@ -74,7 +76,9 @@ public class NettyTestRunner {
         for (int i = 0; i < 26; i++)
             someMap.put(i, "" + (char) ('a' + i));
 
-        NettySender sender = client.start().get();
+        Bootstrap clientBootstrap = NettyClient.setupBootstrap(new NioEventLoopGroup(), registry, listener);
+
+        NettySender sender = client.start(clientBootstrap).get();
 
         TestMessage msg = new TestMessage(message.toString(), someMap);
         sender.send(msg);

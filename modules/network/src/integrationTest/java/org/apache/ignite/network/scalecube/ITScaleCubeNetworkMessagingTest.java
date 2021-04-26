@@ -260,12 +260,9 @@ class ITScaleCubeNetworkMessagingTest {
         private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
         /** */
-        private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
-
-        static {
-            SERIALIZATION_REGISTRY.registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
-            SERIALIZATION_REGISTRY.registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
-        }
+        private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
+            .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
+            .registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
 
         /** */
         final List<ClusterService> members;

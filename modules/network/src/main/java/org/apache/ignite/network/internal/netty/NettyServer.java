@@ -18,7 +18,7 @@
 package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -82,17 +82,16 @@ public class NettyServer {
     }
 
     /**
-     * Start server.
+     * Starts the server.
      *
-     * @return Future that resolves when server is successfuly started.
+     * @return Future that resolves when the server is successfully started.
      */
     public CompletableFuture<Void> start() {
         bootstrap.group(bossGroup, workerGroup)
             .channel(NioServerSocketChannel.class)
             .childHandler(new ChannelInitializer<SocketChannel>() {
                 /** {@inheritDoc} */
-                @Override public void initChannel(SocketChannel ch)
-                    throws Exception {
+                @Override public void initChannel(SocketChannel ch) {
                     ch.pipeline().addLast(
                         /**
                          * Decoder that uses {@link org.apache.ignite.network.internal.MessageReader}
@@ -126,17 +125,13 @@ public class NettyServer {
 
         CompletableFuture<Void> serverStartFuture = new CompletableFuture<>();
 
-        ChannelFuture bindFuture = bootstrap.bind(port);
-
-        bindFuture.addListener(bind -> {
-            this.channel = (ServerSocketChannel) bindFuture.channel();
+        bootstrap.bind(port).addListener((ChannelFutureListener) bind -> {
+            this.channel = (ServerSocketChannel) bind.channel();
 
             if (bind.isSuccess())
                 serverStartFuture.complete(null);
-            else {
-                Throwable cause = bind.cause();
-                serverStartFuture.completeExceptionally(cause);
-            }
+            else
+                serverStartFuture.completeExceptionally(bind.cause());
 
             // Shutdown event loops on server stop.
             channel.closeFuture().addListener(close -> {
@@ -149,14 +144,14 @@ public class NettyServer {
     }
 
     /**
-     * @return Gets server address.
+     * @return Gets the local address of the server.
      */
     public InetSocketAddress address() {
         return channel.localAddress();
     }
 
     /**
-     * Stop server.
+     * Stops the server.
      */
     public void stop() {
         channel.close().awaitUninterruptibly();
