@@ -60,7 +60,7 @@ public class TableManagerImpl implements TableManager {
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerImpl.class);
 
     /** Internal prefix for the metasorage. */
-    public static final String INTERNAL_PREFIX = "internal.tables.";
+    private static final String INTERNAL_PREFIX = "internal.tables.";
 
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
@@ -177,7 +177,7 @@ public class TableManagerImpl implements TableManager {
     }
 
     /**
-     * Tests a node has a involved into Metastorage.
+     * Checks whether the local node hosts Metastorage.
      *
      * @param localNodeName Local node uniq name.
      * @param metastorageMembers Metastorage members names.

@@ -43,7 +43,7 @@ public class AffinityManager {
     private static final IgniteLogger LOG = IgniteLogger.forClass(AffinityManager.class);
 
     /** Tables prefix for the metasorage. */
-    public static final String INTERNAL_PREFIX = "internal.tables.";
+    private static final String INTERNAL_PREFIX = "internal.tables.";
 
     /**
      * MetaStorage manager in order to watch private distributed affinity specific configuration,
@@ -95,7 +95,7 @@ public class AffinityManager {
     }
 
     /**
-     * Tests a node has a involved into Metastorage.
+     * Checks whether the local node hosts Metastorage.
      *
      * @param localNodeName Local node uniq name.
      * @param metastorageMembers Metastorage members names.
