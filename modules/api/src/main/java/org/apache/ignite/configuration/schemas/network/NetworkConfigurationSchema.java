@@ -25,10 +25,6 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 
 @ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
 public class NetworkConfigurationSchema {
-    /** Uniq local node name. */
-    @Value(hasDefault = true)
-    public String name = "";
-
     /**
      *
      */

@@ -29,7 +29,8 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
+import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
+import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.ConfigurationType;
@@ -88,7 +89,8 @@ public class IgnitionImpl implements Ignition {
 
         List<RootKey<?, ?>> rootKeys = Arrays.asList(
             NetworkConfiguration.KEY,
-            LocalConfiguration.KEY,
+            NodeConfiguration.KEY,
+            ClusterConfiguration.KEY,
             TablesConfiguration.KEY
         );
 
@@ -115,14 +117,15 @@ public class IgnitionImpl implements Ignition {
 
         var serializationRegistry = new MessageSerializationRegistry();
 
-        String localNodeName = netConfigurationView.name();
+        String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+            .name().value();
 
         if (StringUtil.isNullOrEmpty(localNodeName)) {
             localNodeName = "Node: " + netConfigurationView.port();
 
             String finalName = localNodeName;
 
-            locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).change(change ->
+            locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY).change(change ->
                 change.changeName(finalName));
         }
 
@@ -156,7 +159,7 @@ public class IgnitionImpl implements Ignition {
         BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, clusterNetSvc);
 
         // Affinity manager startup.
-        new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
+        new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr, vaultMgr);
 
         SchemaManager schemaMgr = new SchemaManager(configurationMgr);
 
@@ -165,7 +168,8 @@ public class IgnitionImpl implements Ignition {
             configurationMgr,
             metaStorageMgr,
             schemaMgr,
-            raftMgr
+            raftMgr,
+            vaultMgr
         );
 
         // TODO IGNITE-14579 Start rest manager.

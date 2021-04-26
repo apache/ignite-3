@@ -33,33 +33,33 @@ class IgnitionTest {
     private final String[] nodesBootstrapCfg =
         {
             "{\n" +
-                "  \"local\": {\n" +
-                "    \"metastorageMembers\":[ \"node0\", \"node1\" ]\n" +
+                "  \"node\": {\n" +
+                "    \"name\":node0,\n" +
+                "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
                 "  },\n" +
                 "  \"network\": {\n" +
-                "    \"name\":node0,\n" +
                 "    \"port\":3344,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
                 "  }\n" +
                 "}",
 
             "{\n" +
-                "  \"local\": {\n" +
-                "    \"metastorageMembers\":[ \"node0\", \"node1\" ]\n" +
+                "  \"node\": {\n" +
+                "    \"name\":node1,\n" +
+                "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
                 "  },\n" +
                 "  \"network\": {\n" +
-                "    \"name\":node1,\n" +
                 "    \"port\":3345,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
                 "  }\n" +
                 "}",
 
             "{\n" +
-                "  \"local\": {\n" +
-                "    \"metastorageMembers\":[ \"node0\", \"node1\" ]\n" +
+                "  \"node\": {\n" +
+                "    \"name\":node2,\n" +
+                "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
                 "  },\n" +
                 "  \"network\": {\n" +
-                "    \"name\":node2,\n" +
                 "    \"port\":3346,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
                 "  }\n" +

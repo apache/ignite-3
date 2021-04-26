@@ -28,8 +28,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
+import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
+import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListene
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Key;
@@ -84,18 +85,19 @@ public class TableManagerImpl implements TableManager {
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
         SchemaManager schemaManager,
-        Loza raftMgr
+        Loza raftMgr,
+        VaultManager vaultManager
     ) {
         tables = new HashMap<>();
 
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
 
-        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
+        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();
 
-        configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
-            .metastorageMembers().listen(ctx -> {
+        configurationMgr.configurationRegistry().getConfiguration(ClusterConfiguration.KEY)
+            .metastorageNodes().listen(ctx -> {
             if (ctx.newValue() != null) {
                 if (hasMetastorageLocally(localNodeName, ctx.newValue()))
                     subscribeForTableCreation();
@@ -106,8 +108,8 @@ public class TableManagerImpl implements TableManager {
 
         });
 
-        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
-            .metastorageMembers().value();
+        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+            .metastorageNodes().value();
 
         if (hasMetastorageLocally(localNodeName, metastorageMembers))
             subscribeForTableCreation();
@@ -125,9 +127,9 @@ public class TableManagerImpl implements TableManager {
                         UUID tblId = UUID.fromString(placeholderValue);
 
                         try {
-                            String name = new String(metaStorageMgr.get(
-                                new Key(INTERNAL_PREFIX + tblId.toString())).get()
-                                .value(), StandardCharsets.UTF_8);
+                            String name = new String(vaultManager.get((INTERNAL_PREFIX + tblId.toString())
+                                .getBytes(StandardCharsets.UTF_8)).get().value(), StandardCharsets.UTF_8);
+
                             int partitions = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).partitions().value();
 
@@ -167,7 +169,7 @@ public class TableManagerImpl implements TableManager {
                     }
                 }
 
-                return false;
+                return true;
             }
 
             @Override public void onError(@NotNull Throwable e) {

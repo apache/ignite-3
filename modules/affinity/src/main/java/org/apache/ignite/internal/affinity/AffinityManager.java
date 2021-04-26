@@ -22,15 +22,18 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.runner.LocalConfiguration;
+import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
+import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.Operations;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
 import org.jetbrains.annotations.NotNull;
@@ -57,6 +60,9 @@ public class AffinityManager {
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
+    /** Vault manager. */
+    private final VaultManager vaultManager;
+
     /** Affinity calculate subscription future. */
     private CompletableFuture<Long> affinityCalculateSubscriptionFut = null;
 
@@ -67,17 +73,19 @@ public class AffinityManager {
     public AffinityManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
-        BaselineManager baselineMgr
+        BaselineManager baselineMgr,
+        VaultManager vaultManager
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.baselineMgr = baselineMgr;
+        this.vaultManager = vaultManager;
 
-        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY)
+        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();
 
-        configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
-            .metastorageMembers().listen(ctx -> {
+        configurationMgr.configurationRegistry().getConfiguration(ClusterConfiguration.KEY)
+            .metastorageNodes().listen(ctx -> {
                 if (ctx.newValue() != null) {
                     if (hasMetastorageLocally(localNodeName, ctx.newValue()))
                         subscribeToAssignmentCalculation();
@@ -87,8 +95,8 @@ public class AffinityManager {
             return CompletableFuture.completedFuture(null);
         });
 
-        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(LocalConfiguration.KEY)
-            .metastorageMembers().value();
+        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+            .metastorageNodes().value();
 
         if (hasMetastorageLocally(localNodeName, metastorageMembers))
             subscribeToAssignmentCalculation();
@@ -133,24 +141,25 @@ public class AffinityManager {
                         UUID tblId = UUID.fromString(placeholderValue);
 
                         try {
-                            String name = new String(metaStorageMgr.get(
-                                new Key(INTERNAL_PREFIX + tblId.toString())).get()
-                                .value(), StandardCharsets.UTF_8);
+                            String name = new String(vaultManager.get((INTERNAL_PREFIX + tblId.toString())
+                                .getBytes(StandardCharsets.UTF_8)).get().value(), StandardCharsets.UTF_8);
 
                             int partitions = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).partitions().value();
                             int replicas = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).replicas().value();
 
-                            metaStorageMgr.put(evt.newEntry().key(), IgniteUtils.toBytes(
-                                RendezvousAffinityFunction.assignPartitions(
-                                    baselineMgr.nodes(),
-                                    partitions,
-                                    replicas,
-                                    false,
-                                    null
-                                ))
-                            );
+                            metaStorageMgr.invoke(evt.newEntry().key(),
+                                Conditions.value().eq(evt.newEntry().value()),
+                                Operations.put(IgniteUtils.toBytes(
+                                    RendezvousAffinityFunction.assignPartitions(
+                                        baselineMgr.nodes(),
+                                        partitions,
+                                        replicas,
+                                        false,
+                                        null
+                                    ))),
+                                Operations.noop());
 
                             LOG.info("Affinity manager calculated assignment for the table [name={}, tblId={}]",
                                 name, tblId);
@@ -162,7 +171,7 @@ public class AffinityManager {
                     }
                 }
 
-                return false;
+                return true;
             }
 
             @Override public void onError(@NotNull Throwable e) {

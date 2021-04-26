@@ -15,11 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration;
+package org.apache.ignite.configuration.schemas.runner;
+
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 
 /**
- * Configuration interface.
+ * Local node configuration schema.
  */
-public interface ConfigurationModule {
-    ConfigurationRegistry configurationRegistry();
+@SuppressWarnings("PMD.UnusedPrivateField")
+@ConfigurationRoot(rootName = "node", type = ConfigurationType.LOCAL)
+public class NodeConfigurationSchema {
+    /** Uniq local node name. */
+    @Value(hasDefault = true)
+    public String name = "";
+
+    /** It is a copy of appropriate property from the cluster configuration. */
+    @Value(hasDefault = true)
+    String[] metastorageNodes = new String[0];
 }
