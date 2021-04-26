@@ -53,12 +53,15 @@ import org.apache.ignite.metastorage.common.WatchListener;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.manager.TableManager;
+import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 
-public class TableManagerImpl implements TableManager {
+/**
+ * Table manager.
+ */
+public class TableManager implements IgniteTables {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TableManagerImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
     /** Internal prefix for the metasorage. */
     private static final String INTERNAL_PREFIX = "internal.tables.";
@@ -81,7 +84,7 @@ public class TableManagerImpl implements TableManager {
      * @param schemaManager Schema manager.
      * @param raftMgr Raft manager.
      */
-    public TableManagerImpl(
+    public TableManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
         SchemaManager schemaManager,
@@ -202,6 +205,7 @@ public class TableManagerImpl implements TableManager {
      * Subscribes on table create.
      */
     private void subscribeForTableCreation() {
+        //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
         configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
             .tables().listen(ctx -> {
             HashSet<String> tblNamesToStart = new HashSet<>(ctx.newValue().namedListKeys());

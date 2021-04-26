@@ -34,7 +34,6 @@ import org.apache.ignite.raft.server.impl.RaftServerImpl;
 /**
  * Best raft manager ever since 1982.
  */
-// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 public class Loza {
     /** Factory. */
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();

@@ -29,9 +29,9 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 public class NodeConfigurationSchema {
     /** Uniq local node name. */
     @Value(hasDefault = true)
-    public String name = "";
+    final String name = "";
 
     /** It is a copy of appropriate property from the cluster configuration. */
     @Value(hasDefault = true)
-    String[] metastorageNodes = new String[0];
+    final String[] metastorageNodes = new String[0];
 }

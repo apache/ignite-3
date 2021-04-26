@@ -28,7 +28,7 @@ import org.apache.ignite.table.Table;
 /**
  * Interface that provides methods for managing tables.
  */
-public interface TableManager {
+public interface IgniteTables {
     /**
      * Creates a cluster table.
      * The table changes if already exists.

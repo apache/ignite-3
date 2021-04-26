@@ -41,14 +41,14 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
-import org.apache.ignite.internal.table.distributed.TableManagerImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.table.manager.TableManager;
+import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
 
 /**
@@ -164,7 +164,7 @@ public class IgnitionImpl implements Ignition {
         SchemaManager schemaMgr = new SchemaManager(configurationMgr);
 
         // Distributed table manager startup.
-        TableManager distributedTblMgr = new TableManagerImpl(
+        IgniteTables distributedTblMgr = new TableManager(
             configurationMgr,
             metaStorageMgr,
             schemaMgr,

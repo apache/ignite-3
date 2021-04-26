@@ -23,16 +23,18 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.storage.ConfigurationType;
 
+/**
+ * Configuration schema for network endpoint subtree.
+ */
 @ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
 public class NetworkConfigurationSchema {
-    /**
-     *
-     */
+    /** Network port. */
     @Min(1024)
     @Max(0xFFFF)
     @Value(hasDefault = true)
-    public int port = 47500;
+    public final int port = 47500;
 
+    /** Cluster nodes. */
     @Value(hasDefault = true)
-    public String[] netClusterNodes = new String[0];
+    public final String[] netClusterNodes = new String[0];
 }
