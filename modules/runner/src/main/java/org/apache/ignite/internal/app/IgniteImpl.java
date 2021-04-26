@@ -28,7 +28,6 @@ public class IgniteImpl implements Ignite {
     private final IgniteTables distributedTblMgr;
 
     /**
-     * @param configurationMgr Configuration manager.
      * @param TblMgr Table manager.
      */
     IgniteImpl(IgniteTables TblMgr) {
