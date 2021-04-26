@@ -120,14 +120,7 @@ public class IgnitionImpl implements Ignition {
         String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();
 
-        if (StringUtil.isNullOrEmpty(localNodeName)) {
-            localNodeName = "Node: " + netConfigurationView.port();
-
-            String finalName = localNodeName;
-
-            locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY).change(change ->
-                change.changeName(finalName));
-        }
+        assert !StringUtil.isNullOrEmpty(localNodeName) : "Node local name is empty";
 
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
@@ -138,6 +131,8 @@ public class IgnitionImpl implements Ignition {
                 serializationRegistry
             )
         );
+
+        clusterNetSvc.start();
 
         // Raft Component startup.
         Loza raftMgr = new Loza(clusterNetSvc);
@@ -177,12 +172,9 @@ public class IgnitionImpl implements Ignition {
         // Deploy all resisted watches cause all components are ready and have registered their listeners.
         metaStorageMgr.deployWatches();
 
-        clusterNetSvc.start();
-        raftMgr.start();
-
         ackSuccessStart();
 
-        return new IgniteImpl(configurationMgr, distributedTblMgr);
+        return new IgniteImpl(distributedTblMgr);
     }
 
     /** */

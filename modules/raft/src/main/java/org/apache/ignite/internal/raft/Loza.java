@@ -57,12 +57,7 @@ public class Loza {
      */
     public Loza(ClusterService clusterNetSvc) {
         this.clusterNetSvc = clusterNetSvc;
-    }
 
-    /**
-     * Start Raft manager.
-     */
-    public void start() {
         this.raftServer = new RaftServerImpl(clusterNetSvc, FACTORY, 1000, Map.of());
     }
 

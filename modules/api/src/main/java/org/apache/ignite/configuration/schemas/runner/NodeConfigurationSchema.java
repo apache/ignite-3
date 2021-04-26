@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.schemas.runner;
 
+import java.util.UUID;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.storage.ConfigurationType;
@@ -29,7 +30,7 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 public class NodeConfigurationSchema {
     /** Uniq local node name. */
     @Value(hasDefault = true)
-    final String name = "";
+    final String name = UUID.randomUUID().toString();
 
     /** It is a copy of appropriate property from the cluster configuration. */
     @Value(hasDefault = true)

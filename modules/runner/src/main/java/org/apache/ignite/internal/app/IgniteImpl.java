@@ -18,16 +18,12 @@
 package org.apache.ignite.internal.app;
 
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Ignite internal implementation.
  */
 public class IgniteImpl implements Ignite {
-    /** Configuration manager. */
-    private final ConfigurationManager configurationMgr;
-
     /** Distributed table manager. */
     private final IgniteTables distributedTblMgr;
 
@@ -35,8 +31,7 @@ public class IgniteImpl implements Ignite {
      * @param configurationMgr Configuration manager.
      * @param TblMgr Table manager.
      */
-    IgniteImpl(ConfigurationManager configurationMgr, IgniteTables TblMgr) {
-        this.configurationMgr = configurationMgr;
+    IgniteImpl(IgniteTables TblMgr) {
         this.distributedTblMgr = TblMgr;
     }
 
