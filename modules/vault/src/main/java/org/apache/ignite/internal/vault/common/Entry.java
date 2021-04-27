@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
  * Represents a vault unit as entry with key and value, where
  * <ul>
  *     <li>key - an unique entry's key. Keys are comparable in lexicographic manner and represented as an {@link ByteArray}.</li>
- *     <li>value - a data which is associated with a key and represented as an array of bytes.</ul>
+ *     <li>value - a data which is associated with a key and represented as an array of bytes.</li>
  * </ul>
  */
 // TODO: need to generify with metastorage Entry https://issues.apache.org/jira/browse/IGNITE-14653
