@@ -743,8 +743,8 @@ public class NodeTest {
 
         Node leader = cluster.getLeader();
 
-        assertEquals(3, leader.listAlivePeers().size());
-        assertEquals(3, leader.listAliveLearners().size());
+        waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000);
+        waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000);
 
         this.sendTestTaskAndWait(leader);
         Thread.sleep(500);
@@ -2353,7 +2353,8 @@ public class NodeTest {
         nodeOptions.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
-        final Node node = createService("unittest", new PeerId(addr, 0), nodeOptions).start();
+        RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
+        final Node node = service.start();
         // wait node elect self as leader
 
         Thread.sleep(2000);
@@ -2367,10 +2368,7 @@ public class NodeTest {
         waitLatch(latch);
         assertEquals(0, fsm.getSaveSnapshotTimes());
 
-        latch = new CountDownLatch(1);
-        node.shutdown(new ExpectClosure(latch));
-        node.join();
-        waitLatch(latch);
+        service.shutdown();
     }
 
     @Test
@@ -2385,7 +2383,8 @@ public class NodeTest {
         nodeOptions.setSnapshotIntervalSecs(10);
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
-        final Node node = createService("unittest", new PeerId(addr, 0), nodeOptions).start();
+        RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
+        final Node node = service.start();
         // wait node elect self as leader
         Thread.sleep(2000);
 
@@ -2398,10 +2397,7 @@ public class NodeTest {
         assertTrue("snapshotTimes=" + times, times >= 1);
         assertTrue(fsm.getSnapshotIndex() > 0);
 
-        final CountDownLatch latch = new CountDownLatch(1);
-        node.shutdown(new ExpectClosure(latch));
-        node.join();
-        waitLatch(latch);
+        service.shutdown();
     }
 
     @Test
