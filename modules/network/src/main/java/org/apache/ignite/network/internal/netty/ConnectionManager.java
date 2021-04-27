@@ -166,6 +166,18 @@ public class ConnectionManager {
 
             try {
                 if (throwable != null) {
+                    NettyChannel existingChannel = channels.get(address);
+
+                    if (existingChannel != null && existingChannel.isOpen()) {
+                        try {
+                            NettySender sender1 = existingChannel.channel().get();
+                            fut.complete(sender1);
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
                     if (retryCount > 0)
                         connect0(fut, address, retryCount - 1);
                     else
