@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
@@ -26,37 +25,18 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
-import org.apache.ignite.raft.jraft.JRaftServiceFactory;
-import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
-import org.apache.ignite.raft.jraft.rpc.impl.PingRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
-import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
-import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
-import org.apache.ignite.raft.jraft.storage.impl.RocksDBLogStorage;
-import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
@@ -88,101 +68,102 @@ public class JRaftServerImpl implements RaftServer {
         assert !reuse || service.topologyService().localMember() != null;
 
         // RAFT client messages. TODO asch refactor to processors
-//        service.messagingService().addMessageHandler((message, sender, correlationId) -> {
-//            if (message instanceof GetLeaderRequest) {
-//                GetLeaderRequest req0 = (GetLeaderRequest) message;
-//
-//                NodeImpl lsnr = groups.get(req0.groupId());
-//
-//                if (lsnr == null) {
-//                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
-//
-//                    return;
-//                }
-//
-//                PeerId leaderId = lsnr.getLeaderId();
-//
-//                if (leaderId == null) {
-//                    sendError(sender, correlationId, RaftErrorCode.NO_LEADER);
-//
-//                    return;
-//                }
-//
-//                // Find by host and port.
-//                Peer leader0 = new Peer(service.topologyService().allMembers().stream().
-//                    filter(m -> m.host().equals(leaderId.getIp()) && m.port() == leaderId.getPort()).findFirst().orElse(null));
-//
-//                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(leader0).build();
-//
-//                service.messagingService().send(sender, resp, correlationId);
-//            }
-//            else if (message instanceof ActionRequest) {
-//                ActionRequest<?> req0 = (ActionRequest<?>) message;
-//
-//                NodeImpl node = groups.get(req0.groupId());
-//
-//                if (node == null) {
-//                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
-//
-//                    return;
-//                }
-//
-//                if (req0.command() instanceof WriteCommand) {
-//                    node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(req0.command())), new MyClosure<>(req0.command()) {
-//                        @Override public void success(Object res) {
-//                            var msg = clientMsgFactory.actionResponse().result(res).build();
-//                            service.messagingService().send(sender, msg, correlationId);
-//                        }
-//
-//                        @Override public void failure(Throwable err) {
-//                            sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
-//                        }
-//                    }));
-//                }
-//                else {
-//                    // TODO asch purpose of request context ?
-//                    node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
-//                        @Override public void run(Status status, long index, byte[] reqCtx) {
-//                            if (status.isOk()) {
-//                                DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
-//
-//                                List<CommandClosure<ReadCommand>> l = new ArrayList<>(1);
-//                                l.add(new CommandClosure<ReadCommand>() {
-//                                    @Override public ReadCommand command() {
-//                                        return (ReadCommand) req0.command();
-//                                    }
-//
-//                                    @Override public void success(Object res) {
-//                                        var msg = clientMsgFactory.actionResponse().result(res).build();
-//                                        service.messagingService().send(sender, msg, correlationId);
-//                                    }
-//
-//                                    @Override public void failure(Throwable err) {
-//                                        sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
-//                                    }
-//                                });
-//
-//                                fsm.listener.onRead(l.iterator());
-//                            }
-//                            else {
-//                                // TODO asch state machine error.
-//                                sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
-//                            }
-//                        }
-//                    });
-//                }
-//
-////                if (req0.command() instanceof ReadCommand)
-////                    handleActionRequest(sender, req0, correlationId, readQueue, node);
-////                else
-////                    handleActionRequest(sender, req0, correlationId, writeQueue, node);
-//            }
-//            else {
-//                LOG.warn("Unsupported message class " + message.getClass().getName());
-//            }
-//        });
+        service.messagingService().addMessageHandler((message, sender, correlationId) -> {
+            if (message instanceof GetLeaderRequest) {
+                GetLeaderRequest req0 = (GetLeaderRequest) message;
+
+                RaftGroupService lsnr = groups.get(req0.groupId());
+
+                if (lsnr == null) {
+                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+
+                    return;
+                }
+
+                PeerId leaderId = lsnr.getRaftNode().getLeaderId();
+
+                if (leaderId == null) {
+                    sendError(sender, correlationId, RaftErrorCode.NO_LEADER);
+
+                    return;
+                }
+
+                // Find by host and port.
+                Peer leader0 = new Peer(service.topologyService().allMembers().stream().
+                    filter(m -> m.host().equals(leaderId.getIp()) && m.port() == leaderId.getPort()).findFirst().orElse(null));
+
+                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(leader0).build();
+
+                service.messagingService().send(sender, resp, correlationId);
+            }
+            else if (message instanceof ActionRequest) {
+                ActionRequest<?> req0 = (ActionRequest<?>) message;
+
+                RaftGroupService svc = groups.get(req0.groupId());
+
+                if (svc == null) {
+                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+
+                    return;
+                }
+
+                if (req0.command() instanceof WriteCommand) {
+                    svc.getRaftNode().apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(req0.command())), new MyClosure<>(req0.command()) {
+                        @Override public void success(Object res) {
+                            var msg = clientMsgFactory.actionResponse().result(res).build();
+                            service.messagingService().send(sender, msg, correlationId);
+                        }
+
+                        @Override public void failure(Throwable err) {
+                            sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                        }
+                    }));
+                }
+                else {
+                    // TODO asch purpose of request context ?
+                    svc.getRaftNode().readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
+                        @Override public void run(Status status, long index, byte[] reqCtx) {
+                            if (status.isOk()) {
+                                DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+
+                                List<CommandClosure<ReadCommand>> l = new ArrayList<>(1);
+                                l.add(new CommandClosure<ReadCommand>() {
+                                    @Override public ReadCommand command() {
+                                        return (ReadCommand) req0.command();
+                                    }
+
+                                    @Override public void success(Object res) {
+                                        var msg = clientMsgFactory.actionResponse().result(res).build();
+                                        service.messagingService().send(sender, msg, correlationId);
+                                    }
+
+                                    @Override public void failure(Throwable err) {
+                                        sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                                    }
+                                });
+
+                                fsm.listener.onRead(l.iterator());
+                            }
+                            else {
+                                // TODO asch state machine error.
+                                sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                            }
+                        }
+                    });
+                }
+
+//                if (req0.command() instanceof ReadCommand)
+//                    handleActionRequest(sender, req0, correlationId, readQueue, svc);
+//                else
+//                    handleActionRequest(sender, req0, correlationId, writeQueue, svc);
+            }
+            else {
+                LOG.warn("Unsupported message class " + message.getClass().getName());
+            }
+        });
 
         rpcServer = new IgniteRpcServer(service, reuse, nodeManager);
+        rpcServer.init(null);
     }
 
     @Override public ClusterService clusterService() {
@@ -283,5 +264,21 @@ public class JRaftServerImpl implements RaftServer {
         RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
         service.messagingService().send(sender, resp, corellationId);
+    }
+
+    private abstract class MyClosure<T extends Command> implements Closure, CommandClosure<T> {
+        private final T command;
+
+        MyClosure(T command) {
+            this.command = command;
+        }
+
+        @Override public T command() {
+            return command;
+        }
+
+        @Override public void run(Status status) {
+            assert false;
+        }
     }
 }
