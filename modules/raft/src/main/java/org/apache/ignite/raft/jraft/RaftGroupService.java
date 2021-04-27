@@ -16,8 +16,10 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
@@ -132,12 +134,26 @@ public class RaftGroupService implements RaftNode {
         if (StringUtils.isBlank(this.groupId)) {
             throw new IllegalArgumentException("Blank group id" + this.groupId);
         }
-        //Adds RPC server to Server. // TODO asch fixme
-        // NodeManager.getInstance().addAddress(this.serverId.getEndpoint());
 
         assert this.nodeOptions.getRpcClient() != null;
 
-        this.node = RaftServiceFactory.createAndInitRaftNode(this.groupId, this.serverId, this.nodeOptions);
+        this.node = new NodeImpl(groupId, serverId);
+
+        if (!this.node.init(this.nodeOptions)) {
+            LOG.warn("Stopping partially started node [groupId={}, serverId={}]", groupId, serverId);
+            this.node.shutdown(); // Try to shutdown partially started node.
+
+            try {
+                this.node.join();
+            }
+            catch (InterruptedException e) {
+                throw new IgniteInternalException(e);
+            }
+
+            // TODO asch Ignite exception.
+            throw new IllegalStateException("Fail to init node, please see the logs to find the reason.");
+        }
+
         if (startRpcServer) {
             this.rpcServer.init(null);
         } else {
@@ -163,6 +179,7 @@ public class RaftGroupService implements RaftNode {
 //    }
 
     @Override public synchronized void shutdown() {
+        // TODO asch remove handlers before shutting down raft node.
         if (!this.started) {
             return;
         }
@@ -177,6 +194,7 @@ public class RaftGroupService implements RaftNode {
             }
             this.rpcServer = null;
         }
+
         this.node.shutdown();
         try {
             this.node.join();

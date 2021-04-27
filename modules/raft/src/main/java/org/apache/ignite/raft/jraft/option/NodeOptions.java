@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
+import java.util.List;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
-import org.apache.ignite.raft.jraft.rpc.RpcClient;
-import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
+import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -165,6 +165,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * Custom service factory.
      */
     private JRaftServiceFactory serviceFactory = new DefaultJRaftServiceFactory();
+
+    /** */
+    private List<Replicator.ReplicatorStateListener> replicationStateListeners;
 
     /**
      * The rpc client.
@@ -423,6 +426,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setSharedVoteTimer(this.sharedVoteTimer);
         nodeOptions.setSharedStepDownTimer(this.sharedStepDownTimer);
         nodeOptions.setSharedSnapshotTimer(this.sharedSnapshotTimer);
+        nodeOptions.setReplicationStateListeners(this.replicationStateListeners);
         return nodeOptions;
     }
 
@@ -440,5 +444,19 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
             + ", sharedElectionTimer=" + sharedElectionTimer + ", sharedVoteTimer=" + sharedVoteTimer
             + ", sharedStepDownTimer=" + sharedStepDownTimer + ", sharedSnapshotTimer=" + sharedSnapshotTimer
             + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + "} " + super.toString();
+    }
+
+    /**
+     * @param replicationStateListeners Listeners.
+     */
+    public void setReplicationStateListeners(List<Replicator.ReplicatorStateListener> replicationStateListeners) {
+        this.replicationStateListeners = replicationStateListeners;
+    }
+
+    /**
+     * @return Listeners.
+     */
+    public List<Replicator.ReplicatorStateListener> getReplicationStateListeners() {
+        return replicationStateListeners;
     }
 }

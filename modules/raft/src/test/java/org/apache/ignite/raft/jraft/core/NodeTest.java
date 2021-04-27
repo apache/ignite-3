@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -93,12 +94,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-//import org.rocksdb.util.SizeUnit;
-//import org.apache.ignite.raft.jraft.storage.impl.RocksDBLogStorage;
-//import org.apache.ignite.raft.jraft.util.StorageOptionsFactory;
-
+/** */
 public class NodeTest {
-
     static final Logger         LOG            = LoggerFactory.getLogger(NodeTest.class);
 
     private String              dataPath;
@@ -190,12 +187,9 @@ public class NodeTest {
         nodeOptions.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(this.dataPath + File.separator + "snapshot");
 
-        NodeManager nodeManager = new NodeManager();
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(addr, nodeManager);
-        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
-        RaftGroupService service = new RaftGroupService("unittest", new PeerId(addr, 0), nodeOptions, rpcServer, nodeManager);
+        RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
 
-        service.start(false);
+        service.start(true);
 
         service.shutdown();
     }
@@ -216,12 +210,9 @@ public class NodeTest {
         nodeOptions.setSnapshotUri(this.dataPath + File.separator + "snapshot");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer)));
 
-        NodeManager nodeManager = new NodeManager();
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(addr, nodeManager);
-        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
-        RaftGroupService service = new RaftGroupService("unittest", new PeerId(addr, 0), nodeOptions, rpcServer, nodeManager);
+        RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
 
-        final Node node = service.start(false);
+        final Node node = service.start(true);
 
         assertEquals(1, node.listPeers().size());
         assertTrue(node.listPeers().contains(peer));
@@ -301,14 +292,9 @@ public class NodeTest {
         nodeOptions.setSnapshotUri(this.dataPath + File.separator + "snapshot");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer)));
 
-        // TODO asch reduce copy paste.
-        NodeManager nodeManager = new NodeManager();
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(addr, nodeManager);
-        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
+        RaftGroupService service = createService("unittest", peer, nodeOptions);
 
-        RaftGroupService service = new RaftGroupService("unittest", peer, nodeOptions, rpcServer, nodeManager);
-
-        final Node node = service.start(false);
+        final Node node = service.start(true);
 
         assertEquals(1, node.listPeers().size());
         assertTrue(node.listPeers().contains(peer));
@@ -379,8 +365,9 @@ public class NodeTest {
         nodeOptions.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(this.dataPath + File.separator + "snapshot");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer)));
-        final Node node = new NodeImpl("unittest", peer);
-        assertTrue(node.init(nodeOptions));
+        RaftGroupService service = createService("unittest", peer, nodeOptions);
+
+        Node node = service.start();
 
         assertEquals(1, node.listPeers().size());
         assertTrue(node.listPeers().contains(peer));
@@ -395,8 +382,7 @@ public class NodeTest {
         for (final ByteBuffer data : fsm.getLogs()) {
             assertEquals("hello" + i++, new String(data.array()));
         }
-        node.shutdown();
-        node.join();
+        service.shutdown();
     }
 
     @Test
@@ -554,47 +540,51 @@ public class NodeTest {
     class UserReplicatorStateListener implements Replicator.ReplicatorStateListener {
         @Override
         public void onCreated(final PeerId peer) {
-            LOG.info("Replicator has created");
-            NodeTest.this.startedCounter.incrementAndGet();
+            int val = NodeTest.this.startedCounter.incrementAndGet();
+
+            LOG.info("Replicator has been created {} {}", peer, val);
         }
 
         @Override
         public void onError(final PeerId peer, final Status status) {
-            LOG.info("Replicator has errors");
+            LOG.info("Replicator has errors {} {}", peer, status);
         }
 
         @Override
         public void onDestroyed(final PeerId peer) {
-            LOG.info("Replicator has been destroyed");
-            NodeTest.this.stoppedCounter.incrementAndGet();
+            int val = NodeTest.this.stoppedCounter.incrementAndGet();
+
+            LOG.info("Replicator has been destroyed {} {}", peer, val);
         }
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testLeaderTransferWithReplicatorStateListener() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
-        final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers, 300);
+        final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers, new LinkedHashSet<>(), 300,
+            opts -> opts.setReplicationStateListeners(List.of(new UserReplicatorStateListener())));
 
         for (final PeerId peer : peers) {
             assertTrue(cluster.start(peer.getEndpoint()));
         }
+
         cluster.waitLeader();
-        final UserReplicatorStateListener listener = new UserReplicatorStateListener();
-        for (Node node : cluster.getNodes()) {
-            node.addReplicatorStateListener(listener);
-        }
+
         Node leader = cluster.getLeader();
         this.sendTestTaskAndWait(leader);
         Thread.sleep(100);
         final List<Node> followers = cluster.getFollowers();
+
+        assertTrue(this.startedCounter.get() + "", waitForCondition(() -> this.startedCounter.get() == 2, 5_000));
 
         final PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
         LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
         Thread.sleep(1000);
         cluster.waitLeader();
-        assertEquals(2, this.startedCounter.get());
+
+        assertTrue(this.startedCounter.get() + "", waitForCondition(() -> this.startedCounter.get() == 4, 5_000));
 
         for (Node node : cluster.getNodes()) {
             node.clearReplicatorStateListeners();
@@ -685,11 +675,8 @@ public class NodeTest {
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
                 .singletonList(learnerPeer)));
 
-            NodeManager nodeManager = new NodeManager();
-            final IgniteRpcServer rpcServer = new IgniteRpcServer(learnerAddr, nodeManager);
-            nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
-            learnerServer = new RaftGroupService("unittest", new PeerId(learnerAddr, 0), nodeOptions, rpcServer, nodeManager);
-            learner = learnerServer.start(false);
+            learnerServer = createService("unittest", new PeerId(learnerAddr, 0), nodeOptions);
+            learner = learnerServer.start(true);
         }
 
         {
@@ -703,11 +690,8 @@ public class NodeTest {
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
                 .singletonList(learnerPeer)));
 
-            NodeManager nodeManager = new NodeManager();
-            final IgniteRpcServer rpcServer = new IgniteRpcServer(addr, List.of(addr.toString(), learnerAddr.toString()), nodeManager);
-            nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true)); // TODO asch move to raftgroupservice.
-            RaftGroupService server = new RaftGroupService("unittest", new PeerId(addr, 0), nodeOptions, rpcServer, nodeManager);
-            Node node = server.start(false);
+            RaftGroupService server = createService("unittest", new PeerId(addr, 0), nodeOptions);
+            Node node = server.start(true);
 
             assertEquals(1, node.listPeers().size());
             assertTrue(node.listPeers().contains(peer));
@@ -735,7 +719,7 @@ public class NodeTest {
         }
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testResetLearners() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1305,6 +1289,9 @@ public class NodeTest {
         // read from follower
         for (final Node follower : cluster.getFollowers()) {
             assertNotNull(follower);
+
+            assertTrue(waitForCondition(() -> leader.getNodeId().getPeerId().equals(follower.getLeaderId()), 5_000));
+
             assertReadIndex(follower, 11);
         }
 
@@ -1324,7 +1311,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch will fail
+    @Test // TODO asch do we need read index timeout ?
     public void testReadIndexTimeout() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1351,6 +1338,9 @@ public class NodeTest {
         // read from follower
         for (final Node follower : cluster.getFollowers()) {
             assertNotNull(follower);
+
+            assertTrue(waitForCondition(() -> leader.getNodeId().getPeerId().equals(follower.getLeaderId()), 5_000));
+
             assertReadIndex(follower, 11);
         }
 
@@ -1789,7 +1779,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testRemoveLeader() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2177,7 +2167,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(4);
         final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers.subList(0, 3));
@@ -2300,7 +2290,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testInstallSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2555,7 +2545,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testLeaderTransferResumeOnFailure() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2640,11 +2630,8 @@ public class NodeTest {
             nodeOptions.setSnapshotIntervalSecs(10);
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
-            NodeManager nodeManager = new NodeManager();
-            final IgniteRpcServer rpcServer = new IgniteRpcServer(addr, nodeManager);
-            nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
-            RaftGroupService service = new RaftGroupService("unittest", new PeerId(addr, 0), nodeOptions, rpcServer, nodeManager);
-            final Node node = service.start(false);
+            RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
+            final Node node = service.start(true);
 
             Thread.sleep(1000);
             this.sendTestTaskAndWait(node);
@@ -2665,14 +2652,14 @@ public class NodeTest {
             nodeOptions.setSnapshotIntervalSecs(10);
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
-            NodeManager nodeManager = new NodeManager();
-            final IgniteRpcServer rpcServer = new IgniteRpcServer(addr, nodeManager);
-            nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
-            RaftGroupService service = new RaftGroupService("unittest", new PeerId(addr, 0), nodeOptions, rpcServer, nodeManager);
+            RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
             try {
-                final Node node = service.start(false);
+                service.start(true);
 
                 fail();
+            }
+            catch (Exception e) {
+                // Expected.
             }
             finally {
                 service.shutdown();
@@ -2909,7 +2896,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void readCommittedUserLog() throws Exception {
         // setup cluster
         final List<PeerId> peers = TestUtils.generatePeers(3);
@@ -3556,5 +3543,39 @@ public class NodeTest {
         }
 
         return false;
+    }
+
+    /** {@inheritDoc} */
+    private boolean waitForCondition(BooleanSupplier cond, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while(System.currentTimeMillis() < stop) {
+            if (cond.getAsBoolean())
+                return true;
+
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param groupId Group id.
+     * @param peerId Peer id.
+     * @param nodeOptions Node options.
+     * @return Raft group service.
+     */
+    private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
+        // TODO asch improve service creation.
+        NodeManager nodeManager = new NodeManager();
+        final IgniteRpcServer rpcServer = new IgniteRpcServer(peerId.getEndpoint(), nodeManager);
+        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
+
+        return new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);
     }
 }

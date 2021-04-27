@@ -24,11 +24,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 
 /**
- * Raft nodes manager. TODO asch refactor to component. Duplicates raft server.
+ * Raft nodes manager. TODO asch refactor to component/interface. Duplicates raft server.
  *
  * @author boyan (boyan@alibaba-inc.com)
  *

@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.core.CliServiceImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -24,7 +25,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 
 /**
  * Service factory to create raft services, such as Node/CliService etc.
- *
+ * TODO asch remove it, not needed.
  * @author boyan (boyan@alibaba-inc.com)
  *
  * 2018-May-03 11:06:02 AM
@@ -46,6 +47,16 @@ public final class RaftServiceFactory {
     public static Node createAndInitRaftNode(final String groupId, final PeerId serverId, final NodeOptions opts) {
         final Node ret = createRaftNode(groupId, serverId);
         if (!ret.init(opts)) {
+            // TODO asch log partial shutdown
+            ret.shutdown(); // Try to shutdown partially started node.
+
+            try {
+                ret.join();
+            }
+            catch (InterruptedException e) {
+                throw new IgniteInternalException(e);
+            }
+
             throw new IllegalStateException("Fail to init node, please see the logs to find the reason.");
         }
         return ret;

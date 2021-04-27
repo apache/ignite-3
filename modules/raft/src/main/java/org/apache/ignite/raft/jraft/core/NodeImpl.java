@@ -885,6 +885,8 @@ public class NodeImpl implements Node, RaftServerService {
         this.serverId.setPriority(opts.getElectionPriority());
         this.electionTimeoutCounter = 0;
         this.timerFactory = opts.getServiceFactory().createRaftTimerFactory();
+        if (opts.getReplicationStateListeners() != null)
+            this.replicatorStateListeners.addAll(opts.getReplicationStateListeners());
 
         if (this.serverId.getIp().equals(Utils.IP_ANY)) {
             LOG.error("Node can't started from IP_ANY.");

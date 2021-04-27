@@ -31,6 +31,7 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 public class IgniteRpcServer implements RpcServer<Void> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
 
+    /** The {@code true} to reuse cluster service. */
     private final boolean reuse;
 
     private ClusterService service;
@@ -159,9 +160,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
                     listener.onClosed(service.topologyService().localMember().name(), member.name());
             }
         });
-
-        if (!reuse)
-            service.start();
     }
 
     @Override public void registerConnectionClosedEventListener(ConnectionClosedEventListener listener) {
@@ -178,6 +176,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
     }
 
     @Override public boolean init(Void opts) {
+        service.start();
+
         return true;
     }
 

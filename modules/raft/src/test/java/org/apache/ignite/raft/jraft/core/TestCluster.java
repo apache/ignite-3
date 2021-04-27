@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -43,6 +45,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Test cluster for NodeTest
@@ -51,7 +54,6 @@ import java.util.stream.Collectors;
  * 2018-Apr-20 1:41:17 PM
  */
 public class TestCluster {
-
     static class Clusters {
 
         public final IdentityHashMap<TestCluster, Object> needCloses = new IdentityHashMap<>();
@@ -87,6 +89,7 @@ public class TestCluster {
     private final ConcurrentMap<String, RaftGroupService> serverMap          = new ConcurrentHashMap<>();
     private final int                                     electionTimeoutMs;
     private final Lock                                    lock               = new ReentrantLock();
+    private final Consumer<NodeOptions> optsClo;
 
     private JRaftServiceFactory                           raftServiceFactory = new TestJRaftServiceFactory();
 
@@ -117,11 +120,16 @@ public class TestCluster {
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers, final int electionTimeoutMs) {
-        this(name, dataPath, peers, new LinkedHashSet<>(), 300);
+        this(name, dataPath, peers, new LinkedHashSet<>(), 300, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
                        final LinkedHashSet<PeerId> learners, final int electionTimeoutMs) {
+        this(name, dataPath, peers, learners, 300, null);
+    }
+
+    public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
+                       final LinkedHashSet<PeerId> learners, final int electionTimeoutMs, @Nullable Consumer<NodeOptions> optsClo) {
         super();
         this.name = name;
         this.dataPath = dataPath;
@@ -130,6 +138,7 @@ public class TestCluster {
         this.fsms = new LinkedHashMap<>(this.peers.size());
         this.electionTimeoutMs = electionTimeoutMs;
         this.learners = learners;
+        this.optsClo = optsClo;
         CLUSTERS.add(this);
     }
 
@@ -159,6 +168,14 @@ public class TestCluster {
     public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
                          final boolean enableMetrics, final SnapshotThrottle snapshotThrottle) throws IOException {
         return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, null);
+    }
+
+    public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
+                         final boolean enableMetrics, final SnapshotThrottle snapshotThrottle,
+                         final RaftOptions raftOptions) throws IOException {
+
+        return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, raftOptions,
+            ElectionPriority.Disabled);
     }
 
     public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
@@ -200,64 +217,11 @@ public class TestCluster {
 
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
+        if (optsClo != null)
+            optsClo.accept(nodeOptions);
+
         final RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0, priority),
             nodeOptions, rpcServer, nodeManager);
-
-        this.lock.lock();
-        try {
-            if (this.serverMap.put(listenAddr.toString(), server) == null) {
-                final Node node = server.start();
-
-                this.fsms.put(new PeerId(listenAddr, 0), fsm);
-                this.nodes.add((NodeImpl) node);
-                return true;
-            }
-        } finally {
-            this.lock.unlock();
-        }
-        return false;
-    }
-
-    public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
-                         final boolean enableMetrics, final SnapshotThrottle snapshotThrottle,
-                         final RaftOptions raftOptions) throws IOException {
-
-        if (this.serverMap.get(listenAddr.toString()) != null) {
-            return true;
-        }
-
-        final NodeOptions nodeOptions = new NodeOptions();
-        nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);
-        nodeOptions.setEnableMetrics(enableMetrics);
-        nodeOptions.setSnapshotThrottle(snapshotThrottle);
-        nodeOptions.setSnapshotIntervalSecs(snapshotIntervalSecs);
-        nodeOptions.setServiceFactory(this.raftServiceFactory);
-        if (raftOptions != null) {
-            nodeOptions.setRaftOptions(raftOptions);
-        }
-        final String serverDataPath = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
-        new File(serverDataPath).mkdirs();
-        nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
-        nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
-        nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
-        final MockStateMachine fsm = new MockStateMachine(listenAddr);
-        nodeOptions.setFsm(fsm);
-
-        if (!emptyPeers) {
-            nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
-        }
-
-        List<String> servers = emptyPeers ? List.of() :
-            this.peers.stream().map(p -> p.getIp() + ":" + p.getPort()).collect(Collectors.toList());
-
-        NodeManager nodeManager = new NodeManager();
-
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers, nodeManager);
-
-        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
-
-        final RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0), nodeOptions,
-            rpcServer, nodeManager);
 
         this.lock.lock();
         try {

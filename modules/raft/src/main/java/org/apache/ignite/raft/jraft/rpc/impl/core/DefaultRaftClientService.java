@@ -104,8 +104,9 @@ public class DefaultRaftClientService extends AbstractClientService implements R
     @Override
     public Future<Message> appendEntries(final Endpoint endpoint, final AppendEntriesRequest request,
                                          final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
-        if (request.getEntriesCount() > 0)
-            LOG.info("appendEntries to={}, size={}", endpoint.toString(), request.getEntriesCount());
+        // TODO asch
+//        if (request.getEntriesCount() > 0)
+//            LOG.info("appendEntries to={}, size={}", endpoint.toString(), request.getEntriesCount());
 
         final Executor executor = this.appendEntriesExecutorMap.computeIfAbsent(endpoint, k -> APPEND_ENTRIES_EXECUTORS.next());
 
