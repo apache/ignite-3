@@ -7,7 +7,7 @@
 
 * **Packages**: rpm-build
 
-* **Built Apache Ignite**:
+* **Assemble Apache Ignite**:
 ```bash
 cd <project root>
 mvn clean package
