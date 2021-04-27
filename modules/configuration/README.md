@@ -133,5 +133,9 @@ ChildConfiguration childCfg = parentCfg.child();
 childCfg.changeStr("newStr2").get();
 ```
 Every `change` object is basically a change request that's going to be processed asyncronously and transactionally.
+
 It's important to note that there's a technical possibility to execute several change requests for different roots in a
 single transaction, but all these roots _must have the same storage type_.
+
+This exact scenario is possible in `rest` module via command line tool. Same code is used to bootstrap configuration
+from JSON file. Currently there's no public Java API to do the same thing.
