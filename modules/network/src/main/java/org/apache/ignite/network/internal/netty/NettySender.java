@@ -29,7 +29,7 @@ import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /**
- * Wrapper for channel, that uses {@link ChunkedInput} to send data.
+ * Wrapper for a Netty {@link Channel}, that uses {@link ChunkedInput} and {@link DirectMessageWriter} to send data.
  */
 public class NettySender {
     /** Netty channel. */
@@ -57,6 +57,13 @@ public class NettySender {
     public void send(NetworkMessage msg) {
         MessageSerializer<NetworkMessage> serializer = serializationRegistry.createSerializer(msg.directType());
         channel.writeAndFlush(new NetworkMessageChunkedInput(msg, serializer));
+    }
+
+    /**
+     * Close channel.
+     */
+    public void close() {
+        this.channel.close().awaitUninterruptibly();
     }
 
     /**
