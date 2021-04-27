@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Test for base vault contracts.
+ * Test for base vault manager contracts.
  */
 public class VaultBaseContractsTest {
     /** Vault. */
