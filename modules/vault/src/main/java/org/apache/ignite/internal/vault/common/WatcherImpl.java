@@ -20,28 +20,35 @@ package org.apache.ignite.internal.vault.common;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteUuid;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Implementation of vault {@link Watcher}.
  */
 public class WatcherImpl implements Watcher {
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(WatcherImpl.class);
+
     /** Queue for changed vault entries. */
-    private final BlockingQueue<VaultEntry> queue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<Entry> queue = new LinkedBlockingQueue<>();
 
     /** Registered vault watches. */
-    private final Map<IgniteUuid, VaultWatch> watches = new HashMap<>();
+    private final Map<Long, VaultWatch> watches = new HashMap<>();
 
     /** Flag for indicating if watcher is stopped. */
     private volatile boolean stop;
+
+    /** Counter for generating ids for watches. */
+    private AtomicLong watchIds;
 
     /** Mutex. */
     private final Object mux = new Object();
@@ -53,15 +60,17 @@ public class WatcherImpl implements Watcher {
      * Default constructor.
      */
     public WatcherImpl() {
+        watchIds = new AtomicLong(0);
+
         exec = Executors.newFixedThreadPool(1);
 
         exec.execute(new WatcherWorker());
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<IgniteUuid> register(@NotNull VaultWatch vaultWatch) {
+    @Override public CompletableFuture<Long> register(@NotNull VaultWatch vaultWatch) {
         synchronized (mux) {
-            IgniteUuid key = new IgniteUuid(UUID.randomUUID(), 0);
+            Long key = watchIds.incrementAndGet();
 
             watches.put(key, vaultWatch);
 
@@ -70,14 +79,14 @@ public class WatcherImpl implements Watcher {
     }
 
     /** {@inheritDoc} */
-    @Override public void notify(@NotNull VaultEntry val) {
+    @Override public void notify(@NotNull Entry val) {
         queue.offer(val);
     }
 
     /** {@inheritDoc} */
-    @Override public void cancel(@NotNull IgniteUuid uuid) {
+    @Override public void cancel(@NotNull Long id) {
         synchronized (mux) {
-            watches.remove(uuid);
+            watches.remove(id);
         }
     }
 
@@ -91,13 +100,13 @@ public class WatcherImpl implements Watcher {
             List<Runnable> tasks = exec.shutdownNow();
 
             if (!tasks.isEmpty())
-                System.out.println("Runnable tasks outlived thread pool executor service");
+                LOG.warn("Runnable tasks outlived thread pool executor service");
 
             try {
                 exec.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
             }
             catch (InterruptedException ignored) {
-                System.out.println("Got interrupted while waiting for executor service to stop.");
+                LOG.warn("Got interrupted while waiting for executor service to stop.");
 
                 exec.shutdownNow();
 
@@ -115,16 +124,26 @@ public class WatcherImpl implements Watcher {
         @Override public void run() {
             while (!stop) {
                 try {
-                    VaultEntry val = queue.poll(100, TimeUnit.MILLISECONDS);
+                    Entry val = queue.take();
 
-                    if (val != null) {
-                        synchronized (mux) {
-                            watches.forEach((k, w) -> w.notify(val));
-                        }
+                    synchronized (mux) {
+                        watches.forEach((k, w) -> {
+                            if (!w.notify(val))
+                                cancel(k);
+                        });
                     }
                 }
                 catch (InterruptedException interruptedException) {
-                    // No-op.
+                    synchronized (mux) {
+                        watches.forEach((k, w) -> {
+                            w.onError(
+                                new IgniteInternalCheckedException(
+                                    "Error occurred during watches handling ",
+                                    interruptedException.getCause()));
+
+                            cancel(k);
+                        });
+                    }
                 }
             }
         }

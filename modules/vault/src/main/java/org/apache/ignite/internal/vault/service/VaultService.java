@@ -20,22 +20,22 @@ package org.apache.ignite.internal.vault.service;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.vault.common.VaultEntry;
+import org.apache.ignite.internal.vault.common.Entry;
 import org.apache.ignite.internal.vault.common.VaultWatch;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Defines interface for accessing to a vault service.
  */
+// TODO: need to generify with MetastorageService https://issues.apache.org/jira/browse/IGNITE-14653
 public interface VaultService {
     /**
      * Read key from vault storage or {@code null} if this storage contains no mapping for the key.
      *
      * @param key Key.
      */
-    CompletableFuture<VaultEntry> get(ByteArray key);
+    CompletableFuture<Entry> get(ByteArray key);
 
     /**
      * Write value with key to vault.
@@ -55,7 +55,7 @@ public interface VaultService {
     /**
      * Returns a view of the portion of vault whose keys range from fromKey, inclusive, to toKey, exclusive.
      */
-    Iterator<VaultEntry> range(ByteArray fromKey, ByteArray toKey);
+    Iterator<Entry> range(ByteArray fromKey, ByteArray toKey);
 
     /**
      * Subscribes on vault storage updates for the given key.
@@ -63,8 +63,7 @@ public interface VaultService {
      * @param vaultWatch Watch which will notify for each update.
      * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
      */
-    @NotNull
-    CompletableFuture<IgniteUuid> watch(@NotNull VaultWatch vaultWatch);
+    @NotNull CompletableFuture<Long> watch(@NotNull VaultWatch vaultWatch);
 
     /**
      * Cancels subscription for the given identifier.
@@ -72,22 +71,13 @@ public interface VaultService {
      * @param id Subscription identifier.
      * @return Completed future in case of operation success. Couldn't be {@code null}.
      */
-    @NotNull
-    CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id);
+    @NotNull CompletableFuture<Void> stopWatch(@NotNull Long id);
 
     /**
-     * Inserts or updates entries with given keys and given values and non-negative revision.
+     * Inserts or updates entries with given keys and given values.
      *
      * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
-     * @param revision Revision for entries. Couldn't be negative.
      * @return Completed future.
      */
-    @NotNull
-    CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals, long revision);
-
-    /**
-     * @return Applied revision for {@link VaultService#putAll} operation.
-     */
-    @NotNull
-    CompletableFuture<Long> appliedRevision();
+    @NotNull CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals);
 }

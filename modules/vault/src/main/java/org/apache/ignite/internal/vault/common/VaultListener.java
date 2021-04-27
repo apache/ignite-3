@@ -17,14 +17,27 @@
 
 package org.apache.ignite.internal.vault.common;
 
+import org.jetbrains.annotations.NotNull;
+
 /**
  * Vault storage listener for changes.
  */
-@FunctionalInterface
+//TODO: need to generify with metastorage WatchListener https://issues.apache.org/jira/browse/IGNITE-14653
 public interface VaultListener {
     /**
-     * Method called when entries in storage change.
-     * @param changedEntry Changed value
+     * The method will be called on each vault update.
+     *
+     * @param entries A single entry or a batch.
+     * @return {@code True} if listener must continue event handling. If returns {@code false} then the listener and
+     * corresponding watch will be unregistered.
      */
-    void onEntryChanged(VaultEntry changedEntry);
+    boolean onUpdate(@NotNull Iterable<Entry> entries);
+
+    /**
+     * The method will be called in case of an error occurred. The listener and corresponding watch will be
+     * unregistered.
+     *
+     * @param e Exception.
+     */
+    void onError(@NotNull Throwable e);
 }

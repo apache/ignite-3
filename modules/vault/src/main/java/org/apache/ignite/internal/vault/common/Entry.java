@@ -28,18 +28,49 @@ import org.jetbrains.annotations.Nullable;
  *     <li>value - a data which is associated with a key and represented as an array of bytes.</ul>
  * </ul>
  */
-public interface Entry {
+// TODO: need to generify with metastorage Entry https://issues.apache.org/jira/browse/IGNITE-14653
+public final class Entry {
+    /** Key. */
+    private final ByteArray key;
+
+    /** Value. */
+    private final byte[] val;
+
+    /**
+     * Constructs {@code VaultEntry} instance from the given key and value.
+     *
+     * @param key Key as a {@code ByteArray}. Couldn't be null.
+     * @param val Value as a {@code byte[]}.
+     */
+    public Entry(@NotNull ByteArray key, byte[] val) {
+        this.key = key;
+        this.val = val;
+    }
+
     /**
      * Returns a {@code ByteArray}.
      *
      * @return The {@code ByteArray}.
      */
-    @NotNull ByteArray key();
+    @NotNull public ByteArray key() {
+        return key;
+    }
 
     /**
      * Returns a value. Could be {@code null} for empty entry.
      *
      * @return Value.
      */
-    @Nullable byte[] value();
+    @Nullable public byte[] value() {
+        return val;
+    }
+
+    /**
+     * Returns value which denotes whether entry is empty or not.
+     *
+     * @return {@code True} if entry is empty, otherwise - {@code false}.
+     */
+    public boolean empty() {
+        return val == null;
+    }
 }

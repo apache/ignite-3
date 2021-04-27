@@ -40,9 +40,11 @@ public final class ByteArray implements Comparable<ByteArray> {
     }
 
     /**
-     * Constructs {@code ByteArray} instance from the given string.
+     * Constructs {@code ByteArray} instance from the given string. {@link StandardCharsets#UTF_8} charset is used for
+     * encoding the input string.
      *
      * @param s The string {@code ByteArray} representation. Can't be {@code null}.
+     * @return {@code ByteArray} instance from the given string.
      */
     public static ByteArray fromString(@NotNull String s) {
         return new ByteArray(s.getBytes(StandardCharsets.UTF_8));
@@ -79,15 +81,21 @@ public final class ByteArray implements Comparable<ByteArray> {
     }
 
     /**
-     * Compares two {@code ByteArray} values.
-     * The value returned is identical to what would be returned by:
+     * Compares two {@code ByteArray} values. The value returned is identical to what would be returned by:
      * <pre>
      *    x.compareTo(y)
      * </pre>
-     *
+     * <p>
      * where x and y are {@code ByteArray}'s
+     *
+     * @param x The first {@code ByteArray} to compare.
+     * @param y The second {@code ByteArray} to compare.
+     * @return the value {@code 0} if the first and second {@code ByteArray} are equal and contain the same elements in
+     * the same order; a value less than {@code 0} if the first {@code ByteArray} is lexicographically less than the
+     * second {@code ByteArray}; and a value greater than {@code 0} if the first {@code ByteArray} is lexicographically
+     * greater than the second {@code ByteArray}
      */
-    public static int compare(ByteArray x, ByteArray y) {
+    public static int compare(@NotNull ByteArray x, @NotNull ByteArray y) {
         return Arrays.compare(x.arr, y.arr);
     }
 

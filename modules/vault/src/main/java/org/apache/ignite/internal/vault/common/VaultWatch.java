@@ -17,69 +17,69 @@
 
 package org.apache.ignite.internal.vault.common;
 
+import java.util.Collections;
 import java.util.Comparator;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Watch for vault entries.
  * Could be specified by range of keys.
  * If value of key in range is changed, then corresponding listener will be triggered.
  */
-public class VaultWatch {
+public final class VaultWatch {
     /** Comparator for {@code ByteArray} values. */
     private static final Comparator<ByteArray> CMP = ByteArray::compare;
 
-    /** Start key of range (inclusive) */
-    @Nullable
-    private ByteArray startKey;
+    /**
+     * Start key of range (inclusive).
+     * If value of key in range is changed, then corresponding listener will be triggered.
+     */
+    private final ByteArray startKey;
 
-    /** End key of range (inclusive) */
-    @Nullable
-    private ByteArray endKey;
+    /**
+     * End key of range (exclusive).
+     * If value of key in range is changed, then corresponding listener will be triggered.
+     */
+    private final ByteArray endKey;
 
     /** Listener for vault's values updates. */
     private VaultListener listener;
 
     /**
+     * @param startKey Start key of range (inclusive).
+     * @param endkey End key of range (exclusive).
      * @param listener Listener.
      */
-    public VaultWatch(VaultListener listener) {
-        this.listener = listener;
-    }
-
-    /**
-     * Start key of range (inclusive).
-     * If value of key in range is changed, then corresponding listener will be triggered.
-     *
-     * @param startKey Start key represented as {@code ByteArray}.
-     */
-    public void startKey(ByteArray startKey) {
+    public VaultWatch(ByteArray startKey, ByteArray endkey, VaultListener listener) {
         this.startKey = startKey;
-    }
-
-    /**
-     * Start key of range (inclusive).
-     * If value of key in range is changed, then corresponding listener will be triggered.
-     *
-     * @param endKey End key represented as {@code ByteArray}.
-     */
-    public void endKey(ByteArray endKey) {
-        this.endKey = endKey;
+        this.endKey = endkey;
+        this.listener = listener;
     }
 
     /**
      * Notifies specified listener if {@code val} of key in range was changed.
      *
      * @param val Vault entry.
+     * @return {@code True} if watch must continue event handling according to corresponding listener logic. If returns
+     * {@code false} then the listener and corresponding watch will be unregistered.
      */
-    public void notify(VaultEntry val) {
+    public boolean notify(Entry val) {
         if (startKey != null && CMP.compare(val.key(), startKey) < 0)
-            return;
+            return true;
 
-        if (endKey != null && CMP.compare(val.key(), endKey) > 0)
-            return;
+        if (endKey != null && CMP.compare(val.key(), endKey) >= 0)
+            return true;
 
-        listener.onEntryChanged(val);
+        return listener.onUpdate(Collections.singleton(val));
+    }
+
+    /**
+     * The method will be called in case of an error occurred. The watch and corresponding listener will be
+     * unregistered.
+     *
+     * @param e Exception.
+     */
+    public void onError(Throwable e) {
+        listener.onError(e);
     }
 }

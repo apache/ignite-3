@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.vault.common;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -31,21 +30,21 @@ public interface Watcher {
      * Registers watch for vault entries updates.
      *
      * @param vaultWatch Vault watch.
-     * @return UUID of registered watch.
+     * @return Id of registered watch.
      */
-    CompletableFuture<IgniteUuid> register(@NotNull VaultWatch vaultWatch);
+    CompletableFuture<Long> register(@NotNull VaultWatch vaultWatch);
 
     /**
      * Notifies watcher that vault entry {@code val} was changed.
      *
      * @param val Vault entry.
      */
-    void notify(@NotNull VaultEntry val);
+    void notify(@NotNull Entry val);
 
     /**
-     * Cancels watch with specified {@code uuid}.
+     * Cancels watch with specified {@code id}.
      *
-     * @param uuid Uuid of watch.
+     * @param id Id of watch.
      */
-    void cancel(@NotNull IgniteUuid uuid);
+    void cancel(@NotNull Long id);
 }
