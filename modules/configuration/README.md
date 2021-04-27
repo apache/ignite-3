@@ -1,4 +1,6 @@
 # Configuration
+
+## Concepts
 This modules provides API classes and implementation for Ignite configuration framework. The idea is to have so called
 _Unified configuration_ - a common way of configuring both local Ignite node and Ignite clusters. Original concept can
 be seen in [IEP-55](https://cwiki.apache.org/confluence/display/IGNITE/IEP-55+Unified+Configuration).
@@ -56,3 +58,80 @@ Another important concept is a `RootKey`. It represents type-safe object that ho
 this interface are generated automatically and are mandatory for registering roots in the framework.
 
 `ConfigurationRegistry` is like a public facade of the module, you should use it as an entry point.
+
+## Generated API
+Imagine that you have schema from the example above. Then you'll have following interfaces generated:
+
+These are main interfaces to manage your configuration:
+```
+public interface ParentConfiguration extends ConfigurationTree<ParentView, ParentChange> {
+    RootKey<ParentConfiguration, ParentView> KEY = ...;
+
+    NamedConfigurationTree<NamedElementConfiguration, NamedElementView, NamedElementChange> elements();
+            
+    ChildConfiguration child();
+
+    ParentView value();
+
+    Future<Void> change(Consumer<ParentChange> change);
+}
+
+public interface ChildConfiguration extends ConfigurationTree<ChildView, ChildChange> {
+    ConfigurationValue<String> str();
+
+    ChildView value();
+
+    Future<Void> change(Consumer<ChildChange> change);
+}
+...
+```
+* they have methods to access their child nodes;
+* they have methods to tak a configuration _snapshot_ - immutable "view" object;
+* they have methods to update configuration values in every individual node;
+* root interface has generated `RootKey` constant.
+
+View interfaces look like this. All they have are getters for all declared properties.
+```
+public interface ParentView {
+    NamedListView<? extends NamedElementView> elements();
+
+    ChildView child();
+}
+
+public interface ChildView {
+    String str();
+}
+...
+```
+
+Change interfaces look like this:
+```
+public interface ParentChange {
+    ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
+
+    ParentChange changeChild(Consumer<ChildChange> child);
+}
+
+public interface ChildChange {
+    ChildChange changeStr(String str);
+}
+...
+```
+I think it's easier to demonstrate using this small example. Any subtree of any tree can be updated in a single
+_transaction_:
+```
+ParentConfiguration parentCfg = ...;
+
+parentConfiguration.change(parent ->
+    parent.changeChild(child ->
+        child.changeStr("newStr1")
+    )
+).get();
+
+ChildConfiguration childCfg = parentCfg.child();
+
+childCfg.changeStr("newStr2").get();
+```
+Every `change` object is basically a change request that's going to be processed asyncronously and transactionally.
+It's important to note that there's a technical possibility to execute several change requests for different roots in a
+single transaction, but all these roots _must have the same storage type_.
