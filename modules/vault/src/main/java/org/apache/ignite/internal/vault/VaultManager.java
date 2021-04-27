@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.vault;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -87,7 +88,11 @@ public class VaultManager {
     }
 
     /**
-     * See {@link VaultService#putAll}
+     * Inserts or updates entries with given keys and given values and non-negative revision.
+     *
+     * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
+     * @param revision Revision for entries. Couldn't be negative.
+     * @return Completed future.
      */
     public CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals, long revision) throws IgniteInternalCheckedException {
         synchronized (mux) {
@@ -105,19 +110,17 @@ public class VaultManager {
             if (revision < appliedRevision)
                 throw new IgniteInternalCheckedException("Inconsistency between applied revision from vault and the current revision");
 
-            CompletableFuture[] futs = new CompletableFuture[2];
+            HashMap<ByteArray, byte[]> mergedMap = new HashMap<>(vals);
 
-            futs[0] = vaultService.putAll(vals);
+            mergedMap.put(APPLIED_REV, ByteUtils.longToBytes(revision));
 
-            futs[1] = vaultService.put(APPLIED_REV, ByteUtils.longToBytes(revision));
-
-            return CompletableFuture.allOf(futs);
+            return vaultService.putAll(mergedMap);
         }
 
     }
 
     /**
-     * @return Applied revision for {@link VaultService#putAll} operation.
+     * @return Applied revision for {@link VaultManager#putAll} operation.
      */
     @NotNull public Long appliedRevision() throws IgniteInternalCheckedException {
         byte[] appliedRevision;

@@ -84,9 +84,7 @@ public class IgnitionImpl implements Ignition {
         ackBanner();
 
         // Vault Component startup.
-        VaultService vaultSvc = new VaultServiceImpl();
-
-        VaultManager vaultMgr = new VaultManager(vaultSvc);
+        VaultManager vaultMgr = new VaultManager(new VaultServiceImpl());
 
         boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
 
