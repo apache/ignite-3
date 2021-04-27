@@ -44,7 +44,10 @@ public class VaultManager {
     /** Instance of vault */
     private VaultService vaultService;
 
-    /** Default constructor. */
+    /** Default constructor.
+     *
+     * @param vaultService Instance of vault.
+     */
     public VaultManager(VaultService vaultService) {
         this.vaultService = vaultService;
     }
@@ -61,29 +64,43 @@ public class VaultManager {
 
     /**
      * See {@link VaultService#get(ByteArray)}
+     *
+     * @param key Key. Couldn't be {@code null}.
+     * @return An entry for the given key. Couldn't be {@code null}.
      */
-    public CompletableFuture<Entry> get(ByteArray key) {
+    @NotNull public CompletableFuture<Entry> get(@NotNull ByteArray key) {
         return vaultService.get(key);
     }
 
     /**
      * See {@link VaultService#put(ByteArray, byte[])}
+     *
+     * @param key Vault key. Couldn't be {@code null}.
+     * @param val Value. Couldn't be {@code null}.
+     * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<Void> put(ByteArray key, byte[] val) {
+    @NotNull public CompletableFuture<Void> put(@NotNull ByteArray key, @NotNull byte[] val) {
         return vaultService.put(key, val);
     }
 
     /**
      * See {@link VaultService#remove(ByteArray)}
+     *
+     * @param key Vault key. Couldn't be {@code null}.
+     * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<Void> remove(ByteArray key) {
+    @NotNull public CompletableFuture<Void> remove(@NotNull ByteArray key) {
         return vaultService.remove(key);
     }
 
     /**
      * See {@link VaultService#range(ByteArray, ByteArray)}
+     *
+     * @param fromKey Start key of range (inclusive). Couldn't be {@code null}.
+     * @param toKey End key of range (exclusive). Could be {@code null}.
+     * @return Iterator built upon entries corresponding to the given range.
      */
-    public Iterator<Entry> range(ByteArray fromKey, ByteArray toKey) {
+    @NotNull public Iterator<Entry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey) {
         return vaultService.range(fromKey, toKey);
     }
 
@@ -91,8 +108,10 @@ public class VaultManager {
      * Inserts or updates entries with given keys and given values and non-negative revision.
      *
      * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
-     * @param revision Revision for entries. Couldn't be negative.
-     * @return Completed future.
+     * @param revision Revision for entries. Must be positive.
+     * @return Future representing pending completion of the operation.
+     * @throws IgniteInternalCheckedException If revision is inconsistent with applied revision from vault or
+     * if couldn't get applied revision from vault.
      */
     public CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals, long revision) throws IgniteInternalCheckedException {
         synchronized (mux) {
@@ -121,6 +140,7 @@ public class VaultManager {
 
     /**
      * @return Applied revision for {@link VaultManager#putAll} operation.
+     * @throws IgniteInternalCheckedException If couldn't get applied revision from vault.
      */
     @NotNull public Long appliedRevision() throws IgniteInternalCheckedException {
         byte[] appliedRevision;

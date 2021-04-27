@@ -31,31 +31,38 @@ import org.jetbrains.annotations.NotNull;
 // TODO: need to generify with MetastorageService https://issues.apache.org/jira/browse/IGNITE-14653
 public interface VaultService {
     /**
-     * Read key from vault storage or {@code null} if this storage contains no mapping for the key.
+     * Retrieves an entry for the given key.
      *
-     * @param key Key.
+     * @param key Key. Couldn't be {@code null}.
+     * @return An entry for the given key. Couldn't be {@code null}.
      */
-    CompletableFuture<Entry> get(ByteArray key);
+    @NotNull CompletableFuture<Entry> get(@NotNull ByteArray key);
 
     /**
      * Write value with key to vault.
      *
-     * @param key Vault key.
-     * @param val Value.
+     * @param key Vault key. Couldn't be {@code null}.
+     * @param val Value. Couldn't be {@code null}.
+     * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> put(ByteArray key, byte[] val);
+    @NotNull CompletableFuture<Void> put(@NotNull ByteArray key, @NotNull byte[] val);
 
     /**
      * Remove value with key from vault.
      *
-     * @param key Vault key.
+     * @param key Vault key. Couldn't be {@code null}.
+     * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> remove(ByteArray key);
+    @NotNull CompletableFuture<Void> remove(@NotNull ByteArray key);
 
     /**
      * Returns a view of the portion of vault whose keys range from fromKey, inclusive, to toKey, exclusive.
+     *
+     * @param fromKey Start key of range (inclusive). Couldn't be {@code null}.
+     * @param toKey End key of range (exclusive). Could be {@code null}.
+     * @return Iterator built upon entries corresponding to the given range.
      */
-    Iterator<Entry> range(ByteArray fromKey, ByteArray toKey);
+    @NotNull Iterator<Entry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey);
 
     /**
      * Subscribes on vault storage updates for the given key.

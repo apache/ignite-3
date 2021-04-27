@@ -48,14 +48,14 @@ public class VaultServiceImpl implements VaultService {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Entry> get(ByteArray key) {
+    @Override @NotNull public CompletableFuture<Entry> get(@NotNull ByteArray key) {
         synchronized (mux) {
             return CompletableFuture.completedFuture(new Entry(key, storage.get(key)));
         }
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> put(ByteArray key, byte[] val) {
+    @Override @NotNull public CompletableFuture<Void> put(@NotNull ByteArray key, @NotNull byte[] val) {
         synchronized (mux) {
             storage.put(key, val);
 
@@ -66,7 +66,7 @@ public class VaultServiceImpl implements VaultService {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> remove(ByteArray key) {
+    @Override @NotNull public CompletableFuture<Void> remove(@NotNull ByteArray key) {
         synchronized (mux) {
             storage.remove(key);
 
@@ -76,7 +76,7 @@ public class VaultServiceImpl implements VaultService {
 
     /** {@inheritDoc} */
     //TODO: use Cursor instead of Iterator https://issues.apache.org/jira/browse/IGNITE-14654
-    @Override public Iterator<Entry> range(ByteArray fromKey, ByteArray toKey) {
+    @Override @NotNull public Iterator<Entry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey) {
         synchronized (mux) {
             ArrayList<Entry> res = new ArrayList<>();
 
