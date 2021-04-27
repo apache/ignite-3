@@ -2353,8 +2353,7 @@ public class NodeTest {
         nodeOptions.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
-        final Node node = new NodeImpl("unittest", new PeerId(addr, 0));
-        assertTrue(node.init(nodeOptions));
+        final Node node = createService("unittest", new PeerId(addr, 0), nodeOptions).start();
         // wait node elect self as leader
 
         Thread.sleep(2000);
@@ -2386,8 +2385,7 @@ public class NodeTest {
         nodeOptions.setSnapshotIntervalSecs(10);
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
-        final Node node = new NodeImpl("unittest", new PeerId(addr, 0));
-        assertTrue(node.init(nodeOptions));
+        final Node node = createService("unittest", new PeerId(addr, 0), nodeOptions).start();
         // wait node elect self as leader
         Thread.sleep(2000);
 
