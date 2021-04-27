@@ -17,10 +17,19 @@
 
 package org.apache.ignite.internal.util;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import org.apache.ignite.lang.IgniteLogger;
+
 /**
  * Utility class provides various method for manipulating with bytes.
  */
 public class ByteUtils {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ByteUtils.class);
+
     /**
      * Constructs {@code long} from byte array.
      *
@@ -78,5 +87,48 @@ public class ByteUtils {
         }
 
         return bytes;
+    }
+
+    /**
+     * Serializes an object to byte array using native java serialization mechanism.
+     *
+     * @param obj Object to serialize.
+     * @return Byte array.
+     */
+    public static byte[] toBytes(Object obj) {
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            try (ObjectOutputStream out = new ObjectOutputStream(bos)) {
+
+                out.writeObject(obj);
+
+                out.flush();
+
+                return bos.toByteArray();
+            }
+        }
+        catch (Exception e) {
+            LOG.warn("Could not serialize a class [cls=" + obj.getClass().getName() + "]", e);
+
+            return null;
+        }
+    }
+
+    /**
+     * Deserializes an object from byte array using native java serialization mechanism.
+     *
+     * @param bytes Byte array.
+     * @return Object.
+     */
+    public static Object fromBytes(byte[] bytes) {
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(bytes)) {
+            try (ObjectInputStream in = new ObjectInputStream(bis)) {
+                return in.readObject();
+            }
+        }
+        catch (Exception e) {
+            LOG.warn("Could not deserialize an object", e);
+
+            return null;
+        }
     }
 }

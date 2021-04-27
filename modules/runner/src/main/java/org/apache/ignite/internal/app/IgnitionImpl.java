@@ -44,7 +44,7 @@ import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
-import org.apache.ignite.internal.vault.service.VaultService;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
