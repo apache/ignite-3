@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
@@ -132,7 +133,7 @@ public class NodeImpl implements Node, RaftServerService {
     private static final int MAX_APPLY_RETRY_TIMES = 3;
 
     // TODO asch remove.
-    public static final AtomicInteger GLOBAL_NUM_NODES = new AtomicInteger(0);
+    // public static final AtomicInteger GLOBAL_NUM_NODES = new AtomicInteger(0);
 
     /**
      * Internal states
@@ -295,8 +296,8 @@ public class NodeImpl implements Node, RaftServerService {
                     executeApplyingTasks(this.tasks);
                     this.tasks.clear();
                 }
-                final int num = GLOBAL_NUM_NODES.decrementAndGet();
-                LOG.info("The number of active nodes decrement to {}.", num);
+//                final int num = GLOBAL_NUM_NODES.decrementAndGet(); // TODO asch
+//                LOG.info("The number of active nodes decrement to {}.", num);
                 event.shutdownLatch.countDown();
                 return;
             }
@@ -539,8 +540,8 @@ public class NodeImpl implements Node, RaftServerService {
         updateLastLeaderTimestamp(Utils.monotonicMs());
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
-        final int num = GLOBAL_NUM_NODES.incrementAndGet();
-        LOG.info("The number of active nodes increment to {}.", num);
+//        final int num = GLOBAL_NUM_NODES.incrementAndGet(); // TODO asch
+//        LOG.info("The number of active nodes increment to {}.", num);
     }
 
     private boolean initSnapshotStorage() {
@@ -2748,12 +2749,14 @@ public class NodeImpl implements Node, RaftServerService {
                 if (this.applyQueue != null) {
                     final CountDownLatch latch = new CountDownLatch(1);
                     this.shutdownLatch = latch;
+
                     Utils.runInThread(
                         () -> this.applyQueue.publishEvent((event, sequence) -> event.shutdownLatch = latch));
-                } else {
-                    final int num = GLOBAL_NUM_NODES.decrementAndGet();
-                    LOG.info("The number of active nodes decrement to {}.", num);
                 }
+//                else { // TODO asch
+//                    final int num = GLOBAL_NUM_NODES.decrementAndGet();
+//                    LOG.info("The number of active nodes decrement to {}.", num);
+//                }
                 if (this.timerManager != null) {
                     this.timerManager.shutdown();
                 }

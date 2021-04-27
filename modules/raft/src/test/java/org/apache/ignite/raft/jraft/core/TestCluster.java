@@ -333,7 +333,7 @@ public class TestCluster {
             this.serverMap.remove(addr.toString()).shutdown();
         }
         for (final Node node : nodes) {
-            node.join();
+            node.join(); // TODO asch fixme
         }
         CLUSTERS.remove(this);
     }

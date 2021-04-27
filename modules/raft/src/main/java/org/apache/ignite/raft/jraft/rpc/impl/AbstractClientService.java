@@ -81,6 +81,7 @@ public abstract class AbstractClientService implements ClientService {
     protected boolean initRpcClient(final int rpcProcessorThreadPoolSize) {
         this.rpcClient = rpcOptions.getRpcClient();
         configRpcClient(this.rpcClient);
+        // TODO asch should the client be created lazily. A client doesn't make sence without a server.
         this.rpcClient.init(null);
         this.rpcExecutor = ThreadPoolUtil.newBuilder() //
             .poolName("JRaft-RPC-Processor") //
