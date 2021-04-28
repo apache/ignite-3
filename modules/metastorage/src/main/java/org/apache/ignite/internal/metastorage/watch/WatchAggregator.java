@@ -142,7 +142,7 @@ public class WatchAggregator {
      *
      * @return aggregated criterion.
      */
-    // TODO: We can do it better than infer range always
+    // TODO: IGNITE-14667 We can do it better than infer range always
     private KeyCriterion inferGeneralCriteria() {
         return new KeyCriterion.RangeCriterion(
             watches.values().stream().map(w -> w.keyCriterion().toRange().getKey()).min(Key::compareTo).get(),
