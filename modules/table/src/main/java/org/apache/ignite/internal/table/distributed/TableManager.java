@@ -19,13 +19,15 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
@@ -33,6 +35,8 @@ import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.manager.TableEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -41,7 +45,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableSchemaView;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -60,7 +63,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Table manager.
  */
-public class TableManager implements IgniteTables {
+public class TableManager extends Producer<TableEvent> implements IgniteTables {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
@@ -77,14 +80,8 @@ public class TableManager implements IgniteTables {
     private CompletableFuture<Long> tableCreationSubscriptionFut;
 
     /** Tables. */
-    private Map<String, Table> tables;
+    private Map<String, Table> tables = new HashMap<>();
 
-    /**
-     * @param configurationMgr Configuration manager.
-     * @param metaStorageMgr Meta storage manager.
-     * @param schemaManager Schema manager.
-     * @param raftMgr Raft manager.
-     */
     public TableManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
@@ -92,8 +89,6 @@ public class TableManager implements IgniteTables {
         Loza raftMgr,
         VaultManager vaultManager
     ) {
-        tables = new HashMap<>();
-
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
 
@@ -123,52 +118,57 @@ public class TableManager implements IgniteTables {
         tableCreationSubscriptionFut = metaStorageMgr.registerWatchByPrefix(new Key(tableInternalPrefix), new WatchListener() {
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                 for (WatchEvent evt : events) {
-                    if (!ArrayUtils.empty(evt.newEntry().value())) {
-                        String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
+                    String placeholderValue = evt.newEntry().key().toString().substring(tableInternalPrefix.length() - 1);
 
-                        String placeholderValue = keyTail.substring(0, keyTail.indexOf('.'));
+                    String name = new String(vaultManager.get(ByteArray.fromString(INTERNAL_PREFIX + placeholderValue))
+                        .join().value(), StandardCharsets.UTF_8);
+
+                    if (evt.newEntry().value() == null) {
+                        assert evt.oldEntry().value() != null : "Previous assignment is unknown";
+
+                        List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
+                            evt.oldEntry().value());
+
+                        int partitions = assignment.size();
+
+                        for (int p = 0; p < partitions; p++)
+                            raftMgr.stopRaftGroup(raftGroupName(name, p), assignment.get(p));
+
+                        onEvent(TableEvent.DROP, List.of(name), null);
+                    }
+                    else if (evt.newEntry().value().length > 0) {
+                        List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
+                            evt.newEntry().value());
+
+                        int partitions = assignment.size();
+
+                        HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
+
+                        for (int p = 0; p < partitions; p++) {
+                            partitionMap.put(p, raftMgr.startRaftGroup(
+                                raftGroupName(name, p),
+                                assignment.get(p),
+                                new PartitionCommandListener()
+                            ));
+                        }
 
                         UUID tblId = UUID.fromString(placeholderValue);
 
-                        try {
-                            String name = new String(vaultManager.get(ByteArray.fromString(INTERNAL_PREFIX + tblId.toString())).get().value(), StandardCharsets.UTF_8);
-
-                            int partitions = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
-                                .tables().get(name).partitions().value();
-
-                            List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
-                                evt.newEntry().value());
-
-                            HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
-
-                            for (int p = 0; p < partitions; p++) {
-                                partitionMap.put(p, raftMgr.startRaftGroup(
-                                    name + "_part_" + p,
-                                    assignment.get(p),
-                                    new PartitionCommandListener()
-                                ));
+                        Table table = new TableImpl(new InternalTableImpl(
+                            tblId,
+                            partitionMap,
+                            partitions
+                        ), new TableSchemaView() {
+                            @Override public SchemaDescriptor schema() {
+                                return schemaManager.schema(tblId);
                             }
 
-                            tables.put(name, new TableImpl(
-                                new InternalTableImpl(
-                                    tblId,
-                                    partitionMap,
-                                    partitions
-                                ),
-                                new TableSchemaView() {
-                                    @Override public SchemaDescriptor schema() {
-                                        return schemaManager.schema(tblId);
-                                    }
+                            @Override public SchemaDescriptor schema(int ver) {
+                                return schemaManager.schema(tblId, ver);
+                            }
+                        });
 
-                                    @Override public SchemaDescriptor schema(int ver) {
-                                        return schemaManager.schema(tblId, ver);
-                                    }
-                                }));
-                        }
-                        catch (InterruptedException | ExecutionException e) {
-                            LOG.error("Failed to start table [key={}]",
-                                evt.newEntry().key(), e);
-                        }
+                        onEvent(TableEvent.CREATE, List.of(name, table), null);
                     }
                 }
 
@@ -179,6 +179,17 @@ public class TableManager implements IgniteTables {
                 LOG.error("Metastorage listener issue", e);
             }
         });
+    }
+
+    /**
+     * Compuuses a RAFT group unique name.
+     *
+     * @param tableName Name of the table.
+     * @param partition Muber of table partition.
+     * @return A RAFT group name.
+     */
+    @NotNull private String raftGroupName(String tableName, int partition) {
+        return tableName + "_part_" + partition;
     }
 
     /**
@@ -208,39 +219,52 @@ public class TableManager implements IgniteTables {
         //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
         configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
             .tables().listen(ctx -> {
-            HashSet<String> tblNamesToStart = new HashSet<>(ctx.newValue().namedListKeys());
+            Set<String> tablesToStart = ctx.newValue().namedListKeys() == null ?
+                Collections.EMPTY_SET : ctx.newValue().namedListKeys();
+
+            tablesToStart.removeAll(ctx.oldValue().namedListKeys());
 
             long revision = ctx.storageRevision();
 
-            if (ctx.oldValue() != null)
-                tblNamesToStart.removeAll(ctx.oldValue().namedListKeys());
+            List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
-            for (String tblName : tblNamesToStart) {
+            for (String tblName : tablesToStart) {
                 TableView tableView = ctx.newValue().get(tblName);
                 long update = 0;
 
                 UUID tblId = new UUID(revision, update);
 
-                CompletableFuture<Boolean> fut = metaStorageMgr.invoke(
+                futs.add(metaStorageMgr.invoke(
                     new Key(INTERNAL_PREFIX + tblId.toString()),
                     Conditions.value().eq(null),
                     Operations.put(tableView.name().getBytes(StandardCharsets.UTF_8)),
-                    Operations.noop());
-
-                try {
-                    if (fut.get()) {
-                        metaStorageMgr.put(new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()), new byte[0]);
-
-                        LOG.info("Table manager created a table [name={}, revision={}]",
-                            tableView.name(), revision);
-                    }
-                }
-                catch (InterruptedException | ExecutionException e) {
-                    LOG.error("Table was not fully initialized [name={}, revision={}]",
-                        tableView.name(), revision, e);
-                }
+                    Operations.noop()).thenCompose(res ->
+                    res ? metaStorageMgr.put(new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()), new byte[0])
+                        .thenApply(v -> true)
+                        : CompletableFuture.completedFuture(false)));
             }
-            return CompletableFuture.completedFuture(null);
+
+            Set<String> tablesToStop = ctx.oldValue().namedListKeys() == null ?
+                Collections.EMPTY_SET : ctx.oldValue().namedListKeys();
+
+            tablesToStop.removeAll(ctx.newValue().namedListKeys());
+
+            for (String tblName : tablesToStop) {
+                TableImpl t = (TableImpl)tables.get(tblName);
+
+                UUID tblId = t.tableId();
+
+                futs.add(metaStorageMgr.invoke(
+                    new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()),
+                    Conditions.value().ne(null),
+                    Operations.remove(),
+                    Operations.noop()).thenCompose(res ->
+                    res ? metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tblId.toString()))
+                        .thenApply(v -> true)
+                        : CompletableFuture.completedFuture(false)));
+            }
+
+            return CompletableFuture.allOf(futs.toArray(new CompletableFuture[0]));
         });
     }
 
@@ -265,6 +289,27 @@ public class TableManager implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
+        CompletableFuture<Table> tblFut = new CompletableFuture<>();
+
+        listen(TableEvent.CREATE, (params, e) -> {
+            String tableName = (String)params.get(0);
+
+            if (!name.equals(tableName))
+                return false;
+
+            if (e == null) {
+                Table table = (Table)params.get(1);
+
+                tables.put(tableName, table);
+
+                tblFut.complete(table);
+            }
+            else
+                tblFut.completeExceptionally(e);
+
+            return true;
+        });
+
         configurationMgr.configurationRegistry()
             .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
             change.create(name, tableInitChange));
@@ -275,21 +320,40 @@ public class TableManager implements IgniteTables {
 //            change.initPartitions(1_000);
 //        });
 
-        //TODO: IGNITE-14646 Support asynchronous table creation
-        Table tbl = null;
+        return tblFut.join();
+    }
 
-        while (tbl == null) {
-            try {
-                Thread.sleep(50);
+    /** {@inheritDoc} */
+    @Override public void dropTable(String name) {
+        CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-                tbl = table(name);
+        listen(TableEvent.DROP, new BiPredicate<List<Object>, Exception>() {
+            @Override public boolean test(List<Object> params, Exception e) {
+                String tableName = (String)params.get(0);
+
+                if (!name.equals(tableName))
+                    return false;
+
+                if (e == null) {
+                    Table drppedTable = tables.remove(tableName);
+
+                    assert drppedTable != null;
+
+                    dropTblFut.complete(null);
+                }
+                else
+                    dropTblFut.completeExceptionally(e);
+
+                return true;
             }
-            catch (InterruptedException e) {
-                LOG.error("Waiting of creation of table was interrupted.", e);
-            }
-        }
+        });
 
-        return tbl;
+        configurationMgr.configurationRegistry()
+            .getConfiguration(TablesConfiguration.KEY).tables().change(change -> {
+            change.delete(name);
+        });
+
+        dropTblFut.join();
     }
 
     /** {@inheritDoc} */

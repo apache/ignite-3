@@ -86,4 +86,18 @@ public class Loza {
             DELAY
         );
     }
+
+    /**
+     * Stops a RAFT group.
+     *
+     * @param groupId RAFT group id.
+     * @param peers Group peers.
+     */
+    public void stopRaftGroup(String groupId, List<ClusterNode> peers) {
+        assert peers.size() > 1;
+
+        //Now we are using only one node in a raft group.
+        if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
+            raftServer.clearListener(groupId);
+    }
 }
