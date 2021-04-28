@@ -336,7 +336,7 @@ import org.jetbrains.annotations.Nullable;
      * @return Ignite UUID of new consolidated watch.
      */
     private CompletableFuture<Optional<IgniteUuid>> updateWatches() {
-        Long revision = null;
+        Long revision;
         try {
             revision = vaultMgr.appliedRevision();
         }
