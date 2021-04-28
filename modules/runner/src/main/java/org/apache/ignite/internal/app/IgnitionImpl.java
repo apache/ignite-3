@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
@@ -185,8 +186,7 @@ public class IgnitionImpl implements Ignition {
         // TODO IGNITE-14579 Start rest manager.
 
         // Deploy all resisted watches cause all components are ready and have registered their listeners.
-        // TODO Uncomment when metastorage service will be implemented.
-//        metaStorageMgr.deployWatches();
+        metaStorageMgr.deployWatches();
 
         ackSuccessStart();
 
@@ -284,17 +284,17 @@ public class IgnitionImpl implements Ignition {
 
             @Override public @NotNull CompletableFuture<IgniteUuid> watch(@Nullable Key keyFrom, @Nullable Key keyTo,
                 long revision, @NotNull WatchListener lsnr) {
-                throw new UnsupportedOperationException("Metastorage service is not implemented yet");
+                return CompletableFuture.completedFuture(new IgniteUuid(UUID.randomUUID(), 0L));
             }
 
             @Override public @NotNull CompletableFuture<IgniteUuid> watch(@NotNull Key key, long revision,
                 @NotNull WatchListener lsnr) {
-                throw new UnsupportedOperationException("Metastorage service is not implemented yet");
+                return CompletableFuture.completedFuture(new IgniteUuid(UUID.randomUUID(), 0L));
             }
 
             @Override public @NotNull CompletableFuture<IgniteUuid> watch(@NotNull Collection<Key> keys, long revision,
                 @NotNull WatchListener lsnr) {
-                throw new UnsupportedOperationException("Metastorage service is not implemented yet");
+                return CompletableFuture.completedFuture(new IgniteUuid(UUID.randomUUID(), 0L));
             }
 
             @Override public @NotNull CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id) {
