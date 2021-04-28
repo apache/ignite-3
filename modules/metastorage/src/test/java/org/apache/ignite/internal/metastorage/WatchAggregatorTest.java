@@ -51,7 +51,7 @@ public class WatchAggregatorTest {
         var watchEvent2 = new WatchEvent(
             entry("2", "value2", 1),
             entry("2", "value2n", 1));
-        watchAggregator.watch(1, (v1, v2) -> {}).get().lsnr().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
+        watchAggregator.watch(1, (v1, v2) -> {}).get().listener().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
 
         verify(lsnr1).onUpdate(Collections.singletonList(watchEvent1));
         verify(lsnr2).onUpdate(Collections.singletonList(watchEvent2));
@@ -73,13 +73,13 @@ public class WatchAggregatorTest {
         var watchEvent2 = new WatchEvent(
             entry("2", "value2", 1),
             entry("2", "value2n", 1));
-        watchAggregator.watch(1, (v1, v2) -> {}).get().lsnr().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
+        watchAggregator.watch(1, (v1, v2) -> {}).get().listener().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
 
         verify(lsnr1, times(1)).onUpdate(any());
         verify(lsnr2, times(1)).onUpdate(any());
 
         watchAggregator.cancel(id1);
-        watchAggregator.watch(1, (v1, v2) -> {}).get().lsnr().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
+        watchAggregator.watch(1, (v1, v2) -> {}).get().listener().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
 
         verify(lsnr1, times(1)).onUpdate(any());
         verify(lsnr2, times(2)).onUpdate(any());
@@ -101,12 +101,12 @@ public class WatchAggregatorTest {
         var watchEvent2 = new WatchEvent(
             entry("2", "value2", 1),
             entry("2", "value2n", 1));
-        watchAggregator.watch(1, (v1, v2) -> {}).get().lsnr().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
+        watchAggregator.watch(1, (v1, v2) -> {}).get().listener().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
 
         verify(lsnr1, times(1)).onUpdate(any());
         verify(lsnr2, times(1)).onUpdate(any());
 
-        watchAggregator.watch(1, (v1, v2) -> {}).get().lsnr().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
+        watchAggregator.watch(1, (v1, v2) -> {}).get().listener().onUpdate(Arrays.asList(watchEvent1, watchEvent2));
 
         verify(lsnr1, times(1)).onUpdate(any());
         verify(lsnr2, times(2)).onUpdate(any());

@@ -56,7 +56,7 @@ public class AggregatedWatch {
     /**
      * @return Watch listener.
      */
-    public WatchListener lsnr() {
+    public WatchListener listener() {
         return lsnr;
     }
 

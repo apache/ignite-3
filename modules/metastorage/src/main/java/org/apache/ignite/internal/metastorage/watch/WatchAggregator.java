@@ -179,7 +179,7 @@ public class WatchAggregator {
                     }
 
                     if (!filteredEvts.isEmpty()) {
-                        if (!watch.lsnr().onUpdate(filteredEvts)) {
+                        if (!watch.listener().onUpdate(filteredEvts)) {
                             watchIt.remove();
 
                             toCancel.add(entry.getKey());
@@ -206,7 +206,7 @@ public class WatchAggregator {
             }
 
             @Override public void onError(@NotNull Throwable e) {
-                watches.values().forEach(w -> w.lsnr().onError(e));
+                watches.values().forEach(w -> w.listener().onError(e));
             }
         };
     }
@@ -237,7 +237,7 @@ public class WatchAggregator {
         /**
          * @return watch listener.
          */
-        public WatchListener lsnr() {
+        public WatchListener listener() {
             return lsnr;
         }
     }

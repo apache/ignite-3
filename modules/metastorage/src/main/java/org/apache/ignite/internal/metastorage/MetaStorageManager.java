@@ -134,7 +134,7 @@ import org.jetbrains.annotations.Nullable;
                 watch.get().keyCriterion().toRange().getKey(),
                 watch.get().keyCriterion().toRange().getValue(),
                 watch.get().revision(),
-                watch.get().lsnr()).thenAccept(id -> deployFut.complete(Optional.of(id))).join();
+                watch.get().listener()).thenAccept(id -> deployFut.complete(Optional.of(id))).join();
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during deploy watches", e);
@@ -358,7 +358,7 @@ import org.jetbrains.annotations.Nullable;
                         watch.get().keyCriterion().toRange().get1(),
                         watch.get().keyCriterion().toRange().get2(),
                         watch.get().revision(),
-                        watch.get().lsnr()).thenApply(Optional::of);
+                        watch.get().listener()).thenApply(Optional::of);
             });
 
         return deployFut;
