@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.metastorage.common.Key;
@@ -43,7 +44,7 @@ public class WatchAggregator {
     private final Map<Long, Watch> watches = Collections.synchronizedMap(new LinkedHashMap<>());
 
     /** Simple auto increment id for internal watches. */
-    private long idCntr;
+    private AtomicLong idCntr = new AtomicLong(0);
 
     /**
      * Adds new watch with simple exact criterion.
@@ -54,7 +55,7 @@ public class WatchAggregator {
      */
     public long add(Key key, WatchListener lsnr) {
         var watch = new Watch(new KeyCriterion.ExactCriterion(key), lsnr);
-        var id = idCntr++;
+        var id = idCntr.incrementAndGet();
         watches.put(id, watch);
         return id;
     }
@@ -68,7 +69,7 @@ public class WatchAggregator {
      */
     public long addPrefix(Key key, WatchListener lsnr) {
         var watch = new Watch(new KeyCriterion.PrefixCriterion(key), lsnr);
-        var id = idCntr++;
+        var id = idCntr.incrementAndGet();
         watches.put(id, watch);
         return id;
     }
@@ -82,7 +83,7 @@ public class WatchAggregator {
      */
     public long add(Collection<Key> keys, WatchListener lsnr) {
         var watch = new Watch(new KeyCriterion.CollectionCriterion(keys), lsnr);
-        var id = idCntr++;
+        var id = idCntr.incrementAndGet();
         watches.put(id, watch);
         return id;
     }
@@ -97,7 +98,7 @@ public class WatchAggregator {
      */
     public long add(Key from, Key to, WatchListener lsnr) {
         var watch = new Watch(new KeyCriterion.RangeCriterion(from, to), lsnr);
-        var id = idCntr++;
+        var id = idCntr.incrementAndGet();
         watches.put(id, watch);
         return id;
     }

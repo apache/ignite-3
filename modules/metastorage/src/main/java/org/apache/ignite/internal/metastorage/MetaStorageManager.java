@@ -75,7 +75,7 @@ import org.jetbrains.annotations.Nullable;
      * when aggregated watch will be successfully deployed.
      * Can be resolved to {@link Optional#empty()} if no watch deployed at the moment.
      */
-    private CompletableFuture<Optional<IgniteUuid>> igniteUuidFut;
+    private CompletableFuture<Optional<IgniteUuid>> deployFut;
 
     /**
      * If true - all new watches will be deployed immediately.
@@ -103,7 +103,7 @@ import org.jetbrains.annotations.Nullable;
         this.raftMgr = raftMgr;
         this.metaStorageSvc = metaStorageSvc;
         watchAggregator = new WatchAggregator();
-        igniteUuidFut = new CompletableFuture<>();
+        deployFut = new CompletableFuture<>();
 
         // TODO: IGNITE-14088: Uncomment and use real serializer factory
 //        Arrays.stream(MetaStorageMessageTypes.values()).forEach(
@@ -128,13 +128,13 @@ import org.jetbrains.annotations.Nullable;
                 this::storeEntries
             );
         if (watch.isEmpty())
-            igniteUuidFut.complete(Optional.empty());
+            deployFut.complete(Optional.empty());
         else
             metaStorageSvc.watch(
                 watch.get().keyCriterion().toRange().getKey(),
                 watch.get().keyCriterion().toRange().getValue(),
                 watch.get().revision(),
-                watch.get().lsnr()).thenAccept(id -> igniteUuidFut.complete(Optional.of(id))).join();
+                watch.get().lsnr()).thenAccept(id -> deployFut.complete(Optional.of(id))).join();
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during deploy watches", e);
@@ -206,7 +206,7 @@ import org.jetbrains.annotations.Nullable;
         if (deployed)
             return updateWatches().thenAccept(v -> {});
         else
-            return igniteUuidFut.thenAccept(uuid -> {});
+            return deployFut.thenAccept(uuid -> {});
     }
 
     /**
@@ -346,7 +346,7 @@ import org.jetbrains.annotations.Nullable;
 
         final var finalRevision = revision;
 
-        igniteUuidFut = igniteUuidFut
+        deployFut = deployFut
             .thenCompose(idOpt -> idOpt.map(metaStorageSvc::stopWatch).orElse(CompletableFuture.completedFuture(null)))
             .thenCompose(r -> {
                 var watch = watchAggregator.watch(finalRevision, this::storeEntries);
@@ -361,7 +361,7 @@ import org.jetbrains.annotations.Nullable;
                         watch.get().lsnr()).thenApply(Optional::of);
             });
 
-        return igniteUuidFut;
+        return deployFut;
     }
 
     /**
@@ -392,7 +392,7 @@ import org.jetbrains.annotations.Nullable;
         if (deployed)
             return updateWatches().thenApply(uid -> id);
         else
-            return igniteUuidFut.thenApply(uid -> id);
+            return deployFut.thenApply(uid -> id);
     }
 
 }
