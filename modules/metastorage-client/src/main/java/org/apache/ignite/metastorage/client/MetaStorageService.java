@@ -202,7 +202,6 @@ public interface MetaStorageService {
      *
      * <p>Conditional update could be treated as <i>if(condition)-then(success)-else(failure)</i> expression.</p>
      *
-     * @param key The key. Couldn't be {@code null}.
      * @param condition The condition.
      * @param success The update which will be applied in case of condition evaluation yields {@code true}.
      * @param failure The update which will be applied in case of condition evaluation yields {@code false}.
@@ -215,8 +214,8 @@ public interface MetaStorageService {
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-14269: will be replaced by conditional multi update.
     @NotNull
-    CompletableFuture<Boolean> invoke(@NotNull Key key, @NotNull Condition condition,
-                                      @NotNull Operation success, @NotNull Operation failure);
+    CompletableFuture<Boolean> invoke(@NotNull Condition condition,
+        @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure);
 
     /**
      * Updates an entry for the given key conditionally.

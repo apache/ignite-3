@@ -65,10 +65,15 @@ public final class Condition {
         private long rev;
 
         /**
+         * Key of entry, which will be tested for condition.
+         */
+        private final Key key;
+
+        /**
          * Default no-op constructor.
          */
-        RevisionCondition() {
-            // No-op.
+        RevisionCondition(Key key) {
+            this.key = key;
         }
 
         /**
@@ -175,9 +180,13 @@ public final class Condition {
 
         /** {@inheritDoc} */
         @Override public boolean test(Entry e) {
-            int res = Long.compare(e.revision(), rev);
+            if ((e.key() == key) || (e.key() != null && e.key().equals(key))) {
+                int res = Long.compare(e.revision(), rev);
 
-            return type.test(res);
+                return type.test(res);
+            }
+            else
+                return false;
         }
 
         /**
@@ -255,10 +264,15 @@ public final class Condition {
         private byte[] val;
 
         /**
+         * Key of entry, which will be tested for condition.
+         */
+        private final Key key;
+
+        /**
          * Default no-op constructor.
          */
-        ValueCondition() {
-            // No-op.
+        ValueCondition(Key key) {
+            this.key = key;
         }
 
         /**
