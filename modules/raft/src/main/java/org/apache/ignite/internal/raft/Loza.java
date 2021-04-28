@@ -70,7 +70,7 @@ public class Loza {
      * @return A RAFT group client.
      */
     public RaftGroupService startRaftGroup(String groupId, List<ClusterNode> peers, RaftGroupCommandListener lsnr) {
-        assert peers.size() > 1;
+        assert !peers.isEmpty();
 
         //Now we are using only one node in a raft group.
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
@@ -94,7 +94,7 @@ public class Loza {
      * @param peers Group peers.
      */
     public void stopRaftGroup(String groupId, List<ClusterNode> peers) {
-        assert peers.size() > 1;
+        assert !peers.isEmpty();
 
         //Now we are using only one node in a raft group.
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
