@@ -54,14 +54,8 @@ class ITRaftCounterServerTest {
     private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
     /** */
-    // TODO: IGNITE-14088: Uncomment and use real serializer provider
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
-//            .registerFactory((short)1000, ???)
-//            .registerFactory((short)1001, ???)
-//            .registerFactory((short)1005, ???)
-//            .registerFactory((short)1006, ???)
-//            .registerFactory((short)1009, ???);
 
     /** */
     private RaftServer server;
