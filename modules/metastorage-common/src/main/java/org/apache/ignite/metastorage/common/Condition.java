@@ -311,9 +311,13 @@ public final class Condition {
 
         /** {@inheritDoc} */
         @Override public boolean test(Entry e) {
-            int res = Arrays.compare(e.value(), val);
+            if ((e.key() == key) || (e.key() != null && e.key().equals(key))) {
+                int res = Arrays.compare(e.value(), val);
 
-            return type.test(res);
+                return type.test(res);
+            }
+            else
+               return false;
         }
 
         /**
