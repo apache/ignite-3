@@ -84,12 +84,56 @@ class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         switch (col.type().spec()) {
+            case BYTE: {
+                rowAsm.appendByte(tup.byteValue(col.name()));
+
+                break;
+            }
+            case DOUBLE: {
+                rowAsm.appendDouble(tup.doubleValue(col.name()));
+
+                break;
+            }
+            case INTEGER: {
+                rowAsm.appendInt(tup.intValue(col.name()));
+
+                break;
+            }
+            case FLOAT: {
+                rowAsm.appendFloat(tup.floatValue(col.name()));
+
+                break;
+            }
+            case STRING: {
+                rowAsm.appendString(tup.stringValue(col.name()));
+
+                break;
+            }
+            case SHORT: {
+                rowAsm.appendShort(tup.shortValue(col.name()));
+
+                break;
+            }
             case LONG: {
                 rowAsm.appendLong(tup.longValue(col.name()));
 
                 break;
             }
+            case BYTES: {
+                rowAsm.appendBytes(tup.binaryObjectField(col.name()).toBytes());
 
+                break;
+            }
+            case UUID: {
+                rowAsm.appendUuid(tup.uuidValue(col.name()));
+
+                break;
+            }
+            case BITMASK: {
+                rowAsm.appendBitmask(tup.bitmaskValue(col.name()));
+
+                break;
+            }
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
         }

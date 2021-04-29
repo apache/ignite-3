@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Full schema descriptor containing key columns chunk, value columns chunk, and schema version.
  */
-public class SchemaDescriptor {
+public class SchemaDescriptor implements Serializable {
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
