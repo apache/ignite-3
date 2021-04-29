@@ -57,12 +57,13 @@ options:
 Another important concept is a `RootKey`. It represents type-safe object that holds name of the root node. Instances of
 this interface are generated automatically and are mandatory for registering roots in the framework.
 
-`ConfigurationRegistry` is like a public facade of the module, you should use it as an entry point.
+`ConfigurationRegistry` is like a public facade of the module. It should be uses as an entry point for modules
+functionality.
 
 ## Generated API
-Imagine that you have schema from the example above. Then you'll have following interfaces generated:
+Let's examine schema from the example above. Following interfaces generated are generated from it:
 
-These are main interfaces to manage your configuration:
+These are main interfaces to manage configuration:
 ```
 public interface ParentConfiguration extends ConfigurationTree<ParentView, ParentChange> {
     RootKey<ParentConfiguration, ParentView> KEY = ...;
