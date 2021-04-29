@@ -203,9 +203,9 @@ public interface MetaStorageService {
      * <p>Conditional update could be treated as <i>if(condition)-then(success)-else(failure)</i> expression.</p>
      *
      * @param condition The condition.
-     * @param success The update which will be applied in case of condition evaluation yields {@code true}.
-     * @param failure The update which will be applied in case of condition evaluation yields {@code false}.
-     * @return Future result {@code true} if {@code success} update was applied, otherwise {@code false}.
+     * @param success Batch of updates which will be atomically applied in case of condition evaluation yields {@code true}.
+     * @param failure Batch of updates which will be atomically applied in case of condition evaluation yields {@code false}.
+     * @return Future result {@code true} if {@code success} updates were applied, otherwise {@code false}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @see Key
      * @see Entry

@@ -344,11 +344,12 @@ import org.jetbrains.annotations.Nullable;
 
     /**
      * Retrieves entries for the given key range in lexicographic order.
-     * Entries will be filtered out by the current applied revision as an upper bound
+     * Entries will be filtered out by the current applied revision as an upper bound.
+     * Applied revision is a revision of the last successful vault update.
      *
      * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
      * @param keyTo End key of range (exclusive). Could be {@code null}.
-     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @return Cursor built upon entries corresponding to the given range and applied revision.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see Key
