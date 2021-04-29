@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -27,7 +28,7 @@ import org.apache.ignite.internal.tostring.S;
  * An instance of native type provides necessary indirection to read any field as an instance of
  * {@code java.lang.Object} to avoid switching inside the row methods.
  */
-public enum NativeTypeSpec {
+public enum NativeTypeSpec implements Serializable {
     /**
      * Native type representing a single-byte signed value.
      */
