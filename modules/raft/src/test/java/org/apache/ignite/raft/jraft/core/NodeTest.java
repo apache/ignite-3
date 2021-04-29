@@ -94,7 +94,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-/** */
+/** TODO asch move to integration. */
 public class NodeTest {
     static final Logger         LOG            = LoggerFactory.getLogger(NodeTest.class);
 

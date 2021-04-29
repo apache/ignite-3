@@ -20,8 +20,12 @@ package org.apache.ignite.raft.jraft.rpc;
 import org.apache.ignite.raft.jraft.rpc.impl.LocalRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.LocalRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.junit.Ignore;
 
-/** */
+/**
+ * TODO asch local rpc can be removed.
+ */
+@Ignore
 public class LocalRpcTest extends AbstractRpcTest {
     /** {@inheritDoc} */
     @Override public RpcServer createServer(Endpoint endpoint) {

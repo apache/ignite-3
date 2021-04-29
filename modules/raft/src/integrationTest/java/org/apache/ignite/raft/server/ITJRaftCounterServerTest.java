@@ -70,7 +70,7 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
 
             ClusterNode node = server.clusterService().topologyService().localMember();
 
-            peers.add(new Peer(node));
+            peers.add(new Peer(node.address()));
         }
 
         for (RaftServer server : servers) {

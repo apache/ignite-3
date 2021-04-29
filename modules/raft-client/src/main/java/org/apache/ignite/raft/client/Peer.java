@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.client;
 
 import java.io.Serializable;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * A participant of a replication group.
@@ -27,7 +26,7 @@ public final class Peer implements Serializable {
     /**
      * Network node.
      */
-    private final ClusterNode node;
+    private final String addr;
 
     /**
      * Peer's local priority value, if node don't support priority election,
@@ -39,31 +38,31 @@ public final class Peer implements Serializable {
      * @param peer Peer.
      */
     public Peer(Peer peer) {
-        this.node = peer.getNode();
+        this.addr = peer.address();
         this.priority = peer.getPriority();
     }
 
     /**
      * @param node Node.
      */
-    public Peer(ClusterNode node) {
-        this(node, ElectionPriority.DISABLED);
+    public Peer(String addr) {
+        this(addr, ElectionPriority.DISABLED);
     }
 
     /**
      * @param node Node.
      * @param priority Election priority.
      */
-    public Peer(ClusterNode node, int priority) {
-        this.node = node;
+    public Peer(String addr, int priority) {
+        this.addr = addr;
         this.priority = priority;
     }
 
     /**
      * @return Node.
      */
-    public ClusterNode getNode() {
-        return this.node;
+    public String address() {
+        return this.addr;
     }
 
     /**
@@ -80,18 +79,18 @@ public final class Peer implements Serializable {
         Peer peer = (Peer) o;
 
         if (priority != peer.priority) return false;
-        if (!node.equals(peer.node)) return false;
+        if (!addr.equals(peer.addr)) return false;
 
         return true;
     }
 
     @Override public int hashCode() {
-        int result = node.hashCode();
+        int result = addr.hashCode();
         result = 31 * result + priority;
         return result;
     }
 
     @Override public String toString() {
-        return node.name() + ":" + priority;
+        return addr + '[' + priority + ']'; //  TODO asch use stringbuilder
     }
 }

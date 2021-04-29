@@ -1,5 +1,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -14,6 +16,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -25,20 +28,24 @@ import static org.junit.Assert.fail;
  */
 public abstract class AbstractRpcTest {
     protected Endpoint endpoint;
-    protected RpcServer server;
+    protected List<RpcServer> servers = new ArrayList<>();
 
     @Before
     public void setup() {
-        endpoint = new Endpoint(TestUtils.getMyIp(), 20000);
-        server = createServer(endpoint);
+        endpoint = new Endpoint(TestUtils.getMyIp(), INIT_PORT);
+        RpcServer server = createServer(endpoint);
         server.registerProcessor(new Request1RpcProcessor());
         server.registerProcessor(new Request2RpcProcessor());
         server.init(null);
+
+        servers.add(server);
     }
 
     @After
     public void teardown() {
-        server.shutdown();
+        for (RpcServer server : servers) {
+            server.shutdown();
+        }
     }
 
     /**
@@ -107,7 +114,7 @@ public abstract class AbstractRpcTest {
             assertTrue(client1.checkConnection(endpoint));
             assertTrue(client2.checkConnection(endpoint));
 
-            server.shutdown();
+            servers.get(0).shutdown();
 
             assertTrue(waitForTopology(client1, 2, 5_000));
             assertTrue(waitForTopology(client2, 2, 5_000));
@@ -155,7 +162,7 @@ public abstract class AbstractRpcTest {
         try {
             Request1 request = new Request1();
             request.val = 10_000;
-            Response1 resp1 = (Response1) client1.invokeSync(endpoint, request, 500);
+            client1.invokeSync(endpoint, request, 500);
 
             fail();
         } catch (Exception e) {
@@ -283,7 +290,7 @@ public abstract class AbstractRpcTest {
         client1.shutdown();
     }
 
-    private static class Request1RpcProcessor implements RpcProcessor<Request1> {
+    protected static class Request1RpcProcessor implements RpcProcessor<Request1> {
         @Override public void handleRequest(RpcContext rpcCtx, Request1 request) {
             if (request.val == 10_000)
                 try {
@@ -302,7 +309,7 @@ public abstract class AbstractRpcTest {
         }
     }
 
-    private static class Request2RpcProcessor implements RpcProcessor<Request2> {
+    protected static class Request2RpcProcessor implements RpcProcessor<Request2> {
         @Override public void handleRequest(RpcContext rpcCtx, Request2 request) {
             Response2 resp2 = new Response2();
             resp2.val = request.val + 1;

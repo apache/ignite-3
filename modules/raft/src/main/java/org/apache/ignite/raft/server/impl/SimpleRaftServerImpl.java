@@ -108,7 +108,7 @@ public class SimpleRaftServerImpl implements RaftServer {
 
         service.messagingService().addMessageHandler((message, sender, correlationId) -> {
             if (message instanceof GetLeaderRequest) {
-                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(service.topologyService().localMember())).build();
+                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(service.topologyService().localMember().address())).build();
 
                 service.messagingService().send(sender, resp, correlationId);
             }
@@ -154,7 +154,7 @@ public class SimpleRaftServerImpl implements RaftServer {
     @Override public RaftNode startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
         listeners.put(groupId, lsnr);
 
-        final Peer peer = new Peer(service.topologyService().localMember());
+        final Peer peer = new Peer(service.topologyService().localMember().address());
 
         return new RaftNode() {
             @Override public String groupId() {

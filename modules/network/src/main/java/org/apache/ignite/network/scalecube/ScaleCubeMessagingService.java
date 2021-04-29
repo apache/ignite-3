@@ -51,16 +51,6 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     /** */
     ScaleCubeMessagingService(ScaleCubeTopologyService topologyService) {
         this.topologyService = topologyService;
-
-        topologyService.addEventHandler(new TopologyEventHandler() {
-            @Override public void onAppeared(ClusterNode member) {
-                // No-op.
-            }
-
-            @Override public void onDisappeared(ClusterNode member) {
-                // No-op.
-            }
-        });
     }
 
     /**
@@ -117,6 +107,20 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             .correlationId(UUID.randomUUID().toString())
             .build();
         Address address = clusterNodeAddress(recipient);
+        return cluster
+            .requestResponse(address, message)
+            .timeout(Duration.ofMillis(timeout))
+            .toFuture()
+            .thenApply(m -> m == null ? null : m.data()); // The result can be null on node stopping.
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<NetworkMessage> invoke(String addr, NetworkMessage msg, long timeout) {
+        var message = Message
+            .withData(msg)
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        Address address = Address.from(addr);
         return cluster
             .requestResponse(address, message)
             .timeout(Duration.ofMillis(timeout))

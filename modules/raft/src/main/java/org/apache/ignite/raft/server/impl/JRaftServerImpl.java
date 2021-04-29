@@ -89,8 +89,7 @@ public class JRaftServerImpl implements RaftServer {
                 }
 
                 // Find by host and port.
-                Peer leader0 = new Peer(service.topologyService().allMembers().stream().
-                    filter(m -> m.host().equals(leaderId.getIp()) && m.port() == leaderId.getPort()).findFirst().orElse(null));
+                Peer leader0 = new Peer(leaderId.getEndpoint().toString());
 
                 GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(leader0).build();
 
@@ -191,7 +190,7 @@ public class JRaftServerImpl implements RaftServer {
 
         if (initialConf != null) {
             List<PeerId> mapped = initialConf.stream().map(p -> {
-                return new PeerId(new Endpoint(p.getNode().host(), p.getNode().port()), 0);
+                return PeerId.fromPeer(p);
             }).collect(Collectors.toList());
 
             nodeOptions.setInitialConf(new Configuration(mapped, null));

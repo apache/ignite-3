@@ -26,7 +26,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -184,7 +183,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         if (leader == null)
             return refreshLeader().thenCompose(res -> refreshMembers(onlyAlive));
 
-        CompletableFuture<GetPeersResponse> fut = sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout);
+        CompletableFuture<GetPeersResponse> fut = sendWithRetry(leader.address(), req, currentTimeMillis() + timeout);
 
         return fut.thenApply(resp -> {
             peers = resp.peers();
@@ -203,7 +202,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         AddPeersRequest req = factory.addPeersRequest().groupId(groupId).peers(peers).build();
 
-        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout);
+        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.address(), req, currentTimeMillis() + timeout);
 
         return fut.thenApply(resp -> {
             this.peers = resp.newPeers();
@@ -221,7 +220,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         RemovePeersRequest req = factory.removePeerRequest().groupId(groupId).peers(peers).build();
 
-        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout);
+        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.address(), req, currentTimeMillis() + timeout);
 
         return fut.thenApply(resp -> {
             this.peers = resp.newPeers();
@@ -239,7 +238,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         AddLearnersRequest req = factory.addLearnersRequest().groupId(groupId).learners(learners).build();
 
-        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout);
+        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.address(), req, currentTimeMillis() + timeout);
 
         return fut.thenApply(resp -> {
             this.learners = resp.newPeers();
@@ -257,7 +256,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         RemoveLearnersRequest req = factory.removeLearnersRequest().groupId(groupId).learners(learners).build();
 
-        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout);
+        CompletableFuture<ChangePeersResponse> fut = sendWithRetry(leader.address(), req, currentTimeMillis() + timeout);
 
         return fut.thenApply(resp -> {
             this.learners = resp.newPeers();
@@ -270,7 +269,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public CompletableFuture<Void> snapshot(Peer peer) {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -284,7 +283,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         TransferLeadershipRequest req = factory.transferLeaderRequest().groupId(groupId).peer(newLeader).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(newLeader.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(newLeader.address(), req, timeout);
 
         return fut.thenApply(resp -> null);
     }
@@ -298,7 +297,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         ActionRequest<R> req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(true).build();
 
-        CompletableFuture<ActionResponse<R>> fut = sendWithRetry(leader.getNode(), req, currentTimeMillis() + timeout);
+        CompletableFuture<ActionResponse<R>> fut = sendWithRetry(leader.address(), req, currentTimeMillis() + timeout);
 
         return fut.thenApply(resp -> resp.result());
     }
@@ -307,7 +306,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(false).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.getNode(), req, timeout);
+        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
 
         return fut.thenApply(resp -> ((ActionResponse<R>) resp).result());
     }
@@ -317,10 +316,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             cluster.shutdown();
     }
 
-    private <R> CompletableFuture<R> sendWithRetry(ClusterNode node, NetworkMessage req, long stopTime) {
+    private <R> CompletableFuture<R> sendWithRetry(String addr, NetworkMessage req, long stopTime) {
         if (currentTimeMillis() >= stopTime)
             return CompletableFuture.failedFuture(new TimeoutException());
-        return cluster.messagingService().invoke(node, req, timeout)
+        return cluster.messagingService().invoke(addr, req, timeout)
             .thenCompose(resp -> {
                 if (resp instanceof RaftErrorResponse) {
                     RaftErrorResponse resp0 = (RaftErrorResponse)resp;
@@ -331,7 +330,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                         case LEADER_CHANGED:
                             leader = resp0.newLeader();
-                            return composeWithDelay(() -> sendWithRetry(resp0.newLeader().getNode(), req, stopTime));
+                            return composeWithDelay(() -> sendWithRetry(resp0.newLeader().address(), req, stopTime));
 
                         case SUCCESS:
                             return CompletableFuture.completedFuture(null);
@@ -360,12 +359,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /**
      * @return Random node.
      */
-    private ClusterNode randomNode() {
+    private String randomNode() {
         List<Peer> peers0 = peers;
 
         if (peers0 == null || peers0.isEmpty())
             return null;
 
-        return peers0.get(current().nextInt(peers0.size())).getNode();
+        return peers0.get(current().nextInt(peers0.size())).address();
     }
 }

@@ -23,7 +23,10 @@ import java.util.Objects;
  * Representation of a node in a cluster.
  */
 public class ClusterNode implements Serializable {
-    /** Unique name of member in cluster. */
+    /** Local id assigned to this node instance. Changes between restarts. */
+    private final String id;
+
+    /** Unique name of member in cluster. Consistent between restarts. */
     private final String name;
 
     /** Node host. */
@@ -38,10 +41,15 @@ public class ClusterNode implements Serializable {
     /**
      * @param name Unique name of member in cluster.
      */
-    public ClusterNode(String name, String host, int port) {
+    public ClusterNode(String id, String name, String host, int port) {
+        this.id = id;
         this.name = name;
         this.host = host;
         this.port = port;
+    }
+
+    public String id() {
+        return id;
     }
 
     /**

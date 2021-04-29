@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -311,6 +310,6 @@ public class RaftGroupService implements RaftNode {
     }
 
     private Peer convert(PeerId peerId) {
-        return new Peer(new ClusterNode(peerId.getEndpoint().toString(), peerId.getEndpoint().getIp(), peerId.getEndpoint().getPort()), peerId.getPriority());
+        return new Peer(peerId.getEndpoint().toString(), peerId.getPriority());
     }
 }

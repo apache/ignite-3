@@ -20,7 +20,6 @@ import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractTopologyService;
@@ -36,7 +35,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     private ClusterNode localMember;
 
     /** Topology members. */
-    private final Map<String, ClusterNode> members = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ClusterNode> members = new ConcurrentHashMap<>();
 
     /**
      * Sets the ScaleCube's local {@link Member}.
@@ -52,26 +51,26 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      */
     void onMembershipEvent(MembershipEvent event) {
         ClusterNode member = fromMember(event.member());
+
+        if (event.isAdded())
+            this.members.put(event.member().address().toString(), member);
+        else if (event.isRemoved())
+            this.members.compute(event.member().address().toString(), // Ignore stale remove event.
+                (k, v) -> v.id().equals(member.id()) ? null : v);
+
         for (TopologyEventHandler handler : getEventHandlers()) {
             switch (event.type()) {
                 case ADDED:
-                    // TODO asch members called multiple times.
-                    members.put(event.member().address().toString(), member);
-
                     handler.onAppeared(member);
 
                     break;
 
-                case LEAVING:
-                    break;
-
                 case REMOVED:
-                    members.remove(event.member().address().toString());
-
                     handler.onDisappeared(member);
 
                     break;
 
+                case LEAVING:
                 case UPDATED:
                     // No-op.
                     break;
@@ -102,6 +101,6 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * Converts the given {@link Member} to a {@link ClusterNode}.
      */
     private static ClusterNode fromMember(Member member) {
-        return new ClusterNode(member.alias(), member.address().host(), member.address().port());
+        return new ClusterNode(member.id(), member.alias(), member.address().host(), member.address().port());
     }
 }

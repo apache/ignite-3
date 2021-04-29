@@ -59,7 +59,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private ClusterService createService(String name, int port, List<String> servers) {
+    protected ClusterService createService(String name, int port, List<String> servers) {
         // TODO: IGNITE-14088: Uncomment and use real serializer provider
         var serializationRegistry = new MessageSerializationRegistry();
 
@@ -69,36 +69,23 @@ public class IgniteRpcTest extends AbstractRpcTest {
         return factory.createClusterService(context);
     }
 
-    /**
-     * @param service The service.
-     * @param expected Expected count.
-     * @param timeout The timeout in millis.
-     * @return {@code True} if topology size is equal to expected.
-     */
-    private boolean waitForNode(ClusterService service, String id, int timeout) {
-        long stop = System.currentTimeMillis() + timeout;
-
-        while(System.currentTimeMillis() < stop) {
-            if (service.topologyService().allMembers().stream().map(x -> x.name()).anyMatch(x -> x.equals(id)))
-                return true;
-
-            try {
-                Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
-                return false;
-            }
-        }
-
-        return false;
-    }
-
     /** {@inheritDoc} */
     @Override protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
         IgniteRpcClient client0 = (IgniteRpcClient) client;
 
         ClusterService service = client0.clusterService();
 
+        return waitForTopology(service, expected, timeout);
+    }
+
+
+    /**
+     * @param service The service.
+     * @param expected Expected count.
+     * @param timeout The timeout.
+     * @return Wait status.
+     */
+    protected boolean waitForTopology(ClusterService service, int expected, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {

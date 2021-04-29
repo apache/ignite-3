@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.io.Serializable;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
 import org.apache.ignite.raft.jraft.util.Copiable;
@@ -207,7 +208,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
                     this.idx = Integer.parseInt(tmps[2]);
                     break;
                 case 4:
-                    if (tmps[2].equals("")) {
+                    if ("".equals(tmps[2])) {
                         this.idx = 0;
                     } else {
                         this.idx = Integer.parseInt(tmps[2]);
@@ -272,5 +273,9 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
             return false;
         }
         return this.idx == other.idx;
+    }
+
+    public static PeerId fromPeer(Peer p) {
+        return PeerId.parsePeer(p.address() + ":0:" + p.getPriority());
     }
 }

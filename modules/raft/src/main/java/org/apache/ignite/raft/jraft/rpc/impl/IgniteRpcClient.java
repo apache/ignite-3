@@ -141,8 +141,7 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     public void send(Endpoint endpoint, Object request, CompletableFuture<Object> fut) {
-        CompletableFuture<NetworkMessage> fut0 = service.messagingService().invoke(
-            new ClusterNode(endpoint.toString(), endpoint.getIp(), endpoint.getPort()), (NetworkMessage) request, 5000);
+        CompletableFuture<NetworkMessage> fut0 = service.messagingService().invoke(endpoint.toString(), (NetworkMessage) request, 5000);
 
         fut0.whenComplete(new BiConsumer<NetworkMessage, Throwable>() {
             @Override public void accept(NetworkMessage resp, Throwable err) {
