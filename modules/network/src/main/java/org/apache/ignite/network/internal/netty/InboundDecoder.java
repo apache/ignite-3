@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.internal.MessageReader;
 import org.apache.ignite.network.internal.direct.DirectMessageReader;
+import org.apache.ignite.network.internal.direct.DirectUtils;
 import org.apache.ignite.network.message.MessageDeserializer;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
@@ -75,12 +76,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
             try {
                 // Read message type.
-                if (msg == null && buffer.remaining() >= NetworkMessage.DIRECT_TYPE_SIZE) {
-                    byte b0 = buffer.get();
-                    byte b1 = buffer.get();
-
-                    msg = serializationRegistry.createDeserializer(makeMessageType(b0, b1));
-                }
+                if (msg == null && buffer.remaining() >= NetworkMessage.DIRECT_TYPE_SIZE)
+                    msg = serializationRegistry.createDeserializer(DirectUtils.getMessageType(buffer));
 
                 boolean finished = false;
 
@@ -116,15 +113,5 @@ public class InboundDecoder extends ByteToMessageDecoder {
                 throw e;
             }
         }
-    }
-
-    /**
-     * Concatenates the two parameter bytes to form a message type value.
-     *
-     * @param b0 The first byte.
-     * @param b1 The second byte.
-     */
-    private static short makeMessageType(byte b0, byte b1) {
-        return (short)((b1 & 0xFF) << 8 | b0 & 0xFF);
     }
 }

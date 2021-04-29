@@ -59,7 +59,7 @@ public class NettyServer {
     private ServerSocketChannel channel;
 
     /** New connections listener. */
-    private final Consumer<SocketChannel> newConnectionListener;
+    private final Consumer<NettySender> newConnectionListener;
 
     /**
      * Constructor.
@@ -71,7 +71,7 @@ public class NettyServer {
      */
     public NettyServer(
         int port,
-        Consumer<SocketChannel> newConnectionListener,
+        Consumer<NettySender> newConnectionListener,
         BiConsumer<InetSocketAddress, NetworkMessage> messageListener,
         MessageSerializationRegistry serializationRegistry
     ) {
@@ -95,7 +95,7 @@ public class NettyServer {
                     ch.pipeline().addLast(
                         /**
                          * Decoder that uses {@link org.apache.ignite.network.internal.MessageReader}
-                         *  to read chunked data.
+                         * to read chunked data.
                          */
                         new InboundDecoder(serializationRegistry),
                         /** Handles decoded {@link NetworkMessage}s. */
@@ -107,7 +107,7 @@ public class NettyServer {
                         new ChunkedWriteHandler()
                     );
 
-                    newConnectionListener.accept(ch);
+                    newConnectionListener.accept(new NettySender(ch, serializationRegistry));
                 }
             })
             /**

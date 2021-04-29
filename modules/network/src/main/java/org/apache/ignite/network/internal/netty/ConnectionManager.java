@@ -20,7 +20,6 @@ package org.apache.ignite.network.internal.netty;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,8 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
@@ -53,7 +50,10 @@ public class ConnectionManager {
     private final NettyServer server;
 
     /** Channels. */
-    private final Map<InetSocketAddress, NettyChannel> channels = new ConcurrentHashMap<>();
+    private final Map<InetSocketAddress, NettySender> channels = new ConcurrentHashMap<>();
+
+    /** Clients. */
+    private final Map<InetSocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
 
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
@@ -61,12 +61,10 @@ public class ConnectionManager {
     /** Message listeners. */
     private final List<BiConsumer<InetSocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>(new ArrayList<>());
 
-    private Lock lock = new ReentrantLock();
-
     public ConnectionManager(int port, MessageSerializationRegistry provider) {
         this.serializationRegistry = provider;
         this.server = new NettyServer(port, this::onNewIncomingChannel, this::onMessage, serializationRegistry);
-        this.clientBootstrap = NettyClient.setupBootstrap(clientWorkerGroup, serializationRegistry, this::onMessage);
+        this.clientBootstrap = NettyClient.createBootstrap(clientWorkerGroup, serializationRegistry, this::onMessage);
     }
 
     /**
@@ -97,9 +95,23 @@ public class ConnectionManager {
      * @return Sender.
      */
     public CompletableFuture<NettySender> channel(InetSocketAddress address) {
-        NettyChannel channel = channels.computeIfAbsent(address, this::connect);
+        NettySender channel = channels.compute(address, (addr, sender) -> {
+            if (sender == null || !sender.isOpen())
+                return null;
 
-        return channel.channel();
+            return sender;
+        });
+
+        if (channel == null) {
+            return clients.compute(address, (addr, client) -> {
+                if (client != null && !client.failedToConnect() && !client.isDisconnected())
+                    return client;
+
+                return this.connect(addr);
+            }).sender();
+        }
+
+        return CompletableFuture.completedFuture(channel);
     }
 
     /**
@@ -117,27 +129,9 @@ public class ConnectionManager {
      *
      * @param channel Channel from client to this {@link #server}.
      */
-    private void onNewIncomingChannel(SocketChannel channel) {
+    private void onNewIncomingChannel(NettySender channel) {
         InetSocketAddress remoteAddress = channel.remoteAddress();
-
-        lock.lock();
-
-        try {
-            NettyChannel existingChannel = channels.get(remoteAddress);
-
-            if (existingChannel != null && existingChannel.isOpen())
-                channel.close();
-            else {
-                NettyChannel serverChannel = NettyChannel.fromServer(new NettySender(channel, serializationRegistry));
-                channels.put(remoteAddress, serverChannel);
-
-                if (existingChannel != null)
-                    existingChannel.close();
-            }
-        }
-        finally {
-            lock.unlock();
-        }
+        channels.put(remoteAddress, channel);
     }
 
     /**
@@ -146,15 +140,7 @@ public class ConnectionManager {
      * @param address Target address.
      * @return New netty client.
      */
-    private NettyChannel connect(InetSocketAddress address) {
-        CompletableFuture<NettySender> fut = new CompletableFuture<>();
-
-        connect0(fut, address, 3);
-
-        return NettyChannel.fromFuture(fut);
-    }
-
-    private void connect0(CompletableFuture<NettySender> fut, InetSocketAddress address, int retryCount) {
+    private NettyClient connect(InetSocketAddress address) {
         NettyClient client = new NettyClient(
             address.getHostName(),
             address.getPort(),
@@ -162,34 +148,13 @@ public class ConnectionManager {
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {
-            lock.lock();
-
-            try {
-                if (throwable != null) {
-                    NettyChannel existingChannel = channels.get(address);
-
-                    if (existingChannel != null && existingChannel.isOpen()) {
-                        try {
-                            NettySender sender1 = existingChannel.channel().get();
-                            fut.complete(sender1);
-                        }
-                        catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-
-                    if (retryCount > 0)
-                        connect0(fut, address, retryCount - 1);
-                    else
-                        fut.completeExceptionally(throwable);
-                }
-                else
-                    fut.complete(sender);
-            }
-            finally {
-                lock.unlock();
-            }
+            if (throwable != null)
+                clients.remove(address);
+            else
+                channels.put(address, sender);
         });
+
+        return client;
     }
 
     /**
@@ -211,7 +176,7 @@ public class ConnectionManager {
         // Stop the server
         this.server.stop();
 
-        // Close all channels
-        channels.values().forEach(NettyChannel::close);
+        // Wait for clients' channels to close
+        clients.values().forEach(NettyClient::stop);
     }
 }

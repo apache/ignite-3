@@ -76,7 +76,7 @@ public class NettyTestRunner {
         for (int i = 0; i < 26; i++)
             someMap.put(i, "" + (char) ('a' + i));
 
-        Bootstrap clientBootstrap = NettyClient.setupBootstrap(new NioEventLoopGroup(), registry, listener);
+        Bootstrap clientBootstrap = NettyClient.createBootstrap(new NioEventLoopGroup(), registry, listener);
 
         NettySender sender = client.start(clientBootstrap).get();
 

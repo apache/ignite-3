@@ -20,9 +20,13 @@ package org.apache.ignite.network.internal.netty;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.stream.ChunkedInput;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.MessageSerializer;
@@ -33,7 +37,7 @@ import org.apache.ignite.network.message.NetworkMessage;
  */
 public class NettySender {
     /** Netty channel. */
-    private final Channel channel;
+    private final SocketChannel channel;
 
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
@@ -44,7 +48,7 @@ public class NettySender {
      * @param channel Netty channel.
      * @param registry Serialization registry.
      */
-    public NettySender(Channel channel, MessageSerializationRegistry registry) {
+    public NettySender(SocketChannel channel, MessageSerializationRegistry registry) {
         this.channel = channel;
         serializationRegistry = registry;
     }
@@ -54,9 +58,21 @@ public class NettySender {
      *
      * @param msg Network message.
      */
-    public void send(NetworkMessage msg) {
+    public CompletableFuture<Void> send(NetworkMessage msg) {
         MessageSerializer<NetworkMessage> serializer = serializationRegistry.createSerializer(msg.directType());
-        channel.writeAndFlush(new NetworkMessageChunkedInput(msg, serializer));
+
+        ChannelFuture future = channel.writeAndFlush(new NetworkMessageChunkedInput(msg, serializer));
+
+        CompletableFuture<Void> fut = new CompletableFuture<>();
+
+        future.addListener(sent -> {
+           if (sent.isSuccess())
+               fut.complete(null);
+           else
+               fut.completeExceptionally(sent.cause());
+        });
+
+        return fut;
     }
 
     /**
@@ -64,6 +80,20 @@ public class NettySender {
      */
     public void close() {
         this.channel.close().awaitUninterruptibly();
+    }
+
+    /**
+     * @return Gets the remote address of the channel.
+     */
+    public InetSocketAddress remoteAddress() {
+        return this.channel.remoteAddress();
+    }
+
+    /**
+     * @return {@code true} if channel is open, {@code false} otherwise.
+     */
+    public boolean isOpen() {
+        return this.channel.isOpen();
     }
 
     /**

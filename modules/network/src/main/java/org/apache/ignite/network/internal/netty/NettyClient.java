@@ -18,7 +18,6 @@
 package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -48,8 +47,8 @@ public class NettyClient {
     /** Future that resolves when client channel is opened. */
     private final CompletableFuture<NettySender> clientFuture = new CompletableFuture<>();
 
-    /** Client socket channel. */
-    private Channel channel;
+    /** Client channel. */
+    private SocketChannel channel;
 
     public NettyClient(
         String host,
@@ -68,7 +67,8 @@ public class NettyClient {
      */
     public CompletableFuture<NettySender> start(Bootstrap bootstrap) {
         bootstrap.connect(host, port).addListener((ChannelFutureListener) connect -> {
-            this.channel = connect.channel();
+            this.channel = (SocketChannel) connect.channel();
+
             if (connect.isSuccess())
                 clientFuture.complete(new NettySender(channel, serializationRegistry));
             else
@@ -92,7 +92,29 @@ public class NettyClient {
         this.channel.close().awaitUninterruptibly();
     }
 
-    public static Bootstrap setupBootstrap(
+    /**
+     * @return {@code true} if client failed to connect to remote server, {@code false} otherwise.
+     */
+    public boolean failedToConnect() {
+        return clientFuture.isCompletedExceptionally();
+    }
+
+    /**
+     * @return {@code true} if client lost connection, {@code false} otherwise.
+     */
+    public boolean isDisconnected() {
+        return channel != null && !channel.isOpen();
+    }
+
+    /**
+     * Creates {@link Bootstrap} for clients, providing channel handlers and options.
+     *
+     * @param eventLoopGroup Event loop group for channel handling.
+     * @param serializationRegistry Serialization registry.
+     * @param messageListener Message listener.
+     * @return Bootstrap for clients.
+     */
+    public static Bootstrap createBootstrap(
         EventLoopGroup eventLoopGroup,
         MessageSerializationRegistry serializationRegistry,
         BiConsumer<InetSocketAddress, NetworkMessage> messageListener

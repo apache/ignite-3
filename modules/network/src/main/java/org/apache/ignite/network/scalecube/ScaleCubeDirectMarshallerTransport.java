@@ -144,8 +144,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         var addr = InetSocketAddress.createUnresolved(address.host(), address.port());
         return Mono.defer(() -> Mono.fromFuture(connectionManager.channel(addr)))
             .flatMap(client -> {
-                client.send(fromMessage(message));
-                return Mono.empty();
+                return Mono.fromFuture(client.send(fromMessage(message)));
             });
     }
 
@@ -173,7 +172,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         Object dataObj = message.data();
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-        try(ObjectOutputStream oos = new ObjectOutputStream(stream)) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(stream)) {
             oos.writeObject(dataObj);
         }
         catch (IOException e) {
@@ -198,7 +197,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
 
             Object obj;
 
-            try(ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(msg.getArray()))) {
+            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(msg.getArray()))) {
                 obj = ois.readObject();
             }
             catch (Exception e) {
