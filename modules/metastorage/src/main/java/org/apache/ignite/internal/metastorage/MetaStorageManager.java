@@ -205,16 +205,6 @@ import org.jetbrains.annotations.Nullable;
     }
 
     /**
-     * Passes an invocation to Metastorage service.
-     *
-     * @param key Key to remove.
-     * @return
-     */
-    public synchronized CompletableFuture<Void> remove(@Nullable Key key) {
-        return metaStorageSvc.remove(key);
-    }
-
-    /**
      * Unregister watch listener by id.
      *
      * @param id of watch to unregister.
@@ -282,6 +272,13 @@ import org.jetbrains.annotations.Nullable;
      */
     public @NotNull CompletableFuture<Map<Key, Entry>> getAndPutAll(@NotNull Map<Key, byte[]> vals) {
         return metaStorageSvc.getAndPutAll(vals);
+    }
+
+    /**
+     * @see MetaStorageService#remove(Key)
+     */
+    public @NotNull CompletableFuture<Void> remove(@NotNull Key key) {
+        return metaStorageSvc.remove(key);
     }
 
     /**
