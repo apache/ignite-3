@@ -27,6 +27,7 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
@@ -34,6 +35,7 @@ import static org.apache.ignite.raft.jraft.test.TestUtils.getMyIp;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Contains additional tests for topology. */
+@Ignore // TODO asch remove.
 public class IgniteMultiServerRpcTest extends IgniteRpcTest {
     /** */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteMultiServerRpcTest.class);
