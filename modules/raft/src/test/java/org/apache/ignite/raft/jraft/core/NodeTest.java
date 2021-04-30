@@ -695,9 +695,7 @@ public class NodeTest {
 
             assertEquals(1, node.listPeers().size());
             assertTrue(node.listPeers().contains(peer));
-            while (!node.isLeader()) {
-                ;
-            }
+            assertTrue(waitForCondition(() -> node.isLeader(), 1_000));
 
             sendTestTaskAndWait(node, cnt);
             assertEquals(cnt, fsm.getLogs().size());
@@ -3567,7 +3565,22 @@ public class NodeTest {
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
         // TODO asch improve service creation.
         NodeManager nodeManager = new NodeManager();
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(peerId.getEndpoint(), nodeManager);
+
+        List<String> servers = new ArrayList<>();
+
+        Configuration initialConf = nodeOptions.getInitialConf();
+
+        if (initialConf != null) {
+            for (PeerId id : initialConf.getPeers()) {
+                servers.add(id.getEndpoint().toString());
+            }
+
+            for (PeerId id : initialConf.getLearners()) {
+                servers.add(id.getEndpoint().toString());
+            }
+        }
+
+        final IgniteRpcServer rpcServer = new IgniteRpcServer(peerId.getEndpoint(), servers, nodeManager);
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
         return new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);
