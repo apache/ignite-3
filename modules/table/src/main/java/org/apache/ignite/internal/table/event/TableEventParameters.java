@@ -28,16 +28,16 @@ import org.apache.ignite.internal.table.TableSchemaView;
  */
 public class TableEventParameters implements EventParameters {
     /** Table identifier. */
-    private UUID tableId;
+    private final UUID tableId;
 
     /** Table name. */
-    private String tableName;
+    private final String tableName;
 
     /** Table schema view. */
-    private TableSchemaView tableSchemaView;
+    private final TableSchemaView tableSchemaView;
 
     /** Internal table. */
-    private InternalTable internalTable;
+    private final InternalTable internalTable;
 
     /**
      * @param tableId Table identifier.

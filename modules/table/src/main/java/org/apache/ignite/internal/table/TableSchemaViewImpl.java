@@ -26,10 +26,10 @@ import org.apache.ignite.internal.schema.SchemaManager;
  */
 public class TableSchemaViewImpl implements TableSchemaView {
     /** Table identifier. */
-    UUID tableId;
+    private final UUID tableId;
 
     /** Schema manager. */
-    SchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     /**
      * @param tableId Table identifier.
