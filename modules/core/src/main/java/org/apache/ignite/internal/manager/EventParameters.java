@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.manager;
 
 /**
- * Table managment events.
+ * Event parameters.
+ * This type passed to the event listener.
+ * @see Producer#onEvent(Event, EventParameters, Exception)
  */
-public enum TableEvent implements Event {
-    /** The event happend when a table was created. */
-    CREATE,
-
-    /** The event happend when a table was dropped. */
-    DROP
+public interface EventParameters {
 }

@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
@@ -59,12 +58,21 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /**
-     * Gets an internal table id.
+     * Gets an internal table associated with the table.
      *
-     * @return Table id as UUID.
+     * @return Internal table.
      */
-    public @NotNull UUID tableId() {
-        return tbl.tableId();
+    public @NotNull InternalTable internalTable() {
+        return tbl;
+    }
+
+    /**
+     * Gets a schema view for the table.
+     *
+     * @return Schema view.
+     */
+    public TableSchemaView schemaView() {
+        return schemaMgr;
     }
 
     /** {@inheritDoc} */

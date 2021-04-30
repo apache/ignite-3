@@ -15,11 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.table.event;
+
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * The event cas whcih is produced by event producer component.
- * @see Producer#onEvent(Event, EventParameters, Exception)
+ * Table managment events.
  */
-public interface Event {
+public enum TableEvent implements Event {
+    /** The event happend when a table was created. */
+    CREATE,
+
+    /** The event happend when a table was dropped. */
+    DROP
 }

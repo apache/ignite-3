@@ -18,47 +18,46 @@
 package org.apache.ignite.internal.manager;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiPredicate;
 
 /**
- * Interface which can to produce own event.
+ * Interface which can produce its events.
  */
-public abstract class Producer<T extends Event> {
+public abstract class Producer<T extends Event, P extends EventParameters> {
     /** All listeners. */
-    private ConcurrentHashMap<T, ConcurrentLinkedQueue<BiPredicate<List<Object>, Exception>>> listeners = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<T, ConcurrentLinkedQueue<BiPredicate<P, Exception>>> listeners = new ConcurrentHashMap<>();
 
     /**
      * Registers an event listener.
-     * When the event predicate return true it would never invoke after,
+     * When the event predicate returns true it would never invoke after,
      * otherwise this predicate would receive an event again.
      *
      * @param evt Event.
      * @param closure Closure.
      */
-    public void listen(T evt, BiPredicate<List<Object>, Exception> closure) {
+    public void listen(T evt, BiPredicate<P, Exception> closure) {
         listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>())
             .offer(closure);
     }
 
     /**
-     * Notifies every listener with subscribed before.
+     * Notifies every listener that subscribed before.
      *
      * @param evt Event type.
      * @param params Event parameters.
      * @param err Exception when it was happened, or {@code null} otherwise.
      */
-    protected void onEvent(T evt, List<Object> params, Exception err) {
-        ConcurrentLinkedQueue<BiPredicate<List<Object>, Exception>> queue = listeners.get(evt);
+    protected void onEvent(T evt, P params, Exception err) {
+        ConcurrentLinkedQueue<BiPredicate<P, Exception>> queue = listeners.get(evt);
 
         if (queue == null)
             return;
 
-        BiPredicate<List<Object>, Exception> closure;
+        BiPredicate<P, Exception> closure;
 
-        Iterator<BiPredicate<List<Object>, Exception>> iter = queue.iterator();
+        Iterator<BiPredicate<P, Exception>> iter = queue.iterator();
 
         while (iter.hasNext()) {
             closure = iter.next();

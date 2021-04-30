@@ -36,15 +36,15 @@ import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.manager.Producer;
-import org.apache.ignite.internal.manager.TableEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableSchemaView;
+import org.apache.ignite.internal.table.TableSchemaViewImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.event.TableEvent;
+import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -63,7 +63,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Table manager.
  */
-public class TableManager extends Producer<TableEvent> implements IgniteTables {
+public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
@@ -80,7 +80,7 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
     private CompletableFuture<Long> tableCreationSubscriptionFut;
 
     /** Tables. */
-    private Map<String, Table> tables = new HashMap<>();
+    private Map<String, TableImpl> tables = new HashMap<>();
 
     /*
      * @param configurationMgr Configuration manager.
@@ -130,6 +130,8 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
                     String name = new String(vaultManager.get(ByteArray.fromString(INTERNAL_PREFIX + placeholderValue))
                         .join().value(), StandardCharsets.UTF_8);
 
+                    UUID tblId = UUID.fromString(placeholderValue);
+
                     if (evt.newEntry().value() == null) {
                         assert evt.oldEntry().value() != null : "Previous assignment is unknown";
 
@@ -139,9 +141,18 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
                         int partitions = assignment.size();
 
                         for (int p = 0; p < partitions; p++)
-                            raftMgr.stopRaftGroup(raftGroupName(name, p), assignment.get(p));
+                            raftMgr.stopRaftGroup(raftGroupName(tblId, p), assignment.get(p));
 
-                        onEvent(TableEvent.DROP, List.of(name), null);
+                        TableImpl table = tables.get(name);
+
+                        assert table != null : "There is no table with the name specified [name=" + name + ']';
+
+                        onEvent(TableEvent.DROP, new TableEventParameters(
+                            tblId,
+                            name,
+                            table.schemaView(),
+                            table.internalTable()
+                        ), null);
                     }
                     else if (evt.newEntry().value().length > 0) {
                         List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
@@ -153,29 +164,18 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
 
                         for (int p = 0; p < partitions; p++) {
                             partitionMap.put(p, raftMgr.startRaftGroup(
-                                raftGroupName(name, p),
+                                raftGroupName(tblId, p),
                                 assignment.get(p),
                                 new PartitionCommandListener()
                             ));
                         }
 
-                        UUID tblId = UUID.fromString(placeholderValue);
-
-                        Table table = new TableImpl(new InternalTableImpl(
+                        onEvent(TableEvent.CREATE, new TableEventParameters(
                             tblId,
-                            partitionMap,
-                            partitions
-                        ), new TableSchemaView() {
-                            @Override public SchemaDescriptor schema() {
-                                return schemaManager.schema(tblId);
-                            }
-
-                            @Override public SchemaDescriptor schema(int ver) {
-                                return schemaManager.schema(tblId, ver);
-                            }
-                        });
-
-                        onEvent(TableEvent.CREATE, List.of(name, table), null);
+                            name,
+                            new TableSchemaViewImpl(tblId, schemaManager),
+                            new InternalTableImpl(tblId, partitionMap, partitions)
+                        ), null);
                     }
                 }
 
@@ -189,14 +189,14 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
     }
 
     /**
-     * Compuuses a RAFT group unique name.
+     * Compounds a RAFT group unique name.
      *
-     * @param tableName Name of the table.
+     * @param tableId Table identifier.
      * @param partition Muber of table partition.
      * @return A RAFT group name.
      */
-    @NotNull private String raftGroupName(String tableName, int partition) {
-        return tableName + "_part_" + partition;
+    @NotNull private String raftGroupName(UUID tableId, int partition) {
+        return tableId + "_part_" + partition;
     }
 
     /**
@@ -257,9 +257,9 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
             tablesToStop.removeAll(ctx.newValue().namedListKeys());
 
             for (String tblName : tablesToStop) {
-                TableImpl t = (TableImpl)tables.get(tblName);
+                TableImpl t = tables.get(tblName);
 
-                UUID tblId = t.tableId();
+                UUID tblId = t.internalTable().tableId();
 
                 futs.add(metaStorageMgr.invoke(
                     new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()),
@@ -271,7 +271,7 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
                         : CompletableFuture.completedFuture(false)));
             }
 
-            return CompletableFuture.allOf(futs.toArray(new CompletableFuture[0]));
+            return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
         });
     }
 
@@ -299,17 +299,14 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
         listen(TableEvent.CREATE, (params, e) -> {
-            String tableName = (String)params.get(0);
+            String tableName = params.tableName();
 
             if (!name.equals(tableName))
                 return false;
 
             if (e == null) {
-                Table table = (Table)params.get(1);
-
-                tables.put(tableName, table);
-
-                tblFut.complete(table);
+                tblFut.complete(tables.compute(tableName, (key, val) ->
+                    new TableImpl(params.internalTable(), params.tableSchemaView())));
             }
             else
                 tblFut.completeExceptionally(e);
@@ -321,12 +318,6 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
             .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
             change.create(name, tableInitChange));
 
-//        this.createTable("tbl1", change -> {
-//            change.initReplicas(2);
-//            change.initName("tbl1");
-//            change.initPartitions(1_000);
-//        });
-
         return tblFut.join();
     }
 
@@ -334,17 +325,17 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
     @Override public void dropTable(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        listen(TableEvent.DROP, new BiPredicate<List<Object>, Exception>() {
-            @Override public boolean test(List<Object> params, Exception e) {
-                String tableName = (String)params.get(0);
+        listen(TableEvent.DROP, new BiPredicate<TableEventParameters, Exception>() {
+            @Override public boolean test(TableEventParameters params, Exception e) {
+                String tableName = params.tableName();
 
                 if (!name.equals(tableName))
                     return false;
 
                 if (e == null) {
-                    Table drppedTable = tables.remove(tableName);
+                    Table droppedTable = tables.remove(tableName);
 
-                    assert drppedTable != null;
+                    assert droppedTable != null;
 
                     dropTblFut.complete(null);
                 }

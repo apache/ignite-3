@@ -73,6 +73,7 @@ public class Loza {
         assert !peers.isEmpty();
 
         //Now we are using only one node in a raft group.
+        //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
             raftServer.setListener(groupId, lsnr);
 
@@ -97,6 +98,7 @@ public class Loza {
         assert !peers.isEmpty();
 
         //Now we are using only one node in a raft group.
+        //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
             raftServer.clearListener(groupId);
     }
