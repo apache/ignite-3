@@ -1,15 +1,33 @@
 # Configuration
 
+This module contains the API classes and the implementation for the Ignite configuration framework.
+The idea is to provide the so-called _Unified configuration_ — a common way of configuring both local Ignite nodes
+and remote Ignite clusters. The original concept is described in
+[IEP-55](https://cwiki.apache.org/confluence/display/IGNITE/IEP-55+Unified+Configuration).
+
 ## Concepts
-This modules provides API classes and implementation for Ignite configuration framework. The idea is to have so called
-_Unified configuration_ - a common way of configuring both local Ignite node and Ignite clusters. Original concept can
-be seen in [IEP-55](https://cwiki.apache.org/confluence/display/IGNITE/IEP-55+Unified+Configuration).
 
-The core concept behind it is the _Configuration Schema_. It's required to generate public interfaces for the API and
-internal implementations that end user won't face. This way developers avoids writing boilerplate code.
+### Configuration Schema
 
-There are already many examples throughout the code that looks somewhat like this:
-```
+Type-safe schema of a configuration, which is used for generating public API interfaces and
+internal implementations to avoid writing boilerplate code. 
+
+All schema classes must end with the `ConfigurationSchema` suffix.
+
+### Configuration Registry
+
+`ConfigurationRegistry` is the entry point of the module.
+
+### Root Key
+
+`RootKey` interface represents a type-safe object that holds the _key_ of the root node. Instances of
+this interface are generated automatically and are mandatory for registering the configuration roots.
+
+### Example Schema
+
+An example configuration schema may look like the following:
+
+```java
 @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
 public static class ParentConfigurationSchema {
     @NamedConfigValue
@@ -21,51 +39,42 @@ public static class ParentConfigurationSchema {
 
 @Config
 public static class ChildConfigurationSchema {
+    @Value(hasDefault = true)
+    public String str = "foobar";
+    
     @Value
+    @Immutable
     public String str;
 }
-...
 ```
 
-Main parts of what's present in this snippet are:
-* Class name must end with the `ConfigurationSchema` suffix.
-* `@ConfigurationRoot` marks root schemas. In general, configuration consists of several things:
-  * property `type` shows that configuration can be either `LOCAL` or `DISTRIBUTED`. Main difference is that it'll be
-    stored in different _storages_ - `Vault` or `Metastorage`. But this information isn't known to configuration module,
-    only `ConfigurationStorage` interface is used. Other modules and tests just implement it and assign to corresponding
-    type constant.
-  * `rootName` gives this configuration a unique name. Basically all Ignite configuration is represented by a forest.
-    Every node in that forest has a name, usually referred to as a _key_. `rootName` assigns a _key_ to the root node of
-    the tree that will represent this particular configuration schema.
-* `@Config` has the same internal structure as `@ConfigurationRoot` but represents inner configuration node, not a root.
-  Things that it can have:
-  * `@ConfigValue` fields must be other schemas. Cyclic dependencies are not allowed.
-  * `@NamedConfigValue` fields must be other schemas as well. The main difference is that such fields will basically
-    become `Map<String, declared_schema>`.
-  * `@Value` fields must be of following types:
-    * `boolean` or `boolean[]`
-    * `int` or `int[]`
-    * `long` or `long[]`
-    * `double` or `double[]`
-    * `String` or `String[]`
-
-All _leaves_ **cannot be nulls**, that's a strict restriction for now. `@Value` fields might have following unique
-options:
-* `@Value(hasDefault = true)` - in this case schema field must be initialized in schema constructor. This initialized
-  value will be used as default if no value was provided by the user.
-* `@Immutable` - these properties cannot be changed once they are initialized either manually or with default value.
-
-Another important concept is a `RootKey`. It represents type-safe object that holds name of the root node. Instances of
-this interface are generated automatically and are mandatory for registering roots in the framework.
-
-`ConfigurationRegistry` is like a public facade of the module. It should be used as an entry point for modules
-functionality.
+* `@ConfigurationRoot` marks the root schema. It contains the following properties:
+  * `type` property, which can either be `LOCAL` or `DISTRIBUTED`. This property dictates the _storage_ type used 
+    to persist the schema — `Vault` or `Metastorage`;
+  * All Ignite configuration instances can be represented by a forest, where every node has a name, usually referred 
+    to as a _key_. The `rootName` property assigns a _key_ to the root node of the tree that will represent 
+    the corresponding configuration schema;
+* `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
+* `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
+* `@NamedConfigValue` is similar to `@ConfigValue` but such fields will basically become `Map<String, declared_schema>`;
+* `@Value` annotation marks the _leaf_ values. `hasDefault` property can be used to set default values for fields:
+  if set to `true`, the default value will be used to initialize the annotated configuration field in case no value 
+  has been provided explicitly. This annotation can only be present on fields of the following types:
+  * `boolean` or `boolean[]`
+  * `int` or `int[]`
+  * `long` or `long[]`
+  * `double` or `double[]`
+  * `String` or `String[]`
+    
+  All _leaves_ **must not be null**;
+* `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
+  changed after they have been initialized (either manually or by assigning a default value).
 
 ## Generated API
-Let's examine schema from the example above. Following interfaces generated are generated from it:
 
-These are main interfaces to manage configuration:
-```
+Configuration interfaces are generated at compile time. For the example above, the following code would be generated: 
+
+```java
 public interface ParentConfiguration extends ConfigurationTree<ParentView, ParentChange> {
     RootKey<ParentConfiguration, ParentView> KEY = ...;
 
@@ -85,15 +94,19 @@ public interface ChildConfiguration extends ConfigurationTree<ChildView, ChildCh
 
     Future<Void> change(Consumer<ChildChange> change);
 }
-...
 ```
-* they have methods to access their child nodes;
-* they have methods to tak a configuration _snapshot_ - immutable "view" object;
-* they have methods to update configuration values in every individual node;
-* root interface has generated `RootKey` constant.
 
-View interfaces look like this. All they have are getters for all declared properties.
-```
+* `KEY` constant uniquely identifies the configuration root;
+* `child()` method can be used to access the child node;
+* `value()` method creates a corresponding _snapshot_ (an immutable view) of the configuration node;
+* `change()` method should be used to update the values in the configuration tree.
+
+### Configuration Snapshots
+
+`value()` methods return a read-only view of the configuration tree, represented by a special set of _View_ interfaces.
+For the example above, the following interfaces would be generated:
+
+```java
 public interface ParentView {
     NamedListView<? extends NamedElementView> elements();
 
@@ -103,11 +116,15 @@ public interface ParentView {
 public interface ChildView {
     String str();
 }
-...
 ```
 
-Change interfaces look like this:
-```
+### Changing the configuration
+
+To modify the configuration tree, one should use the `change` method, which executes the update requests 
+asynchronously and in a transactional manner. Update requests are represented by a set of `Change` interfaces.
+For the example above, the following interfaces would be generated:
+
+```java
 public interface ParentChange {
     ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
 
@@ -117,11 +134,11 @@ public interface ParentChange {
 public interface ChildChange {
     ChildChange changeStr(String str);
 }
-...
 ```
-I think it's easier to demonstrate using this small example. Any subtree of any tree can be updated in a single
-_transaction_:
-```
+
+For example, to update all child nodes of the parent configuration in a single transaction:
+
+```java
 ParentConfiguration parentCfg = ...;
 
 parentConfiguration.change(parent ->
@@ -134,10 +151,7 @@ ChildConfiguration childCfg = parentCfg.child();
 
 childCfg.changeStr("newStr2").get();
 ```
-Every `change` object is basically a change request that's going to be processed asyncronously and transactionally.
 
-It's important to note that there's a technical possibility to execute several change requests for different roots in a
-single transaction, but all these roots _must have the same storage type_.
-
-This exact scenario is possible in `rest` module via command line tool. Same code is used to bootstrap configuration
-from JSON file. Currently there's no public Java API to do the same thing.
+It is possible to execute several change requests for different roots in a single transaction, but all these roots 
+_must have the same storage type_. However, this is only possible using the command line tool via the REST API, 
+there's no public Java API at the moment.
