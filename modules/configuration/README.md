@@ -16,7 +16,8 @@ All schema classes must end with the `ConfigurationSchema` suffix.
 
 ### Configuration Registry
 
-`ConfigurationRegistry` is the entry point of the module.
+`ConfigurationRegistry` is the entry point of the module. It is used to register root keys, validators, storages and to
+start / stop component. Please refer to the class for more details.
 
 ### Root Key
 
@@ -40,23 +41,26 @@ public static class ParentConfigurationSchema {
 @Config
 public static class ChildConfigurationSchema {
     @Value(hasDefault = true)
-    public String str = "foobar";
+    public String str1 = "foobar";
     
     @Value
     @Immutable
-    public String str;
+    public String str2;
 }
 ```
 
 * `@ConfigurationRoot` marks the root schema. It contains the following properties:
   * `type` property, which can either be `LOCAL` or `DISTRIBUTED`. This property dictates the _storage_ type used 
-    to persist the schema — `Vault` or `Metastorage`;
+    to persist the schema — `Vault` or `Metastorage`. `Vault` stores data locally while `Metastorage` is a distributed
+    system that should store only cluster-wide configuration properties;
   * All Ignite configuration instances can be represented by a forest, where every node has a name, usually referred 
     to as a _key_. The `rootName` property assigns a _key_ to the root node of the tree that will represent 
     the corresponding configuration schema;
 * `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
-* `@NamedConfigValue` is similar to `@ConfigValue` but such fields will basically become `Map<String, declared_schema>`;
+* `@NamedConfigValue` is similar to `@ConfigValue` but such fields represent collection of properties, not a single
+  instance. Every element of the collection will have a `String` name, which makes it pretty much like a `Map`.
+  `NamedListConfiguration` interface is used to represent this field in generated configuration classes. 
 * `@Value` annotation marks the _leaf_ values. `hasDefault` property can be used to set default values for fields:
   if set to `true`, the default value will be used to initialize the annotated configuration field in case no value 
   has been provided explicitly. This annotation can only be present on fields of the following types:
@@ -66,7 +70,7 @@ public static class ChildConfigurationSchema {
   * `double` or `double[]`
   * `String` or `String[]`
     
-  All _leaves_ **must not be null**;
+  All _leaves_ must be public and corresponding configuration values **can't be null**;
 * `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
   changed after they have been initialized (either manually or by assigning a default value).
 
