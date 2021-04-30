@@ -20,8 +20,11 @@ All schema classes must end with the `ConfigurationSchema` suffix.
 
 ### Root Key
 
-`RootKey` interface represents a type-safe object that holds the _key_ of the root node. Instances of
-this interface are generated automatically and are mandatory for registering the configuration roots.
+All Ignite configuration instances can be represented by a forest, where every node has a name, usually referred
+to as a _key_. `RootKey` interface represents a type-safe object that holds the _key_ of the root node of the 
+configuration tree. 
+
+Instances of this interface are generated automatically and are mandatory for registering the configuration roots.
 
 ### Example Schema
 
@@ -51,8 +54,7 @@ public static class ChildConfigurationSchema {
 * `@ConfigurationRoot` marks the root schema. It contains the following properties:
   * `type` property, which can either be `LOCAL` or `DISTRIBUTED`. This property dictates the _storage_ type used 
     to persist the schema — `Vault` or `Metastorage`;
-  * All Ignite configuration instances can be represented by a forest, where every node has a name, usually referred 
-    to as a _key_. The `rootName` property assigns a _key_ to the root node of the tree that will represent 
+  * `rootName` property assigns a _key_ to the root node of the tree that will represent 
     the corresponding configuration schema;
 * `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
