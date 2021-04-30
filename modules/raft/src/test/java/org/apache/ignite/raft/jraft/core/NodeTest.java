@@ -459,22 +459,24 @@ public class NodeTest {
     @Test
     public void testTripleNodesWithReplicatorStateListener() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
-        final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
+        //final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
+
+        final UserReplicatorStateListener listener1 = new UserReplicatorStateListener();
+        final UserReplicatorStateListener listener2 = new UserReplicatorStateListener();
+
+        final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers, new LinkedHashSet<>(), 300,
+            opts -> opts.setReplicationStateListeners(List.of(listener1, listener2)));
 
         for (final PeerId peer : peers) {
             assertTrue(cluster.start(peer.getEndpoint()));
         }
 
-        final UserReplicatorStateListener listener1 = new UserReplicatorStateListener();
-        final UserReplicatorStateListener listener2 = new UserReplicatorStateListener();
-
-        for (Node node : cluster.getNodes()) {
-            node.addReplicatorStateListener(listener1);
-            node.addReplicatorStateListener(listener2);
-
-        }
         // elect leader
         cluster.waitLeader();
+
+        for (Node follower : cluster.getFollowers())
+            waitForCondition(() -> follower.getLeaderId() != null, 5_000);
+
         assertEquals(4, this.startedCounter.get());
         assertEquals(2, cluster.getLeader().getReplicatorStatueListeners().size());
         assertEquals(2, cluster.getFollowers().get(0).getReplicatorStatueListeners().size());
