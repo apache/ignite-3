@@ -8,7 +8,7 @@ be seen in [IEP-55](https://cwiki.apache.org/confluence/display/IGNITE/IEP-55+Un
 The core concept behind it is the _Configuration Schema_. It's required to generate public interfaces for the API and
 internal implementations that end user won't face. This way developers avoids writing boilerplate code.
 
-There are already meny examples throughout the code that looks somewhat like this:
+There are already many examples throughout the code that looks somewhat like this:
 ```
 @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
 public static class ParentConfigurationSchema {
@@ -28,6 +28,7 @@ public static class ChildConfigurationSchema {
 ```
 
 Main parts of what's present in this snippet are:
+* Class name must end with the `ConfigurationSchema` suffix.
 * `@ConfigurationRoot` marks root schemas. In general, configuration consists of several things:
   * property `type` shows that configuration can be either `LOCAL` or `DISTRIBUTED`. Main difference is that it'll be
     stored in different _storages_ - `Vault` or `Metastorage`. But this information isn't known to configuration module,
@@ -57,7 +58,7 @@ options:
 Another important concept is a `RootKey`. It represents type-safe object that holds name of the root node. Instances of
 this interface are generated automatically and are mandatory for registering roots in the framework.
 
-`ConfigurationRegistry` is like a public facade of the module. It should be uses as an entry point for modules
+`ConfigurationRegistry` is like a public facade of the module. It should be used as an entry point for modules
 functionality.
 
 ## Generated API
