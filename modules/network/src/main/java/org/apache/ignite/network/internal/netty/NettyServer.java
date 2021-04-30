@@ -93,15 +93,15 @@ public class NettyServer {
                 /** {@inheritDoc} */
                 @Override public void initChannel(SocketChannel ch) {
                     ch.pipeline().addLast(
-                        /**
-                         * Decoder that uses {@link org.apache.ignite.network.internal.MessageReader}
+                        /*
+                         * Decoder that uses org.apache.ignite.network.internal.MessageReader
                          * to read chunked data.
                          */
                         new InboundDecoder(serializationRegistry),
-                        /** Handles decoded {@link NetworkMessage}s. */
+                        // Handles decoded NetworkMessages.
                         new MessageHandler(messageListener),
-                        /**
-                         * Encoder that uses {@link org.apache.ignite.network.internal.MessageWriter}
+                        /*
+                         * Encoder that uses org.apache.ignite.network.internal.MessageWriter
                          * to write chunked data.
                          */
                         new ChunkedWriteHandler()
@@ -110,13 +110,13 @@ public class NettyServer {
                     newConnectionListener.accept(new NettySender(ch, serializationRegistry));
                 }
             })
-            /**
+            /*
              * The maximum queue length for incoming connection indications (a request to connect) is set
              * to the backlog parameter. If a connection indication arrives when the queue is full,
              * the connection is refused.
              */
             .option(ChannelOption.SO_BACKLOG, 128)
-            /**
+            /*
              * When the keepalive option is set for a TCP socket and no data has been exchanged across the socket
              * in either direction for 2 hours (NOTE: the actual value is implementation dependent),
              * TCP automatically sends a keepalive probe to the peer.

@@ -123,7 +123,7 @@ public class NettyClient {
 
         clientBootstrap.group(eventLoopGroup)
             .channel(NioSocketChannel.class)
-            /** See {@link NettyServer#start} for netty configuration details. */
+            // See NettyServer#start for netty configuration details.
             .option(ChannelOption.SO_KEEPALIVE, true)
             .handler(new ChannelInitializer<SocketChannel>() {
                 /** {@inheritDoc} */

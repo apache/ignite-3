@@ -27,7 +27,7 @@ import org.apache.ignite.network.message.NetworkMessage;
  */
 public class ScaleCubeMessage implements NetworkMessage {
     /** Direct type. */
-    public static final short TYPE = 100;
+    public static final short TYPE = 1;
 
     /** Message's data. */
     private final byte[] array;

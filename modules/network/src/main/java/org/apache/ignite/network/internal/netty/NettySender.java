@@ -141,12 +141,19 @@ public class NettySender {
 
         /** {@inheritDoc} */
         @Override public ByteBuf readChunk(ByteBufAllocator allocator) throws Exception {
-            ByteBuf buffer = allocator.buffer(4096);
-            ByteBuffer byteBuffer = buffer.internalNioBuffer(0, 4096);
+            ByteBuf buffer = allocator.ioBuffer();
+            int capacity = buffer.capacity();
+
+            ByteBuffer byteBuffer = buffer.internalNioBuffer(0, capacity);
+
             int initialPosition = byteBuffer.position();
+
             writer.setBuffer(byteBuffer);
+
             finished = serializer.writeMessage(msg, writer);
+
             buffer.writerIndex(byteBuffer.position() - initialPosition);
+
             return buffer;
         }
 
