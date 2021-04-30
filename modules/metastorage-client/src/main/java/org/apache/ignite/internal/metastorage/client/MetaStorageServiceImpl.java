@@ -58,74 +58,62 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Entry> get(@NotNull Key key) {
-        return metaStorageRaftGrpSvc.<Entry>run(new GetCommand(key))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetCommand(key));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Entry> get(@NotNull Key key, long revUpperBound) {
-        return metaStorageRaftGrpSvc.<Entry>run(new GetCommand(key, revUpperBound))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetCommand(key, revUpperBound));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAll(Collection<Key> keys) {
-        return metaStorageRaftGrpSvc.<Map<Key, Entry>>run(new GetAllCommand(keys))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetAllCommand(keys));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAll(Collection<Key> keys, long revUpperBound) {
-        return metaStorageRaftGrpSvc.<Map<Key, Entry>>run(new GetAllCommand(keys, revUpperBound))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetAllCommand(keys, revUpperBound));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> put(@NotNull Key key, @NotNull byte[] value) {
-        return metaStorageRaftGrpSvc.<Void>run(new PutCommand(key, value))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new PutCommand(key, value));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Entry> getAndPut(@NotNull Key key, @NotNull byte[] value) {
-        return metaStorageRaftGrpSvc.<Entry>run(new GetAndPutCommand(key, value))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetAndPutCommand(key, value));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> putAll(@NotNull Map<Key, byte[]> vals) {
-        return metaStorageRaftGrpSvc.<Void>run(new PutAllCommand(vals))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new PutAllCommand(vals));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAndPutAll(@NotNull Map<Key, byte[]> vals) {
-        return metaStorageRaftGrpSvc.<Map<Key, Entry>>run(new GetAndPutAllCommand(vals))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetAndPutAllCommand(vals));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> remove(@NotNull Key key) {
-        return metaStorageRaftGrpSvc.<Void>run(new RemoveCommand(key))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new RemoveCommand(key));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Entry> getAndRemove(@NotNull Key key) {
-        return metaStorageRaftGrpSvc.<Entry>run(new GetAndRemoveCommand(key))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetAndRemoveCommand(key));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> removeAll(@NotNull Collection<Key> keys) {
-        return metaStorageRaftGrpSvc.<Void>run(new RemoveAllCommand(keys))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new RemoveAllCommand(keys));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAndRemoveAll(@NotNull Collection<Key> keys) {
-        return metaStorageRaftGrpSvc.<Map<Key, Entry>>run(new GetAndRemoveAllCommand(keys))
-            .thenApply(response -> response);
+        return metaStorageRaftGrpSvc.run(new GetAndRemoveAllCommand(keys));
     }
 
     @Override public @NotNull CompletableFuture<Boolean> invoke(@NotNull Key key, @NotNull Condition condition,
