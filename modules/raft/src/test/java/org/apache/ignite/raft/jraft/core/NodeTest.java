@@ -558,7 +558,7 @@ public class NodeTest {
         }
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testLeaderTransferWithReplicatorStateListener() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -717,7 +717,7 @@ public class NodeTest {
         }
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testResetLearners() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1777,7 +1777,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testRemoveLeader() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2165,7 +2165,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch flaky
+    @Test // TODO add test for timeout on snapshot install
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(4);
         final TestCluster cluster = new TestCluster("unitest", this.dataPath, peers.subList(0, 3));
@@ -2206,7 +2206,7 @@ public class NodeTest {
         // add follower
         final PeerId newPeer = peers.get(3);
         final SnapshotThrottle snapshotThrottle = new ThroughputSnapshotThrottle(128, 1);
-        final boolean started = cluster.start(newPeer.getEndpoint(), true, 300, false, snapshotThrottle);
+        final boolean started = cluster.start(newPeer.getEndpoint(), false, 300, false, snapshotThrottle);
         assertTrue(started);
 
         final CountDownLatch latch = new CountDownLatch(1);

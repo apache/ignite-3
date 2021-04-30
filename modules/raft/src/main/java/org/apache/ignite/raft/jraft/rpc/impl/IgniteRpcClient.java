@@ -10,7 +10,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
@@ -80,11 +79,11 @@ public class IgniteRpcClient implements RpcClientEx {
             wasBlocked = blockPred != null && blockPred.test(request, endpoint.toString());
 
             if (wasBlocked)
-                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut)});
+                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut, timeoutMs)});
         }
 
         if (!wasBlocked)
-            send(endpoint, request, fut);
+            send(endpoint, request, fut, timeoutMs);
 
         try {
             return fut.whenComplete((res, err) -> {
@@ -129,7 +128,7 @@ public class IgniteRpcClient implements RpcClientEx {
             if (blockPred != null && blockPred.test(request, endpoint.toString())) {
                 blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
                     @Override public void run() {
-                        send(endpoint, request, fut);
+                        send(endpoint, request, fut, timeoutMs);
                     }
                 }});
 
@@ -137,11 +136,11 @@ public class IgniteRpcClient implements RpcClientEx {
             }
         }
 
-        send(endpoint, request, fut);
+        send(endpoint, request, fut, timeoutMs);
     }
 
-    public void send(Endpoint endpoint, Object request, CompletableFuture<Object> fut) {
-        CompletableFuture<NetworkMessage> fut0 = service.messagingService().invoke(endpoint.toString(), (NetworkMessage) request, 5000);
+    public void send(Endpoint endpoint, Object request, CompletableFuture<Object> fut, long timeout) {
+        CompletableFuture<NetworkMessage> fut0 = service.messagingService().invoke(endpoint.toString(), (NetworkMessage) request, timeout);
 
         fut0.whenComplete(new BiConsumer<NetworkMessage, Throwable>() {
             @Override public void accept(NetworkMessage resp, Throwable err) {

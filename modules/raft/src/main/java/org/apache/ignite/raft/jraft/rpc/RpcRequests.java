@@ -106,7 +106,7 @@ public final class RpcRequests {
     }
 
     public interface InstallSnapshotResponse extends HasErrorResponse {
-        static Message getDefaultInstance() {
+        static Message getDefaultInstance() { // TODO asch remove.
             return null;
         }
 
@@ -114,9 +114,6 @@ public final class RpcRequests {
             return MessageBuilderFactory.DEFAULT.createInstallSnapshotResponse();
         }
 
-        /**
-         * <code>required int64 term = 1;</code>
-         */
         long getTerm();
 
         boolean getSuccess();

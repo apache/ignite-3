@@ -48,7 +48,7 @@ public final class FileService {
 
     private static final Logger                   LOG           = LoggerFactory.getLogger(FileService.class);
 
-    private static final FileService INSTANCE      = new FileService();
+    private static final FileService INSTANCE      = new FileService(); // TODO asch fixme.
 
     private final ConcurrentMap<Long, FileReader> fileReaderMap = new ConcurrentHashMap<>();
     private final AtomicLong                      nextId        = new AtomicLong();
@@ -83,6 +83,12 @@ public final class FileService {
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EREQUEST, "Invalid request: %s", request);
         }
         final FileReader reader = this.fileReaderMap.get(request.getReaderId());
+
+        if (LOG.isDebugEnabled()) {
+            LOG.info("handleGetFile id={}, name={}, offset={}, cnt={}",
+                request.getReaderId(), request.getFilename(), request.getOffset(), request.getCount());
+        }
+
         if (reader == null) {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.ENOENT, "Fail to find reader=%d",
