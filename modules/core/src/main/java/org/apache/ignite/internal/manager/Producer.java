@@ -32,6 +32,8 @@ public abstract class Producer<T extends Event> {
 
     /**
      * Registers an event listener.
+     * When the event predicate return true it would never invoke after,
+     * otherwise this predicate would receive an event again.
      *
      * @param evt Event.
      * @param closure Closure.

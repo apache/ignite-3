@@ -82,6 +82,13 @@ public class TableManager extends Producer<TableEvent> implements IgniteTables {
     /** Tables. */
     private Map<String, Table> tables = new HashMap<>();
 
+    /*
+     * @param configurationMgr Configuration manager.
+     * @param metaStorageMgr Meta storage manager.
+     * @param schemaManager Schema manager.
+     * @param raftMgr Raft manager.
+     * @param vaultManager Vault manager.
+     */
     public TableManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
