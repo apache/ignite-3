@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -80,7 +81,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Long> tableCreationSubscriptionFut;
 
     /** Tables. */
-    private Map<String, TableImpl> tables = new HashMap<>();
+    private Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     /*
      * @param configurationMgr Configuration manager.
