@@ -41,7 +41,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableSchemaViewImpl;
+import org.apache.ignite.internal.table.TableSchemaRegistryImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -174,7 +174,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         onEvent(TableEvent.CREATE, new TableEventParameters(
                             tblId,
                             name,
-                            new TableSchemaViewImpl(tblId, schemaManager),
+                            new TableSchemaRegistryImpl(tblId, schemaManager),
                             new InternalTableImpl(tblId, partitionMap, partitions)
                         ), null);
                     }

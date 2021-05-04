@@ -172,7 +172,7 @@ public class IgnitionImpl implements Ignition {
         // Affinity manager startup.
         new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr, vaultMgr);
 
-        SchemaManager schemaMgr = new SchemaManager(configurationMgr);
+        SchemaManager schemaMgr = new SchemaManager(configurationMgr, metaStorageMgr, vaultMgr);
 
         // Distributed table manager startup.
         IgniteTables distributedTblMgr = new TableManager(

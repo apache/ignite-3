@@ -17,27 +17,20 @@
 
 package org.apache.ignite.internal.table.schema;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
- * Schema registration exception.
+ * Table schema registry interface.
  */
-public class SchemaRegistryException extends IgniteInternalException {
+public interface TableSchemaRegistry {
     /**
-     * Constructor.
-     *
-     * @param msg Message.
+     * @return Current schema.
      */
-    public SchemaRegistryException(String msg) {
-        super(msg);
-    }
+    SchemaDescriptor schema();
 
     /**
-     * Constructor.
-     *
-     * @param cause Cause.
+     * @param ver Schema version.
+     * @return Schema of given version.
      */
-    public SchemaRegistryException(Throwable cause) {
-        super(cause);
-    }
+    SchemaDescriptor schema(int ver);
 }

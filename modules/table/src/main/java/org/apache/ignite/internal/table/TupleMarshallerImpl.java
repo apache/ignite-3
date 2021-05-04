@@ -23,6 +23,7 @@ import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -31,14 +32,14 @@ import org.jetbrains.annotations.NotNull;
  */
 class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
-    private final TableSchemaView schemaMgr;
+    private final TableSchemaRegistry schemaMgr;
 
     /**
      * Constructor.
      *
      * @param schemaMgr Schema manager.
      */
-    TupleMarshallerImpl(TableSchemaView schemaMgr) {
+    TupleMarshallerImpl(TableSchemaRegistry schemaMgr) {
         this.schemaMgr = schemaMgr;
     }
 
@@ -80,16 +81,61 @@ class TupleMarshallerImpl implements TupleMarshaller {
     private void writeColumn(Tuple tup, Column col, RowAssembler rowAsm) {
         if (tup.value(col.name()) == null) {
             rowAsm.appendNull();
+
             return;
         }
 
         switch (col.type().spec()) {
+            case BYTE: {
+                rowAsm.appendByte(tup.byteValue(col.name()));
+
+                break;
+            }
+            case SHORT: {
+                rowAsm.appendShort(tup.shortValue(col.name()));
+
+                break;
+            }
+            case INTEGER: {
+                rowAsm.appendInt(tup.intValue(col.name()));
+
+                break;
+            }
             case LONG: {
                 rowAsm.appendLong(tup.longValue(col.name()));
 
                 break;
             }
+            case FLOAT: {
+                rowAsm.appendFloat(tup.floatValue(col.name()));
 
+                break;
+            }
+            case DOUBLE: {
+                rowAsm.appendDouble(tup.doubleValue(col.name()));
+
+                break;
+            }
+            case UUID: {
+                rowAsm.appendUuid(tup.value(col.name()));
+
+                break;
+            }
+            case STRING: {
+                rowAsm.appendString(tup.stringValue(col.name()));
+
+                break;
+            }
+            case BYTES: {
+                rowAsm.appendBytes(tup.value(col.name()));
+
+                break;
+            }
+            case BITMASK: {
+                rowAsm.appendBitmask(tup.value(col.name()));
+
+                break;
+            }
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
         }

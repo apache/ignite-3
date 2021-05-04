@@ -15,8 +15,29 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.internal.schema.registry;
+
+import org.apache.ignite.lang.IgniteInternalException;
+
 /**
- * Schema management components responsible for maintaining versioned schema history,
- * row validation and upgrade row versions.
+ * Schema registration exception.
  */
-package org.apache.ignite.internal.table.schema;
+public class SchemaRegistryException extends IgniteInternalException {
+    /**
+     * Constructor.
+     *
+     * @param msg Message.
+     */
+    public SchemaRegistryException(String msg) {
+        super(msg);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param cause Cause.
+     */
+    public SchemaRegistryException(Throwable cause) {
+        super(cause);
+    }
+}

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.schema;
+package org.apache.ignite.internal.schema.registry;
 
 import java.util.List;
 import java.util.Objects;
@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SchemaRegistry {
     /** Initial schema version. */
-    static final int INITIAL_SCHEMA_VERSION = -1;
+    public static final int INITIAL_SCHEMA_VERSION = -1;
 
     /** Latest actual schemas. */
     private final ConcurrentSkipListMap<Integer, SchemaDescriptor> history = new ConcurrentSkipListMap<>();
@@ -169,7 +169,7 @@ public class SchemaRegistry {
      * @param ver First actual schema version.
      * @throws SchemaRegistryException If incorrect schema version provided.
      */
-    public void cleanupBefore(int ver) {
+    public void cleanupSchema(int ver) {
         if (ver > lastVer || ver <= 0)
             throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
 

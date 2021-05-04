@@ -20,12 +20,16 @@ package org.apache.ignite.internal.table.schema;
 import java.util.List;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.registry.SchemaRegistrationConflictException;
+import org.apache.ignite.internal.schema.registry.SchemaRegistry;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.NativeType.BYTES;
 import static org.apache.ignite.internal.schema.NativeType.LONG;
 import static org.apache.ignite.internal.schema.NativeType.STRING;
-import static org.apache.ignite.internal.table.schema.SchemaRegistry.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.schema.registry.SchemaRegistry.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -232,8 +236,8 @@ public class SchemaRegistryTest {
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
         // Fail to cleanup initial schema
-        assertThrows(SchemaRegistryException.class, () -> reg.cleanupBefore(INITIAL_SCHEMA_VERSION));
-        assertThrows(SchemaRegistryException.class, () -> reg.cleanupBefore(1));
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(INITIAL_SCHEMA_VERSION));
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(1));
 
         // Register schema with very first version.
         reg.registerSchema(schemaV1);
@@ -243,7 +247,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(1));
 
         // Remove non-existed schemas.
-        reg.cleanupBefore(1);
+        reg.cleanupSchema(1);
 
         assertEquals(1, reg.lastSchemaVersion());
         assertNotNull(reg.schema());
@@ -259,7 +263,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(3));
 
         // Remove outdated schema 1.
-        reg.cleanupBefore(2);
+        reg.cleanupSchema(2);
 
         assertEquals(3, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
@@ -267,7 +271,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(3));
 
         // Remove non-existed schemas.
-        reg.cleanupBefore(2);
+        reg.cleanupSchema(2);
 
         assertEquals(3, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
@@ -283,7 +287,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(4));
 
         // Remove non-existed schemas.
-        reg.cleanupBefore(2);
+        reg.cleanupSchema(2);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertSameSchema(schemaV4, reg.schema());
@@ -291,8 +295,12 @@ public class SchemaRegistryTest {
         assertSameSchema(schemaV3, reg.schema(3));
         assertSameSchema(schemaV4, reg.schema(4));
 
-        // Multiple remove.
-        reg.cleanupBefore(4);
+        // Out of order remove.
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(4));
+
+        // Correct removal order.
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(3));
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(4));
 
         assertEquals(4, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
@@ -302,7 +310,7 @@ public class SchemaRegistryTest {
         assertSameSchema(schemaV4, reg.schema(4));
 
         // Once again.
-        reg.cleanupBefore(4);
+        reg.cleanupSchema(4);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertSameSchema(schemaV4, reg.schema(4));
@@ -474,19 +482,19 @@ public class SchemaRegistryTest {
         assertSameSchema(schemaV3, reg.schema(3));
         assertSameSchema(schemaV4, reg.schema(4));
 
-        reg.cleanupBefore(1);
+        reg.cleanupSchema(1);
         assertEquals(4, reg.lastSchemaVersion());
         assertNotNull(reg.schema(2));
         assertNotNull(reg.schema(3));
         assertNotNull(reg.schema(4));
 
-        reg.cleanupBefore(2);
+        reg.cleanupSchema(2);
         assertEquals(4, reg.lastSchemaVersion());
         assertNotNull(reg.schema(2));
         assertNotNull(reg.schema(3));
         assertNotNull(reg.schema(4));
 
-        reg.cleanupBefore(4);
+        reg.cleanupSchema(4);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(2));
@@ -503,6 +511,6 @@ public class SchemaRegistryTest {
     private void assertSameSchema(SchemaDescriptor schemaDesc1, SchemaDescriptor schemaDesc2) {
         assertEquals(schemaDesc1.version(), schemaDesc2.version(), "Descriptors of different versions.");
 
-        assertTrue(TableSchemaManagerImpl.equalSchemas(schemaDesc1, schemaDesc2), "Schemas are not equals.");
+        assertTrue(SchemaManager.equalSchemas(schemaDesc1, schemaDesc2), "Schemas are not equals.");
     }
 }

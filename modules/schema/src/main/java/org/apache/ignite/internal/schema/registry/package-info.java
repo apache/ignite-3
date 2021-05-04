@@ -15,21 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.schema;
-
-import org.apache.ignite.lang.IgniteInternalException;
-
 /**
- * Schema registration conflict exception is thown if
- * registering schema's number was alredy registered earlier.
+ * Schema registry responsible for maintaining versioned schema history.
  */
-public class SchemaRegistrationConflictException extends IgniteInternalException {
-    /**
-     * Constructor.
-     *
-     * @param msg Message.
-     */
-    public SchemaRegistrationConflictException(String msg) {
-        super(msg);
-    }
-}
+package org.apache.ignite.internal.schema.registry;

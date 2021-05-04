@@ -15,41 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.impl;
+package org.apache.ignite.internal.schema.registry;
 
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Dummy schema manager for tests.
+ * Schema registration conflict exception is thown if
+ * registering schema's number was alredy registered earlier.
  */
-public class DummySchemaManagerImpl implements TableSchemaRegistry {
-    /** Schema. */
-    private final SchemaDescriptor schema;
-
+public class SchemaRegistrationConflictException extends IgniteInternalException {
     /**
      * Constructor.
      *
-     * @param schema Schema descriptor.
+     * @param msg Message.
      */
-    public DummySchemaManagerImpl(@NotNull SchemaDescriptor schema) {
-        assert schema != null;
-
-        this.schema = schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor schema() {
-        return schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor schema(int ver) {
-        assert ver >= 0;
-
-        assert schema.version() == ver;
-
-        return schema;
+    public SchemaRegistrationConflictException(String msg) {
+        super(msg);
     }
 }

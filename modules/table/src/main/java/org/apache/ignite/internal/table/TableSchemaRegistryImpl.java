@@ -17,20 +17,37 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
 
 /**
- * Table schema manager interface.
+ * Schema registry adapter.
  */
-public interface TableSchemaView {
-    /**
-     * @return Current schema.
-     */
-    SchemaDescriptor schema();
+public class TableSchemaRegistryImpl implements TableSchemaRegistry {
+    /** Table identifier. */
+    private final UUID tableId;
+
+    /** Schema manager. */
+    private final SchemaManager schemaManager;
 
     /**
-     * @param ver Schema version.
-     * @return Schema of given version.
+     * @param tableId Table identifier.
+     * @param schemaManager Schema manager.
      */
-    SchemaDescriptor schema(int ver);
+    public TableSchemaRegistryImpl(UUID tableId, SchemaManager schemaManager) {
+        this.tableId = tableId;
+        this.schemaManager = schemaManager;
+    }
+
+    /** {@inheritDoc} */
+    @Override public SchemaDescriptor schema() {
+        return schemaManager.schema(tableId);
+    }
+
+    /** {@inheritDoc} */
+    @Override public SchemaDescriptor schema(int ver) {
+        return schemaManager.schema(tableId, ver);
+    }
 }
