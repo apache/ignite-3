@@ -28,6 +28,7 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.PutCommand;
+import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
 import org.apache.ignite.lang.IgniteUuid;
@@ -126,12 +127,20 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull Cursor<Entry> range(@NotNull Key keyFrom, @Nullable Key keyTo, long revUpperBound) {
-        return null;
+        return new CursorImpl<>(
+            metaStorageRaftGrpSvc,
+            metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo, revUpperBound))
+        );
     }
 
+    /** {@inheritDoc} */
     @Override public @NotNull Cursor<Entry> range(@NotNull Key keyFrom, @Nullable Key keyTo) {
-        return null;
+        return new CursorImpl<>(
+            metaStorageRaftGrpSvc,
+            metaStorageRaftGrpSvc.run(new RangeCommand(keyFrom, keyTo))
+        );
     }
 
     @Override

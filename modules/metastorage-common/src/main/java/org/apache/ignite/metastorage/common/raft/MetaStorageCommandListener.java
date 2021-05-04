@@ -19,6 +19,9 @@ package org.apache.ignite.metastorage.common.raft;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
@@ -29,9 +32,15 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.PutCommand;
+import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.metastorage.common.Cursor;
 import org.apache.ignite.metastorage.common.Entry;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.KeyValueStorage;
@@ -50,11 +59,15 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
     /** Storage. */
     private final KeyValueStorage storage;
 
+    /** Cursors map. */
+    private final Map<IgniteUuid, Cursor<Entry>> cursors;
+
     /**
      * @param storage Storage.
      */
     public MetaStorageCommandListener(KeyValueStorage storage) {
         this.storage = storage;
+        this.cursors = new ConcurrentHashMap<>();
     }
 
     /** {@inheritDoc} */
@@ -85,6 +98,13 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                             getAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList())).
                             stream().collect(Collectors.toMap(Entry::key, Function.identity())));
                     }
+                }
+                else if (clo.command() instanceof CursorHasNextCommand) {
+                    CursorHasNextCommand cursorHasNextCmd = (CursorHasNextCommand)clo.command();
+
+                    assert cursors.containsKey(cursorHasNextCmd.cursorId());
+
+                    clo.success(cursors.get(cursorHasNextCmd.cursorId()).iterator().hasNext());
                 }
                 else
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
@@ -155,6 +175,47 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     clo.success(storage.getAndRemoveAll(
                         getAndRmvAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList())));
+                }
+                else if (clo.command() instanceof RangeCommand) {
+                    RangeCommand rangeCmd = (RangeCommand)clo.command();
+
+                    IgniteUuid cursorId = new IgniteUuid(UUID.randomUUID(), 0L);
+
+                    cursors.put(
+                        cursorId,
+                        storage.range(
+                            rangeCmd.keyFrom().bytes(),
+                            rangeCmd.keyTo() == null ? null : rangeCmd.keyTo().bytes(),
+                            rangeCmd.revUpperBound())
+                    );
+
+                    clo.success(cursorId);
+                }
+                else if (clo.command() instanceof CursorNextCommand) {
+                    CursorNextCommand cursorNextCmd = (CursorNextCommand)clo.command();
+
+                    assert cursors.containsKey(cursorNextCmd.cursorId());
+
+                    // TODO sanpwc: Check whether iterator returns already existing iterator and not new one on every call.
+                    clo.success(cursors.get(cursorNextCmd.cursorId()).iterator().next());
+                }
+                else if (clo.command() instanceof CursorCloseCommand) {
+                    CursorCloseCommand cursorCloseCmd = (CursorCloseCommand)clo.command();
+
+                    cursors.computeIfPresent(cursorCloseCmd.cursorId(), (k, v) -> {
+                        try {
+                            v.close();
+                        }
+                        catch (Exception e) {
+                            LOG.error("Unable to close cursor during command evaluation " +
+                                "[cmd=" + clo.command() + ", cursor=" + cursorCloseCmd.cursorId() + ']', e);
+
+                            clo.failure(e);
+                        }
+                        return null;
+                    });
+
+                    clo.success(null);
                 }
                 else
                     assert false : "Command was not found [cmd=" + clo.command() + ']';

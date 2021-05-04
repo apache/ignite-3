@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.client;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -53,12 +54,17 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * Meta storage client tests.
  */
+// TODO sanpwc: Move to integration tests.
 @SuppressWarnings("WeakerAccess") public class MetaStorageServiceTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceTest.class);
@@ -71,6 +77,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 
     /** */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
+
+    /** */
+    public static final int LATEST_REVISION = -1;
 
     /** Factory. */
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
@@ -466,6 +475,209 @@ import static org.junit.jupiter.api.Assertions.fail;
         Map<Key, Entry> gotRes = metaStorageSvc.getAndRemoveAll(EXPECTED_RESULT_MAP.keySet()).get();
 
         assertEquals(EXPECTED_RESULT_MAP, gotRes);
+    }
+
+
+    /**
+     * Tests {@link MetaStorageService#range(Key, Key, long)}} with not null keyTo and explicit revUpperBound.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testRangeWitKeyToAndUpperBound() throws Exception {
+        Key expKeyFrom = new Key(new byte[]{1});
+
+        Key expKeyTo = new Key(new byte[]{3});
+
+        long expRevUpperBound = 10;
+
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    assertArrayEquals(expKeyFrom.bytes(), keyFrom);
+
+                    assertArrayEquals(expKeyTo.bytes(), keyTo);
+
+                    assertEquals(expRevUpperBound, revUpperBound);
+
+                    return new Cursor<>() {
+                        @Override public void close() throws Exception {
+
+                        }
+
+                        @NotNull @Override public Iterator<Entry> iterator() {
+                            return null;
+                        }
+                    };
+                }
+            });
+
+        metaStorageSvc.range(expKeyFrom, expKeyTo, expRevUpperBound).close();
+    }
+
+    /**
+     * Tests {@link MetaStorageService#range(Key, Key, long)}} with not null keyTo.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testRangeWitKeyTo() throws Exception {
+        Key expKeyFrom = new Key(new byte[]{1});
+
+        Key expKeyTo = new Key(new byte[]{3});
+
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    assertArrayEquals(expKeyFrom.bytes(), keyFrom);
+
+                    assertArrayEquals(expKeyTo.bytes(), keyTo);
+
+                    assertEquals(LATEST_REVISION, revUpperBound);
+
+                    return new Cursor<>() {
+                        @Override public void close() throws Exception {
+
+                        }
+
+                        @NotNull @Override public Iterator<Entry> iterator() {
+                            return null;
+                        }
+                    };
+                }
+            });
+
+        metaStorageSvc.range(expKeyFrom, expKeyTo).close();
+    }
+
+    /**
+     * Tests {@link MetaStorageService#range(Key, Key, long)}} with null keyTo.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testRangeWitNullAsKeyTo() throws Exception {
+        Key expKeyFrom = new Key(new byte[]{1});
+
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    assertArrayEquals(expKeyFrom.bytes(), keyFrom);
+
+                    assertNull(keyTo);
+
+                    assertEquals(LATEST_REVISION, revUpperBound);
+
+                    return new Cursor<>() {
+                        @Override public void close() throws Exception {
+
+                        }
+
+                        @NotNull @Override public Iterator<Entry> iterator() {
+                            return null;
+                        }
+                    };
+                }
+            });
+
+        metaStorageSvc.range(expKeyFrom, null).close();
+    }
+
+    /**
+     * Tests {@link MetaStorageService#range(Key, Key, long)}} hasNext.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testRangeHasNext() throws Exception {
+        Key expKeyFrom = new Key(new byte[]{1});
+
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    return new Cursor<>() {
+                        @Override public void close() throws Exception {
+
+                        }
+
+                        @NotNull @Override public Iterator<Entry> iterator() {
+                            return new Iterator<>() {
+                                @Override public boolean hasNext() {
+                                    return true;
+                                }
+
+                                @Override public Entry next() {
+                                    return null;
+                                }
+                            };
+                        }
+                    };
+                }
+            });
+
+        Cursor<Entry> cursor = metaStorageSvc.range(expKeyFrom, null);
+
+        assertTrue(cursor.iterator().hasNext());
+    }
+
+    /**
+     * Tests {@link MetaStorageService#range(Key, Key, long)}} next.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testRangeNext() throws Exception {
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    return new Cursor<>() {
+                        @Override public void close() throws Exception {
+
+                        }
+
+                        @NotNull @Override public Iterator<Entry> iterator() {
+                            return new Iterator<>() {
+                                @Override public boolean hasNext() {
+                                    return true;
+                                }
+
+                                @Override public Entry next() {
+                                    return EXPECTED_RESULT_ENTRY;
+                                }
+                            };
+                        }
+                    };
+                }
+            });
+
+        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+
+        assertEquals(EXPECTED_RESULT_ENTRY, (cursor.iterator().next()));
+    }
+
+    /**
+     * Tests {@link MetaStorageService#range(Key, Key, long)}} close.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testRangeClose() throws Exception {
+        Key expKeyFrom = new Key(new byte[]{1});
+
+        Cursor cursorMock = mock(Cursor.class);
+
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    return cursorMock;
+                }
+            });
+
+        Cursor<Entry> cursor = metaStorageSvc.range(expKeyFrom, null);
+
+        cursor.close();
+
+        verify(cursorMock, times(1)).close();
     }
 
     // TODO sanpwc: Add test for exception handling.
