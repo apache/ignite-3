@@ -34,14 +34,14 @@ import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getVal
  */
 public class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
-    private final TableSchemaManager schemaMgr;
+    private final TableSchemaView schemaMgr;
 
     /**
      * Constructor.
      *
      * @param schemaMgr Schema manager.
      */
-    public TupleMarshallerImpl(TableSchemaManager schemaMgr) {
+    public TupleMarshallerImpl(TableSchemaView schemaMgr) {
         this.schemaMgr = schemaMgr;
     }
 

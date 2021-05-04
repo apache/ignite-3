@@ -20,27 +20,37 @@ package org.apache.ignite.configuration.tree;
 import java.util.function.Consumer;
 
 /** */
-public interface NamedListChange<Change, Init> extends NamedListInit<Init> {
+public interface NamedListChange<Change> {
+    /**
+     * Update the value in named list configuration.
+     *
+     * @param key Key for the value to be created.
+     * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
+     *      passed to the closure, must not be reused anywhere else.
+     * @return {@code this} for chaining.
+     */
+    //TODO Replace with "createOrUpdate"
+    NamedListChange<Change> create(String key, Consumer<Change> valConsumer);
+
     /**
      * Update the value in named list configuration.
      *
      * @param key Key for the value to be updated.
      * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
      *      passed to the closure, must not be reused anywhere else.
+     * @return {@code this} for chaining.
      *
      * @throws IllegalStateException If {@link #delete(String)} has been invoked with the same key previously.
      */
-    NamedListChange<Change, Init> update(String key, Consumer<Change> valConsumer) throws IllegalStateException;
+    NamedListChange<Change> update(String key, Consumer<Change> valConsumer) throws IllegalStateException;
 
     /**
      * Remove the value from named list configuration.
      *
      * @param key Key for the value to be removed.
+     * @return {@code this} for chaining.
      *
      * @throws IllegalStateException If {@link #update(String, Consumer)} has been invoked with the same key previously.
      */
-    NamedListChange<Change, Init> delete(String key) throws IllegalStateException;
-
-    /** {@inheritDoc} */
-    @Override NamedListChange<Change, Init> create(String key, Consumer<Init> valConsumer);
+    NamedListChange<Change> delete(String key) throws IllegalStateException;
 }

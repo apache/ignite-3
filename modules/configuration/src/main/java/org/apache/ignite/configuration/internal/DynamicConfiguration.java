@@ -32,12 +32,11 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.configuration.tree.InnerNode;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 
 /**
  * This class represents configuration root or node.
  */
-public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends ConfigurationNode<VIEW, CHANGE>
+public abstract class DynamicConfiguration<VIEW, CHANGE> extends ConfigurationNode<VIEW, CHANGE>
     implements ConfigurationTree<VIEW, CHANGE>
 {
     /** Configuration members (leaves and nodes). */
@@ -79,7 +78,7 @@ public abstract class DynamicConfiguration<VIEW, INIT, CHANGE> extends Configura
     }
 
     /** {@inheritDoc} */
-    @Override public final Future<Void> change(Consumer<CHANGE> change) throws ConfigurationValidationException {
+    @Override public final Future<Void> change(Consumer<CHANGE> change) {
         Objects.requireNonNull(change, "Configuration consumer cannot be null.");
 
         InnerNode rootNodeChange = ((RootKeyImpl)rootKey).createRootNode();
