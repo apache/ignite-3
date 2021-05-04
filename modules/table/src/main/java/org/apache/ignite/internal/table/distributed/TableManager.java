@@ -262,10 +262,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 UUID tblId = t.internalTable().tableId();
 
+                var key = new Key(INTERNAL_PREFIX + "assignment." + tblId.toString());
                 futs.add(metaStorageMgr.invoke(
-                    new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()),
-                    Conditions.value().ne(null),
-                    Operations.remove(),
+                    Conditions.key(key).value().ne(null),
+                    Operations.remove(key),
                     Operations.noop()).thenCompose(res ->
                     res ? metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tblId.toString()))
                         .thenApply(v -> true)
