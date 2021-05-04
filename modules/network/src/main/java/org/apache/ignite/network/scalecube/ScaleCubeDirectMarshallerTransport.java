@@ -27,6 +27,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -92,10 +93,12 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
      * @param addr Address.
      * @return ScaleCube address.
      */
-    private static Address prepareAddress(InetSocketAddress addr) {
-        InetAddress address = addr.getAddress();
+    private static Address prepareAddress(SocketAddress addr) {
+        InetSocketAddress inetSocketAddress = (InetSocketAddress) addr;
 
-        int port = addr.getPort();
+        InetAddress address = inetSocketAddress.getAddress();
+
+        int port = inetSocketAddress.getPort();
 
         if (address.isAnyLocalAddress())
             return Address.create(Address.getLocalIpAddress().getHostAddress(), port);
@@ -155,7 +158,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
      * @param source Message source.
      * @param msg Network message.
      */
-    private void onMessage(InetSocketAddress source, NetworkMessage msg) {
+    private void onMessage(SocketAddress source, NetworkMessage msg) {
         Message message = fromNetworkMessage(msg);
 
         if (message != null)

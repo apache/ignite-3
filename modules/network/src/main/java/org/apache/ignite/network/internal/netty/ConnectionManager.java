@@ -20,7 +20,7 @@ package org.apache.ignite.network.internal.netty;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -54,16 +54,16 @@ public class ConnectionManager {
     private final NettyServer server;
 
     /** Channels. */
-    private final Map<InetSocketAddress, NettySender> channels = new ConcurrentHashMap<>();
+    private final Map<SocketAddress, NettySender> channels = new ConcurrentHashMap<>();
 
     /** Clients. */
-    private final Map<InetSocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
+    private final Map<SocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
 
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
 
     /** Message listeners. */
-    private final List<BiConsumer<InetSocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>();
+    private final List<BiConsumer<SocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -95,7 +95,7 @@ public class ConnectionManager {
     /**
      * @return Server local address.
      */
-    public InetSocketAddress getLocalAddress() {
+    public SocketAddress getLocalAddress() {
         return server.address();
     }
 
@@ -104,7 +104,7 @@ public class ConnectionManager {
      * @param address Another node's address.
      * @return Sender.
      */
-    public CompletableFuture<NettySender> channel(InetSocketAddress address) {
+    public CompletableFuture<NettySender> channel(SocketAddress address) {
         NettySender channel = channels.compute(
             address,
             (addr, sender) -> (sender == null || !sender.isOpen()) ? null : sender
@@ -129,7 +129,7 @@ public class ConnectionManager {
      * @param from Source of the message.
      * @param message New message.
      */
-    private void onMessage(InetSocketAddress from, NetworkMessage message) {
+    private void onMessage(SocketAddress from, NetworkMessage message) {
         listeners.forEach(consumer -> consumer.accept(from, message));
     }
 
@@ -139,7 +139,7 @@ public class ConnectionManager {
      * @param channel Channel from client to this {@link #server}.
      */
     private void onNewIncomingChannel(NettySender channel) {
-        InetSocketAddress remoteAddress = channel.remoteAddress();
+        SocketAddress remoteAddress = channel.remoteAddress();
         channels.put(remoteAddress, channel);
     }
 
@@ -149,10 +149,9 @@ public class ConnectionManager {
      * @param address Target address.
      * @return New netty client.
      */
-    private NettyClient connect(InetSocketAddress address) {
+    private NettyClient connect(SocketAddress address) {
         NettyClient client = new NettyClient(
-            address.getHostName(),
-            address.getPort(),
+            address,
             serializationRegistry
         );
 
@@ -171,7 +170,7 @@ public class ConnectionManager {
      *
      * @param listener Message listener.
      */
-    public void addListener(BiConsumer<InetSocketAddress, NetworkMessage> listener) {
+    public void addListener(BiConsumer<SocketAddress, NetworkMessage> listener) {
         listeners.add(listener);
     }
 

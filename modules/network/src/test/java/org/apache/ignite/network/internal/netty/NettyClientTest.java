@@ -17,13 +17,136 @@
 
 package org.apache.ignite.network.internal.netty;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.embedded.EmbeddedChannel;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Tests for {@link NettyClient}.
+ */
 class NettyClientTest {
+    /** */
+    private final SocketAddress address = InetSocketAddress.createUnresolved("", 0);
 
+    /**
+     * Tests a scenario where NettyClient connects successfully.
+     *
+     * @throws Exception If failed.
+     */
     @Test
-    public void test() {
+    public void testSuccessfullConnect() throws InterruptedException, ExecutionException, TimeoutException {
+        EmbeddedChannel channel = new EmbeddedChannel();
 
+        ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
+
+        NettySender sender = tuple.sender.get(3, TimeUnit.SECONDS);
+        NettyClient client = tuple.client;
+
+        assertNotNull(sender);
+        assertTrue(sender.isOpen());
+
+        assertFalse(client.failedToConnect());
+        assertFalse(client.isDisconnected());
     }
 
+    /**
+     * Tests a scenario where NettyClient fails to connect.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testFailedToConnect() throws InterruptedException, ExecutionException, TimeoutException {
+        EmbeddedChannel channel = new EmbeddedChannel();
+
+        ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newFailedFuture(new ClosedChannelException()));
+
+        assertThrows(ClosedChannelException.class, () -> {
+            try {
+                tuple.sender.get(3, TimeUnit.SECONDS);
+            }
+            catch (Exception e) {
+                throw e.getCause();
+            }
+        });
+
+        NettyClient client = tuple.client;
+
+        assertTrue(client.failedToConnect());
+        assertFalse(client.isDisconnected());
+    }
+
+    /**
+     * Tests a scenario where a connection is established successfully and is closed afterwards.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testConnectionClose() throws Exception {
+        EmbeddedChannel channel = new EmbeddedChannel();
+
+        ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
+
+        NettySender sender = tuple.sender.get(3, TimeUnit.SECONDS);
+
+        channel.close();
+
+        assertFalse(sender.isOpen());
+
+        assertTrue(tuple.client.isDisconnected());
+        assertFalse(tuple.client.failedToConnect());
+    }
+
+    /**
+     * Creates a NettyClient and an associated NettySender future from Netty's ChannelFuture.
+     *
+     * @param future Channel future.
+     * @return Client and a NettySender future.
+     */
+    private ClientAndSender createClientAndSenderFromChannelFuture(ChannelFuture future) {
+        var client = new NettyClient(address, null);
+
+        Bootstrap bootstrap = Mockito.mock(Bootstrap.class);
+
+        Mockito.when(bootstrap.connect(Mockito.any())).then(invocation -> {
+            return future;
+        });
+
+        return new ClientAndSender(client, client.start(bootstrap));
+    }
+
+    /**
+     * Tuple for a NettyClient and a future of a NettySender.
+     */
+    private static class ClientAndSender {
+        /** */
+        private final NettyClient client;
+
+        /** */
+        private final CompletableFuture<NettySender> sender;
+
+        /**
+         * Constructor.
+         *
+         * @param client Netty client.
+         * @param sender Netty sender.
+         */
+        private ClientAndSender(NettyClient client, CompletableFuture<NettySender> sender) {
+            this.client = client;
+            this.sender = sender;
+        }
+    }
 }

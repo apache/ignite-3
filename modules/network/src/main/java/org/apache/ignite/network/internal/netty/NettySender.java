@@ -21,9 +21,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.stream.ChunkedInput;
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
@@ -36,7 +35,7 @@ import org.apache.ignite.network.message.NetworkMessage;
  */
 public class NettySender {
     /** Netty channel. */
-    private final SocketChannel channel;
+    private final Channel channel;
 
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
@@ -47,7 +46,7 @@ public class NettySender {
      * @param channel Netty channel.
      * @param registry Serialization registry.
      */
-    public NettySender(SocketChannel channel, MessageSerializationRegistry registry) {
+    public NettySender(Channel channel, MessageSerializationRegistry registry) {
         this.channel = channel;
         serializationRegistry = registry;
     }
@@ -76,7 +75,7 @@ public class NettySender {
     /**
      * @return Gets the remote address of the channel.
      */
-    public InetSocketAddress remoteAddress() {
+    public SocketAddress remoteAddress() {
         return this.channel.remoteAddress();
     }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -26,6 +27,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -39,17 +41,14 @@ public class NettyClient {
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
 
-    /** Destination host. */
-    private final String host;
-
-    /** Destination port. */
-    private final int port;
+    /** Destination address. */
+    private final SocketAddress address;
 
     /** Future that resolves when client channel is opened. */
     private CompletableFuture<NettySender> clientFuture;
 
     /** Client channel. */
-    private volatile SocketChannel channel;
+    private volatile Channel channel;
 
     /**
      * Constructor.
@@ -63,8 +62,20 @@ public class NettyClient {
         int port,
         MessageSerializationRegistry serializationRegistry
     ) {
-        this.host = host;
-        this.port = port;
+        this(new InetSocketAddress(host, port), serializationRegistry);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param address Destination address.
+     * @param serializationRegistry Serialization registry.
+     */
+    public NettyClient(
+        SocketAddress address,
+        MessageSerializationRegistry serializationRegistry
+    ) {
+        this.address = address;
         this.serializationRegistry = serializationRegistry;
     }
 
@@ -77,9 +88,9 @@ public class NettyClient {
         if (clientFuture != null)
             throw new IgniteInternalException("Attempted to start an already started NettyClient");
 
-        clientFuture = NettyUtils.toCompletableFuture(bootstrap.connect(host, port), ChannelFuture::channel)
+        clientFuture = NettyUtils.toCompletableFuture(bootstrap.connect(address), ChannelFuture::channel)
             .thenApply(ch -> {
-                channel = (SocketChannel) ch;
+                channel = ch;
                 return new NettySender(channel, serializationRegistry);
             });
 

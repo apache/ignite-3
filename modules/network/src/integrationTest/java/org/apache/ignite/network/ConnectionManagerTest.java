@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.internal.netty.NettySender;
@@ -108,7 +107,7 @@ public class ConnectionManagerTest {
             try {
                 finalSender.send(testMessage).join();
             }
-            catch (CompletionException e) {
+            catch (Exception e) {
                 throw e.getCause();
             }
         });
