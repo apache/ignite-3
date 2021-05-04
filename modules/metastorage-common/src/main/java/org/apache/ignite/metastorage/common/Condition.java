@@ -59,14 +59,10 @@ public final class Condition {
          */
         private Type type;
 
-        /**
-         * The revision as the condition argument.
-         */
+        /** The revision as the condition argument. */
         private long rev;
 
-        /**
-         * Key of entry, which will be tested for condition.
-         */
+        /** Key of entry, which will be tested for condition. */
         private final Key key;
 
         /**
@@ -258,14 +254,10 @@ public final class Condition {
          */
         private Type type;
 
-        /**
-         * The value as the condition argument.
-         */
+        /** The value as the condition argument. */
         private byte[] val;
 
-        /**
-         * Key of entry, which will be tested for condition.
-         */
+        /** Key of entry, which will be tested for condition. */
         private final Key key;
 
         /**

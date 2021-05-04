@@ -57,6 +57,12 @@ public final class Conditions {
         return new Condition.ValueCondition(key);
     }
 
+    /**
+     * Creates key-based condition.
+     *
+     * @param key Key of condition.
+     * @return Key-based condition instance.
+     */
     public static Conditions key(Key key) {
         return new Conditions(key);
     }

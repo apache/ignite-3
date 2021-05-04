@@ -310,16 +310,22 @@ import org.jetbrains.annotations.Nullable;
      *
      * @see MetaStorageService#invoke(Condition, Collection, Collection)
      */
-    public @NotNull CompletableFuture<Boolean> invoke(@NotNull Condition cond,
-        @NotNull Operation success, @NotNull Operation failure) {
+    public @NotNull CompletableFuture<Boolean> invoke(
+        @NotNull Condition cond,
+        @NotNull Operation success,
+        @NotNull Operation failure
+    ) {
         return metaStorageSvc.invoke(cond, Collections.singletonList(success), Collections.singletonList(failure));
     }
 
     /**
      * @see MetaStorageService#invoke(Condition, Collection, Collection)
      */
-    public @NotNull CompletableFuture<Boolean> invoke(@NotNull Condition cond,
-        @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure) {
+    public @NotNull CompletableFuture<Boolean> invoke(
+        @NotNull Condition cond,
+        @NotNull Collection<Operation> success,
+        @NotNull Collection<Operation> failure
+    ) {
         return metaStorageSvc.invoke(cond, success, failure);
     }
 
