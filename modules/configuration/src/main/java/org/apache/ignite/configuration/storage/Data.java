@@ -29,19 +29,14 @@ public class Data {
     /** Configuration storage version. */
     private final long cfgVersion;
 
-    /** */
-    private final long storageRevision;
-
     /**
      * Constructor.
      * @param values Values.
      * @param cfgVersion Version.
-     * @param storageRevision Storage revision.
      */
-    public Data(Map<String, Serializable> values, long cfgVersion, long storageRevision) {
+    public Data(Map<String, Serializable> values, long cfgVersion) {
         this.values = values;
         this.cfgVersion = cfgVersion;
-        this.storageRevision = storageRevision;
     }
 
     /**
@@ -58,12 +53,5 @@ public class Data {
      */
     public long cfgVersion() {
         return cfgVersion;
-    }
-
-    /**
-     * @return Storage revision.
-     */
-    public long storageRevision() {
-        return storageRevision;
     }
 }

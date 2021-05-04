@@ -44,6 +44,8 @@ public interface ConfigurationStorage {
      * Add listener to the storage that notifies of data changes.
      * @param listener Listener.
      */
+    // TODO: seems that it's not needed to have an ability to set several listeners to storage, as far as only one is responsible
+    // TODO: for updating configuration and others are not needed.
     void addListener(ConfigurationStorageListener listener);
 
     /**

@@ -19,11 +19,12 @@ package org.apache.ignite.internal.storage;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.ConfigurationStorageListener;
@@ -31,12 +32,34 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.metastorage.common.Conditions;
+import org.apache.ignite.metastorage.common.Cursor;
+import org.apache.ignite.metastorage.common.Entry;
+import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.Operation;
+import org.apache.ignite.metastorage.common.Operations;
+import org.apache.ignite.metastorage.common.WatchEvent;
+import org.apache.ignite.metastorage.common.WatchListener;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Distributed configuration storage.
  */
-// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class DistributedConfigurationStorage implements ConfigurationStorage {
+public class DistributedConfigurationStorage implements ConfigurationStorage {
+    /** Prefix that we add to configuration keys to distinguish them in metastorage. */
+    private static String DISTRIBUTED_PREFIX = ConfigurationType.DISTRIBUTED.name();
+
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedConfigurationStorage.class);
+
+    /** Key for CAS-ing configuration keys to metastorage. */
+    private static Key masterKey = new Key(DISTRIBUTED_PREFIX + ".");
+
+    /** Id of watch that is responsible for configuration update. */
+    private long watchId = 0L;
+
     /** MetaStorage manager */
     private final MetaStorageManager metaStorageMgr;
 
@@ -49,52 +72,142 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
         this.metaStorageMgr = metaStorageMgr;
     }
 
-    /** Map to store values. */
-    private Map<String, Serializable> map = new ConcurrentHashMap<>();
-
     /** Change listeners. */
     private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
 
-    /** Storage version. */
-    private AtomicLong version = new AtomicLong(0);
+    /** Storage version. It stores actual metastorage revision, that is applied to configuration manager. */
+    private AtomicLong version = new AtomicLong(0L);
 
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {
-        return new Data(new HashMap<>(map), version.get(), 0);
-    }
 
-    /** {@inheritDoc} */
-    @Override public synchronized CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long version) {
-        if (version != this.version.get())
-            return CompletableFuture.completedFuture(false);
+        Cursor<Entry> cur = metaStorageMgr.rangeWithAppliedRevision(new Key(DISTRIBUTED_PREFIX + "."),
+            new Key(DISTRIBUTED_PREFIX + (char)('.' + 1)));
 
-        for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
-            if (entry.getValue() != null)
-                map.put(entry.getKey(), entry.getValue());
-            else
-                map.remove(entry.getKey());
+        HashMap<String, Serializable> data = new HashMap<>();
+
+        long maxRevision = 0L;
+
+        Entry entryForMasterKey = null;
+
+        for (Entry entry : cur) {
+            if (!entry.key().equals(masterKey)) {
+                data.put(entry.key().toString().replaceFirst(DISTRIBUTED_PREFIX + ".", ""),
+                    (Serializable)ByteUtils.fromBytes(entry.value()));
+
+                if (maxRevision < entry.revision())
+                    maxRevision = entry.revision();
+            } else
+                entryForMasterKey = entry;
         }
 
-        this.version.incrementAndGet();
+        assert entryForMasterKey != null;
 
-        listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, this.version.get(), 0)));
+        assert maxRevision == entryForMasterKey.revision();
 
-        return CompletableFuture.completedFuture(true);
+        return new Data(data, maxRevision);
     }
 
     /** {@inheritDoc} */
-    @Override public void addListener(ConfigurationStorageListener listener) {
+    @Override public synchronized CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long sentVersion) {
+        assert sentVersion <= version.get();
+
+        if (sentVersion != version.get())
+            // This means that sentVersion is less than version and other node has already updated configuration and
+            // write should be retried. Actual version will be set when watch and corresponding configuration listener
+            // updates configuration and notifyApplied is triggered afterwards.
+            return CompletableFuture.completedFuture(false);
+
+        HashSet<Operation> operations = new HashSet<>();
+
+        HashSet<Operation> failures = new HashSet<>();
+
+        for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
+            Key key = new Key(DISTRIBUTED_PREFIX + "." + entry.getKey());
+
+            if (entry.getValue() != null)
+                operations.add(Operations.put(key, ByteUtils.toBytes(entry.getValue())));
+            else
+                operations.add(Operations.remove(key));
+
+            failures.add(Operations.noop());
+        }
+
+        operations.add(Operations.put(masterKey, new byte[1]));
+
+        return metaStorageMgr.invoke(Conditions.key(masterKey).revision().eq(version.get()), operations, failures);
+    }
+
+    /** {@inheritDoc} */
+    @Override public synchronized void addListener(ConfigurationStorageListener listener) {
         listeners.add(listener);
-    }
 
+        if (watchId == 0) {
+            try {
+                watchId = metaStorageMgr.registerWatchByPrefix(masterKey, new WatchListener() {
+                    @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
+                        HashMap<String, Serializable> data = new HashMap<>();
+
+                        long maxRevision = 0L;
+
+                        Entry entryForMasterKey = null;
+
+                        for (WatchEvent event : events) {
+                            Entry e = event.newEntry();
+
+                            if (!e.key().equals(masterKey)) {
+                                data.put(e.key().toString().replaceFirst(DISTRIBUTED_PREFIX + ".", ""),
+                                    (Serializable)ByteUtils.fromBytes(e.value()));
+
+                                if (maxRevision < e.revision())
+                                    maxRevision = e.revision();
+                            } else
+                                entryForMasterKey = e;
+                        }
+
+                        // Contract of metastorage ensures that all updates of one revision will come in one batch.
+                        // Also masterKey should be updated every time when we update cfg.
+                        // That means that masterKey update must be included in the batch.
+                        assert entryForMasterKey != null;
+
+                        assert maxRevision == entryForMasterKey.revision();
+
+                        long finalMaxRevision = maxRevision;
+
+                        listeners.forEach(listener -> listener.onEntriesChanged(new Data(data, finalMaxRevision)));
+
+                        return true;
+                    }
+
+                    @Override public void onError(@NotNull Throwable e) {
+                        LOG.error("Metastorage listener issue", e);
+                    }
+                }).get();
+            }
+            catch (InterruptedException | ExecutionException e) {
+                LOG.error("Metastorage watch issue", e);
+            }
+        }
+    }
     /** {@inheritDoc} */
-    @Override public void removeListener(ConfigurationStorageListener listener) {
+    @Override public synchronized void removeListener(ConfigurationStorageListener listener) {
         listeners.remove(listener);
+
+        if (listeners.isEmpty()) {
+            metaStorageMgr.unregisterWatch(watchId);
+
+            watchId = 0;
+        }
     }
 
     /** {@inheritDoc} */
     @Override public void notifyApplied(long storageRevision) {
-        // No-op.
+        assert version.get() <= storageRevision;
+
+        version.set(storageRevision);
+
+        // Also we should persist version,
+        // this should be done when nodes restart is introduced.
     }
 
     /** {@inheritDoc} */
