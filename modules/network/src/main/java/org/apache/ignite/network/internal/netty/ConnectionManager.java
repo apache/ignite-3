@@ -182,16 +182,17 @@ public class ConnectionManager {
     public void stop() {
          var stream = Stream.concat(
             clients.values().stream().map(NettyClient::stop),
-            Stream.of(clientWorkerGroup.shutdownGracefully(), this.server.stop())
+            Stream.of(server.stop())
         );
 
-         stream.forEach(future -> {
-             try {
-                 future.sync();
-             }
-             catch (InterruptedException e) {
-                 LOG.warn("Failed to stop ConnectionManager: " + e.getMessage());
-             }
-         });
+         var stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
+
+         try {
+             stopFut.join();
+             clientWorkerGroup.shutdownGracefully().sync();
+         }
+         catch (Exception e) {
+             LOG.warn("Failed to stop ConnectionManager: " + e.getMessage());
+         }
     }
 }

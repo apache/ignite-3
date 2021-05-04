@@ -21,25 +21,26 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.ServerChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Netty server channel wrapper.
  */
 public class NettyServer {
-    /** {@link ServerSocketChannel} bootstrapper. */
-    private final ServerBootstrap bootstrap = new ServerBootstrap();
+    /** {@link NioServerSocketChannel} bootstrapper. */
+    private final ServerBootstrap bootstrap;
 
     /** Socket accepter event loop group. */
     private final NioEventLoopGroup bossGroup = new NioEventLoopGroup();
@@ -54,13 +55,16 @@ public class NettyServer {
     private final MessageSerializationRegistry serializationRegistry;
 
     /** Incoming message listener. */
-    private final BiConsumer<InetSocketAddress, NetworkMessage> messageListener;
+    private final BiConsumer<SocketAddress, NetworkMessage> messageListener;
 
     /** Server start future. */
     private CompletableFuture<Void> serverStartFuture;
 
     /** Server socket channel. */
-    private volatile ServerSocketChannel channel;
+    private volatile ServerChannel channel;
+
+    /** Server close future. */
+    private CompletableFuture<Void> serverCloseFuture;
 
     /** New connections listener. */
     private final Consumer<NettySender> newConnectionListener;
@@ -76,9 +80,29 @@ public class NettyServer {
     public NettyServer(
         int port,
         Consumer<NettySender> newConnectionListener,
-        BiConsumer<InetSocketAddress, NetworkMessage> messageListener,
+        BiConsumer<SocketAddress, NetworkMessage> messageListener,
         MessageSerializationRegistry serializationRegistry
     ) {
+        this(new ServerBootstrap(), port, newConnectionListener, messageListener, serializationRegistry);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param bootstrap Server bootstrap.
+     * @param port Server port.
+     * @param newConnectionListener New connections listener.
+     * @param messageListener Message listener.
+     * @param serializationRegistry Serialization registry.
+     */
+    public NettyServer(
+        ServerBootstrap bootstrap,
+        int port,
+        Consumer<NettySender> newConnectionListener,
+        BiConsumer<SocketAddress, NetworkMessage> messageListener,
+        MessageSerializationRegistry serializationRegistry
+    ) {
+        this.bootstrap = bootstrap;
         this.port = port;
         this.newConnectionListener = newConnectionListener;
         this.messageListener = messageListener;
@@ -131,12 +155,18 @@ public class NettyServer {
             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
         serverStartFuture = NettyUtils.toCompletableFuture(bootstrap.bind(port), ChannelFuture::channel).thenAccept(ch -> {
-            channel = (ServerSocketChannel) ch;
+            channel = (ServerChannel) ch;
+
+            serverCloseFuture = CompletableFuture.allOf(
+                NettyUtils.toCompletableFuture(bossGroup.terminationFuture(), future -> null),
+                NettyUtils.toCompletableFuture(workerGroup.terminationFuture(), future -> null),
+                NettyUtils.toCompletableFuture(channel.closeFuture(), future -> null)
+            );
 
             // Shutdown event loops on server stop.
             channel.closeFuture().addListener(close -> {
-                workerGroup.shutdownGracefully();
                 bossGroup.shutdownGracefully();
+                workerGroup.shutdownGracefully();
             });
         });
 
@@ -146,7 +176,7 @@ public class NettyServer {
     /**
      * @return Gets the local address of the server.
      */
-    public InetSocketAddress address() {
+    public SocketAddress address() {
         return channel.localAddress();
     }
 
@@ -155,8 +185,33 @@ public class NettyServer {
      *
      * @return Future that is resolved when the server's channel has closed.
      */
-    public ChannelFuture stop() {
+    public CompletableFuture<Void> stop() {
         channel.close();
-        return channel.closeFuture();
+
+        return serverCloseFuture;
+    }
+
+    /**
+     * @return {@code true} if the server is running, {@code false} otherwise.
+     */
+    @TestOnly
+    public boolean isRunning() {
+        return channel.isOpen() && !bossGroup.isShuttingDown() && !workerGroup.isShuttingDown();
+    }
+
+    /**
+     * @return Accepter event loop group.
+     */
+    @TestOnly
+    public NioEventLoopGroup getBossGroup() {
+        return bossGroup;
+    }
+
+    /**
+     * @return Worker event loop group.
+     */
+    @TestOnly
+    public NioEventLoopGroup getWorkerGroup() {
+        return workerGroup;
     }
 }

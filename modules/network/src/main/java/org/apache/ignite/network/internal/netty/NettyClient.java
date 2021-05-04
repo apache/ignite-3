@@ -50,6 +50,9 @@ public class NettyClient {
     /** Client channel. */
     private volatile Channel channel;
 
+    /** Client close future. */
+    private CompletableFuture<Void> clientCloseFuture;
+
     /**
      * Constructor.
      *
@@ -91,6 +94,8 @@ public class NettyClient {
         clientFuture = NettyUtils.toCompletableFuture(bootstrap.connect(address), ChannelFuture::channel)
             .thenApply(ch -> {
                 channel = ch;
+                clientCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture(), future -> null);
+
                 return new NettySender(channel, serializationRegistry);
             });
 
@@ -109,9 +114,10 @@ public class NettyClient {
      *
      * @return Future that is resolved when the client's channel has closed.
      */
-    public ChannelFuture stop() {
+    public CompletableFuture<Void> stop() {
         channel.close();
-        return channel.closeFuture();
+
+        return clientCloseFuture;
     }
 
     /**
@@ -139,7 +145,7 @@ public class NettyClient {
     public static Bootstrap createBootstrap(
         EventLoopGroup eventLoopGroup,
         MessageSerializationRegistry serializationRegistry,
-        BiConsumer<InetSocketAddress, NetworkMessage> messageListener
+        BiConsumer<SocketAddress, NetworkMessage> messageListener
     ) {
         Bootstrap clientBootstrap = new Bootstrap();
 

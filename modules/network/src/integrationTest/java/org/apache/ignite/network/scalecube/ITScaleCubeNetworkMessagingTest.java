@@ -62,7 +62,7 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Test sending and receiving messages.
+     * Tests sending and receiving messages.
      */
     @Test
     public void messageWasSentToAllMembersSuccessfully() throws Exception {
@@ -101,7 +101,7 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Test graceful shutdown.
+     * Tests graceful shutdown.
      * @throws Exception If failed.
      */
     @Test
@@ -110,7 +110,7 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Test forceful shutdown.
+     * Tests forceful shutdown.
      * @throws Exception If failed.
      */
     @Test
@@ -189,7 +189,7 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Test shutdown.
+     * Tests shutdown.
      * @param forceful Whether shutdown should be forceful.
      * @throws Exception If failed.
      */
@@ -230,7 +230,7 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Find cluster's transport and force it to stop.
+     * Find the cluster's transport and force it to stop.
      * @param cluster Cluster to be shutdown.
      * @throws Exception If failed to stop.
      */
@@ -251,7 +251,7 @@ class ITScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Wrapper for cluster.
+     * Wrapper for a cluster.
      */
     private static final class Cluster {
         /** */

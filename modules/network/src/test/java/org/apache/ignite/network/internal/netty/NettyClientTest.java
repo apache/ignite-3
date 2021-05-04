@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -111,6 +112,28 @@ class NettyClientTest {
     }
 
     /**
+     * Tests that a {@link NettyClient#start} method can be called only once.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testStartTwice() throws Exception {
+        EmbeddedChannel channel = new EmbeddedChannel();
+
+        Bootstrap bootstrap = Mockito.mock(Bootstrap.class);
+
+        Mockito.doReturn(channel.newSucceededFuture()).when(bootstrap).connect(Mockito.any());
+
+        var client = new NettyClient(address, null);
+
+        client.start(bootstrap);
+
+        assertThrows(IgniteInternalException.class, () -> {
+            client.start(bootstrap);
+        });
+    }
+
+    /**
      * Creates a NettyClient and an associated NettySender future from Netty's ChannelFuture.
      *
      * @param future Channel future.
@@ -121,9 +144,7 @@ class NettyClientTest {
 
         Bootstrap bootstrap = Mockito.mock(Bootstrap.class);
 
-        Mockito.when(bootstrap.connect(Mockito.any())).then(invocation -> {
-            return future;
-        });
+        Mockito.doReturn(future).when(bootstrap).connect(Mockito.any());
 
         return new ClientAndSender(client, client.start(bootstrap));
     }
