@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.table.schema;
 
 import java.util.UUID;
 import org.apache.ignite.internal.schema.SchemaDescriptor;

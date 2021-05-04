@@ -41,7 +41,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableSchemaRegistryImpl;
+import org.apache.ignite.internal.table.schema.TableSchemaRegistryImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;

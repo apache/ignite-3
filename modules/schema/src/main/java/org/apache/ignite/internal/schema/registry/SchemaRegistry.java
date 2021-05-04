@@ -164,15 +164,15 @@ public class SchemaRegistry {
     }
 
     /**
-     * Cleanup history prior to given schema version.
+     * Cleanup given schema version from history.
      *
-     * @param ver First actual schema version.
+     * @param ver Schema version to remove.
      * @throws SchemaRegistryException If incorrect schema version provided.
      */
     public void cleanupSchema(int ver) {
-        if (ver > lastVer || ver <= 0)
+        if (ver >= lastVer || ver <= 0 || history.keySet().first() < ver)
             throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
 
-        history.keySet().stream().takeWhile(k -> k < ver).forEach(history::remove);
+        history.remove(ver);
     }
 }

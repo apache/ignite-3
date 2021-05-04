@@ -15,12 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.schema;
+package org.apache.ignite.internal.schema;
 
 import java.util.List;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.registry.SchemaRegistrationConflictException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
@@ -237,7 +234,7 @@ public class SchemaRegistryTest {
 
         // Fail to cleanup initial schema
         assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(INITIAL_SCHEMA_VERSION));
-        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(1));
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(0));
 
         // Register schema with very first version.
         reg.registerSchema(schemaV1);
@@ -246,8 +243,8 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema());
         assertNotNull(reg.schema(1));
 
-        // Remove non-existed schemas.
-        reg.cleanupSchema(1);
+        // Try to remove latest schema.
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(1));
 
         assertEquals(1, reg.lastSchemaVersion());
         assertNotNull(reg.schema());
@@ -263,7 +260,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(3));
 
         // Remove outdated schema 1.
-        reg.cleanupSchema(2);
+        reg.cleanupSchema(1);
 
         assertEquals(3, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
@@ -271,7 +268,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(3));
 
         // Remove non-existed schemas.
-        reg.cleanupSchema(2);
+        reg.cleanupSchema(1);
 
         assertEquals(3, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
@@ -287,7 +284,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(4));
 
         // Remove non-existed schemas.
-        reg.cleanupSchema(2);
+        reg.cleanupSchema(1);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertSameSchema(schemaV4, reg.schema());
@@ -296,11 +293,11 @@ public class SchemaRegistryTest {
         assertSameSchema(schemaV4, reg.schema(4));
 
         // Out of order remove.
-        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(4));
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(3));
 
         // Correct removal order.
-        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(3));
-        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(4));
+        reg.cleanupSchema(2);
+        reg.cleanupSchema(3);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
@@ -309,8 +306,8 @@ public class SchemaRegistryTest {
         assertSameSchema(schemaV4, reg.schema());
         assertSameSchema(schemaV4, reg.schema(4));
 
-        // Once again.
-        reg.cleanupSchema(4);
+        // Try to remove latest schema.
+        assertThrows(SchemaRegistryException.class, () -> reg.cleanupSchema(4));
 
         assertEquals(4, reg.lastSchemaVersion());
         assertSameSchema(schemaV4, reg.schema(4));
@@ -489,12 +486,7 @@ public class SchemaRegistryTest {
         assertNotNull(reg.schema(4));
 
         reg.cleanupSchema(2);
-        assertEquals(4, reg.lastSchemaVersion());
-        assertNotNull(reg.schema(2));
-        assertNotNull(reg.schema(3));
-        assertNotNull(reg.schema(4));
-
-        reg.cleanupSchema(4);
+        reg.cleanupSchema(3);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertThrows(SchemaRegistryException.class, () -> reg.schema(2));
