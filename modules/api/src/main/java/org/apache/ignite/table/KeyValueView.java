@@ -189,7 +189,7 @@ public interface KeyValueView<K, V> {
      * @param keys Keys whose mapping is to be removed from the table.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull CompletableFuture<K> removeAllAsync(Collection<K> keys);
+    @NotNull CompletableFuture<Collection<K>> removeAllAsync(Collection<K> keys);
 
     /**
      * Gets then removes value associated with given key from the table.

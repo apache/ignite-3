@@ -17,45 +17,48 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.raft.client.ReadCommand;
 
 /**
- * The command inserts a row.
+ * This is a command for the batch get operation.
  */
-public class InsertCommand implements WriteCommand {
-    /** Row. */
-    private transient BinaryRow row;
+public class GetAllCommand implements ReadCommand {
+    /** Key row. */
+    private transient Set<BinaryRow> keyRows;
 
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after.
      */
-    private byte[] rowBytes;
+    private byte[] keyRowsBytes;
 
     /**
-     * @param row Row.
+     * @param keyRows Key rows.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
-        assert row != null;
+    public GetAllCommand(Set<BinaryRow> keyRows) {
+        assert keyRows != null && !keyRows.isEmpty();
 
-        this.row = row;
+        this.keyRows = keyRows;
 
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
+        CommandUtils.rowsToBytes(keyRows, bytes -> keyRowsBytes = bytes);
     }
 
     /**
-     * Gets a data row.
+     * Gets a list of keys which will used in the command.
      *
-     * @return Data row.
+     * @return List keys.
      */
-    public BinaryRow getRow() {
-        if (row == null)
-            row = new ByteBufferRow(rowBytes);
+    public Set<BinaryRow> getKeyRows() {
+        if (keyRows == null && keyRowsBytes != null) {
+            keyRows = new HashSet<>();
 
-        return row;
+            CommandUtils.readRows(keyRowsBytes, keyRows::add);
+        }
+
+        return keyRows;
     }
 }

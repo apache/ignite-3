@@ -149,7 +149,7 @@ public class KVViewImpl<K, V> extends AbstractTableView implements KeyValueView<
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<K> removeAllAsync(Collection<K> keys) {
+    @Override public @NotNull CompletableFuture<Collection<K>> removeAllAsync(Collection<K> keys) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

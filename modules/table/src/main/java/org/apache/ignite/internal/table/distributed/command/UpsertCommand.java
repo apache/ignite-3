@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,9 +26,6 @@ import org.jetbrains.annotations.NotNull;
  * The command inserts or updates a value for the key specified.
  */
 public class UpsertCommand implements WriteCommand {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(UpsertCommand.class);
-
     /** Row. */
     private transient BinaryRow row;
 
@@ -51,28 +44,7 @@ public class UpsertCommand implements WriteCommand {
 
         this.row = row;
 
-        rowToBytes(row, bytes -> rowBytes = bytes);
-    }
-
-    /**
-     * Writes a row to byte array.
-     *
-     * @param row Row.
-     * @param consumer Byte array consumer.
-     */
-    private void rowToBytes(BinaryRow row, Consumer<byte[]> consumer) {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            row.writeTo(baos);
-
-            baos.flush();
-
-            consumer.accept(baos.toByteArray());
-        }
-        catch (IOException e) {
-            LOG.error("Could not write row to stream [row=" + row + ']', e);
-
-            consumer.accept(null);
-        }
+        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
     }
 
     /**

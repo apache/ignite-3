@@ -23,9 +23,9 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command inserts a row.
+ * The command deletes a entry by passed key.
  */
-public class InsertCommand implements WriteCommand {
+public class DeleteExactCommand implements WriteCommand {
     /** Row. */
     private transient BinaryRow row;
 
@@ -37,20 +37,20 @@ public class InsertCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * @param row Row.
+     * @param keyRow Key row.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
-        assert row != null;
+    public DeleteExactCommand(@NotNull BinaryRow keyRow) {
+        assert keyRow != null;
 
-        this.row = row;
+        this.row = keyRow;
 
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
+        CommandUtils.rowToBytes(keyRow, bytes -> rowBytes = bytes);
     }
 
     /**
-     * Gets a data row.
+     * Gets a key row.
      *
-     * @return Data row.
+     * @return Key row.
      */
     public BinaryRow getRow() {
         if (row == null)
@@ -58,4 +58,5 @@ public class InsertCommand implements WriteCommand {
 
         return row;
     }
+
 }

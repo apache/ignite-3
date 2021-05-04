@@ -17,45 +17,48 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * The command inserts a row.
+ * The command deletes a batch rows.
  */
-public class InsertCommand implements WriteCommand {
-    /** Row. */
-    private transient BinaryRow row;
+public class DeleteAllCommand implements WriteCommand {
+    /** Rows. */
+    private transient Set<BinaryRow> rows;
 
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after.
      */
-    private byte[] rowBytes;
+    private byte[] rowsBytes;
 
     /**
-     * @param row Row.
+     * @param rows Rows.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
-        assert row != null;
+    public DeleteAllCommand(Set<BinaryRow> rows) {
+        assert rows != null && !rows.isEmpty();
 
-        this.row = row;
+        this.rows = rows;
 
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
+        CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
     }
 
     /**
-     * Gets a data row.
+     * Gets a list of keys which will used in the command.
      *
-     * @return Data row.
+     * @return List keys.
      */
-    public BinaryRow getRow() {
-        if (row == null)
-            row = new ByteBufferRow(rowBytes);
+    public Set<BinaryRow> getRows() {
+        if (rows == null && rowsBytes != null) {
+            rows = new HashSet<>();
 
-        return row;
+            CommandUtils.readRows(rowsBytes, rows::add);
+        }
+
+        return rows;
     }
 }

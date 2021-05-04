@@ -23,39 +23,39 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command inserts a row.
+ * This is a command to get a value before delete it.
  */
-public class InsertCommand implements WriteCommand {
-    /** Row. */
-    private transient BinaryRow row;
+public class GetAndDeleteCommand implements WriteCommand {
+    /** Key row. */
+    private transient BinaryRow keyRow;
 
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after.
      */
-    private byte[] rowBytes;
+    private byte[] keyRowBytes;
 
     /**
-     * @param row Row.
+     * @param keyRow Key row.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
-        assert row != null;
+    public GetAndDeleteCommand(@NotNull BinaryRow keyRow) {
+        assert keyRow != null;
 
-        this.row = row;
+        this.keyRow = keyRow;
 
-        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
+        CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
     }
 
     /**
-     * Gets a data row.
+     * Gets a key row.
      *
-     * @return Data row.
+     * @return Key row.
      */
-    public BinaryRow getRow() {
-        if (row == null)
-            row = new ByteBufferRow(rowBytes);
+    public BinaryRow getKeyRow() {
+        if (keyRow == null)
+            keyRow = new ByteBufferRow(keyRowBytes);
 
-        return row;
+        return keyRow;
     }
 }

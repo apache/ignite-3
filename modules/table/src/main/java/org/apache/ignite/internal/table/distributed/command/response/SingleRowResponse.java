@@ -17,22 +17,23 @@
 
 package org.apache.ignite.internal.table.distributed.command.response;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.table.distributed.command.CommandUtils;
+import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
+import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
+import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * It is a response object for handling a table get command.
+ * It is a response object to return a row from the single operation.
+ * @see GetCommand
+ * @see GetAndDeleteCommand
+ * @see GetAndUpsertCommand
+ * @see GetAndReplaceCommand
  */
-public class KVGetResponse implements Serializable {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(GetCommand.class);
-
+public class SingleRowResponse implements Serializable {
     /** Row. */
     private transient BinaryRow row;
 
@@ -43,37 +44,13 @@ public class KVGetResponse implements Serializable {
      */
     private byte[] rowBytes;
 
-    public KVGetResponse(BinaryRow row) {
+    /**
+     * @param row Row.
+     */
+    public SingleRowResponse(BinaryRow row) {
         this.row = row;
 
-        rowToBytes(row, bytes -> rowBytes = bytes);
-    }
-
-    /**
-     * Writes a row to byte array.
-     *
-     * @param row Row.
-     * @param consumer Byte array consumer.
-     */
-    private void rowToBytes(BinaryRow row, Consumer<byte[]> consumer) {
-        if (row == null) {
-            consumer.accept(null);
-
-            return;
-        }
-
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            row.writeTo(baos);
-
-            baos.flush();
-
-            consumer.accept(baos.toByteArray());
-        }
-        catch (IOException e) {
-            LOG.error("Could not write row to stream [row=" + row + ']', e);
-
-            consumer.accept(null);
-        }
+        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
     }
 
     /**

@@ -19,9 +19,11 @@ package org.apache.ignite.internal.table;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -107,12 +109,22 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> getAll(Collection<Tuple> keyRecs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return sync(getAllAsync(keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(Collection<Tuple> keyRecs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(keyRecs);
+
+        HashSet<BinaryRow> keys = new HashSet<>(keyRecs.size());
+
+        for (Tuple keyRec : keyRecs) {
+            final Row keyRow = marshaller().marshal(keyRec, null);
+
+            keys.add(keyRow);
+        }
+
+        return tbl.getAll(keys).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -131,12 +143,22 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public void upsertAll(Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        sync(upsertAllAsync(recs));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsertAllAsync(Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+
+        for (Tuple keyRec : recs) {
+            final Row keyRow = marshaller().marshal(keyRec);
+
+            keys.add(keyRow);
+        }
+
+        return tbl.upsertAll(keys);
     }
 
     /** {@inheritDoc} */
@@ -169,12 +191,22 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> insertAll(Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return sync(insertAllAsync(recs));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+
+        for (Tuple keyRec : recs) {
+            final Row keyRow = marshaller().marshal(keyRec);
+
+            keys.add(keyRow);
+        }
+
+        return tbl.insertAll(keys).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -209,12 +241,16 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndReplace(Tuple rec) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return sync(getAndReplaceAsync(rec));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(Tuple rec) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        final Row keyRow = marshaller().marshal(rec);
+
+        return tbl.getAndReplace(keyRow).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -247,33 +283,57 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public Tuple getAndDelete(Tuple rec) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return sync(getAndDeleteAsync(rec));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(Tuple rec) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(rec);
+
+        final Row row = marshaller().marshal(rec);
+
+        return tbl.getAndDelete(row).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> deleteAll(Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return sync(deleteAllAsync(recs));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+
+        for (Tuple keyRec : recs) {
+            final Row keyRow = marshaller().marshal(keyRec, null);
+
+            keys.add(keyRow);
+        }
+
+        return tbl.deleteAll(keys).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
     @Override public Collection<Tuple> deleteAllExact(Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return sync(deleteAllExactAsync(recs));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(
         Collection<Tuple> recs) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(recs);
+
+        HashSet<BinaryRow> keys = new HashSet<>(recs.size());
+
+        for (Tuple keyRec : recs) {
+            final Row keyRow = marshaller().marshal(keyRec);
+
+            keys.add(keyRow);
+        }
+
+        return tbl.deleteAllExact(keys).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -331,5 +391,16 @@ public class TableImpl extends AbstractTableView implements Table {
         final SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
 
         return new TableRow(schema, new Row(schema, row));
+    }
+
+    /**
+     * @param rows Binary rows.
+     * @return Table rows.
+     */
+    private Collection<Tuple> wrap(Collection<BinaryRow> rows) {
+        if (rows == null)
+            return null;
+
+        return rows.stream().map(this::wrap).collect(Collectors.toSet());
     }
 }

@@ -23,9 +23,9 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command inserts a row.
+ * The command replaces an old entry to a new one.
  */
-public class InsertCommand implements WriteCommand {
+public class ReplaceIfExistCommand implements WriteCommand {
     /** Row. */
     private transient BinaryRow row;
 
@@ -39,7 +39,7 @@ public class InsertCommand implements WriteCommand {
     /**
      * @param row Row.
      */
-    public InsertCommand(@NotNull BinaryRow row) {
+    public ReplaceIfExistCommand(@NotNull BinaryRow row) {
         assert row != null;
 
         this.row = row;
