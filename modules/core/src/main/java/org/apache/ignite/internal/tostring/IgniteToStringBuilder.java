@@ -1872,7 +1872,6 @@ public class IgniteToStringBuilder {
      * @return Descriptor for the class.
      * @throws IllegalAccessException If failed.
      */
-    @SuppressWarnings({"TooBroadScope"})
     private static <T> ClassDescriptor getClassDescriptor(Class<T> cls) throws IllegalAccessException {
         assert cls != null;
 
@@ -1970,6 +1969,7 @@ public class IgniteToStringBuilder {
      *
      * @param col Collection of numbers.
      * @param nextValFun Function to get nearby number.
+     * @param <T> Comparable number type.
      * @return Compacted string representation of given collections.
      */
     public static <T extends Number & Comparable<? super T>> String compact(
