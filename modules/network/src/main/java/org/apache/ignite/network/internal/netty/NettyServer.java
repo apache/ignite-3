@@ -18,7 +18,7 @@
 package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -30,6 +30,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 
@@ -55,8 +56,11 @@ public class NettyServer {
     /** Incoming message listener. */
     private final BiConsumer<InetSocketAddress, NetworkMessage> messageListener;
 
+    /** Server start future. */
+    private CompletableFuture<Void> serverStartFuture;
+
     /** Server socket channel. */
-    private ServerSocketChannel channel;
+    private volatile ServerSocketChannel channel;
 
     /** New connections listener. */
     private final Consumer<NettySender> newConnectionListener;
@@ -87,6 +91,9 @@ public class NettyServer {
      * @return Future that resolves when the server is successfully started.
      */
     public CompletableFuture<Void> start() {
+        if (serverStartFuture != null)
+            throw new IgniteInternalException("Attempted to start an already started server");
+
         bootstrap.group(bossGroup, workerGroup)
             .channel(NioServerSocketChannel.class)
             .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -123,15 +130,8 @@ public class NettyServer {
              */
             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-        CompletableFuture<Void> serverStartFuture = new CompletableFuture<>();
-
-        bootstrap.bind(port).addListener((ChannelFutureListener) bind -> {
-            this.channel = (ServerSocketChannel) bind.channel();
-
-            if (bind.isSuccess())
-                serverStartFuture.complete(null);
-            else
-                serverStartFuture.completeExceptionally(bind.cause());
+        serverStartFuture = NettyUtils.toCompletableFuture(bootstrap.bind(port), ChannelFuture::channel).thenAccept(ch -> {
+            channel = (ServerSocketChannel) ch;
 
             // Shutdown event loops on server stop.
             channel.closeFuture().addListener(close -> {
@@ -152,8 +152,11 @@ public class NettyServer {
 
     /**
      * Stops the server.
+     *
+     * @return Future that is resolved when the server's channel has closed.
      */
-    public void stop() {
-        channel.close().awaitUninterruptibly();
+    public ChannelFuture stop() {
+        channel.close();
+        return channel.closeFuture();
     }
 }

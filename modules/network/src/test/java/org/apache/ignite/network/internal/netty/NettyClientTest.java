@@ -15,35 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.internal.direct;
+package org.apache.ignite.network.internal.netty;
 
-import java.nio.ByteBuffer;
+import org.junit.jupiter.api.Test;
 
-/**
- * Direct marshalling utils.
- */
-public class DirectUtils {
-    /**
-     * Reads a direct message type from a byte buffer.
-     *
-     * @param buffer Byte buffer.
-     * @return Direct message type.
-     */
-    public static short getMessageType(ByteBuffer buffer) {
-        byte b0 = buffer.get();
-        byte b1 = buffer.get();
+class NettyClientTest {
 
-        return makeMessageType(b0, b1);
-    }
+    @Test
+    public void test() {
 
-    /**
-     * Concatenates the two parameter bytes to form a message type value.
-     *
-     * @param b0 The first byte.
-     * @param b1 The second byte.
-     */
-    private static short makeMessageType(byte b0, byte b1) {
-        return (short)((b1 & 0xFF) << 8 | b0 & 0xFF);
     }
 
 }

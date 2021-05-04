@@ -26,8 +26,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.internal.MessageReader;
+import org.apache.ignite.network.internal.direct.DirectMarshallingUtils;
 import org.apache.ignite.network.internal.direct.DirectMessageReader;
-import org.apache.ignite.network.internal.direct.DirectUtils;
 import org.apache.ignite.network.message.MessageDeserializer;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
@@ -61,7 +61,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
     @Override public void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         ByteBuffer buffer = in.nioBuffer();
 
-        Attribute<MessageReader> readerAttr = ctx.attr(READER_KEY);
+        Attribute<MessageReader> readerAttr = ctx.channel().attr(READER_KEY);
         MessageReader reader = readerAttr.get();
 
         if (reader == null) {
@@ -69,7 +69,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
             readerAttr.set(reader);
         }
 
-        Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.attr(DESERIALIZER_KEY);
+        Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.channel().attr(DESERIALIZER_KEY);
 
         while (buffer.hasRemaining()) {
             MessageDeserializer<NetworkMessage> msg = messageAttr.get();
@@ -77,7 +77,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
             try {
                 // Read message type.
                 if (msg == null && buffer.remaining() >= NetworkMessage.DIRECT_TYPE_SIZE)
-                    msg = serializationRegistry.createDeserializer(DirectUtils.getMessageType(buffer));
+                    msg = serializationRegistry.createDeserializer(DirectMarshallingUtils.getMessageType(buffer));
 
                 boolean finished = false;
 

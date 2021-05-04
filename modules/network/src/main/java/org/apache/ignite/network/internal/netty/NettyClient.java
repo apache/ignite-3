@@ -18,7 +18,7 @@
 package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
@@ -28,6 +28,7 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 
@@ -45,11 +46,18 @@ public class NettyClient {
     private final int port;
 
     /** Future that resolves when client channel is opened. */
-    private final CompletableFuture<NettySender> clientFuture = new CompletableFuture<>();
+    private CompletableFuture<NettySender> clientFuture;
 
     /** Client channel. */
-    private SocketChannel channel;
+    private volatile SocketChannel channel;
 
+    /**
+     * Constructor.
+     *
+     * @param host Host.
+     * @param port Port.
+     * @param serializationRegistry Serialization registry.
+     */
     public NettyClient(
         String host,
         int port,
@@ -66,14 +74,14 @@ public class NettyClient {
      * @return Future that resolves when client channel is opened.
      */
     public CompletableFuture<NettySender> start(Bootstrap bootstrap) {
-        bootstrap.connect(host, port).addListener((ChannelFutureListener) connect -> {
-            this.channel = (SocketChannel) connect.channel();
+        if (clientFuture != null)
+            throw new IgniteInternalException("Attempted to start an already started NettyClient");
 
-            if (connect.isSuccess())
-                clientFuture.complete(new NettySender(channel, serializationRegistry));
-            else
-                clientFuture.completeExceptionally(connect.cause());
-        });
+        clientFuture = NettyUtils.toCompletableFuture(bootstrap.connect(host, port), ChannelFuture::channel)
+            .thenApply(ch -> {
+                channel = (SocketChannel) ch;
+                return new NettySender(channel, serializationRegistry);
+            });
 
         return clientFuture;
     }
@@ -86,28 +94,31 @@ public class NettyClient {
     }
 
     /**
-     * Stop client.
+     * Stops the client.
+     *
+     * @return Future that is resolved when the client's channel has closed.
      */
-    public void stop() {
-        this.channel.close().awaitUninterruptibly();
+    public ChannelFuture stop() {
+        channel.close();
+        return channel.closeFuture();
     }
 
     /**
-     * @return {@code true} if client failed to connect to remote server, {@code false} otherwise.
+     * @return {@code true} if the client has failed to connect to the remote server, {@code false} otherwise.
      */
     public boolean failedToConnect() {
         return clientFuture.isCompletedExceptionally();
     }
 
     /**
-     * @return {@code true} if client lost connection, {@code false} otherwise.
+     * @return {@code true} if the client has lost the connection, {@code false} otherwise.
      */
     public boolean isDisconnected() {
         return channel != null && !channel.isOpen();
     }
 
     /**
-     * Creates {@link Bootstrap} for clients, providing channel handlers and options.
+     * Creates a {@link Bootstrap} for clients, providing channel handlers and options.
      *
      * @param eventLoopGroup Event loop group for channel handling.
      * @param serializationRegistry Serialization registry.

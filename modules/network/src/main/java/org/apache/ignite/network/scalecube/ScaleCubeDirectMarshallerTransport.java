@@ -34,6 +34,7 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.jetbrains.annotations.Nullable;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
 import reactor.core.publisher.DirectProcessor;
@@ -81,7 +82,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
             .doFinally(s -> onStop.onComplete())
             .subscribe(
                 null,
-                ex -> LOG.warn("[{0}][doStop] Exception occurred: {1}", address, ex.toString())
+                ex -> LOG.warn("Failed to stop {0}: {1}", address, ex.toString())
             );
     }
 
@@ -109,12 +110,12 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
      */
     private Mono<Void> doStop() {
         return Mono.defer(() -> {
-            LOG.info("[{0}][doStop] Stopping", address);
+            LOG.info("Stopping {0}", address);
 
             // Complete incoming messages observable
             sink.complete();
 
-            LOG.info("[{0}][doStop] Stopped", address);
+            LOG.info("Stopped {0}", address);
             return Mono.empty();
         });
     }
@@ -142,10 +143,10 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
     /** {@inheritDoc} */
     @Override public Mono<Void> send(Address address, Message message) {
         var addr = InetSocketAddress.createUnresolved(address.host(), address.port());
-        return Mono.defer(() -> Mono.fromFuture(connectionManager.channel(addr)))
-            .flatMap(client -> {
-                return Mono.fromFuture(client.send(fromMessage(message)));
-            });
+
+        return Mono.fromFuture(() -> {
+            return connectionManager.channel(addr).thenCompose(client -> client.send(fromMessage(message)));
+        });
     }
 
     /**
@@ -189,6 +190,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
      * @return ScaleCube message.
      * @throws IgniteInternalException If failed to read ScaleCube message byte array.
      */
+    @Nullable
     private Message fromNetworkMessage(NetworkMessage networkMessage) throws IgniteInternalException {
         if (networkMessage instanceof ScaleCubeMessage) {
             ScaleCubeMessage msg = (ScaleCubeMessage) networkMessage;
@@ -210,7 +212,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
     }
 
     /** {@inheritDoc} */
-    @Override public Mono<Message> requestResponse(Address address, final Message request) {
+    @Override public Mono<Message> requestResponse(Address address, Message request) {
         return Mono.create(sink -> {
             Objects.requireNonNull(request, "request must be not null");
             Objects.requireNonNull(request.correlationId(), "correlationId must be not null");

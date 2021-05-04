@@ -22,15 +22,17 @@ import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.internal.netty.NettySender;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -43,13 +45,11 @@ public class ConnectionManagerTest {
     /** */
     @AfterEach
     void tearDown() {
-        startedManagers.forEach(ConnectionManager::stop);
-
-        startedManagers.clear();
+        startedManagers.forEach(manager -> manager.stop());
     }
 
     /**
-     * Tests that a message is sent successfuly using ConnectionManager.
+     * Tests that a message is sent successfully using the ConnectionManager.
      *
      * @throws Exception If failed.
      */
@@ -57,17 +57,16 @@ public class ConnectionManagerTest {
     public void testSentSuccessfully() throws Exception {
         String msgText = "test";
 
-        var latch = new CountDownLatch(1);
-
         int port1 = 4000;
         int port2 = 4001;
 
         var manager1 = startManager(port1);
         var manager2 = startManager(port2);
 
+        var fut = new CompletableFuture<NetworkMessage>();
+
         manager2.addListener((address, message) -> {
-            if (message instanceof TestMessage && msgText.equals(((TestMessage) message).msg()))
-                latch.countDown();
+            fut.complete(message);
         });
 
         NettySender sender = manager1.channel(address(port2)).get();
@@ -76,7 +75,10 @@ public class ConnectionManagerTest {
 
         sender.send(testMessage).join();
 
-        latch.await(3, TimeUnit.SECONDS);
+        NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
+
+        assertEquals(TestMessage.class, receivedMessage.getClass());
+        assertEquals(msgText, ((TestMessage) receivedMessage).msg());
     }
 
     /**
@@ -87,8 +89,6 @@ public class ConnectionManagerTest {
     @Test
     public void testCanReconnectAfterFail() throws Exception {
         String msgText = "test";
-
-        var latch = new CountDownLatch(1);
 
         int port1 = 4000;
         int port2 = 4001;
@@ -115,14 +115,20 @@ public class ConnectionManagerTest {
 
         manager2 = startManager(port2);
 
+        var fut = new CompletableFuture<NetworkMessage>();
+
         manager2.addListener((address, message) -> {
-            if (message instanceof TestMessage && msgText.equals(((TestMessage) message).msg()))
-                latch.countDown();
+            fut.complete(message);
         });
 
         sender = manager1.channel(address(port2)).get();
 
         sender.send(testMessage).join();
+
+        NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
+
+        assertEquals(TestMessage.class, receivedMessage.getClass());
+        assertEquals(msgText, ((TestMessage) receivedMessage).msg());
     }
 
     /**

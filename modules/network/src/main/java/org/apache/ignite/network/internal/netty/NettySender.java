@@ -20,7 +20,6 @@ package org.apache.ignite.network.internal.netty;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.stream.ChunkedInput;
@@ -61,18 +60,10 @@ public class NettySender {
     public CompletableFuture<Void> send(NetworkMessage msg) {
         MessageSerializer<NetworkMessage> serializer = serializationRegistry.createSerializer(msg.directType());
 
-        ChannelFuture future = channel.writeAndFlush(new NetworkMessageChunkedInput(msg, serializer));
-
-        CompletableFuture<Void> fut = new CompletableFuture<>();
-
-        future.addListener(sent -> {
-           if (sent.isSuccess())
-               fut.complete(null);
-           else
-               fut.completeExceptionally(sent.cause());
-        });
-
-        return fut;
+        return NettyUtils.toCompletableFuture(
+            channel.writeAndFlush(new NetworkMessageChunkedInput(msg, serializer, serializationRegistry)),
+            fut -> null
+        );
     }
 
     /**
@@ -107,10 +98,10 @@ public class NettySender {
         private final MessageSerializer<NetworkMessage> serializer;
 
         /** Message writer. */
-        private final DirectMessageWriter writer = new DirectMessageWriter(ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        private final DirectMessageWriter writer;
 
         /** Whether the message was fully written. */
-        boolean finished = false;
+        private boolean finished = false;
 
         /**
          * Constructor.
@@ -118,9 +109,14 @@ public class NettySender {
          * @param msg Network message.
          * @param serializer Serializer.
          */
-        private NetworkMessageChunkedInput(NetworkMessage msg, MessageSerializer<NetworkMessage> serializer) {
+        private NetworkMessageChunkedInput(
+            NetworkMessage msg,
+            MessageSerializer<NetworkMessage> serializer,
+            MessageSerializationRegistry registry
+        ) {
             this.msg = msg;
             this.serializer = serializer;
+            this.writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
         }
 
         /** {@inheritDoc} */

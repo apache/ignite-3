@@ -21,7 +21,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +28,9 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
+import java.util.stream.Stream;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 
@@ -37,6 +38,9 @@ import org.apache.ignite.network.message.NetworkMessage;
  * Class that manages connections both incoming and outgoing.
  */
 public class ConnectionManager {
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ConnectionManager.class);
+
     /** Latest version of the direct marshalling protocol. */
     public static final byte DIRECT_PROTOCOL_VERSION = 1;
 
@@ -59,16 +63,22 @@ public class ConnectionManager {
     private final MessageSerializationRegistry serializationRegistry;
 
     /** Message listeners. */
-    private final List<BiConsumer<InetSocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>(new ArrayList<>());
+    private final List<BiConsumer<InetSocketAddress, NetworkMessage>> listeners = new CopyOnWriteArrayList<>();
 
-    public ConnectionManager(int port, MessageSerializationRegistry provider) {
-        this.serializationRegistry = provider;
+    /**
+     * Constructor.
+     *
+     * @param port Server port.
+     * @param registry Serialization registry.
+     */
+    public ConnectionManager(int port, MessageSerializationRegistry registry) {
+        this.serializationRegistry = registry;
         this.server = new NettyServer(port, this::onNewIncomingChannel, this::onMessage, serializationRegistry);
         this.clientBootstrap = NettyClient.createBootstrap(clientWorkerGroup, serializationRegistry, this::onMessage);
     }
 
     /**
-     * Start server.
+     * Starts the server.
      *
      * @throws IgniteInternalException If failed to start.
      */
@@ -90,28 +100,27 @@ public class ConnectionManager {
     }
 
     /**
-     * Get a {@link NettySender}, that sends data from this node to another node with the specified address.
+     * Gets a {@link NettySender}, that sends data from this node to another node with the specified address.
      * @param address Another node's address.
      * @return Sender.
      */
     public CompletableFuture<NettySender> channel(InetSocketAddress address) {
-        NettySender channel = channels.compute(address, (addr, sender) -> {
-            if (sender == null || !sender.isOpen())
-                return null;
+        NettySender channel = channels.compute(
+            address,
+            (addr, sender) -> (sender == null || !sender.isOpen()) ? null : sender
+        );
 
-            return sender;
+        if (channel != null)
+            return CompletableFuture.completedFuture(channel);
+
+        NettyClient client = clients.compute(address, (addr, existingClient) -> {
+            if (existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected())
+                return existingClient;
+
+            return connect(addr);
         });
 
-        if (channel == null) {
-            return clients.compute(address, (addr, client) -> {
-                if (client != null && !client.failedToConnect() && !client.isDisconnected())
-                    return client;
-
-                return this.connect(addr);
-            }).sender();
-        }
-
-        return CompletableFuture.completedFuture(channel);
+        return client.sender();
     }
 
     /**
@@ -167,16 +176,23 @@ public class ConnectionManager {
     }
 
     /**
-     * Stop server and all clients.
+     * Stops the server and all clients.
+     *
+     * @return Future that resolves when all server's and clients' resources have closed.
      */
     public void stop() {
-        // Stop clients' event loop, there will be no new client channels since this point
-        clientWorkerGroup.shutdownGracefully();
+         var stream = Stream.concat(
+            clients.values().stream().map(NettyClient::stop),
+            Stream.of(clientWorkerGroup.shutdownGracefully(), this.server.stop())
+        );
 
-        // Stop the server
-        this.server.stop();
-
-        // Wait for clients' channels to close
-        clients.values().forEach(NettyClient::stop);
+         stream.forEach(future -> {
+             try {
+                 future.sync();
+             }
+             catch (InterruptedException e) {
+                 LOG.warn("Failed to stop ConnectionManager: " + e.getMessage());
+             }
+         });
     }
 }
