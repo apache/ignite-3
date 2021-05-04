@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.schema;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
 
 /**
  * Schema registry adapter.
