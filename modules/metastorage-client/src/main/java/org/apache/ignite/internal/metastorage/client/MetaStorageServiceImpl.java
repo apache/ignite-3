@@ -67,21 +67,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /**
      * @param metaStorageRaftGroupSvc Meta storage raft group service.
      */
-    MetaStorageServiceImpl(RaftGroupService metaStorageRaftGroupSvc) {
+    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGroupSvc) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGroupSvc;
         this.watchProcessor = new WatchProcessor();
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Entry> get(@NotNull Key key) {
-//        return metaStorageRaftGrpSvc.<Entry>run(new GetCommand(key)).handle((result, ex) -> {
-//            if (null != ex) {
-//                throw ex;
-//            } else {
-//                return result;
-//            }
-//        });
-
         return metaStorageRaftGrpSvc.run(new GetCommand(key));
     }
 
