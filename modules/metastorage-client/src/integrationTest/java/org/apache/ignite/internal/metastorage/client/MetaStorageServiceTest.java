@@ -20,10 +20,12 @@ package org.apache.ignite.internal.metastorage.client;
 import org.apache.ignite.internal.metastorage.common.DummyEntry;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.metastorage.client.MetaStorageService;
+import org.apache.ignite.metastorage.common.CompactedException;
 import org.apache.ignite.metastorage.common.Cursor;
 import org.apache.ignite.metastorage.common.Entry;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.KeyValueStorage;
+import org.apache.ignite.metastorage.common.OperationTimeoutException;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -41,6 +43,7 @@ import org.apache.ignite.raft.server.impl.RaftServerImpl;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -56,6 +59,7 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
@@ -700,6 +704,42 @@ import static org.mockito.Mockito.verify;
         cursor.close();
 
         verify(cursorMock, times(1)).close();
+    }
+
+    /**
+     * Tests {@link MetaStorageService#get(Key)}.
+     *
+     * @throws Exception If failed.
+     */
+    @Disabled // TODO sanpwc: Add proper exception handling;
+    @Test
+    public void testGetThatThrowsCompactedException() {
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public @NotNull Entry get(byte[] key) {
+                    throw new CompactedException();
+                }
+            });
+
+        assertThrows(CompactedException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+    }
+
+    /**
+     * Tests {@link MetaStorageService#get(Key)}.
+     *
+     * @throws Exception If failed.
+     */
+    @Disabled // TODO sanpwc: Add proper exception handling;
+    @Test
+    public void testGetThatThrowsOperationTimeoutException() {
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public @NotNull Entry get(byte[] key) {
+                    throw new OperationTimeoutException();
+                }
+            });
+
+        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
     }
 
     // TODO sanpwc: Add test for exception handling.

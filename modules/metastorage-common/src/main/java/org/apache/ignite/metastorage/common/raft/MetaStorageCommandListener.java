@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
+import java.util.function.ToDoubleBiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -45,10 +45,12 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCo
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.metastorage.common.CompactedException;
 import org.apache.ignite.metastorage.common.Cursor;
 import org.apache.ignite.metastorage.common.Entry;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.KeyValueStorage;
+import org.apache.ignite.metastorage.common.OperationTimeoutException;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -114,6 +116,12 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 }
                 else
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
+            }
+            catch (CompactedException | OperationTimeoutException e) {
+                LOG.warn("Unable to evaluate command [cmd=" + clo.command() + ']', e);
+
+                // TODO sanpwc: Add proper exception handling;
+                clo.failure(e);
             }
             catch (Throwable e) {
                 LOG.error("Unable to evaluate command [cmd=" + clo.command() + ']', e);

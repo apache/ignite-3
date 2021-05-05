@@ -74,6 +74,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Entry> get(@NotNull Key key) {
+//        return metaStorageRaftGrpSvc.<Entry>run(new GetCommand(key)).handle((result, ex) -> {
+//            if (null != ex) {
+//                throw ex;
+//            } else {
+//                return result;
+//            }
+//        });
+
         return metaStorageRaftGrpSvc.run(new GetCommand(key));
     }
 
