@@ -19,8 +19,12 @@ package org.apache.ignite.network.internal;
 
 import java.lang.reflect.Field;
 import java.util.BitSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
@@ -36,28 +40,56 @@ public class AllTypesMessageGenerator {
      * @return Message.
      * @throws Exception If failed.
      */
-    public static AllTypesMessage generate(long seed, boolean nestedMsg) throws Exception {
-        var random = new Random(seed);
+    public static AllTypesMessage generate(long seed, boolean nestedMsg) {
+        try {
+            var random = new Random(seed);
 
-        var message = new AllTypesMessage();
+            var message = new AllTypesMessage();
 
-        Field[] fields = AllTypesMessage.class.getDeclaredFields();
+            Field[] fields = AllTypesMessage.class.getDeclaredFields();
 
-        for (Field field : fields) {
-            field.setAccessible(true);
+            for (Field field : fields) {
+                field.setAccessible(true);
 
-            TestFieldType annotation = field.getAnnotation(TestFieldType.class);
+                TestFieldType annotation = field.getAnnotation(TestFieldType.class);
 
-            if (annotation != null) {
-                field.set(message, randomValue(random, annotation.value(), nestedMsg));
+                if (annotation != null) {
+                    field.set(message, randomValue(random, annotation.value(), nestedMsg));
+                }
             }
+
+            if (nestedMsg) {
+                Field objectArrayField = AllTypesMessage.class.getDeclaredField("v");
+                objectArrayField.setAccessible(true);
+
+                Field collectionField = AllTypesMessage.class.getDeclaredField("w");
+                collectionField.setAccessible(true);
+
+                Field mapField = AllTypesMessage.class.getDeclaredField("x");
+                mapField.setAccessible(true);
+
+                Object[] array = IntStream.range(0, 10).mapToObj(unused -> generate(seed, false)).toArray();
+
+                objectArrayField.set(message, array);
+
+                List<Object> collection = IntStream.range(0, 10)
+                    .mapToObj(unused -> generate(seed, false))
+                    .collect(Collectors.toList());
+
+                collectionField.set(message, collection);
+
+                Map<String, Object> map = IntStream.range(0, 10)
+                    .boxed()
+                    .collect(Collectors.toMap(String::valueOf, unused -> generate(seed, false)));
+
+                mapField.set(message, map);
+            }
+
+            return message;
         }
-
-        Field objectArrayField = AllTypesMessage.class.getDeclaredField("v");
-        Field collectionField = AllTypesMessage.class.getDeclaredField("w");
-        Field mapField = AllTypesMessage.class.getDeclaredField("x");
-
-        return message;
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

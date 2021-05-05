@@ -333,7 +333,6 @@ public class AllTypesMessageSerializationFactory implements MessageSerialization
 
                         reader.incrementState();
 
-
                 }
 
                 msg.a = a;

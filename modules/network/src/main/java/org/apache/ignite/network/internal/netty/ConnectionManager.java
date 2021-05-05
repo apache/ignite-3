@@ -179,8 +179,6 @@ public class ConnectionManager {
 
     /**
      * Stops the server and all clients.
-     *
-     * @return Future that resolves when all server's and clients' resources have closed.
      */
     public void stop() {
          var stream = Stream.concat(
