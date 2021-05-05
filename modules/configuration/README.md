@@ -72,7 +72,7 @@ public static class ChildConfigurationSchema {
   * `double` or `double[]`
   * `String` or `String[]`
     
-  All _leaves_ must be public and corresponding configuration values **can't be null**;
+  All _leaves_ must be public and corresponding configuration values **must not be null**;
 * `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
   changed after they have been initialized (either manually or by assigning a default value).
 
