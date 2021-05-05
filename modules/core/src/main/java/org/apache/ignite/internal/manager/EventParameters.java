@@ -15,29 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-import org.apache.ignite.configuration.storage.ConfigurationType;
-
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+package org.apache.ignite.internal.manager;
 
 /**
- * Annotation that marks underlying class as a root configuration schema. Has basically the same properties as
- * {@link Config} + adds extra properties.
- *
- * @see Config
+ * Event parameters.
+ * This type passed to the event listener.
+ * @see Producer#onEvent(Event, EventParameters, Exception)
  */
-@Target(TYPE)
-@Retention(RUNTIME)
-@Documented
-public @interface ConfigurationRoot {
-    /** @return Unique root name. */
-    String rootName();
-
-    /** @return Type of the configuration. */
-    ConfigurationType type() default ConfigurationType.LOCAL;
+public interface EventParameters {
 }

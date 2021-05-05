@@ -15,29 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
+package org.apache.ignite.internal.table.event;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-import org.apache.ignite.configuration.storage.ConfigurationType;
-
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * Annotation that marks underlying class as a root configuration schema. Has basically the same properties as
- * {@link Config} + adds extra properties.
- *
- * @see Config
+ * Table management events.
  */
-@Target(TYPE)
-@Retention(RUNTIME)
-@Documented
-public @interface ConfigurationRoot {
-    /** @return Unique root name. */
-    String rootName();
+public enum TableEvent implements Event {
+    /** This event is fired when a table was created. */
+    CREATE,
 
-    /** @return Type of the configuration. */
-    ConfigurationType type() default ConfigurationType.LOCAL;
+    /** This event is fired when a table was dropped. */
+    DROP
 }
