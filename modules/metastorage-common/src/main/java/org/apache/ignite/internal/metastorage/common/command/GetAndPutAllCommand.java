@@ -18,36 +18,45 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values and
- * retrieves a previous entries for given keys.
+ * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given
+ * values and retrieves a previous entries for given keys.
  */
 public final class GetAndPutAllCommand implements WriteCommand {
-    /** The map of keys and corresponding values. Couldn't be {@code null} or empty. */
-    @NotNull private final Map<Key, byte[]> vals;
+    /** Keys. */
+    @NotNull private final List<Key> keys;
+
+    /** Values. */
+    @NotNull private final List<byte[]> vals;
 
     /**
-     * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
+     * @param keys Keys.
+     * @param vals Values.
      */
-    public GetAndPutAllCommand(@NotNull Map<Key, byte[]> vals) {
-        assert !vals.isEmpty();
+    public GetAndPutAllCommand(@NotNull List<Key> keys, @NotNull List<byte[]> vals) {
+        assert keys instanceof Serializable;
+        assert vals instanceof Serializable;
 
-        if (vals instanceof Serializable)
-            this.vals = vals;
-        else
-            this.vals = new HashMap<>(vals);
+        this.keys = keys;
+        this.vals = vals;
     }
 
     /**
-     * @return The map of keys and corresponding values. Couldn't be  or empty.
+     * @return Keys.
      */
-    public @NotNull Map<Key, byte[]> values() {
+    public @NotNull List<Key> keys() {
+        return keys;
+    }
+
+    /**
+     * @return Values.
+     */
+    public @NotNull List<byte[]> vals() {
         return vals;
     }
 }

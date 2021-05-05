@@ -17,8 +17,10 @@
 
 package org.apache.ignite.metastorage.common.raft;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -94,13 +96,13 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                     if (getAllCmd.revision() != null) {
                         clo.success(storage.getAll(
                             getAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()),
-                            getAllCmd.revision()
-                        ).stream().collect(Collectors.toMap(Entry::key, Function.identity())));
+                            getAllCmd.revision())
+                        );
                     }
                     else {
                         clo.success(storage.getAll(
-                            getAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList())).
-                            stream().collect(Collectors.toMap(Entry::key, Function.identity())));
+                            getAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()))
+                        );
                     }
                 }
                 else if (clo.command() instanceof CursorHasNextCommand) {
@@ -151,9 +153,15 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 else if (clo.command() instanceof GetAndPutAllCommand) {
                     GetAndPutAllCommand getAndPutAllCmd = (GetAndPutAllCommand)clo.command();
 
-                    clo.success(storage.getAndPutAll(
-                        getAndPutAllCmd.values().keySet().stream().map(Key::bytes).collect(Collectors.toList()),
-                        new ArrayList<>(getAndPutAllCmd.values().values())));
+                    List<Entry> entries = storage.getAndPutAll(
+                        getAndPutAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()),
+                        getAndPutAllCmd.vals()
+                    );
+
+                    if (!(entries instanceof Serializable))
+                        entries = new ArrayList<>(entries);
+
+                    clo.success(entries);
                 }
                 else if (clo.command() instanceof RemoveCommand) {
                     RemoveCommand rmvCmd = (RemoveCommand)clo.command();
@@ -177,8 +185,14 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 else if (clo.command() instanceof GetAndRemoveAllCommand) {
                     GetAndRemoveAllCommand getAndRmvAllCmd = (GetAndRemoveAllCommand)clo.command();
 
-                    clo.success(storage.getAndRemoveAll(
-                        getAndRmvAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList())));
+                    List<Entry> entries = storage.getAndRemoveAll(
+                        getAndRmvAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList())
+                    );
+
+                    if (!(entries instanceof Serializable))
+                        entries = new ArrayList<>(entries);
+
+                    clo.success(entries);
                 }
                 else if (clo.command() instanceof RangeCommand) {
                     RangeCommand rangeCmd = (RangeCommand)clo.command();
@@ -193,7 +207,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     cursors.put(
                         cursorId,
-                        new IgniteBiTuple<>(cursor, iter)
+                        new IgniteBiTuple<>(cursor, cursor.iterator())
                     );
 
                     clo.success(cursorId);
@@ -251,7 +265,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     cursors.put(
                         cursorId,
-                        new IgniteBiTuple<>(cursor, iter)
+                        new IgniteBiTuple<>(cursor, cursor.iterator())
                     );
 
                     clo.success(cursorId);

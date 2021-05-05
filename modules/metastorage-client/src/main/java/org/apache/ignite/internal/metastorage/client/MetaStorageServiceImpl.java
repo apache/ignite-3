@@ -19,10 +19,14 @@ package org.apache.ignite.internal.metastorage.client;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
@@ -80,12 +84,20 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAll(Collection<Key> keys) {
-        return metaStorageRaftGrpSvc.run(new GetAllCommand(keys));
+        List<Key> keysWithPreservedOrder = new ArrayList<>(keys);
+
+        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAllCommand(keysWithPreservedOrder)).
+            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
+                .collect(Collectors.toMap(keysWithPreservedOrder::get, newValues::get)));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAll(Collection<Key> keys, long revUpperBound) {
-        return metaStorageRaftGrpSvc.run(new GetAllCommand(keys, revUpperBound));
+        List<Key> keysWithPreservedOrder = new ArrayList<>(keys);
+
+        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAllCommand(keysWithPreservedOrder, revUpperBound)).
+            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
+                .collect(Collectors.toMap(keysWithPreservedOrder::get, newValues::get)));
     }
 
     /** {@inheritDoc} */
@@ -105,7 +117,17 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAndPutAll(@NotNull Map<Key, byte[]> vals) {
-        return metaStorageRaftGrpSvc.run(new GetAndPutAllCommand(vals));
+        List<Key> keys = new ArrayList<>();
+        List<byte[]> values = new ArrayList<>();
+
+        vals.forEach((key, value) -> {
+            keys.add(key);
+            values.add(value);
+        });
+
+        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAndPutAllCommand(keys, values)).
+            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
+                .collect(Collectors.toMap(keys::get, newValues::get)));
     }
 
     /** {@inheritDoc} */
@@ -125,7 +147,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAndRemoveAll(@NotNull Collection<Key> keys) {
-        return metaStorageRaftGrpSvc.run(new GetAndRemoveAllCommand(keys));
+        List<Key> keysWithPreservedOrder = new ArrayList<>(keys);
+
+        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAndRemoveAllCommand(keysWithPreservedOrder)).
+            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
+                .collect(Collectors.toMap(keysWithPreservedOrder::get, newValues::get)));
     }
 
     @Override public @NotNull CompletableFuture<Boolean> invoke(@NotNull Condition condition,

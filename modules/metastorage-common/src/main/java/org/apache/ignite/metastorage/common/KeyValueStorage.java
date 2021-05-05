@@ -34,10 +34,10 @@ public interface KeyValueStorage {
     Entry get(byte[] key, long rev);
 
     @NotNull
-    Collection<Entry> getAll(List<byte[]> keys);
+    List<Entry> getAll(List<byte[]> keys);
 
     @NotNull
-    Collection<Entry> getAll(List<byte[]> keys, long revUpperBound);
+    List<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
     void put(byte[] key, byte[] value);
 
@@ -47,7 +47,7 @@ public interface KeyValueStorage {
     void putAll(List<byte[]> keys, List<byte[]> values);
 
     @NotNull
-    Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
+    List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
 
     void remove(byte[] key);
 
@@ -57,7 +57,7 @@ public interface KeyValueStorage {
     void removeAll(List<byte[]> keys);
 
     @NotNull
-    Collection<Entry> getAndRemoveAll(List<byte[]> keys);
+    List<Entry> getAndRemoveAll(List<byte[]> keys);
 
     Cursor<Entry> range(byte[] keyFrom, byte[] keyTo);
 

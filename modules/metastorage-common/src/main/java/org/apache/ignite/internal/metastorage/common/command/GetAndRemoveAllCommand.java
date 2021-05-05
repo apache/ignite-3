@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
@@ -30,22 +29,21 @@ import org.jetbrains.annotations.NotNull;
  */
 public final class GetAndRemoveAllCommand implements WriteCommand {
     /** The keys collection. Couldn't be {@code null}. */
-    @NotNull private final Collection<Key> keys;
+    @NotNull private final List<Key> keys;
 
     /**
      * @param keys The keys collection. Couldn't be {@code null}.
      */
-    public GetAndRemoveAllCommand(@NotNull Collection<Key> keys) {
-        if (keys instanceof Serializable)
-            this.keys = keys;
-        else
-            this.keys = new ArrayList<>(keys);
+    public GetAndRemoveAllCommand(@NotNull List<Key> keys) {
+        assert keys instanceof Serializable;
+
+        this.keys = keys;
     }
 
     /**
      * @return The keys collection. Couldn't be .
      */
-    public @NotNull Collection<Key> keys() {
+    public @NotNull List<Key> keys() {
         return keys;
     }
 }

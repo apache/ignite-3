@@ -17,15 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.common.DummyEntry;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.metastorage.client.MetaStorageService;
@@ -52,6 +43,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -64,7 +65,6 @@ import static org.mockito.Mockito.verify;
 /**
  * Meta storage client tests.
  */
-// TODO sanpwc: Move to integration tests.
 @SuppressWarnings("WeakerAccess") public class MetaStorageServiceTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceTest.class);
@@ -214,8 +214,8 @@ import static org.mockito.Mockito.verify;
     public void testGetAll() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
             new AbstractKeyValueStorage() {
-                @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys) {
-                    return EXPECTED_RESULT_MAP.values();
+                @Override public @NotNull List<Entry> getAll(List<byte[]> keys) {
+                    return new ArrayList<>(EXPECTED_RESULT_MAP.values());
                 }
             });
 
@@ -234,8 +234,8 @@ import static org.mockito.Mockito.verify;
     public void testGetAllWithUpperBoundRevision() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
             new AbstractKeyValueStorage() {
-                @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
-                    return EXPECTED_RESULT_MAP.values();
+                @Override public @NotNull List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+                    return new ArrayList<>(EXPECTED_RESULT_MAP.values());
                 }
             });
 
@@ -340,13 +340,12 @@ import static org.mockito.Mockito.verify;
      *
      * @throws Exception If failed.
      */
-    // TODO sanpwc: fix.
     @SuppressWarnings("ConstantConditions")
     @Test
     public void testGetAndPutAll() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
             new AbstractKeyValueStorage() {
-                @Override public @NotNull Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
+                @Override public @NotNull List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
                     // Assert keys equality.
                     assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keys.size());
 
@@ -365,7 +364,7 @@ import static org.mockito.Mockito.verify;
                     for (int i = 0; i < expKeys.size(); i++)
                         assertArrayEquals(expVals.get(i), values.get(i));
 
-                    return EXPECTED_RESULT_MAP.values();
+                    return new ArrayList<>(EXPECTED_RESULT_MAP.values());
                 }
             });
 
@@ -453,12 +452,11 @@ import static org.mockito.Mockito.verify;
      *
      * @throws Exception If failed.
      */
-    // TODO sanpwc: fix.
     @Test
     public void testGetAndRemoveAll() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
             new AbstractKeyValueStorage() {
-                @Override public @NotNull Collection<Entry> getAndRemoveAll(List<byte[]> keys) {
+                @Override public @NotNull List<Entry> getAndRemoveAll(List<byte[]> keys) {
                     // Assert keys equality.
                     assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keys.size());
 
@@ -468,7 +466,7 @@ import static org.mockito.Mockito.verify;
                     for (int i = 0; i < expKeys.size(); i++)
                         assertArrayEquals(expKeys.get(i), keys.get(i));
 
-                    return EXPECTED_RESULT_MAP.values();
+                    return new ArrayList<>(EXPECTED_RESULT_MAP.values());
                 }
             });
 
@@ -506,7 +504,15 @@ import static org.mockito.Mockito.verify;
                         }
 
                         @NotNull @Override public Iterator<Entry> iterator() {
-                            return null;
+                            return new Iterator<Entry>() {
+                                @Override public boolean hasNext() {
+                                    return false;
+                                }
+
+                                @Override public Entry next() {
+                                    return null;
+                                }
+                            };
                         }
                     };
                 }
@@ -541,7 +547,15 @@ import static org.mockito.Mockito.verify;
                         }
 
                         @NotNull @Override public Iterator<Entry> iterator() {
-                            return null;
+                            return new Iterator<Entry>() {
+                                @Override public boolean hasNext() {
+                                    return false;
+                                }
+
+                                @Override public Entry next() {
+                                    return null;
+                                }
+                            };
                         }
                     };
                 }
@@ -574,7 +588,15 @@ import static org.mockito.Mockito.verify;
                         }
 
                         @NotNull @Override public Iterator<Entry> iterator() {
-                            return null;
+                            return new Iterator<Entry>() {
+                                @Override public boolean hasNext() {
+                                    return false;
+                                }
+
+                                @Override public Entry next() {
+                                    return null;
+                                }
+                            };
                         }
                     };
                 }
@@ -783,14 +805,14 @@ import static org.mockito.Mockito.verify;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys) {
+        @Override public @NotNull List<Entry> getAll(List<byte[]> keys) {
             fail();
 
             return null;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+        @Override public @NotNull List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
             fail();
 
             return null;
@@ -814,7 +836,7 @@ import static org.mockito.Mockito.verify;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
+        @Override public @NotNull List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
             fail();
 
             return null;
@@ -838,7 +860,7 @@ import static org.mockito.Mockito.verify;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull Collection<Entry> getAndRemoveAll(List<byte[]> keys) {
+        @Override public @NotNull List<Entry> getAndRemoveAll(List<byte[]> keys) {
             fail();
 
             return null;
