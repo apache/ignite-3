@@ -83,7 +83,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables. */
     private Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
-    /*
+    /**
      * @param configurationMgr Configuration manager.
      * @param metaStorageMgr Meta storage manager.
      * @param schemaManager Schema manager.

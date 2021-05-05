@@ -168,13 +168,11 @@ import org.jetbrains.annotations.NotNull;
     public CompletableFuture<Boolean> registerSchema(UUID tableId, SchemaDescriptor desc) {
         int schemaVersion = desc.version();
 
-        return metaStorageManager.invoke(new Key(INTERNAL_PREFIX
-                //Tbale id
-                + tableId + '.'
-                //Schema version
-                + schemaVersion),
-            Conditions.value().eq(null),
-            Operations.put(ByteUtils.toBytes(desc)), //TODO: IGNITE-14679 Serialize schema.
+        final Key key = new Key(INTERNAL_PREFIX + tableId + '.' + schemaVersion);
+
+        return metaStorageManager.invoke(
+            Conditions.key(key).value().eq(null),
+            Operations.put(key, ByteUtils.toBytes(desc)), //TODO: IGNITE-14679 Serialize schema.
             Operations.noop());
     }
 
