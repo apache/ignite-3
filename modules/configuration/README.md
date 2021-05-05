@@ -60,7 +60,7 @@ public static class ChildConfigurationSchema {
     the corresponding configuration schema;
 * `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
-* `@NamedConfigValue` is similar to `@ConfigValue` but such fields represent collection of properties, not a single
+* `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, which makes it pretty much like a `Map`.
   `NamedListConfiguration` interface is used to represent this field in generated configuration classes. 
 * `@Value` annotation marks the _leaf_ values. `hasDefault` property can be used to set default values for fields:
