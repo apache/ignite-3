@@ -17,7 +17,7 @@ All schema classes must end with the `ConfigurationSchema` suffix.
 ### Configuration Registry
 
 `ConfigurationRegistry` is the entry point of the module. It is used to register root keys, validators, storages and to
-start / stop component. Please refer to the class for more details.
+start / stop the component. Refer to the class javadocs for more details.
 
 ### Root Key
 
