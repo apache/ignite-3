@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
@@ -531,17 +532,20 @@ import org.jetbrains.annotations.Nullable;
     private final class CursorWrapper<T> implements Cursor<T> {
         private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
-        private final CompletableFuture<Cursor<Entry>> innerCursorFut;
+        private final CompletableFuture<Cursor<T>> innerCursorFut;
+
+        private final CompletableFuture<Iterator<T>> innerIteratorFut;
 
         public CursorWrapper(
             CompletableFuture<MetaStorageService> metaStorageSvcFut,
-            CompletableFuture<Cursor<Entry>> innerCursorFut
+            CompletableFuture<Cursor<T>> innerCursorFut
         ) {
             this.metaStorageSvcFut = metaStorageSvcFut;
             this.innerCursorFut = innerCursorFut;
+            this.innerIteratorFut = innerCursorFut.thenApply(Iterable::iterator);
         }
 
-        @Override public void close() throws Exception {
+            @Override public void close() throws Exception {
             innerCursorFut.thenCompose(cursor -> {
                 try {
                     cursor.close();
@@ -557,11 +561,21 @@ import org.jetbrains.annotations.Nullable;
         @NotNull @Override public Iterator<T> iterator() {
             return new Iterator<T>() {
                 @Override public boolean hasNext() {
-                    return false;
+                    try {
+                        return innerIteratorFut.thenApply(Iterator::hasNext).get();
+                    }
+                    catch (InterruptedException | ExecutionException e) {
+                        throw new IgniteInternalException(e);
+                    }
                 }
 
                 @Override public T next() {
-                    return null;
+                    try {
+                        return innerIteratorFut.thenApply(Iterator::next).get();
+                    }
+                    catch (InterruptedException | ExecutionException e) {
+                        throw new IgniteInternalException(e);
+                    }
                 }
             };
         }
