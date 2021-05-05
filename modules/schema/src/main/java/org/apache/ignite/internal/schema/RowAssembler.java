@@ -67,7 +67,7 @@ public class RowAssembler {
     private int nullMapOff;
 
     /** Offset of the varlen table for current chunk. */
-    private int varlenTblOff;
+    private int varlenTblChunkOff;
 
     /** Flags. */
     private short flags;
@@ -79,7 +79,7 @@ public class RowAssembler {
      * @param nonNullVarlenCols Number of non-null varlen columns.
      * @return Total size of the varlen table.
      */
-    public static int varlenTableSize(int nonNullVarlenCols) {
+    public static int varlenTableChunkSize(int nonNullVarlenCols) {
         return nonNullVarlenCols == 0 ? 0 :
             VARLEN_TABLE_SIZE_FIELD_SIZE + nonNullVarlenCols * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
     }
@@ -142,7 +142,7 @@ public class RowAssembler {
      */
     static int rowChunkSize(Columns cols, int nonNullVarlenCols, int nonNullVarlenSize) {
         int size = BinaryRow.CHUNK_LEN_FIELD_SIZE + cols.nullMapSize() +
-            varlenTableSize(nonNullVarlenCols);
+            varlenTableChunkSize(nonNullVarlenCols);
 
         for (int i = 0; i < cols.numberOfFixsizeColumns(); i++)
             size += cols.column(i).type().length();
@@ -185,7 +185,7 @@ public class RowAssembler {
         if (nonNullVarlenKeyCols == 0)
             flags |= RowFlags.OMIT_KEY_VARTBL_FLAG;
         else
-            buf.putShort(varlenTblOff, (short)nonNullVarlenKeyCols);
+            buf.putShort(varlenTblChunkOff, (short)nonNullVarlenKeyCols);
     }
 
     /**
@@ -393,7 +393,7 @@ public class RowAssembler {
     private void writeOffset(int tblEntryIdx, int off) {
         assert (flags & (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? RowFlags.OMIT_KEY_VARTBL_FLAG : RowFlags.OMIT_VAL_VARTBL_FLAG)) == 0;
 
-        buf.putShort(varlenTblOff + Row.varlenItemOffset(tblEntryIdx), (short)off);
+        buf.putShort(varlenTblChunkOff + Row.varlenItemOffset(tblEntryIdx), (short)off);
     }
 
     /**
@@ -474,7 +474,7 @@ public class RowAssembler {
             if (nonNullVarlenValCols == 0)
                 flags |= RowFlags.OMIT_VAL_VARTBL_FLAG;
             else
-                buf.putShort(varlenTblOff, (short)nonNullVarlenValCols);
+                buf.putShort(varlenTblChunkOff, (short)nonNullVarlenValCols);
         }
     }
 
@@ -489,8 +489,8 @@ public class RowAssembler {
         curVarlenTblEntry = 0;
 
         nullMapOff = baseOff + BinaryRow.CHUNK_LEN_FIELD_SIZE;
-        varlenTblOff = nullMapOff + curCols.nullMapSize();
+        varlenTblChunkOff = nullMapOff + curCols.nullMapSize();
 
-        curOff = varlenTblOff + varlenTableSize(nonNullVarlenCols);
+        curOff = varlenTblChunkOff + varlenTableChunkSize(nonNullVarlenCols);
     }
 }
