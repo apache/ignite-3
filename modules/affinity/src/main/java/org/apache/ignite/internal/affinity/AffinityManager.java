@@ -27,7 +27,6 @@ import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -134,7 +133,9 @@ public class AffinityManager {
         affinityCalculateSubscriptionFut = metaStorageMgr.registerWatchByPrefix(new Key(tableInternalPrefix), new WatchListener() {
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                 for (WatchEvent evt : events) {
-                    if (ArrayUtils.empty(evt.newEntry().value())) {
+                    byte[] assignmentVal = evt.newEntry().value();
+
+                    if (assignmentVal != null && assignmentVal.length == 0) {
                         String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
 
                         String placeholderValue = keyTail.substring(0, keyTail.indexOf('.'));
@@ -149,9 +150,10 @@ public class AffinityManager {
                             int replicas = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                                 .tables().get(name).replicas().value();
 
-                            metaStorageMgr.invoke(evt.newEntry().key(),
-                                Conditions.value().eq(evt.newEntry().value()),
-                                Operations.put(ByteUtils.toBytes(
+                            var key = evt.newEntry().key();
+                            metaStorageMgr.invoke(
+                                Conditions.key(key).value().eq(assignmentVal),
+                                Operations.put(key, ByteUtils.toBytes(
                                     RendezvousAffinityFunction.assignPartitions(
                                         baselineMgr.nodes(),
                                         partitions,
