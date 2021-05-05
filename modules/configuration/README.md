@@ -54,7 +54,7 @@ public static class ChildConfigurationSchema {
 
 * `@ConfigurationRoot` marks the root schema. It contains the following properties:
   * `type` property, which can either be `LOCAL` or `DISTRIBUTED`. This property dictates the _storage_ type used 
-    to persist the schema — `Vault` or `Metastorage`. `Vault` stores data locally while `Metastorage` is a distributed
+    to persist the schema — `Vault` or `Metastorage`. `Vault` stores data locally, while `Metastorage` is a distributed
     system that should store only cluster-wide configuration properties;
   * `rootName` property assigns a _key_ to the root node of the tree that will represent 
     the corresponding configuration schema;
