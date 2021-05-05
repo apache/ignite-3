@@ -35,15 +35,19 @@ import org.apache.ignite.internal.metastorage.common.command.PutCommand;
 import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
+import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
+import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.metastorage.common.Cursor;
 import org.apache.ignite.metastorage.common.Entry;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.KeyValueStorage;
+import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -60,7 +64,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
     private final KeyValueStorage storage;
 
     /** Cursors map. */
-    private final Map<IgniteUuid, Cursor<Entry>> cursors;
+    private final Map<IgniteUuid, IgniteBiTuple<Cursor, Iterator>> cursors;
 
     /**
      * @param storage Storage.
@@ -71,9 +75,9 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
     }
 
     /** {@inheritDoc} */
-    @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        while (iterator.hasNext()) {
-            CommandClosure<ReadCommand> clo = iterator.next();
+    @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iter) {
+        while (iter.hasNext()) {
+            CommandClosure<ReadCommand> clo = iter.next();
 
             try {
                 if (clo.command() instanceof GetCommand) {
@@ -118,9 +122,9 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
     }
 
     /** {@inheritDoc} */
-    @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        while (iterator.hasNext()) {
-            CommandClosure<WriteCommand> clo = iterator.next();
+    @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iter) {
+        while (iter.hasNext()) {
+            CommandClosure<WriteCommand> clo = iter.next();
 
             try {
                 if (clo.command() instanceof PutCommand) {
@@ -181,12 +185,15 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     IgniteUuid cursorId = new IgniteUuid(UUID.randomUUID(), 0L);
 
+                    Cursor<Entry> cursor = storage.range(
+                        rangeCmd.keyFrom().bytes(),
+                        rangeCmd.keyTo() == null ? null : rangeCmd.keyTo().bytes(),
+                        rangeCmd.revUpperBound()
+                    );
+
                     cursors.put(
                         cursorId,
-                        storage.range(
-                            rangeCmd.keyFrom().bytes(),
-                            rangeCmd.keyTo() == null ? null : rangeCmd.keyTo().bytes(),
-                            rangeCmd.revUpperBound())
+                        new IgniteBiTuple<>(cursor, iter)
                     );
 
                     clo.success(cursorId);
@@ -196,15 +203,14 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     assert cursors.containsKey(cursorNextCmd.cursorId());
 
-                    // TODO sanpwc: Check whether iterator returns already existing iterator and not new one on every call.
-                    clo.success(cursors.get(cursorNextCmd.cursorId()).iterator().next());
+                    clo.success(cursors.get(cursorNextCmd.cursorId()).getValue().next());
                 }
                 else if (clo.command() instanceof CursorCloseCommand) {
                     CursorCloseCommand cursorCloseCmd = (CursorCloseCommand)clo.command();
 
                     cursors.computeIfPresent(cursorCloseCmd.cursorId(), (k, v) -> {
                         try {
-                            v.close();
+                            v.getKey().close();
                         }
                         catch (Exception e) {
                             LOG.error("Unable to close cursor during command evaluation " +
@@ -216,6 +222,39 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                     });
 
                     clo.success(null);
+                }
+                else if (clo.command() instanceof WatchRangeKeysCommand) {
+                    WatchRangeKeysCommand watchCmd = (WatchRangeKeysCommand)clo.command();
+
+                    IgniteUuid cursorId = new IgniteUuid(UUID.randomUUID(), 0L);
+
+                    Cursor<WatchEvent> cursor = storage.watch(
+                        watchCmd.keyFrom() == null ? null : watchCmd.keyFrom().bytes(),
+                        watchCmd.keyTo() == null ? null : watchCmd.keyTo().bytes(),
+                        watchCmd.revision());
+
+                    cursors.put(
+                        cursorId,
+                        new IgniteBiTuple<>(cursor, cursor.iterator())
+                    );
+
+                    clo.success(cursorId);
+                }
+                else if (clo.command() instanceof WatchExactKeysCommand) {
+                    WatchExactKeysCommand watchCmd = (WatchExactKeysCommand)clo.command();
+
+                    IgniteUuid cursorId = new IgniteUuid(UUID.randomUUID(), 0L);
+
+                    Cursor<WatchEvent> cursor = storage.watch(
+                        watchCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()),
+                        watchCmd.revision());
+
+                    cursors.put(
+                        cursorId,
+                        new IgniteBiTuple<>(cursor, iter)
+                    );
+
+                    clo.success(cursorId);
                 }
                 else
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
