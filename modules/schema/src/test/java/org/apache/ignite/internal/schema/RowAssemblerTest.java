@@ -36,6 +36,9 @@ public class RowAssemblerTest {
     /** Uuid test value. */
     public final java.util.UUID uuidVal = new UUID(-5204230847775358097L, 4916207022290092939L);
 
+    /**
+     * Validate row layout for schema of fix-len non-null key and fix-len nullable value.
+     */
     @Test
     public void testFixedKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, false)};
@@ -70,6 +73,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len non-null key and fix-len non-null value.
+     */
     @Test
     public void testFixedKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
@@ -95,6 +101,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len non-null key and var-len nullable value.
+     */
     @Test
     public void testFixedKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
@@ -129,6 +138,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len non-null key and var-len non-null value.
+     */
     @Test
     public void testFixedKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
@@ -154,6 +166,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and fix-len non-null value.
+     */
     @Test
     public void testFixedNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
@@ -188,6 +203,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and fix-len nullable value.
+     */
     @Test
     public void testFixedNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
@@ -240,6 +258,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and var-len nullable value.
+     */
     @Test
     public void testFixedNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, true)};
@@ -292,6 +313,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and var-len non-null value.
+     */
     @Test
     public void testFixedNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyByteCol", BYTE, true)};
@@ -326,6 +350,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len non-null key and fix-len nullable value.
+     */
     @Test
     public void testVarlenKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
@@ -361,7 +388,10 @@ public class RowAssemblerTest {
             assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
-
+    
+    /**
+     * Validate row layout for schema of var-len non-null key and fix-len non-null value.
+     */
     @Test
     public void testVarlenKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
@@ -389,6 +419,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len non-null key and var-len nullable value.
+     */
     @Test
     public void testVarlenKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
@@ -423,6 +456,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len non-null key and var-len non-null value.
+     */
     @Test
     public void testVarlenKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
@@ -448,6 +484,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and fix-len nullable value.
+     */
     @Test
     public void testVarlenNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
@@ -500,6 +539,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and fix-len non-null value.
+     */
     @Test
     public void testVarlenNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
@@ -534,6 +576,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and var-len nullable value.
+     */
     @Test
     public void testVarlenNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
@@ -586,6 +631,9 @@ public class RowAssemblerTest {
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and var-len non-null value.
+     */
     @Test
     public void testVarlenNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
