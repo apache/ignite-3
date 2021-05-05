@@ -68,7 +68,7 @@ class ITScaleCubeNetworkMessagingTest {
     public void messageWasSentToAllMembersSuccessfully() throws Exception {
         Map<String, NetworkMessage> messageStorage = new ConcurrentHashMap<>();
 
-        CountDownLatch messageReceivedLatch = new CountDownLatch(3);
+        var messageReceivedLatch = new CountDownLatch(3);
 
         testCluster = new Cluster(3);
 
@@ -83,7 +83,7 @@ class ITScaleCubeNetworkMessagingTest {
 
         testCluster.startAwait();
 
-        TestMessage testMessage = new TestMessage("Message from Alice");
+        var testMessage = new TestMessage("Message from Alice");
 
         ClusterService alice = testCluster.members.get(0);
 
@@ -201,7 +201,7 @@ class ITScaleCubeNetworkMessagingTest {
         ClusterService bob = testCluster.members.get(1);
         String aliceName = alice.localConfiguration().getName();
 
-        CountDownLatch aliceShutdownLatch = new CountDownLatch(1);
+        var aliceShutdownLatch = new CountDownLatch(1);
 
         bob.topologyService().addEventHandler(new TopologyEventHandler() {
             /** {@inheritDoc} */

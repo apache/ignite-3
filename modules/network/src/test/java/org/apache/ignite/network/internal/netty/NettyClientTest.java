@@ -50,7 +50,7 @@ class NettyClientTest {
      */
     @Test
     public void testSuccessfullConnect() throws InterruptedException, ExecutionException, TimeoutException {
-        EmbeddedChannel channel = new EmbeddedChannel();
+        var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
 
@@ -71,7 +71,7 @@ class NettyClientTest {
      */
     @Test
     public void testFailedToConnect() throws InterruptedException, ExecutionException, TimeoutException {
-        EmbeddedChannel channel = new EmbeddedChannel();
+        var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newFailedFuture(new ClosedChannelException()));
 
@@ -97,7 +97,7 @@ class NettyClientTest {
      */
     @Test
     public void testConnectionClose() throws Exception {
-        EmbeddedChannel channel = new EmbeddedChannel();
+        var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
 
@@ -118,7 +118,7 @@ class NettyClientTest {
      */
     @Test
     public void testStartTwice() throws Exception {
-        EmbeddedChannel channel = new EmbeddedChannel();
+        var channel = new EmbeddedChannel();
 
         Bootstrap bootstrap = Mockito.mock(Bootstrap.class);
 

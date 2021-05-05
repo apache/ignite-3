@@ -52,7 +52,7 @@ public class InboundDecoderTest {
     public void test(long seed) throws Exception {
         var registry = new MessageSerializationRegistry();
 
-        var msg = AllTypesMessageGenerator.generate(seed, true);
+        AllTypesMessage msg = AllTypesMessageGenerator.generate(seed, true);
 
         registry.registerFactory(msg.directType(), new AllTypesMessageSerializationFactory());
 

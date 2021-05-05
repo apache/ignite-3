@@ -40,7 +40,7 @@ public class NettyServerTest {
      */
     @Test
     public void testSuccessfullServerStart() throws Exception {
-        EmbeddedServerChannel channel = new EmbeddedServerChannel();
+        var channel = new EmbeddedServerChannel();
 
         NettyServer server = getServer(channel.newSucceededFuture());
 
@@ -54,7 +54,7 @@ public class NettyServerTest {
      */
     @Test
     public void testServerGracefulShutdown() throws Exception {
-        EmbeddedServerChannel channel = new EmbeddedServerChannel();
+        var channel = new EmbeddedServerChannel();
 
         NettyServer server = getServer(channel.newSucceededFuture());
 
@@ -71,7 +71,7 @@ public class NettyServerTest {
      */
     @Test
     public void testServerChannelClosedAbruptly() throws Exception {
-        EmbeddedServerChannel channel = new EmbeddedServerChannel();
+        var channel = new EmbeddedServerChannel();
 
         NettyServer server = getServer(channel.newSucceededFuture());
 
@@ -88,7 +88,7 @@ public class NettyServerTest {
      */
     @Test
     public void testStartTwice() throws Exception {
-        EmbeddedServerChannel channel = new EmbeddedServerChannel();
+        var channel = new EmbeddedServerChannel();
 
         NettyServer server = getServer(channel.newSucceededFuture());
 
@@ -105,7 +105,7 @@ public class NettyServerTest {
      * @throws Exception If failed.
      */
     private NettyServer getServer(ChannelFuture future) throws Exception {
-        var bootstrap = Mockito.spy(new ServerBootstrap());
+        ServerBootstrap bootstrap = Mockito.spy(new ServerBootstrap());
 
         Mockito.doReturn(future).when(bootstrap).bind(Mockito.anyInt());
 

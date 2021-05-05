@@ -59,8 +59,8 @@ public class ConnectionManagerTest {
         int port1 = 4000;
         int port2 = 4001;
 
-        var manager1 = startManager(port1);
-        var manager2 = startManager(port2);
+        ConnectionManager manager1 = startManager(port1);
+        ConnectionManager manager2 = startManager(port2);
 
         var fut = new CompletableFuture<NetworkMessage>();
 
@@ -92,8 +92,8 @@ public class ConnectionManagerTest {
         int port1 = 4000;
         int port2 = 4001;
 
-        var manager1 = startManager(port1);
-        var manager2 = startManager(port2);
+        ConnectionManager manager1 = startManager(port1);
+        ConnectionManager manager2 = startManager(port2);
 
         NettySender sender = manager1.channel(address(port2)).get();
 
