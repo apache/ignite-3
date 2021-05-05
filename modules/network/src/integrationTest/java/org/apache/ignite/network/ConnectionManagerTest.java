@@ -20,19 +20,26 @@ package org.apache.ignite.network;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
+import org.apache.ignite.network.internal.netty.NettyClient;
 import org.apache.ignite.network.internal.netty.NettySender;
+import org.apache.ignite.network.internal.netty.NettyServer;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link ConnectionManager}.
@@ -78,6 +85,39 @@ public class ConnectionManagerTest {
 
         assertEquals(TestMessage.class, receivedMessage.getClass());
         assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+    }
+
+    /**
+     * Tests that the resources of a connection manager are closed after a shutdown.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testShutdown() throws Exception {
+        int port1 = 4000;
+        int port2 = 4001;
+
+        ConnectionManager manager1 = startManager(port1);
+        ConnectionManager manager2 = startManager(port2);
+
+        NettySender sender1 = manager1.channel(address(port2)).get();
+        NettySender sender2 = manager2.channel(address(port1)).get();
+
+        assertNotNull(sender1);
+        assertNotNull(sender2);
+
+        Stream.of(manager1, manager2).forEach(manager -> {
+            NettyServer server = manager.server();
+            Collection<NettyClient> clients = manager.clients();
+
+            manager.stop();
+
+            assertFalse(server.isRunning());
+
+            boolean clientsStopped = clients.stream().allMatch(NettyClient::isDisconnected);
+
+            assertTrue(clientsStopped);
+        });
     }
 
     /**

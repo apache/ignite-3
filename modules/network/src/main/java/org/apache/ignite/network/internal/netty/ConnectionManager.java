@@ -21,6 +21,8 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.net.SocketAddress;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +35,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class that manages connections both incoming and outgoing.
@@ -194,5 +197,21 @@ public class ConnectionManager {
          catch (Exception e) {
              LOG.warn("Failed to stop ConnectionManager: " + e.getMessage());
          }
+    }
+
+    /**
+     * @return Connection manager's {@link #server}.
+     */
+    @TestOnly
+    public NettyServer server() {
+        return server;
+    }
+
+    /**
+     * @return Collection of all the clients started by this connection manager.
+     */
+    @TestOnly
+    public Collection<NettyClient> clients() {
+        return Collections.unmodifiableCollection(clients.values());
     }
 }
