@@ -472,7 +472,7 @@ public class Row implements BinaryRow {
 
         final int vartableChunkOffset = vartableChunkOffset(baseOff, cols);
 
-        return  vartableChunkOffset + VARLEN_TABLE_SIZE_FIELD_SIZE +
+        return vartableChunkOffset + VARLEN_TABLE_SIZE_FIELD_SIZE +
             readShort(vartableChunkOffset) * VARLEN_COLUMN_OFFSET_FIELD_SIZE /* table size */ +
             off;
     }
