@@ -1,6 +1,6 @@
 # Configuration
 
-This module contains the API classes and the implementation for the Ignite configuration framework.
+This module contains the API classes and the implementation for the Ignite Configuration framework.
 The idea is to provide the so-called _Unified configuration_ — a common way of configuring both local Ignite nodes
 and remote Ignite clusters. The original concept is described in
 [IEP-55](https://cwiki.apache.org/confluence/display/IGNITE/IEP-55+Unified+Configuration).
