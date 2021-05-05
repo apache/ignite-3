@@ -34,13 +34,16 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>modules/affinity</module>
         <module>modules/api</module>
+        <module>modules/baseline</module>
         <module>modules/bytecode</module>
         <module>modules/cli</module>
         <module>modules/cli-common</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/core</module>
+        <module>modules/metastorage</module>
         <module>modules/metastorage-client</module>
         <module>modules/metastorage-common</module>
         <module>modules/network</module>
@@ -50,6 +53,7 @@
         <module>modules/runner</module>
         <module>modules/schema</module>
         <module>modules/table</module>
+        <module>modules/vault</module>
     </modules>
 
     <build>
@@ -69,6 +73,7 @@
                                 <descriptor>assembly/assembly.xml</descriptor>
                             </descriptors>
                             <finalName>apache-ignite-${project.version}</finalName>
+                            <attach>false</attach>
                         </configuration>
                     </execution>
                 </executions>

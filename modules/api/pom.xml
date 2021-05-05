@@ -34,6 +34,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-configuration-annotation-processor</artifactId>
+        </dependency>
+
+        <!-- 3rd party dependencies -->
+        <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
         </dependency>

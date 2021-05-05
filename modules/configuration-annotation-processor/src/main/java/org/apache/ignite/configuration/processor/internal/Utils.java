@@ -42,7 +42,7 @@ public class Utils {
     public static ClassName getConfigurationName(ClassName schemaClassName) {
         return ClassName.get(
             schemaClassName.packageName(),
-            schemaClassName.simpleName().replace("Schema", "Impl")
+            schemaClassName.simpleName().replaceAll("Schema$", "Impl")
         );
     }
 
@@ -55,11 +55,16 @@ public class Utils {
     public static ClassName getConfigurationInterfaceName(ClassName schemaClassName) {
         return ClassName.get(
             schemaClassName.packageName(),
-            schemaClassName.simpleName().replace("Schema", "")
+            schemaClassName.simpleName().replaceAll("Schema$", "")
         );
     }
 
-    /** */
+    /**
+     * Get {@link ClassName} for a configuration node object class.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     * @return Configuration node object ClassName.
+     */
     public static ClassName getNodeName(ClassName schemaClassName) {
         return ClassName.get(
             schemaClassName.packageName(),
@@ -77,19 +82,6 @@ public class Utils {
         return ClassName.get(
             schemaClassName.packageName(),
             schemaClassName.simpleName().replace("ConfigurationSchema", "View")
-        );
-    }
-
-    /**
-     * Get {@link ClassName} for configuration INIT object class.
-     *
-     * @param schemaClassName Configuration schema ClassName.
-     * @return Configuration INIT object ClassName.
-     */
-    public static ClassName getInitName(ClassName schemaClassName) {
-        return ClassName.get(
-            schemaClassName.packageName(),
-            schemaClassName.simpleName().replace("ConfigurationSchema", "Init")
         );
     }
 
