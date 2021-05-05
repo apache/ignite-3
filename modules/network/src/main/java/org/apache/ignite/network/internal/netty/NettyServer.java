@@ -155,13 +155,13 @@ public class NettyServer {
             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
         serverStartFuture = NettyUtils.toCompletableFuture(bootstrap.bind(port), ChannelFuture::channel).thenAccept(ch -> {
-            channel = (ServerChannel) ch;
-
             serverCloseFuture = CompletableFuture.allOf(
                 NettyUtils.toCompletableFuture(bossGroup.terminationFuture(), future -> null),
                 NettyUtils.toCompletableFuture(workerGroup.terminationFuture(), future -> null),
-                NettyUtils.toCompletableFuture(channel.closeFuture(), future -> null)
+                NettyUtils.toCompletableFuture(ch.closeFuture(), future -> null)
             );
+
+            channel = (ServerChannel) ch;
 
             // Shutdown event loops on server stop.
             channel.closeFuture().addListener(close -> {

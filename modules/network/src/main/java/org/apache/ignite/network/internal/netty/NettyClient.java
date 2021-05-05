@@ -93,8 +93,8 @@ public class NettyClient {
 
         clientFuture = NettyUtils.toCompletableFuture(bootstrap.connect(address), ChannelFuture::channel)
             .thenApply(ch -> {
+                clientCloseFuture = NettyUtils.toCompletableFuture(ch.closeFuture(), future -> null);
                 channel = ch;
-                clientCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture(), future -> null);
 
                 return new NettySender(channel, serializationRegistry);
             });
