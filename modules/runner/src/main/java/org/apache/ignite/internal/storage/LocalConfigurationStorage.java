@@ -47,7 +47,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class LocalConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static String LOCAL_PREFIX = "loc-cfg";
+    private static String LOC_PREFIX = "loc-cfg";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(LocalConfigurationStorage.class);
@@ -74,35 +74,35 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Storage version. */
-    private AtomicLong version = new AtomicLong(0);
+    private AtomicLong ver = new AtomicLong(0);
 
-    /** Start key in ragne for searching local configuration keys. */
-    private ByteArray localKeysStartRange = ByteArray.fromString(LOCAL_PREFIX + ".");
+    /** Start key in range for searching local configuration keys. */
+    private ByteArray locKeysStartRange = ByteArray.fromString(LOC_PREFIX + ".");
 
     /** End key in range for searching local configuration keys. */
-    private ByteArray localKeysEndRange = ByteArray.fromString(LOCAL_PREFIX + (char)('.' + 1));
+    private ByteArray locKeysEndRange = ByteArray.fromString(LOC_PREFIX + (char)('.' + 1));
 
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {
         Iterator<Entry> iter =
-            vaultMgr.range(localKeysStartRange, localKeysEndRange);
+            vaultMgr.range(locKeysStartRange, locKeysEndRange);
 
         HashMap<String, Serializable> data = new HashMap<>();
 
         while (iter.hasNext()) {
             Entry val = iter.next();
 
-            data.put(val.key().toString().replaceFirst(LOCAL_PREFIX + ".", ""),
+            data.put(val.key().toString().replaceFirst(LOC_PREFIX + ".", ""),
                 (Serializable)ByteUtils.fromBytes(val.value()));
         }
 
-        // TODO: Need to restore version from pds when restart
-        return new Data(data, version.get());
+        // TODO: Need to restore version from pds when restart will be developed
+        return new Data(data, ver.get());
     }
 
     /** {@inheritDoc} */
     @Override public synchronized CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long sentVersion) {
-        if (sentVersion != version.get())
+        if (sentVersion != ver.get())
             return CompletableFuture.completedFuture(false);
 
         CompletableFuture[] futs = new CompletableFuture[newValues.size()];
@@ -112,7 +112,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         latch = new CountDownLatch(newValues.size());
 
         for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
-            ByteArray key = ByteArray.fromString(LOCAL_PREFIX + "." + entry.getKey());
+            ByteArray key = ByteArray.fromString(LOC_PREFIX + "." + entry.getKey());
 
             if (entry.getValue() != null)
                 futs[i++] = vaultMgr.put(key, ByteUtils.toBytes(entry.getValue()));
@@ -126,7 +126,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
             latch.await();
 
             for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
-                ByteArray key = ByteArray.fromString(LOCAL_PREFIX + "." + entry.getKey());
+                ByteArray key = ByteArray.fromString(LOC_PREFIX + "." + entry.getKey());
 
                 Entry e = vaultMgr.get(key).get();
 
@@ -137,29 +137,29 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
             }
         }
         catch (InterruptedException | ExecutionException e) {
-            return CompletableFuture.completedFuture(false);
+            return CompletableFuture.failedFuture(e);
         }
 
         return CompletableFuture.completedFuture(true);
     }
 
     /** {@inheritDoc} */
-    @Override public void addListener(ConfigurationStorageListener listener) {
-        listeners.add(listener);
+    @Override public void addListener(ConfigurationStorageListener lsnr) {
+        listeners.add(lsnr);
 
         if (watchId == 0) {
             try {
-                watchId = vaultMgr.watch(new VaultWatch(localKeysStartRange, localKeysEndRange, new VaultListener() {
+                watchId = vaultMgr.watch(new VaultWatch(locKeysStartRange, locKeysEndRange, new VaultListener() {
                     // In the current implementation entries always contains only one entry
                     @Override public boolean onUpdate(@NotNull Iterable<Entry> entries) {
                         HashMap<String, Serializable> data = new HashMap<>();
 
                         for (Entry e : entries) {
-                            data.put(e.key().toString().replaceFirst(LOCAL_PREFIX + ".", ""),
+                            data.put(e.key().toString().substring(locKeysEndRange.toString().length()),
                                 (Serializable)ByteUtils.fromBytes(e.value()));
                         }
 
-                        listeners.forEach(listener -> listener.onEntriesChanged(new Data(data, version.incrementAndGet())));
+                        listeners.forEach(listener -> listener.onEntriesChanged(new Data(data, ver.incrementAndGet())));
 
                         latch.countDown();
 
@@ -178,8 +178,8 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void removeListener(ConfigurationStorageListener listener) {
-        listeners.remove(listener);
+    @Override public void removeListener(ConfigurationStorageListener lsnr) {
+        listeners.remove(lsnr);
 
         if (listeners.isEmpty()) {
             vaultMgr.stopWatch(watchId);

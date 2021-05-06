@@ -54,8 +54,18 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedConfigurationStorage.class);
 
-    /** Key for CAS-ing configuration keys to metastorage. */
+    /**
+     * Key for CAS-ing configuration keys to metastorage. This key is expected to be the first key in lexicographical
+     * order of distributed configuration keys.
+     */
     private static final Key masterKey = new Key(DISTRIBUTED_PREFIX + ".");
+
+    /**
+     * This key is expected to be the last key in lexicographical order of distributed configuration keys. It is
+     * possible because keys are in lexicographical order in metastorage and adding {@code (char)('.' + 1)} to the end
+     * will produce all keys with prefix {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX}
+     */
+    private static final Key dstKeysEndRange = new Key(DISTRIBUTED_PREFIX + (char)('.' + 1));
 
     /** Id of watch that is responsible for configuration update. */
     private CompletableFuture<Long> watchId;
@@ -80,9 +90,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {
-
-        Cursor<Entry> cur = metaStorageMgr.rangeWithAppliedRevision(new Key(DISTRIBUTED_PREFIX + "."),
-            new Key(DISTRIBUTED_PREFIX + (char)('.' + 1)));
+        Cursor<Entry> cur = allDstCfgKeys();
 
         HashMap<String, Serializable> data = new HashMap<>();
 
@@ -92,7 +100,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         for (Entry entry : cur) {
             if (!entry.key().equals(masterKey)) {
-                data.put(entry.key().toString().replaceFirst(DISTRIBUTED_PREFIX + ".", ""),
+                // TODO: (DISTRIBUTED_PREFIX + ".") should be changed to masterKey.toString().length() when Key from metastorage
+                // TODO will be replaced with ByteArray https://issues.apache.org/jira/browse/IGNITE-14389
+                 data.put(entry.key().toString().substring((DISTRIBUTED_PREFIX + ".").length()),
                     (Serializable)ByteUtils.fromBytes(entry.value()));
 
                 // Move to stream
@@ -163,7 +173,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                         Entry e = event.newEntry();
 
                         if (!e.key().equals(masterKey)) {
-                            data.put(e.key().toString().replaceFirst(DISTRIBUTED_PREFIX + ".", ""),
+                            // TODO: (DISTRIBUTED_PREFIX + ".") should be changed to masterKey.toString().length() when Key from metastorage
+                            // TODO will be replaced with ByteArray https://issues.apache.org/jira/browse/IGNITE-14389
+                            data.put(e.key().toString().substring((DISTRIBUTED_PREFIX + ".").length()),
                                 (Serializable)ByteUtils.fromBytes(e.value()));
 
                             if (maxRevision < e.revision())
@@ -225,5 +237,14 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
+    }
+
+    /**
+     * Method that returns all distributed configuration keys from metastorage. This is possible because we add special
+     * prefix {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX} to all configuration keys that we put to
+     * metastorage.
+     */
+    private Cursor<Entry> allDstCfgKeys() {
+        return metaStorageMgr.rangeWithAppliedRevision(masterKey, dstKeysEndRange);
     }
 }
