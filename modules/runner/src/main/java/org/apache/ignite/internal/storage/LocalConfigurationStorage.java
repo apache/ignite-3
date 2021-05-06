@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -46,7 +47,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class LocalConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static String LOCAL_PREFIX = ConfigurationType.LOCAL.name() + "-cfg";
+    private static String LOCAL_PREFIX = "loc-cfg";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(LocalConfigurationStorage.class);
@@ -95,6 +96,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                 (Serializable)ByteUtils.fromBytes(val.value()));
         }
 
+        // TODO: Need to restore version from pds when restart
         return new Data(data, version.get());
     }
 
@@ -106,6 +108,8 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         CompletableFuture[] futs = new CompletableFuture[newValues.size()];
 
         int i = 0;
+
+        latch = new CountDownLatch(newValues.size());
 
         for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
             ByteArray key = ByteArray.fromString(LOCAL_PREFIX + "." + entry.getKey());
@@ -119,8 +123,6 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         try {
             CompletableFuture.allOf(futs).get();
 
-            latch = new CountDownLatch(newValues.size());
-
             latch.await();
 
             for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
@@ -128,7 +130,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
                 Entry e = vaultMgr.get(key).get();
 
-                if (e.value() != ByteUtils.toBytes(entry.getValue()))
+                if (Arrays.equals(e.value(), ByteUtils.toBytes(entry.getValue())))
                     // value by some key was overwritten, that means that changes not
                     // from LocalConfigurationStorage.write overlapped with current changes, so write should be retried.
                     return CompletableFuture.completedFuture(false);

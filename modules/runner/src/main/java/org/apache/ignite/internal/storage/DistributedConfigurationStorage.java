@@ -49,13 +49,13 @@ import org.jetbrains.annotations.NotNull;
  */
 public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static String DISTRIBUTED_PREFIX = ConfigurationType.DISTRIBUTED.name() + "-cfg";
+    private static String DISTRIBUTED_PREFIX = "dst-cfg";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedConfigurationStorage.class);
 
     /** Key for CAS-ing configuration keys to metastorage. */
-    private static Key masterKey = new Key(DISTRIBUTED_PREFIX + ".");
+    private static final Key masterKey = new Key(DISTRIBUTED_PREFIX + ".");
 
     /** Id of watch that is responsible for configuration update. */
     private CompletableFuture<Long> watchId;
@@ -95,6 +95,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 data.put(entry.key().toString().replaceFirst(DISTRIBUTED_PREFIX + ".", ""),
                     (Serializable)ByteUtils.fromBytes(entry.value()));
 
+                // Move to stream
                 if (maxRevision < entry.revision())
                     maxRevision = entry.revision();
             } else
@@ -132,6 +133,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             Key key = new Key(DISTRIBUTED_PREFIX + "." + entry.getKey());
 
             if (entry.getValue() != null)
+                // TODO: investigate overhead when deserialize int, long, double, boolean, string, arrays of above
                 operations.add(Operations.put(key, ByteUtils.toBytes(entry.getValue())));
             else
                 operations.add(Operations.remove(key));
@@ -139,7 +141,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             failures.add(Operations.noop());
         }
 
-        operations.add(Operations.put(masterKey, new byte[1]));
+        operations.add(Operations.put(masterKey, ByteUtils.longToBytes(sentVersion)));
 
         return metaStorageMgr.invoke(Conditions.key(masterKey).revision().eq(version.get()), operations, failures);
     }
