@@ -45,13 +45,15 @@ public interface ConfigurationStorage {
      * @param lsnr Listener.
      */
     // TODO: seems that it's not needed to have an ability to set several listeners to storage, as far as only one is responsible
-    // TODO: for updating configuration and others are not needed.
+    // TODO: for updating configuration and others are not needed. https://issues.apache.org/jira/browse/IGNITE-14689
     void addListener(ConfigurationStorageListener lsnr);
 
     /**
      * Remove storage listener.
      * @param lsnr Listener.
      */
+    // TODO: seems that it's not needed to have an ability to set several listeners to storage, as far as only one is responsible
+    // TODO: for updating configuration and others are not needed. https://issues.apache.org/jira/browse/IGNITE-14689
     void removeListener(ConfigurationStorageListener lsnr);
 
     /**

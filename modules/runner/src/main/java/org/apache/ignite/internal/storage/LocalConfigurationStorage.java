@@ -47,7 +47,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class LocalConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static String LOC_PREFIX = "loc-cfg";
+    private static final String LOC_PREFIX = "loc-cfg";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(LocalConfigurationStorage.class);
@@ -77,10 +77,10 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     private AtomicLong ver = new AtomicLong(0);
 
     /** Start key in range for searching local configuration keys. */
-    private ByteArray locKeysStartRange = ByteArray.fromString(LOC_PREFIX + ".");
+    private static final ByteArray locKeysStartRange = ByteArray.fromString(LOC_PREFIX + ".");
 
     /** End key in range for searching local configuration keys. */
-    private ByteArray locKeysEndRange = ByteArray.fromString(LOC_PREFIX + (char)('.' + 1));
+    private static final ByteArray locKeysEndRange = ByteArray.fromString(LOC_PREFIX + (char)('.' + 1));
 
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {

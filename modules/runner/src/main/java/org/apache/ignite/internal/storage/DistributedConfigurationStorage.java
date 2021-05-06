@@ -49,7 +49,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static String DISTRIBUTED_PREFIX = "dst-cfg";
+    private static final String DISTRIBUTED_PREFIX = "dst-cfg";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedConfigurationStorage.class);
@@ -101,7 +101,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         for (Entry entry : cur) {
             if (!entry.key().equals(masterKey)) {
                 // TODO: (DISTRIBUTED_PREFIX + ".") should be changed to masterKey.toString().length() when Key from metastorage
-                // TODO will be replaced with ByteArray https://issues.apache.org/jira/browse/IGNITE-14389
+                // TODO: will be replaced with ByteArray https://issues.apache.org/jira/browse/IGNITE-14389
                  data.put(entry.key().toString().substring((DISTRIBUTED_PREFIX + ".").length()),
                     (Serializable)ByteUtils.fromBytes(entry.value()));
 
