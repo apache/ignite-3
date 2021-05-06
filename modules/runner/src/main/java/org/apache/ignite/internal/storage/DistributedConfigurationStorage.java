@@ -49,7 +49,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static String DISTRIBUTED_PREFIX = ConfigurationType.DISTRIBUTED.name();
+    private static String DISTRIBUTED_PREFIX = ConfigurationType.DISTRIBUTED.name() + "-cfg";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedConfigurationStorage.class);
@@ -58,7 +58,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private static Key masterKey = new Key(DISTRIBUTED_PREFIX + ".");
 
     /** Id of watch that is responsible for configuration update. */
-    private long watchId = 0L;
+    private CompletableFuture<Long> watchId;
 
     /** MetaStorage manager */
     private final MetaStorageManager metaStorageMgr;
@@ -101,11 +101,17 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 entryForMasterKey = entry;
         }
 
-        assert entryForMasterKey != null;
+        if (!data.isEmpty()) {
+            assert entryForMasterKey != null;
 
-        assert maxRevision == entryForMasterKey.revision();
+            assert maxRevision == entryForMasterKey.revision();
 
-        return new Data(data, maxRevision);
+            assert maxRevision >= version.get();
+
+            return new Data(data, maxRevision);
+        }
+
+        return new Data(data, version.get());
     }
 
     /** {@inheritDoc} */
@@ -142,61 +148,65 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override public synchronized void addListener(ConfigurationStorageListener listener) {
         listeners.add(listener);
 
-        if (watchId == 0) {
-            try {
-                watchId = metaStorageMgr.registerWatchByPrefix(masterKey, new WatchListener() {
-                    @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
-                        HashMap<String, Serializable> data = new HashMap<>();
+        if (watchId == null) {
+            watchId = metaStorageMgr.registerWatchByPrefix(masterKey, new WatchListener() {
+                @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
+                    HashMap<String, Serializable> data = new HashMap<>();
 
-                        long maxRevision = 0L;
+                    long maxRevision = 0L;
 
-                        Entry entryForMasterKey = null;
+                    Entry entryForMasterKey = null;
 
-                        for (WatchEvent event : events) {
-                            Entry e = event.newEntry();
+                    for (WatchEvent event : events) {
+                        Entry e = event.newEntry();
 
-                            if (!e.key().equals(masterKey)) {
-                                data.put(e.key().toString().replaceFirst(DISTRIBUTED_PREFIX + ".", ""),
-                                    (Serializable)ByteUtils.fromBytes(e.value()));
+                        if (!e.key().equals(masterKey)) {
+                            data.put(e.key().toString().replaceFirst(DISTRIBUTED_PREFIX + ".", ""),
+                                (Serializable)ByteUtils.fromBytes(e.value()));
 
-                                if (maxRevision < e.revision())
-                                    maxRevision = e.revision();
-                            } else
-                                entryForMasterKey = e;
-                        }
-
-                        // Contract of metastorage ensures that all updates of one revision will come in one batch.
-                        // Also masterKey should be updated every time when we update cfg.
-                        // That means that masterKey update must be included in the batch.
-                        assert entryForMasterKey != null;
-
-                        assert maxRevision == entryForMasterKey.revision();
-
-                        long finalMaxRevision = maxRevision;
-
-                        listeners.forEach(listener -> listener.onEntriesChanged(new Data(data, finalMaxRevision)));
-
-                        return true;
+                            if (maxRevision < e.revision())
+                                maxRevision = e.revision();
+                        } else
+                            entryForMasterKey = e;
                     }
 
-                    @Override public void onError(@NotNull Throwable e) {
-                        LOG.error("Metastorage listener issue", e);
-                    }
-                }).get();
-            }
-            catch (InterruptedException | ExecutionException e) {
-                LOG.error("Metastorage watch issue", e);
-            }
+                    // Contract of metastorage ensures that all updates of one revision will come in one batch.
+                    // Also masterKey should be updated every time when we update cfg.
+                    // That means that masterKey update must be included in the batch.
+                    assert entryForMasterKey != null;
+
+                    assert maxRevision == entryForMasterKey.revision();
+
+                    assert maxRevision >= version.get();
+
+                    long finalMaxRevision = maxRevision;
+
+                    listeners.forEach(listener -> listener.onEntriesChanged(new Data(data, finalMaxRevision)));
+
+                    return true;
+                }
+
+                @Override public void onError(@NotNull Throwable e) {
+                    LOG.error("Metastorage listener issue", e);
+                }
+            });
+
         }
     }
+
     /** {@inheritDoc} */
     @Override public synchronized void removeListener(ConfigurationStorageListener listener) {
         listeners.remove(listener);
 
         if (listeners.isEmpty()) {
-            metaStorageMgr.unregisterWatch(watchId);
+            try {
+                metaStorageMgr.unregisterWatch(watchId.get());
+            }
+            catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
 
-            watchId = 0;
+            watchId = null;
         }
     }
 

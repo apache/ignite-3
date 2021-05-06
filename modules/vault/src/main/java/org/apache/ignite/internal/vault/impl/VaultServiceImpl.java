@@ -70,6 +70,8 @@ public class VaultServiceImpl implements VaultService {
         synchronized (mux) {
             storage.remove(key);
 
+            watcher.notify(new Entry(key, null));
+
             return CompletableFuture.allOf();
         }
     }

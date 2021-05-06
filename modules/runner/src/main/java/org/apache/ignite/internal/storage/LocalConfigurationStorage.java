@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
@@ -45,7 +46,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class LocalConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static String LOCAL_PREFIX = ConfigurationType.LOCAL.name();
+    private static String LOCAL_PREFIX = ConfigurationType.LOCAL.name() + "-cfg";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(LocalConfigurationStorage.class);
@@ -55,6 +56,9 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
+
+    /** Latch for waiting all changes that we are expecting from watcher */
+    private CountDownLatch latch = new CountDownLatch(0);
 
     /**
      * Constructor.
@@ -114,6 +118,21 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
         try {
             CompletableFuture.allOf(futs).get();
+
+            latch = new CountDownLatch(newValues.size());
+
+            latch.await();
+
+            for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
+                ByteArray key = ByteArray.fromString(LOCAL_PREFIX + "." + entry.getKey());
+
+                Entry e = vaultMgr.get(key).get();
+
+                if (e.value() != ByteUtils.toBytes(entry.getValue()))
+                    // value by some key was overwritten, that means that changes not
+                    // from LocalConfigurationStorage.write overlapped with current changes, so write should be retried.
+                    return CompletableFuture.completedFuture(false);
+            }
         }
         catch (InterruptedException | ExecutionException e) {
             return CompletableFuture.completedFuture(false);
@@ -121,6 +140,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
         return CompletableFuture.completedFuture(true);
     }
+
     /** {@inheritDoc} */
     @Override public void addListener(ConfigurationStorageListener listener) {
         listeners.add(listener);
@@ -138,6 +158,8 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                         }
 
                         listeners.forEach(listener -> listener.onEntriesChanged(new Data(data, version.incrementAndGet())));
+
+                        latch.countDown();
 
                         return true;
                     }
