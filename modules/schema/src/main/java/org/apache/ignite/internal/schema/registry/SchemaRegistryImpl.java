@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * @implSpec Initial schema history MAY be registered without the first outdate versions
  * that could be cleaned up earlier.
  */
-public class SchemaRegistry {
+public class SchemaRegistryImpl implements SchemaRegistry {
     /** Initial schema version. */
     public static final int INITIAL_SCHEMA_VERSION = -1;
 
@@ -50,7 +51,7 @@ public class SchemaRegistry {
     /**
      * Default constructor.
      */
-    public SchemaRegistry() {
+    public SchemaRegistryImpl() {
         lastVer = INITIAL_SCHEMA_VERSION;
     }
 
@@ -59,7 +60,7 @@ public class SchemaRegistry {
      *
      * @param history Schema history.
      */
-    public SchemaRegistry(List<SchemaDescriptor> history) {
+    public SchemaRegistryImpl(List<SchemaDescriptor> history) {
         if (history.isEmpty())
             lastVer = INITIAL_SCHEMA_VERSION;
         else {
@@ -98,7 +99,7 @@ public class SchemaRegistry {
      * @return Schema descriptor.
      * @throws SchemaRegistryException If no schema found for given version.
      */
-    public SchemaDescriptor schema(int ver) {
+    @Override public SchemaDescriptor schema(int ver) {
         final SchemaDescriptor desc = history.get(ver);
 
         if (desc != null)
@@ -118,7 +119,7 @@ public class SchemaRegistry {
      * @return Schema descriptor if initialized, {@code null} otherwise.
      * @throws SchemaRegistryException If failed.
      */
-    public @Nullable SchemaDescriptor schema() {
+    @Override public @Nullable SchemaDescriptor schema() {
         final int lastVer0 = lastVer;
 
         final SchemaDescriptor desc = history.get(lastVer0);

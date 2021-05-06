@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
@@ -50,7 +50,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      */
-    public KVBinaryViewImpl(InternalTable tbl, TableSchemaRegistry schemaReg) {
+    public KVBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg) {
         super(tbl, schemaReg);
 
         marsh = new TupleMarshallerImpl(schemaReg);

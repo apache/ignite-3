@@ -18,16 +18,28 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.schema.registry.SchemaRegistry;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Cursor;
@@ -36,6 +48,7 @@ import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operations;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
+import org.apache.ignite.schema.PrimaryIndex;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -49,58 +62,192 @@ import org.jetbrains.annotations.NotNull;
     /** Internal prefix for the metasorage. */
     private static final String INTERNAL_PREFIX = "internal.tables.schema.";
 
+    /** Schema history item key suffix. */
+    protected static final String INTERNAL_VER_SUFFIX = ".ver.";
+
     /** Configuration manager in order to handle and listen schema specific configuration. */
     private final ConfigurationManager configurationMgr;
 
     /** Metastorage manager. */
-    private final MetaStorageManager metaStorageManager;
+    private final MetaStorageManager metaStorageMgr;
 
     /** Vault manager. */
     private final VaultManager vaultManager;
 
+    /** Schema history subscription future. */
+    private CompletableFuture<Long> schemaHistorySubscriptionFut;
+
     /** Schema. */
-    private final Map<UUID, SchemaRegistry> schemes = new ConcurrentHashMap<>();
+    private final Map<UUID, SchemaRegistryImpl> schemes = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
      *
      * @param configurationMgr Configuration manager.
-     * @param metaStorageManager Metastorage manager.
+     * @param metaStorageMgr Metastorage manager.
      * @param vaultManager Vault manager.
      */
     public SchemaManager(
         ConfigurationManager configurationMgr,
-        MetaStorageManager metaStorageManager,
+        MetaStorageManager metaStorageMgr,
         VaultManager vaultManager
     ) {
         this.configurationMgr = configurationMgr;
-        this.metaStorageManager = metaStorageManager;
+        this.metaStorageMgr = metaStorageMgr;
         this.vaultManager = vaultManager;
 
-        metaStorageManager.registerWatchByPrefix(new Key(INTERNAL_PREFIX), new WatchListener() {
+        schemaHistorySubscriptionFut = metaStorageMgr.registerWatchByPrefix(new Key(INTERNAL_PREFIX), new WatchListener() {
+            /** {@inheritDoc} */
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                 for (WatchEvent evt : events) {
-                    String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
-                    UUID tblId = UUID.fromString(keyTail.substring(0, keyTail.indexOf('.')));
+                    String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length() - 1);
 
-                    int schemaVer = Integer.parseInt(keyTail.substring(keyTail.indexOf('.'), keyTail.length() - 1));
+                    int verPos = keyTail.indexOf(INTERNAL_VER_SUFFIX);
 
-                    final SchemaRegistry schemaReg = schemes.computeIfAbsent(tblId, (k) -> new SchemaRegistry());
+                    // Last table schema version changed.
+                    if (verPos == -1) {
+                        UUID tblId = UUID.fromString(keyTail);
 
-                    //TODO: IGNITE-14077 Drop table should cause a drop schema registry as well.
-                    if (evt.newEntry().value() == null)
-                        schemaReg.cleanupSchema(schemaVer);
-                    else //TODO: IGNITE-14679 Deserialize schema.
-                        schemaReg.registerSchema((SchemaDescriptor)ByteUtils.fromBytes(evt.newEntry().value()));
+                        if (evt.oldEntry() == null)  // Initial schema added.
+                            schemes.put(tblId, new SchemaRegistryImpl());
+                        else if (evt.newEntry() == null) // Table Dropped.
+                            schemes.remove(tblId);
+                    }
+                    else {
+                        UUID tblId = UUID.fromString(keyTail.substring(0, verPos));
+                        int ver = Integer.parseInt(keyTail.substring(verPos + INTERNAL_VER_SUFFIX.length()));
+
+                        final SchemaRegistryImpl reg = schemes.get(tblId);
+
+                        assert reg != null : "Table schema was not initialized or table has been dropped: " + tblId;
+
+                        reg.registerSchema((SchemaDescriptor)ByteUtils.fromBytes(evt.newEntry().value()));
+                    }
                 }
 
                 return true;
             }
 
+            /** {@inheritDoc} */
             @Override public void onError(@NotNull Throwable e) {
-                LOG.error("Faled to notyfy Schema manager.", e);
+                LOG.error("Metastorage listener issue", e);
             }
         });
+    }
+
+    /**
+     * Unsubscribes a listener form the affinity calculation.
+     */
+    private void unsubscribeFromAssignmentCalculation() {
+        if (schemaHistorySubscriptionFut == null)
+            return;
+
+        try {
+            Long subscriptionId = schemaHistorySubscriptionFut.get();
+
+            metaStorageMgr.unregisterWatch(subscriptionId);
+
+            schemaHistorySubscriptionFut = null;
+        }
+        catch (InterruptedException | ExecutionException e) {
+            LOG.error("Couldn't unsubscribe for Metastorage updates", e);
+        }
+    }
+
+    /**
+     * Reads current schema configuration, build schema descriptor,
+     * then add it to history rise up table schema version.
+     *
+     * @param tblId Table id.
+     * @param tblName Table name.
+     * @return Operation future.
+     */
+    public CompletableFuture<Boolean> initNewSchemaForTable(UUID tblId, String tblName) {
+        return vaultManager.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
+            thenCompose(entry -> {
+                TableConfiguration tblConfig = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
+                var key = new Key(INTERNAL_PREFIX + tblId);
+
+                int ver = entry.empty() ? 1 : (int)ByteUtils.bytesToLong(entry.value(), 0) + 1;
+
+                final SchemaDescriptor desc = createSchemaDescriptor(tblConfig, ver);
+
+                return metaStorageMgr.invoke(
+                    Conditions.key(key).value().eq(entry.value()), // Won't to rewrite if the version goes ahead.
+                    List.of(
+                        Operations.put(key, ByteUtils.longToBytes(ver)),
+                        Operations.put(new Key(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + ver), ByteUtils.toBytes(desc))
+                    ),
+                    List.of(
+                        Operations.noop(),
+                        Operations.noop()
+                    ));
+            });
+    }
+
+    /**
+     * Creates schema descriptor from config.
+     *
+     * @param tblConfig Table config.
+     * @param ver Schema version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor createSchemaDescriptor(TableConfiguration tblConfig, int ver) {
+        final TableIndexConfiguration pkCfg = tblConfig.indices().get(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
+
+        assert pkCfg != null;
+
+        final Set<String> keyColNames = Stream.of(pkCfg.colNames().value()).collect(Collectors.toSet());
+        final NamedListView<ColumnView> cols = tblConfig.columns().value();
+
+        return new SchemaDescriptor(ver,
+            cols.namedListKeys().stream().filter(keyColNames::contains)
+                .map(n -> {
+                    final ColumnView col = cols.get(n);
+
+                    return new Column(col.name(), createType(col.type()), col.nullable());
+                }).toArray(Column[]::new),
+            cols.namedListKeys().stream().filter(c -> !keyColNames.contains(c))
+                .map(n -> {
+                    final ColumnView col = cols.get(n);
+
+                    return new Column(col.name(), createType(col.type()), col.nullable());
+                }).toArray(Column[]::new)
+        );
+    }
+
+    /**
+     * Create type from config.
+     *
+     * @param type Type view.
+     * @return Native type.
+     */
+    private NativeType createType(ColumnTypeView type) {
+        switch (type.type().toLowerCase()) {
+            case "byte":
+                return NativeType.BYTE;
+            case "short":
+                return NativeType.SHORT;
+            case "int":
+                return NativeType.INTEGER;
+            case "long":
+                return NativeType.LONG;
+            case "float":
+                return NativeType.FLOAT;
+            case "double":
+                return NativeType.DOUBLE;
+            case "uuid":
+                return NativeType.UUID;
+            case "bitmask":
+                return Bitmask.of(type.length());
+            case "string":
+                return NativeType.STRING;
+            case "bytes":
+                return NativeType.BYTES;
+
+            default:
+                throw new IllegalStateException("Unsupported column type: " + type.type());
+        }
     }
 
     /**
@@ -124,33 +271,10 @@ import org.jetbrains.annotations.NotNull;
     }
 
     /**
-     * Gets a current schema for the table specified.
-     *
-     * @param tableId Table id.
-     * @return Schema.
-     */
-    public SchemaDescriptor schema(UUID tableId) {
-        return schemes.get(tableId).schema();
-    }
-
-    /**
-     * Gets a schema for specific version.
-     *
-     * @param tableId Table id.
-     * @param ver Schema version.
-     * @return Schema.
-     */
-    public SchemaDescriptor schema(UUID tableId, int ver) {
-        final SchemaRegistry reg = schemaRegistryForTable(tableId);
-
-        return reg.schema(ver);
-    }
-
-    /**
      * @param tableId Table id.
      * @return Schema registry for the table.
      */
-    private SchemaRegistry schemaRegistryForTable(UUID tableId) {
+    public SchemaRegistry schemaRegistryForTable(UUID tableId) {
         final SchemaRegistry reg = schemes.get(tableId);
 
         if (reg == null)
@@ -170,7 +294,7 @@ import org.jetbrains.annotations.NotNull;
 
         final Key key = new Key(INTERNAL_PREFIX + tableId + '.' + schemaVersion);
 
-        return metaStorageManager.invoke(
+        return metaStorageMgr.invoke(
             Conditions.key(key).value().eq(null),
             Operations.put(key, ByteUtils.toBytes(desc)), //TODO: IGNITE-14679 Serialize schema.
             Operations.noop());
@@ -183,18 +307,20 @@ import org.jetbrains.annotations.NotNull;
      * @return Future which will complete when all versions of schema will be unregistered.
      */
     public CompletableFuture<Boolean> unregisterSchemas(UUID tableId) {
-        ArrayList<CompletableFuture> futs = new ArrayList<>();
+        List<CompletableFuture<?>> futs = new ArrayList<>();
 
-        String schemaPrefix = INTERNAL_PREFIX + tableId;
+        String schemaPrefix = INTERNAL_PREFIX + tableId + INTERNAL_VER_SUFFIX;
 
-        try (Cursor<Entry> cursor = metaStorageManager.range(new Key(schemaPrefix + '.'), new Key(schemaPrefix + ('.' + 1)))) {
+        try (Cursor<Entry> cursor = metaStorageMgr.range(new Key(schemaPrefix), null)) {
             cursor.forEach(entry ->
-                futs.add(metaStorageManager.remove(entry.key())));
+                futs.add(metaStorageMgr.remove(entry.key())));
         }
         catch (Exception e) {
             LOG.error("Culdn't remove schemas for the table [tblId=" + tableId + ']');
         }
 
-        return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new)).thenApply(v -> true);
+        return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
+            .thenCompose(v -> metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tableId)))
+            .thenApply(v -> true);
     }
 }

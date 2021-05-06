@@ -41,7 +41,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistryImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -77,6 +76,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Configuration manager. */
     private final ConfigurationManager configurationMgr;
 
+    /** Schema manager. */
+    private final SchemaManager schemaManager;
+
     /** Table creation subscription future. */
     private CompletableFuture<Long> tableCreationSubscriptionFut;
 
@@ -99,6 +101,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
+        this.schemaManager = schemaManager;
 
         String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();
@@ -174,7 +177,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         onEvent(TableEvent.CREATE, new TableEventParameters(
                             tblId,
                             name,
-                            new TableSchemaRegistryImpl(tblId, schemaManager),
+                            schemaManager.schemaRegistryForTable(tblId),
                             new InternalTableImpl(tblId, partitionMap, partitions)
                         ), null);
                     }
@@ -246,10 +249,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 futs.add(metaStorageMgr.invoke(
                     Conditions.key(key).value().eq(null),
                     Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
-                    Operations.noop()).thenCompose(res ->
-                    res ? metaStorageMgr.put(new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()), new byte[0])
-                        .thenApply(v -> true)
-                        : CompletableFuture.completedFuture(false)));
+                    Operations.noop())
+                    .thenCompose(res -> schemaManager.initNewSchemaForTable(tblId, tableView.name()))
+                    .thenCompose(res ->
+                        res ? metaStorageMgr.put(new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()), new byte[0])
+                            .thenApply(v -> true)
+                            : CompletableFuture.completedFuture(false)));
             }
 
             Set<String> tablesToStop = ctx.oldValue().namedListKeys() == null ?

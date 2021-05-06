@@ -23,7 +23,7 @@ import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -32,14 +32,14 @@ import org.jetbrains.annotations.NotNull;
  */
 class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
-    private final TableSchemaRegistry schemaMgr;
+    private final SchemaRegistry schemaMgr;
 
     /**
      * Constructor.
      *
      * @param schemaMgr Schema manager.
      */
-    TupleMarshallerImpl(TableSchemaRegistry schemaMgr) {
+    TupleMarshallerImpl(SchemaRegistry schemaMgr) {
         this.schemaMgr = schemaMgr;
     }
 

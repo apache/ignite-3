@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KVSerializer;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.KeyMapper;
@@ -45,7 +45,7 @@ public class KVViewImpl<K, V> extends AbstractTableView implements KeyValueView<
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
-    public KVViewImpl(InternalTable tbl, TableSchemaRegistry schemaReg, KeyMapper<K> keyMapper,
+    public KVViewImpl(InternalTable tbl, SchemaRegistry schemaReg, KeyMapper<K> keyMapper,
         ValueMapper<V> valueMapper) {
         super(tbl, schemaReg);
     }

@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.KeyValueView;
@@ -52,7 +52,7 @@ public class TableImpl extends AbstractTableView implements Table {
      * @param tbl Table.
      * @param schemaReg Table schema registry.
      */
-    public TableImpl(InternalTable tbl, TableSchemaRegistry schemaReg) {
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg) {
         super(tbl, schemaReg);
 
         marsh = new TupleMarshallerImpl(schemaReg);
@@ -72,7 +72,7 @@ public class TableImpl extends AbstractTableView implements Table {
      *
      * @return Schema view.
      */
-    public TableSchemaRegistry schemaView() {
+    public SchemaRegistry schemaView() {
         return schemaReg;
     }
 

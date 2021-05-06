@@ -33,7 +33,7 @@ import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.schema.TableSchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
@@ -230,7 +230,7 @@ public class DistributedTableTest {
             UUID.randomUUID(),
             partMap,
             PARTS
-        ), new TableSchemaRegistry() {
+        ), new SchemaRegistry() {
             @Override public SchemaDescriptor schema() {
                 return SCHEMA;
             }

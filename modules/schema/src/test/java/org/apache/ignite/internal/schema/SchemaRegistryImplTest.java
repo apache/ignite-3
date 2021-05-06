@@ -19,14 +19,14 @@ package org.apache.ignite.internal.schema;
 
 import java.util.List;
 import org.apache.ignite.internal.schema.registry.SchemaRegistrationConflictException;
-import org.apache.ignite.internal.schema.registry.SchemaRegistry;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.NativeType.BYTES;
 import static org.apache.ignite.internal.schema.NativeType.LONG;
 import static org.apache.ignite.internal.schema.NativeType.STRING;
-import static org.apache.ignite.internal.schema.registry.SchemaRegistry.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Schema manager test.
  */
-public class SchemaRegistryTest {
+public class SchemaRegistryImplTest {
     /**
      * Check registration of schema with wrong versions.
      */
@@ -54,7 +54,7 @@ public class SchemaRegistryTest {
             new Column[] {new Column("keyLongCol", LONG, true)},
             new Column[] {new Column("valBytesCol", BYTES, true)});
 
-        final SchemaRegistry reg = new SchemaRegistry();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
         assertNull(reg.schema());
@@ -106,7 +106,7 @@ public class SchemaRegistryTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistry reg = new SchemaRegistry();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
         assertNull(reg.schema());
@@ -160,7 +160,7 @@ public class SchemaRegistryTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistry reg = new SchemaRegistry();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
@@ -228,7 +228,7 @@ public class SchemaRegistryTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistry reg = new SchemaRegistry();
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl();
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
@@ -342,7 +342,7 @@ public class SchemaRegistryTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistry reg = new SchemaRegistry(List.of(schemaV1, schemaV2));
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(List.of(schemaV1, schemaV2));
 
         assertEquals(2, reg.lastSchemaVersion());
         assertSameSchema(schemaV2, reg.schema());
@@ -406,7 +406,7 @@ public class SchemaRegistryTest {
             new Column[] {new Column("keyLongCol", LONG, true)},
             new Column[] {new Column("valStringCol", STRING, true)});
 
-        final SchemaRegistry reg = new SchemaRegistry(List.of(schemaV2, schemaV3));
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(List.of(schemaV2, schemaV3));
 
         assertEquals(3, reg.lastSchemaVersion());
         assertSameSchema(schemaV3, reg.schema());
@@ -470,7 +470,7 @@ public class SchemaRegistryTest {
                 new Column("valStringCol", STRING, true)
             });
 
-        final SchemaRegistry reg = new SchemaRegistry(List.of(schemaV2, schemaV3, schemaV4));
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(List.of(schemaV2, schemaV3, schemaV4));
 
         assertEquals(4, reg.lastSchemaVersion());
         assertSameSchema(schemaV4, reg.schema());

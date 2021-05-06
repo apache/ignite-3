@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.schema;
-
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+package org.apache.ignite.internal.schema;
 
 /**
  * Table schema registry interface.
  */
-public interface TableSchemaRegistry {
+public interface SchemaRegistry {
     /**
      * @return Current schema.
      */
