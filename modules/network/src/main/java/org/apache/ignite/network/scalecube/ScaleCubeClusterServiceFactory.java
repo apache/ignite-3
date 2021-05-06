@@ -17,13 +17,13 @@
 
 package org.apache.ignite.network.scalecube;
 
-import java.util.List;
-import java.util.stream.Collectors;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -59,7 +59,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                 }
             })
             .config(opts -> opts.memberAlias(context.getName()))
-            .transport(opts -> opts.transportFactory(config -> transport))
+            .transport(opts -> opts.transportFactory(new DelegatingTransportFactory(messagingService, config -> transport)))
             .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())).suspicionMult(1));
 
         // resolve cyclic dependencies

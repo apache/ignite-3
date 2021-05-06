@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.network.scalecube;
 
+import io.scalecube.cluster.ClusterImpl;
+import io.scalecube.cluster.transport.api.Transport;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -27,16 +29,17 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import io.scalecube.cluster.ClusterImpl;
-import io.scalecube.cluster.transport.api.Transport;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageSerializationFactory;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -254,8 +257,6 @@ class ITScaleCubeNetworkMessagingTest {
      * Wrapper for a cluster.
      */
     private static final class Cluster {
-        /** */
-        private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
         /** */
         private final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
