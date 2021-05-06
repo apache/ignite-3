@@ -27,16 +27,16 @@ public class Data {
     private final Map<String, Serializable> values;
 
     /** Configuration storage version. */
-    private final long cfgVersion;
+    private final long changeId;
 
     /**
      * Constructor.
      * @param values Values.
-     * @param cfgVersion Version.
+     * @param changeId Version.
      */
-    public Data(Map<String, Serializable> values, long cfgVersion) {
+    public Data(Map<String, Serializable> values, long changeId) {
         this.values = values;
-        this.cfgVersion = cfgVersion;
+        this.changeId = changeId;
     }
 
     /**
@@ -51,7 +51,7 @@ public class Data {
      * Get version.
      * @return version.
      */
-    public long cfgVersion() {
-        return cfgVersion;
+    public long changeId() {
+        return changeId;
     }
 }
