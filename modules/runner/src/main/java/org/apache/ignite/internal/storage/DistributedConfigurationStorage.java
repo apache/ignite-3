@@ -203,7 +203,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 metaStorageMgr.unregisterWatch(watchId.get());
             }
             catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+                LOG.error("Failed to register watch in metastore", e);
             }
 
             watchId = null;
