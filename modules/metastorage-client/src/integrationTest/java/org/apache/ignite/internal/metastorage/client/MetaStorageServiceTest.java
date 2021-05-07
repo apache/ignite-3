@@ -857,9 +857,8 @@ import static org.mockito.Mockito.verify;
         metaStorageSvc.stopWatch(watchId).get();
     }
 
-    // TODO sanpwc: Add test for exception handling.
-
-    // TODO sanpwc: Add test for non-serializable requests and responses.
+    // TODO IGNITE-14693: Add tests for exception handling logic: onError,
+    // TODO: (CompactedException | OperationTimeoutException)
 
     /**
      * @param name Node name.

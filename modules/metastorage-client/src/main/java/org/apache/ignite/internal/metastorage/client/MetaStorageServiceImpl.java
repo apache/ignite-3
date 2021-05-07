@@ -349,11 +349,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         else
                             Thread.sleep(10);
                     }
-                    catch (Exception e) {
+                    catch (Throwable e) {
                         if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException)
                             break;
-                        else
+                        else {
+                            // TODO IGNITE-14693: Implement MetaStorage exception handling logic.
                             LOG.error("Unexpected exception", e);
+                        }
                     }
                 }
             }
