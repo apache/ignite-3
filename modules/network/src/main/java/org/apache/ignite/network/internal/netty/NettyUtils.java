@@ -56,7 +56,7 @@ public class NettyUtils {
     }
 
     /**
-     * Converty Netty {@link Future} to {@link CompletableFuture}.
+     * Convert a Netty {@link Future} to a {@link CompletableFuture}.
      *
      * @param future Future.
      * @return CompletableFuture.
@@ -66,7 +66,7 @@ public class NettyUtils {
     }
 
     /**
-     * Converty Netty {@link ChannelFuture} to {@link CompletableFuture}.
+     * Convert a Netty {@link ChannelFuture} to a {@link CompletableFuture}.
      *
      * @param channelFuture Channel future.
      * @return CompletableFuture.
