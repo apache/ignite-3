@@ -40,6 +40,7 @@ import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.metastorage.client.MetaStorageService;
 import org.apache.ignite.metastorage.common.Condition;
@@ -57,6 +58,9 @@ import org.jetbrains.annotations.Nullable;
  * {@link MetaStorageService} implementation.
  */
 public class MetaStorageServiceImpl implements MetaStorageService {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceImpl.class);
+
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
 
@@ -242,7 +246,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         private final Map<Cursor<WatchEvent>, WatchListener> watches = new ConcurrentHashMap<>();
 
-        private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor,  WatchListener lsnr) {
+        private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
             Watcher watcher = new Watcher(cursor, lsnr);
 
             watchers.put(watchId, watcher);
@@ -278,44 +282,47 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
             // TODO sanpwc: Flag for interruption?
             @Override public void run() {
-                long rev = -1;
-                List<WatchEvent> sameRevisionEvts = new ArrayList<>();
+                try {
+                    long rev = -1;
+                    List<WatchEvent> sameRevisionEvts = new ArrayList<>();
 
-                Iterator<WatchEvent> watchEvtsIter = cursor.iterator();
+                    Iterator<WatchEvent> watchEvtsIter = cursor.iterator();
 
-                while (true) {
-                    if (watchEvtsIter.hasNext()) {
-                        WatchEvent watchEvt = null;
+                    while (true) {
+                        if (watchEvtsIter.hasNext()) {
+                            WatchEvent watchEvt = null;
 
-                        try {
-                            watchEvt = watchEvtsIter.next();
-                        }
-                        catch (Throwable e) {
-                            lsnr.onError(e);
-                        }
-
-                        if (watchEvt.newEntry().revision() == rev)
-                            sameRevisionEvts.add(watchEvt);
-                        else {
-                            rev = watchEvt.newEntry().revision();
-
-                            if (!sameRevisionEvts.isEmpty()) {
-                                lsnr.onUpdate(sameRevisionEvts);
-
-                                sameRevisionEvts.clear();
+                            try {
+                                watchEvt = watchEvtsIter.next();
+                            }
+                            catch (Throwable e) {
+                                lsnr.onError(e);
                             }
 
-                            sameRevisionEvts.add(watchEvt);
+                            if (watchEvt.newEntry().revision() == rev)
+                                sameRevisionEvts.add(watchEvt);
+                            else {
+                                rev = watchEvt.newEntry().revision();
+
+                                if (!sameRevisionEvts.isEmpty()) {
+                                    lsnr.onUpdate(sameRevisionEvts);
+
+                                    sameRevisionEvts.clear();
+                                }
+
+                                sameRevisionEvts.add(watchEvt);
+                            }
                         }
-                    }
-                    else {
-                        try {
+                        else {
+                            // TODO sanpwc: add comment with ticket that we expect reactive thread logic instead of given pull tmp one.
                             Thread.sleep(100);
                         }
-                        catch (InterruptedException e) {
-                            break;
-                        }
                     }
+
+                }
+                catch (Exception e) {
+                    if (!(e instanceof InterruptedException || e.getCause() instanceof InterruptedException))
+                        LOG.error("Unexpected exception", e);
                 }
             }
         }

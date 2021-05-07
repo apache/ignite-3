@@ -25,11 +25,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.common.DummyEntry;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.metastorage.client.MetaStorageService;
 import org.apache.ignite.metastorage.common.CompactedException;
 import org.apache.ignite.metastorage.common.Cursor;
@@ -800,12 +802,11 @@ import static org.mockito.Mockito.verify;
         MetaStorageService metaStorageSvc = prepareMetaStorage(
             new AbstractKeyValueStorage() {
                 @Override public Cursor<WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
-                    return new Cursor<WatchEvent>() {
+                    return new Cursor<>() {
                         AtomicInteger retirevedItemCnt = new AtomicInteger(0);
 
                         @Override public void close() throws Exception {
-                            // Within given test it's not expected to get here.
-                            fail();
+                            // No-op.
                         }
 
                         @NotNull @Override public Iterator<WatchEvent> iterator() {
@@ -824,7 +825,9 @@ import static org.mockito.Mockito.verify;
                 }
             });
 
-        metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        IgniteUuid watchId = metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                 List gotEvents = new ArrayList();
 
@@ -839,6 +842,7 @@ import static org.mockito.Mockito.verify;
 
                 assertTrue(gotEvents.contains(returnedWatchEvents.get(1)));
 
+                latch.countDown();
                 return true;
             }
 
@@ -847,37 +851,10 @@ import static org.mockito.Mockito.verify;
                 fail();
             }
         }).get();
-    }
 
-    @Test
-    public void testWatchOnError() throws Exception {
-        Key keyFrom = new Key(new byte[]{1});
+        latch.await();
 
-        Key keyTo = new Key(new byte[]{10});
-
-        long rev = 1;
-
-        MetaStorageService metaStorageSvc = prepareMetaStorage(
-            new AbstractKeyValueStorage() {
-                @Override public Cursor<WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
-                    return super.watch(keyFrom, keyTo, rev);
-                }
-            });
-
-        metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
-            @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
-                return false;
-            }
-
-            @Override public void onError(@NotNull Throwable e) {
-
-            }
-        }).get();
-    }
-
-    @Test
-    public void testStopWatch() {
-
+        metaStorageSvc.stopWatch(watchId).get();
     }
 
     // TODO sanpwc: Add test for exception handling.

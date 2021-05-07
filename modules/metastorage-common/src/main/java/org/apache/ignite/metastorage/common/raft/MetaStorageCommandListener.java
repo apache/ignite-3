@@ -55,6 +55,7 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Meta storage command listener aka mata storage raft state machine.
@@ -67,7 +68,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
     private final KeyValueStorage storage;
 
     /** Cursors map. */
-    private final Map<IgniteUuid, IgniteBiTuple<Cursor, Iterator>> cursors;
+    private final Map<IgniteUuid, IgniteBiTuple<@NotNull Cursor, @NotNull Iterator>> cursors;
 
     /**
      * @param storage Storage.
