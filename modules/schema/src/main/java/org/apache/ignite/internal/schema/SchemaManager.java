@@ -55,7 +55,7 @@ import org.jetbrains.annotations.NotNull;
  * Schema Manager.
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings({"FieldCanBeLocal", "unused"}) public class SchemaManager {
+public class SchemaManager {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
 
@@ -115,7 +115,6 @@ import org.jetbrains.annotations.NotNull;
                     }
                     else {
                         UUID tblId = UUID.fromString(keyTail.substring(0, verPos));
-                        int ver = Integer.parseInt(keyTail.substring(verPos + INTERNAL_VER_SUFFIX.length()));
 
                         final SchemaRegistryImpl reg = schemes.get(tblId);
 
