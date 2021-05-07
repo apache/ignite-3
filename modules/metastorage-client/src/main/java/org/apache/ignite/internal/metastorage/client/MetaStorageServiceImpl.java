@@ -236,6 +236,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         return watchRes;
     }
+
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id) {
         return CompletableFuture.runAsync(() -> watchProcessor.stopWatch(id));
@@ -274,7 +275,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
          *
          * @param watchId Watch id.
          */
-        private void stopWatch(IgniteUuid watchId){
+        private void stopWatch(IgniteUuid watchId) {
             watchers.computeIfPresent(
                 watchId,
                 (k, v) -> {
@@ -295,6 +296,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         private final class Watcher extends Thread {
             /** Watch event cursor. */
             private Cursor<WatchEvent> cursor;
+
             /** The listener which receives and handles watch updates. */
             private WatchListener lsnr;
 

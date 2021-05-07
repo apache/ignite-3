@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.raft.client.ReadCommand;

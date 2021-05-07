@@ -163,7 +163,6 @@ import org.jetbrains.annotations.Nullable;
 //            )
 //        );
 
-
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
         clusterNetSvc.messagingService().addMessageHandler((message, sender, correlationId) -> {});
     }
@@ -321,28 +320,28 @@ import org.jetbrains.annotations.Nullable;
      * @see MetaStorageService#getAndPutAll(Map)
      */
     public @NotNull CompletableFuture<Map<Key, Entry>> getAndPutAll(@NotNull Map<Key, byte[]> vals) {
-        return  metaStorageSvcFut.thenCompose(svc -> svc.getAndPutAll(vals));
+        return metaStorageSvcFut.thenCompose(svc -> svc.getAndPutAll(vals));
     }
 
     /**
      * @see MetaStorageService#remove(Key)
      */
     public @NotNull CompletableFuture<Void> remove(@NotNull Key key) {
-        return  metaStorageSvcFut.thenCompose(svc -> svc.remove(key));
+        return metaStorageSvcFut.thenCompose(svc -> svc.remove(key));
     }
 
     /**
      * @see MetaStorageService#getAndRemove(Key)
      */
     public @NotNull CompletableFuture<Entry> getAndRemove(@NotNull Key key) {
-        return  metaStorageSvcFut.thenCompose(svc -> svc.getAndRemove(key));
+        return metaStorageSvcFut.thenCompose(svc -> svc.getAndRemove(key));
     }
 
     /**
      * @see MetaStorageService#removeAll(Collection)
      */
     public @NotNull CompletableFuture<Void> removeAll(@NotNull Collection<Key> keys) {
-        return  metaStorageSvcFut.thenCompose(svc -> svc.removeAll(keys));
+        return metaStorageSvcFut.thenCompose(svc -> svc.removeAll(keys));
     }
 
     /**

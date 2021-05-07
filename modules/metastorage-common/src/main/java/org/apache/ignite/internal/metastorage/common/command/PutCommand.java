@@ -28,6 +28,7 @@ import org.jetbrains.annotations.NotNull;
 public final class PutCommand implements WriteCommand {
     /** The key. Couldn't be {@code null}. */
     @NotNull private final Key key;
+
     /** The value.Couldn't be {@code null}. */
     @NotNull private final byte[] val;
 
