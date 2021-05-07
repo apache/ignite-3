@@ -27,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
+import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl;
@@ -165,14 +167,11 @@ public class MetaStorageManager {
                 vaultMgr.appliedRevision() + 1,
                 this::storeEntries
             );
-        if (watch.isEmpty())
-            deployFut.complete(Optional.empty());
-        else
-            metaStorageSvcFut.thenApply(svc -> svc.watch(
-                watch.get().keyCriterion().toRange().getKey(),
-                watch.get().keyCriterion().toRange().getValue(),
-                watch.get().revision(),
-                watch.get().listener()).thenAccept(id -> deployFut.complete(Optional.of(id))).join());
+
+            if (watch.isEmpty())
+                deployFut.complete(Optional.empty());
+            else
+                dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id))).join();
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during deploy watches", e);
@@ -443,11 +442,7 @@ public class MetaStorageManager {
                 if (watch.isEmpty())
                     return CompletableFuture.completedFuture(Optional.empty());
                 else
-                    return metaStorageSvcFut.thenCompose(svc -> svc.watch(
-                        watch.get().keyCriterion().toRange().get1(),
-                        watch.get().keyCriterion().toRange().get2(),
-                        watch.get().revision(),
-                        watch.get().listener()).thenApply(Optional::of));
+                    return dispatchAppropriateMetaStorageWatch(watch.get()).thenApply(Optional::of);
             }));
 
         return deployFut;
@@ -600,5 +595,42 @@ public class MetaStorageManager {
                 }
             }
         }
+    }
+
+    /**
+     * Dispatch appropriate metastorage watch method according to inferred watch criterion.
+     *
+     * @param aggregatedWatch aggregated watch.
+     * @return future, which will be completed after new watch registration finished.
+     */
+    private CompletableFuture<IgniteUuid> dispatchAppropriateMetaStorageWatch(AggregatedWatch aggregatedWatch) {
+        if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.CollectionCriterion) {
+            var criterion = (KeyCriterion.CollectionCriterion) aggregatedWatch.keyCriterion();
+
+            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
+                criterion.keys(),
+                aggregatedWatch.revision(),
+                aggregatedWatch.listener()));
+        }
+        else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.ExactCriterion) {
+            var criterion = (KeyCriterion.ExactCriterion) aggregatedWatch.keyCriterion();
+
+            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
+                criterion.key(),
+                aggregatedWatch.revision(),
+                aggregatedWatch.listener()));
+        }
+        else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.RangeCriterion) {
+            var criterion = (KeyCriterion.RangeCriterion) aggregatedWatch.keyCriterion();
+
+            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
+                criterion.from(),
+                criterion.to(),
+                aggregatedWatch.revision(),
+                aggregatedWatch.listener()));
+        }
+        else
+            throw new UnsupportedOperationException("Unsupported type of criterion");
+
     }
 }
