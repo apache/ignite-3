@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.storage;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -48,8 +50,8 @@ import org.jetbrains.annotations.NotNull;
  * Distributed configuration storage.
  */
 public class DistributedConfigurationStorage implements ConfigurationStorage {
-    /** Prefix that we add to configuration keys to distinguish them in metastorage. */
-    private static final String DISTRIBUTED_PREFIX = "dst-cfg";
+    /** Prefix that we add to configuration keys to distinguish them in metastorage. Must end with dot. */
+    private static final String DISTRIBUTED_PREFIX = "dst-cfg.";
 
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedConfigurationStorage.class);
@@ -58,14 +60,14 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * Key for CAS-ing configuration keys to metastorage. This key is expected to be the first key in lexicographical
      * order of distributed configuration keys.
      */
-    private static final Key masterKey = new Key(DISTRIBUTED_PREFIX + ".");
+    private static final Key masterKey = new Key(DISTRIBUTED_PREFIX);
 
     /**
      * This key is expected to be the last key in lexicographical order of distributed configuration keys. It is
      * possible because keys are in lexicographical order in metastorage and adding {@code (char)('.' + 1)} to the end
      * will produce all keys with prefix {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX}
      */
-    private static final Key dstKeysEndRange = new Key(DISTRIBUTED_PREFIX + (char)('.' + 1));
+    private static final Key dstKeysEndRange = new Key(DISTRIBUTED_PREFIX.substring(0, DISTRIBUTED_PREFIX.length() - 1) + (char)('.' + 1));
 
     /** Id of watch that is responsible for configuration update. */
     private CompletableFuture<Long> watchId;
@@ -86,50 +88,50 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Storage version. It stores actual metastorage revision, that is applied to configuration manager. */
-    private AtomicLong version = new AtomicLong(0L);
+    private AtomicLong ver = new AtomicLong(0L);
 
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {
-        Cursor<Entry> cur = allDstCfgKeys();
-
         HashMap<String, Serializable> data = new HashMap<>();
+
+        Iterator<Entry> entries = allDstCfgKeys().iterator();
 
         long maxRevision = 0L;
 
-        Entry entryForMasterKey = null;
+        if (!entries.hasNext())
+            return new Data(data, ver.get());
 
-        for (Entry entry : cur) {
-            if (!entry.key().equals(masterKey)) {
-                // TODO: (DISTRIBUTED_PREFIX + ".") should be changed to masterKey.toString().length() when Key from metastorage
-                // TODO: will be replaced with ByteArray https://issues.apache.org/jira/browse/IGNITE-14389
-                 data.put(entry.key().toString().substring((DISTRIBUTED_PREFIX + ".").length()),
-                    (Serializable)ByteUtils.fromBytes(entry.value()));
+        Entry entryForMasterKey = entries.next();
 
-                // Move to stream
-                if (maxRevision < entry.revision())
-                    maxRevision = entry.revision();
-            } else
-                entryForMasterKey = entry;
+        assert entryForMasterKey.key().equals(masterKey);
+
+        while (entries.hasNext()) {
+            Entry entry = entries.next();
+
+            data.put(entry.key().toString().substring((DISTRIBUTED_PREFIX).length()), (Serializable)ByteUtils.fromBytes(entry.value()));
+
+            // Move to stream
+            if (maxRevision < entry.revision())
+                maxRevision = entry.revision();
+
         }
 
         if (!data.isEmpty()) {
-            assert entryForMasterKey != null;
-
             assert maxRevision == entryForMasterKey.revision();
 
-            assert maxRevision >= version.get();
+            assert maxRevision >= ver.get();
 
             return new Data(data, maxRevision);
         }
 
-        return new Data(data, version.get());
+        return new Data(data, ver.get());
     }
 
     /** {@inheritDoc} */
     @Override public synchronized CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long sentVersion) {
-        assert sentVersion <= version.get();
+        assert sentVersion <= ver.get();
 
-        if (sentVersion != version.get())
+        if (sentVersion != ver.get())
             // This means that sentVersion is less than version and other node has already updated configuration and
             // write should be retried. Actual version will be set when watch and corresponding configuration listener
             // updates configuration and notifyApplied is triggered afterwards.
@@ -137,23 +139,22 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         HashSet<Operation> operations = new HashSet<>();
 
-        HashSet<Operation> failures = new HashSet<>();
-
         for (Map.Entry<String, Serializable> entry : newValues.entrySet()) {
-            Key key = new Key(DISTRIBUTED_PREFIX + "." + entry.getKey());
+            Key key = new Key(DISTRIBUTED_PREFIX + entry.getKey());
 
             if (entry.getValue() != null)
                 // TODO: investigate overhead when deserialize int, long, double, boolean, string, arrays of above
                 operations.add(Operations.put(key, ByteUtils.toBytes(entry.getValue())));
             else
                 operations.add(Operations.remove(key));
-
-            failures.add(Operations.noop());
         }
 
         operations.add(Operations.put(masterKey, ByteUtils.longToBytes(sentVersion)));
 
-        return metaStorageMgr.invoke(Conditions.key(masterKey).revision().eq(version.get()), operations, failures);
+        return metaStorageMgr.invoke(
+            Conditions.key(masterKey).revision().eq(ver.get()),
+            operations,
+            Collections.singleton(Operations.noop()));
     }
 
     /** {@inheritDoc} */
@@ -161,6 +162,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         listeners.add(listener);
 
         if (watchId == null) {
+            // TODO: registerWatchByPrefix could throw OperationTimeoutException and CompactedException and we should
+            // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
             watchId = metaStorageMgr.registerWatchByPrefix(masterKey, new WatchListener() {
                 @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                     HashMap<String, Serializable> data = new HashMap<>();
@@ -173,9 +176,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                         Entry e = event.newEntry();
 
                         if (!e.key().equals(masterKey)) {
-                            // TODO: (DISTRIBUTED_PREFIX + ".") should be changed to masterKey.toString().length() when Key from metastorage
-                            // TODO will be replaced with ByteArray https://issues.apache.org/jira/browse/IGNITE-14389
-                            data.put(e.key().toString().substring((DISTRIBUTED_PREFIX + ".").length()),
+                            data.put(e.key().toString().substring((DISTRIBUTED_PREFIX).length()),
                                 (Serializable)ByteUtils.fromBytes(e.value()));
 
                             if (maxRevision < e.revision())
@@ -191,7 +192,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
                     assert maxRevision == entryForMasterKey.revision();
 
-                    assert maxRevision >= version.get();
+                    assert maxRevision >= ver.get();
 
                     long finalMaxRevision = maxRevision;
 
@@ -201,10 +202,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 }
 
                 @Override public void onError(@NotNull Throwable e) {
+                    // TODO: need to handle this case and there should some mechanism for registering new watch as far as
+                    // TODO: onError unregisters failed watch https://issues.apache.org/jira/browse/IGNITE-14604
                     LOG.error("Metastorage listener issue", e);
                 }
             });
-
         }
     }
 
@@ -226,9 +228,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override public void notifyApplied(long storageRevision) {
-        assert version.get() <= storageRevision;
+        assert ver.get() <= storageRevision;
 
-        version.set(storageRevision);
+        ver.set(storageRevision);
 
         // Also we should persist version,
         // this should be done when nodes restart is introduced.
@@ -245,6 +247,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * metastorage.
      */
     private Cursor<Entry> allDstCfgKeys() {
+        // TODO: rangeWithAppliedRevision could throw OperationTimeoutException and CompactedException and we should
+        // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
         return metaStorageMgr.rangeWithAppliedRevision(masterKey, dstKeysEndRange);
     }
 }
