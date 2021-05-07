@@ -63,8 +63,10 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
-@SuppressWarnings({"FieldCanBeLocal", "unused", "WeakerAccess"}) public class MetaStorageManager {
-    public static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
+@SuppressWarnings("unused") public class MetaStorageManager {
+    /** MetaStorage raft group name. */
+    private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
+
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
 
@@ -124,16 +126,15 @@ import org.jetbrains.annotations.Nullable;
         String[] metastorageNodes = locCfgMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .metastorageNodes().value();
 
-        Predicate<ClusterNode> metaStorageNodesContainsLocalPredicate =
+        Predicate<ClusterNode> metaStorageNodesContainsLocPred =
             clusterNode -> Arrays.asList(metastorageNodes).contains(clusterNode.name());
 
-        // TODO sanpwc: Consider using factory or similar to parametrise with KeyValueStorage
         if (hasMetastorageLocally(locNodeName, metastorageNodes)) {
             this.metaStorageSvcFut = CompletableFuture.completedFuture(new MetaStorageServiceImpl(
                     raftMgr.startRaftGroup(
                         METASTORAGE_RAFT_GROUP_NAME,
                         clusterNetSvc.topologyService().allMembers().stream().filter(
-                            metaStorageNodesContainsLocalPredicate).
+                            metaStorageNodesContainsLocPred).
                             collect(Collectors.toList()),
                         new MetaStorageCommandListener(new KeyValueStorageImpl())
                     )
@@ -145,7 +146,7 @@ import org.jetbrains.annotations.Nullable;
                     raftMgr.startRaftService(
                         METASTORAGE_RAFT_GROUP_NAME,
                         clusterNetSvc.topologyService().allMembers().stream().filter(
-                            metaStorageNodesContainsLocalPredicate).
+                            metaStorageNodesContainsLocPred).
                             collect(Collectors.toList())
                     )
                 )
@@ -507,44 +508,52 @@ import org.jetbrains.annotations.Nullable;
             return deployFut.thenApply(uid -> id);
     }
 
-    // TODO sanpwc: move to some common place cause it's used also in TableManager and AffinityManager.
-    // TODO sanpwc: Probably metastorageManager is a such place.
     /**
      * Checks whether the local node hosts Metastorage.
      *
-     * @param localNodeName Local node uniq name.
+     * @param locNodeName Local node uniq name.
      * @param metastorageMembers Metastorage members names.
      * @return True if the node has Metastorage, false otherwise.
      */
-    private boolean hasMetastorageLocally(String localNodeName, String[] metastorageMembers) {
-        boolean isLocalNodeHasMetasorage = false;
+    public static boolean hasMetastorageLocally(String locNodeName, String[] metastorageMembers) {
+        boolean isLocNodeHasMetasorage = false;
 
         for (String name : metastorageMembers) {
-            if (name.equals(localNodeName)) {
-                isLocalNodeHasMetasorage = true;
+            if (name.equals(locNodeName)) {
+                isLocNodeHasMetasorage = true;
 
                 break;
             }
         }
-        return isLocalNodeHasMetasorage;
+        return isLocNodeHasMetasorage;
     }
 
+    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
+    /** Cursor wrapper. */
     private final class CursorWrapper<T> implements Cursor<T> {
+        /** MetaStorage service future. */
         private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
+        /** Inner cursor future. */
         private final CompletableFuture<Cursor<T>> innerCursorFut;
 
-        private final CompletableFuture<Iterator<T>> innerIteratorFut;
+        /** Inner iterator future. */
+        private final CompletableFuture<Iterator<T>> innerIterFut;
 
-        public CursorWrapper(
+        /**
+         * @param metaStorageSvcFut MetaStorage service future.
+         * @param innerCursorFut Inner cursor future.
+         */
+        CursorWrapper(
             CompletableFuture<MetaStorageService> metaStorageSvcFut,
             CompletableFuture<Cursor<T>> innerCursorFut
         ) {
             this.metaStorageSvcFut = metaStorageSvcFut;
             this.innerCursorFut = innerCursorFut;
-            this.innerIteratorFut = innerCursorFut.thenApply(Iterable::iterator);
+            this.innerIterFut = innerCursorFut.thenApply(Iterable::iterator);
         }
 
+            /** {@inheritDoc} */
             @Override public void close() throws Exception {
             innerCursorFut.thenCompose(cursor -> {
                 try {
@@ -558,20 +567,23 @@ import org.jetbrains.annotations.Nullable;
             }).get();
         }
 
+        /** {@inheritDoc} */
         @NotNull @Override public Iterator<T> iterator() {
-            return new Iterator<T>() {
+            return new Iterator<>() {
+                /** {@inheritDoc} */
                 @Override public boolean hasNext() {
                     try {
-                        return innerIteratorFut.thenApply(Iterator::hasNext).get();
+                        return innerIterFut.thenApply(Iterator::hasNext).get();
                     }
                     catch (InterruptedException | ExecutionException e) {
                         throw new IgniteInternalException(e);
                     }
                 }
 
+                /** {@inheritDoc} */
                 @Override public T next() {
                     try {
-                        return innerIteratorFut.thenApply(Iterator::next).get();
+                        return innerIterFut.thenApply(Iterator::next).get();
                     }
                     catch (InterruptedException | ExecutionException e) {
                         throw new IgniteInternalException(e);

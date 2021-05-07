@@ -96,7 +96,7 @@ import static org.mockito.Mockito.verify;
     private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
 
     /** */
-    // TODO: IGNITE-14088: Uncomment and use real serializer provider
+    // TODO: IGNITE-14088 Uncomment and use real serializer provider
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
 
     /** Expected result entry. */
@@ -142,7 +142,6 @@ import static org.mockito.Mockito.verify;
         );
     }
 
-    // TODO sanpwc: Consider @BeforeAll instead.
     /**
      * Run @{code} NODES cluster nodes.
      */
@@ -710,42 +709,6 @@ import static org.mockito.Mockito.verify;
         verify(cursorMock, times(1)).close();
     }
 
-    /**
-     * Tests {@link MetaStorageService#get(Key)}.
-     *
-     * @throws Exception If failed.
-     */
-    @Disabled // TODO sanpwc: Add proper exception handling;
-    @Test
-    public void testGetThatThrowsCompactedException() {
-        MetaStorageService metaStorageSvc = prepareMetaStorage(
-            new AbstractKeyValueStorage() {
-                @Override public @NotNull Entry get(byte[] key) {
-                    throw new CompactedException();
-                }
-            });
-
-        assertThrows(CompactedException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
-    }
-
-    /**
-     * Tests {@link MetaStorageService#get(Key)}.
-     *
-     * @throws Exception If failed.
-     */
-    @Disabled // TODO sanpwc: Add proper exception handling;
-    @Test
-    public void testGetThatThrowsOperationTimeoutException() {
-        MetaStorageService metaStorageSvc = prepareMetaStorage(
-            new AbstractKeyValueStorage() {
-                @Override public @NotNull Entry get(byte[] key) {
-                    throw new OperationTimeoutException();
-                }
-            });
-
-        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
-    }
-
     @Test
     public void testWatchOnUpdate() throws Exception {
         List<WatchEvent> returnedWatchEvents = Arrays.asList(
@@ -857,8 +820,45 @@ import static org.mockito.Mockito.verify;
         metaStorageSvc.stopWatch(watchId).get();
     }
 
-    // TODO IGNITE-14693: Add tests for exception handling logic: onError,
+    // TODO: IGNITE-14693 Add tests for exception handling logic: onError,
     // TODO: (CompactedException | OperationTimeoutException)
+
+
+    /**
+     * Tests {@link MetaStorageService#get(Key)}.
+     *
+     * @throws Exception If failed.
+     */
+    @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
+    @Test
+    public void testGetThatThrowsCompactedException() {
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public @NotNull Entry get(byte[] key) {
+                    throw new CompactedException();
+                }
+            });
+
+        assertThrows(CompactedException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+    }
+
+    /**
+     * Tests {@link MetaStorageService#get(Key)}.
+     *
+     * @throws Exception If failed.
+     */
+    @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
+    @Test
+    public void testGetThatThrowsOperationTimeoutException() {
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public @NotNull Entry get(byte[] key) {
+                    throw new OperationTimeoutException();
+                }
+            });
+
+        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+    }
 
     /**
      * @param name Node name.

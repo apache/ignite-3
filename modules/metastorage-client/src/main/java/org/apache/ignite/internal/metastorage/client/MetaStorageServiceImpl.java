@@ -63,7 +63,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
 
-    // TODO IGNITE-14691: Temporally solution that should be removed after implementing reactive watches.
+    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
     /** Watch processor, that uses pulling logic in order to retrieve watch notifications from server. */
     private final WatchProcessor watchProcessor;
 
@@ -247,7 +247,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return null;
     }
 
-    // TODO IGNITE-14691: Temporally solution that should be removed after implementing reactive watches.
+    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
     /** Watch processor, that manages {@link Watcher} threads. */
     private final class WatchProcessor {
         /** Active Watcher threads that process notification pulling logic. */
@@ -353,7 +353,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException)
                             break;
                         else {
-                            // TODO IGNITE-14693: Implement MetaStorage exception handling logic.
+                            // TODO: IGNITE-14693 Implement MetaStorage exception handling logic.
                             LOG.error("Unexpected exception", e);
                         }
                     }

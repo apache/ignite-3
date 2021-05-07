@@ -22,52 +22,67 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
 // TODO: IGNITE-14389 Tmp, used instead of real KeyValueStorage interface from metastorage-server module.
-public interface KeyValueStorage {
+/**
+ *
+ */
+@SuppressWarnings("unused") public interface KeyValueStorage {
+    /** */
     long revision();
 
+    /** */
     long updateCounter();
 
-    @NotNull
-    Entry get(byte[] key);
+    /** */
+    @NotNull Entry get(byte[] key);
 
-    @NotNull
-    Entry get(byte[] key, long rev);
+    /** */
+    @NotNull Entry get(byte[] key, long rev);
 
-    @NotNull
-    List<Entry> getAll(List<byte[]> keys);
+    /** */
+    @NotNull List<Entry> getAll(List<byte[]> keys);
 
-    @NotNull
-    List<Entry> getAll(List<byte[]> keys, long revUpperBound);
+    /** */
+    @NotNull List<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
+    /** */
     void put(byte[] key, byte[] value);
 
-    @NotNull
-    Entry getAndPut(byte[] key, byte[] value);
+    /** */
+    @NotNull Entry getAndPut(byte[] key, byte[] value);
 
+    /** */
     void putAll(List<byte[]> keys, List<byte[]> values);
 
-    @NotNull
-    List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
+    /** */
+    @NotNull List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
 
+    /** */
     void remove(byte[] key);
 
-    @NotNull
-    Entry getAndRemove(byte[] key);
+    /** */
+    @NotNull Entry getAndRemove(byte[] key);
 
+    /** */
     void removeAll(List<byte[]> keys);
 
-    @NotNull
-    List<Entry> getAndRemoveAll(List<byte[]> keys);
+    /** */
+    @NotNull List<Entry> getAndRemoveAll(List<byte[]> keys);
 
+    /** */
     Cursor<Entry> range(byte[] keyFrom, byte[] keyTo);
 
+    /** */
     Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound);
 
+    /** */
     Cursor<WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev);
 
+    /** */
     Cursor<WatchEvent> watch(byte[] key, long rev);
 
+    /** */
     Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev);
 
+    /** */
     void compact();
 }
