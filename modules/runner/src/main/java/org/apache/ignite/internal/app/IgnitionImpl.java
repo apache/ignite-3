@@ -46,6 +46,11 @@ import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.MessageSerializationRegistryInitializer;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -118,7 +123,9 @@ public class IgnitionImpl implements Ignition {
 
         var serializationRegistry = new MessageSerializationRegistry();
 
-        MessageSerializationRegistryInitializer.initialize(serializationRegistry);
+        MessageSerializationRegistryInitializer.initialize(serializationRegistry)
+            .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
+            .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
         String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();

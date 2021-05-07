@@ -24,6 +24,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.List;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.direct.DirectMarshallingUtils;
@@ -121,5 +124,16 @@ public class InboundDecoder extends ByteToMessageDecoder {
                 throw e;
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        if (LOG.isDebugEnabled())
+            LOG.debug("Exception caught: " + cause.getMessage(), cause);
+
+        // Ignore IOExceptions that are thrown from the Netty's insides. IOExceptions that occured during reads
+        // or writes should be handled elsewhere.
+        if (cause instanceof Exception && !(cause instanceof IOException) )
+            throw (Exception) cause;
     }
 }
