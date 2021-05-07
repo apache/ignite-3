@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -27,15 +28,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.affinity.AffinityManager;
+import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -46,15 +47,11 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListene
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.metastorage.common.Conditions;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operations;
-import org.apache.ignite.metastorage.common.WatchEvent;
-import org.apache.ignite.metastorage.common.WatchListener;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
@@ -77,8 +74,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Configuration manager. */
     private final ConfigurationManager configurationMgr;
 
-    /** Table creation subscription future. */
-    private CompletableFuture<Long> tableCreationSubscriptionFut;
+    /** Raft manmager. */
+    private final Loza raftMgr;
+
+    /** Schema manager. */
+    private final SchemaManager schemaManager;
+
+    /** Affinity manager. */
+    private final AffinityManager affinityManager;
 
     /** Tables. */
     private Map<String, TableImpl> tables = new ConcurrentHashMap<>();
@@ -87,6 +90,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param configurationMgr Configuration manager.
      * @param metaStorageMgr Meta storage manager.
      * @param schemaManager Schema manager.
+     * @param affinityManager Affinity mamager.
      * @param raftMgr Raft manager.
      * @param vaultManager Vault manager.
      */
@@ -94,99 +98,70 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
         SchemaManager schemaManager,
+        AffinityManager affinityManager,
         Loza raftMgr,
         VaultManager vaultManager
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
+        this.affinityManager = affinityManager;
+        this.raftMgr = raftMgr;
+        this.schemaManager = schemaManager;
 
-        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .name().value();
+        listenForTableChange();
+    }
 
-        configurationMgr.configurationRegistry().getConfiguration(ClusterConfiguration.KEY)
-            .metastorageNodes().listen(ctx -> {
-            if (ctx.newValue() != null) {
-                if (MetaStorageManager.hasMetastorageLocally(localNodeName, ctx.newValue()))
-                    subscribeForTableCreation();
-                else
-                    unsubscribeForTableCreation();
-            }
-            return CompletableFuture.completedFuture(null);
+    /**
+     * Creates local structures for a table.
+     *
+     * @param name Table name.
+     * @param tblId Table id.
+     * @param assignment Affinity assignment.
+     */
+    private void createTableLocally(String name, UUID tblId, List<List<ClusterNode>> assignment) {
+        int partitions = assignment.size();
 
-        });
+        HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
 
-        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .metastorageNodes().value();
+        for (int p = 0; p < partitions; p++) {
+            partitionMap.put(p, raftMgr.startRaftGroup(
+                raftGroupName(tblId, p),
+                assignment.get(p),
+                new PartitionCommandListener()
+            ));
+        }
 
-        if (MetaStorageManager.hasMetastorageLocally(localNodeName, metastorageMembers))
-            subscribeForTableCreation();
+        onEvent(TableEvent.CREATE, new TableEventParameters(
+            tblId,
+            name,
+            new TableSchemaViewImpl(tblId, schemaManager),
+            new InternalTableImpl(tblId, partitionMap, partitions)
+        ), null);
+    }
 
-        String tableInternalPrefix = INTERNAL_PREFIX + "assignment.";
+    /**
+     * Drops local structures for a table.
+     *
+     * @param name Table name.
+     * @param tblId Table id.
+     * @param assignment Affinity assignment.
+     */
+    private void dropTableLocally(String name, UUID tblId, List<List<ClusterNode>> assignment) {
+        int partitions = assignment.size();
 
-        tableCreationSubscriptionFut = metaStorageMgr.registerWatchByPrefix(new Key(tableInternalPrefix), new WatchListener() {
-            @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
-                for (WatchEvent evt : events) {
-                    String placeholderValue = evt.newEntry().key().toString().substring(tableInternalPrefix.length() - 1);
+        for (int p = 0; p < partitions; p++)
+            raftMgr.stopRaftGroup(raftGroupName(tblId, p), assignment.get(p));
 
-                    String name = new String(vaultManager.get(ByteArray.fromString(INTERNAL_PREFIX + placeholderValue))
-                        .join().value(), StandardCharsets.UTF_8);
+        TableImpl table = tables.get(name);
 
-                    UUID tblId = UUID.fromString(placeholderValue);
+        assert table != null : "There is no table with the name specified [name=" + name + ']';
 
-                    if (evt.newEntry().value() == null) {
-                        assert evt.oldEntry().value() != null : "Previous assignment is unknown";
-
-                        List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
-                            evt.oldEntry().value());
-
-                        int partitions = assignment.size();
-
-                        for (int p = 0; p < partitions; p++)
-                            raftMgr.stopRaftGroup(raftGroupName(tblId, p), assignment.get(p));
-
-                        TableImpl table = tables.get(name);
-
-                        assert table != null : "There is no table with the name specified [name=" + name + ']';
-
-                        onEvent(TableEvent.DROP, new TableEventParameters(
-                            tblId,
-                            name,
-                            table.schemaView(),
-                            table.internalTable()
-                        ), null);
-                    }
-                    else if (evt.newEntry().value().length > 0) {
-                        List<List<ClusterNode>> assignment = (List<List<ClusterNode>>)ByteUtils.fromBytes(
-                            evt.newEntry().value());
-
-                        int partitions = assignment.size();
-
-                        HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
-
-                        for (int p = 0; p < partitions; p++) {
-                            partitionMap.put(p, raftMgr.startRaftGroup(
-                                raftGroupName(tblId, p),
-                                assignment.get(p),
-                                new PartitionCommandListener()
-                            ));
-                        }
-
-                        onEvent(TableEvent.CREATE, new TableEventParameters(
-                            tblId,
-                            name,
-                            new TableSchemaViewImpl(tblId, schemaManager),
-                            new InternalTableImpl(tblId, partitionMap, partitions)
-                        ), null);
-                    }
-                }
-
-                return true;
-            }
-
-            @Override public void onError(@NotNull Throwable e) {
-                LOG.error("Metastorage listener issue", e);
-            }
-        });
+        onEvent(TableEvent.DROP, new TableEventParameters(
+            tblId,
+            name,
+            table.schemaView(),
+            table.internalTable()
+        ), null);
     }
 
     /**
@@ -201,9 +176,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Subscribes on table create.
+     * Checks whether the local node hosts Metastorage.
      */
-    private void subscribeForTableCreation() {
+    private boolean isLocalNodeInvolvedMetastorage() {
+        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+            .name().value();
+
+        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
+            .metastorageNodes().value();
+
+        return Arrays.stream(metastorageMembers).anyMatch(name -> name.equals(localNodeName));
+    }
+
+    /**
+     * Listens on a drop or create table.
+     */
+    private void listenForTableChange() {
         //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
         configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
             .tables().listen(ctx -> {
@@ -216,20 +204,44 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
+            boolean onMetastorageNode = isLocalNodeInvolvedMetastorage();
+
             for (String tblName : tablesToStart) {
                 TableView tableView = ctx.newValue().get(tblName);
                 long update = 0;
 
                 UUID tblId = new UUID(revision, update);
 
-                var key = new Key(INTERNAL_PREFIX + tblId.toString());
-                futs.add(metaStorageMgr.invoke(
-                    Conditions.key(key).value().eq(null),
-                    Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
-                    Operations.noop()).thenCompose(res ->
-                    res ? metaStorageMgr.put(new Key(INTERNAL_PREFIX + "assignment." + tblId.toString()), new byte[0])
-                        .thenApply(v -> true)
-                        : CompletableFuture.completedFuture(false)));
+                if (onMetastorageNode) {
+                    var key = new Key(INTERNAL_PREFIX + tblId.toString());
+
+                    futs.add(metaStorageMgr.invoke(
+                        Conditions.key(key).value().eq(null),
+                        Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
+                        Operations.noop()).thenCompose(res ->
+                        affinityManager.calculateAssignments(tblId)));
+                }
+                else {
+                    affinityManager.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
+                        if (!tblId.equals(parameters.tableId()))
+                            return false;
+
+                        if (e == null)
+                            createTableLocally(tblName, tblId, parameters.assignment());
+                        else {
+                            LOG.error("Table creation finished with error [name=" + tblName + ", id=" + tblId + ']', e);
+
+                            onEvent(TableEvent.CREATE, new TableEventParameters(
+                                tblId,
+                                tblName,
+                                null,
+                                null
+                            ), e);
+                        }
+
+                        return true;
+                    });
+                }
             }
 
             Set<String> tablesToStop = ctx.oldValue().namedListKeys() == null ?
@@ -242,37 +254,39 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 UUID tblId = t.internalTable().tableId();
 
-                var key = new Key(INTERNAL_PREFIX + "assignment." + tblId.toString());
-                futs.add(metaStorageMgr.invoke(
-                    Conditions.key(key).value().ne(null),
-                    Operations.remove(key),
-                    Operations.noop()).thenCompose(res ->
-                    res ? metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tblId.toString()))
-                        .thenApply(v -> true)
-                        : CompletableFuture.completedFuture(false)));
+                if (onMetastorageNode) {
+                    var key = new Key(INTERNAL_PREFIX + tblId.toString());
+
+                    futs.add(affinityManager.removeAssignment(tblId).thenCompose(res ->
+                        metaStorageMgr.invoke(Conditions.key(key).value().ne(null),
+                            Operations.remove(key),
+                            Operations.noop())));
+                }
+                else {
+                    affinityManager.listen(AffinityEvent.REMOVED, (parameters, e) -> {
+                        if (!tblId.equals(parameters.tableId()))
+                            return false;
+
+                        if (e == null)
+                            dropTableLocally(tblName, tblId, parameters.assignment());
+                        else {
+                            LOG.error("Table drop finished with error [name=" + tblName + ", id=" + tblId + ']', e);
+
+                            onEvent(TableEvent.DROP, new TableEventParameters(
+                                tblId,
+                                tblName,
+                                null,
+                                null
+                            ), e);
+                        }
+
+                        return true;
+                    });
+                }
             }
 
             return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
         });
-    }
-
-    /**
-     * Unsubscribe from table creation.
-     */
-    private void unsubscribeForTableCreation() {
-        if (tableCreationSubscriptionFut == null)
-            return;
-
-        try {
-            Long subscriptionId = tableCreationSubscriptionFut.get();
-
-            metaStorageMgr.unregisterWatch(subscriptionId);
-
-            tableCreationSubscriptionFut = null;
-        }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error("Couldn't unsubscribe from table creation", e);
-        }
     }
 
     /** {@inheritDoc} */
