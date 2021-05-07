@@ -19,20 +19,11 @@ package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Netty client channel wrapper.
@@ -91,9 +82,9 @@ public class NettyClient {
         if (clientFuture != null)
             throw new IgniteInternalException("Attempted to start an already started NettyClient");
 
-        clientFuture = NettyUtils.toCompletableFuture(bootstrap.connect(address), ChannelFuture::channel)
+        clientFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
             .thenApply(ch -> {
-                clientCloseFuture = NettyUtils.toCompletableFuture(ch.closeFuture(), future -> null);
+                clientCloseFuture = NettyUtils.toCompletableFuture(ch.closeFuture());
                 channel = ch;
 
                 return new NettySender(channel, serializationRegistry);
@@ -132,38 +123,5 @@ public class NettyClient {
      */
     public boolean isDisconnected() {
         return channel != null && !channel.isOpen();
-    }
-
-    /**
-     * Creates a {@link Bootstrap} for clients, providing channel handlers and options.
-     *
-     * @param eventLoopGroup Event loop group for channel handling.
-     * @param serializationRegistry Serialization registry.
-     * @param messageListener Message listener.
-     * @return Bootstrap for clients.
-     */
-    public static Bootstrap createBootstrap(
-        EventLoopGroup eventLoopGroup,
-        MessageSerializationRegistry serializationRegistry,
-        BiConsumer<SocketAddress, NetworkMessage> messageListener
-    ) {
-        Bootstrap clientBootstrap = new Bootstrap();
-
-        clientBootstrap.group(eventLoopGroup)
-            .channel(NioSocketChannel.class)
-            // See NettyServer#start for netty configuration details.
-            .option(ChannelOption.SO_KEEPALIVE, true)
-            .handler(new ChannelInitializer<SocketChannel>() {
-                /** {@inheritDoc} */
-                @Override public void initChannel(SocketChannel ch) {
-                    ch.pipeline().addLast(
-                        new InboundDecoder(serializationRegistry),
-                        new MessageHandler(messageListener),
-                        new ChunkedWriteHandler()
-                    );
-                }
-            });
-
-        return clientBootstrap;
     }
 }

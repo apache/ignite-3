@@ -17,6 +17,8 @@
 
 package org.apache.ignite.network.internal.netty;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -53,4 +55,23 @@ public class NettyUtils {
         return fut;
     }
 
+    /**
+     * Converty Netty {@link Future<Void>} to {@link CompletableFuture}.
+     *
+     * @param future Future.
+     * @return CompletableFuture.
+     */
+    public static <T> CompletableFuture<T> toCompletableFuture(Future<T> future) {
+        return toCompletableFuture(future, fut -> null);
+    }
+
+    /**
+     * Converty Netty {@link ChannelFuture} to {@link CompletableFuture}.
+     *
+     * @param channelFuture Channel future.
+     * @return CompletableFuture.
+     */
+    public static CompletableFuture<Channel> toChannelCompletableFuture(ChannelFuture channelFuture) {
+        return toCompletableFuture(channelFuture, ChannelFuture::channel);
+    }
 }

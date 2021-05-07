@@ -258,10 +258,10 @@ class ITScaleCubeNetworkMessagingTest {
      */
     private static final class Cluster {
         /** */
-        private final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
+        private final ClusterServiceFactory networkFactory = new ScaleCubeClusterServiceFactory();
 
         /** */
-        private final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
+        private final MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
             .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
             .registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
 
@@ -296,9 +296,9 @@ class ITScaleCubeNetworkMessagingTest {
          * @return Started cluster node.
          */
         private ClusterService startNode(String name, int port, List<String> addresses, boolean initial) {
-            var context = new ClusterLocalConfiguration(name, port, addresses, SERIALIZATION_REGISTRY);
+            var context = new ClusterLocalConfiguration(name, port, addresses, serializationRegistry);
 
-            ClusterService clusterService = NETWORK_FACTORY.createClusterService(context);
+            ClusterService clusterService = networkFactory.createClusterService(context);
 
             if (initial)
                 clusterService.topologyService().addEventHandler(new TopologyEventHandler() {

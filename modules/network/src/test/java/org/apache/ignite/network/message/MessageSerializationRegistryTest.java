@@ -18,16 +18,16 @@
 package org.apache.ignite.network.message;
 
 import org.apache.ignite.network.NetworkConfigurationException;
-import org.apache.ignite.network.internal.MessageReader;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 /**
  * {@link MessageSerializationRegistry} tests.
  */
-class MessageSerializationRegistryTest {
+public class MessageSerializationRegistryTest {
     /**
      * Tests that a serialization factory can be registered.
      */
@@ -94,27 +94,12 @@ class MessageSerializationRegistryTest {
     static class MsgSerializationFactory implements MessageSerializationFactory<Msg> {
         /** {@inheritDoc} */
         @Override public MessageDeserializer<Msg> createDeserializer() {
-            return new MessageDeserializer<Msg>() {
-                /** {@inheritDoc} */
-                @Override public boolean readMessage(MessageReader reader) throws MessageMappingException {
-                    return false;
-                }
-
-                /** {@inheritDoc} */
-                @Override public Class<Msg> klass() {
-                    return null;
-                }
-
-                /** {@inheritDoc} */
-                @Override public Msg getMessage() {
-                    return null;
-                }
-            };
+            return mock(MessageDeserializer.class);
         }
 
         /** {@inheritDoc} */
         @Override public MessageSerializer<Msg> createSerializer() {
-            return (message, writer) -> false;
+            return mock(MessageSerializer.class);
         }
     }
 }

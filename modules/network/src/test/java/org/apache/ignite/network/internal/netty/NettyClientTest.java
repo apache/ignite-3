@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link NettyClient}.
  */
-class NettyClientTest {
+public class NettyClientTest {
     /** */
     private final SocketAddress address = InetSocketAddress.createUnresolved("", 0);
 
@@ -49,7 +49,7 @@ class NettyClientTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testSuccessfullConnect() throws InterruptedException, ExecutionException, TimeoutException {
+    public void testSuccessfulConnect() throws InterruptedException, ExecutionException, TimeoutException {
         var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());

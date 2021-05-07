@@ -18,8 +18,13 @@
 package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Collections;
@@ -77,7 +82,7 @@ public class ConnectionManager {
     public ConnectionManager(int port, MessageSerializationRegistry registry) {
         this.serializationRegistry = registry;
         this.server = new NettyServer(port, this::onNewIncomingChannel, this::onMessage, serializationRegistry);
-        this.clientBootstrap = NettyClient.createBootstrap(clientWorkerGroup, serializationRegistry, this::onMessage);
+        this.clientBootstrap = createClientBootstrap(clientWorkerGroup, serializationRegistry, this::onMessage);
     }
 
     /**
@@ -116,18 +121,16 @@ public class ConnectionManager {
         if (channel != null)
             return CompletableFuture.completedFuture(channel);
 
-        NettyClient client = clients.compute(address, (addr, existingClient) -> {
-            if (existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected())
-                return existingClient;
-
-            return connect(addr);
-        });
+        NettyClient client = clients.compute(address, (addr, existingClient) ->
+            existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected() ?
+                existingClient : connect(addr)
+        );
 
         return client.sender();
     }
 
     /**
-     * Callback that is called upon receiving of a new message.
+     * Callback that is called upon receiving a new message.
      *
      * @param from Source of the message.
      * @param message New message.
@@ -153,10 +156,7 @@ public class ConnectionManager {
      * @return New netty client.
      */
     private NettyClient connect(SocketAddress address) {
-        NettyClient client = new NettyClient(
-            address,
-            serializationRegistry
-        );
+        NettyClient client = new NettyClient(address, serializationRegistry);
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {
             if (throwable != null)
@@ -181,19 +181,19 @@ public class ConnectionManager {
      * Stops the server and all clients.
      */
     public void stop() {
-         var stream = Stream.concat(
+         Stream<CompletableFuture<Void>> stream = Stream.concat(
             clients.values().stream().map(NettyClient::stop),
             Stream.of(server.stop())
         );
 
-         var stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
+         CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
 
          try {
              stopFut.join();
              clientWorkerGroup.shutdownGracefully().sync();
          }
          catch (Exception e) {
-             LOG.warn("Failed to stop ConnectionManager: " + e.getMessage());
+             LOG.warn("Failed to stop the ConnectionManager: " + e.getMessage());
          }
     }
 
@@ -211,5 +211,38 @@ public class ConnectionManager {
     @TestOnly
     public Collection<NettyClient> clients() {
         return Collections.unmodifiableCollection(clients.values());
+    }
+
+    /**
+     * Creates a {@link Bootstrap} for clients, providing channel handlers and options.
+     *
+     * @param eventLoopGroup Event loop group for channel handling.
+     * @param serializationRegistry Serialization registry.
+     * @param messageListener Message listener.
+     * @return Bootstrap for clients.
+     */
+    public static Bootstrap createClientBootstrap(
+        EventLoopGroup eventLoopGroup,
+        MessageSerializationRegistry serializationRegistry,
+        BiConsumer<SocketAddress, NetworkMessage> messageListener
+    ) {
+        Bootstrap clientBootstrap = new Bootstrap();
+
+        clientBootstrap.group(eventLoopGroup)
+            .channel(NioSocketChannel.class)
+            // See NettyServer#start for netty configuration details.
+            .option(ChannelOption.SO_KEEPALIVE, true)
+            .handler(new ChannelInitializer<SocketChannel>() {
+                /** {@inheritDoc} */
+                @Override public void initChannel(SocketChannel ch) {
+                    ch.pipeline().addLast(
+                        new InboundDecoder(serializationRegistry),
+                        new MessageHandler(messageListener),
+                        new ChunkedWriteHandler()
+                    );
+                }
+            });
+
+        return clientBootstrap;
     }
 }

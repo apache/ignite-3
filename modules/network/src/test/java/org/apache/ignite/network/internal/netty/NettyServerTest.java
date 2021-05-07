@@ -21,6 +21,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
+import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
@@ -28,21 +29,22 @@ import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link NettyServer}.
  */
 public class NettyServerTest {
     /**
-     * Tests a successfull server start scenario.
+     * Tests a successful server start scenario.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void testSuccessfullServerStart() throws Exception {
+    public void testSuccessfulServerStart() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel.newSucceededFuture());
+        NettyServer server = getServer(channel, true);
 
         assertTrue(server.isRunning());
     }
@@ -56,9 +58,24 @@ public class NettyServerTest {
     public void testServerGracefulShutdown() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel.newSucceededFuture());
+        NettyServer server = getServer(channel, true);
 
         server.stop().join();
+
+        assertTrue(server.getBossGroup().isTerminated());
+        assertTrue(server.getWorkerGroup().isTerminated());
+    }
+
+    /**
+     * Tests an unsuccessful server start scenario.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testServerFailedToStart() throws Exception {
+        var channel = new EmbeddedServerChannel();
+
+        NettyServer server = getServer(channel, false);
 
         assertTrue(server.getBossGroup().isTerminated());
         assertTrue(server.getWorkerGroup().isTerminated());
@@ -73,7 +90,7 @@ public class NettyServerTest {
     public void testServerChannelClosedAbruptly() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel.newSucceededFuture());
+        NettyServer server = getServer(channel, true);
 
         channel.close();
 
@@ -90,28 +107,34 @@ public class NettyServerTest {
     public void testStartTwice() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel.newSucceededFuture());
+        NettyServer server = getServer(channel, true);
 
-        assertThrows(IgniteInternalException.class, () -> {
-            server.start();
-        });
+        assertThrows(IgniteInternalException.class, server::start);
     }
 
     /**
      * Creates a server from a backing {@link ChannelFuture}.
      *
-     * @param future Channel future.
+     * @param channel Server channel.
+     * @param shouldStart {@code true} if a server should start successfully
      * @return NettyServer.
      * @throws Exception If failed.
      */
-    private NettyServer getServer(ChannelFuture future) throws Exception {
+    private static NettyServer getServer(EmbeddedServerChannel channel, boolean shouldStart) throws Exception {
         ServerBootstrap bootstrap = Mockito.spy(new ServerBootstrap());
 
-        Mockito.doReturn(future).when(bootstrap).bind(Mockito.anyInt());
+        Mockito.doReturn(shouldStart ? channel.newSucceededFuture() : channel.newFailedFuture(new ClosedChannelException()))
+            .when(bootstrap).bind(Mockito.anyInt());
 
         var server = new NettyServer(bootstrap, 0, null, null, null);
 
-        server.start().get(3, TimeUnit.SECONDS);
+        try {
+            server.start().get(3, TimeUnit.SECONDS);
+        }
+        catch (Exception e) {
+            if (shouldStart)
+                fail(e);
+        }
 
         return server;
     }

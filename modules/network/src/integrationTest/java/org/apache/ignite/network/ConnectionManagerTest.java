@@ -21,7 +21,6 @@ import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -50,8 +49,8 @@ public class ConnectionManagerTest {
 
     /** */
     @AfterEach
-    void tearDown() {
-        startedManagers.forEach(manager -> manager.stop());
+    final void tearDown() {
+        startedManagers.forEach(ConnectionManager::stop);
     }
 
     /**
@@ -71,19 +70,16 @@ public class ConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager2.addListener((address, message) -> {
-            fut.complete(message);
-        });
+        manager2.addListener((address, message) -> fut.complete(message));
 
-        NettySender sender = manager1.channel(address(port2)).get();
+        NettySender sender = manager1.channel(new InetSocketAddress(port2)).get();
 
-        TestMessage testMessage = new TestMessage(msgText, new HashMap<>());
+        TestMessage testMessage = new TestMessage(msgText);
 
         sender.send(testMessage).join();
 
         NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
-        assertEquals(TestMessage.class, receivedMessage.getClass());
         assertEquals(msgText, ((TestMessage) receivedMessage).msg());
     }
 
@@ -100,8 +96,8 @@ public class ConnectionManagerTest {
         ConnectionManager manager1 = startManager(port1);
         ConnectionManager manager2 = startManager(port2);
 
-        NettySender sender1 = manager1.channel(address(port2)).get();
-        NettySender sender2 = manager2.channel(address(port1)).get();
+        NettySender sender1 = manager1.channel(new InetSocketAddress(port2)).get();
+        NettySender sender2 = manager2.channel(new InetSocketAddress(port1)).get();
 
         assertNotNull(sender1);
         assertNotNull(sender2);
@@ -135,13 +131,13 @@ public class ConnectionManagerTest {
         ConnectionManager manager1 = startManager(port1);
         ConnectionManager manager2 = startManager(port2);
 
-        NettySender sender = manager1.channel(address(port2)).get();
+        NettySender sender = manager1.channel(new InetSocketAddress(port2)).get();
 
-        TestMessage testMessage = new TestMessage(msgText, new HashMap<>());
+        TestMessage testMessage = new TestMessage(msgText);
 
         manager2.stop();
 
-        final var finalSender = sender;
+        final NettySender finalSender = sender;
 
         assertThrows(ClosedChannelException.class, () -> {
             try {
@@ -156,28 +152,15 @@ public class ConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager2.addListener((address, message) -> {
-            fut.complete(message);
-        });
+        manager2.addListener((address, message) -> fut.complete(message));
 
-        sender = manager1.channel(address(port2)).get();
+        sender = manager1.channel(new InetSocketAddress(port2)).get();
 
         sender.send(testMessage).join();
 
         NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
-        assertEquals(TestMessage.class, receivedMessage.getClass());
         assertEquals(msgText, ((TestMessage) receivedMessage).msg());
-    }
-
-    /**
-     * Create an unresolved {@link InetSocketAddress} with "localhost" as a host.
-     *
-     * @param port Port.
-     * @return Address.
-     */
-    private InetSocketAddress address(int port) {
-        return InetSocketAddress.createUnresolved("localhost", port);
     }
 
     /**

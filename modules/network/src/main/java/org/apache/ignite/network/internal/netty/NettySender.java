@@ -60,8 +60,7 @@ public class NettySender {
         MessageSerializer<NetworkMessage> serializer = serializationRegistry.createSerializer(msg.directType());
 
         return NettyUtils.toCompletableFuture(
-            channel.writeAndFlush(new NetworkMessageChunkedInput(msg, serializer, serializationRegistry)),
-            fut -> null
+            channel.writeAndFlush(new NetworkMessageChunkedInput(msg, serializer, serializationRegistry))
         );
     }
 

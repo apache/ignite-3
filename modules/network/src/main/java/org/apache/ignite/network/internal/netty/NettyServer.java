@@ -18,7 +18,6 @@
 package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ServerChannel;
@@ -154,11 +153,27 @@ public class NettyServer {
              */
             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-        serverStartFuture = NettyUtils.toCompletableFuture(bootstrap.bind(port), ChannelFuture::channel).thenAccept(ch -> {
+        serverStartFuture = new CompletableFuture<>();
+
+        NettyUtils.toChannelCompletableFuture(bootstrap.bind(port)).whenComplete((ch, throwable) -> {
+            if (throwable != null) {
+                CompletableFuture.allOf(
+                    NettyUtils.toCompletableFuture(bossGroup.shutdownGracefully()),
+                    NettyUtils.toCompletableFuture(workerGroup.shutdownGracefully())
+                ).whenComplete((unused, eventLoopTerminationFailedThrowable) -> {
+                    if (eventLoopTerminationFailedThrowable != null)
+                        throwable.addSuppressed(eventLoopTerminationFailedThrowable);
+
+                    serverStartFuture.completeExceptionally(throwable);
+                });
+
+                return;
+            }
+
             serverCloseFuture = CompletableFuture.allOf(
-                NettyUtils.toCompletableFuture(bossGroup.terminationFuture(), future -> null),
-                NettyUtils.toCompletableFuture(workerGroup.terminationFuture(), future -> null),
-                NettyUtils.toCompletableFuture(ch.closeFuture(), future -> null)
+                NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
+                NettyUtils.toCompletableFuture(workerGroup.terminationFuture()),
+                NettyUtils.toCompletableFuture(ch.closeFuture())
             );
 
             channel = (ServerChannel) ch;
@@ -168,6 +183,8 @@ public class NettyServer {
                 bossGroup.shutdownGracefully();
                 workerGroup.shutdownGracefully();
             });
+
+            serverStartFuture.complete(null);
         });
 
         return serverStartFuture;

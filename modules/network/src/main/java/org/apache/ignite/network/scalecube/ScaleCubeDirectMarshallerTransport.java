@@ -67,7 +67,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
     private final ConnectionManager connectionManager;
 
     /** Node address. */
-    private final Address address;
+    private Address address;
 
     /**
      * Constructor.
@@ -77,7 +77,6 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
     public ScaleCubeDirectMarshallerTransport(ConnectionManager connectionManager) {
         this.connectionManager = connectionManager;
         this.connectionManager.addListener(this::onMessage);
-        this.address = prepareAddress(connectionManager.getLocalAddress());
         // Setup cleanup
         stop.then(doStop())
             .doFinally(s -> onStop.onComplete())
@@ -130,6 +129,8 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
 
     /** {@inheritDoc} */
     @Override public Mono<Transport> start() {
+        address = prepareAddress(connectionManager.getLocalAddress());
+
         return Mono.just(this);
     }
 

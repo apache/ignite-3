@@ -40,10 +40,13 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
     @Override public ClusterService createClusterService(ClusterLocalConfiguration context) {
         var topologyService = new ScaleCubeTopologyService();
+
         var messagingService = new ScaleCubeMessagingService(topologyService);
+
         MessageSerializationRegistry registry = context.getSerializationRegistry();
-        ConnectionManager connectionManager = new ConnectionManager(context.getPort(), registry);
-        connectionManager.start();
+
+        var connectionManager = new ConnectionManager(context.getPort(), registry);
+
         ScaleCubeDirectMarshallerTransport transport = new ScaleCubeDirectMarshallerTransport(connectionManager);
 
         var cluster = new ClusterImpl()
@@ -68,6 +71,8 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
         return new AbstractClusterService(context, topologyService, messagingService) {
             /** {@inheritDoc} */
             @Override public void start() {
+                connectionManager.start();
+
                 cluster.startAwait();
 
                 topologyService.setLocalMember(cluster.member());
