@@ -17,6 +17,17 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.common.DummyEntry;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.metastorage.client.MetaStorageService;
@@ -27,6 +38,7 @@ import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.KeyValueStorage;
 import org.apache.ignite.metastorage.common.OperationTimeoutException;
 import org.apache.ignite.metastorage.common.WatchEvent;
+import org.apache.ignite.metastorage.common.WatchListener;
 import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -45,16 +57,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -740,6 +742,142 @@ import static org.mockito.Mockito.verify;
             });
 
         assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+    }
+
+    @Test
+    public void testWatchOnUpdate() throws Exception {
+        List<WatchEvent> returnedWatchEvents = Arrays.asList(
+            new WatchEvent(
+                new DummyEntry(
+                    new Key(new byte[]{2}),
+                    new byte[]{20},
+                    1,
+                    1
+                ),
+                new DummyEntry(
+                    new Key(new byte[]{2}),
+                    new byte[]{21},
+                    2,
+                    4
+                )
+            ),
+            new WatchEvent(
+                new DummyEntry(
+                    new Key(new byte[] {3}),
+                    new byte[] {20},
+                    1,
+                    2
+                ),
+                new DummyEntry(
+                    new Key(new byte[] {3}),
+                    null,
+                    2,
+                    5
+                )
+            ),
+            new WatchEvent(
+                new DummyEntry(
+                    new Key(new byte[] {4}),
+                    new byte[] {20},
+                    1,
+                    3
+                ),
+                new DummyEntry(
+                    new Key(new byte[] {4}),
+                    null,
+                    3,
+                    6
+                )
+            )
+        );
+
+        Key keyFrom = new Key(new byte[]{1});
+
+        Key keyTo = new Key(new byte[]{10});
+
+        long rev = 2;
+
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
+                    return new Cursor<WatchEvent>() {
+                        AtomicInteger retirevedItemCnt = new AtomicInteger(0);
+
+                        @Override public void close() throws Exception {
+                            // Within given test it's not expected to get here.
+                            fail();
+                        }
+
+                        @NotNull @Override public Iterator<WatchEvent> iterator() {
+                            return new Iterator<WatchEvent>() {
+                                @Override public boolean hasNext() {
+
+                                    return retirevedItemCnt.get() < returnedWatchEvents.size();
+                                }
+
+                                @Override public WatchEvent next() {
+                                    return returnedWatchEvents.get(retirevedItemCnt.getAndIncrement());
+                                }
+                            };
+                        }
+                    };
+                }
+            });
+
+        metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
+            @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
+                List gotEvents = new ArrayList();
+
+                Iterator<WatchEvent> iter = events.iterator();
+
+                while (iter.hasNext())
+                    gotEvents.add(iter.next());
+
+                assertEquals(2, gotEvents.size());
+
+                assertTrue(gotEvents.contains(returnedWatchEvents.get(0)));
+
+                assertTrue(gotEvents.contains(returnedWatchEvents.get(1)));
+
+                return true;
+            }
+
+            @Override public void onError(@NotNull Throwable e) {
+                // Within given test it's not expected to get here.
+                fail();
+            }
+        }).get();
+    }
+
+    @Test
+    public void testWatchOnError() throws Exception {
+        Key keyFrom = new Key(new byte[]{1});
+
+        Key keyTo = new Key(new byte[]{10});
+
+        long rev = 1;
+
+        MetaStorageService metaStorageSvc = prepareMetaStorage(
+            new AbstractKeyValueStorage() {
+                @Override public Cursor<WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
+                    return super.watch(keyFrom, keyTo, rev);
+                }
+            });
+
+        metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
+            @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
+                return false;
+            }
+
+            @Override public void onError(@NotNull Throwable e) {
+
+            }
+        }).get();
+    }
+
+    @Test
+    public void testStopWatch() {
+
     }
 
     // TODO sanpwc: Add test for exception handling.

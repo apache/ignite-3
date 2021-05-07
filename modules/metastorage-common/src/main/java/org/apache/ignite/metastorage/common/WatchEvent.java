@@ -17,10 +17,12 @@
 
 package org.apache.ignite.metastorage.common;
 
+import java.io.Serializable;
+
 /**
  * Watch event which can be processed by {@link WatchListener}.
  */
-public final class WatchEvent {
+public final class WatchEvent implements Serializable {
     /** Old (previous) entry */
     private final Entry oldEntry;
 
@@ -54,5 +56,19 @@ public final class WatchEvent {
      */
     public Entry newEntry() {
         return newEntry;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        WatchEvent that = (WatchEvent)o;
+
+        if (oldEntry != null ? !oldEntry.equals(that.oldEntry) : that.oldEntry != null)
+            return false;
+        return newEntry != null ? newEntry.equals(that.newEntry) : that.newEntry == null;
     }
 }

@@ -19,14 +19,13 @@ package org.apache.ignite.internal.metastorage.client;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
@@ -282,26 +281,40 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 long rev = -1;
                 List<WatchEvent> sameRevisionEvts = new ArrayList<>();
 
+                Iterator<WatchEvent> watchEvtsIter = cursor.iterator();
+
                 while (true) {
-                    WatchEvent watchEvt = null;
-                    try {
-                        watchEvt = cursor.iterator().next();
-                    }
-                    catch (Throwable e) {
-                        lsnr.onError(e);
-                    }
+                    if (watchEvtsIter.hasNext()) {
+                        WatchEvent watchEvt = null;
 
-                    // TODO sanpwc: is it possible for new entry to be null? If true how should we retieve revision.
-                    if (watchEvt.newEntry().revision() == rev)
-                        sameRevisionEvts.add(watchEvt);
+                        try {
+                            watchEvt = watchEvtsIter.next();
+                        }
+                        catch (Throwable e) {
+                            lsnr.onError(e);
+                        }
+
+                        if (watchEvt.newEntry().revision() == rev)
+                            sameRevisionEvts.add(watchEvt);
+                        else {
+                            rev = watchEvt.newEntry().revision();
+
+                            if (!sameRevisionEvts.isEmpty()) {
+                                lsnr.onUpdate(sameRevisionEvts);
+
+                                sameRevisionEvts.clear();
+                            }
+
+                            sameRevisionEvts.add(watchEvt);
+                        }
+                    }
                     else {
-                        rev = watchEvt.newEntry().revision();
-
-                        lsnr.onUpdate(sameRevisionEvts);
-
-                        sameRevisionEvts.clear();
-
-                        sameRevisionEvts.add(watchEvt);
+                        try {
+                            Thread.sleep(100);
+                        }
+                        catch (InterruptedException e) {
+                            break;
+                        }
                     }
                 }
             }

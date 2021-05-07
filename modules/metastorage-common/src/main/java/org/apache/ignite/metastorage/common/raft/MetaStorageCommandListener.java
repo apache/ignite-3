@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.ToDoubleBiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -112,7 +111,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     assert cursors.containsKey(cursorHasNextCmd.cursorId());
 
-                    clo.success(cursors.get(cursorHasNextCmd.cursorId()).iterator().hasNext());
+                    clo.success(cursors.get(cursorHasNextCmd.cursorId()).getValue().hasNext());
                 }
                 else
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
