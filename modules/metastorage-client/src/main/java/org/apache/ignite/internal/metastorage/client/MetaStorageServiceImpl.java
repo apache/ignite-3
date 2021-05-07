@@ -39,7 +39,6 @@ import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.metastorage.client.MetaStorageService;
@@ -64,14 +63,15 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Meta storage raft group service. */
     private final RaftGroupService metaStorageRaftGrpSvc;
 
-    // TODO sanpwc: javadoc and todo with ticket.
+    // TODO IGNITE-14691: Temporally solution that should be removed after implementing reactive watches.
+    /** Watch processor, that uses pulling logic in order to retrieve watch notifications from server. */
     private final WatchProcessor watchProcessor;
 
     /**
-     * @param metaStorageRaftGroupSvc Meta storage raft group service.
+     * @param metaStorageRaftGrpSvc Meta storage raft group service.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGroupSvc) {
-        this.metaStorageRaftGrpSvc = metaStorageRaftGroupSvc;
+    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc) {
+        this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.watchProcessor = new WatchProcessor();
     }
 
@@ -157,11 +157,15 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .collect(Collectors.toMap(keysWithPreservedOrder::get, newValues::get)));
     }
 
+    // TODO: IGNITE-14389 Implement.
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> invoke(@NotNull Condition condition,
         @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure) {
         return null;
     }
 
+    // TODO: IGNITE-14389 Either implement or remove this method.
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Entry> getAndInvoke(@NotNull Key key, @NotNull Condition condition,
         @NotNull Operation success, @NotNull Operation failure) {
         return null;
@@ -232,20 +236,31 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         return watchRes;
     }
-
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id) {
         return CompletableFuture.runAsync(() -> watchProcessor.stopWatch(id));
     }
 
+    // TODO: IGNITE-14389 Implement.
+    /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> compact() {
         return null;
     }
 
+    // TODO IGNITE-14691: Temporally solution that should be removed after implementing reactive watches.
+    /** Watch processor, that manages {@link Watcher} threads. */
     private final class WatchProcessor {
+        /** Active Watcher threads that process notification pulling logic. */
         private final Map<IgniteUuid, Watcher> watchers = new ConcurrentHashMap<>();
 
-        private final Map<Cursor<WatchEvent>, WatchListener> watches = new ConcurrentHashMap<>();
-
+        /**
+         * Starts exclusive thread per watch that implement watch pulling logic and
+         * calls {@link WatchListener#onUpdate(Iterable)}} or {@link WatchListener#onError(Throwable)}.
+         *
+         * @param watchId Watch id.
+         * @param cursor Watch Cursor.
+         * @param lsnr The listener which receives and handles watch updates.
+         */
         private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
             Watcher watcher = new Watcher(cursor, lsnr);
 
@@ -254,7 +269,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             watcher.start();
         }
 
-        private void stopWatch(IgniteUuid watchId) throws IgniteInternalException {
+        /**
+         * Closes server cursor and interrupts watch pulling thread.
+         *
+         * @param watchId Watch id.
+         */
+        private void stopWatch(IgniteUuid watchId){
             watchers.computeIfPresent(
                 watchId,
                 (k, v) -> {
@@ -271,24 +291,35 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             );
         }
 
+        /** Watcher thread, uses pulling logic in order to retrieve watch notifications from server */
         private final class Watcher extends Thread {
+            /** Watch event cursor. */
             private Cursor<WatchEvent> cursor;
+            /** The listener which receives and handles watch updates. */
             private WatchListener lsnr;
 
-            public Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
+            /**
+             * @param cursor Watch event cursor.
+             * @param lsnr The listener which receives and handles watch updates.
+             */
+            Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
                 this.cursor = cursor;
                 this.lsnr = lsnr;
             }
 
-            // TODO sanpwc: Flag for interruption?
+            /**
+             * Pulls watch events from server side with the help of cursor.iterator.hasNext()/next()
+             * in the while(true) loop. Collects watch events with same revision and fires either onUpdate or onError().
+             */
             @Override public void run() {
-                try {
-                    long rev = -1;
-                    List<WatchEvent> sameRevisionEvts = new ArrayList<>();
+                long rev = -1;
 
-                    Iterator<WatchEvent> watchEvtsIter = cursor.iterator();
+                List<WatchEvent> sameRevisionEvts = new ArrayList<>();
 
-                    while (true) {
+                Iterator<WatchEvent> watchEvtsIter = cursor.iterator();
+
+                while (true) {
+                    try {
                         if (watchEvtsIter.hasNext()) {
                             WatchEvent watchEvt = null;
 
@@ -298,6 +329,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             catch (Throwable e) {
                                 lsnr.onError(e);
                             }
+
+                            assert watchEvt != null;
 
                             if (watchEvt.newEntry().revision() == rev)
                                 sameRevisionEvts.add(watchEvt);
@@ -313,16 +346,15 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 sameRevisionEvts.add(watchEvt);
                             }
                         }
-                        else {
-                            // TODO sanpwc: add comment with ticket that we expect reactive thread logic instead of given pull tmp one.
-                            Thread.sleep(100);
-                        }
+                        else
+                            Thread.sleep(10);
                     }
-
-                }
-                catch (Exception e) {
-                    if (!(e instanceof InterruptedException || e.getCause() instanceof InterruptedException))
-                        LOG.error("Unexpected exception", e);
+                    catch (Exception e) {
+                        if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException)
+                            break;
+                        else
+                            LOG.error("Unexpected exception", e);
+                    }
                 }
             }
         }
