@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -27,10 +28,12 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
+
 /**
  * Marshaller implementation.
  */
-class TupleMarshallerImpl implements TupleMarshaller {
+public class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
     private final SchemaRegistry schemaMgr;
 
@@ -39,7 +42,7 @@ class TupleMarshallerImpl implements TupleMarshaller {
      *
      * @param schemaMgr Schema manager.
      */
-    TupleMarshallerImpl(SchemaRegistry schemaMgr) {
+    public TupleMarshallerImpl(SchemaRegistry schemaMgr) {
         this.schemaMgr = schemaMgr;
     }
 
@@ -54,7 +57,7 @@ class TupleMarshallerImpl implements TupleMarshaller {
 
         assert keyTuple instanceof TupleBuilderImpl;
 
-        final RowAssembler rowBuilder = new RowAssembler(schema, 4096, 0, 0);
+        final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
             final Column col = schema.keyColumns().column(i);
@@ -71,6 +74,24 @@ class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         return new Row(schema, new ByteBufferRow(rowBuilder.build()));
+    }
+
+    /**
+     * Creates {@link RowAssembler} for key-value tuples.
+     *
+     * @param keyTuple Key tuple.
+     * @param valTuple Value tuple.
+     * @return Row assembler.
+     */
+    private RowAssembler createAssembler(SchemaDescriptor schema, Tuple keyTuple, Tuple valTuple) {
+        final ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyTuple);
+        final ObjectStatistic valStat = collectObjectStats(schema.keyColumns(), valTuple);
+
+        int size = RowAssembler.rowSize(
+            schema.keyColumns(), keyStat.nonNullCols, keyStat.nonNullColsSize,
+            schema.valueColumns(), valStat.nonNullCols, valStat.nonNullColsSize);
+
+        return new RowAssembler(schema, size, keyStat.nonNullCols, valStat.nonNullCols);
     }
 
     /**
@@ -141,4 +162,47 @@ class TupleMarshallerImpl implements TupleMarshaller {
         }
     }
 
+    /**
+     * Reads object fields and gather statistic.
+     *
+     * @param cols Schema columns.
+     * @param tup Tuple.
+     * @return Object statistic.
+     */
+    private ObjectStatistic collectObjectStats(Columns cols, Tuple tup) {
+        if (tup == null || !cols.hasVarlengthColumns())
+            return new ObjectStatistic(0, 0);
+
+        int cnt = 0;
+        int size = 0;
+
+        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
+            final Object val = tup.value(cols.column(i).name());
+
+            if (val == null || cols.column(i).type().spec().fixedLength())
+                continue;
+
+            size += getValueSize(val, cols.column(i).type());
+            cnt++;
+        }
+
+        return new ObjectStatistic(cnt, size);
+    }
+
+    /**
+     * Object statistic.
+     */
+    private static class ObjectStatistic {
+        /** Non-null fields of varlen type. */
+        int nonNullCols;
+
+        /** Length of all non-null fields of varlen types. */
+        int nonNullColsSize;
+
+        /** Constructor. */
+        ObjectStatistic(int nonNullCols, int nonNullColsSize) {
+            this.nonNullCols = nonNullCols;
+            this.nonNullColsSize = nonNullColsSize;
+        }
+    }
 }

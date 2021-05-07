@@ -260,7 +260,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
                 .invoke("valueColumns", Columns.class)));
 
         Columns columns = schema.keyColumns();
-        if (columns.firstVarlengthColumn() >= 0) {
+        if (columns.hasVarlengthColumns()) {
             final Variable tmp = scope.createTempVariable(Object.class);
 
             for (int i = columns.firstVarlengthColumn(); i < columns.length(); i++) {
@@ -280,7 +280,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
         }
 
         columns = schema.valueColumns();
-        if (columns.firstVarlengthColumn() >= 0) {
+        if (columns.hasVarlengthColumns()) {
             final Variable tmp = scope.createTempVariable(Object.class);
 
             for (int i = columns.firstVarlengthColumn(); i < columns.length(); i++) {
@@ -301,7 +301,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
         body.append(BytecodeExpressions.newInstance(RowAssembler.class,
             methodDef.getThis().getField("schema", SchemaDescriptor.class),
-            BytecodeExpressions.invokeStatic(RowAssembler.class, "rowChunkSize", int.class,
+            BytecodeExpressions.invokeStatic(RowAssembler.class, "rowSize", int.class,
                 keyCols, varlenKeyCols, varlenKeyColsSize,
                 valCols, varlenValueCols, varlenValueColsSize),
             varlenKeyCols,

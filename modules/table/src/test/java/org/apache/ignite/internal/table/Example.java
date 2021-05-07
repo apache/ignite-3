@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.table;
+package org.apache.ignite.internal.table;
 
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
