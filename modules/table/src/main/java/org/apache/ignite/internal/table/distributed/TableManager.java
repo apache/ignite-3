@@ -221,27 +221,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         Operations.noop()).thenCompose(res ->
                         affinityManager.calculateAssignments(tblId)));
                 }
-                else {
-                    affinityManager.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
-                        if (!tblId.equals(parameters.tableId()))
-                            return false;
 
-                        if (e == null)
-                            createTableLocally(tblName, tblId, parameters.assignment());
-                        else {
-                            LOG.error("Table creation finished with error [name=" + tblName + ", id=" + tblId + ']', e);
+                affinityManager.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
+                    if (!tblId.equals(parameters.tableId()))
+                        return false;
 
-                            onEvent(TableEvent.CREATE, new TableEventParameters(
-                                tblId,
-                                tblName,
-                                null,
-                                null
-                            ), e);
-                        }
+                    if (e == null)
+                        createTableLocally(tblName, tblId, parameters.assignment());
+                    else {
+                        LOG.error("Table creation finished with error [name=" + tblName + ", id=" + tblId + ']', e);
 
-                        return true;
-                    });
-                }
+                        onEvent(TableEvent.CREATE, new TableEventParameters(
+                            tblId,
+                            tblName,
+                            null,
+                            null
+                        ), e);
+                    }
+
+                    return true;
+                });
             }
 
             Set<String> tablesToStop = ctx.oldValue().namedListKeys() == null ?
@@ -262,27 +261,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             Operations.remove(key),
                             Operations.noop())));
                 }
-                else {
-                    affinityManager.listen(AffinityEvent.REMOVED, (parameters, e) -> {
-                        if (!tblId.equals(parameters.tableId()))
-                            return false;
 
-                        if (e == null)
-                            dropTableLocally(tblName, tblId, parameters.assignment());
-                        else {
-                            LOG.error("Table drop finished with error [name=" + tblName + ", id=" + tblId + ']', e);
+                affinityManager.listen(AffinityEvent.REMOVED, (parameters, e) -> {
+                    if (!tblId.equals(parameters.tableId()))
+                        return false;
 
-                            onEvent(TableEvent.DROP, new TableEventParameters(
-                                tblId,
-                                tblName,
-                                null,
-                                null
-                            ), e);
-                        }
+                    if (e == null)
+                        dropTableLocally(tblName, tblId, parameters.assignment());
+                    else {
+                        LOG.error("Table drop finished with error [name=" + tblName + ", id=" + tblId + ']', e);
 
-                        return true;
-                    });
-                }
+                        onEvent(TableEvent.DROP, new TableEventParameters(
+                            tblId,
+                            tblName,
+                            null,
+                            null
+                        ), e);
+                    }
+
+                    return true;
+                });
             }
 
             return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
