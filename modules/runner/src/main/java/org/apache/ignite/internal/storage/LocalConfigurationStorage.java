@@ -81,6 +81,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         }
 
         // TODO: Need to restore version from pds when restart will be developed
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
         return new Data(data, ver.get());
     }
 
@@ -117,6 +118,8 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override public void notifyApplied(long storageRevision) {
         // No-op.
+        // TODO: implement this method when restart mechanism will be introduced
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
     }
 
     /** {@inheritDoc} */

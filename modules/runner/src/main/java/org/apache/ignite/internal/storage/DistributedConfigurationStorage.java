@@ -103,6 +103,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         Entry entryForMasterKey = entries.next();
 
+        // First key must be the masterKey because it's supposed to be the first in lexicographical order
         assert entryForMasterKey.key().equals(masterKey);
 
         while (entries.hasNext()) {
@@ -143,7 +144,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             Key key = new Key(DISTRIBUTED_PREFIX + entry.getKey());
 
             if (entry.getValue() != null)
-                // TODO: investigate overhead when deserialize int, long, double, boolean, string, arrays of above
+                // TODO: investigate overhead when serialize int, long, double, boolean, string, arrays of above
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-14698
                 operations.add(Operations.put(key, ByteUtils.toBytes(entry.getValue())));
             else
                 operations.add(Operations.remove(key));
@@ -232,8 +234,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         ver.set(storageRevision);
 
-        // Also we should persist version,
-        // this should be done when nodes restart is introduced.
+        // TODO: Also we should persist version,
+        // TODO: this should be done when nodes restart is introduced.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
     }
 
     /** {@inheritDoc} */
