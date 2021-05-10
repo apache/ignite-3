@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -40,8 +41,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link NettyClient}.
  */
 public class NettyClientTest {
+    /** Client. */
+    private NettyClient client;
+
     /** */
     private final SocketAddress address = InetSocketAddress.createUnresolved("", 0);
+
+    /** */
+    @AfterEach
+    void tearDown() {
+        client.stop().join();
+    }
 
     /**
      * Tests a scenario where NettyClient connects successfully.
@@ -55,7 +65,7 @@ public class NettyClientTest {
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
 
         NettySender sender = tuple.sender.get(3, TimeUnit.SECONDS);
-        NettyClient client = tuple.client;
+        client = tuple.client;
 
         assertNotNull(sender);
         assertTrue(sender.isOpen());
@@ -84,7 +94,7 @@ public class NettyClientTest {
             }
         });
 
-        NettyClient client = tuple.client;
+        client = tuple.client;
 
         assertTrue(client.failedToConnect());
         assertFalse(client.isDisconnected());
@@ -102,6 +112,7 @@ public class NettyClientTest {
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
 
         NettySender sender = tuple.sender.get(3, TimeUnit.SECONDS);
+        client = tuple.client;
 
         channel.close();
 
@@ -124,7 +135,7 @@ public class NettyClientTest {
 
         Mockito.doReturn(channel.newSucceededFuture()).when(bootstrap).connect(Mockito.any());
 
-        var client = new NettyClient(address, null);
+        client = new NettyClient(address, null);
 
         client.start(bootstrap);
 

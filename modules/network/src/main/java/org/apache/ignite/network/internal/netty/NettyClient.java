@@ -85,9 +85,17 @@ public class NettyClient {
         clientFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
             .thenApply(ch -> {
                 clientCloseFuture = NettyUtils.toCompletableFuture(ch.closeFuture());
+
                 channel = ch;
 
                 return new NettySender(channel, serializationRegistry);
+            })
+            .whenComplete((sender, throwable) -> {
+                if (throwable != null) {
+                    clientCloseFuture = CompletableFuture.completedFuture(null);
+
+                    channel = null;
+                }
             });
 
         return clientFuture;
@@ -106,7 +114,8 @@ public class NettyClient {
      * @return Future that is resolved when the client's channel has closed.
      */
     public CompletableFuture<Void> stop() {
-        channel.close();
+        if (channel != null)
+            channel.close();
 
         return clientCloseFuture;
     }

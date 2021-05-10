@@ -173,14 +173,17 @@ public class NettyServer {
                 serverStartFuture.complete(null);
             })
             .whenComplete((v, err) -> {
-                // Shutdown event loops if the server failed to start.
+                // Shutdown event loops if the server has failed to start.
                 if (err != null) {
+                    channel = null;
+
                     shutdownEventLoopGroups();
+
                     serverCloseFuture.whenComplete((unused, throwable) -> {
                        if (throwable != null)
                            err.addSuppressed(throwable);
 
-                       serverStartFuture.completeExceptionally(throwable);
+                       serverStartFuture.completeExceptionally(err);
                     });
                 }
             });
@@ -201,7 +204,8 @@ public class NettyServer {
      * @return Future that is resolved when the server's channel has closed.
      */
     public CompletableFuture<Void> stop() {
-        channel.close();
+        if (channel != null)
+            channel.close();
 
         return serverCloseFuture;
     }

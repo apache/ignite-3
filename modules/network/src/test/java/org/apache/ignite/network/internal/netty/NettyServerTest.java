@@ -24,6 +24,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -35,6 +36,15 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link NettyServer}.
  */
 public class NettyServerTest {
+    /** Server. */
+    private NettyServer server;
+
+    /** */
+    @AfterEach
+    final void tearDown() {
+        server.stop().join();
+    }
+
     /**
      * Tests a successful server start scenario.
      *
@@ -44,7 +54,7 @@ public class NettyServerTest {
     public void testSuccessfulServerStart() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel, true);
+        server = getServer(channel, true);
 
         assertTrue(server.isRunning());
     }
@@ -58,7 +68,7 @@ public class NettyServerTest {
     public void testServerGracefulShutdown() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel, true);
+        server = getServer(channel, true);
 
         server.stop().join();
 
@@ -75,7 +85,7 @@ public class NettyServerTest {
     public void testServerFailedToStart() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel, false);
+        server = getServer(channel, false);
 
         assertTrue(server.getBossGroup().isTerminated());
         assertTrue(server.getWorkerGroup().isTerminated());
@@ -90,7 +100,7 @@ public class NettyServerTest {
     public void testServerChannelClosedAbruptly() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel, true);
+        server = getServer(channel, true);
 
         channel.close();
 
@@ -107,7 +117,7 @@ public class NettyServerTest {
     public void testStartTwice() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        NettyServer server = getServer(channel, true);
+        server = getServer(channel, true);
 
         assertThrows(IgniteInternalException.class, server::start);
     }
