@@ -153,39 +153,37 @@ public class NettyServer {
              */
             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
+        serverCloseFuture = CompletableFuture.allOf(
+            NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
+            NettyUtils.toCompletableFuture(workerGroup.terminationFuture())
+        );
+
         serverStartFuture = new CompletableFuture<>();
 
-        NettyUtils.toChannelCompletableFuture(bootstrap.bind(port)).whenComplete((ch, throwable) -> {
-            if (throwable != null) {
-                CompletableFuture.allOf(
-                    NettyUtils.toCompletableFuture(bossGroup.shutdownGracefully()),
-                    NettyUtils.toCompletableFuture(workerGroup.shutdownGracefully())
-                ).whenComplete((unused, eventLoopTerminationFailedThrowable) -> {
-                    if (eventLoopTerminationFailedThrowable != null)
-                        throwable.addSuppressed(eventLoopTerminationFailedThrowable);
+        NettyUtils.toChannelCompletableFuture(bootstrap.bind(port))
+            .thenAccept(ch -> {
+                CompletableFuture<Void> channelCloseFuture = NettyUtils.toCompletableFuture(ch.closeFuture())
+                    // Shutdown event loops on server stop.
+                    .whenComplete((v, err) -> shutdownEventLoopGroups());
 
-                    serverStartFuture.completeExceptionally(throwable);
-                });
+                serverCloseFuture = CompletableFuture.allOf(channelCloseFuture, serverCloseFuture);
 
-                return;
-            }
+                channel = (ServerChannel) ch;
 
-            serverCloseFuture = CompletableFuture.allOf(
-                NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
-                NettyUtils.toCompletableFuture(workerGroup.terminationFuture()),
-                NettyUtils.toCompletableFuture(ch.closeFuture())
-            );
+                serverStartFuture.complete(null);
+            })
+            .whenComplete((v, err) -> {
+                // Shutdown event loops if the server failed to start.
+                if (err != null) {
+                    shutdownEventLoopGroups();
+                    serverCloseFuture.whenComplete((unused, throwable) -> {
+                       if (throwable != null)
+                           err.addSuppressed(throwable);
 
-            channel = (ServerChannel) ch;
-
-            // Shutdown event loops on server stop.
-            channel.closeFuture().addListener(close -> {
-                bossGroup.shutdownGracefully();
-                workerGroup.shutdownGracefully();
+                       serverStartFuture.completeExceptionally(throwable);
+                    });
+                }
             });
-
-            serverStartFuture.complete(null);
-        });
 
         return serverStartFuture;
     }
@@ -206,6 +204,11 @@ public class NettyServer {
         channel.close();
 
         return serverCloseFuture;
+    }
+
+    private void shutdownEventLoopGroups() {
+        bossGroup.shutdownGracefully();
+        workerGroup.shutdownGracefully();
     }
 
     /**
