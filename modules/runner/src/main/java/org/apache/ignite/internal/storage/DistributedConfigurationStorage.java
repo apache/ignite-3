@@ -245,9 +245,13 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     }
 
     /**
-     * Method that returns all distributed configuration keys from metastorage. This is possible because we add special
-     * prefix {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX} to all configuration keys that we put to
-     * metastorage.
+     * Method that returns all distributed configuration keys from metastorage filtered out by the current applied
+     * revision as an upper bound. Applied revision is a revision of the last successful vault update.
+     * <p>
+     * This is possible to distinguish cfg keys from metastorage because we add special prefix {@link
+     * DistributedConfigurationStorage#DISTRIBUTED_PREFIX} to all configuration keys that we put to metastorage.
+     *
+     * @return Cursor built upon all distributed configuration entries.
      */
     private Cursor<Entry> allDstCfgKeys() {
         // TODO: rangeWithAppliedRevision could throw OperationTimeoutException and CompactedException and we should
