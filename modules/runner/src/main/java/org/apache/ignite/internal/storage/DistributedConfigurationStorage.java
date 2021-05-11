@@ -60,7 +60,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * Key for CAS-ing configuration keys to metastorage. This key is expected to be the first key in lexicographical
      * order of distributed configuration keys.
      */
-    private static final Key masterKey = new Key(DISTRIBUTED_PREFIX);
+    private static final Key MASTER_KEY = new Key(DISTRIBUTED_PREFIX);
 
     /**
      * This key is expected to be the last key in lexicographical order of distributed configuration keys. It is
@@ -104,7 +104,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         Entry entryForMasterKey = entries.next();
 
         // First key must be the masterKey because it's supposed to be the first in lexicographical order
-        assert entryForMasterKey.key().equals(masterKey);
+        assert entryForMasterKey.key().equals(MASTER_KEY);
 
         while (entries.hasNext()) {
             Entry entry = entries.next();
@@ -151,10 +151,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 operations.add(Operations.remove(key));
         }
 
-        operations.add(Operations.put(masterKey, ByteUtils.longToBytes(sentVersion)));
+        operations.add(Operations.put(MASTER_KEY, ByteUtils.longToBytes(sentVersion)));
 
         return metaStorageMgr.invoke(
-            Conditions.key(masterKey).revision().eq(ver.get()),
+            Conditions.key(MASTER_KEY).revision().eq(ver.get()),
             operations,
             Collections.singleton(Operations.noop()));
     }
@@ -166,7 +166,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         if (watchId == null) {
             // TODO: registerWatchByPrefix could throw OperationTimeoutException and CompactedException and we should
             // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
-            watchId = metaStorageMgr.registerWatchByPrefix(masterKey, new WatchListener() {
+            watchId = metaStorageMgr.registerWatchByPrefix(MASTER_KEY, new WatchListener() {
                 @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                     HashMap<String, Serializable> data = new HashMap<>();
 
@@ -177,7 +177,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     for (WatchEvent event : events) {
                         Entry e = event.newEntry();
 
-                        if (!e.key().equals(masterKey)) {
+                        if (!e.key().equals(MASTER_KEY)) {
                             data.put(e.key().toString().substring((DISTRIBUTED_PREFIX).length()),
                                 (Serializable)ByteUtils.fromBytes(e.value()));
 
@@ -256,6 +256,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private Cursor<Entry> allDstCfgKeys() {
         // TODO: rangeWithAppliedRevision could throw OperationTimeoutException and CompactedException and we should
         // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
-        return metaStorageMgr.rangeWithAppliedRevision(masterKey, dstKeysEndRange);
+        return metaStorageMgr.rangeWithAppliedRevision(MASTER_KEY, dstKeysEndRange);
     }
 }
