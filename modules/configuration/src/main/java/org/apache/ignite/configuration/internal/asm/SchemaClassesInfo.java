@@ -24,13 +24,17 @@ class SchemaClassesInfo {
     public final Class<?> schemaClass;
 
     public final String viewClassName;
+
     public final String changeClassName;
+
     public final String cfgClassName;
 
     public final String nodeClassName;
+
     public final String cfgImplClassName;
 
     public Class<? extends InnerNode> nodeClass;
+
     public Class<? extends DynamicConfiguration<?, ?>> cfgImplClass;
 
     SchemaClassesInfo(Class<?> schemaClass) {
