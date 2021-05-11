@@ -22,9 +22,6 @@ import com.squareup.javapoet.ClassName;
  * Annotation processing utilities.
  */
 public class Utils {
-    /** */
-    private static final ClassName NAMED_LIST_CFG_CLASSNAME = ClassName.get("org.apache.ignite.configuration.internal", "NamedListConfiguration");
-
     /** Private constructor. */
     private Utils() {
     }

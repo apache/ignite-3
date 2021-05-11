@@ -64,12 +64,6 @@ public class Processor extends AbstractProcessor {
     /** Java file padding. */
     private static final String INDENT = "    ";
 
-    /** Wildcard (?) TypeName. */
-    private static final TypeName WILDCARD = WildcardTypeName.subtypeOf(Object.class);
-
-    /** Inherit doc javadoc. */
-    private static final String INHERIT_DOC = "{@inheritDoc}";
-
     /** */
     private static final ClassName ROOT_KEY_CLASSNAME = ClassName.get("org.apache.ignite.configuration", "RootKey");
 
