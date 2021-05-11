@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -190,7 +191,8 @@ public class ConnectionManager {
 
          try {
              stopFut.join();
-             clientWorkerGroup.shutdownGracefully().sync();
+             // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
+             clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
          }
          catch (Exception e) {
              LOG.warn("Failed to stop the ConnectionManager: " + e.getMessage());

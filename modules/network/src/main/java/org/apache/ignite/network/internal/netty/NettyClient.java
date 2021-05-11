@@ -39,10 +39,13 @@ public class NettyClient {
     private CompletableFuture<NettySender> clientFuture;
 
     /** Client channel. */
-    private volatile Channel channel;
+    private volatile Channel channel = null;
 
     /** Client close future. */
-    private CompletableFuture<Void> clientCloseFuture;
+    private CompletableFuture<Void> clientCloseFuture = CompletableFuture.completedFuture(null);
+
+    /** Flag indicating if {@link #stop()} has been called. */
+    private boolean stopped = false;
 
     /**
      * Constructor.
@@ -82,19 +85,33 @@ public class NettyClient {
         if (clientFuture != null)
             throw new IgniteInternalException("Attempted to start an already started NettyClient");
 
-        clientFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
-            .thenApply(ch -> {
-                clientCloseFuture = NettyUtils.toCompletableFuture(ch.closeFuture());
+        clientFuture = new CompletableFuture<>();
 
-                channel = ch;
+        NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
+            .whenComplete((channel, throwable) -> {
+                synchronized (this) {
+                    if (throwable == null) {
+                        CompletableFuture<Void> closeFuture = NettyUtils.toCompletableFuture(channel.closeFuture());
 
-                return new NettySender(channel, serializationRegistry);
-            })
-            .whenComplete((sender, throwable) -> {
-                if (throwable != null) {
-                    clientCloseFuture = CompletableFuture.completedFuture(null);
+                        if (stopped) {
+                            // Close channel in case if client has been stopped prior to this moment.
+                            channel.close();
 
-                    channel = null;
+                            // Wait for channel to close and then cancel the client future.
+                            closeFuture.whenComplete((unused, ignored) -> {
+                                clientFuture.cancel(true);
+                            });
+                        }
+                        else {
+                            clientCloseFuture = closeFuture;
+
+                            this.channel = channel;
+
+                            clientFuture.complete(new NettySender(channel, serializationRegistry));
+                        }
+                    }
+                    else
+                        clientFuture.completeExceptionally(throwable);
                 }
             });
 
@@ -113,7 +130,9 @@ public class NettyClient {
      *
      * @return Future that is resolved when the client's channel has closed.
      */
-    public CompletableFuture<Void> stop() {
+    public synchronized CompletableFuture<Void> stop() {
+        stopped = true;
+
         if (channel != null)
             channel.close();
 
@@ -128,9 +147,9 @@ public class NettyClient {
     }
 
     /**
-     * @return {@code true} if the client has lost the connection, {@code false} otherwise.
+     * @return {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise.
      */
     public boolean isDisconnected() {
-        return channel != null && !channel.isOpen();
+        return (channel != null && !channel.isOpen()) || stopped;
     }
 }

@@ -26,7 +26,9 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -63,10 +65,16 @@ public class NettyServer {
     private volatile ServerChannel channel;
 
     /** Server close future. */
-    private CompletableFuture<Void> serverCloseFuture;
+    private CompletableFuture<Void> serverCloseFuture = CompletableFuture.allOf(
+        NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
+        NettyUtils.toCompletableFuture(workerGroup.terminationFuture())
+    );
 
     /** New connections listener. */
     private final Consumer<NettySender> newConnectionListener;
+
+    /** Flag indicating if {@link #stop()} has been called. */
+    private boolean stopped = false;
 
     /**
      * Constructor.
@@ -153,38 +161,37 @@ public class NettyServer {
              */
             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-        serverCloseFuture = CompletableFuture.allOf(
-            NettyUtils.toCompletableFuture(bossGroup.terminationFuture()),
-            NettyUtils.toCompletableFuture(workerGroup.terminationFuture())
-        );
-
         serverStartFuture = new CompletableFuture<>();
 
         NettyUtils.toChannelCompletableFuture(bootstrap.bind(port))
-            .thenAccept(ch -> {
-                CompletableFuture<Void> channelCloseFuture = NettyUtils.toCompletableFuture(ch.closeFuture())
-                    // Shutdown event loops on server stop.
-                    .whenComplete((v, err) -> shutdownEventLoopGroups());
+            .whenComplete((channel, err) -> {
+                synchronized (this) {
+                    // Shutdown event loops if the server has failed to start of has been stopped.
+                    if (err != null || stopped) {
+                        this.channel = null;
 
-                serverCloseFuture = CompletableFuture.allOf(channelCloseFuture, serverCloseFuture);
+                        shutdownEventLoopGroups();
 
-                channel = (ServerChannel) ch;
+                        serverCloseFuture.whenComplete((unused, throwable) -> {
+                            Throwable stopErr = err != null ? err : new CancellationException();
 
-                serverStartFuture.complete(null);
-            })
-            .whenComplete((v, err) -> {
-                // Shutdown event loops if the server has failed to start.
-                if (err != null) {
-                    channel = null;
+                            if (throwable != null)
+                                stopErr.addSuppressed(throwable);
 
-                    shutdownEventLoopGroups();
+                            serverStartFuture.completeExceptionally(stopErr);
+                        });
+                    }
+                    else {
+                        CompletableFuture<Void> channelCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture())
+                            // Shutdown event loops on server stop.
+                            .whenComplete((v, err0) -> shutdownEventLoopGroups());
 
-                    serverCloseFuture.whenComplete((unused, throwable) -> {
-                       if (throwable != null)
-                           err.addSuppressed(throwable);
+                        serverCloseFuture = CompletableFuture.allOf(channelCloseFuture, serverCloseFuture);
 
-                       serverStartFuture.completeExceptionally(err);
-                    });
+                        this.channel = (ServerChannel) channel;
+
+                        serverStartFuture.complete(null);
+                    }
                 }
             });
 
@@ -203,16 +210,22 @@ public class NettyServer {
      *
      * @return Future that is resolved when the server's channel has closed.
      */
-    public CompletableFuture<Void> stop() {
+    public synchronized CompletableFuture<Void> stop() {
+        stopped = true;
+
         if (channel != null)
             channel.close();
 
         return serverCloseFuture;
     }
 
+    /**
+     * Shutdown event loops.
+     */
     private void shutdownEventLoopGroups() {
-        bossGroup.shutdownGracefully();
-        workerGroup.shutdownGracefully();
+        // TODO: IGNITE-14538 quietPeriod and timeout should be configurable.
+        bossGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS);
+        workerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS);
     }
 
     /**

@@ -23,6 +23,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link NettyClient}.
@@ -120,6 +122,36 @@ public class NettyClientTest {
 
         assertTrue(tuple.client.isDisconnected());
         assertFalse(tuple.client.failedToConnect());
+    }
+
+    /**
+     * Tests a scenario where a connection is established successfully after a client has been stopped.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testStoppedBeforeStarted() throws Exception {
+        var channel = new EmbeddedChannel();
+
+        var future = channel.newPromise();
+
+        ClientAndSender tuple = createClientAndSenderFromChannelFuture(future);
+
+        tuple.client.stop();
+
+        future.setSuccess(null);
+
+        client = tuple.client;
+
+        try {
+            tuple.sender.get(3, TimeUnit.SECONDS);
+            fail();
+        }
+        catch (CancellationException ignored) {
+        }
+
+        assertTrue(client.isDisconnected());
+        assertTrue(client.failedToConnect());
     }
 
     /**
