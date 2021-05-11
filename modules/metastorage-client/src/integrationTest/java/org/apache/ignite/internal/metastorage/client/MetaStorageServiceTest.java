@@ -308,7 +308,6 @@ import static org.mockito.Mockito.verify;
      *
      * @throws Exception If failed.
      */
-    @SuppressWarnings("ConstantConditions")
     @Test
     public void testPutAll() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
@@ -349,7 +348,6 @@ import static org.mockito.Mockito.verify;
      *
      * @throws Exception If failed.
      */
-    @SuppressWarnings("ConstantConditions")
     @Test
     public void testGetAndPutAll() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
@@ -934,7 +932,7 @@ import static org.mockito.Mockito.verify;
     /**
      * Abstract {@link KeyValueStorage}. Used for tests purposes.
      */
-    @SuppressWarnings({"ConstantConditions", "JavaAbbreviationUsage"})
+    @SuppressWarnings("JavaAbbreviationUsage")
     private abstract class AbstractKeyValueStorage implements KeyValueStorage {
         /** {@inheritDoc} */
         @Override public long revision() {
