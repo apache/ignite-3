@@ -22,6 +22,8 @@ import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.nio.ByteBuffer;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import org.apache.ignite.network.internal.AllTypesMessage;
@@ -31,15 +33,20 @@ import org.apache.ignite.network.internal.direct.DirectMessageWriter;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link InboundDecoder}.
  */
 public class InboundDecoderTest {
+    /** {@link ByteBuf} allocator. */
+    private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
+
     /**
      * Tests that an {@link InboundDecoder} can successfully read a message with all types supported
      * by direct marshalling.
@@ -49,7 +56,7 @@ public class InboundDecoderTest {
      */
     @ParameterizedTest
     @MethodSource("messageGenerationSeed")
-    public void test(long seed) throws Exception {
+    public void testAllTypes(long seed) throws Exception {
         var registry = new MessageSerializationRegistry();
 
         AllTypesMessage msg = AllTypesMessageGenerator.generate(seed, true);
@@ -61,8 +68,6 @@ public class InboundDecoderTest {
         var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.directType());
-
-        UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 
         ByteBuffer buf = ByteBuffer.allocate(10_000);
 
@@ -85,6 +90,35 @@ public class InboundDecoderTest {
         } while ((output = channel.readInbound()) == null);
 
         assertEquals(msg, output);
+    }
+
+    /**
+     * Tests that an {@link InboundDecoder} doesn't hang if it encounters a byte buffer with only partially written
+     * header.
+     *
+     * @throws InterruptedException If failed.
+     */
+    @Test
+    public void testPartialHeader() throws InterruptedException {
+        var registry = new MessageSerializationRegistry();
+
+        var channel = new EmbeddedChannel(new InboundDecoder(registry));
+
+        ByteBuf buffer = allocator.buffer();
+
+        buffer.writeByte(1);
+
+        var latch = new CountDownLatch(1);
+
+        new Thread(() -> {
+            channel.writeInbound(buffer);
+
+            channel.readInbound();
+
+            latch.countDown();
+        }).start();
+
+        assertTrue(latch.await(3, TimeUnit.SECONDS));
     }
 
     /**

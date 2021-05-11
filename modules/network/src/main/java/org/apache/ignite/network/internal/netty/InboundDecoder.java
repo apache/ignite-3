@@ -76,8 +76,12 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
             try {
                 // Read message type.
-                if (msg == null && buffer.remaining() >= NetworkMessage.DIRECT_TYPE_SIZE)
-                    msg = serializationRegistry.createDeserializer(DirectMarshallingUtils.getMessageType(buffer));
+                if (msg == null) {
+                    if (buffer.remaining() >= NetworkMessage.DIRECT_TYPE_SIZE)
+                        msg = serializationRegistry.createDeserializer(DirectMarshallingUtils.getMessageType(buffer));
+                    else
+                        break;
+                }
 
                 boolean finished = false;
 
