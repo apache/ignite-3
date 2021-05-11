@@ -26,7 +26,6 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -520,14 +519,11 @@ public class ConfigurationAsmGenerator {
         else {
             // @ConfigValue fields might be null and have to be initialized before passing into closure.
             if (isConfigValue(schemaField)) {
-                LabelNode fieldInitializedLabel = new LabelNode();
-
                 // if (this.field == null) this.field = new ValueNode();
-                changeBody
-                    .append(changeMtd.getThis().getField(fieldDef))
-                    .ifNotNullGoto(fieldInitializedLabel)
-                    .append(changeMtd.getThis().setField(fieldDef, newInstance(fieldDef.getType())))
-                    .visitLabel(fieldInitializedLabel);
+                changeBody.append(new IfStatement()
+                    .condition(isNull(changeMtd.getThis().getField(fieldDef)))
+                    .ifTrue(changeMtd.getThis().setField(fieldDef, newInstance(fieldDef.getType())))
+                );
             }
 
             // change.accept(this.field);
@@ -1067,7 +1063,7 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Returns internalized version of class name, replacind dots with slashes.
+     * Returns internalized version of class name, replacing dots with slashes.
      * @param className Class name (with package).
      * @return Internal class name.
      * @see Type#getInternalName(java.lang.Class)
