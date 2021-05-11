@@ -21,11 +21,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Remove all command for MetaStorageCommandListener that removes entries for given keys.
+ * Remove all command for {@link MetaStorageCommandListener} that removes entries for given keys.
  */
 public final class RemoveAllCommand implements WriteCommand {
     /** The keys collection. Couldn't be {@code null}. */
@@ -42,7 +43,7 @@ public final class RemoveAllCommand implements WriteCommand {
     }
 
     /**
-     * @return The keys collection. Couldn't be .
+     * @return The keys collection. Couldn't be {@code null}.
      */
     public @NotNull Collection<Key> keys() {
         return keys;

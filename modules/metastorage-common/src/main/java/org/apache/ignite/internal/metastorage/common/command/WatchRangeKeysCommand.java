@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Watch command for MetaStorageCommandListener that subscribes on meta storage updates matching the parameters.
+ * Watch command for {@link MetaStorageCommandListener} that subscribes on meta storage updates matching the parameters.
  */
 public final class WatchRangeKeysCommand implements WriteCommand {
     /** Start key of range (inclusive). Couldn't be {@code null}. */
@@ -59,14 +60,14 @@ public final class WatchRangeKeysCommand implements WriteCommand {
     }
 
     /**
-     * @return Start key of range (inclusive). Couldn't be .
+     * @return Start key of range (inclusive). Couldn't be {@code null}.
      */
     public @Nullable Key keyFrom() {
         return keyFrom;
     }
 
     /**
-     * @return End key of range (exclusive). Could be .
+     * @return End key of range (exclusive). Could be {@code null}.
      */
     public @Nullable Key keyTo() {
         return keyTo;

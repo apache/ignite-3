@@ -58,7 +58,7 @@ import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Meta storage command listener aka mata storage raft state machine.
+ * Meta storage command listener.
  */
 public class MetaStorageCommandListener implements RaftGroupCommandListener {
     /** The logger. */

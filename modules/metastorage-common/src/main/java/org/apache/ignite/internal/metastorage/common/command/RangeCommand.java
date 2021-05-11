@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Range command for MetaStorageCommandListener that retrieves entries for the given key range in lexicographic order.
- * Entries will be filtered out by upper bound of given revision number.
+ * Range command for {@link MetaStorageCommandListener} that retrieves entries for the given
+ * key range in lexicographic order. Entries will be filtered out by upper bound of given revision number.
  */
 public final class RangeCommand implements WriteCommand {
 
@@ -61,21 +62,21 @@ public final class RangeCommand implements WriteCommand {
     }
 
     /**
-     * @return Start key of range (inclusive). Couldn't be .
+     * @return Start key of range (inclusive). Couldn't be {@code null}.
      */
     public @NotNull Key keyFrom() {
         return keyFrom;
     }
 
     /**
-     * @return End key of range (exclusive). Could be .
+     * @return End key of range (exclusive). Could be {@code null}.
      */
     public @Nullable Key keyTo() {
         return keyTo;
     }
 
     /**
-     * @return The upper bound for entry revision.  means latest revision.
+     * @return The upper bound for entry revision. Means latest revision.
      */
     public @NotNull Long revUpperBound() {
         return revUpperBound;

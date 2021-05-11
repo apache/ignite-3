@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Get command for MetaStorageCommandListener that retrieves an entry for the given key and the revision upper bound, if
- * latter is present.
+ * Get command for {@link MetaStorageCommandListener} that retrieves an entry
+ * for the given key and the revision upper bound, if latter is present.
  */
 public final class GetCommand implements ReadCommand {
     /** Key. */

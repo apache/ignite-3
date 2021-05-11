@@ -20,12 +20,13 @@ package org.apache.ignite.internal.metastorage.common.command;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given
- * values and retrieves a previous entries for given keys.
+ * Get and put all command for {@link MetaStorageCommandListener} that inserts or updates entries
+ * with given keys and given values and retrieves a previous entries for given keys.
  */
 public final class GetAndPutAllCommand implements WriteCommand {
     /** Keys. */

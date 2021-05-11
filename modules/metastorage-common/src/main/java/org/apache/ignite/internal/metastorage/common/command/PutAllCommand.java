@@ -21,11 +21,13 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values.
+ * Put all command for {@link MetaStorageCommandListener} that inserts or updates entries
+ * with given keys and given values.
  */
 public final class PutAllCommand implements WriteCommand {
     /** The map of keys and corresponding values. Couldn't be {@code null} or empty. */

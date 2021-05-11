@@ -21,11 +21,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Watch command for MetaStorageCommandListener that subscribes on meta storage updates matching the parameters.
+ * Watch command for {@link MetaStorageCommandListener} that subscribes on meta storage updates matching the parameters.
  */
 public final class WatchExactKeysCommand implements WriteCommand {
     /** The keys collection. Couldn't be {@code null}. */
@@ -48,14 +49,14 @@ public final class WatchExactKeysCommand implements WriteCommand {
     }
 
     /**
-     * @return The keys collection. Couldn't be .
+     * @return The keys collection. Couldn't be {@code null}.
      */
     public @NotNull Collection<Key> keys() {
         return keys;
     }
 
     /**
-     * @return Start revision inclusive.  - all revisions.
+     * @return Start revision inclusive.
      */
     public @NotNull Long revision() {
         return revision;

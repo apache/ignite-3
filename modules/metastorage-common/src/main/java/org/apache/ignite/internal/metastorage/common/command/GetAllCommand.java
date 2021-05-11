@@ -21,13 +21,14 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.metastorage.common.Key;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Get all command for MetaStorageCommandListener that retrieves entries for given keys and the revision upper bound, if
- * latter is present.
+ * Get all command for {@link MetaStorageCommandListener} that retrieves entries
+ * for given keys and the revision upper bound, if latter is present.
  */
 public final class GetAllCommand implements ReadCommand {
     /** The collection of keys. */
