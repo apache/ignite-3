@@ -24,7 +24,6 @@ import org.apache.ignite.internal.metastorage.common.DummyEntry;
 import org.jetbrains.annotations.NotNull;
 
 // TODO: IGNITE-14389 Tmp, should be removed.
-
 /**
  *
  */
@@ -51,12 +50,12 @@ public class KeyValueStorageImpl implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull List<Entry> getAll(List<byte[]> keys) {
+    @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+    @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
         return null;
     }
 
@@ -76,7 +75,7 @@ public class KeyValueStorageImpl implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
+    @Override public @NotNull Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
         return null;
     }
 
@@ -96,8 +95,13 @@ public class KeyValueStorageImpl implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull List<Entry> getAndRemoveAll(List<byte[]> keys) {
+    @Override public @NotNull Collection<Entry> getAndRemoveAll(List<byte[]> keys) {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
+        return false;
     }
 
     /** {@inheritDoc} */

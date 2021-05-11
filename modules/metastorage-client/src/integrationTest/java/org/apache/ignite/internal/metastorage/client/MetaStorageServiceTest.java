@@ -34,10 +34,12 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.metastorage.client.MetaStorageService;
 import org.apache.ignite.metastorage.common.CompactedException;
+import org.apache.ignite.metastorage.common.Condition;
 import org.apache.ignite.metastorage.common.Cursor;
 import org.apache.ignite.metastorage.common.Entry;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.KeyValueStorage;
+import org.apache.ignite.metastorage.common.Operation;
 import org.apache.ignite.metastorage.common.OperationTimeoutException;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
@@ -511,7 +513,7 @@ import static org.mockito.Mockito.verify;
                         }
 
                         @NotNull @Override public Iterator<Entry> iterator() {
-                            return new Iterator<Entry>() {
+                            return new Iterator<>() {
                                 @Override public boolean hasNext() {
                                     return false;
                                 }
@@ -554,7 +556,7 @@ import static org.mockito.Mockito.verify;
                         }
 
                         @NotNull @Override public Iterator<Entry> iterator() {
-                            return new Iterator<Entry>() {
+                            return new Iterator<>() {
                                 @Override public boolean hasNext() {
                                     return false;
                                 }
@@ -595,7 +597,7 @@ import static org.mockito.Mockito.verify;
                         }
 
                         @NotNull @Override public Iterator<Entry> iterator() {
-                            return new Iterator<Entry>() {
+                            return new Iterator<>() {
                                 @Override public boolean hasNext() {
                                     return false;
                                 }
@@ -959,14 +961,14 @@ import static org.mockito.Mockito.verify;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull List<Entry> getAll(List<byte[]> keys) {
+        @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys) {
             fail();
 
             return null;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+        @Override public @NotNull Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
             fail();
 
             return null;
@@ -990,7 +992,7 @@ import static org.mockito.Mockito.verify;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
+        @Override public @NotNull Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
             fail();
 
             return null;
@@ -1014,10 +1016,18 @@ import static org.mockito.Mockito.verify;
         }
 
         /** {@inheritDoc} */
-        @Override public @NotNull List<Entry> getAndRemoveAll(List<byte[]> keys) {
+        @Override public @NotNull Collection<Entry> getAndRemoveAll(List<byte[]> keys) {
             fail();
 
             return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
+            fail();
+
+            return false;
         }
 
         /** {@inheritDoc} */

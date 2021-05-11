@@ -92,4 +92,13 @@ public final class DummyEntry implements Entry, Serializable {
             return false;
         return Arrays.equals(val, entry.val);
     }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        int res = key.hashCode();
+        res = 31 * res + Arrays.hashCode(val);
+        res = 31 * res + (int)(revision ^ (revision >>> 32));
+        res = 31 * res + (int)(updateCntr ^ (updateCntr >>> 32));
+        return res;
+    }
 }

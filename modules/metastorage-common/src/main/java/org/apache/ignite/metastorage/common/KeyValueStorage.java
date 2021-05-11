@@ -39,10 +39,10 @@ import org.jetbrains.annotations.NotNull;
     @NotNull Entry get(byte[] key, long rev);
 
     /** */
-    @NotNull List<Entry> getAll(List<byte[]> keys);
+    @NotNull Collection<Entry> getAll(List<byte[]> keys);
 
     /** */
-    @NotNull List<Entry> getAll(List<byte[]> keys, long revUpperBound);
+    @NotNull Collection<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
     /** */
     void put(byte[] key, byte[] value);
@@ -54,7 +54,7 @@ import org.jetbrains.annotations.NotNull;
     void putAll(List<byte[]> keys, List<byte[]> values);
 
     /** */
-    @NotNull List<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
+    @NotNull Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
 
     /** */
     void remove(byte[] key);
@@ -63,10 +63,13 @@ import org.jetbrains.annotations.NotNull;
     @NotNull Entry getAndRemove(byte[] key);
 
     /** */
-    void removeAll(List<byte[]> keys);
+    void removeAll(List<byte[]> key);
 
     /** */
-    @NotNull List<Entry> getAndRemoveAll(List<byte[]> keys);
+    @NotNull Collection<Entry> getAndRemoveAll(List<byte[]> keys);
+
+    /** */
+    boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
 
     /** */
     Cursor<Entry> range(byte[] keyFrom, byte[] keyTo);

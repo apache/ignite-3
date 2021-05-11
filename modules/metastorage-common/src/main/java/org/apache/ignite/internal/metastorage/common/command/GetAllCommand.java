@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
-import java.util.List;
+import java.util.ArrayList;
+import java.util.Collection;
 import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class GetAllCommand implements ReadCommand {
     /** The collection of keys. */
-    @NotNull private final List<Key> keys;
+    @NotNull private final Collection<Key> keys;
 
     /** The upper bound for entry revisions. Must be positive. */
     @Nullable private Long revUpperBound;
@@ -39,10 +40,13 @@ public final class GetAllCommand implements ReadCommand {
      * @param keys The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code
      * null}.
      */
-    public GetAllCommand(@NotNull List<Key> keys) {
-        assert keys instanceof Serializable;
+    public GetAllCommand(@NotNull Collection<Key> keys) {
+        assert !keys.isEmpty();
 
-        this.keys = keys;
+        if (keys instanceof Serializable)
+            this.keys = keys;
+        else
+            this.keys = new ArrayList<>(keys);
     }
 
     /**
@@ -50,7 +54,7 @@ public final class GetAllCommand implements ReadCommand {
      * null}.
      * @param revUpperBound The upper bound for entry revisions. Must be positive.
      */
-    public GetAllCommand(@NotNull List<Key> keys, @NotNull Long revUpperBound) {
+    public GetAllCommand(@NotNull Collection<Key> keys, @NotNull Long revUpperBound) {
         this(keys);
 
         assert revUpperBound > 0;
@@ -61,7 +65,7 @@ public final class GetAllCommand implements ReadCommand {
     /**
      * @return The collection of keys.
      */
-    public @NotNull List<Key> keys() {
+    public @NotNull Collection<Key> keys() {
         return keys;
     }
 

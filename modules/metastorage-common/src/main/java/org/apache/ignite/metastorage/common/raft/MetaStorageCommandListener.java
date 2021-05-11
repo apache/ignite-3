@@ -19,8 +19,8 @@ package org.apache.ignite.metastorage.common.raft;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -161,7 +161,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 else if (clo.command() instanceof GetAndPutAllCommand) {
                     GetAndPutAllCommand getAndPutAllCmd = (GetAndPutAllCommand)clo.command();
 
-                    List<Entry> entries = storage.getAndPutAll(
+                    Collection<Entry> entries = storage.getAndPutAll(
                         getAndPutAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()),
                         getAndPutAllCmd.vals()
                     );
@@ -193,7 +193,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 else if (clo.command() instanceof GetAndRemoveAllCommand) {
                     GetAndRemoveAllCommand getAndRmvAllCmd = (GetAndRemoveAllCommand)clo.command();
 
-                    List<Entry> entries = storage.getAndRemoveAll(
+                    Collection<Entry> entries = storage.getAndRemoveAll(
                         getAndRmvAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList())
                     );
 

@@ -72,4 +72,11 @@ public final class WatchEvent implements Serializable {
             return false;
         return newEntry.equals(that.newEntry);
     }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        int res = oldEntry.hashCode();
+        res = 31 * res + newEntry.hashCode();
+        return res;
+    }
 }

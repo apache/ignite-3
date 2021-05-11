@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.metastorage.client.MetaStorageService;
@@ -87,20 +88,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAll(Collection<Key> keys) {
-        List<Key> keysWithPreservedOrder = new ArrayList<>(keys);
-
-        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAllCommand(keysWithPreservedOrder)).
-            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
-                .collect(Collectors.toMap(keysWithPreservedOrder::get, newValues::get)));
+        return metaStorageRaftGrpSvc.<Collection<Entry>>run(new GetAllCommand(keys)).
+            thenApply(entries -> entries.stream().collect(Collectors.toMap(Entry::key, Function.identity())));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAll(Collection<Key> keys, long revUpperBound) {
-        List<Key> keysWithPreservedOrder = new ArrayList<>(keys);
-
-        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAllCommand(keysWithPreservedOrder, revUpperBound)).
-            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
-                .collect(Collectors.toMap(keysWithPreservedOrder::get, newValues::get)));
+        return metaStorageRaftGrpSvc.<Collection<Entry>>run(new GetAllCommand(keys, revUpperBound)).
+            thenApply(entries -> entries.stream().collect(Collectors.toMap(Entry::key, Function.identity())));
     }
 
     /** {@inheritDoc} */
@@ -128,9 +123,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             values.add(value);
         });
 
-        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAndPutAllCommand(keys, values)).
-            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
-                .collect(Collectors.toMap(keys::get, newValues::get)));
+        return metaStorageRaftGrpSvc.<Collection<Entry>>run(new GetAndPutAllCommand(keys, values)).
+            thenApply(entries -> entries.stream().collect(Collectors.toMap(Entry::key, Function.identity())));
     }
 
     /** {@inheritDoc} */
@@ -150,11 +144,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Map<Key, Entry>> getAndRemoveAll(@NotNull Collection<Key> keys) {
-        List<Key> keysWithPreservedOrder = new ArrayList<>(keys);
-
-        return metaStorageRaftGrpSvc.<List<Entry>>run(new GetAndRemoveAllCommand(keysWithPreservedOrder)).
-            thenApply(newValues -> IntStream.range(0, keys.size()).boxed()
-                .collect(Collectors.toMap(keysWithPreservedOrder::get, newValues::get)));
+        return metaStorageRaftGrpSvc.<Collection<Entry>>run(new GetAndRemoveAllCommand(keys)).
+            thenApply(entries -> entries.stream().collect(Collectors.toMap(Entry::key, Function.identity())));
     }
 
     // TODO: IGNITE-14389 Implement.
@@ -283,8 +274,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         try {
                             v.cursor.close();
                         }
+                        catch (InterruptedException e) {
+                            throw new IgniteInternalException(e);
+                        }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            // TODO: IGNITE-14693 Implement MetaStorage exception handling logic.
+                            LOG.error("Unexpected exception", e);
                         }
                     });
                     return null;
