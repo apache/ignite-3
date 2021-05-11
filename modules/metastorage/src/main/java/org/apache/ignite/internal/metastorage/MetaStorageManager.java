@@ -64,7 +64,7 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 @SuppressWarnings("unused") public class MetaStorageManager {
-    /** MetaStorage raft group name. */
+    /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
@@ -508,11 +508,11 @@ import org.jetbrains.annotations.Nullable;
     }
 
     /**
-     * Checks whether the local node hosts Metastorage.
+     * Checks whether the local node hosts meta storage.
      *
      * @param locNodeName Local node uniq name.
-     * @param metastorageMembers Metastorage members names.
-     * @return True if the node has Metastorage, false otherwise.
+     * @param metastorageMembers Meta storage members names.
+     * @return True if the node has meta storage, false otherwise.
      */
     public static boolean hasMetastorageLocally(String locNodeName, String[] metastorageMembers) {
         boolean isLocNodeHasMetasorage = false;
@@ -530,7 +530,7 @@ import org.jetbrains.annotations.Nullable;
     // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
     /** Cursor wrapper. */
     private final class CursorWrapper<T> implements Cursor<T> {
-        /** MetaStorage service future. */
+        /** Meta storage service future. */
         private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
         /** Inner cursor future. */
@@ -540,7 +540,7 @@ import org.jetbrains.annotations.Nullable;
         private final CompletableFuture<Iterator<T>> innerIterFut;
 
         /**
-         * @param metaStorageSvcFut MetaStorage service future.
+         * @param metaStorageSvcFut Meta storage service future.
          * @param innerCursorFut Inner cursor future.
          */
         CursorWrapper(

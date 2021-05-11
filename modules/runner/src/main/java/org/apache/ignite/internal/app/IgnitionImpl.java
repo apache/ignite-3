@@ -138,7 +138,7 @@ public class IgnitionImpl implements Ignition {
         // Raft Component startup.
         Loza raftMgr = new Loza(clusterNetSvc);
 
-        // MetaStorage Component startup.
+        // Meta storage Component startup.
         MetaStorageManager metaStorageMgr = new MetaStorageManager(
             vaultMgr,
             locConfigurationMgr,

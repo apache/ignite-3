@@ -118,7 +118,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
             }
             catch (CompactedException | OperationTimeoutException e) {
-                // TODO: IGNITE-14693 Implement MetaStorage exception handling logic.
+                // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                 LOG.warn("Unable to evaluate command [cmd=" + clo.command() + ']', e);
 
                 clo.failure(e);
@@ -282,7 +282,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
             }
             catch (CompactedException | OperationTimeoutException e) {
-                // TODO: IGNITE-14693 Implement MetaStorage exception handling logic.
+                // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                 LOG.warn("Unable to evaluate command [cmd=" + clo.command() + ']', e);
 
                 clo.failure(e);

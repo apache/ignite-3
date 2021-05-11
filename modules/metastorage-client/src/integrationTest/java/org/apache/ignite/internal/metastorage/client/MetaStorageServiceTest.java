@@ -904,7 +904,7 @@ import static org.mockito.Mockito.verify;
     }
 
     /**
-     * Prepares metaStorage by instantiating corresponding raft server with {@link MetaStorageCommandListener} and
+     * Prepares meta storage by instantiating corresponding raft server with {@link MetaStorageCommandListener} and
      * {@link MetaStorageServiceImpl}.
      *
      * @param keyValStorageMock {@link KeyValueStorage} mock.

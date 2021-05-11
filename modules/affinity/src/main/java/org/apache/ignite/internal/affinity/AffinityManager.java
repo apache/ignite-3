@@ -103,7 +103,7 @@ public class AffinityManager {
     }
 
     /**
-     * Subscribes to metastorage members update.
+     * Subscribes to meta storage members update.
      */
     private void subscribeToAssignmentCalculation() {
         assert affinityCalculateSubscriptionFut == null : "Affinity calculation already subscribed";

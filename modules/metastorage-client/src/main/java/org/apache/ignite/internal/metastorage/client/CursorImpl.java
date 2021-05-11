@@ -38,7 +38,7 @@ public class CursorImpl<T> implements Cursor<T> {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(CursorImpl.class);
 
-    /** Future that runs metastorage service operation that provides cursor. */
+    /** Future that runs meta storage service operation that provides cursor. */
     private CompletableFuture<IgniteUuid> initOp;
 
     /** Meta storage raft group service. */
@@ -46,7 +46,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
     /**
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
-     * @param initOp Future that runs metastorage service operation that provides cursor.
+     * @param initOp Future that runs meta storage service operation that provides cursor.
      */
     CursorImpl(RaftGroupService metaStorageRaftGrpSvc, CompletableFuture<IgniteUuid> initOp) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;

@@ -278,7 +278,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             throw new IgniteInternalException(e);
                         }
                         catch (Exception e) {
-                            // TODO: IGNITE-14693 Implement MetaStorage exception handling logic.
+                            // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                             LOG.error("Unexpected exception", e);
                         }
                     });
@@ -350,7 +350,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                         if (e instanceof InterruptedException || e.getCause() instanceof InterruptedException)
                             break;
                         else {
-                            // TODO: IGNITE-14693 Implement MetaStorage exception handling logic.
+                            // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                             LOG.error("Unexpected exception", e);
                         }
                     }

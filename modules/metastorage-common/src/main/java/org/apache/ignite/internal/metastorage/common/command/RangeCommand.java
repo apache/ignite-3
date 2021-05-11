@@ -28,7 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * key range in lexicographic order. Entries will be filtered out by upper bound of given revision number.
  */
 public final class RangeCommand implements WriteCommand {
-
     /** Start key of range (inclusive). Couldn't be {@code null}. */
     @NotNull private final Key keyFrom;
 
