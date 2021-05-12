@@ -98,8 +98,10 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
             data.put(key, e.getValue() == null ? null : ByteUtils.toBytes(e.getValue()));
         }
 
+        Data entries = new Data(newValues, ver.incrementAndGet());
+
         return vaultMgr.putAll(data).thenApply(res -> {
-            listeners.forEach(listener -> listener.onEntriesChanged(new Data(newValues, ver.incrementAndGet())));
+            listeners.forEach(listener -> listener.onEntriesChanged(entries));
 
             return true;
         });
