@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.ColumnType;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
@@ -210,7 +211,7 @@ public class NativeType implements Comparable<NativeType> {
         if (type == null)
             return true;
 
-        return typeSpec == type.typeSpec && len >= type.len ;
+        return typeSpec == type.typeSpec && len >= type.len;
     }
 
     /** {@inheritDoc} */

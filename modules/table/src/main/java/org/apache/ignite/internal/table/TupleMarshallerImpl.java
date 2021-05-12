@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -29,6 +28,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
@@ -54,7 +54,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /** {@inheritDoc} */
-    @Override public Row marshal(Tuple keyTuple, Tuple valTuple) {
+    @Override public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
         final SchemaDescriptor schema = schemaMgr.schema();
 
         validate(keyTuple, schema.keyColumns());
