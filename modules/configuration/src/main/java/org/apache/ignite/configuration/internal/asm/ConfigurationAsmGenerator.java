@@ -96,6 +96,10 @@ import static org.objectweb.asm.Type.getMethodDescriptor;
 import static org.objectweb.asm.Type.getMethodType;
 import static org.objectweb.asm.Type.getType;
 
+/**
+ * This class is responsible for generating internal implementation classes for configuration schemas. It uses classes
+ * from {@code bytecode} module to achieve this goal, like {@link ClassGenerator}, for examples.
+ */
 public class ConfigurationAsmGenerator {
     /** {@link LambdaMetafactory#metafactory(Lookup, String, MethodType, MethodType, MethodHandle, MethodType)} */
     private static final Method LAMBDA_METAFACTORY;
@@ -116,7 +120,7 @@ public class ConfigurationAsmGenerator {
     private static final Constructor DYNAMIC_CONFIGURATION_CTOR;
 
     /** {@link DynamicConfiguration#add(ConfigurationProperty)} */
-    private static Method DYNAMIC_CONFIGURATION_ADD;
+    private static final Method DYNAMIC_CONFIGURATION_ADD;
 
     static {
         try {
@@ -161,19 +165,34 @@ public class ConfigurationAsmGenerator {
     /** Class generator instance. */
     private final ClassGenerator generator = ClassGenerator.classGenerator(this.getClass().getClassLoader());
 
+    /**
+     * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
+     * @param schemaClass Configuration Schema class.
+     * @return Node instance.
+     */
     public synchronized InnerNode instantiateNode(Class<?> schemaClass) {
         SchemaClassesInfo info = schemasInfo.get(schemaClass);
 
         assert info != null && info.nodeClass != null : schemaClass;
 
         try {
-            return info.nodeClass.getConstructor().newInstance();
+            Constructor<? extends InnerNode> constructor = info.nodeClass.getConstructor();
+
+            assert constructor.canAccess(null);
+
+            return constructor.newInstance();
         }
         catch (Exception e) {
             throw new IllegalStateException(e);
         }
     }
 
+    /**
+     * Creates new instance of {@code *Configuration} class corresponding to the given Configuration Schema.
+     * @param rootKey Root key of the configuration root.
+     * @param changer Configuration changer instance to pass into constructor.
+     * @return Configuration instance.
+     */
     public synchronized DynamicConfiguration<?, ?> instantiateCfg(
         RootKey<?, ?> rootKey,
         ConfigurationChanger changer
@@ -192,13 +211,17 @@ public class ConfigurationAsmGenerator {
 
             assert constructor.canAccess(null);
 
-            return (DynamicConfiguration<?, ?>)constructor.newInstance(Collections.emptyList(), rootKey.key(), rootKey, changer);
+            return constructor.newInstance(Collections.emptyList(), rootKey.key(), rootKey, changer);
         }
         catch (Exception e) {
             throw new IllegalStateException(e);
         }
     }
 
+    /**
+     * Generates, defines, loads and initializes all dynamic classes required for the given Configuration Schema.
+     * @param rootSchemaClass Class of the root Configuration Schema.
+     */
     public synchronized void compileRootSchema(Class<?> rootSchemaClass) {
         if (schemasInfo.containsKey(rootSchemaClass))
             return; // Already compiled.
