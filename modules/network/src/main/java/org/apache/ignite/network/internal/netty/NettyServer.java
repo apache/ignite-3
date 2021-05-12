@@ -31,15 +31,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Netty server channel wrapper.
  */
 public class NettyServer {
+    /** A lock for start and stop operations. */
+    private final Object startStopLock = new Object();
+
     /** {@link NioServerSocketChannel} bootstrapper. */
     private final ServerBootstrap bootstrap;
 
@@ -62,6 +67,7 @@ public class NettyServer {
     private CompletableFuture<Void> serverStartFuture;
 
     /** Server socket channel. */
+    @Nullable
     private volatile ServerChannel channel;
 
     /** Server close future. */
@@ -122,80 +128,85 @@ public class NettyServer {
      * @return Future that resolves when the server is successfully started.
      */
     public CompletableFuture<Void> start() {
-        if (serverStartFuture != null)
-            throw new IgniteInternalException("Attempted to start an already started server");
+        synchronized (startStopLock) {
+            if (stopped)
+                throw new IgniteInternalException("Attempted to start an already stopped server");
 
-        bootstrap.group(bossGroup, workerGroup)
-            .channel(NioServerSocketChannel.class)
-            .childHandler(new ChannelInitializer<SocketChannel>() {
-                /** {@inheritDoc} */
-                @Override public void initChannel(SocketChannel ch) {
-                    ch.pipeline().addLast(
-                        /*
-                         * Decoder that uses org.apache.ignite.network.internal.MessageReader
-                         * to read chunked data.
-                         */
-                        new InboundDecoder(serializationRegistry),
-                        // Handles decoded NetworkMessages.
-                        new MessageHandler(messageListener),
-                        /*
-                         * Encoder that uses org.apache.ignite.network.internal.MessageWriter
-                         * to write chunked data.
-                         */
-                        new ChunkedWriteHandler()
-                    );
+            if (serverStartFuture != null)
+                throw new IgniteInternalException("Attempted to start an already started server");
 
-                    newConnectionListener.accept(new NettySender(ch, serializationRegistry));
-                }
-            })
-            /*
-             * The maximum queue length for incoming connection indications (a request to connect) is set
-             * to the backlog parameter. If a connection indication arrives when the queue is full,
-             * the connection is refused.
-             */
-            .option(ChannelOption.SO_BACKLOG, 128)
-            /*
-             * When the keepalive option is set for a TCP socket and no data has been exchanged across the socket
-             * in either direction for 2 hours (NOTE: the actual value is implementation dependent),
-             * TCP automatically sends a keepalive probe to the peer.
-             */
-            .childOption(ChannelOption.SO_KEEPALIVE, true);
+            bootstrap.group(bossGroup, workerGroup)
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInitializer<SocketChannel>() {
+                    /** {@inheritDoc} */
+                    @Override public void initChannel(SocketChannel ch) {
+                        ch.pipeline().addLast(
+                            /*
+                             * Decoder that uses org.apache.ignite.network.internal.MessageReader
+                             * to read chunked data.
+                             */
+                            new InboundDecoder(serializationRegistry),
+                            // Handles decoded NetworkMessages.
+                            new MessageHandler(messageListener),
+                            /*
+                             * Encoder that uses org.apache.ignite.network.internal.MessageWriter
+                             * to write chunked data.
+                             */
+                            new ChunkedWriteHandler()
+                        );
 
-        serverStartFuture = new CompletableFuture<>();
-
-        NettyUtils.toChannelCompletableFuture(bootstrap.bind(port))
-            .whenComplete((channel, err) -> {
-                synchronized (this) {
-                    // Shutdown event loops if the server has failed to start of has been stopped.
-                    if (err != null || stopped) {
-                        this.channel = null;
-
-                        shutdownEventLoopGroups();
-
-                        serverCloseFuture.whenComplete((unused, throwable) -> {
-                            Throwable stopErr = err != null ? err : new CancellationException();
-
-                            if (throwable != null)
-                                stopErr.addSuppressed(throwable);
-
-                            serverStartFuture.completeExceptionally(stopErr);
-                        });
+                        newConnectionListener.accept(new NettySender(ch, serializationRegistry));
                     }
-                    else {
-                        CompletableFuture<Void> channelCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture())
-                            // Shutdown event loops on server stop.
-                            .whenComplete((v, err0) -> shutdownEventLoopGroups());
+                })
+                /*
+                 * The maximum queue length for incoming connection indications (a request to connect) is set
+                 * to the backlog parameter. If a connection indication arrives when the queue is full,
+                 * the connection is refused.
+                 */
+                .option(ChannelOption.SO_BACKLOG, 128)
+                /*
+                 * When the keepalive option is set for a TCP socket and no data has been exchanged across the socket
+                 * in either direction for 2 hours (NOTE: the actual value is implementation dependent),
+                 * TCP automatically sends a keepalive probe to the peer.
+                 */
+                .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-                        serverCloseFuture = CompletableFuture.allOf(channelCloseFuture, serverCloseFuture);
+            serverStartFuture = NettyUtils.toChannelCompletableFuture(bootstrap.bind(port))
+                .handle((channel, err) -> {
+                    synchronized (startStopLock) {
+                        CompletableFuture<Void> workerCloseFuture = serverCloseFuture;
+
+                        if (channel != null) {
+                            CompletableFuture<Void> channelCloseFuture = NettyUtils.toCompletableFuture(channel.closeFuture())
+                                // Shutdown event loops on channel close.
+                                .whenComplete((v, err0) -> shutdownEventLoopGroups());
+
+                            serverCloseFuture = CompletableFuture.allOf(channelCloseFuture, workerCloseFuture);
+                        }
 
                         this.channel = (ServerChannel) channel;
 
-                        serverStartFuture.complete(null);
-                    }
-                }
-            });
+                        // Shutdown event loops if the server has failed to start or has been stopped.
+                        if (err != null || stopped) {
+                            shutdownEventLoopGroups();
 
-        return serverStartFuture;
+                            return workerCloseFuture.handle((unused, throwable) -> {
+                                Throwable stopErr = err != null ? err : new CancellationException("Server was stopped");
+
+                                if (throwable != null)
+                                    stopErr.addSuppressed(throwable);
+
+                                return CompletableFuture.<Void>failedFuture(stopErr);
+                            }).thenCompose(Function.identity());
+                        }
+                        else
+                            return CompletableFuture.<Void>completedFuture(null);
+                    }
+                })
+                .thenCompose(Function.identity());
+
+            return serverStartFuture;
+        }
     }
 
     /**
@@ -208,15 +219,26 @@ public class NettyServer {
     /**
      * Stops the server.
      *
-     * @return Future that is resolved when the server's channel has closed.
+     * @return Future that is resolved when the server's channel has closed or an already completed future
+     * for a subsequent call.
      */
-    public synchronized CompletableFuture<Void> stop() {
-        stopped = true;
+    public CompletableFuture<Void> stop() {
+        synchronized (startStopLock) {
+            if (stopped)
+                return CompletableFuture.completedFuture(null);
 
-        if (channel != null)
-            channel.close();
+            stopped = true;
 
-        return serverCloseFuture;
+            if (serverStartFuture == null)
+                return CompletableFuture.completedFuture(null);
+
+            return serverStartFuture.handle((unused, throwable) -> {
+               if (channel != null)
+                   channel.close();
+
+               return serverCloseFuture;
+            }).thenCompose(Function.identity());
+        }
     }
 
     /**
@@ -233,7 +255,7 @@ public class NettyServer {
      */
     @TestOnly
     public boolean isRunning() {
-        return channel.isOpen() && !bossGroup.isShuttingDown() && !workerGroup.isShuttingDown();
+        return channel != null && channel.isOpen() && !bossGroup.isShuttingDown() && !workerGroup.isShuttingDown();
     }
 
     /**

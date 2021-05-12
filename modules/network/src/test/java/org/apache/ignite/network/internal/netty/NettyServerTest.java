@@ -19,6 +19,7 @@ package org.apache.ignite.network.internal.netty;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.nio.channels.ClosedChannelException;
@@ -118,7 +119,7 @@ public class NettyServerTest {
     public void testServerStoppedBeforeStarted() throws Exception {
         var channel = new EmbeddedServerChannel();
 
-        var future = channel.newPromise();
+        ChannelPromise future = channel.newPromise();
 
         server = getServer(future, false);
 
@@ -126,7 +127,7 @@ public class NettyServerTest {
 
         future.setSuccess(null);
 
-        stop.get(3, TimeUnit.SECONDS);
+        stop.get(3000, TimeUnit.SECONDS);
 
         assertTrue(server.getBossGroup().isTerminated());
         assertTrue(server.getWorkerGroup().isTerminated());

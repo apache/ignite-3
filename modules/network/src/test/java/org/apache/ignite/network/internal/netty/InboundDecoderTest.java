@@ -22,7 +22,7 @@ import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.nio.ByteBuffer;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -38,7 +38,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link InboundDecoder}.
@@ -96,10 +95,10 @@ public class InboundDecoderTest {
      * Tests that an {@link InboundDecoder} doesn't hang if it encounters a byte buffer with only partially written
      * header.
      *
-     * @throws InterruptedException If failed.
+     * @throws Exception If failed.
      */
     @Test
-    public void testPartialHeader() throws InterruptedException {
+    public void testPartialHeader() throws Exception {
         var registry = new MessageSerializationRegistry();
 
         var channel = new EmbeddedChannel(new InboundDecoder(registry));
@@ -108,17 +107,15 @@ public class InboundDecoderTest {
 
         buffer.writeByte(1);
 
-        var latch = new CountDownLatch(1);
+        CompletableFuture
+            .runAsync(() -> {
+                channel.writeInbound(buffer);
 
-        new Thread(() -> {
-            channel.writeInbound(buffer);
-
-            channel.readInbound();
-
-            latch.countDown();
-        }).start();
-
-        assertTrue(latch.await(3, TimeUnit.SECONDS));
+                // In case if a header was written partially, readInbound() should not loop forever, as
+                // there might not be new data anymore (example: remote host gone offline).
+                channel.readInbound();
+            })
+            .get(3, TimeUnit.SECONDS);
     }
 
     /**

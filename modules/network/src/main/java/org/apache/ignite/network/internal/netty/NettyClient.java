@@ -21,14 +21,20 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Netty client channel wrapper.
  */
 public class NettyClient {
+    /** A lock for start and stop operations. */
+    private final Object startStopLock = new Object();
+
     /** Serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
 
@@ -36,13 +42,12 @@ public class NettyClient {
     private final SocketAddress address;
 
     /** Future that resolves when client channel is opened. */
-    private CompletableFuture<NettySender> clientFuture;
+    @Nullable
+    private volatile CompletableFuture<NettySender> clientFuture = null;
 
     /** Client channel. */
+    @Nullable
     private volatile Channel channel = null;
-
-    /** Client close future. */
-    private CompletableFuture<Void> clientCloseFuture = CompletableFuture.completedFuture(null);
 
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped = false;
@@ -82,45 +87,36 @@ public class NettyClient {
      * @return Future that resolves when client channel is opened.
      */
     public CompletableFuture<NettySender> start(Bootstrap bootstrap) {
-        if (clientFuture != null)
-            throw new IgniteInternalException("Attempted to start an already started NettyClient");
+        synchronized (startStopLock) {
+            if (stopped)
+                throw new IgniteInternalException("Attempted to start an already stopped NettyClient");
 
-        clientFuture = new CompletableFuture<>();
+            if (clientFuture != null)
+                throw new IgniteInternalException("Attempted to start an already started NettyClient");
 
-        NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
-            .whenComplete((channel, throwable) -> {
-                synchronized (this) {
-                    if (throwable == null) {
-                        CompletableFuture<Void> closeFuture = NettyUtils.toCompletableFuture(channel.closeFuture());
+            clientFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
+                .handle((channel, throwable) -> {
+                    synchronized (startStopLock) {
+                        this.channel = channel;
 
-                        if (stopped) {
-                            // Close channel in case if client has been stopped prior to this moment.
-                            channel.close();
-
-                            // Wait for channel to close and then cancel the client future.
-                            closeFuture.whenComplete((unused, ignored) -> {
-                                clientFuture.cancel(true);
-                            });
-                        }
-                        else {
-                            clientCloseFuture = closeFuture;
-
-                            this.channel = channel;
-
-                            clientFuture.complete(new NettySender(channel, serializationRegistry));
-                        }
+                        if (stopped)
+                            return CompletableFuture.<NettySender>failedFuture(new CancellationException("Client was stopped"));
+                        else if (throwable != null)
+                            return CompletableFuture.<NettySender>failedFuture(throwable);
+                        else
+                            return CompletableFuture.completedFuture(new NettySender(channel, serializationRegistry));
                     }
-                    else
-                        clientFuture.completeExceptionally(throwable);
-                }
-            });
+                })
+                .thenCompose(Function.identity());
 
-        return clientFuture;
+            return clientFuture;
+        }
     }
 
     /**
      * @return Client start future.
      */
+    @Nullable
     public CompletableFuture<NettySender> sender() {
         return clientFuture;
     }
@@ -128,22 +124,33 @@ public class NettyClient {
     /**
      * Stops the client.
      *
-     * @return Future that is resolved when the client's channel has closed.
+     * @return Future that is resolved when the client's channel has closed or an already completed future
+     * for a subsequent call.
      */
-    public synchronized CompletableFuture<Void> stop() {
-        stopped = true;
+    public CompletableFuture<Void> stop() {
+        synchronized (startStopLock) {
+            if (stopped)
+                return CompletableFuture.completedFuture(null);
 
-        if (channel != null)
-            channel.close();
+            stopped = true;
 
-        return clientCloseFuture;
+            if (clientFuture == null)
+                return CompletableFuture.completedFuture(null);
+
+            return clientFuture
+                .handle((sender, throwable) ->
+                    channel == null ?
+                        CompletableFuture.<Void>completedFuture(null) :
+                        NettyUtils.toCompletableFuture(channel.close()))
+                .thenCompose(Function.identity());
+        }
     }
 
     /**
      * @return {@code true} if the client has failed to connect to the remote server, {@code false} otherwise.
      */
     public boolean failedToConnect() {
-        return clientFuture.isCompletedExceptionally();
+        return clientFuture != null && clientFuture.isCompletedExceptionally();
     }
 
     /**

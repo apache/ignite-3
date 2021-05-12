@@ -23,7 +23,6 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link NettyClient}.
@@ -108,7 +106,7 @@ public class NettyClientTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testConnectionClose() throws Exception {
+    public void testCloseConnection() throws Exception {
         var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
@@ -143,12 +141,7 @@ public class NettyClientTest {
 
         client = tuple.client;
 
-        try {
-            tuple.sender.get(3, TimeUnit.SECONDS);
-            fail();
-        }
-        catch (CancellationException ignored) {
-        }
+        assertThrows(ExecutionException.class, () -> tuple.sender.get(3, TimeUnit.SECONDS));
 
         assertTrue(client.isDisconnected());
         assertTrue(client.failedToConnect());
