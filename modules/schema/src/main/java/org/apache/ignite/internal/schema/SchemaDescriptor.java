@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.tostring.S;
@@ -40,12 +41,29 @@ public class SchemaDescriptor {
     /** Mapping 'Column name' -> Column. */
     private final Map<String, Column> colMap;
 
+    /** Affinity column bit mask. */
+    private final BitSet affColsMask;
+
     /**
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
     public SchemaDescriptor(int ver, Column[] keyCols, Column[] valCols) {
+        this(ver, keyCols, null, valCols);
+    }
+
+    /**
+     * @param ver Schema version.
+     * @param keyCols Key columns.
+     * @param affCols Affinity column names.
+     * @param valCols Value columns.
+     */
+    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
+        assert affCols == null || affCols.length > 0;
+        assert keyCols.length > 0 : "No key columns are conigured.";
+        assert valCols.length > 0 : "No value columns are conigured.";
+
         this.ver = ver;
         this.keyCols = new Columns(0, keyCols);
         this.valCols = new Columns(keyCols.length, valCols);
@@ -54,6 +72,15 @@ public class SchemaDescriptor {
 
         Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
         Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
+
+        if (affCols == null)
+            affColsMask = null;
+        else {
+            affColsMask = new BitSet(keyCols.length);
+
+            for (int i = 0; i < affCols.length; i++)
+                affColsMask.set(column(affCols[i]).schemaIndex());
+        }
     }
 
     /**
@@ -76,7 +103,7 @@ public class SchemaDescriptor {
      * @return {@code true} if the columns if key affinity column, {@code false} otherwise.
      */
     public boolean isAffinityColumn(int idx) {
-        return isKeyColumn(idx);
+        return affColsMask == null ? isKeyColumn(idx) : affColsMask.get(idx);
     }
 
     /**

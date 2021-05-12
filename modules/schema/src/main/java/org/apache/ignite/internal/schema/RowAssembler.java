@@ -25,6 +25,8 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow.RowFlags;
 
+import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_KEY_VARTBL_FLAG;
+import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_VAL_VARTBL_FLAG;
 import static org.apache.ignite.internal.schema.BinaryRow.VARLEN_COLUMN_OFFSET_FIELD_SIZE;
 import static org.apache.ignite.internal.schema.BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE;
 
@@ -187,7 +189,7 @@ public class RowAssembler {
         buf.putShort(0, (short)schema.version());
 
         if (nonNullVarlenKeyCols == 0)
-            flags |= RowFlags.OMIT_KEY_VARTBL_FLAG;
+            flags |= OMIT_KEY_VARTBL_FLAG;
         else
             buf.putShort(varlenTblChunkOff, (short)nonNullVarlenKeyCols);
     }
@@ -429,7 +431,8 @@ public class RowAssembler {
      * @param off Offset to write.
      */
     private void writeOffset(int tblEntryIdx, int off) {
-        assert (flags & (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? RowFlags.OMIT_KEY_VARTBL_FLAG : RowFlags.OMIT_VAL_VARTBL_FLAG)) == 0;
+        assert (flags & (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? OMIT_KEY_VARTBL_FLAG : OMIT_VAL_VARTBL_FLAG)) == 0 :
+            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
         buf.putShort(varlenTblChunkOff + Row.varlenItemOffset(tblEntryIdx), (short)off);
     }
@@ -510,7 +513,7 @@ public class RowAssembler {
             initOffsets(baseOff + chunkLen, nonNullVarlenValCols);
 
             if (nonNullVarlenValCols == 0)
-                flags |= RowFlags.OMIT_VAL_VARTBL_FLAG;
+                flags |= OMIT_VAL_VARTBL_FLAG;
             else
                 buf.putShort(varlenTblChunkOff, (short)nonNullVarlenValCols);
         }
