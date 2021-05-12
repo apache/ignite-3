@@ -45,29 +45,35 @@ class TableTest {
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
                 "  },\n" +
                 "  \"table\": {\n" +
-                "       \"tbl1\": {\n" +
-                "           \"partitions\": 10,\n" +
-                "           \"replicas\": 2,\n" +
-                "           \"columns\": { \n" +
-                "                \"key\": {\n" +
-                "                   \"type\":INT64,\n" +
-                "                   \"nullable\":false\n" +
-                "                },\n" +
-                "                \"val\": {\n" +
-                "                   \"type\":INT64,\n" +
-                "                   \"nullable\":false\n" +
-                "                }\n" +
-                "           },\n" +
-                "           \"indices\": {\n" +
-                "                \"PK\": {\n" +
-                "                   \"type\":PRIMARY,\n" +
-                "                   \"columns\": {\n" +
-                "                       \"key\": {\n" +
-                "                           \"asc\":true\n" +
-                "                       }\n" +
+                "       \"tables\": {\n" +
+                "           \"tbl1\": {\n" +
+                "               \"partitions\":10,\n" +
+                "               \"replicas\":2,\n" +
+                "               \"columns\": { \n" +
+                "                   \"key\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":INT64\n" +
+                "                       },\n" +
+                "                       \"nullable\":false\n" +
                 "                   },\n" +
-                "                   \"affinityColumns\": [\"key\"]\n" +
-                "                }\n" +
+                "                   \"val\": {\n" +
+                "                       \"type\": {" +
+                "                           \"type\":INT64\n" +
+                "                       },\n" +
+                "                       \"nullable\":false\n" +
+                "                   }\n" +
+                "               },\n" +
+                "               \"indices\": {\n" +
+                "                   \"PK\": {\n" +
+                "                       \"type\":PRIMARY,\n" +
+                "                       \"columns\": {\n" +
+                "                           \"key\": {\n" +
+                "                               \"asc\":true\n" +
+                "                           }\n" +
+                "                       },\n" +
+                "                       \"affinityColumns\":[ \"key\" ]\n" +
+                "                   }\n" +
+                "               }\n" +
                 "           }\n" +
                 "       }\n" +
                 "  }\n" +
@@ -142,7 +148,8 @@ class TableTest {
                 .create("PK", idx -> idx
                     .changeType("PRIMARY")
                     .changeColumns(c -> c
-                        .create("key", t -> {}))
+                        .create("key", t -> {
+                        }))
                     .changeAffinityColumns(new String[] {"key"}))
             ));
 
