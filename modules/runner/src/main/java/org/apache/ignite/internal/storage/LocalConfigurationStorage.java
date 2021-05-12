@@ -45,15 +45,6 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
-    /**
-     * Constructor.
-     *
-     * @param vaultMgr Vault manager.
-     */
-    public LocalConfigurationStorage(VaultManager vaultMgr) {
-        this.vaultMgr = vaultMgr;
-    }
-
     /** Change listeners. */
     private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -65,6 +56,15 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
     /** End key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_END_RANGE = ByteArray.fromString(LOC_PREFIX.substring(0, LOC_PREFIX.length() - 1) + (char)('.' + 1));
+
+    /**
+     * Constructor.
+     *
+     * @param vaultMgr Vault manager.
+     */
+    public LocalConfigurationStorage(VaultManager vaultMgr) {
+        this.vaultMgr = vaultMgr;
+    }
 
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {

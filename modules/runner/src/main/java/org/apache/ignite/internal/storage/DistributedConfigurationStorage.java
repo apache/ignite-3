@@ -67,13 +67,19 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * possible because keys are in lexicographical order in metastorage and adding {@code (char)('.' + 1)} to the end
      * will produce all keys with prefix {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX}
      */
-    private static final Key dstKeysEndRange = new Key(DISTRIBUTED_PREFIX.substring(0, DISTRIBUTED_PREFIX.length() - 1) + (char)('.' + 1));
+    private static final Key DST_KEYS_END_RANGE = new Key(DISTRIBUTED_PREFIX.substring(0, DISTRIBUTED_PREFIX.length() - 1) + (char)('.' + 1));
 
     /** Id of watch that is responsible for configuration update. */
     private CompletableFuture<Long> watchId;
 
     /** MetaStorage manager */
     private final MetaStorageManager metaStorageMgr;
+
+    /** Change listeners. */
+    private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
+
+    /** Storage version. It stores actual metastorage revision, that is applied to configuration manager. */
+    private AtomicLong ver = new AtomicLong(0L);
 
     /**
      * Constructor.
@@ -84,17 +90,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         this.metaStorageMgr = metaStorageMgr;
     }
 
-    /** Change listeners. */
-    private List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
-
-    /** Storage version. It stores actual metastorage revision, that is applied to configuration manager. */
-    private AtomicLong ver = new AtomicLong(0L);
-
     /** {@inheritDoc} */
     @Override public synchronized Data readAll() throws StorageException {
         HashMap<String, Serializable> data = new HashMap<>();
 
-        Iterator<Entry> entries = allDstCfgKeys().iterator();
+        Iterator<Entry> entries = allDistributedConfigKeys().iterator();
 
         long maxRevision = 0L;
 
@@ -221,7 +221,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 metaStorageMgr.unregisterWatch(watchId.get());
             }
             catch (InterruptedException | ExecutionException e) {
-                LOG.error("Failed to register watch in metastore", e);
+                LOG.error("Failed to unregister watch in meta storage.", e);
             }
 
             watchId = null;
@@ -229,7 +229,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void notifyApplied(long storageRevision) {
+    @Override public synchronized void notifyApplied(long storageRevision) {
         assert ver.get() <= storageRevision;
 
         ver.set(storageRevision);
@@ -253,9 +253,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * @return Cursor built upon all distributed configuration entries.
      */
-    private Cursor<Entry> allDstCfgKeys() {
+    private Cursor<Entry> allDistributedConfigKeys() {
         // TODO: rangeWithAppliedRevision could throw OperationTimeoutException and CompactedException and we should
         // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
-        return metaStorageMgr.rangeWithAppliedRevision(MASTER_KEY, dstKeysEndRange);
+        return metaStorageMgr.rangeWithAppliedRevision(MASTER_KEY, DST_KEYS_END_RANGE);
     }
 }

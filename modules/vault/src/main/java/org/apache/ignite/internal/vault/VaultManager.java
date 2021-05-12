@@ -67,7 +67,7 @@ public class VaultManager {
      *
      * @param key Key. Couldn't be {@code null}.
      * @return An entry for the given key. Couldn't be {@code null}. If there is no mapping for the provided {@code key},
-     * then {@code Entry} with value that equals to null will be returned.
+     * then {@code Entry} with value that equals to {@code null} will be returned.
      */
     @NotNull public CompletableFuture<Entry> get(@NotNull ByteArray key) {
         return vaultService.get(key);
@@ -77,7 +77,7 @@ public class VaultManager {
      * See {@link VaultService#put(ByteArray, byte[])}
      *
      * @param key Vault key. Couldn't be {@code null}.
-     * @param val Value. If value is equal to null, then previous value with key will be deleted if there was any mapping.
+     * @param val Value. If value is equal to {@code null}, then previous value with key will be deleted if there was any mapping.
      * @return Future representing pending completion of the operation. Couldn't be {@code null}.
      */
     @NotNull public CompletableFuture<Void> put(@NotNull ByteArray key, @NotNull byte[] val) {
@@ -106,7 +106,7 @@ public class VaultManager {
     }
 
     /**
-     * Inserts or updates entries with given keys and given values. If the given value in {@code vals} is null,
+     * Inserts or updates entries with given keys and given values. If the given value in {@code vals} is {@code null},
      * then corresponding value with key will be deleted if there was any mapping.
      *
      * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
@@ -120,7 +120,7 @@ public class VaultManager {
 
     /**
      * Inserts or updates entries with given keys and given values and non-negative revision. If the given value in
-     * {@code vals} is null, then corresponding value with key will be deleted if there was any mapping.
+     * {@code vals} is {@code null}, then corresponding value with key will be deleted if there was any mapping.
      *
      * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
      * @param revision Revision for entries. Must be positive.
