@@ -19,19 +19,22 @@ package org.apache.ignite.internal.runner.app;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Assertions;
+import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Ignition interface tests.
  */
-class TableTest {
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-14389")
+class DynamicTableCreationTest {
     /** Nodes bootstrap configuration. */
     private final String[] nodesBootstrapCfg =
         {
@@ -43,39 +46,6 @@ class TableTest {
                 "  \"network\": {\n" +
                 "    \"port\":3344,\n" +
                 "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  },\n" +
-                "  \"table\": {\n" +
-                "       \"tables\": {\n" +
-                "           \"tbl1\": {\n" +
-                "               \"partitions\":10,\n" +
-                "               \"replicas\":2,\n" +
-                "               \"columns\": { \n" +
-                "                   \"key\": {\n" +
-                "                       \"type\": {" +
-                "                           \"type\":INT64\n" +
-                "                       },\n" +
-                "                       \"nullable\":false\n" +
-                "                   },\n" +
-                "                   \"val\": {\n" +
-                "                       \"type\": {" +
-                "                           \"type\":INT64\n" +
-                "                       },\n" +
-                "                       \"nullable\":false\n" +
-                "                   }\n" +
-                "               },\n" +
-                "               \"indices\": {\n" +
-                "                   \"PK\": {\n" +
-                "                       \"type\":PRIMARY,\n" +
-                "                       \"columns\": {\n" +
-                "                           \"key\": {\n" +
-                "                               \"asc\":true\n" +
-                "                           }\n" +
-                "                       },\n" +
-                "                       \"affinityColumns\":[ \"key\" ]\n" +
-                "                   }\n" +
-                "               }\n" +
-                "           }\n" +
-                "       }\n" +
                 "  }\n" +
                 "}",
 
@@ -103,41 +73,19 @@ class TableTest {
         };
 
     /**
-     * Check table creation via bootstrap configuration with pre-configured table.
-     */
-    @Test
-    void testInitialTableConfiguration() {
-        List<Ignite> startedNodes = new ArrayList<>();
-
-        for (String nodeBootstrapCfg : nodesBootstrapCfg)
-            startedNodes.add(IgnitionManager.start(nodeBootstrapCfg));
-
-        assertEquals(3, startedNodes.size());
-
-        startedNodes.forEach(Assertions::assertNotNull);
-
-        Table tbl1 = startedNodes.get(1).tables().table("tbl1");
-        tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val", 111L).build());
-
-        Table tbl2 = startedNodes.get(2).tables().table("tbl1");
-        assertEquals(111L, tbl2.get(tbl2.tupleBuilder().set("key", 1L).build()));
-    }
-
-    /**
      * Check dynamic table creation.
      */
     @Test
-    void testDynamicTableCreation() {
-        List<Ignite> startedNodes = new ArrayList<>();
+    void testDynamicSimpleTableCreation() {
+        List<Ignite> clusterNodex = new ArrayList<>();
 
         for (String nodeBootstrapCfg : nodesBootstrapCfg)
-            startedNodes.add(IgnitionManager.start(nodeBootstrapCfg));
+            clusterNodex.add(IgnitionManager.start(nodeBootstrapCfg));
 
-        assertEquals(3, startedNodes.size());
+        assertEquals(3, clusterNodex.size());
 
-        startedNodes.forEach(Assertions::assertNotNull);
-
-        startedNodes.get(0).tables().createTable("tbl2", tbl -> tbl
+        // Create table on node 0.
+        clusterNodex.get(0).tables().createTable("tbl1", tbl -> tbl
             .changeReplicas(1)
             .changePartitions(10)
             .changeColumns(cols -> cols
@@ -153,10 +101,62 @@ class TableTest {
                     .changeAffinityColumns(new String[] {"key"}))
             ));
 
-        Table tbl1 = startedNodes.get(1).tables().table("tbl2");
+        // Put data on node 1.
+        Table tbl1 = clusterNodex.get(1).tables().table("tbl1");
         tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val", 111L).build());
 
-        Table tbl2 = startedNodes.get(2).tables().table("tbl2");
+        // Get data on node 2.
+        Table tbl2 = clusterNodex.get(2).tables().table("tbl1");
         assertEquals(111L, tbl2.get(tbl2.tupleBuilder().set("key", 1L).build()));
+    }
+
+    /**
+     * Check dynamic table creation.
+     */
+    @Test
+    void testDynamicTableCreation() {
+        List<Ignite> clusterNodes = new ArrayList<>();
+
+        for (String nodeBootstrapCfg : nodesBootstrapCfg)
+            clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg));
+
+        assertEquals(3, clusterNodes.size());
+
+        // Create table on node 0.
+        clusterNodes.get(0).tables().createTable("tbl1", tbl -> tbl
+            .changeReplicas(1)
+            .changePartitions(10)
+            .changeColumns(cols -> cols
+                .create("key", c -> c.changeType(t -> t.changeType("UUID")))
+                .create("affKey", c -> c.changeType(t -> t.changeType("INT64")))
+                .create("valStr", c -> c.changeType(t -> t.changeType("STRING")))
+                .create("valInt", c -> c.changeType(t -> t.changeType("INT32")))
+                .create("valNullable", c -> c.changeType(t -> t.changeType("INT8")).changeNullable(true))
+            )
+            .changeIndices(idxs -> idxs
+                .create("PK", idx -> idx
+                    .changeType("PRIMARY")
+                    .changeColumns(c -> c
+                        .create("key", t -> {
+                        })
+                        .create("affKey", t -> {
+                        }))
+                    .changeAffinityColumns(new String[] {"affKey"}))
+            ));
+
+        final UUID uuid = UUID.randomUUID();
+
+        // Put data on node 1.
+        Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
+        tbl1.insert(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42L)
+            .set("valStr", "String value").set("valInt", 73L).set("valNullable", null).build());
+
+        // Get data on node 2.
+        Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
+        final Tuple val = tbl2.get(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42L).build());
+
+        assertEquals("String value", val.value("valStr"));
+        assertEquals(73L, (Long)val.value("valInt"));
+        assertNull(val.value("valNullable"));
     }
 }
