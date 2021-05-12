@@ -66,13 +66,13 @@ public class TableBinaryViewOperationsTest {
         assertTrue(tbl.insert(tuple));
 
         assertEqualsRows(schema, tuple, tbl.get(tuple));
-        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
 
         // Ignore insert operation for exited row.
         assertFalse(tbl.insert(newTuple));
 
         assertEqualsRows(schema, tuple, tbl.get(newTuple));
-        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
 
         assertNull(tbl.get(nonExistedTuple));
     }
@@ -101,13 +101,13 @@ public class TableBinaryViewOperationsTest {
         tbl.upsert(tuple);
 
         assertEqualsRows(schema, tuple, tbl.get(tuple));
-        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
 
         // Update exited row.
         tbl.upsert(newTuple);
 
         assertEqualsRows(schema, newTuple, tbl.get(tuple));
-        assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
 
         assertNull(tbl.get(nonExistedTuple));
     }
@@ -135,13 +135,13 @@ public class TableBinaryViewOperationsTest {
         assertNull(tbl.getAndUpsert(tuple));
 
         assertEqualsRows(schema, tuple, tbl.get(tuple));
-        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, tuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
 
         // Update exited row.
         assertEqualsRows(schema, tuple, tbl.getAndUpsert(newTuple));
 
         assertEqualsRows(schema, newTuple, tbl.get(tuple));
-        assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, newTuple, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
     }
 
     /**
@@ -248,7 +248,7 @@ public class TableBinaryViewOperationsTest {
         assertFalse(tbl.replace(tuple));
 
         assertNull(tbl.get(keyTuple));
-        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertNull(tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
 
         // Insert row.
         tbl.insert(tuple);
@@ -257,7 +257,7 @@ public class TableBinaryViewOperationsTest {
         assertTrue(tbl.replace(tuple2));
 
         assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
-        assertEqualsRows(schema, tuple2, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, tuple2, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
     }
 
     /**
@@ -293,7 +293,7 @@ public class TableBinaryViewOperationsTest {
         assertTrue(tbl.replace(tuple, tuple2));
 
         assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
-        assertEqualsRows(schema, tuple2, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+        assertEqualsRows(schema, tuple2, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1L).build()));
     }
 
     /**
