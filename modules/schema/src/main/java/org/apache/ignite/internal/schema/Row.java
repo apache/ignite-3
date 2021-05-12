@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
@@ -226,6 +227,11 @@ public class Row implements BinaryRow {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
 
         return off < 0 ? null : readDouble(offset(off));
+    }
+
+    public BigDecimal decimalValue(int idx) {
+        // TODO: decimal support
+        return null;
     }
 
     /**

@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.table;
 
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.table.impl.TestTupleBuilder;
+import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assertions;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -290,6 +294,41 @@ public class TableBinaryViewOperationsTest {
 
         assertEqualsRows(schema, tuple2, tbl.get(keyTuple));
         assertEqualsRows(schema, tuple2, tbl.get(tbl.tupleBuilder().set("id", 1L).set("val", -1).build()));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void validateSchema() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+            1,
+            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {
+                new Column("val", NativeType.LONG, true),
+                new Column("str", NativeType.fromColumnType(ColumnType.stringOf(3)), true),
+                new Column("blob", NativeType.fromColumnType(ColumnType.blobOf(3)), true)
+            }
+        );
+
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+
+        final Tuple keyTuple0 = new TestTupleBuilder().set("id", 0).set("id1", 0).build();
+        final Tuple keyTuple1 = new TestTupleBuilder().set("id1", 0).build();
+        final Tuple tuple0 = new TestTupleBuilder().set("id", 1L).set("str", "qweqweqwe").set("val", 11L).build();
+        final Tuple tuple1 = new TestTupleBuilder().set("id", 1L).set("blob", new byte[] {0, 1, 2, 3}).set("val", 22L).build();
+
+        assertThrows(InvalidTypeException.class, () -> tbl.get(keyTuple0));
+        assertThrows(IllegalArgumentException.class, () -> tbl.get(keyTuple1));
+
+        assertThrows(InvalidTypeException.class, () -> tbl.replace(tuple0));
+        assertThrows(InvalidTypeException.class, () -> tbl.replace(tuple1));
+
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(tuple0));
+        assertThrows(InvalidTypeException.class, () -> tbl.insert(tuple1));
+
+        assertThrows(InvalidTypeException.class, () -> tbl.replace(tuple0));
+        assertThrows(InvalidTypeException.class, () -> tbl.replace(tuple1));
     }
 
     /**

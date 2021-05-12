@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -80,6 +82,15 @@ public class SchemaDescriptor {
     }
 
     /**
+     * Gets columns names.
+     *
+     * @return Columns names.
+     */
+    public Collection<String> columnNames() {
+        return colMap.keySet();
+    }
+
+    /**
      * @return Key columns chunk.
      */
     public Columns keyColumns() {
@@ -106,6 +117,27 @@ public class SchemaDescriptor {
      */
     public @Nullable Column column(@NotNull String name) {
         return colMap.get(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        SchemaDescriptor that = (SchemaDescriptor)o;
+
+        return ver == that.ver
+            && Objects.equals(keyCols, that.keyCols)
+            && Objects.equals(valCols, that.valCols)
+            && Objects.equals(colMap, that.colMap);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Objects.hash(ver, keyCols, valCols, colMap);
     }
 
     /** {@inheritDoc} */

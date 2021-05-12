@@ -309,7 +309,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return new TupleBuilderImpl();
+        return new TupleBuilderImpl(schemaMgr.schema());
     }
 
     /**

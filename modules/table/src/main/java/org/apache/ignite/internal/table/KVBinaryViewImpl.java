@@ -267,7 +267,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return new TupleBuilderImpl();
+        return new TupleBuilderImpl(schemaMgr.schema());
     }
 
     /**

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -307,6 +308,34 @@ public class Columns {
         }
 
         throw new NoSuchElementException("No field '" + colName + "' defined");
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        Columns columns = (Columns)o;
+
+        return firstVarlenColIdx == columns.firstVarlenColIdx
+            && nullMapSize == columns.nullMapSize
+            && Arrays.equals(cols, columns.cols)
+            && Arrays.equals(foldingTbl, columns.foldingTbl)
+            && Arrays.equals(foldingMask, columns.foldingMask);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        int result = Objects.hash(firstVarlenColIdx, nullMapSize);
+
+        result = 31 * result + Arrays.hashCode(cols);
+        result = 31 * result + Arrays.hashCode(foldingTbl);
+        result = 31 * result + Arrays.hashCode(foldingMask);
+
+        return result;
     }
 
     /** {@inheritDoc} */

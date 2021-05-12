@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -54,7 +57,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override public Row marshal(Tuple keyTuple, Tuple valTuple) {
         final SchemaDescriptor schema = schemaMgr.schema();
 
-        assert keyTuple instanceof TupleBuilderImpl;
+        validate(keyTuple, schema.keyColumns());
 
         final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
 
@@ -65,6 +68,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         if (valTuple != null) {
+            validate(keyTuple, schema.valueColumns());
+
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);
 
@@ -73,6 +78,21 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         return new Row(schema, new ByteBufferRow(rowBuilder.build()));
+    }
+
+    /** */
+    private void validate(Tuple tuple, Columns columns) {
+        if (tuple instanceof TupleBuilderImpl) {
+            TupleBuilderImpl t0 = (TupleBuilderImpl)tuple;
+
+            SchemaDescriptor expSchema = schemaMgr.schema(t0.schema().version());
+
+            if (!Objects.equals(t0.schema(), expSchema))
+                throw new InvalidSchemaException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
+        }
+        else {
+            Arrays.stream(columns.columns()).forEach(c -> c.validate(tuple.value(c.name())));
+        }
     }
 
     /**

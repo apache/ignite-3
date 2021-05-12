@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.schema.ColumnType;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
@@ -63,9 +65,6 @@ public class NativeType implements Comparable<NativeType> {
      * @param len Type length.
      */
     protected NativeType(NativeTypeSpec typeSpec, int len) {
-        if (!typeSpec.fixedLength())
-            throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
-
         if (len <= 0)
             throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + len + ']');
 
@@ -102,6 +101,116 @@ public class NativeType implements Comparable<NativeType> {
      */
     public NativeTypeSpec spec() {
         return typeSpec;
+    }
+
+    /**
+     * Return the native type for specified object.
+     *
+     * @return {@code null} for {@code null} value. Otherwise returns NativeType according to the value's type.
+     */
+    public static NativeType fromObject(Object val) {
+        NativeTypeSpec spec = NativeTypeSpec.fromObject(val);
+
+        if (spec == null)
+            return null;
+
+        switch (spec) {
+            case BYTE:
+                return BYTE;
+
+            case SHORT:
+                return SHORT;
+
+            case INTEGER:
+                return INTEGER;
+
+            case LONG:
+                return LONG;
+
+            case FLOAT:
+                return FLOAT;
+
+            case DOUBLE:
+                return DOUBLE;
+
+            case UUID:
+                return UUID;
+
+            case STRING:
+                return new NativeType(NativeTypeSpec.STRING, ((String)val).length());
+
+            case BYTES:
+                return new NativeType(NativeTypeSpec.BYTE, ((byte[])val).length);
+
+            case BITMASK:
+                // TODO: what the object is present a bitmask?
+                return Bitmask.of(0);
+
+            default:
+                assert false : "Unexpected type: " + spec;
+                return null;
+        }
+    }
+
+    /** */
+    public static NativeType fromColumnType(ColumnType type) {
+        switch (type.typeSpec()) {
+            case INT8:
+                return BYTE;
+
+            case INT16:
+                return SHORT;
+
+            case INT32:
+                return INTEGER;
+
+            case INT64:
+                return LONG;
+
+            case UINT8:
+            case UINT16:
+            case UINT32:
+            case UINT64:
+                throw new UnsupportedOperationException("Unsigned types are not supported yet.");
+
+            case FLOAT:
+                return FLOAT;
+
+            case DOUBLE:
+                return DOUBLE;
+
+            case DECIMAL:
+                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)type;
+                return new NumericNativeType(numType.precision(), numType.scale());
+
+            case UUID:
+                return UUID;
+
+            case BITMASK:
+                return new Bitmask(((ColumnType.VarLenColumnType)type).length());
+
+            case STRING:
+                return new NativeType(NativeTypeSpec.STRING, ((ColumnType.VarLenColumnType)type).length());
+
+            case BLOB:
+                return new NativeType(NativeTypeSpec.BYTES, ((ColumnType.VarLenColumnType)type).length());
+
+            default:
+                assert false : "Unexpected type " + type;
+
+                return null;
+        }
+    }
+
+    /** */
+    public boolean match(NativeType type) {
+        if (this == type)
+            return true;
+
+        if (type == null)
+            return true;
+
+        return typeSpec == type.typeSpec && len >= type.len ;
     }
 
     /** {@inheritDoc} */
@@ -150,5 +259,56 @@ public class NativeType implements Comparable<NativeType> {
             "name", typeSpec.name(),
             "len", len,
             "fixed", typeSpec.fixedLength());
+    }
+
+    /**
+     * Numeric column type.
+     */
+    public static class NumericNativeType extends NativeType {
+        /** Precision. */
+        private final int precision;
+
+        /** Scale. */
+        private final int scale;
+
+        /** Constructor. */
+        private NumericNativeType(int precision, int scale) {
+            super(NativeTypeSpec.DECIMAL);
+
+            this.precision = precision;
+            this.scale = scale;
+        }
+
+        /**
+         * @return Precision.
+         */
+        public int precision() {
+            return precision;
+        }
+
+        /**
+         * @return Scale.
+         */
+        public int scale() {
+            return scale;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+            if (!super.equals(o))
+                return false;
+            NumericNativeType type = (NumericNativeType)o;
+            return precision == type.precision &&
+                scale == type.scale;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return Objects.hash(super.hashCode(), precision, scale);
+        }
     }
 }

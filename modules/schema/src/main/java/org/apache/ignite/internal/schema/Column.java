@@ -132,6 +132,26 @@ public class Column implements Comparable<Column> {
         return name.compareTo(o.name);
     }
 
+    /**
+     * Validate the object by column's constraint.
+     */
+    public void validate(Object val) {
+        if (val == null && !nullable) {
+            throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): " +
+                "[col=" + this + ']');
+        }
+
+        NativeType objType = NativeType.fromObject(val);
+
+        if (!type.match(objType)) {
+            throw new InvalidTypeException("Column's type mismatch [" +
+                "column=" + this +
+                ", expectedType=" + type +
+                ", actualType=" + objType +
+                ", val=" + val + ']');
+        }
+    }
+
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(Column.class, this);
