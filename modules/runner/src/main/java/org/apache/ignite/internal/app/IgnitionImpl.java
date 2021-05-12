@@ -120,7 +120,7 @@ public class IgnitionImpl implements Ignition {
                 locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
             }
             catch (Exception e) {
-                LOG.warn("Unable to parse user specific configuration, default configuration will be used", e);
+                LOG.warn("Unable to parse user specific configuration, default configuration will be used: " + e.getMessage());
             }
         else if (jsonStrBootstrapCfg != null)
             LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
