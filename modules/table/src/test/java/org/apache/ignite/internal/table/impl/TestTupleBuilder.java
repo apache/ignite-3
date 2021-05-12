@@ -47,6 +47,12 @@ public class TestTupleBuilder implements Tuple {
         return this;
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean contains(String colName) {
+        return map.containsKey(colName);
+    }
+
+    /** {@inheritDoc} */
     @Override public <T> T value(String colName) {
         return (T)map.get(colName);
     }

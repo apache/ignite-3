@@ -67,6 +67,11 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
         return this;
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean contains(String colName) {
+        return map.containsKey(colName);
+    }
+
     @Override public <T> T value(String colName) {
         return (T)map.get(colName);
     }

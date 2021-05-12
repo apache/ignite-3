@@ -141,7 +141,7 @@ public class NativeType implements Comparable<NativeType> {
                 return new NativeType(NativeTypeSpec.STRING, ((String)val).length());
 
             case BYTES:
-                return new NativeType(NativeTypeSpec.BYTE, ((byte[])val).length);
+                return new NativeType(NativeTypeSpec.BYTES, ((byte[])val).length);
 
             case BITMASK:
                 // TODO: what the object is present a bitmask?

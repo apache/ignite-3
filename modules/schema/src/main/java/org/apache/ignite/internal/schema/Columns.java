@@ -196,7 +196,7 @@ public class Columns {
         for (int i = 0; i < cp.length; i++) {
             Column c = cp[i];
 
-            cp[i] = new Column(schemaBaseIdx + i, c.name(), c.type(), c.nullable());
+            cp[i] = c.copy(schemaBaseIdx + i);
         }
 
         return cp;

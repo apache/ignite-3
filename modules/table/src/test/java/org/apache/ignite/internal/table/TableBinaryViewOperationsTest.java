@@ -332,6 +332,37 @@ public class TableBinaryViewOperationsTest {
     }
 
     /**
+     *
+     */
+    @Test
+    public void defaultValues() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+            1,
+            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {
+                new Column("val", NativeType.LONG, true, () -> 28L),
+                new Column("str", NativeType.fromColumnType(ColumnType.stringOf(3)), true, () -> "ABC"),
+                new Column("blob", NativeType.fromColumnType(ColumnType.blobOf(3)), true, () -> new byte[] {0, 1, 2})
+            }
+        );
+
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+
+        final Tuple keyTuple0 = tbl.tupleBuilder().set("id", 0L).build();
+        final Tuple keyTuple1 = tbl.tupleBuilder().set("id", 1L).build();
+
+        final Tuple tuple0 = tbl.tupleBuilder().set("id", 0L).build();
+        final Tuple tupleExpected0 = tbl.tupleBuilder().set("id", 0L).set("val", 28L).set("str", "ABC").set("blob", new byte[] {0, 1, 2}).build();
+        final Tuple tuple1 = tbl.tupleBuilder().set("id", 1L).set("val", null).set("str", null).set("blob", null).build();
+
+        tbl.insert(tuple0);
+        tbl.insert(tuple1);
+
+        assertEqualsRows(schema, tupleExpected0, tbl.get(keyTuple0));
+        assertEqualsRows(schema, tupleExpected0, tbl.get(keyTuple1));
+    }
+
+    /**
      * Check tuples equality.
      *
      * @param schema Schema.
@@ -382,7 +413,10 @@ public class TableBinaryViewOperationsTest {
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            Assertions.assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.schemaIndex());
+            if (val1 instanceof byte[] && val2 instanceof byte[])
+                Assertions.assertArrayEquals((byte[])val1, (byte[])val2, "Equality check failed: colIdx=" + col.schemaIndex());
+            else
+               Assertions.assertEquals(val1, val2, "Equality check failed: colIdx=" + col.schemaIndex());
         }
     }
 }
