@@ -79,6 +79,13 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     }
 
     /**
+     * @return The configuration.
+     */
+    protected ClusterConfig config() {
+        return ClusterConfig.defaultConfig();
+    }
+
+    /**
      * Convert string addresses to ScaleCube's {@link Address}es.
      * @param addresses "host:port" formatted strings.
      * @return List of addresses.

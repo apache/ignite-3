@@ -43,21 +43,13 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     private Cluster cluster;
 
     /**
-     * Utility map for recognizing cluster members by their addresses.
+     * Topology service.
      */
-    private final Map<Address, ClusterNode> addressMemberMap = new ConcurrentHashMap<>();
+    private ScaleCubeTopologyService topologyService;
 
     /** */
-    ScaleCubeMessagingService(TopologyService topologyService) {
-        topologyService.addEventHandler(new TopologyEventHandler() {
-            @Override public void onAppeared(ClusterNode member) {
-                addressMemberMap.put(clusterNodeAddress(member), member);
-            }
-
-            @Override public void onDisappeared(ClusterNode member) {
-                addressMemberMap.remove(clusterNodeAddress(member));
-            }
-        });
+    ScaleCubeMessagingService(ScaleCubeTopologyService topologyService) {
+        this.topologyService = topologyService;
     }
 
     /**
@@ -72,7 +64,11 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      */
     void fireEvent(Message message) {
         NetworkMessage msg = message.data();
-        ClusterNode sender = addressMemberMap.get(message.sender());
+        ClusterNode sender = topologyService.getByAddress(message.header(Message.HEADER_SENDER));
+
+        if (sender == null) // Ignore the message from the unknown node.
+            return;
+
         String correlationId = message.correlationId();
         for (NetworkMessageHandler handler : getMessageHandlers())
             handler.onReceived(msg, sender, correlationId);
