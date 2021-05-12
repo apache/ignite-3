@@ -64,11 +64,19 @@ public class SchemaDescriptor {
     }
 
     /**
-     * @param idx Index to check.
-     * @return {@code true} if the column belongs to the key chunk.
+     * @param idx Column index to check.
+     * @return {@code true} if the column belongs to the key chunk, {@code false} otherwise.
      */
     public boolean isKeyColumn(int idx) {
         return idx < keyCols.length();
+    }
+
+    /**
+     * @param idx Column index to check.
+     * @return {@code true} if the columns if key affinity column, {@code false} otherwise.
+     */
+    public boolean isAffinityColumn(int idx) {
+        return isKeyColumn(idx);
     }
 
     /**
