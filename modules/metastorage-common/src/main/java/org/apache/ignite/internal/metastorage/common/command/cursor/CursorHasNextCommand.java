@@ -15,19 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.metastorage.common.command.cursor;
 
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.metastorage.common.raft.MetaStorageCommandListener;
+import org.apache.ignite.raft.client.ReadCommand;
+import org.jetbrains.annotations.NotNull;
 
-public class NetworkException extends RuntimeException {
+/**
+ * Cursor {@code hasNext} command for {@link MetaStorageCommandListener} that checks whether next element is available.
+ */
+public class CursorHasNextCommand implements ReadCommand {
+    /** Cursor id. */
+    @NotNull private final IgniteUuid cursorId;
 
-    private final NetworkMessage errorResponse;
-
-    public NetworkException(NetworkMessage response) {
-        errorResponse = response;
+    /**
+     * @param cursorId Cursor id.
+     */
+    public CursorHasNextCommand(@NotNull IgniteUuid cursorId) {
+        this.cursorId = cursorId;
     }
 
-    public NetworkMessage getErrorResponse() {
-        return errorResponse;
+    /**
+     * @return Cursor id.
+     */
+    public @NotNull IgniteUuid cursorId() {
+        return cursorId;
     }
 }
