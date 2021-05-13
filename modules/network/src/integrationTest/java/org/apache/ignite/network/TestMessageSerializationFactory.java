@@ -21,8 +21,8 @@ import java.util.Map;
 import org.apache.ignite.network.internal.MessageReader;
 import org.apache.ignite.network.message.MessageDeserializer;
 import org.apache.ignite.network.message.MessageMappingException;
-import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.MessageSerializationFactory;
+import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**

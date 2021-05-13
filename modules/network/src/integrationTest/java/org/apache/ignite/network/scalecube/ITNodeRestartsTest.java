@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests if a topology size is correct after some nodes are restarted in quick succession.
  */
-public class ITNodeRestartsTest {
+class ITNodeRestartsTest {
     /** */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeRestartsTest.class);
 
