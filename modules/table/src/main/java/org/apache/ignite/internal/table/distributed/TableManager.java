@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -179,19 +177,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Checks whether the local node hosts Metastorage.
-     */
-    private boolean isLocalNodeInvolvedMetastorage() {
-        String localNodeName = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .name().value();
-
-        String[] metastorageMembers = configurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .metastorageNodes().value();
-
-        return Arrays.stream(metastorageMembers).anyMatch(name -> name.equals(localNodeName));
-    }
-
-    /**
      * Listens on a drop or create table.
      */
     private void listenForTableChange() {
@@ -206,14 +191,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
-            boolean onMetastorageNode = isLocalNodeInvolvedMetastorage();
+            boolean hasMetastorageLocally = MetaStorageManager.hasMetastorageLocally(configurationMgr);
 
             for (String tblName : tablesToStart) {
                 TableView tableView = ctx.newValue().get(tblName);
 
                 UUID tblId = new UUID(revision, 0L);
 
-                if (onMetastorageNode) {
+                if (hasMetastorageLocally) {
                     var key = new Key(INTERNAL_PREFIX + tblId.toString());
 
                     futs.add(metaStorageMgr.invoke(
@@ -254,7 +239,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 UUID tblId = t.internalTable().tableId();
 
-                if (onMetastorageNode) {
+                if (hasMetastorageLocally) {
                     var key = new Key(INTERNAL_PREFIX + tblId.toString());
 
                     futs.add(affMgr.removeAssignment(tblId).thenCompose(res ->
