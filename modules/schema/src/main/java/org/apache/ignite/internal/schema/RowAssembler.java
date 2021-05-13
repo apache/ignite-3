@@ -322,7 +322,7 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendBytes(byte[] val) {
-        checkType(NativeType.BYTES);
+        checkType(VarlenNativeType.BYTES);
 
         buf.putBytes(curOff, val);
 
@@ -341,7 +341,7 @@ public class RowAssembler {
 
         checkType(NativeTypeSpec.BITMASK);
 
-        Bitmask maskType = (Bitmask)col.type();
+        BitmaskNativeType maskType = (BitmaskNativeType)col.type();
 
         if (bitSet.length() > maskType.bits())
             throw new IllegalArgumentException("Failed to set bitmask for column '" + col.name() + "' " +

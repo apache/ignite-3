@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.BitSet;
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.ColumnType;
 
@@ -46,12 +45,6 @@ public class NativeType implements Comparable<NativeType> {
 
     /** */
     public static final NativeType UUID = new NativeType(NativeTypeSpec.UUID, 16);
-
-    /** */
-    public static final NativeType STRING = new VarlenNativeType(NativeTypeSpec.STRING, 0);
-
-    /** */
-    public static final NativeType BYTES = new NativeType(NativeTypeSpec.BYTES);
 
     /** */
     private final NativeTypeSpec typeSpec;
@@ -147,7 +140,7 @@ public class NativeType implements Comparable<NativeType> {
                 return new VarlenNativeType(NativeTypeSpec.BYTES, ((byte[])val).length);
 
             case BITMASK:
-                return Bitmask.of(((BitSet)val).length());
+                return BitmaskNativeType.of(((BitSet)val).length());
 
             default:
                 assert false : "Unexpected type: " + spec;
@@ -190,7 +183,7 @@ public class NativeType implements Comparable<NativeType> {
                 return UUID;
 
             case BITMASK:
-                return new Bitmask(((ColumnType.VarLenColumnType)type).length());
+                return new BitmaskNativeType(((ColumnType.VarLenColumnType)type).length());
 
             case STRING:
                 return new VarlenNativeType(NativeTypeSpec.STRING, ((ColumnType.VarLenColumnType)type).length());
@@ -204,14 +197,8 @@ public class NativeType implements Comparable<NativeType> {
     }
 
     /** */
-    public boolean match(NativeType type) {
-        if (this == type)
-            return true;
-
-        if (type == null)
-            return true;
-
-        return typeSpec == type.typeSpec;
+    public boolean mismatch(NativeType type) {
+        return this != type && type != null && typeSpec != type.typeSpec;
     }
 
     /** {@inheritDoc} */
@@ -262,94 +249,4 @@ public class NativeType implements Comparable<NativeType> {
             "fixed", typeSpec.fixedLength());
     }
 
-    /**
-     * Types with various length (STRING, BYTES).
-     */
-    public static class VarlenNativeType extends NativeType {
-        /** Length of the type. */
-        private final int len;
-
-        /**
-         * @param typeSpec Type spec.
-         * @param len Type length.
-         */
-        protected VarlenNativeType(NativeTypeSpec typeSpec, int len) {
-            super(typeSpec);
-
-            this.len = len > 0 ? len : Integer.MAX_VALUE;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean match(NativeType type) {
-            if (type == null)
-                return true;
-
-            return super.match(type) && len >= ((VarlenNativeType)type).len;
-        }
-    }
-
-    /**
-     * Numeric column type.
-     */
-    public static class NumericNativeType extends NativeType {
-        /** Precision. */
-        private final int precision;
-
-        /** Scale. */
-        private final int scale;
-
-        /** Constructor. */
-        private NumericNativeType(int precision, int scale) {
-            super(NativeTypeSpec.DECIMAL);
-
-            this.precision = precision;
-            this.scale = scale;
-        }
-
-        /**
-         * @return Precision.
-         */
-        public int precision() {
-            return precision;
-        }
-
-        /**
-         * @return Scale.
-         */
-        public int scale() {
-            return scale;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean match(NativeType type) {
-            if (type == null)
-                return true;
-
-            return super.match(type)
-                && precision >= ((NumericNativeType)type).precision
-                && scale >= ((NumericNativeType)type).scale;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o)
-                return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            if (!super.equals(o))
-                return false;
-
-            NumericNativeType type = (NumericNativeType)o;
-
-            return precision == type.precision &&
-                scale == type.scale;
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return Objects.hash(super.hashCode(), precision, scale);
-        }
-    }
 }

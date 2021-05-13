@@ -19,6 +19,8 @@ package org.apache.ignite.internal.schema;
 
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.internal.schema.VarlenNativeType.BYTES;
+import static org.apache.ignite.internal.schema.VarlenNativeType.STRING;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -30,17 +32,17 @@ public class NativeTypeTest {
      */
     @Test
     public void testCompareFixlenTypesVsVarlenTypes() {
-        assertTrue(NativeType.BYTE.compareTo(NativeType.STRING) < 0);
-        assertTrue(NativeType.BYTE.compareTo(NativeType.BYTES) < 0);
+        assertTrue(NativeType.BYTE.compareTo(STRING) < 0);
+        assertTrue(NativeType.BYTE.compareTo(BYTES) < 0);
 
-        assertTrue(NativeType.INTEGER.compareTo(NativeType.STRING) < 0);
-        assertTrue(NativeType.INTEGER.compareTo(NativeType.BYTES) < 0);
+        assertTrue(NativeType.INTEGER.compareTo(STRING) < 0);
+        assertTrue(NativeType.INTEGER.compareTo(BYTES) < 0);
 
-        assertTrue(NativeType.LONG.compareTo(NativeType.STRING) < 0);
-        assertTrue(NativeType.LONG.compareTo(NativeType.BYTES) < 0);
+        assertTrue(NativeType.LONG.compareTo(STRING) < 0);
+        assertTrue(NativeType.LONG.compareTo(BYTES) < 0);
 
-        assertTrue(NativeType.UUID.compareTo(NativeType.STRING) < 0);
-        assertTrue(NativeType.UUID.compareTo(NativeType.BYTES) < 0);
+        assertTrue(NativeType.UUID.compareTo(STRING) < 0);
+        assertTrue(NativeType.UUID.compareTo(BYTES) < 0);
     }
 
     /**
@@ -66,6 +68,6 @@ public class NativeTypeTest {
      */
     @Test
     public void testCompareVarlenTypesByDesc() {
-        assertTrue(NativeType.BYTES.compareTo(NativeType.STRING) < 0);
+        assertTrue(BYTES.compareTo(STRING) < 0);
     }
 }

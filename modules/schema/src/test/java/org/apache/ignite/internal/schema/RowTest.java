@@ -25,14 +25,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.NativeType.BYTE;
-import static org.apache.ignite.internal.schema.NativeType.BYTES;
 import static org.apache.ignite.internal.schema.NativeType.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeType.FLOAT;
 import static org.apache.ignite.internal.schema.NativeType.INTEGER;
 import static org.apache.ignite.internal.schema.NativeType.LONG;
 import static org.apache.ignite.internal.schema.NativeType.SHORT;
-import static org.apache.ignite.internal.schema.NativeType.STRING;
 import static org.apache.ignite.internal.schema.NativeType.UUID;
+import static org.apache.ignite.internal.schema.VarlenNativeType.BYTES;
+import static org.apache.ignite.internal.schema.VarlenNativeType.STRING;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -68,8 +68,8 @@ public class RowTest {
             new Column("keyFloatCol", FLOAT, true),
             new Column("keyDoubleCol", DOUBLE, true),
             new Column("keyUuidCol", UUID, true),
-            new Column("keyBitmask1Col", Bitmask.of(4), true),
-            new Column("keyBitmask2Col", Bitmask.of(22), true)
+            new Column("keyBitmask1Col", BitmaskNativeType.of(4), true),
+            new Column("keyBitmask2Col", BitmaskNativeType.of(22), true)
         };
 
         Column[] valCols = new Column[] {
@@ -80,8 +80,8 @@ public class RowTest {
             new Column("valFloatCol", FLOAT, true),
             new Column("valDoubleCol", DOUBLE, true),
             new Column("valUuidCol", UUID, true),
-            new Column("valBitmask1Col", Bitmask.of(4), true),
-            new Column("valBitmask2Col", Bitmask.of(22), true)
+            new Column("valBitmask1Col", BitmaskNativeType.of(4), true),
+            new Column("valBitmask2Col", BitmaskNativeType.of(22), true)
         };
 
         checkSchema(keyCols, valCols);

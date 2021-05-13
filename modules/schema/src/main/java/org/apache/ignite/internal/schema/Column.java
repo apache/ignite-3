@@ -183,7 +183,7 @@ public class Column implements Comparable<Column> {
 
         NativeType objType = NativeType.fromObject(val);
 
-        if (!type.match(objType)) {
+        if (type.mismatch(objType)) {
             throw new InvalidTypeException("Column's type mismatch [" +
                 "column=" + this +
                 ", expectedType=" + type +

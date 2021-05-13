@@ -23,7 +23,7 @@ import org.apache.ignite.internal.tostring.S;
  * A fixed-sized type representing a bitmask of <code>n</code> bits. The actual size of a bitmask will round up
  * to the smallest number of bytes required to store <code>n</code> bits.
  */
-public class Bitmask extends NativeType {
+public class BitmaskNativeType extends NativeType {
     /** */
     private final int bits;
 
@@ -33,8 +33,8 @@ public class Bitmask extends NativeType {
      * @param nBits Maximum number of bits in the bitmask.
      * @return Bitmask type.
      */
-    public static Bitmask of(int nBits) {
-        return new Bitmask(nBits);
+    public static BitmaskNativeType of(int nBits) {
+        return new BitmaskNativeType(nBits);
     }
 
     /**
@@ -42,7 +42,7 @@ public class Bitmask extends NativeType {
      *
      * @param bits The number of bits in the bitmask.
      */
-    protected Bitmask(int bits) {
+    protected BitmaskNativeType(int bits) {
         super(NativeTypeSpec.BITMASK, (bits + 7) / 8);
 
         this.bits = bits;
@@ -63,7 +63,7 @@ public class Bitmask extends NativeType {
         if (o == null || getClass() != o.getClass())
             return false;
 
-        Bitmask that = (Bitmask)o;
+        BitmaskNativeType that = (BitmaskNativeType)o;
 
         return bits == that.bits;
     }
@@ -79,7 +79,7 @@ public class Bitmask extends NativeType {
 
         if (res == 0) {
             // The passed in object is also a bitmask, compare the number of bits.
-            Bitmask that = (Bitmask)o;
+            BitmaskNativeType that = (BitmaskNativeType)o;
 
             return Integer.compare(bits, that.bits);
         }
@@ -89,6 +89,6 @@ public class Bitmask extends NativeType {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(Bitmask.class.getSimpleName(), "bits", bits, "typeSpec", spec(), "len", sizeInBytes());
+        return S.toString(BitmaskNativeType.class.getSimpleName(), "bits", bits, "typeSpec", spec(), "len", sizeInBytes());
     }
 }

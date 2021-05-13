@@ -23,7 +23,7 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.Bitmask;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
@@ -38,14 +38,14 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import static org.apache.ignite.internal.schema.NativeType.BYTE;
-import static org.apache.ignite.internal.schema.NativeType.BYTES;
 import static org.apache.ignite.internal.schema.NativeType.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeType.FLOAT;
 import static org.apache.ignite.internal.schema.NativeType.INTEGER;
 import static org.apache.ignite.internal.schema.NativeType.LONG;
 import static org.apache.ignite.internal.schema.NativeType.SHORT;
-import static org.apache.ignite.internal.schema.NativeType.STRING;
 import static org.apache.ignite.internal.schema.NativeType.UUID;
+import static org.apache.ignite.internal.schema.VarlenNativeType.BYTES;
+import static org.apache.ignite.internal.schema.VarlenNativeType.STRING;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -90,7 +90,7 @@ public class FieldAccessorTest {
             new Column("doubleCol", DOUBLE, false),
 
             new Column("uuidCol", UUID, false),
-            new Column("bitmaskCol", Bitmask.of(9), false),
+            new Column("bitmaskCol", BitmaskNativeType.of(9), false),
             new Column("stringCol", STRING, false),
             new Column("bytesCol", BYTES, false),
         };
