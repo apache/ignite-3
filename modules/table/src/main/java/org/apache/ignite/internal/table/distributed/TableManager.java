@@ -271,10 +271,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 futs.add(metaStorageMgr.invoke(
                     Conditions.key(key).value().ne(null),
                     Operations.remove(key),
-                    Operations.noop()).thenCompose(res ->
-                    res ? metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tblId.toString()))
-                        .thenApply(v -> true)
-                        : CompletableFuture.completedFuture(false)));
+                    Operations.noop())
+                    .thenCompose(res -> schemaManager.unregisterSchemas(tblId))
+                    .thenCompose(res ->
+                        res ? metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tblId.toString()))
+                            .thenApply(v -> true)
+                            : CompletableFuture.completedFuture(false)));
             }
 
             return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));

@@ -111,6 +111,8 @@ public class SchemaManager {
                             schemes.put(tblId, new SchemaRegistryImpl());
                         else if (evt.newEntry() == null) // Table Dropped.
                             schemes.remove(tblId);
+                        else //TODO: https://issues.apache.org/jira/browse/IGNITE-13752
+                            throw new SchemaRegistryException("Schema upgrade is not implemented yet.");
                     }
                     else {
                         UUID tblId = UUID.fromString(keyTail.substring(0, verPos));
