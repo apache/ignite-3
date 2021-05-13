@@ -147,7 +147,7 @@ public class RowTest {
      *
      */
     private void checkSchemaShuffled(Column[] keyCols, Column[] valCols) {
-        SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
 
         Object[] checkArr = sequence(sch);
 

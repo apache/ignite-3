@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.BitSet;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.ColumnType;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
@@ -48,7 +48,7 @@ public class NativeType implements Comparable<NativeType> {
     public static final NativeType UUID = new NativeType(NativeTypeSpec.UUID, 16);
 
     /** */
-    public static final NativeType STRING = new NativeType(NativeTypeSpec.STRING);
+    public static final NativeType STRING = new VarlenNativeType(NativeTypeSpec.STRING, 0);
 
     /** */
     public static final NativeType BYTES = new NativeType(NativeTypeSpec.BYTES);
@@ -56,21 +56,24 @@ public class NativeType implements Comparable<NativeType> {
     /** */
     private final NativeTypeSpec typeSpec;
 
-    /** Type length. */
-    private final int len;
+    /** Type size in bytes. */
+    private final int sizeInBytes;
 
     /**
      * Constructor for fixed-length types.
      *
      * @param typeSpec Type spec.
-     * @param len Type length.
+     * @param sizeInBytes Type size in bytes.
      */
-    protected NativeType(NativeTypeSpec typeSpec, int len) {
-        if (len <= 0)
-            throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + len + ']');
+    protected NativeType(NativeTypeSpec typeSpec, int sizeInBytes) {
+        if (!typeSpec.fixedLength())
+            throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
+
+        if (sizeInBytes <= 0)
+            throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + sizeInBytes + ']');
 
         this.typeSpec = typeSpec;
-        this.len = len;
+        this.sizeInBytes = sizeInBytes;
     }
 
     /**
@@ -84,17 +87,17 @@ public class NativeType implements Comparable<NativeType> {
                 "length-aware constructor: " + typeSpec);
 
         this.typeSpec = typeSpec;
-        this.len = 0;
+        this.sizeInBytes = 0;
     }
 
     /**
-     * @return Length of the type if it is a fixlen type. For varlen types the return value is undefined, so the user
+     * @return Size in bytes of the type if it is a fixlen type. For varlen types the return value is undefined, so the user
      * should explicitly check {@code spec().fixedLength()} before using this method.
      *
      * @see NativeTypeSpec#fixedLength()
      */
-    public int length() {
-        return len;
+    public int sizeInBytes() {
+        return sizeInBytes;
     }
 
     /**
@@ -138,14 +141,13 @@ public class NativeType implements Comparable<NativeType> {
                 return UUID;
 
             case STRING:
-                return new NativeType(NativeTypeSpec.STRING, ((String)val).length());
+                return new VarlenNativeType(NativeTypeSpec.STRING, ((String)val).length());
 
             case BYTES:
-                return new NativeType(NativeTypeSpec.BYTES, ((byte[])val).length);
+                return new VarlenNativeType(NativeTypeSpec.BYTES, ((byte[])val).length);
 
             case BITMASK:
-                // TODO: what the object is present a bitmask?
-                return Bitmask.of(0);
+                return Bitmask.of(((BitSet)val).length());
 
             default:
                 assert false : "Unexpected type: " + spec;
@@ -154,7 +156,7 @@ public class NativeType implements Comparable<NativeType> {
     }
 
     /** */
-    public static NativeType fromColumnType(ColumnType type) {
+    public static NativeType of(ColumnType type) {
         switch (type.typeSpec()) {
             case INT8:
                 return BYTE;
@@ -191,15 +193,13 @@ public class NativeType implements Comparable<NativeType> {
                 return new Bitmask(((ColumnType.VarLenColumnType)type).length());
 
             case STRING:
-                return new NativeType(NativeTypeSpec.STRING, ((ColumnType.VarLenColumnType)type).length());
+                return new VarlenNativeType(NativeTypeSpec.STRING, ((ColumnType.VarLenColumnType)type).length());
 
             case BLOB:
-                return new NativeType(NativeTypeSpec.BYTES, ((ColumnType.VarLenColumnType)type).length());
+                return new VarlenNativeType(NativeTypeSpec.BYTES, ((ColumnType.VarLenColumnType)type).length());
 
             default:
-                assert false : "Unexpected type " + type;
-
-                return null;
+                throw new InvalidTypeException("Unexpected type " + type);
         }
     }
 
@@ -211,7 +211,7 @@ public class NativeType implements Comparable<NativeType> {
         if (type == null)
             return true;
 
-        return typeSpec == type.typeSpec && len >= type.len;
+        return typeSpec == type.typeSpec;
     }
 
     /** {@inheritDoc} */
@@ -224,14 +224,14 @@ public class NativeType implements Comparable<NativeType> {
 
         NativeType that = (NativeType)o;
 
-        return len == that.len && typeSpec == that.typeSpec;
+        return sizeInBytes == that.sizeInBytes && typeSpec == that.typeSpec;
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
         int res = typeSpec.hashCode();
 
-        res = 31 * res + len;
+        res = 31 * res + sizeInBytes;
 
         return res;
     }
@@ -239,14 +239,14 @@ public class NativeType implements Comparable<NativeType> {
     /** {@inheritDoc} */
     @Override public int compareTo(NativeType o) {
         // Fixed-sized types go first.
-        if (len <= 0 && o.len > 0)
+        if (sizeInBytes <= 0 && o.sizeInBytes > 0)
             return 1;
 
-        if (len > 0 && o.len <= 0)
+        if (sizeInBytes > 0 && o.sizeInBytes <= 0)
             return -1;
 
         // Either size is -1 for both, or positive for both. Compare sizes, then description.
-        int cmp = Integer.compare(len, o.len);
+        int cmp = Integer.compare(sizeInBytes, o.sizeInBytes);
 
         if (cmp != 0)
             return cmp;
@@ -258,8 +258,34 @@ public class NativeType implements Comparable<NativeType> {
     @Override public String toString() {
         return S.toString(NativeType.class.getSimpleName(),
             "name", typeSpec.name(),
-            "len", len,
+            "len", sizeInBytes,
             "fixed", typeSpec.fixedLength());
+    }
+
+    /**
+     * Types with various length (STRING, BYTES).
+     */
+    public static class VarlenNativeType extends NativeType {
+        /** Length of the type. */
+        private final int len;
+
+        /**
+         * @param typeSpec Type spec.
+         * @param len Type length.
+         */
+        protected VarlenNativeType(NativeTypeSpec typeSpec, int len) {
+            super(typeSpec);
+
+            this.len = len > 0 ? len : Integer.MAX_VALUE;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean match(NativeType type) {
+            if (type == null)
+                return true;
+
+            return super.match(type) && len >= ((VarlenNativeType)type).len;
+        }
     }
 
     /**
@@ -295,14 +321,28 @@ public class NativeType implements Comparable<NativeType> {
         }
 
         /** {@inheritDoc} */
+        @Override public boolean match(NativeType type) {
+            if (type == null)
+                return true;
+
+            return super.match(type)
+                && precision >= ((NumericNativeType)type).precision
+                && scale >= ((NumericNativeType)type).scale;
+        }
+
+        /** {@inheritDoc} */
         @Override public boolean equals(Object o) {
             if (this == o)
                 return true;
+
             if (o == null || getClass() != o.getClass())
                 return false;
+
             if (!super.equals(o))
                 return false;
+
             NumericNativeType type = (NumericNativeType)o;
+
             return precision == type.precision &&
                 scale == type.scale;
         }

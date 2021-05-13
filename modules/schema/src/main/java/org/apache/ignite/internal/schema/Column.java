@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Column description for a type schema. Column contains a column name, a column type and a nullability flag.
@@ -27,6 +28,9 @@ import org.apache.ignite.internal.tostring.S;
  * flag is not taken into account when columns are compared.
  */
 public class Column implements Comparable<Column> {
+    /** Default return NULL. */
+    private static final Supplier<Object> NULL_DEFAULT_SUPPLUER = () -> null;
+
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
 
@@ -60,7 +64,7 @@ public class Column implements Comparable<Column> {
         NativeType type,
         boolean nullable
     ) {
-        this(-1, name, type, nullable, null);
+        this(-1, name, type, nullable, NULL_DEFAULT_SUPPLUER);
     }
 
     /**
@@ -73,7 +77,7 @@ public class Column implements Comparable<Column> {
         String name,
         NativeType type,
         boolean nullable,
-        Supplier<Object> defValSup
+        @NotNull Supplier<Object> defValSup
     ) {
         this(-1, name, type, nullable, defValSup);
     }
@@ -89,7 +93,7 @@ public class Column implements Comparable<Column> {
         String name,
         NativeType type,
         boolean nullable,
-        Supplier<Object> defValSup
+        @NotNull Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.name = name;
@@ -132,7 +136,7 @@ public class Column implements Comparable<Column> {
      * @return Default value.
      */
     public Object defaultValue() {
-        Object val = defValSup != null ? defValSup.get() : null;
+        Object val = defValSup.get();
 
         assert nullable || val != null : "Null value is not accepted for not nullable column: [col=" + this + ']';
 

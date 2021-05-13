@@ -95,11 +95,15 @@ public class DistributedTableTest {
     private ClusterService client;
 
     /** Schema. */
-    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(1, new Column[] {
-        new Column("key", NativeType.LONG, false)
-    }, new Column[] {
-        new Column("value", NativeType.LONG, false)
-    });
+    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
+        1,
+        new Column[] {
+            new Column("key", NativeType.LONG, false)
+        },
+        new Column[] {
+            new Column("value", NativeType.LONG, false)
+        }
+    );
 
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();

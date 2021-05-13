@@ -89,6 +89,6 @@ public class Bitmask extends NativeType {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(Bitmask.class.getSimpleName(), "bits", bits, "typeSpec", spec(), "len", length());
+        return S.toString(Bitmask.class.getSimpleName(), "bits", bits, "typeSpec", spec(), "len", sizeInBytes());
     }
 }

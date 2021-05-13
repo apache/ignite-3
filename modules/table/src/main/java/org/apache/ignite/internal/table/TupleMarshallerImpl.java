@@ -70,7 +70,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         if (valTuple != null) {
-            validate(keyTuple, schema.valueColumns());
+            validate(valTuple, schema.valueColumns());
 
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);

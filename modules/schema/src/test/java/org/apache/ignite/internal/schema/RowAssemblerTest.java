@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.UUID;
+import org.apache.ignite.schema.ColumnType;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.NativeType.BYTE;
@@ -36,12 +37,15 @@ public class RowAssemblerTest {
     /** Uuid test value. */
     public final java.util.UUID uuidVal = new UUID(-5204230847775358097L, 4916207022290092939L);
 
+    /** Table ID test value. */
+    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
     @Test
     public void testFixedKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, false)};
         Column[] valCols = new Column[] {new Column("valIntCol", INTEGER, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -75,7 +79,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         { // With value.
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -98,9 +102,9 @@ public class RowAssemblerTest {
     @Test
     public void testFixedKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
-        Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
+        Column[] valCols = new Column[] {new Column("valStrCol", NativeType.of(ColumnType.string()), true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -132,9 +136,9 @@ public class RowAssemblerTest {
     @Test
     public void testFixedKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
-        Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
+        Column[] valCols = new Column[] {new Column("valStrCol", NativeType.of(ColumnType.string()), false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -159,7 +163,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valByteCol", BYTE, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -193,7 +197,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -243,9 +247,9 @@ public class RowAssemblerTest {
     @Test
     public void testFixedNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, true)};
-        Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
+        Column[] valCols = new Column[] {new Column("valStrCol", NativeType.of(ColumnType.string()), true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -295,9 +299,9 @@ public class RowAssemblerTest {
     @Test
     public void testFixedNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyByteCol", BYTE, true)};
-        Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
+        Column[] valCols = new Column[] {new Column("valStrCol", NativeType.of(ColumnType.string()), false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -328,10 +332,10 @@ public class RowAssemblerTest {
 
     @Test
     public void testVarlenKeyFixedNullableValue() {
-        Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
+        Column[] keyCols = new Column[] {new Column("keyStrCol", NativeType.of(ColumnType.string()), false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -364,10 +368,10 @@ public class RowAssemblerTest {
 
     @Test
     public void testVarlenKeyFixedValue() {
-        Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
+        Column[] keyCols = new Column[] {new Column("keyStrCol", NativeType.of(ColumnType.string()), false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -391,10 +395,10 @@ public class RowAssemblerTest {
 
     @Test
     public void testVarlenKeyVarlenNullableValue() {
-        Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
+        Column[] keyCols = new Column[] {new Column("keyStrCol", NativeType.of(ColumnType.string()), false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -428,7 +432,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -453,7 +457,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -505,7 +509,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -539,7 +543,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -591,7 +595,7 @@ public class RowAssemblerTest {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);

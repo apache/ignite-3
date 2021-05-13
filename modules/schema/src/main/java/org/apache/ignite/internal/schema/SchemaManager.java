@@ -39,7 +39,7 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
     public SchemaManager(ConfigurationManager configurationMgr) {
         this.configurationMgr = configurationMgr;
 
-        this.schema = new SchemaDescriptor(1,
+        this.schema = new SchemaDescriptor(UUID.randomUUID(), 1,
             new Column[] {
                 new Column("key", NativeType.LONG, false)
             },

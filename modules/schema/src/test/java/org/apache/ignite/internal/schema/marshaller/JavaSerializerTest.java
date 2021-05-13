@@ -71,6 +71,9 @@ import static org.junit.jupiter.api.DynamicTest.dynamicTest;
  * Serializer test.
  */
 public class JavaSerializerTest {
+    /** Table ID test value. */
+    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
     /**
      * @return List of serializers for test.
      */
@@ -153,7 +156,7 @@ public class JavaSerializerTest {
             new Column("bytesCol", BYTES, true),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
 
         final Object key = TestObject.randomObject(rnd);
         final Object val = TestObject.randomObject(rnd);
@@ -184,7 +187,7 @@ public class JavaSerializerTest {
             new Column("bitmaskCol", Bitmask.of(9), true),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
 
         final Object key = TestObject.randomObject(rnd);
         final Object val = TestObject.randomObject(rnd);
@@ -209,7 +212,7 @@ public class JavaSerializerTest {
             new Column("shortCol", UUID, true)
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
 
         final Object key = TestObject.randomObject(rnd);
         final Object val = TestObject.randomObject(rnd);
@@ -233,7 +236,7 @@ public class JavaSerializerTest {
             new Column("pLongCol", LONG, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
 
         final Object key = TestObjectWithPrivateConstructor.randomObject(rnd);
         final Object val = TestObjectWithPrivateConstructor.randomObject(rnd);
@@ -262,7 +265,7 @@ public class JavaSerializerTest {
             new Column("pLongCol", LONG, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
 
         final Object key = WrongTestObject.randomObject(rnd);
         final Object val = WrongTestObject.randomObject(rnd);
@@ -280,7 +283,7 @@ public class JavaSerializerTest {
             new Column("pLongCol", LONG, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
 
         final Object key = PrivateTestObject.randomObject(rnd);
         final Object val = PrivateTestObject.randomObject(rnd);
@@ -316,7 +319,7 @@ public class JavaSerializerTest {
                 new Column("col2", LONG, false),
             };
 
-            SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+            SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, keyCols, valCols);
 
             final Class<?> valClass = createGeneratedObjectClass(long.class);
             final ObjectFactory<?> objFactory = new ObjectFactory<>(valClass);
@@ -355,7 +358,7 @@ public class JavaSerializerTest {
         Column[] keyCols = new Column[] {new Column("key", keyType, false)};
         Column[] valCols = new Column[] {new Column("val", valType, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, keyCols, valCols);
 
         Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
 

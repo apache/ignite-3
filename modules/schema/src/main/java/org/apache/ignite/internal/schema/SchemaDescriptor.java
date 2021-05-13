@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,6 +31,9 @@ import org.jetbrains.annotations.Nullable;
  * Full schema descriptor containing key columns chunk, value columns chunk, and schema version.
  */
 public class SchemaDescriptor {
+    /** Table identifier.*/
+    private final UUID tableId;
+
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
@@ -47,7 +51,8 @@ public class SchemaDescriptor {
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Column[] keyCols, Column[] valCols) {
+    public SchemaDescriptor(UUID tableId, int ver, Column[] keyCols, Column[] valCols) {
+        this.tableId = tableId;
         this.ver = ver;
         this.keyCols = new Columns(0, keyCols);
         this.valCols = new Columns(keyCols.length, valCols);
@@ -56,6 +61,13 @@ public class SchemaDescriptor {
 
         Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
         Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
+    }
+
+    /**
+     * @return Table identifier.
+     */
+    public UUID tableId() {
+        return tableId;
     }
 
     /**
@@ -117,27 +129,6 @@ public class SchemaDescriptor {
      */
     public @Nullable Column column(@NotNull String name) {
         return colMap.get(name);
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
-        if (this == o)
-            return true;
-
-        if (o == null || getClass() != o.getClass())
-            return false;
-
-        SchemaDescriptor that = (SchemaDescriptor)o;
-
-        return ver == that.ver
-            && Objects.equals(keyCols, that.keyCols)
-            && Objects.equals(valCols, that.valCols)
-            && Objects.equals(colMap, that.colMap);
-    }
-
-    /** {@inheritDoc} */
-    @Override public int hashCode() {
-        return Objects.hash(ver, keyCols, valCols, colMap);
     }
 
     /** {@inheritDoc} */

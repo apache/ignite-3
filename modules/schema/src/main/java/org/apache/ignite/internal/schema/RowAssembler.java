@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow.RowFlags;
+import org.apache.ignite.schema.ColumnType;
 
 import static org.apache.ignite.internal.schema.BinaryRow.VARLEN_COLUMN_OFFSET_FIELD_SIZE;
 import static org.apache.ignite.internal.schema.BinaryRow.VARLEN_TABLE_SIZE_FIELD_SIZE;
@@ -145,7 +146,7 @@ public class RowAssembler {
             varlenTableChunkSize(nonNullVarlenCols);
 
         for (int i = 0; i < cols.numberOfFixsizeColumns(); i++)
-            size += cols.column(i).type().length();
+            size += cols.column(i).type().sizeInBytes();
 
         return size + nonNullVarlenSize;
     }
@@ -301,7 +302,7 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendString(String val) {
-        checkType(NativeType.STRING);
+        checkType(NativeType.of(ColumnType.stringOf(10)));
 
         try {
             int written = buf.putString(curOff, val, encoder());
@@ -350,7 +351,7 @@ public class RowAssembler {
 
         buf.putBytes(curOff, arr);
 
-        for (int i = 0; i < maskType.length() - arr.length; i++)
+        for (int i = 0; i < maskType.sizeInBytes() - arr.length; i++)
             buf.put(curOff + arr.length + i, (byte)0);
 
         shiftColumn(maskType);
@@ -442,7 +443,7 @@ public class RowAssembler {
     private void shiftColumn(NativeType type) {
         assert type.spec().fixedLength() : "Varlen types should provide field length to shift column: " + type;
 
-        shiftColumn(type.length(), false);
+        shiftColumn(type.sizeInBytes(), false);
     }
 
     /**

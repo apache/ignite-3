@@ -35,12 +35,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * <p>
  */
 public class StrictSchemaOperationsTest {
+    /** Table ID test value. */
+    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
     /**
      *
      */
     @Test
     public void testColumnNotExist() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -57,11 +61,12 @@ public class StrictSchemaOperationsTest {
     @Test
     public void testTypeMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {
-                new Column("valString", NativeType.fromColumnType(ColumnType.stringOf(3)), true),
-                new Column("valBytes", NativeType.fromColumnType(ColumnType.blobOf(3)), true)
+                new Column("valString", NativeType.of(ColumnType.stringOf(3)), true),
+                new Column("valBytes", NativeType.of(ColumnType.blobOf(3)), true)
             }
         );
 

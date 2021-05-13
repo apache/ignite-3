@@ -43,12 +43,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO: IGNITE-14486 Add tests for async operations.
  */
 public class TableBinaryViewOperationsTest {
+    /** Table ID test value. */
+    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
     /**
      *
      */
     @Test
     public void testInsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -83,6 +87,7 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void testUpsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -118,6 +123,7 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void testGetAndUpsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -150,6 +156,7 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void testRemove() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -180,6 +187,7 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void testRemoveExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -231,6 +239,7 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void testReplace() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -266,6 +275,7 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void testReplaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -302,12 +312,13 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void validateSchema() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {
                 new Column("val", NativeType.LONG, true),
-                new Column("str", NativeType.fromColumnType(ColumnType.stringOf(3)), true),
-                new Column("blob", NativeType.fromColumnType(ColumnType.blobOf(3)), true)
+                new Column("str", NativeType.of(ColumnType.stringOf(3)), true),
+                new Column("blob", NativeType.of(ColumnType.blobOf(3)), true)
             }
         );
 
@@ -337,12 +348,13 @@ public class TableBinaryViewOperationsTest {
     @Test
     public void defaultValues() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {
                 new Column("val", NativeType.LONG, true, () -> 28L),
-                new Column("str", NativeType.fromColumnType(ColumnType.stringOf(3)), true, () -> "ABC"),
-                new Column("blob", NativeType.fromColumnType(ColumnType.blobOf(3)), true, () -> new byte[] {0, 1, 2})
+                new Column("str", NativeType.of(ColumnType.stringOf(3)), true, () -> "ABC"),
+                new Column("blob", NativeType.of(ColumnType.blobOf(3)), true, () -> new byte[] {0, 1, 2})
             }
         );
 
@@ -359,7 +371,7 @@ public class TableBinaryViewOperationsTest {
         tbl.insert(tuple1);
 
         assertEqualsRows(schema, tupleExpected0, tbl.get(keyTuple0));
-        assertEqualsRows(schema, tupleExpected0, tbl.get(keyTuple1));
+        assertEqualsRows(schema, tuple1, tbl.get(keyTuple1));
     }
 
     /**

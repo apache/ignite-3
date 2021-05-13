@@ -422,7 +422,7 @@ public class ColumnsTest {
                     mask |= (1 << bit);
                 else
                     // non-null, sum the size.
-                    size += colDef[idx].type().length();
+                    size += colDef[idx].type().sizeInBytes();
             }
 
             assertEquals(size, cols.foldFixedLength(b, mask), "Failed [b=" + b + ", mask=" + mask + ']');

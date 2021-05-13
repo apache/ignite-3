@@ -378,7 +378,7 @@ public class Row implements BinaryRow {
     private int columnLength(int colIdx) {
         Column col = schema.column(colIdx);
 
-        return col.type().length();
+        return col.type().sizeInBytes();
     }
 
     /**

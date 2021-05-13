@@ -288,7 +288,7 @@ public class Columns {
                     ", mask=" + mask +
                     ", cols" + Arrays.toString(cols) + ']';
 
-                size += cols[idx].type().length();
+                size += cols[idx].type().sizeInBytes();
             }
         }
 

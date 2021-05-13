@@ -41,12 +41,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO: IGNITE-14487 Check key fields in Tuple is ignored for value or exception is thrown?
  */
 public class KVViewOperationsTest {
+    /** Table ID test value. */
+    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
     /**
      *
      */
     @Test
     public void testPut() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -89,6 +93,7 @@ public class KVViewOperationsTest {
     @Test
     public void testPutIfAbsent() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -121,6 +126,7 @@ public class KVViewOperationsTest {
     @Test
     public void testGetAndPut() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -155,6 +161,7 @@ public class KVViewOperationsTest {
     @Test
     public void testRemove() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -197,6 +204,7 @@ public class KVViewOperationsTest {
     @Test
     public void testRemoveExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -253,6 +261,7 @@ public class KVViewOperationsTest {
     @Test
     public void testReplace() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
@@ -298,6 +307,7 @@ public class KVViewOperationsTest {
     @Test
     public void testReplaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
+            tableId,
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {new Column("val", NativeType.LONG, false)}
