@@ -74,7 +74,6 @@
         <typesafe.version>1.4.1</typesafe.version>
         <hamcrest.version>2.2</hamcrest.version>
         <scalecube.version>2.6.6</scalecube.version>
-        <log4j.version>2.13.2</log4j.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
