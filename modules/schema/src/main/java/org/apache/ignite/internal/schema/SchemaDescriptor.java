@@ -22,6 +22,7 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,8 +60,7 @@ public class SchemaDescriptor {
      * @param affCols Affinity column names.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
-        assert affCols == null || affCols.length > 0;
+    public SchemaDescriptor(int ver, Column[] keyCols, String[] affCols, Column[] valCols) {
         assert keyCols.length > 0 : "No key columns are conigured.";
         assert valCols.length > 0 : "No value columns are conigured.";
 
@@ -73,7 +73,7 @@ public class SchemaDescriptor {
         Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
         Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
 
-        if (affCols == null)
+        if (ArrayUtils.nullOrEmpty(affCols))
             affColsMask = null;
         else {
             affColsMask = new BitSet(keyCols.length);
