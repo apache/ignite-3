@@ -230,7 +230,7 @@ public class Row implements BinaryRow {
     }
 
     public BigDecimal decimalValue(int idx) {
-        // TODO: decimal support
+        // TODO: IGNITE-13668 decimal support
         return null;
     }
 
