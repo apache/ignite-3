@@ -21,6 +21,7 @@ import io.scalecube.cluster.membership.MembershipEvent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -34,13 +35,13 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     private ClusterNode localMember;
 
     /** Topology members. */
-    private final ConcurrentHashMap<String, ClusterNode> members = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ClusterNode> members = new ConcurrentHashMap<>();
 
     /**
      * Sets the ScaleCube's local {@link Member}.
      */
     void setLocalMember(Member member) {
-        this.localMember = fromMember(member);
+        localMember = fromMember(member);
 
         // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
         onMembershipEvent(MembershipEvent.createAdded(member, null, System.currentTimeMillis()));
@@ -53,12 +54,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         ClusterNode member = fromMember(event.member());
 
         if (event.isAdded()) {
-            this.members.put(member.address(), member);
+            members.put(member.address(), member);
 
             fireAppearedEvent(member);
         }
         else if (event.isRemoved()) {
-            this.members.compute(member.address(), // Ignore stale remove event.
+            members.compute(member.address(), // Ignore stale remove event.
                 (k, v) -> v.id().equals(member.id()) ? null : v);
 
             fireDisappearedEvent(member);
