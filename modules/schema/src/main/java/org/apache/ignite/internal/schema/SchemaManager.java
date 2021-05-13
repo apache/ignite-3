@@ -35,8 +35,8 @@ import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -54,7 +54,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Schema Manager.
  */
-// TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 public class SchemaManager {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
@@ -199,19 +198,19 @@ public class SchemaManager {
         final Set<String> keyColNames = Stream.of(pkCfg.colNames().value()).collect(Collectors.toSet());
         final NamedListView<ColumnView> cols = tblConfig.columns().value();
 
-        return new SchemaDescriptor(ver,
-            cols.namedListKeys().stream().filter(keyColNames::contains)
-                .map(n -> {
-                    final ColumnView col = cols.get(n);
+        final ArrayList<Column> keyCols = new ArrayList<>(keyColNames.size());
+        final ArrayList<Column> valCols = new ArrayList<>(cols.size() - keyColNames.size());
 
-                    return new Column(col.name(), createType(col.type()), col.nullable());
-                }).toArray(Column[]::new),
-            cols.namedListKeys().stream().filter(c -> !keyColNames.contains(c))
-                .map(n -> {
-                    final ColumnView col = cols.get(n);
+        cols.namedListKeys().stream()
+            .map(cols::get)
+            .map(col -> new Column(col.name(), createType(col.type()), col.nullable()))
+            .forEach(c -> (keyColNames.contains(c.name()) ? keyCols : valCols).add(c));
 
-                    return new Column(col.name(), createType(col.type()), col.nullable());
-                }).toArray(Column[]::new)
+        return new SchemaDescriptor(
+            ver,
+            keyCols.toArray(Column[]::new),
+            pkCfg.affinityColumns().value(),
+            valCols.toArray(Column[]::new)
         );
     }
 
