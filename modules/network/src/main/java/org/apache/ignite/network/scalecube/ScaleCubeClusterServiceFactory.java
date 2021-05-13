@@ -42,7 +42,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
         var messagingService = new ScaleCubeMessagingService(topologyService);
         var transportFactory = new DelegatingTransportFactory(messagingService);
 
-        var cluster = new ClusterImpl(ClusterConfig.defaultLocalConfig())
+        var cluster = new ClusterImpl(defaultConfig())
             .handler(cl -> new ClusterMessageHandler() {
                 /** {@inheritDoc} */
                 @Override public void onMessage(Message message) {
@@ -56,8 +56,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
             })
             .config(opts -> opts.memberAlias(context.getName()))
             .transport(opts -> opts.port(context.getPort()).transportFactory(transportFactory))
-            .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses()))
-                .syncInterval(1000).syncTimeout(1000).suspicionMult(1));
+            .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())));
 
         // resolve cyclic dependencies
         messagingService.setCluster(cluster);
@@ -79,9 +78,9 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     }
 
     /**
-     * @return The configuration.
+     * @return The default configuration.
      */
-    protected ClusterConfig config() {
+    protected ClusterConfig defaultConfig() {
         return ClusterConfig.defaultConfig();
     }
 

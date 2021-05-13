@@ -53,12 +53,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         ClusterNode member = fromMember(event.member());
 
         if (event.isAdded()) {
-            this.members.put(member.name(), member);
+            this.members.put(member.address(), member);
 
             fireAppearedEvent(member);
         }
         else if (event.isRemoved()) {
-            this.members.compute(member.name(), // Ignore stale remove event.
+            this.members.compute(member.address(), // Ignore stale remove event.
                 (k, v) -> v.id().equals(member.id()) ? null : v);
 
             fireDisappearedEvent(member);
@@ -98,7 +98,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     }
 
     /** {@inheritDoc} */
-    ClusterNode getByAddress(String addr) {
+    @Override public ClusterNode getByAddress(String addr) {
         return members.get(addr);
     }
 
