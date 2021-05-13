@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
@@ -63,22 +64,26 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
     private final BaselineManager baselineMgr;
 
     /** Vault manager. */
-    private final VaultManager vaultManager;
+    private final VaultManager vaultMgr;
 
     /**
+     * Creates a new affinity manager.
+     *
      * @param configurationMgr Configuration module.
      * @param metaStorageMgr Meta storage service.
+     * @param baselineMgr Baseline manager.
+     * @param vaultMgr Vault manager.
      */
     public AffinityManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
         BaselineManager baselineMgr,
-        VaultManager vaultManager
+        VaultManager vaultMgr
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.baselineMgr = baselineMgr;
-        this.vaultManager = vaultManager;
+        this.vaultMgr = vaultMgr;
 
         metaStorageMgr.registerWatchByPrefix(new Key(INTERNAL_PREFIX), new WatchListener() {
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
@@ -119,22 +124,29 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
      * @return A future which will complete when the assignment is calculated.
      */
     public CompletableFuture<Boolean> calculateAssignments(UUID tblId) {
-        return vaultManager.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).thenCompose(entry -> {
-            var tblConfig = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(new String(entry.value(), StandardCharsets.UTF_8));
+        return vaultMgr
+            .get(ByteArray.fromString(INTERNAL_PREFIX + tblId))
+            .thenCompose(entry -> {
+                TableConfiguration tblConfig = configurationMgr
+                    .configurationRegistry()
+                    .getConfiguration(TablesConfiguration.KEY)
+                    .tables()
+                    .get(new String(entry.value(), StandardCharsets.UTF_8));
 
-            var key = new Key(INTERNAL_PREFIX + tblId);
+                var key = new Key(INTERNAL_PREFIX + tblId);
 
-            return metaStorageMgr.invoke(
-                Conditions.key(key).value().eq(null),
-                Operations.put(key, ByteUtils.toBytes(
-                    RendezvousAffinityFunction.assignPartitions(
-                        baselineMgr.nodes(),
-                        tblConfig.partitions().value(),
-                        tblConfig.replicas().value(),
-                        false,
-                        null
-                    ))),
-                Operations.noop());
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Need to support baseline changes.
+                return metaStorageMgr.invoke(
+                    Conditions.key(key).value().eq(null),
+                    Operations.put(key, ByteUtils.toBytes(
+                        RendezvousAffinityFunction.assignPartitions(
+                            baselineMgr.nodes(),
+                            tblConfig.partitions().value(),
+                            tblConfig.replicas().value(),
+                            false,
+                            null
+                        ))),
+                    Operations.noop());
         });
     }
 

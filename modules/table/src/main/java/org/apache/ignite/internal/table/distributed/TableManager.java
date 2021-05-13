@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,35 +79,37 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Loza raftMgr;
 
     /** Schema manager. */
-    private final SchemaManager schemaManager;
+    private final SchemaManager schemaMgr;
 
     /** Affinity manager. */
-    private final AffinityManager affinityManager;
+    private final AffinityManager affMgr;
 
     /** Tables. */
     private Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
-    /*
+    /**
+     * Creates a new table manager.
+     *
      * @param configurationMgr Configuration manager.
      * @param metaStorageMgr Meta storage manager.
-     * @param schemaManager Schema manager.
-     * @param affinityManager Affinity mamager.
+     * @param schemaMgr Schema manager.
+     * @param affMgr Affinity manager.
      * @param raftMgr Raft manager.
      * @param vaultManager Vault manager.
      */
     public TableManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
-        SchemaManager schemaManager,
-        AffinityManager affinityManager,
+        SchemaManager schemaMgr,
+        AffinityManager affMgr,
         Loza raftMgr,
         VaultManager vaultManager
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
-        this.affinityManager = affinityManager;
+        this.affMgr = affMgr;
         this.raftMgr = raftMgr;
-        this.schemaManager = schemaManager;
+        this.schemaMgr = schemaMgr;
 
         listenForTableChange();
     }
@@ -134,7 +137,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         onEvent(TableEvent.CREATE, new TableEventParameters(
             tblId,
             name,
-            new TableSchemaViewImpl(tblId, schemaManager),
+            new TableSchemaViewImpl(tblId, schemaMgr),
             new InternalTableImpl(tblId, partitionMap, partitions)
         ), null);
     }
@@ -193,10 +196,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void listenForTableChange() {
         //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
-        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
-            .tables().listen(ctx -> {
-            Set<String> tablesToStart = ctx.newValue().namedListKeys() == null ?
-                Collections.EMPTY_SET : ctx.newValue().namedListKeys();
+        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+            Set<String> tablesToStart = (ctx.newValue() == null || ctx.newValue().namedListKeys() == null) ?
+                Collections.emptySet() : new HashSet<>(ctx.newValue().namedListKeys());
 
             tablesToStart.removeAll(ctx.oldValue().namedListKeys());
 
@@ -208,9 +210,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             for (String tblName : tablesToStart) {
                 TableView tableView = ctx.newValue().get(tblName);
-                long update = 0;
 
-                UUID tblId = new UUID(revision, update);
+                UUID tblId = new UUID(revision, 0L);
 
                 if (onMetastorageNode) {
                     var key = new Key(INTERNAL_PREFIX + tblId.toString());
@@ -219,17 +220,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         Conditions.key(key).value().eq(null),
                         Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
                         Operations.noop()).thenCompose(res ->
-                        affinityManager.calculateAssignments(tblId)));
+                        affMgr.calculateAssignments(tblId)));
                 }
 
-                affinityManager.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
+                affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
                     if (!tblId.equals(parameters.tableId()))
                         return false;
 
                     if (e == null)
                         createTableLocally(tblName, tblId, parameters.assignment());
                     else {
-                        LOG.error("Table creation finished with error [name=" + tblName + ", id=" + tblId + ']', e);
+                        LOG.error("Failed to create a new table [name=" + tblName + ", id=" + tblId + ']', e);
 
                         onEvent(TableEvent.CREATE, new TableEventParameters(
                             tblId,
@@ -243,8 +244,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 });
             }
 
-            Set<String> tablesToStop = ctx.oldValue().namedListKeys() == null ?
-                Collections.EMPTY_SET : ctx.oldValue().namedListKeys();
+            Set<String> tablesToStop = (ctx.oldValue() == null || ctx.oldValue().namedListKeys() == null) ?
+                Collections.emptySet() : new HashSet<>(ctx.oldValue().namedListKeys());
 
             tablesToStop.removeAll(ctx.newValue().namedListKeys());
 
@@ -256,20 +257,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 if (onMetastorageNode) {
                     var key = new Key(INTERNAL_PREFIX + tblId.toString());
 
-                    futs.add(affinityManager.removeAssignment(tblId).thenCompose(res ->
+                    futs.add(affMgr.removeAssignment(tblId).thenCompose(res ->
                         metaStorageMgr.invoke(Conditions.key(key).value().ne(null),
                             Operations.remove(key),
                             Operations.noop())));
                 }
 
-                affinityManager.listen(AffinityEvent.REMOVED, (parameters, e) -> {
+                affMgr.listen(AffinityEvent.REMOVED, (parameters, e) -> {
                     if (!tblId.equals(parameters.tableId()))
                         return false;
 
                     if (e == null)
                         dropTableLocally(tblName, tblId, parameters.assignment());
                     else {
-                        LOG.error("Table drop finished with error [name=" + tblName + ", id=" + tblId + ']', e);
+                        LOG.error("Failed to drop a table [name=" + tblName + ", id=" + tblId + ']', e);
 
                         onEvent(TableEvent.DROP, new TableEventParameters(
                             tblId,
@@ -339,10 +340,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        configurationMgr.configurationRegistry()
-            .getConfiguration(TablesConfiguration.KEY).tables().change(change -> {
-            change.delete(name);
-        });
+        configurationMgr
+            .configurationRegistry()
+            .getConfiguration(TablesConfiguration.KEY)
+            .tables()
+            .change(change -> change.delete(name));
 
         dropTblFut.join();
     }
