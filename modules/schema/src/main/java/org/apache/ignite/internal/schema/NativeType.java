@@ -134,7 +134,7 @@ public class NativeType implements Comparable<NativeType> {
                 return UUID;
 
             case STRING:
-                return new VarlenNativeType(NativeTypeSpec.STRING, ((String)val).length());
+                return new VarlenNativeType(NativeTypeSpec.STRING, ((CharSequence)val).length());
 
             case BYTES:
                 return new VarlenNativeType(NativeTypeSpec.BYTES, ((byte[])val).length);
