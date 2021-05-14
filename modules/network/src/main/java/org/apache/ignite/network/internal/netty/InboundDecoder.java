@@ -72,6 +72,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
         Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.channel().attr(DESERIALIZER_KEY);
 
         while (buffer.hasRemaining()) {
+            int initialNioBufferPosition = buffer.position();
+
             MessageDeserializer<NetworkMessage> msg = messageAttr.get();
 
             try {
@@ -93,8 +95,10 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     finished = msg.readMessage(reader);
                 }
 
+                int readBytes = buffer.position() - initialNioBufferPosition;
+
                 // Set read position to Netty's ByteBuf.
-                in.readerIndex(buffer.position());
+                in.readerIndex(in.readerIndex() + readBytes);
 
                 if (finished) {
                     reader.reset();

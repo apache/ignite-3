@@ -127,7 +127,7 @@ public class NettyServerTest {
 
         future.setSuccess(null);
 
-        stop.get(3000, TimeUnit.SECONDS);
+        stop.get(3, TimeUnit.SECONDS);
 
         assertTrue(server.getBossGroup().isTerminated());
         assertTrue(server.getWorkerGroup().isTerminated());

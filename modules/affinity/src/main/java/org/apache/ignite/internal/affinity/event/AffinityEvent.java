@@ -14,44 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.configuration.storage;
 
-import java.io.Serializable;
-import java.util.Map;
+package org.apache.ignite.internal.affinity.event;
+
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * Represents data in configuration storage.
+ * Affinity management events.
  */
-public class Data {
-    /** Values. */
-    private final Map<String, Serializable> values;
+public enum AffinityEvent implements Event {
+    /** This event fires when affinity assignment is calculated. */
+    CALCULATED,
 
-    /** Configuration storage version. */
-    private final long changeId;
-
-    /**
-     * Constructor.
-     * @param values Values.
-     * @param changeId Version.
-     */
-    public Data(Map<String, Serializable> values, long changeId) {
-        this.values = values;
-        this.changeId = changeId;
-    }
-
-    /**
-     * Get values.
-     * @return Values.
-     */
-    public Map<String, Serializable> values() {
-        return values;
-    }
-
-    /**
-     * Get version.
-     * @return version.
-     */
-    public long changeId() {
-        return changeId;
-    }
+    /** This event fires when affinity assignment is removed. */
+    REMOVED
 }

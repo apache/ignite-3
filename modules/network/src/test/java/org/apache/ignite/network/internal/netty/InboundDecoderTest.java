@@ -19,13 +19,17 @@ package org.apache.ignite.network.internal.netty;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageSerializationFactory;
 import org.apache.ignite.network.internal.AllTypesMessage;
 import org.apache.ignite.network.internal.AllTypesMessageGenerator;
 import org.apache.ignite.network.internal.AllTypesMessageSerializationFactory;
@@ -36,8 +40,10 @@ import org.apache.ignite.network.message.NetworkMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link InboundDecoder}.
@@ -116,6 +122,78 @@ public class InboundDecoderTest {
                 channel.readInbound();
             })
             .get(3, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Tests that an {@link InboundDecoder} can handle a {@link ByteBuf} where reaeder index
+     * is not {@code 0} at the start of the {@link InboundDecoder#decode}.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testPartialReadWithReuseBuffer() throws Exception {
+        MessageSerializationRegistry registry = new MessageSerializationRegistry()
+            .registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
+
+        ChannelHandlerContext ctx = Mockito.mock(ChannelHandlerContext.class);
+
+        var channel = new EmbeddedChannel();
+
+        Mockito.doReturn(channel).when(ctx).channel();
+
+        var decoder = new InboundDecoder(registry);
+
+        var list = new ArrayList<Object>();
+
+        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+
+        var msg = new TestMessage("abcdefghijklmn");
+
+        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.directType());
+
+        ByteBuffer nioBuffer = ByteBuffer.allocate(10_000);
+
+        writer.setBuffer(nioBuffer);
+
+        // Write message to the ByteBuffer.
+        boolean fullyWritten = serializer.writeMessage(msg, writer);
+
+        assertTrue(fullyWritten);
+
+        nioBuffer.flip();
+
+        ByteBuf buffer = allocator.buffer();
+
+        // Write first 3 bytes of a message.
+        for (int i = 0; i < 3; i++)
+            buffer.writeByte(nioBuffer.get());
+
+        decoder.decode(ctx, buffer, list);
+
+        // At this point a header and a first byte of a message have been decoded.
+        assertEquals(0, list.size());
+
+        // Write next 3 bytes of a message.
+        for (int i = 0; i < 3; i++)
+            buffer.writeByte(nioBuffer.get());
+
+        // Reader index of a buffer is not zero and it must be handled correctly by the InboundDecoder.
+        decoder.decode(ctx, buffer, list);
+
+        // Check if reader index has been tracked correctly.
+        assertEquals(6, buffer.readerIndex());
+
+        assertEquals(0, list.size());
+
+        buffer.writeBytes(nioBuffer);
+
+        decoder.decode(ctx, buffer, list);
+
+        assertEquals(1, list.size());
+
+        TestMessage readMessage = (TestMessage) list.get(0);
+
+        assertEquals(msg, readMessage);
     }
 
     /**
