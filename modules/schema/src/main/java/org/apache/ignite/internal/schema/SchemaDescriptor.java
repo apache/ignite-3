@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.tostring.S;
@@ -39,11 +38,11 @@ public class SchemaDescriptor {
     /** Value columns in serialization order. */
     private final Columns valCols;
 
+    /** Affinity columns. */
+    private final Column[] affCols;
+
     /** Mapping 'Column name' -> Column. */
     private final Map<String, Column> colMap;
-
-    /** Affinity column bit mask. */
-    private final BitSet affColsMask;
 
     /**
      * @param ver Schema version.
@@ -73,14 +72,10 @@ public class SchemaDescriptor {
         Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
         Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
 
-        if (ArrayUtils.nullOrEmpty(affCols))
-            affColsMask = null;
-        else {
-            affColsMask = new BitSet(keyCols.length);
-
-            for (int i = 0; i < affCols.length; i++)
-                affColsMask.set(column(affCols[i]).schemaIndex());
-        }
+        // Preserving key chunk column order is not actually required.
+        // It is sufficient to has same column order for all nodes.
+        this.affCols = (ArrayUtils.nullOrEmpty(affCols)) ? keyCols :
+            Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
     }
 
     /**
@@ -99,14 +94,6 @@ public class SchemaDescriptor {
     }
 
     /**
-     * @param idx Column index to check.
-     * @return {@code true} if the columns if key affinity column, {@code false} otherwise.
-     */
-    public boolean isAffinityColumn(int idx) {
-        return affColsMask == null ? isKeyColumn(idx) : affColsMask.get(idx);
-    }
-
-    /**
      * @param colIdx Column index.
      * @return Column instance.
      */
@@ -119,6 +106,13 @@ public class SchemaDescriptor {
      */
     public Columns keyColumns() {
         return keyCols;
+    }
+
+    /**
+     * @return Key affinity columns chunk.
+     */
+    public Column[] affinityColumns() {
+        return affCols;
     }
 
     /**

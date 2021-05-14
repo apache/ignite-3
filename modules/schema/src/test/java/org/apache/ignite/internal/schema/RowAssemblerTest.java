@@ -726,63 +726,6 @@ public class RowAssemblerTest {
     }
 
     /**
-     * Validate row layout for key\value columns of different types.
-     */
-    @Test
-    public void testhMixedTypesWithAffinity() {
-        Column[] keyCols = new Column[] {
-            new Column("keyShortCol", SHORT, false),
-            new Column("keyStrCol", STRING, false)
-        };
-        Column[] valCols = new Column[] {
-            new Column("valIntCol", INTEGER, true),
-            new Column("valStrCol", STRING, true)
-        };
-
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, new String[] {"keyShortCol"}, valCols);
-
-        {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
-
-            asm.appendShort((short)33);
-            asm.appendString("keystr");
-            asm.appendInt(73);
-            asm.appendString("valstr");
-
-            assertRowBytesEquals(new byte[] {
-                42, 0, 2, 0, 33, 0, 0, 0,
-                16, 0, 0, 0, 1, 0, 10, 0, 33, 0, 107, 101, 121, 115, 116, 114,
-                19, 0, 0, 0, 0, 1, 0, 13, 0, 73, 0, 0, 0, 118, 97, 108, 115, 116, 114}, asm.build());
-        }
-
-        { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
-
-            asm.appendShort((short)33);
-            asm.appendString("keystr2");
-            asm.appendNull();
-            asm.appendNull();
-
-            assertRowBytesEquals(new byte[] {
-                42, 0, 18, 0, 33, 0, 0, 0,
-                17, 0, 0, 0, 1, 0, 10, 0, 33, 0, 107, 101, 121, 115, 116, 114, 50,
-                5, 0, 0, 0, 3}, asm.build());
-        }
-
-        { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
-
-            asm.appendShort((short)33);
-            asm.appendString("keystr");
-
-            assertRowBytesEquals(new byte[] {
-                42, 0, 19, 0, 33, 0, 0, 0,
-                16, 0, 0, 0, 1, 0, 10, 0, 33, 0, 107, 101, 121, 115, 116, 114}, asm.build());
-
-        }
-    }
-
-    /**
      * @param expected Expected row bytes.
      * @param actual Actual row bytes.
      */

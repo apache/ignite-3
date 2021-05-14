@@ -174,6 +174,7 @@ public class RowAssembler {
 
         curCols = schema.keyColumns();
         flags = 0;
+        keyHash = 0;
         strEncoder = null;
 
         initOffsets(BinaryRow.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
@@ -206,7 +207,7 @@ public class RowAssembler {
 
         setNull(curCol);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash *= 31;
 
         shiftColumn(0, false);
@@ -222,7 +223,7 @@ public class RowAssembler {
 
         buf.put(curOff, val);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash = 31 * keyHash + Byte.hashCode(val);
 
         shiftColumn(NativeType.BYTE);
@@ -238,7 +239,7 @@ public class RowAssembler {
 
         buf.putShort(curOff, val);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash = 31 * keyHash + Short.hashCode(val);
 
         shiftColumn(NativeType.SHORT);
@@ -254,7 +255,7 @@ public class RowAssembler {
 
         buf.putInt(curOff, val);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash = 31 * keyHash + Integer.hashCode(val);
 
         shiftColumn(NativeType.INTEGER);
@@ -270,7 +271,7 @@ public class RowAssembler {
 
         buf.putLong(curOff, val);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash += 31 * keyHash + Long.hashCode(val);
 
         shiftColumn(NativeType.LONG);
@@ -286,7 +287,7 @@ public class RowAssembler {
 
         buf.putFloat(curOff, val);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash += 31 * keyHash + Float.hashCode(val);
 
         shiftColumn(NativeType.FLOAT);
@@ -302,7 +303,7 @@ public class RowAssembler {
 
         buf.putDouble(curOff, val);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash += 31 * keyHash + Double.hashCode(val);
 
         shiftColumn(NativeType.DOUBLE);
@@ -319,7 +320,7 @@ public class RowAssembler {
         buf.putLong(curOff, uuid.getLeastSignificantBits());
         buf.putLong(curOff + 8, uuid.getMostSignificantBits());
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash += 31 * keyHash + uuid.hashCode();
 
         shiftColumn(NativeType.UUID);
@@ -338,7 +339,7 @@ public class RowAssembler {
 
             writeOffset(curVarlenTblEntry, curOff - baseOff);
 
-            if (isAffinityCol())
+            if (isKeyColumn())
                 keyHash += 31 * keyHash + val.hashCode();
 
             shiftColumn(written, true);
@@ -358,7 +359,7 @@ public class RowAssembler {
 
         buf.putBytes(curOff, val);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash += 31 * keyHash + Arrays.hashCode(val);
 
         writeOffset(curVarlenTblEntry, curOff - baseOff);
@@ -389,7 +390,7 @@ public class RowAssembler {
         for (int i = 0; i < maskType.length() - arr.length; i++)
             buf.put(curOff + arr.length + i, (byte)0);
 
-        if (isAffinityCol())
+        if (isKeyColumn())
             keyHash += 31 * keyHash + Arrays.hashCode(arr);
 
         shiftColumn(maskType);
@@ -536,10 +537,9 @@ public class RowAssembler {
     }
 
     /**
-     * @return {@code true} if current column is affinity columns, {@code false} otherwise.
+     * @return {@code true} if current column is a key column, {@code false} otherwise.
      */
-    private boolean isAffinityCol() {
-        return (schema.keyColumns() == curCols) && /* Is key column */
-            schema.isAffinityColumn(curCol); /* currCol equals to absolute column schema index */
+    private boolean isKeyColumn() {
+        return schema.keyColumns() == curCols;
     }
 }
