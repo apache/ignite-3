@@ -21,9 +21,9 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.SwitchStatement.SwitchBuilder;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import java.lang.reflect.Method;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,6 +33,7 @@ import java.util.Set;
 
 import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
 import static com.facebook.presto.bytecode.control.SwitchStatement.switchBuilder;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
@@ -153,13 +154,10 @@ class StringSwitchBuilder {
                 BytecodeBlock caseBody = new BytecodeBlock();
 
                 for (CaseStatement caseStmt : entry.getValue()) {
-                    LabelNode elseLabel = new LabelNode();
-
-                    caseBody
-                        .append(expVar.invoke(EQUALS, constantString(caseStmt.key)))
-                        .ifFalseGoto(elseLabel)
-                        .putVariable(idxVar, idx)
-                        .visitLabel(elseLabel);
+                    caseBody.append(new IfStatement()
+                        .condition(expVar.invoke(EQUALS, constantString(caseStmt.key)))
+                        .ifTrue(idxVar.set(constantInt(idx)))
+                    );
 
                     caseBodies[idx++] = caseStmt.body;
                 }
