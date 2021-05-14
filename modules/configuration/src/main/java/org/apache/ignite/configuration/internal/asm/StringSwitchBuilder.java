@@ -125,9 +125,8 @@ class StringSwitchBuilder {
         Variable idxVar = scope.createTempVariable(int.class);
 
         BytecodeBlock res = new BytecodeBlock()
-            .append(expression)
-            .putVariable(expVar) // expVar = evaluate(expression);
-            .putVariable(idxVar, -1); // idxVar = -1;
+            .append(expVar.set(expression)) // expVar = evaluate(expression);
+            .append(idxVar.set(constantInt(-1))); // idxVar = -1;
 
         BytecodeNode[] caseBodies = new BytecodeNode[cases.size()];
 
