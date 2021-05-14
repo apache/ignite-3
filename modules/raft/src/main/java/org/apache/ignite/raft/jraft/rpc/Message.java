@@ -9,6 +9,6 @@ import org.apache.ignite.network.message.NetworkMessage;
  */
 public interface Message extends NetworkMessage, Serializable {
     default @Override short directType() {
-        return 0;
+        return 1;
     }
 }

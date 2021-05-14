@@ -21,8 +21,8 @@ import java.util.Map;
 import org.apache.ignite.network.internal.MessageReader;
 import org.apache.ignite.network.message.MessageDeserializer;
 import org.apache.ignite.network.message.MessageMappingException;
-import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.network.message.MessageSerializationFactory;
+import org.apache.ignite.network.message.MessageSerializer;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**
@@ -84,7 +84,7 @@ public class TestMessageSerializationFactory implements MessageSerializationFact
     @Override public MessageSerializer<TestMessage> createSerializer() {
         return (message, writer) -> {
             if (!writer.isHeaderWritten()) {
-                if (!writer.writeHeader(message.directType(), (byte) 1))
+                if (!writer.writeHeader(message.directType(), (byte) 2))
                     return false;
 
                 writer.onHeaderWritten();

@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -26,8 +25,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.server.RaftNode;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +35,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * 2018-Apr-08 7:53:03 PM
  */
-public class RaftGroupService implements RaftNode {
+public class RaftGroupService {
     private static final Logger LOG = LoggerFactory.getLogger(RaftGroupService.class);
 
     private volatile boolean started = false;
@@ -177,7 +174,7 @@ public class RaftGroupService implements RaftNode {
 //        }
 //    }
 
-    @Override public synchronized void shutdown() {
+    public synchronized void shutdown() {
         // TODO asch remove handlers before shutting down raft node.
         if (!this.started) {
             return;
@@ -290,26 +287,5 @@ public class RaftGroupService implements RaftNode {
             throw new IllegalArgumentException("RPC server port mismatch");
         }
         this.rpcServer = rpcServer;
-    }
-
-    @Override public String groupId() {
-        return getGroupId();
-    }
-
-    @Override public Peer peer() {
-        return convert(this.serverId);
-    }
-
-    @Override public @Nullable Peer leader() {
-        PeerId leaderId = node.getLeaderId();
-
-        if (leaderId == null)
-            return null;
-
-        return convert(leaderId);
-    }
-
-    private Peer convert(PeerId peerId) {
-        return new Peer(peerId.getEndpoint().toString(), peerId.getPriority());
     }
 }

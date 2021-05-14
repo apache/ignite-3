@@ -29,13 +29,13 @@ public interface BinaryRow {
     /** */
     int SCHEMA_VERSION_OFFSET = 0;
     /** */
-    int FLAGS_FIELD_OFFSET = SCHEMA_VERSION_OFFSET + 2;
+    int FLAGS_FIELD_OFFSET = SCHEMA_VERSION_OFFSET + 2 /* version length */;
     /** */
-    int KEY_HASH_FIELD_OFFSET = FLAGS_FIELD_OFFSET + 2;
+    int KEY_HASH_FIELD_OFFSET = FLAGS_FIELD_OFFSET + 2 /* flags length */;
     /** */
-    int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4;
+    int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4 /* hash length */;
     /** */
-    int TOTAL_LEN_FIELD_SIZE = 4;
+    int CHUNK_LEN_FIELD_SIZE = 4;
     /** */
     int VARLEN_TABLE_SIZE_FIELD_SIZE = 2;
     /** */
@@ -74,6 +74,7 @@ public interface BinaryRow {
     /**
      * Writes binary row to given stream.
      *
+     * @param stream Stream to write to.
      * @throws IOException If write operation fails.
      */
     void writeTo(OutputStream stream) throws IOException;
@@ -116,28 +117,40 @@ public interface BinaryRow {
 
     /**
      * @param off Offset.
+     * @param len Length.
      * @return String value.
      */
      String readString(int off, int len);
 
     /**
      * @param off Offset.
+     * @param len Length.
      * @return Byte array.
      */
      byte[] readBytes(int off, int len);
 
     /**
-     *
+     * Row flags.
      */
     final class RowFlags {
-        /** Tombstone flag. */
-        public static final int TOMBSTONE = 1;
+        /** Flag indicates row has no value chunk. */
+        public static final int NO_VALUE_FLAG = 1;
 
-        /** Null-value flag. */
-        public static final int NULL_VALUE = 1 << 1;
+        /** Flag indicates key chunk omits null map. */
+        public static final int OMIT_KEY_NULL_MAP_FLAG = 1 << 1;
+
+        /** Flag indicates value chunk omits null map. */
+        public static final int OMIT_VAL_NULL_MAP_FLAG = 1 << 2;
+
+        /** Flag indicates key chunk omits varlen table. */
+        public static final int OMIT_KEY_VARTBL_FLAG = 1 << 3;
+
+        /** Flag indicates value chunk omits varlen table. */
+        public static final int OMIT_VAL_VARTBL_FLAG = 1 << 4;
 
         /** Stub. */
         private RowFlags() {
+            // No-op.
         }
     }
 }

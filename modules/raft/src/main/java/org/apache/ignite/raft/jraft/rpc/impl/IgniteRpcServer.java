@@ -1,5 +1,6 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import io.scalecube.cluster.ClusterConfig;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,6 +16,8 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
@@ -50,11 +53,17 @@ public class IgniteRpcServer implements RpcServer<Void> {
         this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), servers, nodeManager);
     }
 
+    // TODO asch Should always use injected cluster service.
     public IgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
-        var serializationRegistry = new MessageSerializationRegistry();
+        var serializationRegistry = new MessageSerializationRegistry()
+            .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 
         var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
-        var factory = new ScaleCubeClusterServiceFactory();
+        var factory = new ScaleCubeClusterServiceFactory() {
+            @Override protected ClusterConfig defaultConfig() {
+                return super.defaultConfig();
+            }
+        };
 
         reuse = false;
         this.nodeManager = nodeManager;

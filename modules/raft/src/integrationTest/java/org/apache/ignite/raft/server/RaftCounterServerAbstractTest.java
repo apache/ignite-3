@@ -25,6 +25,9 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
@@ -46,13 +49,14 @@ abstract class RaftCounterServerAbstractTest {
     protected static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Network factory. */
-    protected static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
+    protected static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** */
     protected static final int PORT = 20010;
 
     /** TODO: IGNITE-14088: Uncomment and use real serializer provider */
-    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 
     /** */
     protected static final String COUNTER_GROUP_ID_0 = "counter0";
@@ -95,10 +99,10 @@ abstract class RaftCounterServerAbstractTest {
         assertEquals(3, client1.<Integer>run(new IncrementAndGetCommand(1)).get());
         assertEquals(3, client1.<Integer>run(new GetValueCommand()).get());
 
-        assertEquals(7, client2.<Integer>run(new IncrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Integer>run(new IncrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Integer>run(new GetValueCommand()).get());
+        assertEquals(7, client2.<Integer>run(new IncrementAndGetCommand(3)).get());
         assertEquals(7, client2.<Integer>run(new GetValueCommand()).get());
-        assertEquals(10, client2.<Integer>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(10, client2.<Integer>run(new GetValueCommand()).get());
     }
 
     /**

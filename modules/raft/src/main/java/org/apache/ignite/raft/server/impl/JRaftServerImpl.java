@@ -40,7 +40,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-import org.apache.ignite.raft.server.RaftNode;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
@@ -72,15 +71,15 @@ public class JRaftServerImpl implements RaftServer {
             if (message instanceof GetLeaderRequest) {
                 GetLeaderRequest req0 = (GetLeaderRequest) message;
 
-                RaftGroupService lsnr = groups.get(req0.groupId());
+                RaftGroupService svc = groups.get(req0.groupId());
 
-                if (lsnr == null) {
+                if (svc == null) {
                     sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
 
                     return;
                 }
 
-                PeerId leaderId = lsnr.getRaftNode().getLeaderId();
+                PeerId leaderId = svc.getRaftNode().getLeaderId();
 
                 if (leaderId == null) {
                     sendError(sender, correlationId, RaftErrorCode.NO_LEADER);
@@ -156,9 +155,9 @@ public class JRaftServerImpl implements RaftServer {
 //                else
 //                    handleActionRequest(sender, req0, correlationId, writeQueue, svc);
             }
-            else {
-                LOG.warn("Unsupported message class " + message.getClass().getName());
-            }
+//            else {
+//                LOG.warn("Unsupported message class " + message.getClass().getName());
+//            }
         });
 
         rpcServer = new IgniteRpcServer(service, reuse, nodeManager);
@@ -169,9 +168,9 @@ public class JRaftServerImpl implements RaftServer {
         return service;
     }
 
-    @Override public synchronized RaftNode startRaftNode(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftNode(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId))
-            return groups.get(groupId);
+            return false;
 
         final NodeOptions nodeOptions = new NodeOptions();
 
@@ -207,7 +206,18 @@ public class JRaftServerImpl implements RaftServer {
 
         groups.put(groupId, server);
 
-        return server;
+        return true;
+    }
+
+    @Override public boolean stopRaftNode(String groupId) {
+        RaftGroupService svc = groups.remove(groupId);
+
+        boolean stopped = svc != null;
+
+        if (stopped)
+            svc.shutdown();
+
+        return stopped;
     }
 
     @Override public void shutdown() throws Exception {

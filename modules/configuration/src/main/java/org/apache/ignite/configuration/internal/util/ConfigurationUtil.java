@@ -285,13 +285,12 @@ public class ConfigurationUtil {
     /**
      * Convert a traversable tree to a map of qualified keys to values.
      *
-     * @param rootKey Root configuration key.
      * @param curRoot Current root tree.
      * @param updates Tree with updates.
      * @return Map of changes.
      */
     public static Map<String, Serializable> nodeToFlatMap(
-        SuperRoot curRoots,
+        SuperRoot curRoot,
         SuperRoot updates
     ) {
         Map<String, Serializable> values = new HashMap<>();
@@ -352,7 +351,7 @@ public class ConfigurationUtil {
                     // This code can in fact be better optimized for deletion scenario,
                     // but there's no point in doing that, since the operation is so rare and it will
                     // complicate code even more.
-                    originalNamedElement = find(currentPath, curRoots);
+                    originalNamedElement = find(currentPath, curRoot);
                 }
                 catch (KeyNotFoundException ignore) {
                     // May happen, not a big deal. This means that element never existed in the first place.
@@ -397,6 +396,8 @@ public class ConfigurationUtil {
      *
      * @param root Immutable configuration node.
      * @param changes Change or Init object to be applied.
+     * @param <C> Type of the root.
+     * @return Patched root.
      */
     public static <C extends ConstructableTreeNode> C patch(C root, TraversableTreeNode changes) {
         assert root.getClass() == changes.getClass(); // Yes.

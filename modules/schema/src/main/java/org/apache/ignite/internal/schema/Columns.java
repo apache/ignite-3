@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * A set of columns representing a key or a value chunk in a row.
@@ -90,6 +91,7 @@ public class Columns {
      * Constructs the columns chunk. The columns will be internally sorted in write-efficient order based on
      * {@link Column} comparison.
      *
+     * @param baseSchemaIdx First column absolute index in schema.
      * @param cols Array of columns.
      */
     Columns(int baseSchemaIdx, Column... cols) {
@@ -97,7 +99,7 @@ public class Columns {
 
         firstVarlenColIdx = findFirstVarlenColumn();
 
-        nullMapSize = (cols.length + 7) / 8;
+        nullMapSize = hasNullableColumn() ? (cols.length + 7) / 8 : 0;
 
         buildFoldingTable();
     }
@@ -174,6 +176,13 @@ public class Columns {
     }
 
     /**
+     * @return {@code True} if there is at least one varlength column.
+     */
+    public boolean hasVarlengthColumns() {
+        return firstVarlenColIdx != -1;
+    }
+
+    /**
      * @param schemaBaseIdx Base index of this columns object in its schema.
      * @param cols User columns.
      * @return A copy of user columns array sorted in column order.
@@ -202,6 +211,18 @@ public class Columns {
         }
 
         return -1;
+    }
+
+    /**
+     * @return {@code True} if there is one or more nullable columns, {@code false} otherwise.
+     */
+    private boolean hasNullableColumn() {
+        for (int i = 0; i < cols.length; i++) {
+            if (cols[i].nullable())
+                return true;
+        }
+
+        return false;
     }
 
     /**
@@ -274,13 +295,22 @@ public class Columns {
     }
 
     /**
+     * Returns columns index for given column name.
+     *
+     * @param colName Column name.
+     * @return Column index.
      */
-    public int columnIndex(String fieldName) {
+    public int columnIndex(String colName) {
         for (int i = 0; i < cols.length; i++) {
-            if (cols[i].name().equalsIgnoreCase(fieldName))
+            if (cols[i].name().equalsIgnoreCase(colName))
                 return i;
         }
 
-        throw new NoSuchElementException("No field '" + fieldName + "' defined");
+        throw new NoSuchElementException("No field '" + colName + "' defined");
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+       return S.arrayToString(cols);
     }
 }

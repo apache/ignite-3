@@ -22,7 +22,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.raft.server.impl.SimpleRaftServerImpl;
+import org.apache.ignite.raft.server.impl.RaftServerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -44,7 +44,7 @@ class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
 
         ClusterService service = clusterService(id, PORT, List.of(), false);
 
-        server = new SimpleRaftServerImpl(service, null, FACTORY, false);
+        server = new RaftServerImpl(service, FACTORY, false);
 
         ClusterNode serverNode = this.server.clusterService().topologyService().localMember();
 

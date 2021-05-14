@@ -39,10 +39,21 @@ public interface RaftServer {
 
     /**
      * Start a raft group on this cluster node.
-     * @param groupId group id.
+     * @param groupId Group id.
      * @param lsnr Listener.
+     * @param initialConf Inititial group configuration.
+     *
+     * @return {@code True} if a group was successfully started.
+     * @throws IgniteInternalException If a group can't be started.
      */
-    RaftNode startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
+    boolean startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
+
+    /**
+     * Synchronously stops a raft group.
+     * @param groupId Group id.
+     * @return {@code True} if a group was successfully stopped.
+     */
+    boolean stopRaftNode(String groupId);
 
     /**
      * Shutdown a server.

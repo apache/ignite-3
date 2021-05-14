@@ -19,8 +19,11 @@
 package org.apache.ignite.network;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.message.NetworkMessage;
 
 /** */
@@ -31,6 +34,8 @@ public class TestMessage implements NetworkMessage, Serializable {
     /** */
     private final String msg;
 
+    /** */
+    @IgniteToStringInclude
     private final Map<Integer, String> map;
 
     /** */
@@ -39,20 +44,16 @@ public class TestMessage implements NetworkMessage, Serializable {
         this.map = map;
     }
 
+    public TestMessage(String msg) {
+        this(msg, Collections.emptyMap());
+    }
+
     public String msg() {
         return msg;
     }
 
     public Map<Integer, String> getMap() {
         return map;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return "TestMessage{" +
-            "msg='" + msg + '\'' +
-            ", map=" + map +
-            '}';
     }
 
     /** {@inheritDoc} */
@@ -71,5 +72,10 @@ public class TestMessage implements NetworkMessage, Serializable {
     /** {@inheritDoc} */
     @Override public short directType() {
         return TYPE;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(TestMessage.class, this);
     }
 }

@@ -49,11 +49,30 @@ public class TableImpl extends AbstractTableView implements Table {
      * Constructor.
      *
      * @param tbl Table.
+     * @param schemaMgr Table schema manager.
      */
-    public TableImpl(InternalTable tbl, TableSchemaManager schemaMgr) {
+    public TableImpl(InternalTable tbl, TableSchemaView schemaMgr) {
         super(tbl, schemaMgr);
 
         marsh = new TupleMarshallerImpl(schemaMgr);
+    }
+
+    /**
+     * Gets an internal table associated with the table.
+     *
+     * @return Internal table.
+     */
+    public @NotNull InternalTable internalTable() {
+        return tbl;
+    }
+
+    /**
+     * Gets a schema view for the table.
+     *
+     * @return Schema view.
+     */
+    public TableSchemaView schemaView() {
+        return schemaMgr;
     }
 
     /** {@inheritDoc} */

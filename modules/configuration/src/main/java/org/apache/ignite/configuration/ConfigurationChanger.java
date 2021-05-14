@@ -33,16 +33,20 @@ import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 import org.apache.ignite.configuration.internal.validation.ValidationUtil;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
+import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.cleanupMatchingValues;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.fillFromPrefixMap;
@@ -61,7 +65,7 @@ public final class ConfigurationChanger {
     private final Map<String, RootKey<?, ?>> rootKeys = new TreeMap<>();
 
     /** Map that has all the trees in accordance to their storages. */
-    private final Map<Class<? extends ConfigurationStorage>, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
+    private final Map<ConfigurationType, StorageRoots> storagesRootsMap = new ConcurrentHashMap<>();
 
     /** Annotation classes mapped to validator objects. */
     private Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = new HashMap<>();
@@ -107,7 +111,7 @@ public final class ConfigurationChanger {
     private final Map<MemberKey, Annotation[]> cachedAnnotations = new ConcurrentHashMap<>();
 
     /** Storage instances by their classes. Comes in handy when all you have is {@link RootKey}. */
-    private final Map<Class<? extends ConfigurationStorage>, ConfigurationStorage> storageInstances = new HashMap<>();
+    private final Map<ConfigurationType, ConfigurationStorage> storageInstances = new HashMap<>();
 
     /**
      * @param notificator Closure to execute when update from the storage is received.
@@ -116,29 +120,49 @@ public final class ConfigurationChanger {
         this.notificator = notificator;
     }
 
-    /** */
+    /**
+     * Adds a single validator instance.
+     * @param annotationType Annotation type for validated fields.
+     * @param validator Validator instance for this annotation.
+     * @param <A> Annotation type.
+     */
     public <A extends Annotation> void addValidator(Class<A> annotationType, Validator<A, ?> validator) {
         validators
             .computeIfAbsent(annotationType, a -> new HashSet<>())
             .add(validator);
     }
 
-    /** */
+    /**
+     * Adds multiple validators instances.
+     * @param annotationType Annotation type for validated fields.
+     * @param validators Set of validator instancec for this annotation.
+     */
+    public void addValidators(Class<? extends Annotation> annotationType, Set<Validator<? extends Annotation, ?>> validators) {
+        this.validators
+            .computeIfAbsent(annotationType, a -> new HashSet<>())
+            .addAll(validators);
+    }
+
+    /**
+     * Registers an additional root key.
+     * @param rootKey Root key instance.
+     */
     public void addRootKey(RootKey<?, ?> rootKey) {
-        assert !storageInstances.containsKey(rootKey.getStorageType());
+        assert !storageInstances.containsKey(rootKey.type());
 
         rootKeys.put(rootKey.key(), rootKey);
     }
 
     /**
-     * Register changer.
+     * Registers a storage.
+     * @param configurationStorage Configuration storage instance.
      */
     // ConfigurationChangeException, really?
     public void register(ConfigurationStorage configurationStorage) throws ConfigurationChangeException {
-        storageInstances.put(configurationStorage.getClass(), configurationStorage);
+        storageInstances.put(configurationStorage.type(), configurationStorage);
 
         Set<RootKey<?, ?>> storageRootKeys = rootKeys.values().stream().filter(
-            rootKey -> configurationStorage.getClass() == rootKey.getStorageType()
+            rootKey -> configurationStorage.type() == rootKey.type()
         ).collect(Collectors.toSet());
 
         Data data;
@@ -165,18 +189,21 @@ public final class ConfigurationChanger {
             superRoot.addRoot(rootKey, rootNode);
         }
 
-        StorageRoots storageRoots = new StorageRoots(superRoot, data.cfgVersion());
+        StorageRoots storageRoots = new StorageRoots(superRoot, data.changeId());
 
-        storagesRootsMap.put(configurationStorage.getClass(), storageRoots);
+        storagesRootsMap.put(configurationStorage.type(), storageRoots);
 
         configurationStorage.addListener(changedEntries -> updateFromListener(
-            configurationStorage.getClass(),
+            configurationStorage.type(),
             changedEntries
         ));
     }
 
-    /** */
-    public void initialize(Class<? extends ConfigurationStorage> storageType) {
+    /**
+     * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
+     * @param storageType Storage type.
+     */
+    public void initialize(ConfigurationType storageType) {
         ConfigurationStorage configurationStorage = storageInstances.get(storageType);
 
         assert configurationStorage != null : storageType;
@@ -209,19 +236,50 @@ public final class ConfigurationChanger {
         }
     }
 
-    /** Temporary until the IGNITE-14372 */
-    public CompletableFuture<?> changeX(
-        List<String> path,
+    /**
+     * Changes the configuration.
+     * @param source Configuration source to create patch from.
+     * @param storage Expected storage for the changes. If null, a derived storage will be used
+     * unconditionaly.
+     * @return Future that is completed on change completion.
+     */
+    public CompletableFuture<Void> change(
         ConfigurationSource source,
-        ConfigurationStorage storage
+        @Nullable ConfigurationStorage storage
     ) {
-        assert path.isEmpty() : "Path support is not yet implemented.";
-
         SuperRoot superRoot = new SuperRoot(rootKeys);
 
         source.descend(superRoot);
 
-        return changeInternally(superRoot, storage);
+        Set<ConfigurationType> storagesTypes = new HashSet<>();
+
+        superRoot.traverseChildren(new ConfigurationVisitor<Object>() {
+            @Override public Object visitInnerNode(String key, InnerNode node) {
+                RootKey<?, ?> rootKey = rootKeys.get(key);
+
+                return storagesTypes.add(rootKey.type());
+            }
+        });
+
+        assert !storagesTypes.isEmpty();
+
+        if (storagesTypes.size() != 1) {
+            return CompletableFuture.failedFuture(
+                new ConfigurationChangeException(
+                    "Cannot handle change request with configuration patches belonging to different storages."
+                )
+            );
+        }
+
+        ConfigurationStorage actualStorage = storageInstances.get(storagesTypes.iterator().next());
+
+        if (storage != null && storage != actualStorage) {
+            return CompletableFuture.failedFuture(
+                new ConfigurationChangeException("Mismatched storage passed.")
+            );
+        }
+
+        return changeInternally(superRoot, actualStorage);
     }
 
     /** Stop component. */
@@ -233,21 +291,23 @@ public final class ConfigurationChanger {
      * Get root node by root key. Subject to revisiting.
      *
      * @param rootKey Root key.
+     * @return Root node.
      */
     public InnerNode getRootNode(RootKey<?, ?> rootKey) {
-        return storagesRootsMap.get(rootKey.getStorageType()).roots.getRoot(rootKey);
+        return storagesRootsMap.get(rootKey.type()).roots.getRoot(rootKey);
     }
 
     /**
      * Change configuration.
      * @param changes Map of changes by root key.
+     * @return Future that is completed on change completion.
      */
     public CompletableFuture<Void> change(Map<RootKey<?, ?>, InnerNode> changes) {
         if (changes.isEmpty())
             return completedFuture(null);
 
-        Set<Class<? extends ConfigurationStorage>> storagesTypes = changes.keySet().stream()
-            .map(RootKey::getStorageType)
+        Set<ConfigurationType> storagesTypes = changes.keySet().stream()
+            .map(RootKey::type)
             .collect(Collectors.toSet());
 
         assert !storagesTypes.isEmpty();
@@ -261,14 +321,11 @@ public final class ConfigurationChanger {
         return changeInternally(new SuperRoot(rootKeys, changes), storageInstances.get(storagesTypes.iterator().next()));
     }
 
-    /** */
+    /**
+     * @return Super root chat contains roots belonging to all storages.
+     */
     public SuperRoot mergedSuperRoot() {
-        SuperRoot mergedSuperRoot = new SuperRoot(rootKeys);
-
-        for (StorageRoots storageRoots : storagesRootsMap.values())
-            mergedSuperRoot.append(storageRoots.roots);
-
-        return mergedSuperRoot;
+        return new SuperRoot(rootKeys, storagesRootsMap.values().stream().map(roots -> roots.roots).collect(toList()));
     }
 
     /**
@@ -281,7 +338,7 @@ public final class ConfigurationChanger {
         SuperRoot changes,
         ConfigurationStorage storage
     ) {
-        StorageRoots storageRoots = storagesRootsMap.get(storage.getClass());
+        StorageRoots storageRoots = storagesRootsMap.get(storage.type());
 
         return CompletableFuture
             .supplyAsync(() -> {
@@ -351,7 +408,7 @@ public final class ConfigurationChanger {
      * @param changedEntries Changed data.
      */
     private void updateFromListener(
-        Class<? extends ConfigurationStorage> storageType,
+        ConfigurationType storageType,
         Data changedEntries
     ) {
         StorageRoots oldStorageRoots = this.storagesRootsMap.get(storageType);
@@ -365,13 +422,13 @@ public final class ConfigurationChanger {
 
         fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
 
-        StorageRoots newStorageRoots = new StorageRoots(newSuperRoot, changedEntries.cfgVersion());
+        StorageRoots newStorageRoots = new StorageRoots(newSuperRoot, changedEntries.changeId());
 
         storagesRootsMap.put(storageType, newStorageRoots);
 
         ConfigurationStorage storage = storageInstances.get(storageType);
 
-        long storageRevision = changedEntries.storageRevision();
+        long storageRevision = changedEntries.changeId();
 
         // This will also be updated during the metastorage integration.
         notificator.notify(

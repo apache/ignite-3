@@ -98,7 +98,7 @@ public interface MetaStorageService {
      * Inserts or updates an entry with the given key and the given value.
      *
      * @param key The key. Couldn't be {@code null}.
-     * @param value The value.Couldn't be {@code null}.
+     * @param value The value. Couldn't be {@code null}.
      * @return Completed future.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @see Key
@@ -112,7 +112,7 @@ public interface MetaStorageService {
      * retrieves a previous entry for the given key.
      *
      * @param key The key. Couldn't be {@code null}.
-     * @param value The value.Couldn't be {@code null}.
+     * @param value The value. Couldn't be {@code null}.
      * @return A previous entry for the given key. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @see Key
@@ -202,11 +202,10 @@ public interface MetaStorageService {
      *
      * <p>Conditional update could be treated as <i>if(condition)-then(success)-else(failure)</i> expression.</p>
      *
-     * @param key The key. Couldn't be {@code null}.
      * @param condition The condition.
-     * @param success The update which will be applied in case of condition evaluation yields {@code true}.
-     * @param failure The update which will be applied in case of condition evaluation yields {@code false}.
-     * @return Future result {@code true} if {@code success} update was applied, otherwise {@code false}.
+     * @param success Batch of updates which will be atomically applied in case of condition evaluation yields {@code true}.
+     * @param failure Batch of updates which will be atomically applied in case of condition evaluation yields {@code false}.
+     * @return Future result {@code true} if {@code success} updates were applied, otherwise {@code false}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @see Key
      * @see Entry
@@ -215,8 +214,8 @@ public interface MetaStorageService {
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-14269: will be replaced by conditional multi update.
     @NotNull
-    CompletableFuture<Boolean> invoke(@NotNull Key key, @NotNull Condition condition,
-                                      @NotNull Operation success, @NotNull Operation failure);
+    CompletableFuture<Boolean> invoke(@NotNull Condition condition,
+        @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure);
 
     /**
      * Updates an entry for the given key conditionally.

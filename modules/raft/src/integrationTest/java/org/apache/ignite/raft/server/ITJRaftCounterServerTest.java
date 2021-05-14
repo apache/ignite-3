@@ -19,9 +19,7 @@ package org.apache.ignite.raft.server;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -33,14 +31,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
     /** */
     private List<RaftServer> servers = new ArrayList<>();
-
-    /** */
-    private Map<String, List<RaftNode>> nodes = new HashMap<>();
 
     /** */
     private String dataPath;
@@ -78,31 +74,19 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
         }
 
         for (RaftServer server : servers) {
-            RaftNode node0 = server.startRaftNode(COUNTER_GROUP_ID_0, new CounterCommandListener(), peers);
-
-            nodes.computeIfAbsent(node0.groupId(), k -> new ArrayList<>()).add(node0);
-
-            RaftNode node1 = server.startRaftNode(COUNTER_GROUP_ID_1, new CounterCommandListener(), peers);
-
-            nodes.computeIfAbsent(node1.groupId(), k -> new ArrayList<>()).add(node0);
+            server.startRaftNode(COUNTER_GROUP_ID_0, new CounterCommandListener(), peers);
+            server.startRaftNode(COUNTER_GROUP_ID_1, new CounterCommandListener(), peers);
         }
 
         ClusterService clientNode1 = clusterService("client0", PORT - 1, addresses, false);
 
-        client1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000, peers, false, 200, false);
+        // The client for group 0.
+        client1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 10_000, peers, false, 200, false);
 
         ClusterService clientNode2 = clusterService("client1:" + (PORT - 2), PORT - 2, addresses, false);
 
-        client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode2, FACTORY, 1000, peers, false, 200, false);
-
-        assertTrue(waitForTopology(clientNode1, 5, 5_000)); // TODO asch test client colocated on server.
-        assertTrue(waitForTopology(clientNode2, 5, 5_000));
-
-        for (List<RaftNode> grpNodes : nodes.values()) {
-            // Wait for leader.
-            while(grpNodes.get(0).leader() == null)
-                Thread.onSpinWait();
-        }
+        // The client for group 1.
+        client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 10_000, peers, false, 200, false);
     }
 
     @AfterEach

@@ -23,21 +23,20 @@ import java.lang.annotation.Target;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.SOURCE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * This annotation, if applied to a class, marks it as a configuration schema.
  * Annotation processor generates several classes for each configuration schema:
  * <ul>
  * <li>Config - Represents configuration itself, provides API to init, change and view it. Extends {@link DynamicConfiguration}</li>
- * <li>Init - initializes config tree</li>
  * <li>Change - changes config tree</li>
  * <li>View - immutable object to view config tree</li>
  * </ul>
  *
  * <h1 class="header">Example</h1>
  * Here is how to create a root configuration schema:
- * <pre name="code" class="java">
+ * <pre><code>
  * {@literal @}Config(value = "local", root = true)
  * public class LocalConfigurationSchema {
  *
@@ -50,10 +49,10 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  *      {@literal @}ConfigValue
  *      private SomeOtherConfiguration someOther;
  * }
- * </pre>
+ * </code></pre>
  */
 @Target({ TYPE })
-@Retention(SOURCE)
+@Retention(RUNTIME)
 @Documented
 public @interface Config {
 }

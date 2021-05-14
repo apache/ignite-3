@@ -20,9 +20,11 @@ package org.apache.ignite.configuration;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -36,26 +38,30 @@ import org.apache.ignite.configuration.internal.RootKeyImpl;
 import org.apache.ignite.configuration.internal.SuperRoot;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
+import org.apache.ignite.configuration.internal.validation.ImmutableValidator;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.lang.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationNotificationsUtil.notifyListeners;
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.innerNodeVisitor;
 
 /** */
 public class ConfigurationRegistry {
-    /** Logger. */
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationRegistry.class);
 
     /** */
-    private final Map<String, DynamicConfiguration<?, ?, ?>> configs = new HashMap<>();
+    private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
 
     /** */
     private final ConfigurationChanger changer = new ConfigurationChanger(this::notificator);
@@ -64,31 +70,48 @@ public class ConfigurationRegistry {
         // Default vaildators implemented in current module.
         changer.addValidator(Min.class, new MinValidator());
         changer.addValidator(Max.class, new MaxValidator());
+        changer.addValidator(Immutable.class, new ImmutableValidator());
     }
 
-    /** */
-    public void registerRootKey(RootKey<?, ?> rootKey) {
-        changer.addRootKey(rootKey);
+    /**
+     * Constructor.
+     *
+     * @param rootKeys Configuration root keys.
+     * @param validators Validators.
+     * @param configurationStorages Configuration Storages.
+     */
+    public ConfigurationRegistry(
+        Collection<RootKey<?, ?>> rootKeys,
+        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+        Collection<ConfigurationStorage> configurationStorages
+    ) {
+        rootKeys.forEach(rootKey ->
+        {
+            changer.addRootKey(rootKey);
+            configs.put(rootKey.key(), (DynamicConfiguration<?, ?>)rootKey.createPublicRoot(changer));
+        });
 
-        configs.put(rootKey.key(), (DynamicConfiguration<?, ?, ?>)rootKey.createPublicRoot(changer));
+        validators.forEach(changer::addValidators);
+
+        configurationStorages.forEach(changer::register);
     }
 
-    /** */
-    public <A extends Annotation> void registerValidator(Class<A> annotationType, Validator<A, ?> validator) {
-        changer.addValidator(annotationType, validator);
-    }
-
-    /** */
-    public void registerStorage(ConfigurationStorage configurationStorage) {
-        changer.register(configurationStorage);
-    }
-
-    /** */
-    public void startStorageConfigurations(Class<? extends ConfigurationStorage> storageType) {
+    /**
+     * Starts storage configurations.
+     * @param storageType Storage type.
+     */
+    public void startStorageConfigurations(ConfigurationType storageType) {
         changer.initialize(storageType);
     }
 
-    /** */
+    /**
+     * Gets the public configuration tree.
+     * @param rootKey Root key.
+     * @param <V> View type.
+     * @param <C> Change type.
+     * @param <T> Configuration tree type.
+     * @return Public configuration tree.
+     */
     public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
         return (T)configs.get(rootKey.key());
     }
@@ -121,9 +144,15 @@ public class ConfigurationRegistry {
         return visitor.visitLeafNode(null, (Serializable)node);
     }
 
-    /** */
-    public CompletableFuture<?> change(List<String> path, ConfigurationSource changesSource, ConfigurationStorage storage) {
-        return changer.changeX(path, changesSource, storage);
+    /**
+     * Change configuration.
+     * @param changesSource Configuration source to create patch from it.
+     * @param storage Expected storage for the changes. Can be null, this will mean that derived storage will be used
+     * unconditionaly.
+     * @return Future that is completed on change completion.
+     */
+    public CompletableFuture<Void> change(ConfigurationSource changesSource, @Nullable ConfigurationStorage storage) {
+        return changer.change(changesSource, storage);
     }
 
     /** */
@@ -139,7 +168,7 @@ public class ConfigurationRegistry {
             @Override public Void visitInnerNode(String key, InnerNode newRoot) {
                 InnerNode oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor());
 
-                var cfg = (DynamicConfiguration<InnerNode, ?, ?>)configs.get(key);
+                var cfg = (DynamicConfiguration<InnerNode, ?>)configs.get(key);
 
                 assert oldRoot != null && cfg != null : key;
 
@@ -168,13 +197,16 @@ public class ConfigurationRegistry {
      * Does not register this root anywhere, used for static object initialization only.
      *
      * @param rootName Name of the root as described in {@link ConfigurationRoot#rootName()}.
-     * @param storageType Storage class as described in {@link ConfigurationRoot#storage()}.
+     * @param storageType Storage class as described in {@link ConfigurationRoot#type()}.
      * @param rootSupplier Closure to instantiate internal configuration tree roots.
      * @param publicRootCreator Function to create public user-facing tree instance.
+     * @param <T> Type of public configuration tree.
+     * @param <V> View type for the root.
+     * @return Root key instance.
      */
     public static <T extends ConfigurationTree<V, ?>, V> RootKey<T, V> newRootKey(
         String rootName,
-        Class<? extends ConfigurationStorage> storageType,
+        ConfigurationType storageType,
         Supplier<InnerNode> rootSupplier,
         BiFunction<RootKey<T, V>, ConfigurationChanger, T> publicRootCreator
     ) {

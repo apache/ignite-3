@@ -24,6 +24,9 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
@@ -61,10 +64,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
      */
     protected ClusterService createService(String name, int port, List<String> servers) {
         // TODO: IGNITE-14088: Uncomment and use real serializer provider
-        var serializationRegistry = new MessageSerializationRegistry();
+        MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
+            .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 
         var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
-        var factory = new ScaleCubeClusterServiceFactory();
+        var factory = new TestScaleCubeClusterServiceFactory();
 
         return factory.createClusterService(context);
     }

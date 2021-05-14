@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.configuration.storage.ConfigurationStorageListener;
+import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 
@@ -35,13 +36,13 @@ class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override public Data readAll() throws StorageException {
-        return new Data(Collections.emptyMap(), 0, 0);
+        return new Data(Collections.emptyMap(), 0);
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long version) {
         for (ConfigurationStorageListener listener : listeners)
-            listener.onEntriesChanged(new Data(newValues, version + 1, 0));
+            listener.onEntriesChanged(new Data(newValues, version + 1));
 
         return CompletableFuture.completedFuture(true);
     }
@@ -57,5 +58,10 @@ class TestConfigurationStorage implements ConfigurationStorage {
     }
 
     @Override public void notifyApplied(long storageRevision) {
+    }
+
+    /** {@inheritDoc} */
+    @Override public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
     }
 }
