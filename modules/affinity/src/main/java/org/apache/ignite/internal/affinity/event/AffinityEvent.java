@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.affinity.event;
 
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.internal.manager.Event;
 
-public class NetworkException extends RuntimeException {
+/**
+ * Affinity management events.
+ */
+public enum AffinityEvent implements Event {
+    /** This event fires when affinity assignment is calculated. */
+    CALCULATED,
 
-    private final NetworkMessage errorResponse;
-
-    public NetworkException(NetworkMessage response) {
-        errorResponse = response;
-    }
-
-    public NetworkMessage getErrorResponse() {
-        return errorResponse;
-    }
+    /** This event fires when affinity assignment is removed. */
+    REMOVED
 }
