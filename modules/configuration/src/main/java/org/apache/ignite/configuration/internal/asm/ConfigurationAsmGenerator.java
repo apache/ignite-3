@@ -788,6 +788,12 @@ public class ConfigurationAsmGenerator {
             if (!isValue(schemaField))
                 continue;
 
+            if (!schemaField.getAnnotation(Value.class).hasDefault()) {
+                switchBuilder.addCase(schemaField.getName(), new BytecodeBlock());
+
+                continue;
+            }
+
             FieldDefinition fieldDef = fieldDefs.get(schemaField.getName());
 
             Class<?> schemaFieldType = schemaField.getType();
