@@ -67,6 +67,8 @@ public class SchemaDescriptor {
 
         Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
         Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
+
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-14388 Add affinity columns support.
     }
 
     /**

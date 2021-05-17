@@ -24,7 +24,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
@@ -62,7 +61,7 @@ public class SchemaManager {
     private static final String INTERNAL_PREFIX = "internal.tables.schema.";
 
     /** Schema history item key suffix. */
-    protected static final String INTERNAL_VER_SUFFIX = ".ver.";
+    private static final String INTERNAL_VER_SUFFIX = ".ver.";
 
     /** Configuration manager in order to handle and listen schema specific configuration. */
     private final ConfigurationManager configurationMgr;
@@ -71,10 +70,7 @@ public class SchemaManager {
     private final MetaStorageManager metaStorageMgr;
 
     /** Vault manager. */
-    private final VaultManager vaultManager;
-
-    /** Schema history subscription future. */
-    private CompletableFuture<Long> schemaHistorySubscriptionFut;
+    private final VaultManager vaultMgr;
 
     /** Schema. */
     private final Map<UUID, SchemaRegistryImpl> schemes = new ConcurrentHashMap<>();
@@ -84,18 +80,18 @@ public class SchemaManager {
      *
      * @param configurationMgr Configuration manager.
      * @param metaStorageMgr Metastorage manager.
-     * @param vaultManager Vault manager.
+     * @param vaultMgr Vault manager.
      */
     public SchemaManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
-        VaultManager vaultManager
+        VaultManager vaultMgr
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
-        this.vaultManager = vaultManager;
+        this.vaultMgr = vaultMgr;
 
-        schemaHistorySubscriptionFut = metaStorageMgr.registerWatchByPrefix(new Key(INTERNAL_PREFIX), new WatchListener() {
+        metaStorageMgr.registerWatchByPrefix(new Key(INTERNAL_PREFIX), new WatchListener() {
             /** {@inheritDoc} */
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                 for (WatchEvent evt : events) {
@@ -136,25 +132,6 @@ public class SchemaManager {
     }
 
     /**
-     * Unsubscribes a listener form the affinity calculation.
-     */
-    private void unsubscribeFromAssignmentCalculation() {
-        if (schemaHistorySubscriptionFut == null)
-            return;
-
-        try {
-            Long subscriptionId = schemaHistorySubscriptionFut.get();
-
-            metaStorageMgr.unregisterWatch(subscriptionId);
-
-            schemaHistorySubscriptionFut = null;
-        }
-        catch (InterruptedException | ExecutionException e) {
-            LOG.error("Couldn't unsubscribe for Metastorage updates", e);
-        }
-    }
-
-    /**
      * Reads current schema configuration, build schema descriptor,
      * then add it to history rise up table schema version.
      *
@@ -163,7 +140,7 @@ public class SchemaManager {
      * @return Operation future.
      */
     public CompletableFuture<Boolean> initNewSchemaForTable(UUID tblId, String tblName) {
-        return vaultManager.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
+        return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
             thenCompose(entry -> {
                 TableConfiguration tblConfig = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
                 var key = new Key(INTERNAL_PREFIX + tblId);
@@ -176,12 +153,10 @@ public class SchemaManager {
                     Conditions.key(key).value().eq(entry.value()), // Won't to rewrite if the version goes ahead.
                     List.of(
                         Operations.put(key, ByteUtils.longToBytes(ver)),
+                        //TODO: IGNITE-14679 Serialize schema.
                         Operations.put(new Key(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + ver), ByteUtils.toBytes(desc))
                     ),
-                    List.of(
-                        Operations.noop(),
-                        Operations.noop()
-                    ));
+                    List.of(Operations.noop()));
             });
     }
 
@@ -278,26 +253,9 @@ public class SchemaManager {
         final SchemaRegistry reg = schemes.get(tableId);
 
         if (reg == null)
-            throw new SchemaRegistryException("No schema was ever registeref for the table: " + tableId);
+            throw new SchemaRegistryException("No schema was ever registered for the table: " + tableId);
 
         return reg;
-    }
-
-    /**
-     * Registers new schema.
-     *
-     * @param tableId Table identifier.
-     * @param desc Schema descriptor.
-     */
-    public CompletableFuture<Boolean> registerSchema(UUID tableId, SchemaDescriptor desc) {
-        int schemaVersion = desc.version();
-
-        final Key key = new Key(INTERNAL_PREFIX + tableId + '.' + schemaVersion);
-
-        return metaStorageMgr.invoke(
-            Conditions.key(key).value().eq(null),
-            Operations.put(key, ByteUtils.toBytes(desc)), //TODO: IGNITE-14679 Serialize schema.
-            Operations.noop());
     }
 
     /**
@@ -316,7 +274,7 @@ public class SchemaManager {
                 futs.add(metaStorageMgr.remove(entry.key())));
         }
         catch (Exception e) {
-            LOG.error("Culdn't remove schemas for the table [tblId=" + tableId + ']');
+            LOG.error("Can't remove schemas for the table [tblId=" + tableId + ']');
         }
 
         return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))

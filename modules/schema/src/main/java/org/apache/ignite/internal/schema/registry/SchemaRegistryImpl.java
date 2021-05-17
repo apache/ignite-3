@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @implSpec The changes in between two arbitrary actual versions MUST NOT be lost.
  * Thus, schema versions can only be removed from the beginning.
- * @implSpec Initial schema history MAY be registered without the first outdate versions
+ * @implSpec Initial schema history MAY be registered without the first outdated versions
  * that could be cleaned up earlier.
  */
 public class SchemaRegistryImpl implements SchemaRegistry {
