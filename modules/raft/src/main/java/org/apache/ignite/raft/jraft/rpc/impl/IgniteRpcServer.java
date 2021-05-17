@@ -1,6 +1,5 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import io.scalecube.cluster.ClusterConfig;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -8,83 +7,57 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.message.NetworkMessage;
-import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
-import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.RpcUtils;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.AddLearnersRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.AddPeerRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.GetLeaderRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.GetPeersRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.RemoveLearnersRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.RemovePeerRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetLearnersRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetPeerRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.SnapshotRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.TransferLeaderRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 
+/**
+ * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
+ */
 public class IgniteRpcServer implements RpcServer<Void> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
 
     /** The {@code true} to reuse cluster service. */
     private final boolean reuse;
 
-    private ClusterService service;
+    private final ClusterService service;
 
     private List<ConnectionClosedEventListener> listeners = new CopyOnWriteArrayList<>();
 
     private Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
-    private final NodeManager nodeManager;
-
-    public IgniteRpcServer(Endpoint endpoint, NodeManager nodeManager) {
-        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), List.of(), nodeManager);
-    }
-
-    public IgniteRpcServer(Endpoint endpoint, List<String> servers, NodeManager nodeManager) {
-        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), servers, nodeManager);
-    }
-
-    // TODO asch Should always use injected cluster service.
-    public IgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
-        var serializationRegistry = new MessageSerializationRegistry()
-            .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
-
-        var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
-        var factory = new ScaleCubeClusterServiceFactory() {
-            @Override protected ClusterConfig defaultConfig() {
-                return super.defaultConfig();
-            }
-        };
-
-        reuse = false;
-        this.nodeManager = nodeManager;
-
-        init(factory.createClusterService(context));
-    }
+    private final NodeManager nodeManager; // TODO asch refactor (replace with a reference to self)
 
     public IgniteRpcServer(ClusterService service, boolean reuse, NodeManager nodeManager) {
         this.reuse = reuse;
         this.nodeManager = nodeManager;
-
-        init(service);
-    }
-
-    public ClusterService clusterService() {
-        return service;
-    }
-
-    private void init(ClusterService service) {
         this.service = service;
 
+        // TODO asch configure executors ?
         final Executor raftExecutor = null;
         final Executor cliExecutor = null;
 
@@ -98,17 +71,17 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new TimeoutNowRequestProcessor(raftExecutor));
         registerProcessor(new ReadIndexRequestProcessor(raftExecutor));
         // raft cli service
-//        registerProcessor(new AddPeerRequestProcessor(cliExecutor));
-//        registerProcessor(new RemovePeerRequestProcessor(cliExecutor));
-//        registerProcessor(new ResetPeerRequestProcessor(cliExecutor));
-//        registerProcessor(new ChangePeersRequestProcessor(cliExecutor));
-//        registerProcessor(new GetLeaderRequestProcessor(cliExecutor));
-//        registerProcessor(new SnapshotRequestProcessor(cliExecutor));
-//        registerProcessor(new TransferLeaderRequestProcessor(cliExecutor));
-//        registerProcessor(new GetPeersRequestProcessor(cliExecutor));
-//        registerProcessor(new AddLearnersRequestProcessor(cliExecutor));
-//        registerProcessor(new RemoveLearnersRequestProcessor(cliExecutor));
-//        registerProcessor(new ResetLearnersRequestProcessor(cliExecutor));
+        registerProcessor(new AddPeerRequestProcessor(cliExecutor));
+        registerProcessor(new RemovePeerRequestProcessor(cliExecutor));
+        registerProcessor(new ResetPeerRequestProcessor(cliExecutor));
+        registerProcessor(new ChangePeersRequestProcessor(cliExecutor));
+        registerProcessor(new GetLeaderRequestProcessor(cliExecutor));
+        registerProcessor(new SnapshotRequestProcessor(cliExecutor));
+        registerProcessor(new TransferLeaderRequestProcessor(cliExecutor));
+        registerProcessor(new GetPeersRequestProcessor(cliExecutor));
+        registerProcessor(new AddLearnersRequestProcessor(cliExecutor));
+        registerProcessor(new RemoveLearnersRequestProcessor(cliExecutor));
+        registerProcessor(new ResetLearnersRequestProcessor(cliExecutor));
 
         service.messagingService().addMessageHandler(new NetworkMessageHandler() {
             @Override public void onReceived(NetworkMessage msg, ClusterNode sender, String corellationId) {
@@ -161,7 +134,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
             @Override public void onAppeared(ClusterNode member) {
-
+                // TODO asch optimize start replicator ?
             }
 
             @Override public void onDisappeared(ClusterNode member) {
@@ -185,9 +158,14 @@ public class IgniteRpcServer implements RpcServer<Void> {
     }
 
     @Override public boolean init(Void opts) {
-        service.start();
+        if (!reuse)
+            service.start();
 
         return true;
+    }
+
+    public ClusterService clusterService() {
+        return service;
     }
 
     @Override public void shutdown() {

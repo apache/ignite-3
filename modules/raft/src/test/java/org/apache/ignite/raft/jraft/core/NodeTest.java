@@ -45,6 +45,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
+import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
@@ -2539,7 +2540,7 @@ public class NodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testLeaderTransferResumeOnFailure() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2584,7 +2585,7 @@ public class NodeTest {
         leader.apply(task);
         waitLatch(latch);
 
-        assertTrue(cluster.ensureSame(5));
+        assertTrue(cluster.ensureSame(-1));
         cluster.stopAll();
     }
 
@@ -3582,7 +3583,7 @@ public class NodeTest {
             }
         }
 
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(peerId.getEndpoint(), servers, nodeManager);
+        final IgniteRpcServer rpcServer = new TestIgniteRpcServer(peerId.getEndpoint(), servers, nodeManager);
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
         return new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);

@@ -155,7 +155,7 @@ public class ITDistributedTableTest {
 
         partSrv.startRaftNode(grpId, new PartitionCommandListener(), conf);
 
-        RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, false);
+        RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true);
 
         Row testRow = getTestRow();
 

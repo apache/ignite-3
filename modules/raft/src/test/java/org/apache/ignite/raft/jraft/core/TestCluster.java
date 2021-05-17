@@ -26,6 +26,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
@@ -213,8 +214,7 @@ public class TestCluster {
 
         NodeManager nodeManager = new NodeManager();
 
-        final IgniteRpcServer rpcServer = new IgniteRpcServer(listenAddr, servers, nodeManager);
-
+        final IgniteRpcServer rpcServer = new TestIgniteRpcServer(listenAddr, servers, nodeManager);
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
         if (optsClo != null)

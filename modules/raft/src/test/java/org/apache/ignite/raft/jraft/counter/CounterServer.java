@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.counter;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -31,6 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.raft.jraft.counter.rpc.GetValueRequestProcessor;
 import org.apache.ignite.raft.jraft.counter.rpc.IncrementAndGetRequestProcessor;
 import org.apache.ignite.raft.jraft.counter.rpc.ValueResponse;
+import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 
 /**
@@ -53,7 +57,14 @@ public class CounterServer {
 
         NodeManager nodeManager = new NodeManager();
 
-        final RpcServer rpcServer = new IgniteRpcServer(serverId.getEndpoint(), nodeManager);
+        Configuration initialConf = nodeOptions.getInitialConf();
+
+        List<PeerId> peers = initialConf.getPeers();
+
+        List<String> addrs = peers.stream().map(p -> p.getEndpoint().toString()).collect(Collectors.toList());
+
+        final TestIgniteRpcServer rpcServer = new TestIgniteRpcServer(serverId.getEndpoint(), addrs, nodeManager);
+        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
         CounterService counterService = new CounterServiceImpl(this);
         rpcServer.registerProcessor(new GetValueRequestProcessor(counterService));
@@ -77,8 +88,7 @@ public class CounterServer {
     }
 
     public void shutdown() throws InterruptedException {
-        node.shutdown();
-        node.join();
+        raftGroupService.shutdown();
 
         servers.remove(this);
     }
@@ -91,7 +101,7 @@ public class CounterServer {
         return this.node;
     }
 
-    public RaftGroupService RaftGroupService() {
+    public RaftGroupService raftGroupService() {
         return this.raftGroupService;
     }
 

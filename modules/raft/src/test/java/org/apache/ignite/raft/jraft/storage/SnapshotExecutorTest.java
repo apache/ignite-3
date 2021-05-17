@@ -220,7 +220,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         //mock get metadata
         final ArgumentCaptor<RpcResponseClosure> argument = ArgumentCaptor.forClass(RpcResponseClosure.class);
-        Mockito.when(
+        Mockito.lenient().when(
             this.raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb.build()),
                 eq(this.copyOpts.getTimeoutMs()), argument.capture())).thenReturn(future);
         Utils.runInThread(new Runnable() {

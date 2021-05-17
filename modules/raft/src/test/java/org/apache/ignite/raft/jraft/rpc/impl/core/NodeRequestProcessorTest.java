@@ -90,9 +90,12 @@ public class NodeRequestProcessorTest {
     @Test
     public void testOK() {
         Node node = Mockito.mock(Node.class, withSettings().extraInterfaces(RaftServerService.class));
+
         Mockito.when(node.getGroupId()).thenReturn("test");
         PeerId peerId = new PeerId("localhost", 8081);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId("test", peerId));
+
+        asyncContext.getNodeManager().add(node);
 
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();

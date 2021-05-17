@@ -68,6 +68,7 @@ public interface MessagingService {
     CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout);
 
     /**
+     * TODO asch remove
      * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and
      * returns a future that will be completed successfully upon receiving a response.
      *
