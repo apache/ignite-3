@@ -107,6 +107,15 @@ public class ConfigurationAsmGenerator {
     /** {@link Consumer#accept(Object)}*/
     private static final Method ACCEPT;
 
+    /** {@link ConfigurationVisitor#visitLeafNode(String, Serializable)} */
+    private static final Method VISIT_LEAF;
+
+    /** {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)} */
+    private static final Method VISIT_INNER;
+
+    /** {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)} */
+    private static final Method VISIT_NAMED;
+
     /** {@link ConfigurationSource#unwrap(Class)} */
     private static final Method UNWRAP;
 
@@ -135,6 +144,12 @@ public class ConfigurationAsmGenerator {
             );
 
             ACCEPT = Consumer.class.getDeclaredMethod("accept", Object.class);
+
+            VISIT_LEAF = ConfigurationVisitor.class.getDeclaredMethod("visitLeafNode", String.class, Serializable.class);
+
+            VISIT_INNER = ConfigurationVisitor.class.getDeclaredMethod("visitInnerNode", String.class, InnerNode.class);
+
+            VISIT_NAMED = ConfigurationVisitor.class.getDeclaredMethod("visitNamedListNode", String.class, NamedListNode.class);
 
             UNWRAP = ConfigurationSource.class.getDeclaredMethod("unwrap", Class.class);
 
@@ -643,42 +658,20 @@ public class ConfigurationAsmGenerator {
      * @return Bytecode block that invokes "visit*" method.
      */
     private BytecodeBlock invokeVisit(MethodDefinition mtd, Field schemaField, FieldDefinition fieldDef) {
-        BytecodeBlock visitBlock = new BytecodeBlock();
+        Method visitMethod;
 
-        // "visitor" constant hard-couples this method to its callers. Not a big deal I think.
-        visitBlock.append(mtd.getScope().getVariable("visitor"));
-        visitBlock.append(constantString(fieldDef.getName()));
-        visitBlock.append(mtd.getThis().getField(fieldDef));
+        if (isValue(schemaField))
+            visitMethod = VISIT_LEAF;
+        else if (isConfigValue(schemaField))
+            visitMethod = VISIT_INNER;
+        else
+            visitMethod = VISIT_NAMED;
 
-        if (isConfigValue(schemaField)) {
-            visitBlock.invokeInterface(
-                ConfigurationVisitor.class,
-                "visitInnerNode",
-                Object.class,
-                String.class,
-                InnerNode.class
-            );
-        }
-        else if (isNamedConfigValue(schemaField)) {
-            visitBlock.invokeInterface(
-                ConfigurationVisitor.class,
-                "visitNamedListNode",
-                Object.class,
-                String.class,
-                NamedListNode.class
-            );
-        }
-        else {
-            visitBlock.invokeInterface(
-                ConfigurationVisitor.class,
-                "visitLeafNode",
-                Object.class,
-                String.class,
-                Serializable.class
-            );
-        }
-
-        return visitBlock;
+        return new BytecodeBlock().append(mtd.getScope().getVariable("visitor").invoke(
+            visitMethod,
+            constantString(fieldDef.getName()),
+            mtd.getThis().getField(fieldDef)
+        ));
     }
 
     /**
