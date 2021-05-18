@@ -56,6 +56,11 @@ public class NativeType implements Comparable<NativeType> {
     /** Type length. */
     private final int len;
 
+    /** */
+    public boolean mismatch(NativeType type) {
+        return this != type && type != null && typeSpec != type.typeSpec;
+    }
+
     /**
      * Constructor for fixed-length types.
      *

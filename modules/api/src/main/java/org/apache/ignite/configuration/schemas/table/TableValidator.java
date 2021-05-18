@@ -17,16 +17,20 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.storage.ConfigurationType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-/** Tables configuration schema. */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "table", type = ConfigurationType.DISTRIBUTED)
-public class TablesConfigurationSchema {
-    /** List of configured tables. */
-    @NamedConfigValue
-    //@TableValidator
-    TableConfigurationSchema tables;
+import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
+import static java.lang.annotation.ElementType.CONSTRUCTOR;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.ElementType.TYPE_USE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+/** Annotation to validate whole table configuration. */
+@Target({ FIELD, PARAMETER })
+@Retention(RUNTIME)
+public @interface TableValidator {
+
 }

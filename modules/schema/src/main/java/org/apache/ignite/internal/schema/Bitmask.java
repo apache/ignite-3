@@ -42,7 +42,7 @@ public class Bitmask extends NativeType {
      *
      * @param bits The number of bits in the bitmask.
      */
-    protected Bitmask(int bits) {
+    public Bitmask(int bits) {
         super(NativeTypeSpec.BITMASK, (bits + 7) / 8);
 
         this.bits = bits;

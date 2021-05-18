@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
@@ -226,6 +227,18 @@ public class Row implements BinaryRow {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
 
         return off < 0 ? null : readDouble(offset(off));
+    }
+
+    /**
+     * Reads value from specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
+     */
+    public BigDecimal decimalValue(int col) throws InvalidTypeException {
+        // TODO: IGNITE-13668 decimal support
+        return null;
     }
 
     /**

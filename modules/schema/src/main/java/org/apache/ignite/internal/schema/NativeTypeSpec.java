@@ -89,6 +89,16 @@ public enum NativeTypeSpec {
     },
 
     /**
+     * Native type representing an eight-bytes floating-point value.
+     */
+    DECIMAL("decimal", false) {
+        /** {@inheritDoc} */
+        @Override public Object objectValue(Row tup, int colIdx) {
+            return tup.decimalValue(colIdx);
+        }
+    },
+
+    /**
      * Native type representing a UUID.
      */
     UUID("uuid", true) {

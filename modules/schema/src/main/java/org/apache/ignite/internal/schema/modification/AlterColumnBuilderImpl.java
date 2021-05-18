@@ -28,13 +28,18 @@ class AlterColumnBuilderImpl implements AlterColumnBuilder {
     /** Table modification builder. */
     private final TableModificationBuilderImpl tableBuilder;
 
+    /** Column name. */
+    private final String columnName;
+
     /**
      * Constructor.
      *
      * @param tableBuilder Table modification builder.
+     * @param columnName Column name.
      */
-    AlterColumnBuilderImpl(TableModificationBuilderImpl tableBuilder) {
+    AlterColumnBuilderImpl(TableModificationBuilderImpl tableBuilder, String columnName) {
         this.tableBuilder = tableBuilder;
+        this.columnName = columnName;
     }
 
     /** {@inheritDoc} */
