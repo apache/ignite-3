@@ -48,7 +48,6 @@ public class NativeTypes {
     /** */
     public static final NativeType BYTES = new org.apache.ignite.internal.schema.VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
 
-
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }

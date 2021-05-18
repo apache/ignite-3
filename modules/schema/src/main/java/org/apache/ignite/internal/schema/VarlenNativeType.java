@@ -23,7 +23,6 @@ import org.apache.ignite.internal.tostring.S;
  * Types with various length (STRING, BYTES).
  */
 public class VarlenNativeType extends NativeType {
-
     /** Length of the type. */
     private final int len;
 
@@ -44,6 +43,6 @@ public class VarlenNativeType extends NativeType {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(),  "len", len);
+        return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);
     }
 }

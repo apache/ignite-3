@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
