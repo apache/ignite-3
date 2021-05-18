@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Function;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -42,17 +41,23 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** Initial schema version. */
     public static final int INITIAL_SCHEMA_VERSION = -1;
 
-    /** Latest actual schemas. */
-    private final ConcurrentSkipListMap<Integer, SchemaDescriptor> history = new ConcurrentSkipListMap<>();
+    /** Cached schemas. */
+    private final ConcurrentSkipListMap<Integer, SchemaDescriptor> schemaCache = new ConcurrentSkipListMap<>();
 
     /** Last registered version. */
     private volatile int lastVer;
 
+    /** Schema store. */
+    private final Function<Integer, SchemaDescriptor> history;
+
     /**
      * Default constructor.
+     *
+     * @param history Schema history.
      */
-    public SchemaRegistryImpl() {
+    public SchemaRegistryImpl(Function<Integer, SchemaDescriptor> history) {
         lastVer = INITIAL_SCHEMA_VERSION;
+        this.history = history;
     }
 
     /**
@@ -60,36 +65,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param history Schema history.
      */
-    public SchemaRegistryImpl(List<SchemaDescriptor> history) {
-        if (history.isEmpty())
-            lastVer = INITIAL_SCHEMA_VERSION;
-        else {
-            validateSchemaHistory(history);
-
-            history.forEach(d -> this.history.put(d.version(), d));
-
-            lastVer = history.get(history.size() - 1).version();
-        }
-    }
-
-    /**
-     * @param history Schema history.
-     * @throws SchemaRegistryException If history is invalid.
-     */
-    private void validateSchemaHistory(List<SchemaDescriptor> history) {
-        if (history.isEmpty())
-            return;
-
-        int prevVer = Objects.requireNonNull(history.get(0), "Schema descriptor can't be null.").version();
-
-        assert prevVer > 0;
-
-        for (int i = 1; i < history.size(); i++) {
-            final SchemaDescriptor desc = Objects.requireNonNull(history.get(i), "Schema descriptor can't be null.");
-
-            if (desc.version() != (++prevVer))
-                throw new SchemaRegistryException("Unexpected schema version: expected=" + prevVer + ", actual=" + desc.version());
-        }
+    public SchemaRegistryImpl(int initialVer, Function<Integer, SchemaDescriptor> history) {
+        lastVer = initialVer;
+        this.history = history;
     }
 
     /**
@@ -100,17 +78,23 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @throws SchemaRegistryException If no schema found for given version.
      */
     @Override public SchemaDescriptor schema(int ver) {
-        final SchemaDescriptor desc = history.get(ver);
+        SchemaDescriptor desc = schemaCache.get(ver);
 
         if (desc != null)
             return desc;
 
+        desc = history.apply(ver);
+
+        if (desc != null) {
+            schemaCache.putIfAbsent(ver, desc);
+
+            return desc;
+        }
+
         if (lastVer < ver || ver <= 0)
-            throw new SchemaRegistryException("Incorrect schema version requested: " + ver);
-
-        assert history.isEmpty() || ver < history.firstKey();
-
-        throw new SchemaRegistryException("Outdated schema version requested: " + ver);
+            throw new SchemaRegistryException("Incorrect schema version requested: ver=" + ver);
+        else
+            throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
     }
 
     /**
@@ -122,15 +106,10 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     @Override public @Nullable SchemaDescriptor schema() {
         final int lastVer0 = lastVer;
 
-        final SchemaDescriptor desc = history.get(lastVer0);
-
-        if (desc != null)
-            return desc;
-
         if (lastVer0 == INITIAL_SCHEMA_VERSION)
             return null;
 
-        throw new SchemaRegistryException("Failed to find last schema version: " + lastVer0);
+       return schema(lastVer0);
     }
 
     /**
@@ -147,7 +126,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @throws SchemaRegistrationConflictException If schema of provided version was already registered.
      * @throws SchemaRegistryException If schema of incorrect version provided.
      */
-    public void registerSchema(SchemaDescriptor desc) {
+    public void onSchemaRegistered(SchemaDescriptor desc) {
         if (lastVer == INITIAL_SCHEMA_VERSION) {
             if (desc.version() != 1)
                 throw new SchemaRegistryException("Try to register schema of wrong version: ver=" + desc.version() + ", lastVer=" + lastVer);
@@ -159,7 +138,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             throw new SchemaRegistryException("Try to register schema of wrong version: ver=" + desc.version() + ", lastVer=" + lastVer);
         }
 
-        history.put(desc.version(), desc);
+        schemaCache.put(desc.version(), desc);
 
         lastVer = desc.version();
     }
@@ -170,10 +149,10 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param ver Schema version to remove.
      * @throws SchemaRegistryException If incorrect schema version provided.
      */
-    public void cleanupSchema(int ver) {
-        if (ver >= lastVer || ver <= 0 || history.keySet().first() < ver)
+    public void onSchemaDropped(int ver) {
+        if (ver >= lastVer || ver <= 0 || schemaCache.keySet().first() < ver)
             throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
 
-        history.remove(ver);
+        schemaCache.remove(ver);
     }
 }

@@ -36,10 +36,14 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
+import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.event.SchemaEvent;
+import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -117,8 +121,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name Table name.
      * @param tblId Table id.
      * @param assignment Affinity assignment.
+     * @param schemaReg Schema registry for the table.
      */
-    private void createTableLocally(String name, UUID tblId, List<List<ClusterNode>> assignment) {
+    private void createTableLocally(
+        String name,
+        UUID tblId,
+        List<List<ClusterNode>> assignment,
+        SchemaRegistry schemaReg
+    ) {
         int partitions = assignment.size();
 
         HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
@@ -134,7 +144,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         onEvent(TableEvent.CREATE, new TableEventParameters(
             tblId,
             name,
-            schemaMgr.schemaRegistryForTable(tblId),
+            schemaReg,
             new InternalTableImpl(tblId, partitionMap, partitions)
         ), null);
     }
@@ -198,22 +208,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 UUID tblId = new UUID(revision, 0L);
 
                 if (hasMetastorageLocally) {
-                    var key = new Key(INTERNAL_PREFIX + tblId.toString());
+                    var key = new Key(INTERNAL_PREFIX + tblId);
                     futs.add(metaStorageMgr.invoke(
                         Conditions.key(key).value().eq(null),
                         Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
                         Operations.noop())
-                        .thenCompose(res -> schemaMgr.initNewSchemaForTable(tblId, tableView.name()))
+                        .thenCompose(res -> schemaMgr.initSchemaForTable(tblId, tableView.name()))
                         .thenCompose(res -> affMgr.calculateAssignments(tblId)));
                 }
 
-                affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
+                final CompletableFuture<AffinityEventParameters> affinityReadyFut = new CompletableFuture<>();
+                final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 
-                    if (e == null)
-                        createTableLocally(tblName, tblId, parameters.assignment());
-                    else {
+                CompletableFuture.allOf(affinityReadyFut, schemaReadyFut)
+                    .exceptionally(e -> {
                         LOG.error("Failed to create a new table [name=" + tblName + ", id=" + tblId + ']', e);
 
                         onEvent(TableEvent.CREATE, new TableEventParameters(
@@ -222,7 +230,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             null,
                             null
                         ), e);
-                    }
+
+                        return null;
+                    })
+                    .thenRun(() -> createTableLocally(
+                        tblName,
+                        tblId,
+                        affinityReadyFut.join().assignment(),
+                        schemaReadyFut.join().schemaRegistry()
+                    ));
+
+                affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
+                    if (!tblId.equals(parameters.tableId()))
+                        return false;
+
+                    if (e == null)
+                        affinityReadyFut.complete(parameters);
+                    else
+                        affinityReadyFut.completeExceptionally(e);
+
+                    return true;
+                });
+
+                schemaMgr.listen(SchemaEvent.INITIALIZED, (parameters, e) -> {
+                    if (!tblId.equals(parameters.tableId()))
+                        return false;
+
+                    if (e == null)
+                        schemaReadyFut.complete(parameters);
+                    else
+                        schemaReadyFut.completeExceptionally(e);
 
                     return true;
                 });
@@ -239,7 +276,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 UUID tblId = t.internalTable().tableId();
 
                 if (hasMetastorageLocally) {
-                    var key = new Key(INTERNAL_PREFIX + tblId.toString());
+                    var key = new Key(INTERNAL_PREFIX + tblId);
 
                     futs.add(affMgr.removeAssignment(tblId)
                         .thenCompose(res -> schemaMgr.unregisterSchemas(tblId))
@@ -305,8 +342,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public void dropTable(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        listen(TableEvent.DROP, new BiPredicate<TableEventParameters, Exception>() {
-            @Override public boolean test(TableEventParameters params, Exception e) {
+        listen(TableEvent.DROP, new BiPredicate<>() {
+            @Override public boolean test(TableEventParameters params, Throwable e) {
                 String tableName = params.tableName();
 
                 if (!name.equals(tableName))

@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
@@ -33,7 +34,10 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.tree.NamedListView;
+import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.schema.event.SchemaEvent;
+import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -53,7 +57,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Schema Manager.
  */
-public class SchemaManager {
+public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
 
@@ -98,25 +102,37 @@ public class SchemaManager {
 
                     int verPos = keyTail.indexOf(INTERNAL_VER_SUFFIX);
 
-                    // Last table schema version changed.
                     if (verPos == -1) {
-                        UUID tblId = UUID.fromString(keyTail);
+                        final UUID tblId = UUID.fromString(keyTail);
 
-                        if (evt.oldEntry() == null)  // Initial schema added.
-                            schemes.put(tblId, new SchemaRegistryImpl());
-                        else if (evt.newEntry() == null) // Table Dropped.
+                        SchemaRegistry reg = schemaRegistryForTable(tblId);
+
+                        assert reg != null : "Table schema was not initialized or table has been dropped: " + tblId;
+
+                        if (evt.oldEntry() == null)
+                            onEvent(SchemaEvent.INITIALIZED, new SchemaEventParameters(tblId, reg), null);
+                        else if (evt.newEntry() == null) {
                             schemes.remove(tblId);
-                        else //TODO: https://issues.apache.org/jira/browse/IGNITE-13752
-                            throw new SchemaRegistryException("Schema upgrade is not implemented yet.");
+
+                            onEvent(SchemaEvent.DROPPED, new SchemaEventParameters(tblId, null), null);
+                        }
+
+                        return true; // Ignore last table schema version.
                     }
                     else {
                         UUID tblId = UUID.fromString(keyTail.substring(0, verPos));
 
-                        final SchemaRegistryImpl reg = schemes.get(tblId);
+                        SchemaRegistryImpl reg = schemes.get(tblId);
 
-                        assert reg != null : "Table schema was not initialized or table has been dropped: " + tblId;
+                        if (reg == null)
+                            schemes.put(tblId, (reg = new SchemaRegistryImpl(v -> tableSchema(tblId, v))));
 
-                        reg.registerSchema((SchemaDescriptor)ByteUtils.fromBytes(evt.newEntry().value()));
+                        if (evt.oldEntry() == null)
+                            reg.onSchemaRegistered((SchemaDescriptor)ByteUtils.fromBytes(evt.newEntry().value()));
+                        else if (evt.newEntry() == null)
+                            reg.onSchemaDropped(Integer.parseInt(keyTail.substring(verPos + INTERNAL_VER_SUFFIX.length())));
+                        else
+                            throw new SchemaRegistryException("Schema of concrete version can't be changed.");
                     }
                 }
 
@@ -130,42 +146,63 @@ public class SchemaManager {
     }
 
     /**
-     * Reads current schema configuration, build schema descriptor,
-     * then add it to history rise up table schema version.
+     * Creates schema registry for the table with existed schema or
+     * registers initial schema from configuration.
      *
      * @param tblId Table id.
      * @param tblName Table name.
      * @return Operation future.
      */
-    public CompletableFuture<Boolean> initNewSchemaForTable(UUID tblId, String tblName) {
+    public CompletableFuture<Boolean> initSchemaForTable(final UUID tblId, String tblName) {
         return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
             thenCompose(entry -> {
                 TableConfiguration tblConfig = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
-                var key = new Key(INTERNAL_PREFIX + tblId);
 
-                int ver = entry.empty() ? 1 : (int)ByteUtils.bytesToLong(entry.value(), 0) + 1;
+                assert entry.empty();
 
-                final SchemaDescriptor desc = createSchemaDescriptor(tblConfig, ver);
+                final int schemaVer = 1;
+
+                final Key lastVerKey = new Key(INTERNAL_PREFIX + tblId);
+                final Key schemaKey = new Key(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + schemaVer);
+
+                final SchemaDescriptor desc = createSchemaDescriptor(schemaVer, tblConfig);
 
                 return metaStorageMgr.invoke(
-                    Conditions.key(key).value().eq(entry.value()), // Won't to rewrite if the version goes ahead.
+                    Conditions.key(lastVerKey).value().eq(entry.value()), // Won't to rewrite if the version goes ahead.
                     List.of(
-                        Operations.put(key, ByteUtils.longToBytes(ver)),
                         //TODO: IGNITE-14679 Serialize schema.
-                        Operations.put(new Key(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + ver), ByteUtils.toBytes(desc))
+                        Operations.put(schemaKey, ByteUtils.toBytes(desc)),
+                        Operations.put(lastVerKey, ByteUtils.longToBytes(schemaVer))
                     ),
                     List.of(Operations.noop()));
             });
     }
 
     /**
-     * Creates schema descriptor from config.
+     * Return table schema of certain version from history.
      *
-     * @param tblConfig Table config.
-     * @param ver Schema version.
+     * @param tblId Table id.
+     * @param schemaVer Schema version.
      * @return Schema descriptor.
      */
-    private SchemaDescriptor createSchemaDescriptor(TableConfiguration tblConfig, int ver) {
+    private SchemaDescriptor tableSchema(UUID tblId, int schemaVer) {
+        try {
+            return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + schemaVer))
+                .thenApply(e -> e.empty() ? null : (SchemaDescriptor)ByteUtils.fromBytes(e.value())).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw new SchemaRegistryException("Can't read schema from vault: ver=" + schemaVer, e);
+        }
+    }
+
+    /**
+     * Creates schema descriptor from configuration.
+     *
+     * @param ver Schema version.
+     * @param tblConfig Table config.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor createSchemaDescriptor(int ver, TableConfiguration tblConfig) {
         final TableIndexConfiguration pkCfg = tblConfig.indices().get(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
 
         assert pkCfg != null;
@@ -247,7 +284,7 @@ public class SchemaManager {
      * @param tableId Table id.
      * @return Schema registry for the table.
      */
-    public SchemaRegistry schemaRegistryForTable(UUID tableId) {
+    private SchemaRegistry schemaRegistryForTable(UUID tableId) {
         final SchemaRegistry reg = schemes.get(tableId);
 
         if (reg == null)
@@ -263,20 +300,18 @@ public class SchemaManager {
      * @return Future which will complete when all versions of schema will be unregistered.
      */
     public CompletableFuture<Boolean> unregisterSchemas(UUID tableId) {
-        List<CompletableFuture<?>> futs = new ArrayList<>();
+        CompletableFuture<Void> fut = metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tableId));
 
         String schemaPrefix = INTERNAL_PREFIX + tableId + INTERNAL_VER_SUFFIX;
 
+        List<Key> keys = new ArrayList<>();
         try (Cursor<Entry> cursor = metaStorageMgr.range(new Key(schemaPrefix), null)) {
-            cursor.forEach(entry ->
-                futs.add(metaStorageMgr.remove(entry.key())));
+            cursor.forEach(entry -> keys.add(entry.key()));
         }
         catch (Exception e) {
             LOG.error("Can't remove schemas for the table [tblId=" + tableId + ']');
         }
 
-        return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
-            .thenCompose(v -> metaStorageMgr.remove(new Key(INTERNAL_PREFIX + tableId)))
-            .thenApply(v -> true);
+        return fut.thenCompose(r -> metaStorageMgr.removeAll(keys)).thenApply(v -> true);
     }
 }

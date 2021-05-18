@@ -24,7 +24,7 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class SchemaRegistryException extends IgniteInternalException {
     /**
-     * Constructor.
+     * Constructor with error message.
      *
      * @param msg Message.
      */
@@ -33,11 +33,11 @@ public class SchemaRegistryException extends IgniteInternalException {
     }
 
     /**
-     * Constructor.
+     * Constructor with error message and cause.
      *
      * @param cause Cause.
      */
-    public SchemaRegistryException(Throwable cause) {
-        super(cause);
+    public SchemaRegistryException(String msg, Throwable cause) {
+        super(msg, cause);
     }
 }
