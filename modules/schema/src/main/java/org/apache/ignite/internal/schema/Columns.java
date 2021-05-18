@@ -320,22 +320,12 @@ public class Columns {
 
         Columns columns = (Columns)o;
 
-        return firstVarlenColIdx == columns.firstVarlenColIdx
-            && nullMapSize == columns.nullMapSize
-            && Arrays.equals(cols, columns.cols)
-            && Arrays.equals(foldingTbl, columns.foldingTbl)
-            && Arrays.equals(foldingMask, columns.foldingMask);
+        return Arrays.equals(cols, columns.cols);
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        int result = Objects.hash(firstVarlenColIdx, nullMapSize);
-
-        result = 31 * result + Arrays.hashCode(cols);
-        result = 31 * result + Arrays.hashCode(foldingTbl);
-        result = 31 * result + Arrays.hashCode(foldingMask);
-
-        return result;
+        return Arrays.hashCode(cols);
     }
 
     /** {@inheritDoc} */

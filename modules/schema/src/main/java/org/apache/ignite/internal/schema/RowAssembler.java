@@ -302,7 +302,7 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendString(String val) {
-        checkType(NativeType.of(ColumnType.stringOf(10)));
+        checkType(VarlenNativeType.STRING);
 
         try {
             int written = buf.putString(curOff, val, encoder());

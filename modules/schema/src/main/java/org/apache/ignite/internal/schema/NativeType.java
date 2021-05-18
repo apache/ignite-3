@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.util.BitSet;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.ColumnType;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
@@ -186,10 +187,18 @@ public class NativeType implements Comparable<NativeType> {
                 return new BitmaskNativeType(((ColumnType.VarLenColumnType)type).length());
 
             case STRING:
-                return new VarlenNativeType(NativeTypeSpec.STRING, ((ColumnType.VarLenColumnType)type).length());
+                return new VarlenNativeType(
+                    NativeTypeSpec.STRING,
+                    ((ColumnType.VarLenColumnType)type).length() > 0 ?
+                        ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
+                );
 
             case BLOB:
-                return new VarlenNativeType(NativeTypeSpec.BYTES, ((ColumnType.VarLenColumnType)type).length());
+                return new VarlenNativeType(
+                    NativeTypeSpec.BYTES,
+                    ((ColumnType.VarLenColumnType)type).length() > 0 ?
+                        ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
+                );
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
@@ -197,8 +206,8 @@ public class NativeType implements Comparable<NativeType> {
     }
 
     /** */
-    public boolean mismatch(NativeType type) {
-        return this != type && type != null && typeSpec != type.typeSpec;
+    public boolean mismatch(@NotNull NativeType type) {
+        return this != type && typeSpec != type.typeSpec;
     }
 
     /** {@inheritDoc} */
@@ -245,7 +254,7 @@ public class NativeType implements Comparable<NativeType> {
     @Override public String toString() {
         return S.toString(NativeType.class.getSimpleName(),
             "name", typeSpec.name(),
-            "len", sizeInBytes,
+            "sizeInBytes", sizeInBytes,
             "fixed", typeSpec.fixedLength());
     }
 

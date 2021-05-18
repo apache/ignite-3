@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Numeric column type.
@@ -53,13 +54,9 @@ public class NumericNativeType extends NativeType {
 
     /** {@inheritDoc} */
     @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || (
-            type != null
-                && (
-                precision < ((org.apache.ignite.internal.schema.NumericNativeType)type).precision
-                    || scale < ((org.apache.ignite.internal.schema.NumericNativeType)type).scale
-            )
-        );
+        return super.mismatch(type)
+            || precision < ((org.apache.ignite.internal.schema.NumericNativeType)type).precision
+            || scale < ((org.apache.ignite.internal.schema.NumericNativeType)type).scale;
     }
 
     /** {@inheritDoc} */
@@ -82,5 +79,11 @@ public class NumericNativeType extends NativeType {
     /** {@inheritDoc} */
     @Override public int hashCode() {
         return Objects.hash(super.hashCode(), precision, scale);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(NumericNativeType.class.getSimpleName(), "name", spec(), "precision", precision, "scale", scale);
     }
 }
