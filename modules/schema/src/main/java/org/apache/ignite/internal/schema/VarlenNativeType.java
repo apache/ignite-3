@@ -23,11 +23,6 @@ import org.apache.ignite.internal.tostring.S;
  * Types with various length (STRING, BYTES).
  */
 public class VarlenNativeType extends NativeType {
-    /** */
-    public static final NativeType STRING = new org.apache.ignite.internal.schema.VarlenNativeType(NativeTypeSpec.STRING, 0);
-
-    /** */
-    public static final NativeType BYTES = new org.apache.ignite.internal.schema.VarlenNativeType(NativeTypeSpec.BYTES, 0);
 
     /** Length of the type. */
     private final int len;

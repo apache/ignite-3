@@ -22,52 +22,39 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.ColumnType;
 import org.jetbrains.annotations.NotNull;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
+import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
+import static org.apache.ignite.internal.schema.NativeTypes.LONG;
+import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
+import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
  */
 public class NativeType implements Comparable<NativeType> {
     /** */
-    public static final NativeType BYTE = new NativeType(NativeTypeSpec.BYTE, 1);
-
-    /** */
-    public static final NativeType SHORT = new NativeType(NativeTypeSpec.SHORT, 2);
-
-    /** */
-    public static final NativeType INTEGER = new NativeType(NativeTypeSpec.INTEGER, 4);
-
-    /** */
-    public static final NativeType LONG = new NativeType(NativeTypeSpec.LONG, 8);
-
-    /** */
-    public static final NativeType FLOAT = new NativeType(NativeTypeSpec.FLOAT, 4);
-
-    /** */
-    public static final NativeType DOUBLE = new NativeType(NativeTypeSpec.DOUBLE, 8);
-
-    /** */
-    public static final NativeType UUID = new NativeType(NativeTypeSpec.UUID, 16);
-
-    /** */
     private final NativeTypeSpec typeSpec;
 
     /** Type size in bytes. */
-    private final int sizeInBytes;
+    private final int size;
 
     /**
      * Constructor for fixed-length types.
      *
      * @param typeSpec Type spec.
-     * @param sizeInBytes Type size in bytes.
+     * @param size Type size in bytes.
      */
-    protected NativeType(NativeTypeSpec typeSpec, int sizeInBytes) {
+    protected NativeType(NativeTypeSpec typeSpec, int size) {
         if (!typeSpec.fixedLength())
             throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
 
-        if (sizeInBytes <= 0)
-            throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + sizeInBytes + ']');
+        if (size <= 0)
+            throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + size + ']');
 
         this.typeSpec = typeSpec;
-        this.sizeInBytes = sizeInBytes;
+        this.size = size;
     }
 
     /**
@@ -81,7 +68,7 @@ public class NativeType implements Comparable<NativeType> {
                 "length-aware constructor: " + typeSpec);
 
         this.typeSpec = typeSpec;
-        this.sizeInBytes = 0;
+        this.size = 0;
     }
 
     /**
@@ -91,7 +78,7 @@ public class NativeType implements Comparable<NativeType> {
      * @see NativeTypeSpec#fixedLength()
      */
     public int sizeInBytes() {
-        return sizeInBytes;
+        return size;
     }
 
     /**
@@ -221,14 +208,14 @@ public class NativeType implements Comparable<NativeType> {
 
         NativeType that = (NativeType)o;
 
-        return sizeInBytes == that.sizeInBytes && typeSpec == that.typeSpec;
+        return size == that.size && typeSpec == that.typeSpec;
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
         int res = typeSpec.hashCode();
 
-        res = 31 * res + sizeInBytes;
+        res = 31 * res + size;
 
         return res;
     }
@@ -236,14 +223,14 @@ public class NativeType implements Comparable<NativeType> {
     /** {@inheritDoc} */
     @Override public int compareTo(NativeType o) {
         // Fixed-sized types go first.
-        if (sizeInBytes <= 0 && o.sizeInBytes > 0)
+        if (size <= 0 && o.size > 0)
             return 1;
 
-        if (sizeInBytes > 0 && o.sizeInBytes <= 0)
+        if (size > 0 && o.size <= 0)
             return -1;
 
         // Either size is -1 for both, or positive for both. Compare sizes, then description.
-        int cmp = Integer.compare(sizeInBytes, o.sizeInBytes);
+        int cmp = Integer.compare(size, o.size);
 
         if (cmp != 0)
             return cmp;
@@ -255,7 +242,7 @@ public class NativeType implements Comparable<NativeType> {
     @Override public String toString() {
         return S.toString(NativeType.class.getSimpleName(),
             "name", typeSpec.name(),
-            "sizeInBytes", sizeInBytes,
+            "sizeInBytes", size,
             "fixed", typeSpec.fixedLength());
     }
 

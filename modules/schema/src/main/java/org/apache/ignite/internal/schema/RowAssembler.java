@@ -210,11 +210,11 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendByte(byte val) {
-        checkType(NativeType.BYTE);
+        checkType(NativeTypes.BYTE);
 
         buf.put(curOff, val);
 
-        shiftColumn(NativeType.BYTE);
+        shiftColumn(NativeTypes.BYTE);
     }
 
     /**
@@ -223,11 +223,11 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendShort(short val) {
-        checkType(NativeType.SHORT);
+        checkType(NativeTypes.SHORT);
 
         buf.putShort(curOff, val);
 
-        shiftColumn(NativeType.SHORT);
+        shiftColumn(NativeTypes.SHORT);
     }
 
     /**
@@ -236,11 +236,11 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendInt(int val) {
-        checkType(NativeType.INTEGER);
+        checkType(NativeTypes.INTEGER);
 
         buf.putInt(curOff, val);
 
-        shiftColumn(NativeType.INTEGER);
+        shiftColumn(NativeTypes.INTEGER);
     }
 
     /**
@@ -249,11 +249,11 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendLong(long val) {
-        checkType(NativeType.LONG);
+        checkType(NativeTypes.LONG);
 
         buf.putLong(curOff, val);
 
-        shiftColumn(NativeType.LONG);
+        shiftColumn(NativeTypes.LONG);
     }
 
     /**
@@ -262,11 +262,11 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendFloat(float val) {
-        checkType(NativeType.FLOAT);
+        checkType(NativeTypes.FLOAT);
 
         buf.putFloat(curOff, val);
 
-        shiftColumn(NativeType.FLOAT);
+        shiftColumn(NativeTypes.FLOAT);
     }
 
     /**
@@ -275,11 +275,11 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendDouble(double val) {
-        checkType(NativeType.DOUBLE);
+        checkType(NativeTypes.DOUBLE);
 
         buf.putDouble(curOff, val);
 
-        shiftColumn(NativeType.DOUBLE);
+        shiftColumn(NativeTypes.DOUBLE);
     }
 
     /**
@@ -288,12 +288,12 @@ public class RowAssembler {
      * @param uuid Column value.
      */
     public void appendUuid(UUID uuid) {
-        checkType(NativeType.UUID);
+        checkType(NativeTypes.UUID);
 
         buf.putLong(curOff, uuid.getLeastSignificantBits());
         buf.putLong(curOff + 8, uuid.getMostSignificantBits());
 
-        shiftColumn(NativeType.UUID);
+        shiftColumn(NativeTypes.UUID);
     }
 
     /**
@@ -302,7 +302,7 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendString(String val) {
-        checkType(VarlenNativeType.STRING);
+        checkType(NativeTypes.STRING);
 
         try {
             int written = buf.putString(curOff, val, encoder());
@@ -322,7 +322,7 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendBytes(byte[] val) {
-        checkType(VarlenNativeType.BYTES);
+        checkType(NativeTypes.BYTES);
 
         buf.putBytes(curOff, val);
 

@@ -19,8 +19,8 @@ package org.apache.ignite.internal.schema;
 
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.schema.VarlenNativeType.BYTES;
-import static org.apache.ignite.internal.schema.VarlenNativeType.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -32,17 +32,17 @@ public class NativeTypeTest {
      */
     @Test
     public void testCompareFixlenTypesVsVarlenTypes() {
-        assertTrue(NativeType.BYTE.compareTo(STRING) < 0);
-        assertTrue(NativeType.BYTE.compareTo(BYTES) < 0);
+        assertTrue(NativeTypes.BYTE.compareTo(STRING) < 0);
+        assertTrue(NativeTypes.BYTE.compareTo(BYTES) < 0);
 
-        assertTrue(NativeType.INTEGER.compareTo(STRING) < 0);
-        assertTrue(NativeType.INTEGER.compareTo(BYTES) < 0);
+        assertTrue(NativeTypes.INTEGER.compareTo(STRING) < 0);
+        assertTrue(NativeTypes.INTEGER.compareTo(BYTES) < 0);
 
-        assertTrue(NativeType.LONG.compareTo(STRING) < 0);
-        assertTrue(NativeType.LONG.compareTo(BYTES) < 0);
+        assertTrue(NativeTypes.LONG.compareTo(STRING) < 0);
+        assertTrue(NativeTypes.LONG.compareTo(BYTES) < 0);
 
-        assertTrue(NativeType.UUID.compareTo(STRING) < 0);
-        assertTrue(NativeType.UUID.compareTo(BYTES) < 0);
+        assertTrue(NativeTypes.UUID.compareTo(STRING) < 0);
+        assertTrue(NativeTypes.UUID.compareTo(BYTES) < 0);
     }
 
     /**
@@ -50,9 +50,9 @@ public class NativeTypeTest {
      */
     @Test
     public void testCompareFixlenTypesBySize() {
-        assertTrue(NativeType.SHORT.compareTo(NativeType.INTEGER) < 0);
-        assertTrue(NativeType.INTEGER.compareTo(NativeType.LONG) < 0);
-        assertTrue(NativeType.LONG.compareTo(NativeType.UUID) < 0);
+        assertTrue(NativeTypes.SHORT.compareTo(NativeTypes.INTEGER) < 0);
+        assertTrue(NativeTypes.INTEGER.compareTo(NativeTypes.LONG) < 0);
+        assertTrue(NativeTypes.LONG.compareTo(NativeTypes.UUID) < 0);
     }
 
     /**
@@ -60,7 +60,7 @@ public class NativeTypeTest {
      */
     @Test
     public void testCompareFixlenTypesByDesc() {
-        assertTrue(NativeType.FLOAT.compareTo(NativeType.INTEGER) < 0);
+        assertTrue(NativeTypes.FLOAT.compareTo(NativeTypes.INTEGER) < 0);
     }
 
     /**

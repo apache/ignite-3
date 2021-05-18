@@ -20,9 +20,9 @@ package org.apache.ignite.internal.schema;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.schema.NativeType.INTEGER;
-import static org.apache.ignite.internal.schema.VarlenNativeType.BYTES;
-import static org.apache.ignite.internal.schema.VarlenNativeType.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**

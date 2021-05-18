@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -54,8 +55,8 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -89,8 +90,8 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -125,8 +126,8 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -158,8 +159,8 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -189,8 +190,8 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -241,8 +242,8 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -277,8 +278,8 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -314,9 +315,9 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
             new Column[] {
-                new Column("val", NativeType.LONG, true),
+                new Column("val", NativeTypes.LONG, true),
                 new Column("str", NativeType.from(ColumnType.stringOf(3)), true),
                 new Column("blob", NativeType.from(ColumnType.blobOf(3)), true)
             }
@@ -350,9 +351,9 @@ public class TableBinaryViewOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
             new Column[] {
-                new Column("val", NativeType.LONG, true, () -> 28L),
+                new Column("val", NativeTypes.LONG, true, () -> 28L),
                 new Column("str", NativeType.from(ColumnType.stringOf(3)), true, () -> "ABC"),
                 new Column("blob", NativeType.from(ColumnType.blobOf(3)), true, () -> new byte[] {0, 1, 2})
             }

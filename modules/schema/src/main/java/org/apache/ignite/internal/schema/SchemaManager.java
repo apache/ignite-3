@@ -41,10 +41,10 @@ import org.apache.ignite.configuration.internal.ConfigurationManager;
 
         this.schema = new SchemaDescriptor(UUID.randomUUID(), 1,
             new Column[] {
-                new Column("key", NativeType.LONG, false)
+                new Column("key", NativeTypes.LONG, false)
             },
             new Column[] {
-                new Column("value", NativeType.LONG, false)
+                new Column("value", NativeTypes.LONG, false)
             }
         );
     }

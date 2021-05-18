@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -45,8 +46,8 @@ public class StrictSchemaOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
-            new Column[] {new Column("val", NativeType.LONG, false)}
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
+            new Column[] {new Column("val", NativeTypes.LONG, false)}
         );
 
         Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
@@ -62,7 +63,7 @@ public class StrictSchemaOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
             new Column[] {
                 new Column("valString", NativeType.from(ColumnType.stringOf(3)), true),
                 new Column("valBytes", NativeType.from(ColumnType.blobOf(3)), true)
@@ -89,7 +90,7 @@ public class StrictSchemaOperationsTest {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
-            new Column[] {new Column("id", NativeType.LONG, false)},
+            new Column[] {new Column("id", NativeTypes.LONG, false)},
             new Column[] {
                 new Column("valString", NativeType.from(ColumnType.stringOf(3)), true),
                 new Column("valBytes", NativeType.from(ColumnType.blobOf(3)), true)
