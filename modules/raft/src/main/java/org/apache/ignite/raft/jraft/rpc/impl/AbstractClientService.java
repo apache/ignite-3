@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import java.util.concurrent.ArrayBlockingQueue;

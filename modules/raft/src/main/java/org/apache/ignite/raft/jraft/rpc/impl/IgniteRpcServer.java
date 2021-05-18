@@ -98,7 +98,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                     }
                 }
 
-                if (prc == null)
+                if (prc == null) //  TODO asch invoke responses should be ignored.
                     return; // TODO asch use single message handler.
 
                 RpcProcessor.ExecutorSelector selector = prc.executorSelector();

@@ -125,11 +125,11 @@ public class DefaultMessageBuilderFactory implements MessageBuilderFactory {
     }
 
     @Override public CliRequests.GetLeaderRequest.Builder createGetLeaderRequest() {
-        return new CreateGetLeaderRequestImpl();
+        return new GetLeaderRequestImpl();
     }
 
     @Override public CliRequests.GetLeaderResponse.Builder createGetLeaderResponse() {
-        return new CreateGetLeaderResponseImpl();
+        return new GetLeaderResponseImpl();
     }
 
     @Override public CliRequests.GetPeersRequest.Builder createGetPeersRequest() {

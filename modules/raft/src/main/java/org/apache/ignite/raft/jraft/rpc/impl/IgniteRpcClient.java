@@ -47,7 +47,7 @@ public class IgniteRpcClient implements RpcClientEx {
         this.service = service;
         this.reuse = reuse;
 
-        if (!reuse)
+        if (!reuse) // TODO asch use init
             service.start();
     }
 
@@ -56,7 +56,7 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     @Override public boolean checkConnection(Endpoint endpoint) {
-        return service.topologyService().allMembers().stream().anyMatch(n -> n.host().equals(endpoint.getIp()) && n.port() == endpoint.getPort());
+        return service.topologyService().getByAddress(endpoint.toString()) != null;
     }
 
     @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {

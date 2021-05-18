@@ -2,7 +2,7 @@ package org.apache.ignite.raft.jraft.rpc.message;
 
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 
-public class CreateGetLeaderRequestImpl implements CliRequests.GetLeaderRequest, CliRequests.GetLeaderRequest.Builder {
+public class GetLeaderRequestImpl implements CliRequests.GetLeaderRequest, CliRequests.GetLeaderRequest.Builder {
     private String groupId;
     private String peerId;
 

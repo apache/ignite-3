@@ -911,7 +911,7 @@ public class Replicator implements ThreadId.OnError {
         // very RPC fails. To make it better there should be different timeout for
         // each individual error (e.g. we don't need check every
         // heartbeat_timeout_ms whether a dead follower has come back), but it's just
-        // fine now.
+        // fine now. // TODO asch blocking can be implemented using FD.
         if (this.blockTimer != null) {
             // already in blocking state,return immediately.
             this.id.unlock();
@@ -1045,7 +1045,7 @@ public class Replicator implements ThreadId.OnError {
         this.state = State.Destroyed;
         notifyReplicatorStatusListener((Replicator) savedId.getData(), ReplicatorEvent.DESTROYED);
         savedId.unlockAndDestroy();
-        this.id = null;
+        // Avoid nulling id because it's used to sync replicator state on destroy.
     }
 
     private void releaseReader() {
@@ -1094,7 +1094,7 @@ public class Replicator implements ThreadId.OnError {
                     LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
                         r.consecutiveErrorTimes, status);
                 }
-                r.startHeartbeatTimer(startTimeMs);
+                r.startHeartbeatTimer(startTimeMs); // TODO asch use discovery instead of constant probing.
                 return;
             }
             r.consecutiveErrorTimes = 0;

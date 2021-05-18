@@ -3,7 +3,7 @@ package org.apache.ignite.raft.jraft.rpc.message;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
-public class CreateGetLeaderResponseImpl implements CliRequests.GetLeaderResponse, CliRequests.GetLeaderResponse.Builder {
+public class GetLeaderResponseImpl implements CliRequests.GetLeaderResponse, CliRequests.GetLeaderResponse.Builder {
     private String leaderId;
 
     @Override public String getLeaderId() {

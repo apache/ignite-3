@@ -164,6 +164,7 @@ public class NettyServer {
                  * the connection is refused.
                  */
                 .option(ChannelOption.SO_BACKLOG, 128)
+                .option(ChannelOption.SO_REUSEADDR, true)
                 .childOption(ChannelOption.SO_LINGER, 0)
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 /*

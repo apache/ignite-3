@@ -16,15 +16,23 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.stream.Collectors;
+import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.raft.jraft.CliService;
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RouteTable;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.option.CliOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.util.Utils;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -54,6 +62,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class CliServiceTest {
+    /** */
+    private final static MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
+
+    /** */
+    private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
 
     private String           dataPath;
 
@@ -96,7 +110,15 @@ public class CliServiceTest {
 
         this.cliService = new CliServiceImpl();
         this.conf = new Configuration(peers, learners);
-        assertTrue(this.cliService.init(new CliOptions()));
+        CliOptions opts = new CliOptions();
+
+        ClusterService clientSvc = factory.createClusterService(new ClusterLocalConfiguration("client",
+            TestUtils.INIT_PORT - 1, peers.stream().map(p -> p.getEndpoint().toString()).collect(Collectors.toList()),
+            serializationRegistry));
+
+        IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc, false);
+        opts.setRpcClient(rpcClient);
+        assertTrue(this.cliService.init(opts));
     }
 
     @After

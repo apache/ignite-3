@@ -82,7 +82,8 @@ public abstract class AbstractCliRequestProcessorTest<T extends Message> {
         peerId.parse(this.peerIdStr);
         Mockito.when(this.node.getOptions()).thenReturn(new NodeOptions());
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", peerId));
-        nodeManager.add(this.node);
+        if (asyncContext != null)
+            asyncContext.getNodeManager().add(node);
 
         BaseCliRequestProcessor<T> processor = newProcessor();
         processor.handleRequest(this.asyncContext, createRequest(this.groupId, peerId));
