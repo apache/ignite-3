@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -24,11 +27,8 @@ import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
-import org.apache.ignite.raft.jraft.util.Endpoint;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,11 +48,7 @@ import static org.mockito.Matchers.eq;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class AbstractClientServiceTest {
-    static class MockClientService extends AbstractClientService {
-        public void setRpcClient(final RpcClient rpcClient) {
-            this.rpcClient = rpcClient;
-        }
-    }
+    static class MockClientService extends AbstractClientService {}
 
     private RpcOptions         rpcOptions;
     private MockClientService  clientService;
@@ -65,43 +61,9 @@ public class AbstractClientServiceTest {
     public void setup() {
         this.rpcOptions = new RpcOptions();
         this.clientService = new MockClientService();
+        this.rpcOptions.setRpcClient(this.rpcClient);
         assertTrue(this.clientService.init(this.rpcOptions));
-        this.clientService.setRpcClient(this.rpcClient);
-
     }
-
-//    @Test
-//    public void testConnect() throws Exception {
-//        Mockito.when(
-//            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
-//                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
-//            .thenReturn(this.rpcResponseFactory.newResponse(null, Status.OK()));
-//        assertTrue(this.clientService.connect(this.endpoint));
-//    }
-//
-//    @Test
-//    public void testConnectFailure() throws Exception {
-//        Mockito.when(
-//            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
-//                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
-//            .thenReturn(this.rpcResponseFactory.newResponse(null, new Status(-1, "test")));
-//        assertFalse(this.clientService.connect(this.endpoint));
-//    }
-//
-//    @Test
-//    public void testConnectException() throws Exception {
-//        Mockito.when(
-//            this.rpcClient.invokeSync(eq(this.endpoint), Mockito.any(),
-//                eq((long) this.rpcOptions.getRpcConnectTimeoutMs()))) //
-//            .thenThrow(new RemotingException("test"));
-//        assertFalse(this.clientService.connect(this.endpoint));
-//    }
-
-//    @Test
-//    public void testDisconnect() {
-//        this.clientService.disconnect(this.endpoint);
-//        Mockito.verify(this.rpcClient).closeConnection(this.endpoint);
-//    }
 
     static class MockRpcResponseClosure<T extends Message> extends RpcResponseClosureAdapter<T> {
 

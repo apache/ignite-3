@@ -49,12 +49,7 @@ import org.slf4j.LoggerFactory;
  * @author jiachun.fjc
  */
 public abstract class AbstractClientService implements ClientService {
-
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractClientService.class);
-//
-//    static {
-//        ProtobufMsgFactory.load();
-//    }
 
     protected volatile RpcClient rpcClient;
     protected ThreadPoolExecutor  rpcExecutor;

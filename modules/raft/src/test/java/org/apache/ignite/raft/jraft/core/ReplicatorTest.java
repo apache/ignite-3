@@ -159,7 +159,7 @@ public class ReplicatorTest {
         assertNotNull(r.getHeartbeatTimer());
         r.destroy();
         Replicator.join(this.id);
-        assertNull(r.id);
+        assertTrue(r.id.isDestroyed());
     }
 
     @Test
@@ -249,7 +249,7 @@ public class ReplicatorTest {
             2,
             new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term heartbeat_response from peer:%s",
                 this.peerId));
-        assertNull(r.id);
+        assertTrue(r.id.isDestroyed());
     }
 
     @Test
@@ -370,7 +370,7 @@ public class ReplicatorTest {
         assertNotNull(r.getHeartbeatTimer());
         assertNotNull(r.getRpcInFly());
         Replicator.stop(this.id);
-        assertNull(r.id);
+        assertTrue(r.id.isDestroyed());
         assertNull(r.getHeartbeatTimer());
         assertNull(r.getRpcInFly());
     }
@@ -383,7 +383,7 @@ public class ReplicatorTest {
         assertNotNull(r.getRpcInFly());
         this.id.setError(RaftError.ESTOP.getNumber());
         this.id.unlock();
-        assertNull(r.id);
+        assertTrue(r.id.isDestroyed());
         assertNull(r.getHeartbeatTimer());
         assertNull(r.getRpcInFly());
     }
@@ -509,7 +509,7 @@ public class ReplicatorTest {
             2,
             new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term heartbeat_response from peer:%s",
                 this.peerId));
-        assertNull(r.id);
+        assertTrue(r.id.isDestroyed());
     }
 
     @Test
@@ -610,7 +610,7 @@ public class ReplicatorTest {
         this.id.unlock();
 
         Replicator.onTimeoutNowReturned(this.id, new Status(-1, "test"), request, null, true);
-        assertNull(r.id);
+        assertTrue(r.id.isDestroyed());
     }
 
     @Test
@@ -683,7 +683,7 @@ public class ReplicatorTest {
             12,
             new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term timeout_now_response from peer:%s",
                 this.peerId));
-        assertNull(r.id);
+        assertTrue(r.id.isDestroyed());
     }
 
     @Test

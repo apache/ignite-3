@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -84,14 +83,12 @@ public class BaseCliRequestProcessorTest {
     private MockCliRequestProcessor processor;
     private PeerId                  peer;
     private MockAsyncContext asyncContext;
-    private NodeManager nodeManager;
 
     @Before
     public void setup() {
         this.asyncContext = new MockAsyncContext();
         this.peer = JRaftUtils.getPeerId("localhost:8081");
         this.processor = new MockCliRequestProcessor(this.peer.toString(), "test");
-        this.nodeManager = new NodeManager();
     }
 
     @After
@@ -129,7 +126,7 @@ public class BaseCliRequestProcessorTest {
         NodeOptions opts = new NodeOptions();
         opts.setDisableCli(disableCli);
         Mockito.when(node.getOptions()).thenReturn(opts);
-        nodeManager.add(node);
+        this.asyncContext.getNodeManager().add(node);
         return node;
     }
 
@@ -159,14 +156,12 @@ public class BaseCliRequestProcessorTest {
         Mockito.when(node1.getGroupId()).thenReturn("test");
         Mockito.when(node1.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8081)));
         NodeOptions opts = new NodeOptions();
-        Mockito.when(node1.getOptions()).thenReturn(opts);
-        nodeManager.add(node1);
+        this.asyncContext.getNodeManager().add(node1);
 
         Node node2 = Mockito.mock(Node.class);
         Mockito.when(node2.getGroupId()).thenReturn("test");
         Mockito.when(node2.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8082)));
-        Mockito.when(node2.getOptions()).thenReturn(opts);
-        nodeManager.add(node2);
+        this.asyncContext.getNodeManager().add(node2);
 
         this.processor = new MockCliRequestProcessor(null, "test");
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
