@@ -92,7 +92,6 @@ public class SchemaManager {
         this.vaultMgr = vaultMgr;
 
         metaStorageMgr.registerWatchByPrefix(new Key(INTERNAL_PREFIX), new WatchListener() {
-            /** {@inheritDoc} */
             @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
                 for (WatchEvent evt : events) {
                     String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length() - 1);
@@ -124,7 +123,6 @@ public class SchemaManager {
                 return true;
             }
 
-            /** {@inheritDoc} */
             @Override public void onError(@NotNull Throwable e) {
                 LOG.error("Metastorage listener issue", e);
             }

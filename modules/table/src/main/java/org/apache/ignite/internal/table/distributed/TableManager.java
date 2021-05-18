@@ -82,7 +82,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final AffinityManager affMgr;
 
     /** Tables. */
-    private Map<String, TableImpl> tables = new ConcurrentHashMap<>();
+    private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
