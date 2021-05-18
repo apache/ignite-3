@@ -97,7 +97,7 @@ import static org.junit.Assert.fail;
 
 /** */
 public class ITNodeTest {
-    static final Logger         LOG            = LoggerFactory.getLogger(NodeTest.class);
+    static final Logger         LOG            = LoggerFactory.getLogger(ITNodeTest.class);
 
     private String              dataPath;
 
