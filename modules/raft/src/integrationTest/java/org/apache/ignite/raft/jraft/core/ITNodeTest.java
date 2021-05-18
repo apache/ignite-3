@@ -95,8 +95,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-/** TODO asch move to integration. */
-public class NodeTest {
+/** */
+public class ITNodeTest {
     static final Logger         LOG            = LoggerFactory.getLogger(NodeTest.class);
 
     private String              dataPath;
@@ -543,7 +543,7 @@ public class NodeTest {
     class UserReplicatorStateListener implements Replicator.ReplicatorStateListener {
         @Override
         public void onCreated(final PeerId peer) {
-            int val = NodeTest.this.startedCounter.incrementAndGet();
+            int val = ITNodeTest.this.startedCounter.incrementAndGet();
 
             LOG.info("Replicator has been created {} {}", peer, val);
         }
@@ -555,7 +555,7 @@ public class NodeTest {
 
         @Override
         public void onDestroyed(final PeerId peer) {
-            int val = NodeTest.this.stoppedCounter.incrementAndGet();
+            int val = ITNodeTest.this.stoppedCounter.incrementAndGet();
 
             LOG.info("Replicator has been destroyed {} {}", peer, val);
         }
@@ -664,9 +664,8 @@ public class NodeTest {
         final PeerId learnerPeer = new PeerId(learnerAddr, 0);
 
         final int cnt = 10;
-        MockStateMachine learnerFsm = null;
-        Node learner = null;
-        RaftGroupService learnerServer = null;
+        MockStateMachine learnerFsm ;
+        RaftGroupService learnerServer;
         {
             // Start learner
             final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
@@ -679,7 +678,7 @@ public class NodeTest {
                 .singletonList(learnerPeer)));
 
             learnerServer = createService("unittest", new PeerId(learnerAddr, 0), nodeOptions);
-            learner = learnerServer.start(true);
+            learnerServer.start(true);
         }
 
         {
