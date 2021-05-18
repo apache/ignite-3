@@ -337,14 +337,7 @@ public class CliServiceTest {
             this.cliService.getPeers(this.groupId, this.conf);
             fail();
         } catch (final IllegalStateException e) {
-            LOG.error("DBG", e);
-
-            String msg1 = "Fail to get leader of group " + this.groupId;
-            String msg2 = e.getMessage();
-
-            LOG.error("DBG3 1=<" + msg1 + ">, 2=<" + msg2 + '>');
-
-            assertEquals(msg1, msg2);
+            assertTrue(e.getMessage(), e.getMessage().startsWith("Fail to get leader of group " + this.groupId));
         }
     }
 
@@ -375,7 +368,7 @@ public class CliServiceTest {
             this.cliService.getAlivePeers(this.groupId, this.conf);
             fail();
         } catch (final IllegalStateException e) {
-            assertEquals("Fail to get leader of group " + this.groupId, e.getMessage());
+            assertTrue(e.getMessage(), e.getMessage().startsWith("Fail to get leader of group " + this.groupId));
         }
     }
 
