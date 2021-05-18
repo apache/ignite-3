@@ -339,7 +339,12 @@ public class CliServiceTest {
         } catch (final IllegalStateException e) {
             LOG.error("DBG", e);
 
-            assertEquals("Fail to get leader of group " + this.groupId, e.getMessage());
+            String msg1 = "Fail to get leader of group " + this.groupId;
+            String msg2 = e.getMessage();
+
+            LOG.error("DBG3 1=<" + msg1 + ">, 2=<" + msg2 + '>');
+
+            assertEquals(msg1, msg2);
         }
     }
 
