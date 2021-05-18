@@ -10,7 +10,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.jraft.RouteTable;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.NodeTest;
 import org.apache.ignite.raft.jraft.counter.rpc.IncrementAndGetRequest;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -35,7 +34,8 @@ import static org.junit.Assert.assertTrue;
  *
  */
 public class CounterExampleTest {
-    static final Logger LOG = LoggerFactory.getLogger(NodeTest.class);
+    static final Logger LOG = LoggerFactory.getLogger(CounterExampleTest.class);
+
     @Rule
     public TestName testName = new TestName();
     private String dataPath;
