@@ -53,6 +53,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -61,7 +63,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+// TODO asch move to integration
 public class CliServiceTest {
+    static final Logger LOG     = LoggerFactory.getLogger(CliServiceTest.class);
+
     /** */
     private final static MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
@@ -85,6 +90,7 @@ public class CliServiceTest {
 
     @Before
     public void setup() throws Exception {
+        // TODO asch replace with logger
         System.out.println(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
         this.dataPath = TestUtils.mkTempDir();
         new File(this.dataPath).mkdirs();
@@ -331,6 +337,8 @@ public class CliServiceTest {
             this.cliService.getPeers(this.groupId, this.conf);
             fail();
         } catch (final IllegalStateException e) {
+            LOG.error("DBG", e);
+
             assertEquals("Fail to get leader of group " + this.groupId, e.getMessage());
         }
     }

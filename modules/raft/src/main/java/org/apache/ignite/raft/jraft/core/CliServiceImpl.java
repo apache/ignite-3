@@ -491,6 +491,8 @@ public class CliServiceImpl implements CliService {
                     }
                 }
             } catch (final Exception e) {
+                LOG.error("DBG2 st=" + st, e);
+
                 if (st.isOk()) {
                     st.setError(-1, e.getMessage());
                 } else {
