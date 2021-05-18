@@ -17,9 +17,9 @@
 
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.ClusterConfig;
 import java.util.List;
 import java.util.stream.Collectors;
+import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
@@ -31,7 +31,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
 
 /**
  * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.

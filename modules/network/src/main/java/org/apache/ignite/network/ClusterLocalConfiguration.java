@@ -18,7 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.List;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
 
 /**
  * Network configuration of a node.

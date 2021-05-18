@@ -18,7 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.messages.NetworkMessage;
 
 /**
  * Entry point for sending messages between network members in both weak and patient mode.

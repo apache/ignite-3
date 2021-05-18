@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.network;
 
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.messages.NetworkMessage;
 
 /**
  * Handler of incoming messages.

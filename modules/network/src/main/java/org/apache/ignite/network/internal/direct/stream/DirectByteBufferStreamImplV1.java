@@ -31,12 +31,12 @@ import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.internal.MessageReader;
-import org.apache.ignite.network.internal.MessageWriter;
-import org.apache.ignite.network.message.MessageDeserializer;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.message.MessageSerializer;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.messages.NetworkMessage;
+import org.apache.ignite.network.messages.serialization.MessageDeserializer;
+import org.apache.ignite.network.messages.serialization.MessageReader;
+import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.messages.serialization.MessageSerializer;
+import org.apache.ignite.network.messages.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BOOLEAN_ARRAY;
