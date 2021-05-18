@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
@@ -25,12 +24,10 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.schema.ColumnType;
-import org.apache.ignite.table.ColumnNotFoundException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Check data by strict schema.
@@ -67,8 +64,8 @@ public class StrictSchemaOperationsTest {
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {
-                new Column("valString", NativeType.of(ColumnType.stringOf(3)), true),
-                new Column("valBytes", NativeType.of(ColumnType.blobOf(3)), true)
+                new Column("valString", NativeType.from(ColumnType.stringOf(3)), true),
+                new Column("valBytes", NativeType.from(ColumnType.blobOf(3)), true)
             }
         );
 
@@ -94,8 +91,8 @@ public class StrictSchemaOperationsTest {
             1,
             new Column[] {new Column("id", NativeType.LONG, false)},
             new Column[] {
-                new Column("valString", NativeType.of(ColumnType.stringOf(3)), true),
-                new Column("valBytes", NativeType.of(ColumnType.blobOf(3)), true)
+                new Column("valString", NativeType.from(ColumnType.stringOf(3)), true),
+                new Column("valBytes", NativeType.from(ColumnType.blobOf(3)), true)
             }
         );
 

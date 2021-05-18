@@ -24,7 +24,6 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.table.ColumnNotFoundException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
 

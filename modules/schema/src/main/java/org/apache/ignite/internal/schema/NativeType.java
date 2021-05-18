@@ -145,12 +145,13 @@ public class NativeType implements Comparable<NativeType> {
 
             default:
                 assert false : "Unexpected type: " + spec;
+
                 return null;
         }
     }
 
     /** */
-    public static NativeType of(ColumnType type) {
+    public static NativeType from(ColumnType type) {
         switch (type.typeSpec()) {
             case INT8:
                 return BYTE;
