@@ -31,19 +31,19 @@ import org.jetbrains.annotations.NotNull;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 /**
- * Marshaller implementation.
+ * Tuple marshaller implementation.
  */
 public class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
-    private final SchemaRegistry schemaMgr;
+    private final SchemaRegistry schemaReg;
 
     /**
      * Constructor.
      *
-     * @param schemaMgr Schema manager.
+     * @param schemaReg Schema manager.
      */
-    public TupleMarshallerImpl(SchemaRegistry schemaMgr) {
-        this.schemaMgr = schemaMgr;
+    public TupleMarshallerImpl(SchemaRegistry schemaReg) {
+        this.schemaReg = schemaReg;
     }
 
     /** {@inheritDoc} */
@@ -53,7 +53,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override public Row marshal(Tuple keyTuple, Tuple valTuple) {
-        final SchemaDescriptor schema = schemaMgr.schema();
+        final SchemaDescriptor schema = schemaReg.schema();
 
         assert keyTuple instanceof TupleBuilderImpl;
 

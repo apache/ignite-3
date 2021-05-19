@@ -56,6 +56,17 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Schema Manager.
+ *
+ * Schemas MUST be registered in a version ascending order incrementing by {@code 1} with NO gaps,
+ * otherwise an exception will be thrown. The version numbering starts from the {@code 1}.
+ * <p>
+ * After some table maintenance process some first versions may become outdated and can be safely cleaned up
+ * if the process guarantees the table no longer has a data of these versions.
+ *
+ * @implSpec The changes in between two arbitrary actual versions MUST NOT be lost.
+ * Thus, schema versions can only be removed from the beginning.
+ * @implSpec Initial schema history MAY be registered without the first outdated versions
+ * that could be cleaned up earlier.
  */
 public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> {
     /** The logger. */
@@ -76,8 +87,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
-    /** Schema. */
-    private final Map<UUID, SchemaRegistryImpl> schemes = new ConcurrentHashMap<>();
+    /** Schema registries. */
+    private final Map<UUID, SchemaRegistryImpl> schemaRegs = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -112,7 +123,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                         if (evt.oldEntry() == null)
                             onEvent(SchemaEvent.INITIALIZED, new SchemaEventParameters(tblId, reg), null);
                         else if (evt.newEntry() == null) {
-                            schemes.remove(tblId);
+                            schemaRegs.remove(tblId);
 
                             onEvent(SchemaEvent.DROPPED, new SchemaEventParameters(tblId, null), null);
                         }
@@ -122,10 +133,10 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     else {
                         UUID tblId = UUID.fromString(keyTail.substring(0, verPos));
 
-                        SchemaRegistryImpl reg = schemes.get(tblId);
+                        SchemaRegistryImpl reg = schemaRegs.get(tblId);
 
                         if (reg == null)
-                            schemes.put(tblId, (reg = new SchemaRegistryImpl(v -> tableSchema(tblId, v))));
+                            schemaRegs.put(tblId, (reg = new SchemaRegistryImpl(v -> tableSchema(tblId, v))));
 
                         if (evt.oldEntry() == null)
                             reg.onSchemaRegistered((SchemaDescriptor)ByteUtils.fromBytes(evt.newEntry().value()));
@@ -215,6 +226,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         cols.namedListKeys().stream()
             .map(cols::get)
+            //TODO: IGNITE-14290 replace with helper class call.
             .map(col -> new Column(col.name(), createType(col.type()), col.nullable()))
             .forEach(c -> (keyColNames.contains(c.name()) ? keyCols : valCols).add(c));
 
@@ -228,6 +240,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
     /**
      * Create type from config.
+     *
+     * TODO: IGNITE-14290 replace with helper class call.
      *
      * @param type Type view.
      * @return Native type.
@@ -285,7 +299,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return Schema registry for the table.
      */
     private SchemaRegistry schemaRegistryForTable(UUID tableId) {
-        final SchemaRegistry reg = schemes.get(tableId);
+        final SchemaRegistry reg = schemaRegs.get(tableId);
 
         if (reg == null)
             throw new SchemaRegistryException("No schema was ever registered for the table: " + tableId);

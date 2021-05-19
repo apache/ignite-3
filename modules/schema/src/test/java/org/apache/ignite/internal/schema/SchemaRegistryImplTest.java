@@ -507,8 +507,8 @@ public class SchemaRegistryImplTest {
     }
 
     /**
-     * @param history
-     * @return
+     * @param history Table schema history.
+     * @return Schema history map.
      */
     private Map<Integer, SchemaDescriptor> schemaHistory(SchemaDescriptor... history) {
         return Arrays.stream(history).collect(Collectors.toMap(SchemaDescriptor::version, e -> e));
