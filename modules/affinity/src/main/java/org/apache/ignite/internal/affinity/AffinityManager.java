@@ -88,7 +88,9 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
         metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
             @Override public boolean onUpdate(@NotNull WatchEvent watchEvt) {
                 for (EntryEvent evt : watchEvt.entryEvents()) {
-                    String tabIdVal = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
+                    String keyAsString = new String(evt.newEntry().key().bytes(), StandardCharsets.UTF_8);
+
+                    String tabIdVal = keyAsString.substring(INTERNAL_PREFIX.length());
 
                     UUID tblId = UUID.fromString(tabIdVal);
 
