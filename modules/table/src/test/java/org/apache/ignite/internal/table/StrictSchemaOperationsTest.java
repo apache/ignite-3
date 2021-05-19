@@ -39,7 +39,7 @@ public class StrictSchemaOperationsTest {
      *
      */
     @Test
-    public void testColumnNotExist() {
+    public void columnNotExist() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -56,7 +56,7 @@ public class StrictSchemaOperationsTest {
      *
      */
     @Test
-    public void testTypeMismatch() {
+    public void typeMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
