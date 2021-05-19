@@ -16,7 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.option.NodeOptions;
+import java.util.concurrent.Future;
+import org.apache.ignite.raft.jraft.option.CliOptions;
+import org.apache.ignite.raft.jraft.option.RpcOptions;
+import org.apache.ignite.raft.jraft.rpc.CliClientService;
+import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
@@ -32,24 +36,17 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetPeerRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
-import java.util.concurrent.Future;
-import org.apache.ignite.raft.jraft.option.CliOptions;
-import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.rpc.CliClientService;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
- * TODO asch remove or refactor.
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+ *
  */
 public class CliClientServiceImpl extends AbstractClientService implements CliClientService {
-
+    /** Options. */
     private CliOptions cliOptions;
 
     @Override

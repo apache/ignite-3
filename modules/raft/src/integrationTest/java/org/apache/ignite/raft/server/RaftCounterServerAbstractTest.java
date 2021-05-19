@@ -54,7 +54,7 @@ abstract class RaftCounterServerAbstractTest {
     /** */
     protected static final int PORT = 20010;
 
-    /** TODO: IGNITE-14088: Uncomment and use real serializer provider */
+    /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 

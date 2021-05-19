@@ -47,7 +47,7 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
 
             assert clo.command() instanceof GetCommand;
 
-            clo.success(new KVGetResponse(storage.get(extractAndWrapKey(((GetCommand)clo.command()).getKeyRow()))));
+            clo.result(new KVGetResponse(storage.get(extractAndWrapKey(((GetCommand)clo.command()).getKeyRow()))));
         }
     }
 
@@ -62,14 +62,14 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
                     ((InsertCommand)clo.command()).getRow()
                 );
 
-                clo.success(previous == null);
+                clo.result(previous == null);
             }
             else if (clo.command() instanceof DeleteCommand) {
                 BinaryRow deleted = storage.remove(
                     extractAndWrapKey(((DeleteCommand)clo.command()).getKeyRow())
                 );
 
-                clo.success(deleted != null);
+                clo.result(deleted != null);
             }
             else if (clo.command() instanceof ReplaceCommand) {
                 ReplaceCommand cmd = ((ReplaceCommand)clo.command());
@@ -84,10 +84,10 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
                     equalValues(current, expected)) {
                     storage.put(key, cmd.getRow());
 
-                    clo.success(true);
+                    clo.result(true);
                 }
                 else
-                    clo.success(false);
+                    clo.result(false);
             }
             else if (clo.command() instanceof UpsertCommand) {
                 storage.put(
@@ -95,7 +95,7 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
                     ((UpsertCommand)clo.command()).getRow()
                 );
 
-                clo.success(null);
+                clo.result(null);
             }
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';

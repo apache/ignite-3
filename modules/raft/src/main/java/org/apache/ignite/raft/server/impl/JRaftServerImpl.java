@@ -74,7 +74,7 @@ public class JRaftServerImpl implements RaftServer {
                 RaftGroupService svc = groups.get(req0.groupId());
 
                 if (svc == null) {
-                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE, null);
 
                     return;
                 }
@@ -82,7 +82,7 @@ public class JRaftServerImpl implements RaftServer {
                 PeerId leaderId = svc.getRaftNode().getLeaderId();
 
                 if (leaderId == null) {
-                    sendError(sender, correlationId, RaftErrorCode.NO_LEADER);
+                    sendError(sender, correlationId, RaftErrorCode.NO_LEADER, null);
 
                     return;
                 }
@@ -100,64 +100,77 @@ public class JRaftServerImpl implements RaftServer {
                 RaftGroupService svc = groups.get(req0.groupId());
 
                 if (svc == null) {
-                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE, null);
 
                     return;
                 }
 
                 if (req0.command() instanceof WriteCommand) {
-                    svc.getRaftNode().apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(req0.command())), new MyClosure<>(req0.command()) {
-                        @Override public void success(Object res) {
+                    svc.getRaftNode().apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(req0.command())), new CommandClosureImpl<>(req0.command()) {
+                        @Override public void result(Object res) {
                             var msg = clientMsgFactory.actionResponse().result(res).build();
+
                             service.messagingService().send(sender, msg, correlationId);
                         }
 
-                        @Override public void failure(Throwable err) {
-                            sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                        @Override public void run(Status status) {
+                            assert !status.isOk() : status;
+
+                            sendError(sender, correlationId, status, svc);
                         }
                     }));
                 }
                 else {
-                    // TODO asch purpose of request context ?
-                    svc.getRaftNode().readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
-                        @Override public void run(Status status, long index, byte[] reqCtx) {
-                            if (status.isOk()) {
-                                DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+                    if (req0.readOnlySafe()) {
+                        svc.getRaftNode().readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
+                            @Override public void run(Status status, long index, byte[] reqCtx) {
+                                if (status.isOk()) {
+                                    DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-                                List<CommandClosure<ReadCommand>> l = new ArrayList<>(1);
-                                l.add(new CommandClosure<ReadCommand>() {
-                                    @Override public ReadCommand command() {
-                                        return (ReadCommand) req0.command();
+                                    try {
+                                        fsm.listener.onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<ReadCommand>() {
+                                            @Override public ReadCommand command() {
+                                                return (ReadCommand) req0.command();
+                                            }
+
+                                            @Override public void result(Object res) {
+                                                var msg = clientMsgFactory.actionResponse().result(res).build();
+                                                service.messagingService().send(sender, msg, correlationId);
+                                            }
+                                        }).iterator());
                                     }
-
-                                    @Override public void success(Object res) {
-                                        var msg = clientMsgFactory.actionResponse().result(res).build();
-                                        service.messagingService().send(sender, msg, correlationId);
+                                    catch (Exception e) {
+                                        sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE, null);
                                     }
-
-                                    @Override public void failure(Throwable err) {
-                                        sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
-                                    }
-                                });
-
-                                fsm.listener.onRead(l.iterator());
+                                }
+                                else {
+                                    sendError(sender, correlationId, status, svc);
+                                }
                             }
-                            else {
-                                // TODO asch state machine error.
-                                sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
-                            }
+                        });
+                    }
+                    else {
+                        // TODO asch remove copy paste.
+                        DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+
+                        try {
+                            fsm.listener.onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<ReadCommand>() {
+                                @Override public ReadCommand command() {
+                                    return (ReadCommand) req0.command();
+                                }
+
+                                @Override public void result(Object res) {
+                                    var msg = clientMsgFactory.actionResponse().result(res).build();
+                                    service.messagingService().send(sender, msg, correlationId);
+                                }
+                            }).iterator());
                         }
-                    });
+                        catch (Exception e) {
+                            sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE, null);
+                        }
+                    }
                 }
-
-//                if (req0.command() instanceof ReadCommand)
-//                    handleActionRequest(sender, req0, correlationId, readQueue, svc);
-//                else
-//                    handleActionRequest(sender, req0, correlationId, writeQueue, svc);
             }
-//            else {
-//                LOG.warn("Unsupported message class " + message.getClass().getName()); TODO asch
-//            }
         });
 
         rpcServer = new IgniteRpcServer(service, reuse, nodeManager);
@@ -221,10 +234,10 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     @Override public void shutdown() throws Exception {
-        rpcServer.shutdown();
-
         for (RaftGroupService groupService : groups.values())
             groupService.shutdown();
+
+        rpcServer.shutdown();
     }
 
     /** */
@@ -236,58 +249,98 @@ public class JRaftServerImpl implements RaftServer {
         }
 
         @Override public void onApply(Iterator iter) {
-            listener.onWrite(new java.util.Iterator<CommandClosure<WriteCommand>>() {
-                @Override public boolean hasNext() {
-                    return iter.hasNext();
-                }
+            try {
+                listener.onWrite(new java.util.Iterator<CommandClosure<WriteCommand>>() {
+                    @Override public boolean hasNext() {
+                        return iter.hasNext();
+                    }
 
-                @Override public CommandClosure<WriteCommand> next() {
-                    @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
-                    ByteBuffer data = iter.getData();
+                    @Override public CommandClosure<WriteCommand> next() {
+                        @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
+                        ByteBuffer data = iter.getData();
 
-                    return new CommandClosure<WriteCommand>() {
-                        @Override public WriteCommand command() {
-                            return JDKMarshaller.DEFAULT.unmarshall(data.array());
-                        }
+                        return new CommandClosure<WriteCommand>() {
+                            @Override public WriteCommand command() {
+                                return JDKMarshaller.DEFAULT.unmarshall(data.array());
+                            }
 
-                        @Override public void success(Object res) {
-                            if (done != null)
-                                done.success(res);
+                            @Override public void result(Object res) {
+                                if (done != null)
+                                    done.result(res);
 
-                            iter.next();
-                        }
+                                iter.next();
+                            }
+                        };
+                    }
+                });
+            }
+            catch (Exception err) {
+                // TODO asch write a test.
+                Status st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
 
-                        @Override public void failure(Throwable err) {
-                            if (done != null)
-                                done.failure(err);
+                iter.done().run(st);
 
-                            iter.setErrorAndRollback(1, new Status(RaftError.ESTATEMACHINE, err.getMessage()));
-                        }
-                    };
-                }
-            });
+                iter.setErrorAndRollback(1, st);
+            }
         }
     }
 
-    private void sendError(ClusterNode sender, String corellationId, RaftErrorCode errorCode) {
-        RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
+    /**
+     * @param node The node.
+     * @param corellationId Corellation id.
+     * @param errorCode Error code.
+     * @param newLeader New leader.
+     */
+    private void sendError(ClusterNode node, String corellationId, RaftErrorCode errorCode, @Nullable PeerId newLeader) {
+        RaftErrorResponse.Builder resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode);
 
-        service.messagingService().send(sender, resp, corellationId);
+        if (newLeader != null) {
+            resp.newLeader(new Peer(newLeader.getEndpoint().toString()));
+        }
+
+        service.messagingService().send(node, ((RaftErrorResponse.Builder) resp).build(), corellationId);
     }
 
-    private abstract class MyClosure<T extends Command> implements Closure, CommandClosure<T> {
+    /**
+     * @param node The node.
+     * @param corellationId Corellation id.
+     * @param status The status.
+     * @param svc Raft group service.
+     */
+    private void sendError(ClusterNode node, String corellationId, Status status, RaftGroupService svc) {
+        RaftError raftError = status.getRaftError();
+
+        RaftErrorCode raftErrorCode = RaftErrorCode.ILLEGAL_STATE;
+
+        PeerId newLeader = null;
+
+        if (raftError == RaftError.EPERM) {
+            newLeader = svc.getRaftNode().getLeaderId();
+            PeerId myId = svc.getRaftNode().getNodeId().getPeerId();
+
+            raftErrorCode = newLeader == null || myId.equals(newLeader) ?
+                RaftErrorCode.NO_LEADER : RaftErrorCode.LEADER_CHANGED;
+        }
+
+        RaftErrorResponse.Builder resp = clientMsgFactory.raftErrorResponse().errorCode(raftErrorCode);
+
+        if (newLeader != null) {
+            resp.newLeader(new Peer(newLeader.getEndpoint().toString()));
+        }
+
+        service.messagingService().send(node, ((RaftErrorResponse.Builder) resp).build(), corellationId);
+    }
+
+    /** */
+    private abstract class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
         private final T command;
 
-        MyClosure(T command) {
+        CommandClosureImpl(T command) {
             this.command = command;
         }
 
         @Override public T command() {
             return command;
-        }
-
-        @Override public void run(Status status) {
-            assert false;
         }
     }
 }

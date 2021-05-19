@@ -141,8 +141,10 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 final RpcRequests.PingRequest req = RpcRequests.PingRequest.newBuilder() //
                     .setSendTimestamp(System.currentTimeMillis()) //
                     .build();
+
                 final ErrorResponse resp = (ErrorResponse) rc.invokeSync(endpoint, req,
                     this.rpcOptions.getRpcConnectTimeoutMs());
+
                 if (resp.getErrorCode() == 0) {
                     readyAddresses.add(endpoint.toString());
 

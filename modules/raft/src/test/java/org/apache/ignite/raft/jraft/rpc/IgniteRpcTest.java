@@ -63,7 +63,6 @@ public class IgniteRpcTest extends AbstractRpcTest {
      * @return The client cluster view.
      */
     protected ClusterService createService(String name, int port, List<String> servers) {
-        // TODO: IGNITE-14088: Uncomment and use real serializer provider
         MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
             .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 

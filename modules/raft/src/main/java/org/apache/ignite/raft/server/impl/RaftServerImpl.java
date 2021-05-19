@@ -33,7 +33,6 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.exception.RaftException;
 import org.apache.ignite.raft.client.message.ActionRequest;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.GetLeaderResponse;
@@ -119,9 +118,7 @@ public class RaftServerImpl implements RaftServer {
                 else
                     handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
             }
-            else {
-                LOG.warn("Unsupported message class " + message.getClass().getName());
-            }
+            // Ignore unsupported messages. TODO asch invoke responses should not be delivered to message handlers.
         });
 
         if (!reuse)
@@ -196,13 +193,9 @@ public class RaftServerImpl implements RaftServer {
                 return (T)req.command();
             }
 
-            @Override public void success(Object res) {
+            @Override public void result(Object res) {
                 var msg = clientMsgFactory.actionResponse().result(res).build();
                 service.messagingService().send(sender, msg, corellationId);
-            }
-
-            @Override public void failure(Throwable t) {
-                sendError(sender, corellationId, RaftErrorCode.ILLEGAL_STATE);
             }
         })) {
             // Queue out of capacity.
@@ -225,10 +218,7 @@ public class RaftServerImpl implements RaftServer {
 
                 RaftGroupCommandListener lsnr = cmdClo.listener();
 
-                if (lsnr == null)
-                    cmdClo.failure(new RaftException(RaftErrorCode.ILLEGAL_STATE));
-                else
-                    clo.accept(lsnr, List.<CommandClosure<T>>of(cmdClo).iterator());
+                clo.accept(lsnr, List.<CommandClosure<T>>of(cmdClo).iterator());
             }
             catch (InterruptedException e) {
                 return;

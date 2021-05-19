@@ -42,6 +42,7 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseC
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.metastorage.common.CompactedException;
@@ -88,21 +89,21 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                     GetCommand getCmd = (GetCommand)clo.command();
 
                     if (getCmd.revision() != null)
-                        clo.success(storage.get(getCmd.key().bytes(), getCmd.revision()));
+                        clo.result(storage.get(getCmd.key().bytes(), getCmd.revision()));
                     else
-                        clo.success(storage.get(getCmd.key().bytes()));
+                        clo.result(storage.get(getCmd.key().bytes()));
                 }
                 else if (clo.command() instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand)clo.command();
 
                     if (getAllCmd.revision() != null) {
-                        clo.success(storage.getAll(
+                        clo.result(storage.getAll(
                             getAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()),
                             getAllCmd.revision())
                         );
                     }
                     else {
-                        clo.success(storage.getAll(
+                        clo.result(storage.getAll(
                             getAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()))
                         );
                     }
@@ -112,7 +113,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     assert cursors.containsKey(cursorHasNextCmd.cursorId());
 
-                    clo.success(cursors.get(cursorHasNextCmd.cursorId()).getValue().hasNext());
+                    clo.result(cursors.get(cursorHasNextCmd.cursorId()).getValue().hasNext());
                 }
                 else
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
@@ -121,12 +122,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                 LOG.warn("Unable to evaluate command [cmd=" + clo.command() + ']', e);
 
-                clo.failure(e);
-            }
-            catch (Throwable e) {
-                LOG.error("Unable to evaluate command [cmd=" + clo.command() + ']', e);
-
-                clo.failure(e);
+                throw e;
             }
         }
     }
@@ -142,12 +138,12 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
 
                     storage.put(putCmd.key().bytes(), putCmd.value());
 
-                    clo.success(null);
+                    clo.result(null);
                 }
                 else if (clo.command() instanceof GetAndPutCommand) {
                     GetAndPutCommand getAndPutCmd = (GetAndPutCommand)clo.command();
 
-                    clo.success(storage.getAndPut(getAndPutCmd.key().bytes(), getAndPutCmd.value()));
+                    clo.result(storage.getAndPut(getAndPutCmd.key().bytes(), getAndPutCmd.value()));
                 }
                 else if (clo.command() instanceof PutAllCommand) {
                     PutAllCommand putAllCmd = (PutAllCommand)clo.command();
@@ -156,7 +152,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                         putAllCmd.values().keySet().stream().map(Key::bytes).collect(Collectors.toList()),
                         new ArrayList<>(putAllCmd.values().values()));
 
-                    clo.success(null);
+                    clo.result(null);
                 }
                 else if (clo.command() instanceof GetAndPutAllCommand) {
                     GetAndPutAllCommand getAndPutAllCmd = (GetAndPutAllCommand)clo.command();
@@ -169,26 +165,26 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                     if (!(entries instanceof Serializable))
                         entries = new ArrayList<>(entries);
 
-                    clo.success(entries);
+                    clo.result(entries);
                 }
                 else if (clo.command() instanceof RemoveCommand) {
                     RemoveCommand rmvCmd = (RemoveCommand)clo.command();
 
                     storage.remove(rmvCmd.key().bytes());
 
-                    clo.success(null);
+                    clo.result(null);
                 }
                 else if (clo.command() instanceof GetAndRemoveCommand) {
                     GetAndRemoveCommand getAndRmvCmd = (GetAndRemoveCommand)clo.command();
 
-                    clo.success(storage.getAndRemove(getAndRmvCmd.key().bytes()));
+                    clo.result(storage.getAndRemove(getAndRmvCmd.key().bytes()));
                 }
                 else if (clo.command() instanceof RemoveAllCommand) {
                     RemoveAllCommand rmvAllCmd = (RemoveAllCommand)clo.command();
 
                     storage.removeAll(rmvAllCmd.keys().stream().map(Key::bytes).collect(Collectors.toList()));
 
-                    clo.success(null);
+                    clo.result(null);
                 }
                 else if (clo.command() instanceof GetAndRemoveAllCommand) {
                     GetAndRemoveAllCommand getAndRmvAllCmd = (GetAndRemoveAllCommand)clo.command();
@@ -200,7 +196,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                     if (!(entries instanceof Serializable))
                         entries = new ArrayList<>(entries);
 
-                    clo.success(entries);
+                    clo.result(entries);
                 }
                 else if (clo.command() instanceof RangeCommand) {
                     RangeCommand rangeCmd = (RangeCommand)clo.command();
@@ -218,32 +214,33 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                         new IgniteBiTuple<>(cursor, cursor.iterator())
                     );
 
-                    clo.success(cursorId);
+                    clo.result(cursorId);
                 }
                 else if (clo.command() instanceof CursorNextCommand) {
                     CursorNextCommand cursorNextCmd = (CursorNextCommand)clo.command();
 
                     assert cursors.containsKey(cursorNextCmd.cursorId());
 
-                    clo.success(cursors.get(cursorNextCmd.cursorId()).getValue().next());
+                    clo.result(cursors.get(cursorNextCmd.cursorId()).getValue().next());
                 }
                 else if (clo.command() instanceof CursorCloseCommand) {
                     CursorCloseCommand cursorCloseCmd = (CursorCloseCommand)clo.command();
 
-                    cursors.computeIfPresent(cursorCloseCmd.cursorId(), (k, v) -> {
+                    IgniteBiTuple<@NotNull Cursor, @NotNull Iterator> cur = cursors.get(cursorCloseCmd.cursorId());
+
+                    if (cur == null) {
+                        clo.result(null);
+                    }
+                    else {
                         try {
-                            v.getKey().close();
+                            cur.getKey().close();
                         }
                         catch (Exception e) {
-                            LOG.error("Unable to close cursor during command evaluation " +
-                                "[cmd=" + clo.command() + ", cursor=" + cursorCloseCmd.cursorId() + ']', e);
-
-                            clo.failure(e);
+                            throw new IgniteInternalException(e);
                         }
-                        return null;
-                    });
+                    }
 
-                    clo.success(null);
+                    clo.result(null);
                 }
                 else if (clo.command() instanceof WatchRangeKeysCommand) {
                     WatchRangeKeysCommand watchCmd = (WatchRangeKeysCommand)clo.command();
@@ -260,7 +257,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                         new IgniteBiTuple<>(cursor, cursor.iterator())
                     );
 
-                    clo.success(cursorId);
+                    clo.result(cursorId);
                 }
                 else if (clo.command() instanceof WatchExactKeysCommand) {
                     WatchExactKeysCommand watchCmd = (WatchExactKeysCommand)clo.command();
@@ -276,7 +273,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                         new IgniteBiTuple<>(cursor, cursor.iterator())
                     );
 
-                    clo.success(cursorId);
+                    clo.result(cursorId);
                 }
                 else
                     assert false : "Command was not found [cmd=" + clo.command() + ']';
@@ -285,12 +282,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
                 LOG.warn("Unable to evaluate command [cmd=" + clo.command() + ']', e);
 
-                clo.failure(e);
-            }
-            catch (Throwable e) {
-                LOG.error("Unable to evaluate command [cmd=" + clo.command() + ']', e);
-
-                clo.failure(e);
+                throw e;
             }
         }
     }

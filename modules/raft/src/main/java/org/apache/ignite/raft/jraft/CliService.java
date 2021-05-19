@@ -27,7 +27,6 @@ import org.apache.ignite.raft.jraft.option.CliOptions;
  * Client command-line service
  */
 public interface CliService extends Lifecycle<CliOptions> {
-
     /**
      * Add a new peer into the replicating group which consists of |conf|.
      * return OK status when success.

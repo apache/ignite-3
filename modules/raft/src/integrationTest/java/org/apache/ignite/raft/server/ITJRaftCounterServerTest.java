@@ -28,11 +28,14 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.server.impl.JRaftServerImpl;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
     /** */
@@ -53,7 +56,6 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
         for (int i = 0; i < 3; i++) {
             int port = PORT + i;
 
-            // Must use host + port as a node id.
             String name = "server" + i;
 
             addresses.add(TestUtils.getMyIp() + ":" + port);
@@ -89,9 +91,41 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
         client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 10_000, peers, false, 200, false);
     }
 
+    @Test
+    public void testFollowerCatchUp() throws Exception {
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        Peer leader1 = client1.leader();
+        Assertions.assertNotNull(leader1);
+
+        Peer leader2 = client2.leader();
+        Assertions.assertNotNull(leader2);
+
+        assertEquals(2, client1.<Integer>run(new IncrementAndGetCommand(2)).get());
+        assertEquals(2, client1.<Integer>run(new GetValueCommand()).get());
+        assertEquals(3, client1.<Integer>run(new IncrementAndGetCommand(1)).get());
+        assertEquals(3, client1.<Integer>run(new GetValueCommand()).get());
+
+        assertEquals(4, client2.<Integer>run(new IncrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Integer>run(new GetValueCommand()).get());
+        assertEquals(7, client2.<Integer>run(new IncrementAndGetCommand(3)).get());
+        assertEquals(7, client2.<Integer>run(new GetValueCommand()).get());
+
+        RaftServer srv = servers.remove(1);
+        ClusterNode srvNode = srv.clusterService().topologyService().localMember();
+        srv.shutdown();
+
+        assertEquals(6, client1.<Integer>run(new IncrementAndGetCommand(3)).get());
+        assertEquals(12, client2.<Integer>run(new IncrementAndGetCommand(5)).get());
+
+        assertNotEquals(client1.leader().address(), srvNode.address());
+        assertNotEquals(client2.leader().address(), srvNode.address());
+    }
+
     @AfterEach
     void after() throws Exception {
-        LOG.info("Start server shutdown");
+        LOG.info("Start server shutdown servers={}", servers.size());
 
         for (RaftServer server : servers)
             server.shutdown();

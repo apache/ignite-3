@@ -38,9 +38,9 @@ public interface RaftServer {
     ClusterService clusterService();
 
     /**
-     * Start a raft group on this cluster node.
+     * Starts a raft group on this cluster node.
      * @param groupId Group id.
-     * @param lsnr Listener.
+     * @param lsnr The listener.
      * @param initialConf Inititial group configuration.
      *
      * @return {@code True} if a group was successfully started.

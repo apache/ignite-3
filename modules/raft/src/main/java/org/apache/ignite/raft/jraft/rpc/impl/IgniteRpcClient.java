@@ -88,6 +88,8 @@ public class IgniteRpcClient implements RpcClientEx {
 
         try {
             return fut.whenComplete((res, err) -> {
+                assert !(res == null && err == null) : res + " " + err;
+
                 if (err == null && recordPred != null && recordPred.test(res, this.toString()))
                     recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
             }).get(timeoutMs, TimeUnit.MILLISECONDS);

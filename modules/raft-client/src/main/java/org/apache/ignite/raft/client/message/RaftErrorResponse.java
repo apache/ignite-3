@@ -35,7 +35,7 @@ public interface RaftErrorResponse extends NetworkMessage, Serializable {
     /**
      * @return The new leader if a current leader is obsolete or null if not applicable.
      */
-    public @Nullable Peer newLeader();
+    public @Nullable Peer newLeader(); // TODO asch use String addr
 
     /** */
     public interface Builder {

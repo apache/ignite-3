@@ -44,14 +44,14 @@ public final class Peer implements Serializable {
     }
 
     /**
-     * @param node Node.
+     * @param addr The address.
      */
     public Peer(String addr) {
         this(addr, ElectionPriority.DISABLED);
     }
 
     /**
-     * @param node Node.
+     * @param addr The address.
      * @param priority Election priority.
      */
     public Peer(String addr, int priority) {
@@ -60,7 +60,7 @@ public final class Peer implements Serializable {
     }
 
     /**
-     * @return Node.
+     * @return The address.
      */
     public String address() {
         return this.addr;
