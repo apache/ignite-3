@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -37,12 +38,11 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     boolean checkConnection(final Endpoint endpoint);
 
     /**
-     * TODO asch get rid.
-     * Register a connect event listener for the replicator group.
+     * Register a connect event listener for the handler.
      *
-     * @param replicatorGroup replicator group
+     * @param handler The handler.
      */
-    void registerConnectEventListener(final ReplicatorGroup replicatorGroup);
+    void registerConnectEventListener(final TopologyEventHandler handler);
 
     /**
      * Synchronous invocation.

@@ -25,10 +25,6 @@ import org.apache.ignite.raft.jraft.option.CliOptions;
 
 /**
  * Client command-line service
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 4:05:35 PM
  */
 public interface CliService extends Lifecycle<CliOptions> {
 

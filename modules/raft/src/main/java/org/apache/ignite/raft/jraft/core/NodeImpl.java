@@ -187,6 +187,10 @@ public class NodeImpl implements Node, RaftServerService {
     private RepeatedTimer electionTimer;
     private RepeatedTimer voteTimer;
     private RepeatedTimer stepDownTimer;
+
+    /**
+     * Triggered on a leader each electionTimeoutMs / 2 milliseconds to ensure the alive quorum.
+     */
     private RepeatedTimer snapshotTimer;
     private ScheduledFuture<?> transferTimer;
     private ThreadId wakingCandidate;
@@ -1034,9 +1038,8 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.info("Init node {} with empty conf.", this.serverId);
         }
 
-        // TODO asch RPC service and ReplicatorGroup is in cycle dependent, refactor it
         this.replicatorGroup = new ReplicatorGroupImpl();
-        this.rpcClientService = new DefaultRaftClientService(this.replicatorGroup);
+        this.rpcClientService = new DefaultRaftClientService();
         final ReplicatorGroupOptions rgOpts = new ReplicatorGroupOptions();
         rgOpts.setHeartbeatTimeoutMs(heartbeatTimeout(this.options.getElectionTimeoutMs()));
         rgOpts.setElectionTimeoutMs(this.options.getElectionTimeoutMs());
@@ -2151,6 +2154,12 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
+    /**
+     * @param conf The configuration.
+     * @param monotonicNowMs The timestamp.
+     * @param stepDownOnCheckFail {@code True} to step down on check fail.
+     * @return {@code True} if a majority of peers are alive.
+     */
     private boolean checkDeadNodes(final Configuration conf, final long monotonicNowMs,
                                    final boolean stepDownOnCheckFail) {
         // Check learner replicators at first.
@@ -2175,6 +2184,14 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     // TODO asch can use discovery to test aliveness.
+
+    /**
+     * @param peers Peers list.
+     * @param monotonicNowMs The timestamp.
+     * @param checkReplicator {@code True} to check replicator.
+     * @param deadNodes The configuration.
+     * @return {@code True} if a majority of nodes are alive.
+     */
     private boolean checkDeadNodes0(final List<PeerId> peers, final long monotonicNowMs, final boolean checkReplicator,
                                     final Configuration deadNodes) {
         final int leaderLeaseTimeoutMs = this.options.getLeaderLeaseTimeoutMs();

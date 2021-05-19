@@ -11,6 +11,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -27,7 +28,7 @@ import org.slf4j.LoggerFactory;
 public class IgniteRpcClient implements RpcClientEx {
     private static final Logger LOG                    = LoggerFactory.getLogger(IgniteRpcClient.class);
 
-    public volatile ReplicatorGroup replicatorGroup = null;
+    public volatile ReplicatorGroup replicatorGroup = null; // TODO asch not used
 
     private volatile BiPredicate<Object, String> recordPred;
     private BiPredicate<Object, String> blockPred;
@@ -59,8 +60,8 @@ public class IgniteRpcClient implements RpcClientEx {
         return service.topologyService().getByAddress(endpoint.toString()) != null;
     }
 
-    @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
-        this.replicatorGroup = replicatorGroup;
+    @Override public void registerConnectEventListener(TopologyEventHandler handler) {
+        service.topologyService().addEventHandler(handler);
     }
 
     @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {

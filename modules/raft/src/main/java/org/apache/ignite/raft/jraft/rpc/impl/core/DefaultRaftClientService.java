@@ -57,7 +57,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
  * @author jiachun.fjc
  */
 public class DefaultRaftClientService extends AbstractClientService implements RaftClientService {
-    // TODO asch remove.
+    // TODO asch refactor.
     private static final FixedThreadsExecutorGroup APPEND_ENTRIES_EXECUTORS = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
         .newExecutorGroup(
             Utils.APPEND_ENTRIES_THREADS_SEND,
@@ -69,16 +69,6 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     // cached node options
     private NodeOptions nodeOptions;
-    private final ReplicatorGroup rgGroup;
-
-    @Override
-    protected void configRpcClient(final RpcClient rpcClient) {
-        rpcClient.registerConnectEventListener(this.rgGroup);
-    }
-
-    public DefaultRaftClientService(final ReplicatorGroup rgGroup) {
-        this.rgGroup = rgGroup;
-    }
 
     @Override
     public synchronized boolean init(final RpcOptions rpcOptions) {

@@ -16,22 +16,26 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
+import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.ClientService;
 import org.apache.ignite.raft.jraft.rpc.HasErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcClient;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
@@ -39,21 +43,22 @@ import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.ThreadPoolMetricSet;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Abstract RPC client service based.
-
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
  */
-public abstract class AbstractClientService implements ClientService {
+public abstract class AbstractClientService implements ClientService, TopologyEventHandler {
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractClientService.class);
 
     protected volatile RpcClient rpcClient;
     protected ThreadPoolExecutor  rpcExecutor;
     protected RpcOptions rpcOptions;
+
+    /** The set of pinged addresses */
+    private Set<String> readyAddresses = new ConcurrentHashSet<>();
 
     public RpcClient getRpcClient() {
         return this.rpcClient;
@@ -68,16 +73,25 @@ public abstract class AbstractClientService implements ClientService {
         return initRpcClient(this.rpcOptions.getRpcProcessorThreadPoolSize());
     }
 
-    protected void configRpcClient(final RpcClient rpcClient) {
-        // NO-OP
+    @Override public void onAppeared(ClusterNode member) {
+        // No-op. TODO asch checkReplicator ? Can remove checkDeadNodes logic ?
     }
 
+    @Override public void onDisappeared(ClusterNode member) {
+        readyAddresses.remove(member.address());
+    }
+
+    protected void configRpcClient(final RpcClient rpcClient) {
+        rpcClient.registerConnectEventListener(this);
+    }
+
+    // TODO asch init can be moved to constructor.
     protected boolean initRpcClient(final int rpcProcessorThreadPoolSize) {
         this.rpcClient = rpcOptions.getRpcClient();
         configRpcClient(this.rpcClient);
         // TODO asch should the client be created lazily. A client doesn't make sence without a server.
         this.rpcClient.init(null);
-        this.rpcExecutor = ThreadPoolUtil.newBuilder() //
+        this.rpcExecutor = ThreadPoolUtil.newBuilder() // TODO asch refactor
             .poolName("JRaft-RPC-Processor") //
             .enableMetric(true) //
             .coreThreads(rpcProcessorThreadPoolSize / 3) //
@@ -110,26 +124,38 @@ public abstract class AbstractClientService implements ClientService {
             throw new IllegalStateException("Client service is uninitialized.");
         }
 
-        return rc.checkConnection(endpoint);
+        // Remote node is dead.
+        if (!rc.checkConnection(endpoint))
+            return false;
 
-        // TODO asch ping request ???
-//        if (isConnected(rc, endpoint))
-//            return true;
-//
-//        try {
-//            final PingRequest req = PingRequest.newBuilder() //
-//                .setSendTimestamp(System.currentTimeMillis()) //
-//                .build();
-//            final ErrorResponse resp = (ErrorResponse) rc.invokeSync(endpoint, req,
-//                this.rpcOptions.getRpcConnectTimeoutMs());
-//            return resp.getErrorCode() == 0;
-//        } catch (final InterruptedException e) {
-//            Thread.currentThread().interrupt();
-//            return false;
-//        } catch (final RemotingException e) {
-//            LOG.error("Fail to connect {}, remoting exception: {}.", endpoint, e.getMessage());
-//            return false;
-//        }
+        // Remote node is alive and pinged, safe to continue.
+        if (readyAddresses.contains(endpoint.toString()))
+            return true;
+
+        // Remote node must be pinged.
+        synchronized (this) {
+            if (readyAddresses.contains(endpoint.toString()))
+                return true;
+
+            try {
+                final RpcRequests.PingRequest req = RpcRequests.PingRequest.newBuilder() //
+                    .setSendTimestamp(System.currentTimeMillis()) //
+                    .build();
+                final ErrorResponse resp = (ErrorResponse) rc.invokeSync(endpoint, req,
+                    this.rpcOptions.getRpcConnectTimeoutMs());
+                if (resp.getErrorCode() == 0) {
+                    readyAddresses.add(endpoint.toString());
+
+                    return true;
+                }
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (final RemotingException e) {
+                LOG.error("Fail to connect {}, remoting exception: {}.", endpoint, e.getMessage());
+            }
+        }
+
+        return false;
     }
 
     @Override

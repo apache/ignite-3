@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.function.Consumer;
-import java.util.function.UnaryOperator;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -50,11 +50,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Test cluster for NodeTest
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-20 1:41:17 PM
  */
 public class TestCluster {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
+
     static class Clusters {
 
         public final IdentityHashMap<TestCluster, Object> needCloses = new IdentityHashMap<>();
@@ -304,7 +303,7 @@ public class TestCluster {
 
     public void clean(final Endpoint listenAddr) throws IOException {
         final String path = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
-        System.out.println("Clean dir:" + path);
+        LOG.info("Clean dir: {0}", path);
         Utils.delete(new File(path));
     }
 
@@ -433,7 +432,7 @@ public class TestCluster {
             this.lock.unlock();
             return true;
         }
-        System.out.println("Start ensureSame, waitTimes=" + waitTimes);
+        LOG.info("Start ensureSame, waitTimes={0}", waitTimes);
         try {
             int nround = 0;
             final MockStateMachine first = fsmList.get(0);
@@ -485,7 +484,7 @@ public class TestCluster {
             return true;
         } finally {
             this.lock.unlock();
-            System.out.println("End ensureSame, waitTimes=" + waitTimes);
+            LOG.info("End ensureSame, waitTimes={0}", waitTimes);
         }
     }
 }

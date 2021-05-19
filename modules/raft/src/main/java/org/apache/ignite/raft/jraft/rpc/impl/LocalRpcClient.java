@@ -25,6 +25,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -40,7 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Local rpc client impl.
+ * Local rpc client impl. TODO asch remove
  *
  * @author ascherbakov.
  */
@@ -61,9 +62,13 @@ public class LocalRpcClient implements RpcClientEx {
         return LocalRpcServer.servers.containsKey(endpoint);
     }
 
-    @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
-        this.replicatorGroup = replicatorGroup;
+    @Override public void registerConnectEventListener(TopologyEventHandler handler) {
+        // No-op.
     }
+
+    //    @Override public void registerConnectEventListener(ReplicatorGroup replicatorGroup) {
+//        this.replicatorGroup = replicatorGroup;
+//    }
 
 //    private void onCreated(LocalConnection conn) {
 //        if (replicatorGroup != null) {
