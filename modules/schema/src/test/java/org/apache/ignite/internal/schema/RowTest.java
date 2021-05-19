@@ -68,8 +68,8 @@ public class RowTest {
             new Column("keyFloatCol", FLOAT, true),
             new Column("keyDoubleCol", DOUBLE, true),
             new Column("keyUuidCol", UUID, true),
-            new Column("keyBitmask1Col", BitmaskNativeType.of(4), true),
-            new Column("keyBitmask2Col", BitmaskNativeType.of(22), true)
+            new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), true),
+            new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), true)
         };
 
         Column[] valCols = new Column[] {
@@ -80,8 +80,8 @@ public class RowTest {
             new Column("valFloatCol", FLOAT, true),
             new Column("valDoubleCol", DOUBLE, true),
             new Column("valUuidCol", UUID, true),
-            new Column("valBitmask1Col", BitmaskNativeType.of(4), true),
-            new Column("valBitmask2Col", BitmaskNativeType.of(22), true)
+            new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), true),
+            new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), true)
         };
 
         checkSchema(keyCols, valCols);

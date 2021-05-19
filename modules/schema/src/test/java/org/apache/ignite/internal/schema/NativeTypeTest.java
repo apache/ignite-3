@@ -17,10 +17,18 @@
 
 package org.apache.ignite.internal.schema;
 
+import org.apache.ignite.schema.ColumnType;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
+import static org.apache.ignite.internal.schema.NativeTypes.LONG;
+import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -31,9 +39,9 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareFixlenTypesVsVarlenTypes() {
-        assertTrue(NativeTypes.BYTE.compareTo(STRING) < 0);
-        assertTrue(NativeTypes.BYTE.compareTo(BYTES) < 0);
+    public void compareFixlenTypesVsVarlenTypes() {
+        assertTrue(BYTE.compareTo(STRING) < 0);
+        assertTrue(BYTE.compareTo(BYTES) < 0);
 
         assertTrue(NativeTypes.INTEGER.compareTo(STRING) < 0);
         assertTrue(NativeTypes.INTEGER.compareTo(BYTES) < 0);
@@ -49,7 +57,7 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareFixlenTypesBySize() {
+    public void compareFixlenTypesBySize() {
         assertTrue(NativeTypes.SHORT.compareTo(NativeTypes.INTEGER) < 0);
         assertTrue(NativeTypes.INTEGER.compareTo(NativeTypes.LONG) < 0);
         assertTrue(NativeTypes.LONG.compareTo(NativeTypes.UUID) < 0);
@@ -59,7 +67,7 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareFixlenTypesByDesc() {
+    public void compareFixlenTypesByDesc() {
         assertTrue(NativeTypes.FLOAT.compareTo(NativeTypes.INTEGER) < 0);
     }
 
@@ -67,7 +75,28 @@ public class NativeTypeTest {
      *
      */
     @Test
-    public void testCompareVarlenTypesByDesc() {
+    public void compareVarlenTypesByDesc() {
         assertTrue(BYTES.compareTo(STRING) < 0);
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void createNativeTypeFromColumnType() {
+        assertEquals(BYTE, NativeType.from(ColumnType.INT8));
+        assertEquals(SHORT, NativeType.from(ColumnType.INT16));
+        assertEquals(INTEGER, NativeType.from(ColumnType.INT32));
+        assertEquals(LONG, NativeType.from(ColumnType.INT64));
+        assertEquals(FLOAT, NativeType.from(ColumnType.FLOAT));
+        assertEquals(DOUBLE, NativeType.from(ColumnType.DOUBLE));
+        assertEquals(BYTES, NativeType.from(ColumnType.blobOf()));
+        assertEquals(STRING, NativeType.from(ColumnType.string()));
+
+        for (int i = 1; i < 800; i += 100) {
+            assertEquals(NativeTypes.blobOf(i), NativeType.from(ColumnType.blobOf(i)));
+            assertEquals(NativeTypes.stringOf(i), NativeType.from(ColumnType.stringOf(i)));
+            assertEquals(NativeTypes.bitmaskOf(i), NativeType.from(ColumnType.bitmaskOf(i)));
+        }
     }
 }

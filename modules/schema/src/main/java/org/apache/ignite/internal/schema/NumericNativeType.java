@@ -55,8 +55,8 @@ public class NumericNativeType extends NativeType {
     /** {@inheritDoc} */
     @Override public boolean mismatch(NativeType type) {
         return super.mismatch(type)
-            || precision < ((org.apache.ignite.internal.schema.NumericNativeType)type).precision
-            || scale < ((org.apache.ignite.internal.schema.NumericNativeType)type).scale;
+            || precision < ((NumericNativeType)type).precision
+            || scale < ((NumericNativeType)type).scale;
     }
 
     /** {@inheritDoc} */
@@ -70,7 +70,7 @@ public class NumericNativeType extends NativeType {
         if (!super.equals(o))
             return false;
 
-        org.apache.ignite.internal.schema.NumericNativeType type = (org.apache.ignite.internal.schema.NumericNativeType)o;
+        NumericNativeType type = (NumericNativeType)o;
 
         return precision == type.precision &&
             scale == type.scale;

@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
-import org.apache.ignite.lang.IgniteException;
-
 /**
  * Invalid tuple invocation exception is thrown when tuple doesn't match the table schema.
  */
-public class ColumnNotFoundException extends IgniteException {
+public class ColumnNotFoundException extends SchemaMismatchException {
     /** */
     public ColumnNotFoundException(String msg) {
         super(msg);

@@ -38,7 +38,7 @@ public class VarlenNativeType extends NativeType {
 
     /** {@inheritDoc} */
     @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || len < ((org.apache.ignite.internal.schema.VarlenNativeType)type).len;
+        return super.mismatch(type) || len < ((VarlenNativeType)type).len;
     }
 
     /** {@inheritDoc} */

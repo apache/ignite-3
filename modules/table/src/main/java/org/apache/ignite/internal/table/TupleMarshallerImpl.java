@@ -90,7 +90,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             SchemaDescriptor expSchema = schemaMgr.schema(t0.schema().version());
 
             if (!Objects.equals(t0.schema(), expSchema))
-                throw new InvalidSchemaException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
+                throw new SchemaMismatchException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
         }
         else {
             Arrays.stream(columns.columns()).forEach(c -> c.validate(tuple.value(c.name())));

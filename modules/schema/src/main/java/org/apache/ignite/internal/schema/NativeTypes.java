@@ -43,12 +43,39 @@ public class NativeTypes {
     public static final NativeType UUID = new NativeType(NativeTypeSpec.UUID, 16);
 
     /** */
-    public static final NativeType STRING = new org.apache.ignite.internal.schema.VarlenNativeType(NativeTypeSpec.STRING, Integer.MAX_VALUE);
+    public static final NativeType STRING = new VarlenNativeType(NativeTypeSpec.STRING, Integer.MAX_VALUE);
 
     /** */
-    public static final NativeType BYTES = new org.apache.ignite.internal.schema.VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
+    public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, Integer.MAX_VALUE);
 
     /** Don't allow to create an instance. */
     private NativeTypes() {
+    }
+
+    /**
+     * Creates a bitmask type of size <code>bits</code>. In row will round up to the closest full byte.
+     *
+     * @param bits The number of bits in the bitmask.
+     */
+    public static NativeType bitmaskOf(int bits) {
+        return BitmaskNativeType.of(bits);
+    }
+
+    /**
+     * Creates a STRING type with maximal length is <code>len</code>.
+     *
+     * @param len Maximum length of the string.
+     */
+    public static NativeType stringOf(int len) {
+        return new VarlenNativeType(NativeTypeSpec.STRING, len);
+    }
+
+    /**
+     * Creates a BYTES type with maximal length is <code>len</code>.
+     *
+     * @param len Maximum length of the byte array.
+     */
+    public static NativeType blobOf(int len) {
+        return new VarlenNativeType(NativeTypeSpec.BYTES, len);
     }
 }
