@@ -37,7 +37,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFixSizedColumnsIndex() {
+    public void fixSizedColumnsIndex() {
         Columns cols = new Columns(
             0,
             new Column("intCol2", INTEGER, false),
@@ -59,7 +59,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testVarlenColumnsIndex() {
+    public void varlenColumnsIndex() {
         Columns cols = new Columns(
             0,
             new Column("stringCol3", STRING, false),
@@ -81,7 +81,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testMixedColumnsIndex() {
+    public void mixedColumnsIndex() {
         Columns cols = new Columns(
             0,
             new Column("stringCol", STRING, false),
@@ -108,7 +108,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testNullMapSize() {
+    public void nullMapSize() {
         assertEquals(1, new Columns(0, columns(1)).nullMapSize());
         assertEquals(1, new Columns(0, columns(7)).nullMapSize());
         assertEquals(1, new Columns(0, columns(8)).nullMapSize());
@@ -128,7 +128,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testColumnSchemaIndex() {
+    public void columnSchemaIndex() {
         {
             Columns cols = new Columns(
                 0,
@@ -169,7 +169,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeNoVarlenIncomplete1Byte() {
+    public void foldSizeNoVarlenIncomplete1Byte() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4
@@ -187,7 +187,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeNoVarlenFull1Byte() {
+    public void foldSizeNoVarlenFull1Byte() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4
@@ -206,7 +206,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeNoVarlenIncomplete2Bytes() {
+    public void foldSizeNoVarlenIncomplete2Bytes() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", SHORT, false),   // 2
@@ -227,7 +227,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeNoVarlenFull2Bytes() {
+    public void foldSizeNoVarlenFull2Bytes() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", SHORT, false),   // 2
@@ -254,7 +254,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeVarlenIncomplete1Byte() {
+    public void foldSizeVarlenIncomplete1Byte() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4
@@ -272,7 +272,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeVarlenFull1Byte() {
+    public void foldSizeVarlenFull1Byte() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4
@@ -291,7 +291,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeVarlenIncomplete2Bytes1() {
+    public void foldSizeVarlenIncomplete2Bytes1() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4
@@ -311,7 +311,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeVarlenIncomplete2Bytes2() {
+    public void foldSizeVarlenIncomplete2Bytes2() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4
@@ -333,7 +333,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeVarlenIncomplete2Bytes3() {
+    public void foldSizeVarlenIncomplete2Bytes3() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4
@@ -355,7 +355,7 @@ public class ColumnsTest {
      *
      */
     @Test
-    public void testFoldSizeVarlenFull2Bytes() {
+    public void foldSizeVarlenFull2Bytes() {
         Column[] colDef = {
             new Column("a", SHORT, false),   // 2
             new Column("b", INTEGER, false), // 4

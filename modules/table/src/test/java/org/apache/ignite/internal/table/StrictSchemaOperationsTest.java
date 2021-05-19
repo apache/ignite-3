@@ -83,7 +83,7 @@ public class StrictSchemaOperationsTest {
      *
      */
     @Test
-    public void testStringTypeMatch() {
+    public void stringTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,

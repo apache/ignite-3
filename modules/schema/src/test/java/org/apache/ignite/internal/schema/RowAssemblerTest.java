@@ -40,7 +40,7 @@ public class RowAssemblerTest {
     public final java.util.UUID tableId = java.util.UUID.randomUUID();
 
     @Test
-    public void testFixedKeyFixedNullableValue() {
+    public void fixedKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, false)};
         Column[] valCols = new Column[] {new Column("valIntCol", INTEGER, true)};
 
@@ -74,7 +74,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testFixedKeyFixedValue() {
+    public void fixedKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
@@ -99,7 +99,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testFixedKeyVarlenNullableValue() {
+    public void fixedKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
 
@@ -133,7 +133,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testFixedKeyVarlenValue() {
+    public void fixedKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
 
@@ -158,7 +158,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testFixedNullableKeyFixedValue() {
+    public void fixedNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valByteCol", BYTE, false)};
 
@@ -192,7 +192,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testFixedNullableKeyFixedNullableValue() {
+    public void fixedNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
@@ -244,7 +244,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testFixedNullableKeyVarlenNullableValue() {
+    public void fixedNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, true)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
 
@@ -296,7 +296,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testFixedNullableKeyVarlenValue() {
+    public void fixedNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyByteCol", BYTE, true)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
 
@@ -330,7 +330,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenKeyFixedNullableValue() {
+    public void varlenKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, true)};
 
@@ -366,7 +366,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenKeyFixedValue() {
+    public void varlenKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, false)};
 
@@ -393,7 +393,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenKeyVarlenNullableValue() {
+    public void varlenKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
@@ -427,7 +427,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenKeyVarlenValue() {
+    public void varlenKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 
@@ -452,7 +452,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenNullableKeyFixedNullableValue() {
+    public void varlenNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
@@ -504,7 +504,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenNullableKeyFixedValue() {
+    public void varlenNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
@@ -538,7 +538,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenNullableKeyVarlenNullableValue() {
+    public void varlenNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
@@ -590,7 +590,7 @@ public class RowAssemblerTest {
     }
 
     @Test
-    public void testVarlenNullableKeyVarlenValue() {
+    public void varlenNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 

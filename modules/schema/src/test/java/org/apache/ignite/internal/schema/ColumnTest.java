@@ -33,7 +33,7 @@ public class ColumnTest {
      *
      */
     @Test
-    public void testCompareColumns() {
+    public void compareColumns() {
         Column[] cols = new Column[] {
             new Column("C", BYTES, false),
             new Column("B", INTEGER, false),

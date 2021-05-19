@@ -132,7 +132,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void testComplexType(SerializerFactory factory) throws SerializationException {
+    public void complexType(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[] {
             new Column("pByteCol", BYTE, false),
             new Column("pShortCol", SHORT, false),
@@ -181,32 +181,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void testClassWithIncorrectBitmaskSize(SerializerFactory factory) {
-        Column[] cols = new Column[] {
-            new Column("pLongCol", LONG, false),
-            new Column("bitmaskCol", BitmaskNativeType.of(9), true),
-        };
-
-        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
-
-        final Object key = TestObject.randomObject(rnd);
-        final Object val = TestObject.randomObject(rnd);
-
-        Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
-
-        assertThrows(
-            SerializationException.class,
-            () -> serializer.serialize(key, val),
-            "Failed to write field [name=bitmaskCol]"
-        );
-    }
-
-    /**
-     *
-     */
-    @ParameterizedTest
-    @MethodSource("serializerFactoryProvider")
-    public void testClassWithWrongFieldType(SerializerFactory factory) {
+    public void classWithWrongFieldType(SerializerFactory factory) {
         Column[] cols = new Column[] {
             new Column("bitmaskCol", BitmaskNativeType.of(42), true),
             new Column("shortCol", UUID, true)
@@ -231,7 +206,32 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void testClassWithPrivateConstructor(SerializerFactory factory) throws SerializationException {
+    public void classWithIncorrectBitmaskSize(SerializerFactory factory) {
+        Column[] cols = new Column[] {
+            new Column("pLongCol", LONG, false),
+            new Column("bitmaskCol", BitmaskNativeType.of(9), true),
+        };
+
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);
+
+        final Object key = TestObject.randomObject(rnd);
+        final Object val = TestObject.randomObject(rnd);
+
+        Serializer serializer = factory.create(schema, key.getClass(), val.getClass());
+
+        assertThrows(
+            SerializationException.class,
+            () -> serializer.serialize(key, val),
+            "Failed to write field [name=bitmaskCol]"
+        );
+    }
+
+    /**
+     *
+     */
+    @ParameterizedTest
+    @MethodSource("serializerFactoryProvider")
+    public void classWithPrivateConstructor(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[] {
             new Column("pLongCol", LONG, false),
         };
@@ -260,7 +260,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void testClassWithNoDefaultConstructor(SerializerFactory factory) {
+    public void classWithNoDefaultConstructor(SerializerFactory factory) {
         Column[] cols = new Column[] {
             new Column("pLongCol", LONG, false),
         };
@@ -278,7 +278,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void testPrivateClass(SerializerFactory factory) throws SerializationException {
+    public void privateClass(SerializerFactory factory) throws SerializationException {
         Column[] cols = new Column[] {
             new Column("pLongCol", LONG, false),
         };
@@ -304,7 +304,7 @@ public class JavaSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("serializerFactoryProvider")
-    public void testClassLoader(SerializerFactory factory) throws SerializationException {
+    public void classLoader(SerializerFactory factory) throws SerializationException {
         final ClassLoader loader = Thread.currentThread().getContextClassLoader();
         try {
             Thread.currentThread().setContextClassLoader(new DynamicClassLoader(getClass().getClassLoader()));

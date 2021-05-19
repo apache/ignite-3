@@ -73,7 +73,7 @@ public class FieldAccessorTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testFieldAccessor() throws Exception {
+    public void fieldAccessor() throws Exception {
         Column[] cols = new Column[] {
             new Column("pByteCol", BYTE, false),
             new Column("pShortCol", SHORT, false),
@@ -140,7 +140,7 @@ public class FieldAccessorTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testNullableFieldsAccessor() throws Exception {
+    public void nullableFieldsAccessor() throws Exception {
         Column[] cols = new Column[] {
             new Column("intCol", INTEGER, true),
             new Column("longCol", LONG, true),
@@ -183,7 +183,7 @@ public class FieldAccessorTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testIdentityAccessor() throws Exception {
+    public void identityAccessor() throws Exception {
         final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
             new Column("col0", STRING, true),
             0,
@@ -201,7 +201,7 @@ public class FieldAccessorTest {
      *
      */
     @Test
-    public void testWrongIdentityAccessor() {
+    public void wrongIdentityAccessor() {
         final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
             new Column("col0", STRING, true),
             42,

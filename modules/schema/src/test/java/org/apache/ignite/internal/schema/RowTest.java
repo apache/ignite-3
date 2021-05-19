@@ -59,7 +59,7 @@ public class RowTest {
      *
      */
     @Test
-    public void testFixedSizes() {
+    public void fixedSizes() {
         Column[] keyCols = new Column[] {
             new Column("keyByteCol", BYTE, true),
             new Column("keyShortCol", SHORT, true),
@@ -91,7 +91,7 @@ public class RowTest {
      *
      */
     @Test
-    public void testVariableSizes() {
+    public void variableSizes() {
         Column[] keyCols = new Column[] {
             new Column("keyByteCol", BYTE, true),
             new Column("keyShortCol", SHORT, true),
@@ -117,7 +117,7 @@ public class RowTest {
      *
      */
     @Test
-    public void testMixedSizes() {
+    public void mixedSizes() {
         Column[] keyCols = new Column[] {
             new Column("keyBytesCol", BYTES, true),
             new Column("keyStringCol", STRING, true),

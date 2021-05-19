@@ -49,7 +49,7 @@ public class TableBinaryViewOperationsTest {
      *
      */
     @Test
-    public void testInsert() {
+    public void insert() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -84,7 +84,7 @@ public class TableBinaryViewOperationsTest {
      *
      */
     @Test
-    public void testUpsert() {
+    public void upsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -120,7 +120,7 @@ public class TableBinaryViewOperationsTest {
      *
      */
     @Test
-    public void testGetAndUpsert() {
+    public void getAndUpsert() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -153,7 +153,7 @@ public class TableBinaryViewOperationsTest {
      *
      */
     @Test
-    public void testRemove() {
+    public void remove() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -184,7 +184,7 @@ public class TableBinaryViewOperationsTest {
      *
      */
     @Test
-    public void testRemoveExact() {
+    public void removeExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -236,7 +236,7 @@ public class TableBinaryViewOperationsTest {
      *
      */
     @Test
-    public void testReplace() {
+    public void replace() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -272,7 +272,7 @@ public class TableBinaryViewOperationsTest {
      *
      */
     @Test
-    public void testReplaceExact() {
+    public void replaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,

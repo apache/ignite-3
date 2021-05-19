@@ -48,7 +48,7 @@ public class KVViewOperationsTest {
      *
      */
     @Test
-    public void testPut() {
+    public void put() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -91,7 +91,7 @@ public class KVViewOperationsTest {
      *
      */
     @Test
-    public void testPutIfAbsent() {
+    public void putIfAbsent() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -124,7 +124,7 @@ public class KVViewOperationsTest {
      *
      */
     @Test
-    public void testGetAndPut() {
+    public void getAndPut() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -159,7 +159,7 @@ public class KVViewOperationsTest {
      *
      */
     @Test
-    public void testRemove() {
+    public void remove() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -202,7 +202,7 @@ public class KVViewOperationsTest {
      *
      */
     @Test
-    public void testRemoveExact() {
+    public void removeExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -259,7 +259,7 @@ public class KVViewOperationsTest {
      *
      */
     @Test
-    public void testReplace() {
+    public void replace() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,
@@ -305,7 +305,7 @@ public class KVViewOperationsTest {
      *
      */
     @Test
-    public void testReplaceExact() {
+    public void replaceExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
             tableId,
             1,

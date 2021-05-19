@@ -30,7 +30,7 @@ public class SchemaDescriptorTest {
      *
      */
     @Test
-    public void testColumnIndexedAccess() {
+    public void columnIndexedAccess() {
         SchemaDescriptor desc = new SchemaDescriptor(UUID.randomUUID(), 1,
             new Column[] {
                 new Column("columnA", NativeTypes.BYTE, false),
