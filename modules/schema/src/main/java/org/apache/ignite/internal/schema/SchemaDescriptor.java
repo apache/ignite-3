@@ -59,7 +59,7 @@ public class SchemaDescriptor {
      * @param affCols Affinity column names.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Column[] keyCols, String[] affCols, Column[] valCols) {
+    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
         assert keyCols.length > 0 : "No key columns are conigured.";
         assert valCols.length > 0 : "No value columns are conigured.";
 
