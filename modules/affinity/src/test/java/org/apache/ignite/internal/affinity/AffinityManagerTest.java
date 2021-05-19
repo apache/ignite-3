@@ -34,12 +34,12 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.metastorage.common.Condition;
-import org.apache.ignite.metastorage.common.Entry;
-import org.apache.ignite.metastorage.common.Key;
-import org.apache.ignite.metastorage.common.Operation;
-import org.apache.ignite.metastorage.common.WatchEvent;
-import org.apache.ignite.metastorage.common.WatchListener;
+import org.apache.ignite.metastorage.client.Condition;
+import org.apache.ignite.metastorage.client.Entry;
+import org.apache.ignite.metastorage.client.EntryEvent;
+import org.apache.ignite.metastorage.client.Operation;
+import org.apache.ignite.metastorage.client.WatchEvent;
+import org.apache.ignite.metastorage.client.WatchListener;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -148,7 +148,7 @@ public class AffinityManagerTest {
         CompletableFuture<WatchListener> watchFut = new CompletableFuture<>();
 
         when(mm.registerWatchByPrefix(any(), any())).thenAnswer(invocation -> {
-            Key metastoreKeyPrefix = invocation.getArgument(0);
+            ByteArray metastoreKeyPrefix = invocation.getArgument(0);
 
             assertEquals(INTERNAL_PREFIX, new String(metastoreKeyPrefix.bytes(), StandardCharsets.UTF_8));
 
@@ -160,7 +160,7 @@ public class AffinityManagerTest {
         when(mm.invoke((Condition)any(), (Operation)any(), (Operation)any())).thenAnswer(invocation -> {
             assertTrue(watchFut.isDone());
 
-            Key key = new Key(INTERNAL_PREFIX + tblId);
+            ByteArray key = new ByteArray(INTERNAL_PREFIX + tblId);
 
             Entry oldEntry = mock(Entry.class);
 
@@ -174,7 +174,7 @@ public class AffinityManagerTest {
             WatchListener lsnr = watchFut.join();
 
             CompletableFuture.supplyAsync(() ->
-                lsnr.onUpdate(Collections.singleton(new WatchEvent(oldEntry, newEntry))));
+                lsnr.onUpdate(new WatchEvent(new EntryEvent(oldEntry, newEntry))));
 
             return CompletableFuture.completedFuture(true);
         });
@@ -201,7 +201,7 @@ public class AffinityManagerTest {
         CompletableFuture<WatchListener> watchFut = new CompletableFuture<>();
 
         when(mm.registerWatchByPrefix(any(), any())).thenAnswer(invocation -> {
-            Key metastoreKeyPrefix = invocation.getArgument(0);
+            ByteArray metastoreKeyPrefix = invocation.getArgument(0);
 
             assertEquals(INTERNAL_PREFIX, new String(metastoreKeyPrefix.bytes(), StandardCharsets.UTF_8));
 
@@ -213,7 +213,7 @@ public class AffinityManagerTest {
         when(mm.invoke((Condition)any(), (Operation)any(), (Operation)any())).thenAnswer(invocation -> {
             assertTrue(watchFut.isDone());
 
-            Key key = new Key(INTERNAL_PREFIX + tblId);
+            ByteArray key = new ByteArray(INTERNAL_PREFIX + tblId);
 
             Entry oldEntry = mock(Entry.class);
 
@@ -227,7 +227,7 @@ public class AffinityManagerTest {
             WatchListener lsnr = watchFut.join();
 
             CompletableFuture.supplyAsync(() ->
-                lsnr.onUpdate(Collections.singleton(new WatchEvent(oldEntry, newEntry))));
+                lsnr.onUpdate(new WatchEvent(new EntryEvent(oldEntry, newEntry))));
 
             return CompletableFuture.completedFuture(true);
         });

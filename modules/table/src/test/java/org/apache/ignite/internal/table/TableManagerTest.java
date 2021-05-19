@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,9 +44,8 @@ import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.metastorage.common.Condition;
-import org.apache.ignite.metastorage.common.Key;
-import org.apache.ignite.metastorage.common.Operation;
+import org.apache.ignite.metastorage.client.Condition;
+import org.apache.ignite.metastorage.client.Operation;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeEach;
@@ -278,13 +277,11 @@ public class TableManagerTest {
 
             Object internalCondition = ReflectionUtils.tryToReadFieldValue(Condition.class, "cond", condition).get();
 
-            List<Field> keyFields = ReflectionUtils.findFields(internalCondition.getClass(), field -> "key".equals(field.getName()), ReflectionUtils.HierarchyTraversalMode.TOP_DOWN);
+            Method getKeyMethod = ReflectionUtils.findMethod(internalCondition.getClass(), "key").get();
 
-            assertEquals(1, keyFields.size());
+            byte[] metastorageKeyBytes = (byte[])ReflectionUtils.invokeMethod(getKeyMethod, internalCondition);
 
-            Key metastorageKey = (Key)ReflectionUtils.tryToReadFieldValue(keyFields.get(0), internalCondition).get();
-
-            tblIdFut.complete(UUID.fromString(new String(metastorageKey.bytes(), StandardCharsets.UTF_8).substring(INTERNAL_PREFIX.length())));
+            tblIdFut.complete(UUID.fromString(new String(metastorageKeyBytes, StandardCharsets.UTF_8).substring(INTERNAL_PREFIX.length())));
 
             return CompletableFuture.completedFuture(true);
         });
