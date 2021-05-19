@@ -38,6 +38,9 @@ import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.event.SchemaEvent;
+import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteLogger;
@@ -46,7 +49,7 @@ import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operation;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.util.ReflectionUtils;
@@ -57,6 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -91,11 +95,11 @@ public class TableManagerTest {
     public static final String NODE_NAME = "node1";
 
     /** Configuration manager. */
-    private static ConfigurationManager cfrMgr;
+    private ConfigurationManager cfrMgr;
 
     /** Before all test scenarios. */
-    @BeforeAll
-    private static void before() {
+    @BeforeEach
+    private void before() {
         try {
             cfrMgr = new ConfigurationManager(rootConfigurationKeys(), Arrays.asList(
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
@@ -205,6 +209,22 @@ public class TableManagerTest {
 
         assertNotNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
 
+        when(sm.unregisterSchemas(any())).thenReturn(CompletableFuture.completedFuture(true));
+
+        doAnswer(invokation -> {
+            BiPredicate<SchemaEventParameters, Exception> schemaInitialized = invokation.getArgument(1);
+
+            assertTrue(tblIdFut.isDone());
+
+            SchemaRegistry schemaRegistry = mock(SchemaRegistry.class);
+
+            CompletableFuture.supplyAsync(() -> schemaInitialized.test(
+                new SchemaEventParameters(tblIdFut.join(), schemaRegistry),
+                null));
+
+            return null;
+        }).when(sm).listen(same(SchemaEvent.DROPPED), any());
+
         when(am.removeAssignment(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invokation -> {
@@ -268,6 +288,22 @@ public class TableManagerTest {
 
             return CompletableFuture.completedFuture(true);
         });
+
+        when(sm.initSchemaForTable(any(), eq(tableName))).thenReturn(CompletableFuture.completedFuture(true));
+
+        doAnswer(invokation -> {
+            BiPredicate<SchemaEventParameters, Exception> schemaInitialized = invokation.getArgument(1);
+
+            assertTrue(tblIdFut.isDone());
+
+            SchemaRegistry schemaRegistry = mock(SchemaRegistry.class);
+
+            CompletableFuture.supplyAsync(() -> schemaInitialized.test(
+                new SchemaEventParameters(tblIdFut.join(), schemaRegistry),
+                null));
+
+            return null;
+        }).when(sm).listen(same(SchemaEvent.INITIALIZED), any());
 
         when(am.calculateAssignments(any())).thenReturn(CompletableFuture.completedFuture(true));
 

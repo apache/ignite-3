@@ -40,7 +40,7 @@ import org.apache.ignite.metastorage.common.Key;
 import org.apache.ignite.metastorage.common.Operation;
 import org.apache.ignite.metastorage.common.WatchEvent;
 import org.apache.ignite.metastorage.common.WatchListener;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,11 +67,11 @@ public class AffinityManagerTest {
     private static final String STATIC_TABLE_NAME = "t1";
 
     /** Configuration manager. */
-    private static ConfigurationManager cfrMgr;
+    private ConfigurationManager cfrMgr;
 
     /** Before all test scenarios. */
-    @BeforeAll
-    private static void before() {
+    @BeforeEach
+    private void before() {
         try {
             cfrMgr = new ConfigurationManager(rootConfigurationKeys(), Arrays.asList(
                 new TestConfigurationStorage(ConfigurationType.DISTRIBUTED)));
