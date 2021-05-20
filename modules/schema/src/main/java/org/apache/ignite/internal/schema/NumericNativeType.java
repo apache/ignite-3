@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Numeric column type.
@@ -30,7 +31,7 @@ public class NumericNativeType extends NativeType {
     private final int scale;
 
     /** Constructor. */
-    public NumericNativeType(int precision, int scale) {
+    NumericNativeType(int precision, int scale) {
         super(NativeTypeSpec.DECIMAL);
 
         this.precision = precision;
@@ -53,13 +54,9 @@ public class NumericNativeType extends NativeType {
 
     /** {@inheritDoc} */
     @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || (
-            type != null
-                && (
-                precision < ((org.apache.ignite.internal.schema.NumericNativeType)type).precision
-                    || scale < ((org.apache.ignite.internal.schema.NumericNativeType)type).scale
-            )
-        );
+        return super.mismatch(type)
+            || precision < ((NumericNativeType)type).precision
+            || scale < ((NumericNativeType)type).scale;
     }
 
     /** {@inheritDoc} */
@@ -73,7 +70,7 @@ public class NumericNativeType extends NativeType {
         if (!super.equals(o))
             return false;
 
-        org.apache.ignite.internal.schema.NumericNativeType type = (org.apache.ignite.internal.schema.NumericNativeType)o;
+        NumericNativeType type = (NumericNativeType)o;
 
         return precision == type.precision &&
             scale == type.scale;
@@ -82,5 +79,10 @@ public class NumericNativeType extends NativeType {
     /** {@inheritDoc} */
     @Override public int hashCode() {
         return Objects.hash(super.hashCode(), precision, scale);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(NumericNativeType.class.getSimpleName(), "name", spec(), "precision", precision, "scale", scale);
     }
 }

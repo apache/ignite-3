@@ -229,6 +229,11 @@ public class Row implements BinaryRow {
         return off < 0 ? null : readDouble(offset(off));
     }
 
+    public BigDecimal decimalValue(int idx) {
+        // TODO: IGNITE-13668 decimal support
+        return null;
+    }
+
     /**
      * Reads value from specified column.
      *
@@ -385,7 +390,7 @@ public class Row implements BinaryRow {
     private int columnLength(int colIdx) {
         Column col = schema.column(colIdx);
 
-        return col.type().length();
+        return col.type().sizeInBytes();
     }
 
     /**

@@ -17,20 +17,12 @@
 
 package org.apache.ignite.internal.schema;
 
+import org.apache.ignite.internal.tostring.S;
+
 /**
- * Types with various length (STRING, BYTES).
+ * Variable-length native type.
  */
 public class VarlenNativeType extends NativeType {
-    /**
-     *
-     */
-    public static final NativeType STRING = new org.apache.ignite.internal.schema.VarlenNativeType(NativeTypeSpec.STRING, 0);
-
-    /**
-     *
-     */
-    public static final NativeType BYTES = new org.apache.ignite.internal.schema.VarlenNativeType(NativeTypeSpec.BYTES, 0);
-
     /** Length of the type. */
     private final int len;
 
@@ -38,17 +30,19 @@ public class VarlenNativeType extends NativeType {
      * @param typeSpec Type spec.
      * @param len Type length.
      */
-    public VarlenNativeType(NativeTypeSpec typeSpec, int len) {
+    protected VarlenNativeType(NativeTypeSpec typeSpec, int len) {
         super(typeSpec);
 
-        this.len = len > 0 ? len : Integer.MAX_VALUE;
+        this.len = len;
     }
 
     /** {@inheritDoc} */
     @Override public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || (
-            type != null
-                && len < ((org.apache.ignite.internal.schema.VarlenNativeType)type).len
-        );
+        return super.mismatch(type) || len < ((VarlenNativeType)type).len;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);
     }
 }
