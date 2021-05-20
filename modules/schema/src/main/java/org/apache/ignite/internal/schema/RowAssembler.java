@@ -151,7 +151,7 @@ public class RowAssembler {
             varlenTableChunkSize(nonNullVarlenCols);
 
         for (int i = 0; i < cols.numberOfFixsizeColumns(); i++)
-            size += cols.column(i).type().length();
+            size += cols.column(i).type().sizeInBytes();
 
         return size + nonNullVarlenSize;
     }
@@ -219,14 +219,14 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendByte(byte val) {
-        checkType(NativeType.BYTE);
+        checkType(NativeTypes.BYTE);
 
         buf.put(curOff, val);
 
         if (isKeyColumn())
             keyHash = 31 * keyHash + Byte.hashCode(val);
 
-        shiftColumn(NativeType.BYTE);
+        shiftColumn(NativeTypes.BYTE);
     }
 
     /**
@@ -235,14 +235,14 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendShort(short val) {
-        checkType(NativeType.SHORT);
+        checkType(NativeTypes.SHORT);
 
         buf.putShort(curOff, val);
 
         if (isKeyColumn())
             keyHash = 31 * keyHash + Short.hashCode(val);
 
-        shiftColumn(NativeType.SHORT);
+        shiftColumn(NativeTypes.SHORT);
     }
 
     /**
@@ -251,14 +251,14 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendInt(int val) {
-        checkType(NativeType.INTEGER);
+        checkType(NativeTypes.INTEGER);
 
         buf.putInt(curOff, val);
 
         if (isKeyColumn())
             keyHash = 31 * keyHash + Integer.hashCode(val);
 
-        shiftColumn(NativeType.INTEGER);
+        shiftColumn(NativeTypes.INTEGER);
     }
 
     /**
@@ -267,14 +267,14 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendLong(long val) {
-        checkType(NativeType.LONG);
+        checkType(NativeTypes.LONG);
 
         buf.putLong(curOff, val);
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + Long.hashCode(val);
 
-        shiftColumn(NativeType.LONG);
+        shiftColumn(NativeTypes.LONG);
     }
 
     /**
@@ -283,14 +283,14 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendFloat(float val) {
-        checkType(NativeType.FLOAT);
+        checkType(NativeTypes.FLOAT);
 
         buf.putFloat(curOff, val);
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + Float.hashCode(val);
 
-        shiftColumn(NativeType.FLOAT);
+        shiftColumn(NativeTypes.FLOAT);
     }
 
     /**
@@ -299,14 +299,14 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendDouble(double val) {
-        checkType(NativeType.DOUBLE);
+        checkType(NativeTypes.DOUBLE);
 
         buf.putDouble(curOff, val);
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + Double.hashCode(val);
 
-        shiftColumn(NativeType.DOUBLE);
+        shiftColumn(NativeTypes.DOUBLE);
     }
 
     /**
@@ -315,7 +315,7 @@ public class RowAssembler {
      * @param uuid Column value.
      */
     public void appendUuid(UUID uuid) {
-        checkType(NativeType.UUID);
+        checkType(NativeTypes.UUID);
 
         buf.putLong(curOff, uuid.getLeastSignificantBits());
         buf.putLong(curOff + 8, uuid.getMostSignificantBits());
@@ -323,7 +323,7 @@ public class RowAssembler {
         if (isKeyColumn())
             keyHash += 31 * keyHash + uuid.hashCode();
 
-        shiftColumn(NativeType.UUID);
+        shiftColumn(NativeTypes.UUID);
     }
 
     /**
@@ -332,7 +332,7 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendString(String val) {
-        checkType(NativeType.STRING);
+        checkType(NativeTypes.STRING);
 
         try {
             int written = buf.putString(curOff, val, encoder());
@@ -355,7 +355,7 @@ public class RowAssembler {
      * @param val Column value.
      */
     public void appendBytes(byte[] val) {
-        checkType(NativeType.BYTES);
+        checkType(NativeTypes.BYTES);
 
         buf.putBytes(curOff, val);
 
@@ -377,7 +377,7 @@ public class RowAssembler {
 
         checkType(NativeTypeSpec.BITMASK);
 
-        Bitmask maskType = (Bitmask)col.type();
+        BitmaskNativeType maskType = (BitmaskNativeType)col.type();
 
         if (bitSet.length() > maskType.bits())
             throw new IllegalArgumentException("Failed to set bitmask for column '" + col.name() + "' " +
@@ -387,7 +387,7 @@ public class RowAssembler {
 
         buf.putBytes(curOff, arr);
 
-        for (int i = 0; i < maskType.length() - arr.length; i++)
+        for (int i = 0; i < maskType.sizeInBytes() - arr.length; i++)
             buf.put(curOff + arr.length + i, (byte)0);
 
         if (isKeyColumn())
@@ -484,7 +484,7 @@ public class RowAssembler {
     private void shiftColumn(NativeType type) {
         assert type.spec().fixedLength() : "Varlen types should provide field length to shift column: " + type;
 
-        shiftColumn(type.length(), false);
+        shiftColumn(type.sizeInBytes(), false);
     }
 
     /**

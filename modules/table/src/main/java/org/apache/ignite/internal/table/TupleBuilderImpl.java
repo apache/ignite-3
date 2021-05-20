@@ -21,8 +21,11 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Objects;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
 
@@ -33,15 +36,28 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
     /** Columns values. */
     private final Map<String, Object> map;
 
+    /** Current schema descriptor. */
+    private final SchemaDescriptor schemaDesc;
+
     /**
      * Constructor.
      */
-    public TupleBuilderImpl() {
+    public TupleBuilderImpl(SchemaDescriptor schemaDesc) {
+        Objects.requireNonNull(schemaDesc);
+
+        this.schemaDesc = schemaDesc;
         map = new HashMap<>();
     }
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String colName, Object value) {
+        Column col = schemaDesc.column(colName);
+
+        if (col == null)
+            throw new ColumnNotFoundException("Column not found [col=" + colName + "schema=" + schemaDesc + ']');
+
+        col.validate(value);
+
         map.put(colName, value);
 
         return this;
@@ -50,6 +66,11 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
     /** {@inheritDoc} */
     @Override public Tuple build() {
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean contains(String colName) {
+        return map.containsKey(colName);
     }
 
     @Override public <T> T value(String colName) {
@@ -106,5 +127,14 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
     /** {@inheritDoc} */
     @Override public BitSet bitmaskValue(String colName) {
         return value(colName);
+    }
+
+    /**
+     * Get schema descriptor.
+     *
+     * @return Schema descriptor.
+     */
+    public SchemaDescriptor schema() {
+        return schemaDesc;
     }
 }

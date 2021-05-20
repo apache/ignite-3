@@ -21,12 +21,12 @@ import java.util.Arrays;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.schema.NativeType.BYTE;
-import static org.apache.ignite.internal.schema.NativeType.BYTES;
-import static org.apache.ignite.internal.schema.NativeType.INTEGER;
-import static org.apache.ignite.internal.schema.NativeType.SHORT;
-import static org.apache.ignite.internal.schema.NativeType.STRING;
-import static org.apache.ignite.internal.schema.NativeType.UUID;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
+import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 /**
@@ -36,15 +36,18 @@ public class RowAssemblerTest {
     /** Uuid test value. */
     public final java.util.UUID uuidVal = new UUID(-5204230847775358097L, 4916207022290092939L);
 
+    /** Table ID test value. */
+    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
     /**
      * Validate row layout for schema of fix-len non-null key and fix-len nullable value.
      */
     @Test
-    public void testFixedKeyFixedNullableValue() {
+    public void fixedKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, false)};
         Column[] valCols = new Column[] {new Column("valIntCol", INTEGER, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -77,11 +80,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of fix-len non-null key and fix-len non-null value.
      */
     @Test
-    public void testFixedKeyFixedValue() {
+    public void fixedKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         { // With value.
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -105,11 +108,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of fix-len non-null key and var-len nullable value.
      */
     @Test
-    public void testFixedKeyVarlenNullableValue() {
+    public void fixedKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -142,11 +145,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of fix-len non-null key and var-len non-null value.
      */
     @Test
-    public void testFixedKeyVarlenValue() {
+    public void fixedKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -170,11 +173,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of fix-len nullable key and fix-len non-null value.
      */
     @Test
-    public void testFixedNullableKeyFixedValue() {
+    public void fixedNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valByteCol", BYTE, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -207,11 +210,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of fix-len nullable key and fix-len nullable value.
      */
     @Test
-    public void testFixedNullableKeyFixedNullableValue() {
+    public void fixedNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -262,11 +265,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of fix-len nullable key and var-len nullable value.
      */
     @Test
-    public void testFixedNullableKeyVarlenNullableValue() {
+    public void fixedNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, true)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -317,11 +320,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of fix-len nullable key and var-len non-null value.
      */
     @Test
-    public void testFixedNullableKeyVarlenValue() {
+    public void fixedNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyByteCol", BYTE, true)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -354,11 +357,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len non-null key and fix-len nullable value.
      */
     @Test
-    public void testVarlenKeyFixedNullableValue() {
+    public void varlenKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -393,11 +396,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len non-null key and fix-len non-null value.
      */
     @Test
-    public void testVarlenKeyFixedValue() {
+    public void varlenKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -423,11 +426,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len non-null key and var-len nullable value.
      */
     @Test
-    public void testVarlenKeyVarlenNullableValue() {
+    public void varlenKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -460,11 +463,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len non-null key and var-len non-null value.
      */
     @Test
-    public void testVarlenKeyVarlenValue() {
+    public void varlenKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -488,11 +491,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len nullable key and fix-len nullable value.
      */
     @Test
-    public void testVarlenNullableKeyFixedNullableValue() {
+    public void varlenNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -543,11 +546,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len nullable key and fix-len non-null value.
      */
     @Test
-    public void testVarlenNullableKeyFixedValue() {
+    public void varlenNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -580,11 +583,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len nullable key and var-len nullable value.
      */
     @Test
-    public void testVarlenNullableKeyVarlenNullableValue() {
+    public void varlenNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -635,11 +638,11 @@ public class RowAssemblerTest {
      * Validate row layout for schema of var-len nullable key and var-len non-null value.
      */
     @Test
-    public void testVarlenNullableKeyVarlenValue() {
+    public void varlenNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -682,7 +685,7 @@ public class RowAssemblerTest {
             new Column("valStrCol", STRING, true)
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId,42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
