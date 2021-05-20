@@ -123,31 +123,27 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
      * Calculates an assignment for a table which was specified by id.
      *
      * @param tblId Table identifier.
+     * @param tblName Table name.
      * @return A future which will complete when the assignment is calculated.
      */
-    public CompletableFuture<Boolean> calculateAssignments(UUID tblId) {
-        return vaultMgr
-            .get(ByteArray.fromString(INTERNAL_PREFIX + tblId))
-            .thenCompose(entry -> {
+    public CompletableFuture<Boolean> calculateAssignments(UUID tblId, String tblName) {
+        TableConfiguration tblConfig = configurationMgr.configurationRegistry()
+            .getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
 
-                            TableConfiguration tblConfig = configurationMgr.configurationRegistry()
-                                    .getConfiguration(TablesConfiguration.KEY).tables().get(new String(entry.value(), StandardCharsets.UTF_8));
+        var key = new ByteArray(INTERNAL_PREFIX + tblId);
 
-                var key = new ByteArray(INTERNAL_PREFIX + tblId);
-
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Need to support baseline changes.
-                return metaStorageMgr.invoke(
-                    Conditions.notExists(key),
-                    Operations.put(key, ByteUtils.toBytes(
-                        RendezvousAffinityFunction.assignPartitions(
-                            baselineMgr.nodes(),
-                            tblConfig.partitions().value(),
-                            tblConfig.replicas().value(),
-                            false,
-                            null
-                        ))),
-                    Operations.noop());
-        });
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Need to support baseline changes.
+        return metaStorageMgr.invoke(
+            Conditions.notExists(key),
+            Operations.put(key, ByteUtils.toBytes(
+                RendezvousAffinityFunction.assignPartitions(
+                    baselineMgr.nodes(),
+                    tblConfig.partitions().value(),
+                    tblConfig.replicas().value(),
+                    false,
+                    null
+                ))),
+            Operations.noop());
     }
 
     /**

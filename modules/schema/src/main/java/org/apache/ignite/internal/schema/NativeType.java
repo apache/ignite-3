@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
  */
-public class NativeType implements Comparable<NativeType> {
+public class NativeType implements Comparable<NativeType>, Serializable {
     /** */
     public static final NativeType BYTE = new NativeType(NativeTypeSpec.BYTE, 1);
 

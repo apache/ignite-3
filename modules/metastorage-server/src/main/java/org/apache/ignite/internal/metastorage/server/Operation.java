@@ -64,7 +64,7 @@ public final class Operation {
                 || (type == OperationType.PUT && key != null && val != null)
                 || (type == OperationType.REMOVE && key != null && val == null)
                 : "Invalid operation parameters: [type=" + type + ", key=" + Objects.toString(key,"null") +
-                ", val=" + Objects.toString(key,"null") + ']';
+                ", val=" + Objects.toString(val,"null") + ']';
 
         this.key = key;
         this.val = val;

@@ -81,7 +81,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private final List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Storage version. It stores actual meta storage revision, that is applied to configuration manager. */
-    private final AtomicLong ver = new AtomicLong(1L);
+    private final AtomicLong ver = new AtomicLong(0L);
 
     /**
      * Constructor.
@@ -155,10 +155,18 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         operations.add(Operations.put(MASTER_KEY, ByteUtils.longToBytes(sentVersion)));
 
-        return metaStorageMgr.invoke(
-            Conditions.revision(MASTER_KEY).eq(ver.get()),
-            operations,
-            Collections.singleton(Operations.noop()));
+        if (sentVersion == 0) {
+            return metaStorageMgr.invoke(
+                Conditions.notExists(MASTER_KEY),
+                operations,
+                Collections.singleton(Operations.noop()));
+        }
+        else {
+            return metaStorageMgr.invoke(
+                Conditions.revision(MASTER_KEY).eq(ver.get()),
+                operations,
+                Collections.singleton(Operations.noop()));
+        }
     }
 
     /** {@inheritDoc} */

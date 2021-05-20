@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
  * Column instances are comparable in lexicographic order, native type first and then column name. Nullability
  * flag is not taken into account when columns are compared.
  */
-public class Column implements Comparable<Column> {
+public class Column implements Comparable<Column>, Serializable {
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
 

@@ -110,7 +110,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
             @Override public boolean onUpdate(@NotNull WatchEvent events) {
                 for (EntryEvent evt : events.entryEvents()) {
-                    String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length() - 1);
+                    String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
 
                     int verPos = keyTail.indexOf(INTERNAL_VER_SUFFIX);
 
@@ -182,14 +182,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
                 final SchemaDescriptor desc = createSchemaDescriptor(schemaVer, tblConfig);
 
-                return metaStorageMgr.invoke(
-                    Conditions.value(lastVerKey).eq(entry.value()), // Won't to rewrite if the version goes ahead.
-                    List.of(
-                        //TODO: IGNITE-14679 Serialize schema.
-                        Operations.put(schemaKey, ByteUtils.toBytes(desc)),
-                        Operations.put(lastVerKey, ByteUtils.longToBytes(schemaVer))
-                    ),
-                    List.of(Operations.noop()));
+                return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
+                    Operations.put(schemaKey, ByteUtils.toBytes(desc)),
+                    Operations.noop())
+                    .thenCompose(res -> metaStorageMgr.invoke(Conditions.notExists(lastVerKey),
+                        Operations.put(lastVerKey, ByteUtils.longToBytes(schemaVer)),
+                        Operations.noop()));
             });
     }
 

@@ -162,7 +162,7 @@ public class MetaStorageManager {
     public synchronized void deployWatches() {
         try {
             var watch = watchAggregator.watch(
-                vaultMgr.appliedRevision(),
+                vaultMgr.appliedRevision() + 1,
                 this::storeEntries
             );
         if (watch.isEmpty())
@@ -426,7 +426,7 @@ public class MetaStorageManager {
     private CompletableFuture<Optional<IgniteUuid>> updateWatches() {
         Long revision;
         try {
-            revision = vaultMgr.appliedRevision();
+            revision = vaultMgr.appliedRevision() + 1;
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during watch redeploy", e);

@@ -185,7 +185,7 @@ public class AffinityManagerTest {
 
         affinityManager.listen(AffinityEvent.CALCULATED, (parameters, e) -> assignmentCalculated.complete(e == null));
 
-        affinityManager.calculateAssignments(tblId);
+        affinityManager.calculateAssignments(tblId, STATIC_TABLE_NAME);
 
         assertTrue(assignmentCalculated.join());
     }
