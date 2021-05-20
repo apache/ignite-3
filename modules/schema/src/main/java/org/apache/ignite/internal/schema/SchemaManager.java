@@ -269,7 +269,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             case "bitmask":
                 return NativeTypes.bitmaskOf(type.length());
             case "string":
-                return NativeTypes.stringOf(type.length());
+                return type.length() == 0 ? NativeTypes.STRING : NativeTypes.stringOf(type.length());
             case "bytes":
                 return NativeTypes.blobOf(type.length());
 
