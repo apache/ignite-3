@@ -81,7 +81,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private final List<ConfigurationStorageListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Storage version. It stores actual meta storage revision, that is applied to configuration manager. */
-    private final AtomicLong ver = new AtomicLong(0L);
+    private final AtomicLong ver = new AtomicLong(1L);
 
     /**
      * Constructor.

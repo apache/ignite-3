@@ -24,7 +24,6 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /**
  * Ignition interface tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14389")
+//@Disabled("https://issues.apache.org/jira/browse/IGNITE-14389")
 class DynamicTableCreationTest {
     /** Nodes bootstrap configuration. */
     private final String[] nodesBootstrapCfg =
@@ -86,18 +85,19 @@ class DynamicTableCreationTest {
 
         // Create table on node 0.
         clusterNodex.get(0).tables().createTable("tbl1", tbl -> tbl
+            .changeName("tbl1")
             .changeReplicas(1)
             .changePartitions(10)
             .changeColumns(cols -> cols
-                .create("key", c -> c.changeType(t -> t.changeType("INT64")))
-                .create("val", c -> c.changeType(t -> t.changeType("INT64")))
+                .create("key", c -> c.changeName("key").changeNullable(false).changeType(t -> t.changeType("INT64")))
+                .create("val", c -> c.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT64")))
             )
             .changeIndices(idxs -> idxs
                 .create("PK", idx -> idx
+                    .changeName("PK")
                     .changeType("PRIMARY")
                     .changeColumns(c -> c
-                        .create("key", t -> {
-                        }))
+                        .create("key", t -> t.changeName("key").changeAsc(true)))
                     .changeAffinityColumns(new String[] {"key"}))
             ));
 
@@ -124,23 +124,23 @@ class DynamicTableCreationTest {
 
         // Create table on node 0.
         clusterNodes.get(0).tables().createTable("tbl1", tbl -> tbl
+            .changeName("tbl1")
             .changeReplicas(1)
             .changePartitions(10)
             .changeColumns(cols -> cols
-                .create("key", c -> c.changeType(t -> t.changeType("UUID")))
-                .create("affKey", c -> c.changeType(t -> t.changeType("INT64")))
-                .create("valStr", c -> c.changeType(t -> t.changeType("STRING")))
-                .create("valInt", c -> c.changeType(t -> t.changeType("INT32")))
-                .create("valNullable", c -> c.changeType(t -> t.changeType("INT8")).changeNullable(true))
+                .create("key", c -> c.changeName("key").changeNullable(false).changeType(t -> t.changeType("UUID")))
+                .create("affKey", c -> c.changeName("affKey").changeNullable(false).changeType(t -> t.changeType("INT64")))
+                .create("valStr", c -> c.changeName("valStr").changeNullable(true).changeType(t -> t.changeType("STRING")))
+                .create("valInt", c -> c.changeName("valInt").changeNullable(true).changeType(t -> t.changeType("INT32")))
+                .create("valNullable", c -> c.changeName("valNullable").changeNullable(true).changeType(t -> t.changeType("INT8")).changeNullable(true))
             )
             .changeIndices(idxs -> idxs
                 .create("PK", idx -> idx
+                    .changeName("PK")
                     .changeType("PRIMARY")
                     .changeColumns(c -> c
-                        .create("key", t -> {
-                        })
-                        .create("affKey", t -> {
-                        }))
+                        .create("key", t -> t.changeName("key").changeAsc(true))
+                        .create("affKey", t -> t.changeName("affKey").changeAsc(true)))
                     .changeAffinityColumns(new String[] {"affKey"}))
             ));
 

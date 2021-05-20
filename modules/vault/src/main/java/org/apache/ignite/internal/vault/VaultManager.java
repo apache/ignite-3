@@ -167,7 +167,7 @@ public class VaultManager {
                 throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
             }
 
-            return appliedRevision == null ? 0L : ByteUtils.bytesToLong(appliedRevision, 0);
+            return appliedRevision == null ? 1L : ByteUtils.bytesToLong(appliedRevision, 0);
         }
     }
 

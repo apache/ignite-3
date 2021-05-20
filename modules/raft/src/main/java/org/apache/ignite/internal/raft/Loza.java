@@ -39,7 +39,7 @@ public class Loza {
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Timeout. */
-    private static final int TIMEOUT = 1000;
+    private static final int TIMEOUT = 100000;
 
     /** Retry delay. */
     private static final int DELAY = 200;
@@ -82,7 +82,7 @@ public class Loza {
             clusterNetSvc,
             FACTORY,
             TIMEOUT,
-            peers.stream().map(Peer::new).collect(Collectors.toList()),
+            List.of(new Peer(peers.get(0))),
             true,
             DELAY
         );
@@ -101,17 +101,5 @@ public class Loza {
         //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
             raftServer.clearListener(groupId);
-    }
-
-    public RaftGroupService startRaftService(String groupId, List<ClusterNode> peers) {
-        return new RaftGroupServiceImpl(
-            groupId,
-            clusterNetSvc,
-            FACTORY,
-            TIMEOUT,
-            peers.stream().map(Peer::new).collect(Collectors.toList()),
-            true,
-            DELAY
-        );
     }
 }
