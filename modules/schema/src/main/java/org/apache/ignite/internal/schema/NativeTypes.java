@@ -83,6 +83,16 @@ public class NativeTypes {
     }
 
     /**
+     * Creates a DECIMAL type with maximal precision and scale.
+     *
+     * @param precision Precision.
+     * @param scale Scale.
+     */
+    public static NativeType decimalOf(int precision, int scale) {
+        return new NumericNativeType(precision, scale);
+    }
+
+    /**
      * Return the native type for specified object.
      *
      * @return {@code null} for {@code null} value. Otherwise returns NativeType according to the value's type.

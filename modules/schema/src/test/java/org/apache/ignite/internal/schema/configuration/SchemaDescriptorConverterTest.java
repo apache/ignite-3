@@ -28,6 +28,7 @@ import org.apache.ignite.schema.builder.SchemaTableBuilder;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +53,7 @@ public class SchemaDescriptorConverterTest {
             .build()
         ).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
 
         assertEquals(2, tblSchm.keyColumns().size());
         assertEquals(columns - 2, tblSchm.valueColumns().size());
@@ -82,7 +83,7 @@ public class SchemaDescriptorConverterTest {
     private void testConvert(boolean nullable) {
         SchemaTable tblSchm = getBuilder(nullable, true).build();
 
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(tblSchm);
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
 
         assertEquals(1, tblDscr.keyColumns().length());
         testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, nullable);
@@ -162,6 +163,6 @@ public class SchemaDescriptorConverterTest {
         assertEquals(type.name(), col.type().spec().name());
         assertEquals(nullable, col.nullable());
         if (col.type().spec().fixedLength())
-            assertTrue(col.type().length() >= 0);
+            assertTrue(col.type().sizeInBytes() >= 0);
     }
 }

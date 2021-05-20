@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -26,17 +25,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
@@ -52,7 +47,7 @@ import org.apache.ignite.metastorage.client.EntryEvent;
 import org.apache.ignite.metastorage.client.Operations;
 import org.apache.ignite.metastorage.client.WatchEvent;
 import org.apache.ignite.metastorage.client.WatchListener;
-import org.apache.ignite.schema.PrimaryIndex;
+import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -180,7 +175,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 final ByteArray lastVerKey = new ByteArray(INTERNAL_PREFIX + tblId);
                 final ByteArray schemaKey = new ByteArray(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + schemaVer);
 
-                final SchemaDescriptor desc = createSchemaDescriptor(tblId, schemaVer, tblConfig);
+                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig);
+                final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, schemaVer, schemaTable);
 
                 return metaStorageMgr.invoke(
                     Conditions.value(lastVerKey).eq(entry.value()), // Won't to rewrite if the version goes ahead.
@@ -207,76 +203,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
         catch (InterruptedException | ExecutionException e) {
             throw new SchemaRegistryException("Can't read schema from vault: ver=" + schemaVer, e);
-        }
-    }
-
-    /**
-     * Creates schema descriptor from configuration.
-     *
-     * @param tblId Table ID.
-     * @param ver Schema version.
-     * @param tblConfig Table config.
-     * @return Schema descriptor.
-     */
-    private SchemaDescriptor createSchemaDescriptor(UUID tblId, int ver, TableConfiguration tblConfig) {
-        final TableIndexConfiguration pkCfg = tblConfig.indices().get(PrimaryIndex.PRIMARY_KEY_INDEX_NAME);
-
-        assert pkCfg != null;
-
-        final Set<String> keyColNames = Stream.of(pkCfg.colNames().value()).collect(Collectors.toSet());
-        final NamedListView<ColumnView> cols = tblConfig.columns().value();
-
-        final ArrayList<Column> keyCols = new ArrayList<>(keyColNames.size());
-        final ArrayList<Column> valCols = new ArrayList<>(cols.size() - keyColNames.size());
-
-        cols.namedListKeys().stream()
-            .map(cols::get)
-            //TODO: IGNITE-14290 replace with helper class call.
-            .map(col -> new Column(col.name(), createType(col.type()), col.nullable()))
-            .forEach(c -> (keyColNames.contains(c.name()) ? keyCols : valCols).add(c));
-
-        return new SchemaDescriptor(
-            tblId,
-            ver,
-            keyCols.toArray(Column[]::new),
-            pkCfg.affinityColumns().value(),
-            valCols.toArray(Column[]::new)
-        );
-    }
-
-    /**
-     * Create type from config.
-     *
-     * TODO: IGNITE-14290 replace with helper class call.
-     *
-     * @param type Type view.
-     * @return Native type.
-     */
-    private NativeType createType(ColumnTypeView type) {
-        switch (type.type().toLowerCase()) {
-            case "byte":
-                return NativeTypes.BYTE;
-            case "short":
-                return NativeTypes.SHORT;
-            case "int":
-                return NativeTypes.INTEGER;
-            case "long":
-                return NativeTypes.LONG;
-            case "float":
-                return NativeTypes.FLOAT;
-            case "double":
-                return NativeTypes.DOUBLE;
-            case "uuid":
-                return NativeTypes.UUID;
-            case "bitmask":
-                return NativeTypes.bitmaskOf(type.length());
-            case "string":
-                return NativeTypes.stringOf(type.length());
-            case "bytes":
-                return NativeTypes.blobOf(type.length());
-
-            default:
-                throw new IllegalStateException("Unsupported column type: " + type.type());
         }
     }
 

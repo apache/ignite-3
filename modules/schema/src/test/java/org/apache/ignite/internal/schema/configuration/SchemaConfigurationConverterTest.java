@@ -28,6 +28,7 @@ import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.SortedIndex;
+import org.apache.ignite.schema.SortedIndexColumn;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.HashIndexBuilder;
 import org.apache.ignite.schema.builder.PartialIndexBuilder;
@@ -40,12 +41,13 @@ import org.junit.jupiter.api.Test;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * SchmConfigurationConverter tests.
+ * SchemaConfigurationConverter tests.
  */
 public class SchemaConfigurationConverterTest {
     private SchemaTableBuilder TBL_BUILDER = SchemaBuilders.tableBuilder("SNAME","TNAME")
@@ -149,7 +151,8 @@ public class SchemaConfigurationConverterTest {
 
         assertNotNull(idx2);
         assertEquals("PK", idx2.type());
-        assertEquals(idx.columns(), idx2.columns().size());
+        assertEquals(idx.columns().stream().map(SortedIndexColumn::name).collect(Collectors.toList()),
+            idx2.columns().stream().map(SortedIndexColumn::name).collect(Collectors.toList()));
         assertEquals(idx.affinityColumns(), idx2.affinityColumns());
     }
 
