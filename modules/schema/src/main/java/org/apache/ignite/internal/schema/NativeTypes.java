@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.BitSet;
+import org.apache.ignite.schema.ColumnType;
+
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
  */
@@ -58,7 +61,7 @@ public class NativeTypes {
      * @param bits The number of bits in the bitmask.
      */
     public static NativeType bitmaskOf(int bits) {
-        return BitmaskNativeType.of(bits);
+        return new BitmaskNativeType(bits);
     }
 
     /**
@@ -77,5 +80,110 @@ public class NativeTypes {
      */
     public static NativeType blobOf(int len) {
         return new VarlenNativeType(NativeTypeSpec.BYTES, len);
+    }
+
+    /**
+     * Return the native type for specified object.
+     *
+     * @return {@code null} for {@code null} value. Otherwise returns NativeType according to the value's type.
+     */
+    public static NativeType fromObject(Object val) {
+        NativeTypeSpec spec = NativeTypeSpec.fromObject(val);
+
+        if (spec == null)
+            return null;
+
+        switch (spec) {
+            case BYTE:
+                return BYTE;
+
+            case SHORT:
+                return SHORT;
+
+            case INTEGER:
+                return INTEGER;
+
+            case LONG:
+                return LONG;
+
+            case FLOAT:
+                return FLOAT;
+
+            case DOUBLE:
+                return DOUBLE;
+
+            case UUID:
+                return UUID;
+
+            case STRING:
+                return NativeTypes.stringOf(((CharSequence)val).length());
+
+            case BYTES:
+                return NativeTypes.blobOf(((byte[])val).length);
+
+            case BITMASK:
+                return NativeTypes.bitmaskOf(((BitSet)val).length());
+
+            default:
+                assert false : "Unexpected type: " + spec;
+
+                return null;
+        }
+    }
+
+    /** */
+    public static NativeType from(ColumnType type) {
+        switch (type.typeSpec()) {
+            case INT8:
+                return BYTE;
+
+            case INT16:
+                return SHORT;
+
+            case INT32:
+                return INTEGER;
+
+            case INT64:
+                return LONG;
+
+            case UINT8:
+            case UINT16:
+            case UINT32:
+            case UINT64:
+                throw new UnsupportedOperationException("Unsigned types are not supported yet.");
+
+            case FLOAT:
+                return FLOAT;
+
+            case DOUBLE:
+                return DOUBLE;
+
+            case DECIMAL:
+                ColumnType.NumericColumnType numType = (ColumnType.NumericColumnType)type;
+                return new NumericNativeType(numType.precision(), numType.scale());
+
+            case UUID:
+                return UUID;
+
+            case BITMASK:
+                return new BitmaskNativeType(((ColumnType.VarLenColumnType)type).length());
+
+            case STRING:
+                return new VarlenNativeType(
+                    NativeTypeSpec.STRING,
+                    ((ColumnType.VarLenColumnType)type).length() > 0 ?
+                        ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
+                );
+
+            case BLOB:
+                return new VarlenNativeType(
+                    NativeTypeSpec.BYTES,
+                    ((ColumnType.VarLenColumnType)type).length() > 0 ?
+                        ((ColumnType.VarLenColumnType)type).length() : Integer.MAX_VALUE
+                );
+
+            default:
+                throw new InvalidTypeException("Unexpected type " + type);
+        }
     }
 }

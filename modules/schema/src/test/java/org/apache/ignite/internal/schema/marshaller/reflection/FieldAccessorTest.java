@@ -23,8 +23,8 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.TestUtils;
@@ -90,7 +90,7 @@ public class FieldAccessorTest {
             new Column("doubleCol", DOUBLE, false),
 
             new Column("uuidCol", UUID, false),
-            new Column("bitmaskCol", BitmaskNativeType.of(9), false),
+            new Column("bitmaskCol", NativeTypes.bitmaskOf(9), false),
             new Column("stringCol", STRING, false),
             new Column("bytesCol", BYTES, false),
         };

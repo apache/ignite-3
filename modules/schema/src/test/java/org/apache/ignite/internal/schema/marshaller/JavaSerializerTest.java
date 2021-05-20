@@ -35,10 +35,10 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
-import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TestUtils;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmSerializerGenerator;
@@ -104,7 +104,7 @@ public class JavaSerializerTest {
      */
     @TestFactory
     public Stream<DynamicNode> testBasicTypes() {
-        NativeType[] types = new NativeType[] {BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, UUID, STRING, BYTES, BitmaskNativeType.of(5)};
+        NativeType[] types = new NativeType[] {BYTE, SHORT, INTEGER, LONG, FLOAT, DOUBLE, UUID, STRING, BYTES, NativeTypes.bitmaskOf(5)};
 
         return serializerFactoryProvider().stream().map(factory ->
             dynamicContainer(
@@ -121,7 +121,7 @@ public class JavaSerializerTest {
                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, FLOAT, DOUBLE)),
                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, INTEGER, BYTES)),
                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, STRING, LONG)),
-                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, BitmaskNativeType.of(9), BYTES))
+                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.bitmaskOf(9), BYTES))
                     )
                 )
             ));
@@ -150,7 +150,7 @@ public class JavaSerializerTest {
             new Column("doubleCol", DOUBLE, true),
 
             new Column("uuidCol", UUID, true),
-            new Column("bitmaskCol", BitmaskNativeType.of(42), true),
+            new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
             new Column("stringCol", STRING, true),
             new Column("nullBytesCol", BYTES, true),
             new Column("bytesCol", BYTES, true),
@@ -183,7 +183,7 @@ public class JavaSerializerTest {
     @MethodSource("serializerFactoryProvider")
     public void classWithWrongFieldType(SerializerFactory factory) {
         Column[] cols = new Column[] {
-            new Column("bitmaskCol", BitmaskNativeType.of(42), true),
+            new Column("bitmaskCol", NativeTypes.bitmaskOf(42), true),
             new Column("shortCol", UUID, true)
         };
 
@@ -209,7 +209,7 @@ public class JavaSerializerTest {
     public void classWithIncorrectBitmaskSize(SerializerFactory factory) {
         Column[] cols = new Column[] {
             new Column("pLongCol", LONG, false),
-            new Column("bitmaskCol", BitmaskNativeType.of(9), true),
+            new Column("bitmaskCol", NativeTypes.bitmaskOf(9), true),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 1, cols, cols);

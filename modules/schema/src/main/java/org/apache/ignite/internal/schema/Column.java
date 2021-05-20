@@ -28,7 +28,7 @@ import org.jetbrains.annotations.NotNull;
  * flag is not taken into account when columns are compared.
  */
 public class Column implements Comparable<Column> {
-    /** Default return NULL. */
+    /** {@code Null} value supplier. */
     private static final Supplier<Object> NULL_DEFAULT_SUPPLIER = () -> null;
 
     /** Absolute index in schema descriptor. */
@@ -181,7 +181,7 @@ public class Column implements Comparable<Column> {
                 "[col=" + this + ']');
         }
 
-        NativeType objType = NativeType.fromObject(val);
+        NativeType objType = NativeTypes.fromObject(val);
 
         if (objType != null && type.mismatch(objType)) {
             throw new InvalidTypeException("Column's type mismatch [" +
@@ -195,7 +195,8 @@ public class Column implements Comparable<Column> {
     /**
      * Copy column with new schema index.
      *
-     * @param schemaIndex new schema index.
+     * @param schemaIndex Column index in the schema.
+     * @return Column.
      */
     public Column copy(int schemaIndex) {
         return new Column(schemaIndex, name, type, nullable, defValSup);

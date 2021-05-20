@@ -84,19 +84,19 @@ public class NativeTypeTest {
      */
     @Test
     public void createNativeTypeFromColumnType() {
-        assertEquals(BYTE, NativeType.from(ColumnType.INT8));
-        assertEquals(SHORT, NativeType.from(ColumnType.INT16));
-        assertEquals(INTEGER, NativeType.from(ColumnType.INT32));
-        assertEquals(LONG, NativeType.from(ColumnType.INT64));
-        assertEquals(FLOAT, NativeType.from(ColumnType.FLOAT));
-        assertEquals(DOUBLE, NativeType.from(ColumnType.DOUBLE));
-        assertEquals(BYTES, NativeType.from(ColumnType.blobOf()));
-        assertEquals(STRING, NativeType.from(ColumnType.string()));
+        assertEquals(BYTE, NativeTypes.from(ColumnType.INT8));
+        assertEquals(SHORT, NativeTypes.from(ColumnType.INT16));
+        assertEquals(INTEGER, NativeTypes.from(ColumnType.INT32));
+        assertEquals(LONG, NativeTypes.from(ColumnType.INT64));
+        assertEquals(FLOAT, NativeTypes.from(ColumnType.FLOAT));
+        assertEquals(DOUBLE, NativeTypes.from(ColumnType.DOUBLE));
+        assertEquals(BYTES, NativeTypes.from(ColumnType.blobOf()));
+        assertEquals(STRING, NativeTypes.from(ColumnType.string()));
 
         for (int i = 1; i < 800; i += 100) {
-            assertEquals(NativeTypes.blobOf(i), NativeType.from(ColumnType.blobOf(i)));
-            assertEquals(NativeTypes.stringOf(i), NativeType.from(ColumnType.stringOf(i)));
-            assertEquals(NativeTypes.bitmaskOf(i), NativeType.from(ColumnType.bitmaskOf(i)));
+            assertEquals(NativeTypes.blobOf(i), NativeTypes.from(ColumnType.blobOf(i)));
+            assertEquals(NativeTypes.stringOf(i), NativeTypes.from(ColumnType.stringOf(i)));
+            assertEquals(NativeTypes.bitmaskOf(i), NativeTypes.from(ColumnType.bitmaskOf(i)));
         }
     }
 }

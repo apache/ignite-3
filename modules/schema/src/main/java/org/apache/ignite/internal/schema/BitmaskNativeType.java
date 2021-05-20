@@ -28,16 +28,6 @@ public class BitmaskNativeType extends NativeType {
     private final int bits;
 
     /**
-     * Factory method for creating the bitmask type.
-     *
-     * @param nBits Maximum number of bits in the bitmask.
-     * @return Bitmask type.
-     */
-    public static BitmaskNativeType of(int nBits) {
-        return new BitmaskNativeType(nBits);
-    }
-
-    /**
      * Creates a bitmask type of size <code>bits</code>. In row will round up to the closest full byte.
      *
      * @param bits The number of bits in the bitmask.

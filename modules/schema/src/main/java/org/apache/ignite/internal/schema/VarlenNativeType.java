@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Types with various length (STRING, BYTES).
+ * Variable-length native type.
  */
 public class VarlenNativeType extends NativeType {
     /** Length of the type. */

@@ -81,7 +81,6 @@ public class NumericNativeType extends NativeType {
         return Objects.hash(super.hashCode(), precision, scale);
     }
 
-
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(NumericNativeType.class.getSimpleName(), "name", spec(), "precision", precision, "scale", scale);
