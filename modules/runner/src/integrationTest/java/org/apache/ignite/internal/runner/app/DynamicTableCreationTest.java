@@ -181,10 +181,10 @@ class DynamicTableCreationTest {
 
         // Get data on node 2.
         Table tbl2 = waitForTable(clusterNodes.get(2));
-        final Tuple val = tbl2.get(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42).build());
-//
-//        assertEquals("String value", val.value("valStr"));
-//        assertEquals(73, (int)val.value("valInt"));
-//        assertNull(val.value("valNullable"));
+        final Tuple val = tbl2.get(tbl2.tupleBuilder().set("key", uuid).set("affKey", 42).build());
+
+        assertEquals("String value", val.value("valStr"));
+        assertEquals(73, (int)val.value("valInt"));
+        assertNull(val.value("valNullable"));
     }
 }
