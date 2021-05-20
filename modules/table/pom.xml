@@ -55,6 +55,11 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-affinity</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-baseline</artifactId>
         </dependency>
 
@@ -80,12 +85,6 @@
 
         <!-- Test dependencies -->
         <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-affinity</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
@@ -94,6 +93,13 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-network</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
     </dependencies>

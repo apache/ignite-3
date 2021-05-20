@@ -17,6 +17,8 @@
 
 package org.apache.ignite.table;
 
+import java.util.BitSet;
+import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 
 /**
@@ -104,4 +106,20 @@ public interface Tuple {
      * @return Column value.
      */
     String stringValue(String colName);
+
+    /**
+     * Gets {@code UUID} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    UUID uuidValue(String colName);
+
+    /**
+     * Gets {@code BitSet} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    BitSet bitmaskValue(String colName);
 }

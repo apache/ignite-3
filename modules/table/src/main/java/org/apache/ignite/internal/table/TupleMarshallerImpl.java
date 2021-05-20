@@ -28,6 +28,7 @@ import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -35,19 +36,19 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 /**
- * Marshaller implementation.
+ * Tuple marshaller implementation.
  */
 public class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
-    private final TableSchemaView schemaMgr;
+    private final SchemaRegistry schemaReg;
 
     /**
      * Constructor.
      *
-     * @param schemaMgr Schema manager.
+     * @param schemaReg Schema manager.
      */
-    public TupleMarshallerImpl(TableSchemaView schemaMgr) {
-        this.schemaMgr = schemaMgr;
+    public TupleMarshallerImpl(SchemaRegistry schemaReg) {
+        this.schemaReg = schemaReg;
     }
 
     /** {@inheritDoc} */

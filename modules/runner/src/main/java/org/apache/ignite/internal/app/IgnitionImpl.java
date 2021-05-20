@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.configuration.RootKey;
@@ -49,6 +48,8 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
 
@@ -106,7 +107,7 @@ public class IgnitionImpl implements Ignition {
                 locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
             }
             catch (Exception e) {
-                LOG.warn("Unable to parse user specific configuration, default configuration will be used", e);
+                LOG.warn("Unable to parse user specific configuration, default configuration will be used: " + e.getMessage());
             }
         else if (jsonStrBootstrapCfg != null)
             LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
@@ -116,7 +117,8 @@ public class IgnitionImpl implements Ignition {
         NetworkView netConfigurationView =
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
 
-        var serializationRegistry = new MessageSerializationRegistry();
+        var serializationRegistry = new MessageSerializationRegistry()
+            .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 
         String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();
@@ -156,15 +158,16 @@ public class IgnitionImpl implements Ignition {
         BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, clusterNetSvc);
 
         // Affinity manager startup.
-        new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr, vaultMgr);
+        AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr, vaultMgr);
 
-        SchemaManager schemaMgr = new SchemaManager(configurationMgr);
+        SchemaManager schemaMgr = new SchemaManager(configurationMgr, metaStorageMgr, vaultMgr);
 
         // Distributed table manager startup.
         IgniteTables distributedTblMgr = new TableManager(
             configurationMgr,
             metaStorageMgr,
             schemaMgr,
+            affinityMgr,
             raftMgr,
             vaultMgr
         );
@@ -188,9 +191,7 @@ public class IgnitionImpl implements Ignition {
     private static void ackBanner() {
         String ver = IgniteProperties.get(VER_KEY);
 
-        String banner = Arrays
-            .stream(BANNER)
-            .collect(Collectors.joining("\n"));
+        String banner = String.join("\n", BANNER);
 
         LOG.info(banner + '\n' + " ".repeat(22) + "Apache Ignite ver. " + ver + '\n');
     }
