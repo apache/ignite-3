@@ -34,7 +34,10 @@ public enum RaftErrorCode {
     ILLEGAL_STATE(1003, "A peer is in illegal state"),
 
     /** */
-    BUSY(1004, "A peer is busy, retry later");
+    BUSY(1004, "A peer is busy, retry later"),
+
+    /** */
+    IOERROR(1005, "Input/Output error");
 
     /** */
     private final int code;

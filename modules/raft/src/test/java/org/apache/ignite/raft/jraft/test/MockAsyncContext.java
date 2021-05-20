@@ -47,15 +47,15 @@ public class MockAsyncContext implements RpcContext {
         return nodeManager;
     }
 
-    @Override
-    public void sendResponse(Object responseObject) {
+    @Override public void sendResponse(Object responseObject) {
         this.responseObject = responseObject;
-
     }
 
-    @Override
-    public String getRemoteAddress() {
+    @Override public String getRemoteAddress() {
         return "localhost:12345";
     }
 
+    @Override public String getLocalAddress() {
+        return "localhost:8081";
+    }
 }

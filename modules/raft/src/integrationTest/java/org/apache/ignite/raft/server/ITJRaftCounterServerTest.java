@@ -101,9 +101,13 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
 
         RaftServer server = servers.get(0);
 
+        Peer peer0 = new Peer(server.clusterService().topologyService().localMember().address());
+
         String path = server.getServerDataPath(COUNTER_GROUP_ID_0);
 
         String snapshotDir = path + File.separator + "snapshot";
+
+        client1.snapshot(peer0).get();
 
         List<Path> files = Files.list(new File(snapshotDir).toPath()).collect(Collectors.toList());
 

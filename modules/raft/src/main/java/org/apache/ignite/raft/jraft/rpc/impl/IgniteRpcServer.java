@@ -12,6 +12,8 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
+import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
@@ -28,6 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetPeerRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.SnapshotRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.TransferLeaderRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.client.ActionRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
@@ -40,6 +43,9 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
  */
 public class IgniteRpcServer implements RpcServer<Void> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
+
+    /** Factory. */
+    private static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** The {@code true} to reuse cluster service. */
     private final boolean reuse;
@@ -82,6 +88,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new AddLearnersRequestProcessor(cliExecutor));
         registerProcessor(new RemoveLearnersRequestProcessor(cliExecutor));
         registerProcessor(new ResetLearnersRequestProcessor(cliExecutor));
+        // client integration
+        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.GetLeaderRequestProcessor(cliExecutor, FACTORY));
+        registerProcessor(new ActionRequestProcessor(cliExecutor, FACTORY));
+        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(cliExecutor, FACTORY));
 
         service.messagingService().addMessageHandler(new NetworkMessageHandler() {
             @Override public void onReceived(NetworkMessage msg, ClusterNode sender, String corellationId) {
@@ -126,6 +136,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
                         @Override public String getRemoteAddress() {
                             return sender.address();
+                        }
+
+                        @Override public String getLocalAddress() {
+                            return service.topologyService().localMember().address();
                         }
                     }, msg);
                 });

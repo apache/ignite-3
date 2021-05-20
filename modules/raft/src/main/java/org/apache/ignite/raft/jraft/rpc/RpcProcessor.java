@@ -63,7 +63,6 @@ public interface RpcProcessor<T> {
      * Executor selector interface.
      */
     interface ExecutorSelector {
-
         /**
          * Select a executor.
          *

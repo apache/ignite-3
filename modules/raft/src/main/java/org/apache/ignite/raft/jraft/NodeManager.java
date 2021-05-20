@@ -27,11 +27,8 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 
 /**
- * Raft nodes manager. TODO asch refactor to component/interface. Duplicates raft server.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-22 5:58:23 PM
+ * Raft nodes manager.
+ * TODO asch node manager is not needed if only one raft group instance can be bound to same server. Remove it.
  */
 public class NodeManager {
     private final ConcurrentMap<NodeId, Node>       nodeMap  = new ConcurrentHashMap<>();

@@ -30,14 +30,20 @@ public interface RpcContext {
     /**
      * Send a response back.
      *
-     * @param responseObj the response object
+     * @param responseObj The response object.
      */
     void sendResponse(final Object responseObj);
 
     /**
      * Get the remote address.
      *
-     * @return remote address
+     * @return Remote address.
      */
     String getRemoteAddress();
+
+    /**
+     * Get the local address of the server.
+     * @return Local address.
+     */
+    String getLocalAddress();
 }

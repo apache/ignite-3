@@ -134,6 +134,10 @@ public class LocalRpcServer implements RpcServer<Void> {
                                 @Override public String getRemoteAddress() {
                                     return sender.toString();
                                 }
+
+                                @Override public String getLocalAddress() {
+                                    return null;
+                                }
                             }, msg);
                         });
                     } catch (InterruptedException e) {
