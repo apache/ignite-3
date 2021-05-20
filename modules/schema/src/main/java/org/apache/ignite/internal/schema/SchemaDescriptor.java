@@ -19,8 +19,10 @@ package org.apache.ignite.internal.schema;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +31,9 @@ import org.jetbrains.annotations.Nullable;
  * Full schema descriptor containing key columns chunk, value columns chunk, and schema version.
  */
 public class SchemaDescriptor implements Serializable {
+    /** Table identifier.*/
+    private final UUID tableId;
+
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
@@ -46,8 +51,8 @@ public class SchemaDescriptor implements Serializable {
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Column[] keyCols, Column[] valCols) {
-        this(ver, keyCols, null, valCols);
+    public SchemaDescriptor(UUID tableId, int ver, Column[] keyCols, Column[] valCols) {
+        this(tableId, ver, keyCols, null, valCols);
     }
 
     /**
@@ -56,10 +61,11 @@ public class SchemaDescriptor implements Serializable {
      * @param affCols Affinity column names.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
+    public SchemaDescriptor(UUID tableId, int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
         assert keyCols.length > 0 : "No key columns are conigured.";
         assert valCols.length > 0 : "No value columns are conigured.";
 
+        this.tableId = tableId;
         this.ver = ver;
         this.keyCols = new Columns(0, keyCols);
         this.valCols = new Columns(keyCols.length, valCols);
@@ -70,6 +76,13 @@ public class SchemaDescriptor implements Serializable {
         Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
 
         //TODO: https://issues.apache.org/jira/browse/IGNITE-14388 Add affinity columns support.
+    }
+
+    /**
+     * @return Table identifier.
+     */
+    public UUID tableId() {
+        return tableId;
     }
 
     /**
@@ -93,6 +106,15 @@ public class SchemaDescriptor implements Serializable {
      */
     public Column column(int colIdx) {
         return colIdx < keyCols.length() ? keyCols.column(colIdx) : valCols.column(colIdx - keyCols.length());
+    }
+
+    /**
+     * Gets columns names.
+     *
+     * @return Columns names.
+     */
+    public Collection<String> columnNames() {
+        return colMap.keySet();
     }
 
     /**

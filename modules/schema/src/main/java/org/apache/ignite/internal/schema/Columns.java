@@ -196,7 +196,7 @@ public class Columns implements Serializable {
         for (int i = 0; i < cp.length; i++) {
             Column c = cp[i];
 
-            cp[i] = new Column(schemaBaseIdx + i, c.name(), c.type(), c.nullable());
+            cp[i] = c.copy(schemaBaseIdx + i);
         }
 
         return cp;
@@ -288,7 +288,7 @@ public class Columns implements Serializable {
                     ", mask=" + mask +
                     ", cols" + Arrays.toString(cols) + ']';
 
-                size += cols[idx].type().length();
+                size += cols[idx].type().sizeInBytes();
             }
         }
 
@@ -308,6 +308,24 @@ public class Columns implements Serializable {
         }
 
         throw new NoSuchElementException("No field '" + colName + "' defined");
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        Columns columns = (Columns)o;
+
+        return Arrays.equals(cols, columns.cols);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Arrays.hashCode(cols);
     }
 
     /** {@inheritDoc} */
