@@ -26,25 +26,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Primary key builder test. */
+/**
+ * Primary key builder test.
+ */
 public class PrimaryKeyBuilderTest {
-    /** Full featured primary index; */
-    public static final PrimaryIndex IDX;
-
-    static {
+    /** Test primary index parameters. */
+    @Test
+    public void testPrimaryKey() {
         PrimaryIndexBuilder builder = SchemaBuilders.pkIndex();
 
         builder.addIndexColumn("A").desc().done();
         builder.addIndexColumn("B").asc().done();
 
-        IDX = builder.build();
-    }
+        PrimaryIndex idx = builder.build();
 
-    /** Test primary index parameters. */
-    @Test
-    public void testPrimaryKey() {
-        assertEquals(2, IDX.columns().size());
-        assertFalse(IDX.columns().get(0).asc());
-        assertTrue(IDX.columns().get(1).asc());
+        assertEquals(2, idx.columns().size());
+        assertFalse(idx.columns().get(0).asc());
+        assertTrue(idx.columns().get(1).asc());
     }
 }

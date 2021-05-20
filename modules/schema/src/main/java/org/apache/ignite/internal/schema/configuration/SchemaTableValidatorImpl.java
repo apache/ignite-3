@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.configuration;
 
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -29,21 +30,29 @@ import org.apache.ignite.schema.Column;
 import java.util.ArrayList;
 import java.util.Collection;
 
-/** SchemaTable validator implementation.  */
-public class SchemaTableValidatorImpl implements Validator<TableValidator, TableView> {
+/**
+ * SchemaTable validator implementation.
+ */
+public class SchemaTableValidatorImpl implements Validator<TableValidator, NamedListView<TableView>> {
     public final static SchemaTableValidatorImpl INSTANCE = new SchemaTableValidatorImpl();
 
-    @Override public void validate(TableValidator annotation, ValidationContext<TableView> ctx) {
-        try {
-            SchemaTableImpl tbl = SchemaConfigurationConverter.convert(ctx.getNewValue());
-            Collection<Column> allColumns = new ArrayList<>(tbl.keyColumns());
-            allColumns.addAll(tbl.valueColumns());
-            SchemaTableBuilderImpl.validateIndices(tbl.indices(), allColumns);
+    /** {@inheritDoc} */
+    @Override public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
+        NamedListView<TableView> list = ctx.getNewValue();
+        for (String key : list.namedListKeys()) {
+            TableView view = list.get(key);
+            try {
+                SchemaTableImpl tbl = SchemaConfigurationConverter.convert(view);
+                Collection<Column> allColumns = new ArrayList<>(tbl.keyColumns());
+                allColumns.addAll(tbl.valueColumns());
+                SchemaTableBuilderImpl.validateIndices(tbl.indices(), allColumns);
+            }
+            catch (IllegalArgumentException e) {
+                ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
+                    + view.columns().size() + " columns"));
+            }
         }
-        catch (IllegalArgumentException e) {
-            ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
-                + ctx.getNewValue().columns().size() + " columns"));
-        }
+
     }
 
     /** Private constructor. */

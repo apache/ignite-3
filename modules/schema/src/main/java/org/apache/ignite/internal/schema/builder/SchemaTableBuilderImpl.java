@@ -91,7 +91,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
     /** {@inheritDoc} */
     @Override public SchemaTableBuilder withPrimaryKey(String colName) {
-        withIndex(SchemaBuilders.pkIndex().addIndexColumn(colName).done().build());
+        withIndex(SchemaBuilders.pkIndex().addIndexColumn(colName).done().withAffinityColumns(colName).build());
 
         return this;
     }

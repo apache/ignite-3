@@ -21,26 +21,42 @@ import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.schema.builder.HashIndexBuilderTest;
-import org.apache.ignite.internal.schema.builder.PartialIndexBuilderTest;
-import org.apache.ignite.internal.schema.builder.PrimaryKeyBuilderTest;
-import org.apache.ignite.internal.schema.builder.SchemaTableBuilderTest;
-import org.apache.ignite.internal.schema.builder.SortedIndexBuilderTest;
+import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.PrimaryIndex;
+import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.SortedIndex;
+import org.apache.ignite.schema.TableIndex;
+import org.apache.ignite.schema.builder.HashIndexBuilder;
+import org.apache.ignite.schema.builder.PartialIndexBuilder;
+import org.apache.ignite.schema.builder.PrimaryIndexBuilder;
+import org.apache.ignite.schema.builder.SchemaTableBuilder;
+import org.apache.ignite.schema.builder.SortedIndexBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
-import static org.apache.ignite.internal.schema.builder.SchemaTableBuilderTest.TBL;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-/** SchmConfigurationConverter tests. */
+/**
+ * SchmConfigurationConverter tests.
+ */
 public class SchemaConfigurationConverterTest {
+    private SchemaTableBuilder TBL_BUILDER = SchemaBuilders.tableBuilder("SNAME","TNAME")
+            .columns(
+                SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
+                SchemaBuilders.column("COL2", ColumnType.DOUBLE).build(),
+                SchemaBuilders.column("A", ColumnType.INT8).build(),
+                SchemaBuilders.column("B", ColumnType.INT8).build(),
+                SchemaBuilders.column("C", ColumnType.INT8).build()
+            ).withPrimaryKey("COL1");
+
     /** Configuration registry with one table for each test. */
     private ConfigurationRegistry confRegistry;
 
@@ -57,10 +73,11 @@ public class SchemaConfigurationConverterTest {
             Collections.singletonMap(TableValidator.class, Collections.singleton(SchemaTableValidatorImpl.INSTANCE)),
             Collections.singleton(new TestConfigurationStorage()));
 
+        SchemaTable tbl = TBL_BUILDER.build();
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
             ch -> {
-                SchemaConfigurationConverter.createTable(TBL, ch);
-                ch.changeTables(tblsCh -> tblsCh.create(TBL.canonicalName(),
+                SchemaConfigurationConverter.createTable(tbl, ch);
+                ch.changeTables(tblsCh -> tblsCh.create(tbl.canonicalName(),
                     tblCh -> tblCh.changeReplicas(1)));
             }).get();
     }
@@ -70,8 +87,20 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertHashIndex() throws ExecutionException, InterruptedException {
-        HashIndex idx = HashIndexBuilderTest.IDX;
+        HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI")
+            .withColumns("A", "B", "C")
+            .withHints(Collections.singletonMap("param","value"));
+        HashIndex idx = builder.build();
+
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+
+        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+
+        HashIndex idx2 = (HashIndex)getIdx(idx.name(), tbl.indices());
+
+        assertNotNull(idx2);
+        assertEquals("HASH", idx2.type());
+        assertEquals(3, idx2.columns().size());
     }
 
     /**
@@ -79,9 +108,24 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertSortedIndex() throws ExecutionException, InterruptedException {
-        SortedIndex idx = SortedIndexBuilderTest.IDX;
+        SortedIndexBuilder builder = SchemaBuilders.sortedIndex("SIDX");
+
+        builder.addIndexColumn("A").asc().done();
+        builder.addIndexColumn("B").desc().done();
+
+        builder.unique();
+
+        SortedIndex idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+
+        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+
+        SortedIndex idx2 = (SortedIndex)getIdx(idx.name(), tbl.indices());
+
+        assertNotNull(idx2);
+        assertEquals("SORTED", idx2.type());
+        assertEquals(2, idx2.columns().size());
     }
 
     /**
@@ -89,9 +133,24 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testPKIndex() throws ExecutionException, InterruptedException {
-        PrimaryIndex idx = PrimaryKeyBuilderTest.IDX;
+        PrimaryIndexBuilder builder = SchemaBuilders.pkIndex();
+        builder.addIndexColumn("COL1").desc().done();
+        builder.addIndexColumn("A").desc().done();
+        builder.addIndexColumn("B").asc().done();
+        builder.withAffinityColumns("COL1");
+
+        PrimaryIndex idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+
+        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+
+        PrimaryIndex idx2 = (PrimaryIndex)getIdx(idx.name(), tbl.indices());
+
+        assertNotNull(idx2);
+        assertEquals("PK", idx2.type());
+        assertEquals(idx.columns(), idx2.columns().size());
+        assertEquals(idx.affinityColumns(), idx2.affinityColumns());
     }
 
     /**
@@ -99,9 +158,22 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testPartialIndex() throws ExecutionException, InterruptedException {
-        PartialIndex idx = PartialIndexBuilderTest.IDX;
+        PartialIndexBuilder builder = SchemaBuilders.partialIndex("TEST");
+
+        builder.addIndexColumn("A").done();
+        builder.withExpression("WHERE A > 0");
+
+        PartialIndex idx = builder.build();
 
         getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+
+        SchemaTable tbl = SchemaConfigurationConverter.convert(getTbl().value());
+
+        PartialIndex idx2 = (PartialIndex) getIdx(idx.name(), tbl.indices());
+
+        assertNotNull(idx2);
+        assertEquals("PARTIAL", idx2.type());
+        assertEquals(idx.columns().size(), idx2.columns().size());
     }
 
     /**
@@ -114,9 +186,21 @@ public class SchemaConfigurationConverterTest {
 
     /**
      * Get tests default table configuration.
+     *
      * @return Configuration of default table.
      */
     private TableConfiguration getTbl() {
-        return confRegistry.getConfiguration(TablesConfiguration.KEY).tables().get(TBL.canonicalName());
+        return confRegistry.getConfiguration(TablesConfiguration.KEY).tables().get(TBL_BUILDER.build().canonicalName());
+    }
+
+    /**
+     * Get table index by name.
+     *
+     * @param name Index name to find.
+     * @param idxs Table indexes.
+     * @return Index or {@code null} if there are no index with such name.
+     */
+    private TableIndex getIdx(String name, Collection<TableIndex> idxs) {
+        return idxs.stream().filter(idx -> name.equals(idx.name())).findAny().orElse(null);
     }
 }

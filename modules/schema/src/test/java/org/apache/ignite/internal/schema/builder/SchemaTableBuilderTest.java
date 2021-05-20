@@ -25,30 +25,26 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Tests for schema table builder. */
+/**
+ * Tests for schema table builder.
+ */
 public class SchemaTableBuilderTest {
-    /** Full featured table. */
-    public static final SchemaTable TBL;
-
-    static {
+    /**
+     * Create schema table and check its parameters.
+     */
+    @Test
+    public void testBuild() {
         SchemaTableBuilder builder = SchemaBuilders.tableBuilder("SNAME","TNAME")
             .columns(
                 SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
                 SchemaBuilders.column("COL2", ColumnType.DOUBLE).build())
             .withPrimaryKey("COL1");
 
-        TBL = builder.build();
-    }
+        SchemaTable tbl = builder.build();
 
-    /**
-     * Create schema table and check its parameters.
-     */
-    @Test
-    public void testBuild() {
-        // TODO: fix name
-        assertEquals("SNAME.TNAME", TBL.canonicalName());
-        assertEquals("TNAME", TBL.name());
+        assertEquals("SNAME.TNAME", tbl.canonicalName());
+        assertEquals("TNAME", tbl.name());
 
-        assertEquals(1, TBL.keyColumns().size());
+        assertEquals(1, tbl.keyColumns().size());
     }
 }

@@ -24,26 +24,23 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Tests for partial index builder. */
+/**
+ * Tests for partial index builder.
+ */
 public class PartialIndexBuilderTest {
-    /** Full featured partial index */
-    public static final PartialIndex IDX;
-
-    static {
-        PartialIndexBuilder builder = SchemaBuilders.partialIndex("TEST");
-
-        builder.addIndexColumn("A").done();
-        builder.withExpression("WHERE A > 0");
-
-        IDX = builder.build();
-    }
-
     /**
      * Test partial index parameters.
      */
     @Test
     public void testPartialIndexCreate() {
-        assertEquals(1, IDX.columns().size());
-        assertEquals("WHERE A > 0", IDX.expr());
+        PartialIndexBuilder builder = SchemaBuilders.partialIndex("TEST");
+
+        builder.addIndexColumn("A").done();
+        builder.withExpression("WHERE A > 0");
+
+        PartialIndex idx = builder.build();
+
+        assertEquals(1, idx.columns().size());
+        assertEquals("WHERE A > 0", idx.expr());
     }
 }

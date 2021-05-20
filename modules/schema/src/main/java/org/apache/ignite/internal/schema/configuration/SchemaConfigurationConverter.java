@@ -49,14 +49,16 @@ import org.apache.ignite.schema.SortedIndexColumn;
 import org.apache.ignite.schema.TableIndex;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
-/** Configuration to schema and vice versa converter. */
+/**
+ * Configuration to schema and vice versa converter.
+ */
 public class SchemaConfigurationConverter {
     /** Hash index type. */
     private static final String HASH_TYPE = "HASH";
@@ -85,10 +87,6 @@ public class SchemaConfigurationConverter {
         putType(ColumnType.FLOAT);
         putType(ColumnType.DOUBLE);
         putType(ColumnType.UUID);
-        putType(ColumnType.string());
-        putType(ColumnType.blobOf());
-        // TODO; handle length for some types
-        //putType(ColumnType.bitmaskOf());
     }
 
     private static void putType(ColumnType type) {
@@ -124,45 +122,49 @@ public class SchemaConfigurationConverter {
     public static void convert(TableIndex idx, TableIndexChange idxChg) {
         idxChg.changeName(idx.name());
         idxChg.changeType(idx.type());
+        switch (idx.type()) {
+            case HASH_TYPE:
+                HashIndex hashIdx = (HashIndex)idx;
 
-        if (HASH_TYPE.equals(idx.type())) {
-            HashIndex hashIdx = (HashIndex)idx;
+                String[] colNames = hashIdx.columns().stream().map(IndexColumn::name).toArray(String[]::new);
+                idxChg.changeColNames(colNames);
+                break;
+            case PARTIAL_TYPE:
+                PartialIndex partIdx = (PartialIndex)idx;
 
-            String[] colNames = hashIdx.columns().stream().map(IndexColumn::name).toArray(String[]::new);
-            idxChg.changeColNames(colNames);
+                idxChg.changeUniq(partIdx.unique());
+                idxChg.changeExpr(partIdx.expr());
+
+                idxChg.changeColumns(colsChg -> {
+                    int colIdx = 0;
+                    for (SortedIndexColumn col : partIdx.columns())
+                        colsChg.create(String.valueOf(colIdx++), colInit -> convert(col, colInit));
+                });
+                break;
+            case SORTED_TYPE:
+                SortedIndex sortIdx = (SortedIndex)idx;
+                idxChg.changeUniq(sortIdx.unique());
+
+                idxChg.changeColumns(colsInit -> {
+                    int colIdx = 0;
+                    for (SortedIndexColumn col : sortIdx.columns())
+                        colsInit.create(String.valueOf(colIdx++), colInit -> convert(col, colInit));
+                });
+                break;
+            case PK_TYPE:
+                PrimaryIndex primIdx = (PrimaryIndex)idx;
+
+                idxChg.changeColumns(colsInit -> {
+                    int colIdx = 0;
+                    for (SortedIndexColumn col : primIdx.columns())
+                        colsInit.create(String.valueOf(colIdx++), colInit -> convert(col, colInit));
+                });
+
+                idxChg.changeAffinityColumns(primIdx.affinityColumns().toArray(new String[primIdx.affinityColumns().size()]));
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown index type " + idx.type());
         }
-        else if (PARTIAL_TYPE.equals(idx.type())) {
-            PartialIndex partIdx = (PartialIndex)idx;
-
-            idxChg.changeUniq(partIdx.unique());
-            idxChg.changeExpr(partIdx.expr());
-
-            idxChg.changeColumns(colsChg -> {
-                for (SortedIndexColumn col : partIdx.columns())
-                    colsChg.create(col.name(), colInit -> convert(col, colInit));
-            });
-
-        }
-        else if (SORTED_TYPE.equals(idx.type())) {
-            SortedIndex sortIdx = (SortedIndex)idx;
-            idxChg.changeUniq(sortIdx.unique());
-
-            idxChg.changeColumns(colsInit -> {
-                for (SortedIndexColumn col : sortIdx.columns())
-                    colsInit.create(col.name(), colInit -> convert(col, colInit));
-            });
-        }
-        else if (PK_TYPE.equals(idx.type())) {
-            PrimaryIndex primIdx = (PrimaryIndex)idx;
-
-            idxChg.changeColumns(colsInit -> {
-                for (SortedIndexColumn col : primIdx.columns())
-                    colsInit.create(col.name(), colInit -> convert(col, colInit));
-            });
-
-            idxChg.changeAffinityColumns(primIdx.affinityColumns().toArray(new String[primIdx.affinityColumns().size()]));
-        }
-        else throw new IllegalArgumentException("Unknown index type " + idx.type());
     }
 
     /**
@@ -174,50 +176,47 @@ public class SchemaConfigurationConverter {
     public static TableIndex convert(TableIndexView idxView) {
         String name = idxView.name();
         String type = idxView.type();
+        switch (type) {
+            case "HASH":
+                String[] hashCols = idxView.colNames();
 
-        if (type.equals("HASH")) {
-            String[] cols = idxView.colNames();
+                return new HashIndexImpl(name, hashCols);
 
-            return new HashIndexImpl(name, cols);
-        }
-        else if (type.equals("SORTED") || type.equals("PARTIAL") || type.equals("PK")) {
-            if (type.equals("PARTIAL")) {
-                boolean uniq = idxView.uniq();
+            case "SORTED":
+                boolean sortedUniq = idxView.uniq();
+                SortedMap<Integer, SortedIndexColumn> sortedCols = new TreeMap();
+                for (String key : idxView.columns().namedListKeys()) {
+                    SortedIndexColumn col = convert(idxView.columns().get(key));
+                    sortedCols.put(Integer.valueOf(key), col);
+                }
+
+                return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()), sortedUniq);
+
+            case "PARTIAL":
+                boolean partialUniq = idxView.uniq();
                 String expr = idxView.expr();
                 NamedListView<? extends IndexColumnView> colsView = idxView.columns();
-                List<SortedIndexColumn> cols = new ArrayList<>();
+                SortedMap<Integer, SortedIndexColumn> partialCols = new TreeMap<>();
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(colsView.get(key));
-                    cols.add(col);
+                    partialCols.put(Integer.valueOf(key), col);
                 }
 
-                return new PartialIndexImpl(name, cols, uniq, expr);
-            }
-            if (type.equals("SORTED")) {
-                boolean uniq = idxView.uniq();
-                List<SortedIndexColumn> cols = new ArrayList<>();
+                return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), partialUniq, expr);
+
+            case "PK":
+                SortedMap<Integer, SortedIndexColumn> cols = new TreeMap<>();
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(idxView.columns().get(key));
-                    cols.add(col);
+                    cols.put(Integer.valueOf(key), col);
                 }
+                String[] affCols = idxView.affinityColumns();
 
-                return new SortedIndexImpl(name, cols, uniq);
-            }
-            if (type.equals("PK")) {
-                List<SortedIndexColumn> cols = new ArrayList<>();
-                for (String key : idxView.columns().namedListKeys()) {
-                    SortedIndexColumn col = convert(idxView.columns().get(key));
-                    cols.add(col);
-                }
-                String[] affCols = idxView.colNames();
+                return new PrimaryIndexImpl(new ArrayList(cols.values()), List.of(affCols));
 
-                return new PrimaryIndexImpl(cols, Arrays.stream(affCols).collect(Collectors.toList()));
-            }
-
-            return null;
+            default:
+                throw new IllegalArgumentException("Unknown type " + type);
         }
-        else
-            throw new IllegalArgumentException("Unknown type " + type);
     }
 
     /**
@@ -227,8 +226,30 @@ public class SchemaConfigurationConverter {
      * @param colTypeChg ColumnTypeChange to fullfill.
      */
     public static void convert(ColumnType colType, ColumnTypeChange colTypeChg) {
-        colTypeChg.changeType(colType.typeSpec().name());
-        // TODO varlen types
+        String typeName = colType.typeSpec().name();
+        if (types.containsKey(typeName))
+            colTypeChg.changeType(typeName);
+        else {
+            colTypeChg.changeType(typeName);
+            switch (typeName) {
+                case "BITMASK":
+                case "BLOB":
+                case "STRING":
+                    ColumnType.VarLenColumnType varLenColType = (ColumnType.VarLenColumnType)colType;
+
+                    colTypeChg.changeLength(varLenColType.length());
+                    break;
+
+                case "DECIMAL":
+                    ColumnType.NumericColumnType numColType = (ColumnType.NumericColumnType)colType;
+
+                    colTypeChg.changePrecision(numColType.precision());
+                    colTypeChg.changeScale(numColType.scale());
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown type " + colType.typeSpec().name());
+            }
+        }
     }
 
     /**
@@ -242,9 +263,33 @@ public class SchemaConfigurationConverter {
         ColumnType res = types.get(typeName);
         if (res != null)
             return res;
-        else
-            // TODO varlen types
-            throw new IllegalArgumentException();
+        else {
+            switch (typeName) {
+                case "BITMASK":
+                    int bitmaskLen = colTypeView.length();
+
+                    return ColumnType.bitmaskOf(bitmaskLen);
+
+                case "STRING":
+                    int strLen = colTypeView.length();
+
+                    return ColumnType.stringOf(strLen);
+
+                case "BLOB":
+                    int blobLen = colTypeView.length();
+
+                    return ColumnType.blobOf(blobLen);
+
+                case "DECIMAL":
+                    int prec = colTypeView.precision();
+                    int scale = colTypeView.scale();
+
+                    return ColumnType.number(prec, scale);
+
+                default:
+                    throw new IllegalArgumentException("Unknown type " + typeName);
+            }
+        }
     }
 
     /**
@@ -257,7 +302,7 @@ public class SchemaConfigurationConverter {
         colChg.changeName(col.name());
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
         if (col.defaultValue() != null)
-            colChg.changeDefaultValue(col.defaultValue().toString()); // TODO: specify "default type" type
+            colChg.changeDefaultValue(col.defaultValue().toString());
         colChg.changeNullable(col.nullable());
     }
 
@@ -285,17 +330,25 @@ public class SchemaConfigurationConverter {
     public static void convert(SchemaTable tbl, TableChange tblChg) {
         tblChg.changeName(tbl.canonicalName());
         tblChg.changeIndices(idxsChg -> {
+            int idxIdx = 0;
             for (TableIndex idx : tbl.indices())
-                idxsChg.create(idx.name(), idxInit -> convert(idx, idxInit));
+                idxsChg.create(String.valueOf(idxIdx++), idxInit -> convert(idx, idxInit));
         });
         tblChg.changeColumns(colsChg -> {
+            int colIdx = 0;
             for (Column col : tbl.keyColumns())
-                colsChg.create(col.name(), colChg -> convert(col, colChg));
+                colsChg.create(String.valueOf(colIdx++), colChg -> convert(col, colChg));
             for (Column col : tbl.valueColumns())
-                colsChg.create(col.name(), colChg -> convert(col, colChg));
+                colsChg.create(String.valueOf(colIdx++), colChg -> convert(col, colChg));
         });
     }
 
+    /**
+     * Convert TableConfiguration to SchemaTable.
+     *
+     * @param tblCfg TableConfiguration to convert.
+     * @return SchemaTable.
+     */
     public static SchemaTable convert(TableConfiguration tblCfg) {
         return convert(tblCfg.value());
     }
@@ -303,18 +356,18 @@ public class SchemaConfigurationConverter {
     /**
      * Convert configuration to SchemaTable.
      *
-     * @param tblView SchmTableView to convert.
+     * @param tblView TableView to convert.
      * @return SchemaTable.
      */
     public static SchemaTableImpl convert(TableView tblView) {
         String canonicalName = tblView.name();
 
         NamedListView<? extends ColumnView> colsView = tblView.columns();
-        LinkedHashMap<String, Column> columns = new LinkedHashMap<>(colsView.size());
+        SortedMap<Integer, Column> columns = new TreeMap<>();
         for (String key : colsView.namedListKeys()) {
             ColumnView colView = colsView.get(key);
             Column col = convert(colView);
-            columns.put(col.name(), col);
+            columns.put(Integer.valueOf(key), col);
         }
 
         NamedListView<? extends TableIndexView> idxsView = tblView.indices();
@@ -325,8 +378,10 @@ public class SchemaConfigurationConverter {
             indices.put(idx.name(), idx);
         }
 
-        // TUDO: schema name
-        return new SchemaTableImpl("PUBLIC", canonicalName, columns, indices);
+        LinkedHashMap<String, Column> columnsMap = new LinkedHashMap<>(colsView.size());
+        columns.forEach((i,v) -> columnsMap.put(v.name(), v));
+
+        return new SchemaTableImpl("PUBLIC", canonicalName, columnsMap, indices);
     }
 
     /**
@@ -334,18 +389,18 @@ public class SchemaConfigurationConverter {
      *
      * @param tbl Table to create.
      * @param tblsChange Tables change to fulfill.
-     * @return Schema change to get result from.
+     * @return TablesChange to get result from.
      */
     public static TablesChange createTable(SchemaTable tbl, TablesChange tblsChange) {
-        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg -> convert(tbl, tblChg)));
+        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg ->  convert(tbl, tblChg)));
     }
 
     /**
      * Drop table.
      *
      * @param tbl table to drop.
-     * @param tblsChange Schanmge change to fulfill.
-     * @return Schema change to get result from.
+     * @param tblsChange TablesChange change to fulfill.
+     * @return TablesChange to get result from.
      */
     public static TablesChange dropTable(SchemaTable tbl, TablesChange tblsChange) {
         return tblsChange.changeTables(schmTblChange -> schmTblChange.delete(tbl.canonicalName()));
@@ -366,32 +421,32 @@ public class SchemaConfigurationConverter {
      * Drop index.
      *
      * @param indexName Index name to drop.
-     * @param schmTblChange Table change to fulfill.
-     * @return Schema table change to get result from.
+     * @param tblChange Table change to fulfill.
+     * @return TableChange to get result from.
      */
-    public static TableChange dropIndex(String indexName, TableChange schmTblChange) {
-        return schmTblChange.changeIndices(idxChg -> idxChg.delete(indexName));
+    public static TableChange dropIndex(String indexName, TableChange tblChange) {
+        return tblChange.changeIndices(idxChg -> idxChg.delete(indexName));
     }
 
     /**
      * Add table column.
      *
      * @param column Column to add.
-     * @param schmTblChange Schamge table change to fulfill.
-     * @return Schema table change to get result from.
+     * @param tblChange TableChange to fulfill.
+     * @return TableChange to get result from.
      */
-    public static TableChange addColumn(Column column, TableChange schmTblChange) {
-        return schmTblChange.changeColumns(colsChg -> colsChg.create(column.name(), colChg -> convert(column, colChg)));
+    public static TableChange addColumn(Column column, TableChange tblChange) {
+        return tblChange.changeColumns(colsChg -> colsChg.create(column.name(), colChg -> convert(column, colChg)));
     }
 
     /**
      * Drop table column.
      *
      * @param columnName column name to drop.
-     * @param schmTblChange Schamge table change to fulfill.
-     * @return Schema table change to get result from.
+     * @param tblChange TableChange to fulfill.
+     * @return TableChange to get result from.
      */
-    public static TableChange dropColumn(String columnName, TableChange schmTblChange) {
-        return schmTblChange.changeColumns(colChg -> colChg.delete(columnName));
+    public static TableChange dropColumn(String columnName, TableChange tblChange) {
+        return tblChange.changeColumns(colChg -> colChg.delete(columnName));
     }
 }

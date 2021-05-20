@@ -24,12 +24,15 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Tests for sorted index builder. */
+/**
+ * Tests for sorted index builder.
+ */
 public class SortedIndexBuilderTest {
-    //** Full featured sorted index */
-    public static final SortedIndex IDX;
-
-    static {
+    /**
+     * Build sorted index and check it's parameters.
+     */
+    @Test
+    public void testBuild() {
         SortedIndexBuilder builder = SchemaBuilders.sortedIndex("SIDX");
 
         builder.addIndexColumn("A").asc().done();
@@ -37,15 +40,9 @@ public class SortedIndexBuilderTest {
 
         builder.unique();
 
-        IDX = builder.build();
-    }
+        SortedIndex idx = builder.build();
 
-    /**
-     * Build sorted index and check it's parameters.
-     */
-    @Test
-    public void testBuild() {
-        assertEquals(true, IDX.unique());
-        assertEquals(2, IDX.indexedColumns().size());
+        assertEquals(true, idx.unique());
+        assertEquals(2, idx.indexedColumns().size());
     }
 }

@@ -29,7 +29,9 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 
-/** */
+/**
+ * Configuration storage for tests.
+ */
 public class TestConfigurationStorage implements ConfigurationStorage {
     /** */
     private final Set<ConfigurationStorageListener> listeners = new HashSet<>();

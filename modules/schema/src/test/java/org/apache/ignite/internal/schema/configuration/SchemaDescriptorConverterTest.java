@@ -33,7 +33,9 @@ import java.util.function.Function;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Tests for SchemaDescriptorConverter. */
+/**
+ * Tests for SchemaDescriptorConverter.
+ */
 public class SchemaDescriptorConverterTest {
     /** Totoal number of columns. */
     private static final int columns = 14;

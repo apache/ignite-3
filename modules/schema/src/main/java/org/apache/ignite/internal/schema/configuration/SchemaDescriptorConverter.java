@@ -30,7 +30,6 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaTable;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import static org.apache.ignite.internal.schema.NativeType.BYTE;
@@ -41,7 +40,9 @@ import static org.apache.ignite.internal.schema.NativeType.LONG;
 import static org.apache.ignite.internal.schema.NativeType.SHORT;
 import static org.apache.ignite.internal.schema.NativeType.UUID;
 
-/** Build SchemaDescriptor from SchemaTable internal configuration. */
+/**
+ * Build SchemaDescriptor from SchemaTable internal configuration.
+ */
 public class SchemaDescriptorConverter {
     /**
      * Convert ColumnType to NativeType.

@@ -23,28 +23,27 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.table.TableColumn;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-/** Tests for table column builder. */
+/**
+ * Tests for table column builder.
+ */
 public class TableColumnBuilderTest {
-    /** */
-    public static final Column COL;
-
-    static {
-        TableColumnBuilder builder = SchemaBuilders.column("TEST", ColumnType.DOUBLE);
-
-        COL = builder.asNonNull().withDefaultValue(1.).build();
-    }
-
     /**
      * Check column parameters.
      */
     @Test
     public void testCreateColumn() {
-        assertEquals("TEST", COL.name());
-        assertEquals(ColumnType.DOUBLE, COL.type());
-        assertEquals(1., COL.defaultValue());
-        assertFalse(COL.nullable());
+        TableColumnBuilder builder = SchemaBuilders.column("TEST", ColumnType.DOUBLE);
+
+        Column col = builder.asNonNull().withDefaultValue(1.).build();
+
+        assertEquals("TEST", col.name());
+        assertEquals(ColumnType.DOUBLE, col.type());
+        assertEquals(1., col.defaultValue());
+        assertFalse(col.nullable());
     }
 }

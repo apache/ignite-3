@@ -27,27 +27,23 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Tests for hash index builder. */
+/**
+ * Tests for hash index builder.
+ */
 public class HashIndexBuilderTest {
-    /** Full featured HashIndex. */
-    public static final HashIndex IDX;
-
-    static {
-        HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI")
-            .withColumns("A", "B", "C")
-            .withHints(Collections.singletonMap("param","value"));
-        IDX = builder.build();
-    }
-
     /**
      * Build index and check its parameters.
      */
     @Test
     public void testBuild() {
+        HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI")
+            .withColumns("A", "B", "C")
+            .withHints(Collections.singletonMap("param","value"));
+        HashIndex idx = builder.build();
 
-        assertEquals("testHI", IDX.name());
+        assertEquals("testHI", idx.name());
 
-        assertEquals(3, IDX.columns().size());
+        assertEquals(3, idx.columns().size());
     }
 
     /**

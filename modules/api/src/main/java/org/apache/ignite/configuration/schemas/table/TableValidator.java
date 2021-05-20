@@ -20,15 +20,15 @@ package org.apache.ignite.configuration.schemas.table;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
-import static java.lang.annotation.ElementType.CONSTRUCTOR;
 import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-/** Annotation to validate whole table configuration. */
+/**
+ * Annotation to validate whole table configuration.
+ *
+ * Activate SchemaTableValidatorImpl in configuration engine for {@link TablesConfigurationSchema#tables}.
+ */
 @Target({ FIELD, PARAMETER })
 @Retention(RUNTIME)
 public @interface TableValidator {
