@@ -20,6 +20,8 @@ package org.apache.ignite.internal.runner.app;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -177,11 +179,11 @@ class DynamicTableCreationTest {
         tbl1.insert(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42)
             .set("valStr", "String value").set("valInt", 73).set("valNullable", null).build());
 
-//        // Get data on node 2.
-//        Table tbl2 = waitForTable(clusterNodes.get(2));
-//        final Tuple val = tbl2.get(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42).build());
+        // Get data on node 2.
+        Table tbl2 = waitForTable(clusterNodes.get(2));
+        final Tuple val = tbl2.get(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42).build());
 //
-//        assertNull(/*"String value"*/val.value("valStr"));
+//        assertEquals("String value", val.value("valStr"));
 //        assertEquals(73, (int)val.value("valInt"));
 //        assertNull(val.value("valNullable"));
     }
