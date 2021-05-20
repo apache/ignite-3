@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -24,25 +28,27 @@ import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 /**
- * Marshaller implementation.
+ * Tuple marshaller implementation.
  */
 public class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
-    private final TableSchemaView schemaMgr;
+    private final SchemaRegistry schemaReg;
 
     /**
      * Constructor.
      *
-     * @param schemaMgr Schema manager.
+     * @param schemaReg Schema manager.
      */
-    public TupleMarshallerImpl(TableSchemaView schemaMgr) {
-        this.schemaMgr = schemaMgr;
+    public TupleMarshallerImpl(SchemaRegistry schemaReg) {
+        this.schemaReg = schemaReg;
     }
 
     /** {@inheritDoc} */
@@ -51,10 +57,10 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /** {@inheritDoc} */
-    @Override public Row marshal(Tuple keyTuple, Tuple valTuple) {
-        final SchemaDescriptor schema = schemaMgr.schema();
+    @Override public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
+        final SchemaDescriptor schema = schemaReg.schema();
 
-        assert keyTuple instanceof TupleBuilderImpl;
+        validate(keyTuple, schema.keyColumns());
 
         final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
 
@@ -65,6 +71,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         if (valTuple != null) {
+            validate(valTuple, schema.valueColumns());
+
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);
 
@@ -73,6 +81,21 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         return new Row(schema, new ByteBufferRow(rowBuilder.build()));
+    }
+
+    /** */
+    private void validate(Tuple tuple, Columns columns) {
+        if (tuple instanceof TupleBuilderImpl) {
+            TupleBuilderImpl t0 = (TupleBuilderImpl)tuple;
+
+            SchemaDescriptor expSchema = schemaReg.schema(t0.schema().version());
+
+            if (!Objects.equals(t0.schema(), expSchema))
+                throw new SchemaMismatchException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
+        }
+        else {
+            Arrays.stream(columns.columns()).forEach(c -> c.validate(tuple.value(c.name())));
+        }
     }
 
     /**
@@ -84,7 +107,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     private RowAssembler createAssembler(SchemaDescriptor schema, Tuple keyTuple, Tuple valTuple) {
         final ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyTuple);
-        final ObjectStatistic valStat = collectObjectStats(schema.keyColumns(), valTuple);
+        final ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valTuple);
 
         int size = RowAssembler.rowSize(
             schema.keyColumns(), keyStat.nonNullCols, keyStat.nonNullColsSize,
@@ -99,7 +122,15 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param rowAsm Row assembler.
      */
     private void writeColumn(Tuple tup, Column col, RowAssembler rowAsm) {
-        if (tup.value(col.name()) == null) {
+        Object val;
+
+        if (!tup.contains(col.name()))
+            val = col.defaultValue();
+        else {
+            val = tup.value(col.name());
+        }
+
+        if (val == null) {
             rowAsm.appendNull();
 
             return;
@@ -107,52 +138,52 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         switch (col.type().spec()) {
             case BYTE: {
-                rowAsm.appendByte(tup.byteValue(col.name()));
+                rowAsm.appendByte((byte)val);
 
                 break;
             }
             case SHORT: {
-                rowAsm.appendShort(tup.shortValue(col.name()));
+                rowAsm.appendShort((short)val);
 
                 break;
             }
             case INTEGER: {
-                rowAsm.appendInt(tup.intValue(col.name()));
+                rowAsm.appendInt((int)val);
 
                 break;
             }
             case LONG: {
-                rowAsm.appendLong(tup.longValue(col.name()));
+                rowAsm.appendLong((long)val);
 
                 break;
             }
             case FLOAT: {
-                rowAsm.appendFloat(tup.floatValue(col.name()));
+                rowAsm.appendFloat((float)val);
 
                 break;
             }
             case DOUBLE: {
-                rowAsm.appendDouble(tup.doubleValue(col.name()));
+                rowAsm.appendDouble((double)val);
 
                 break;
             }
             case UUID: {
-                rowAsm.appendUuid(tup.value(col.name()));
+                rowAsm.appendUuid((UUID)val);
 
                 break;
             }
             case STRING: {
-                rowAsm.appendString(tup.stringValue(col.name()));
+                rowAsm.appendString((String)val);
 
                 break;
             }
             case BYTES: {
-                rowAsm.appendBytes(tup.value(col.name()));
+                rowAsm.appendBytes((byte[])val);
 
                 break;
             }
             case BITMASK: {
-                rowAsm.appendBitmask(tup.value(col.name()));
+                rowAsm.appendBitmask((BitSet)val);
 
                 break;
             }
@@ -176,7 +207,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         int size = 0;
 
         for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
-            final Object val = tup.value(cols.column(i).name());
+            Column col = cols.column(i);
+
+            final Object val = tup.contains(col.name()) ? tup.value(col.name()) : col.defaultValue();
 
             if (val == null || cols.column(i).type().spec().fixedLength())
                 continue;

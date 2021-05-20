@@ -17,6 +17,8 @@
 
 package org.apache.ignite.table;
 
+import java.util.BitSet;
+import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 
 /**
@@ -25,6 +27,13 @@ import org.apache.ignite.binary.BinaryObject;
  * Provides specialized method for some value-types to avoid boxing/unboxing.
  */
 public interface Tuple {
+    /**
+     * Returns {@code true} if this tuple contains a column with the specified name.
+     *
+     * @return {@code true} if this tuple contains a column with the specified name. Otherwise returns {@code false}.
+     */
+    boolean contains(String colName);
+
     /**
      * Gets column value for given column name.
      *
@@ -97,4 +106,20 @@ public interface Tuple {
      * @return Column value.
      */
     String stringValue(String colName);
+
+    /**
+     * Gets {@code UUID} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    UUID uuidValue(String colName);
+
+    /**
+     * Gets {@code BitSet} column value.
+     *
+     * @param colName Column name.
+     * @return Column value.
+     */
+    BitSet bitmaskValue(String colName);
 }

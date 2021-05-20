@@ -20,6 +20,9 @@ package org.apache.ignite.internal.schema;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -30,12 +33,12 @@ public class ColumnTest {
      *
      */
     @Test
-    public void testCompareColumns() {
+    public void compareColumns() {
         Column[] cols = new Column[] {
-            new Column("C", NativeType.BYTES, false),
-            new Column("B", NativeType.INTEGER, false),
-            new Column("AD", NativeType.STRING, false),
-            new Column("AA", NativeType.STRING, false),
+            new Column("C", BYTES, false),
+            new Column("B", INTEGER, false),
+            new Column("AD", STRING, false),
+            new Column("AA", STRING, false),
         };
 
         Arrays.sort(cols);
