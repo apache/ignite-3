@@ -38,6 +38,13 @@ public interface RaftServer {
     ClusterService clusterService();
 
     /**
+     * Returns a path to server persince directory for a raft group.
+     * @param groupId Group id.
+     * @return The path.
+     */
+    String getServerDataPath(String groupId);
+
+    /**
      * Starts a raft group on this cluster node.
      * @param groupId Group id.
      * @param lsnr The listener.

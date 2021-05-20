@@ -18,8 +18,11 @@
 package org.apache.ignite.raft.server;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -89,6 +92,27 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
 
         // The client for group 1.
         client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 10_000, peers, false, 200, false);
+    }
+
+    @Test
+    public void testCreateSnapshot() throws Exception {
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        RaftServer server = servers.get(0);
+
+        String path = server.getServerDataPath(COUNTER_GROUP_ID_0);
+
+        String snapshotDir = path + File.separator + "snapshot";
+
+        List<Path> files = Files.list(new File(snapshotDir).toPath()).collect(Collectors.toList());
+
+        assertTrue(!files.isEmpty());
+    }
+
+    @Test
+    public void testCreateSnapshotFailure() {
+
     }
 
     @Test

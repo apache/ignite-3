@@ -17,17 +17,28 @@
 
 package org.apache.ignite.raft.server;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.jraft.counter.snapshot.CounterSnapshotFile;
+import org.apache.ignite.raft.jraft.util.Utils;
 
-/** */
+/**
+ * TODO asch support for batch updates.
+ */
 public class CounterCommandListener implements RaftGroupCommandListener {
     /** */
-    private AtomicInteger counter = new AtomicInteger();
+    private static final IgniteLogger LOG = IgniteLogger.forClass(CounterCommandListener.class);
+
+    /** */
+    private AtomicLong counter = new AtomicLong();
 
     /** {@inheritDoc} */
     @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
@@ -48,6 +59,31 @@ public class CounterCommandListener implements RaftGroupCommandListener {
             IncrementAndGetCommand cmd0 = (IncrementAndGetCommand) clo.command();
 
             clo.result(counter.addAndGet(cmd0.delta()));
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
+        final long currVal = this.counter.get();
+        Utils.runInThread(() -> {
+            final CounterSnapshotFile snapshot = new CounterSnapshotFile(path + File.separator + "data");
+            if (snapshot.save(currVal))
+                doneClo.accept(Boolean.TRUE);
+            else
+                doneClo.accept(Boolean.FALSE);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean onSnapshotLoad(String path) {
+        final CounterSnapshotFile snapshot = new CounterSnapshotFile(path + File.separator + "data");
+        try {
+            this.counter.set(snapshot.load());
+            return true;
+        }
+        catch (final IOException e) {
+            LOG.error("Fail to load snapshot from {}", snapshot.getPath());
+            return false;
         }
     }
 }

@@ -31,13 +31,9 @@ import org.slf4j.LoggerFactory;
 /**
  * State machine adapter that implements all methods with default behavior
  * except {@link #onApply(Iterator)}.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-30 10:32:27 AM
  */
 public abstract class StateMachineAdapter implements StateMachine {
-
+    /** The logger */
     private static final Logger LOG = LoggerFactory.getLogger(StateMachineAdapter.class);
 
     @Override

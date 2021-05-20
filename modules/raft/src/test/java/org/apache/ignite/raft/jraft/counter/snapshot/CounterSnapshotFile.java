@@ -16,22 +16,17 @@
  */
 package org.apache.ignite.raft.jraft.counter.snapshot;
 
-import org.apache.ignite.raft.jraft.util.StringUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Counter snapshot file.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 5:14:55 PM
  */
 public class CounterSnapshotFile {
-
     private static final Logger LOG = LoggerFactory.getLogger(CounterSnapshotFile.class);
 
     private String path;

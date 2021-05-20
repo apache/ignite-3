@@ -2,10 +2,10 @@ package org.apache.ignite.raft.server.impl;
 
 import java.io.File;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
@@ -37,12 +37,15 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
+/** */
 public class JRaftServerImpl implements RaftServer {
     private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftServerImpl.class);
 
@@ -57,6 +60,12 @@ public class JRaftServerImpl implements RaftServer {
 
     private final NodeManager nodeManager;
 
+    /**
+     * @param service Cluster service.
+     * @param dataPath Data path.
+     * @param factory The factory.
+     * @param reuse {@code True} to reuse cluster service (do not manage lifecyle)
+     */
     public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessageFactory factory, boolean reuse) {
         this.service = service;
         this.reuse = reuse;
@@ -150,7 +159,7 @@ public class JRaftServerImpl implements RaftServer {
                         });
                     }
                     else {
-                        // TODO asch remove copy paste.
+                        // TODO asch remove copy paste, batching.
                         DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
                         try {
@@ -177,10 +186,24 @@ public class JRaftServerImpl implements RaftServer {
         rpcServer.init(null);
     }
 
+    /** {@inheritDoc} */
     @Override public ClusterService clusterService() {
         return service;
     }
 
+    /**
+     * @param groupId Group id.
+     * @return The path to persistence folder.
+     */
+    @Override public String getServerDataPath(String groupId) {
+        ClusterNode clusterNode = service.topologyService().localMember();
+
+        Endpoint endpoint = new Endpoint(clusterNode.host(), clusterNode.port());
+
+        return this.dataPath + File.separator + groupId + "_" + endpoint.toString().replace(':', '_');
+    }
+
+    /** {@inheritDoc} */
     @Override public synchronized boolean startRaftNode(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId))
             return false;
@@ -188,10 +211,9 @@ public class JRaftServerImpl implements RaftServer {
         final NodeOptions nodeOptions = new NodeOptions();
 
         ClusterNode clusterNode = service.topologyService().localMember();
-
         Endpoint endpoint = new Endpoint(clusterNode.host(), clusterNode.port());
 
-        final String serverDataPath = this.dataPath + File.separator + groupId + "_" + endpoint.toString().replace(':', '_');
+        final String serverDataPath = getServerDataPath(groupId);
         new File(serverDataPath).mkdirs();
 
         nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
@@ -222,6 +244,7 @@ public class JRaftServerImpl implements RaftServer {
         return true;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean stopRaftNode(String groupId) {
         RaftGroupService svc = groups.remove(groupId);
 
@@ -233,6 +256,7 @@ public class JRaftServerImpl implements RaftServer {
         return stopped;
     }
 
+    /** {@inheritDoc} */
     @Override public void shutdown() throws Exception {
         for (RaftGroupService groupService : groups.values())
             groupService.shutdown();
@@ -244,10 +268,14 @@ public class JRaftServerImpl implements RaftServer {
     private static class DelegatingStateMachine extends StateMachineAdapter {
         private final RaftGroupCommandListener listener;
 
+        /**
+         * @param listener The listener.
+         */
         DelegatingStateMachine(RaftGroupCommandListener listener) {
             this.listener = listener;
         }
 
+        /** {@inheritDoc} */
         @Override public void onApply(Iterator iter) {
             try {
                 listener.onWrite(new java.util.Iterator<CommandClosure<WriteCommand>>() {
@@ -282,6 +310,25 @@ public class JRaftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
             }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void onSnapshotSave(SnapshotWriter writer, Closure done) {
+            listener.onSnapshotSave(writer.getPath(), new Consumer<Boolean>() {
+                @Override public void accept(Boolean res) {
+                    if (res == Boolean.TRUE) {
+                        done.run(Status.OK());
+                    }
+                    else {
+                        done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s", writer.getPath()));
+                    }
+                }
+            });
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean onSnapshotLoad(SnapshotReader reader) {
+            return listener.onSnapshotLoad(reader.getPath());
         }
     }
 
@@ -332,7 +379,7 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** */
-    private abstract class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
+    private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
         private final T command;
 
         CommandClosureImpl(T command) {

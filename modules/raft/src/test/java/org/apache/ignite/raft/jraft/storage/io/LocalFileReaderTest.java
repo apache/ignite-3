@@ -44,8 +44,9 @@ public class LocalFileReaderTest extends BaseStorageTest {
         try {
             this.fileReader.readFile(bufRef, "unfound", 0, 1024);
             fail();
-        } catch (final FileNotFoundException e) {
-
+        }
+        catch (final FileNotFoundException e) {
+            // Ignored.
         }
 
         final String data = writeData();

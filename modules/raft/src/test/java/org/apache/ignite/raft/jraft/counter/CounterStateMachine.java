@@ -41,17 +41,17 @@ import static org.apache.ignite.raft.jraft.counter.CounterOperation.INCREMENT;
  * Counter state machine.
  *
  * @author boyan (boyan@alibaba-inc.com)
- *
+ * <p>
  * 2018-Apr-09 4:52:31 PM
  */
 public class CounterStateMachine extends StateMachineAdapter {
 
-    private static final Logger LOG        = LoggerFactory.getLogger(CounterStateMachine.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CounterStateMachine.class);
 
     /**
      * Counter value
      */
-    private final AtomicLong value      = new AtomicLong(0);
+    private final AtomicLong value = new AtomicLong(0);
     /**
      * Leader term
      */
@@ -113,21 +113,21 @@ public class CounterStateMachine extends StateMachineAdapter {
     }
 
     @Override
-  public void onSnapshotSave(final SnapshotWriter writer, final Closure done) {
-    final long currVal = this.value.get();
-    Utils.runInThread(() -> {
-      final CounterSnapshotFile snapshot = new CounterSnapshotFile(writer.getPath() + File.separator + "data");
-      if (snapshot.save(currVal)) {
-        if (writer.addFile("data")) {
-          done.run(Status.OK());
-        } else {
-          done.run(new Status(RaftError.EIO, "Fail to add file to writer"));
-        }
-      } else {
-        done.run(new Status(RaftError.EIO, "Fail to save counter snapshot %s", snapshot.getPath()));
-      }
-    });
-  }
+    public void onSnapshotSave(final SnapshotWriter writer, final Closure done) {
+        final long currVal = this.value.get();
+        Utils.runInThread(() -> {
+            final CounterSnapshotFile snapshot = new CounterSnapshotFile(writer.getPath() + File.separator + "data");
+            if (snapshot.save(currVal)) {
+                if (writer.addFile("data")) {
+                    done.run(Status.OK());
+                } else {
+                    done.run(new Status(RaftError.EIO, "Fail to add file to writer"));
+                }
+            } else {
+                done.run(new Status(RaftError.EIO, "Fail to save counter snapshot %s", snapshot.getPath()));
+            }
+        });
+    }
 
     @Override
     public void onError(final RaftException e) {

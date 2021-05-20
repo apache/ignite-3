@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -37,6 +39,9 @@ import org.jetbrains.annotations.NotNull;
  * Partition command handler.
  */
 public class PartitionCommandListener implements RaftGroupCommandListener {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(PartitionCommandListener.class);
+
     /** Storage. */
     private ConcurrentHashMap<KeyWrapper, BinaryRow> storage = new ConcurrentHashMap<>();
 
@@ -162,5 +167,17 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
         @Override public int hashCode() {
             return hash;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
+        LOG.warn("onSnapshotSave is not implemented");
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean onSnapshotLoad(String path) {
+        LOG.warn("onSnapshotLoad is not implemented");
+
+        return false;
     }
 }

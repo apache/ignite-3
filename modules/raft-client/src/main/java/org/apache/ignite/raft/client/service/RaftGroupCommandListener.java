@@ -18,6 +18,7 @@
 package org.apache.ignite.raft.client.service;
 
 import java.util.Iterator;
+import java.util.function.Consumer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 
@@ -34,4 +35,18 @@ public interface RaftGroupCommandListener {
      * @param iterator Write command iterator.
      */
     void onWrite(Iterator<CommandClosure<WriteCommand>> iterator);
+
+    /**
+     * The callback to save current snapshot.
+     * @param path Snapshot directory to store data.
+     * @param doneClo The closure to call on finish. Pass TRUE if snapshot was taken normally, FALSE otherwise.
+     */
+    public void onSnapshotSave(String path, Consumer<Boolean> doneClo);
+
+    /**
+     * The callback to load a snapshot.
+     * @param path Snapshot directory.
+     * @return {@code True} if the snapshot was saved successfully.
+     */
+    boolean onSnapshotLoad(String path);
 }

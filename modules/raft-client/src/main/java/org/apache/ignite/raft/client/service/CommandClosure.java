@@ -30,8 +30,8 @@ public interface CommandClosure<R extends Command> {
     R command();
 
     /**
-     * Success outcome.
-     * @param res The result.
+     * Must be called after a command is processed in expected way.
+     * @param res Exection outcome.
      */
     void result(Object res);
 }

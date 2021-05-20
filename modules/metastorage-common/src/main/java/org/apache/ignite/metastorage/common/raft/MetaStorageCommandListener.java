@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -285,5 +286,17 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
                 throw e;
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
+        LOG.warn("onSnapshotSave is not implemented");
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean onSnapshotLoad(String path) {
+        LOG.warn("onSnapshotLoad is not implemented");
+
+        return false;
     }
 }
