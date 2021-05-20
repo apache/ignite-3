@@ -58,7 +58,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
-        final SchemaDescriptor schema = schemaMgr.schema();
+        final SchemaDescriptor schema = schemaReg.schema();
 
         validate(keyTuple, schema.keyColumns());
 
@@ -88,7 +88,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         if (tuple instanceof TupleBuilderImpl) {
             TupleBuilderImpl t0 = (TupleBuilderImpl)tuple;
 
-            SchemaDescriptor expSchema = schemaMgr.schema(t0.schema().version());
+            SchemaDescriptor expSchema = schemaReg.schema(t0.schema().version());
 
             if (!Objects.equals(t0.schema(), expSchema))
                 throw new SchemaMismatchException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
