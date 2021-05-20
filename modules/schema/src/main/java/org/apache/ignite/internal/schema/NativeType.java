@@ -17,18 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.BitSet;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.ColumnType;
 import org.jetbrains.annotations.NotNull;
-
-import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
-import static org.apache.ignite.internal.schema.NativeTypes.LONG;
-import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
