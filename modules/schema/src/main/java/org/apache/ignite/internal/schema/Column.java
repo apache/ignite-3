@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class Column implements Comparable<Column> {
     /** Default return NULL. */
-    private static final Supplier<Object> NULL_DEFAULT_SUPPLUER = () -> null;
+    private static final Supplier<Object> NULL_DEFAULT_SUPPLIER = () -> null;
 
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
@@ -64,7 +64,7 @@ public class Column implements Comparable<Column> {
         NativeType type,
         boolean nullable
     ) {
-        this(-1, name, type, nullable, NULL_DEFAULT_SUPPLUER);
+        this(-1, name, type, nullable, NULL_DEFAULT_SUPPLIER);
     }
 
     /**
