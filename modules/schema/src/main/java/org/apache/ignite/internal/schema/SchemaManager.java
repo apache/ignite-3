@@ -271,9 +271,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             case "bitmask":
                 return NativeTypes.bitmaskOf(type.length());
             case "string":
-                return NativeTypes.STRING;
+                return NativeTypes.stringOf(type.length());
             case "bytes":
-                return NativeTypes.BYTES;
+                return NativeTypes.blobOf(type.length());
 
             default:
                 throw new IllegalStateException("Unsupported column type: " + type.type());
