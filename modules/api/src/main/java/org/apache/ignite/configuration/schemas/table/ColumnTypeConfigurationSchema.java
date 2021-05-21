@@ -33,9 +33,9 @@ public class ColumnTypeConfigurationSchema {
 
     /** Precision. */
     @Value(hasDefault = true)
-    int precision = 0;
+    public int precision = 0;
 
     /** Scale. */
     @Value(hasDefault = true)
-    int scale = 0;
+    public int scale = 0;
 }
