@@ -32,6 +32,7 @@ import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.TableIndex;
 import org.apache.ignite.schema.builder.SchemaTableBuilder;
 
@@ -108,7 +109,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
 
         validateIndices(indices.values(), columns.values());
 
-        assert columns.size() > ((PrimaryIndex)indices.get(PRIMARY_KEY_INDEX_NAME)).columns().size() : "Key or/and value columns was not defined.";
+        assert columns.size() > ((SortedIndex)indices.get(PRIMARY_KEY_INDEX_NAME)).columns().size() : "Key or/and value columns was not defined.";
 
         return new SchemaTableImpl(
             schemaName,
