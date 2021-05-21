@@ -171,7 +171,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public CompletableFuture<Boolean> initSchemaForTable(final UUID tblId, String tblName) {
         return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
             thenCompose(entry -> {
-                TableConfiguration tblConfig = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
+                TableConfiguration tblConfig = waitForTableConfiguration(tblName);
 
                 assert entry.empty();
 
@@ -191,7 +191,20 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             });
     }
 
-    /**
+    private TableConfiguration waitForTableConfiguration(String tblName) {
+        while (configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName) == null) {
+            try {
+                System.out.println(">>>");
+                Thread.sleep(10);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
+    }
+            /**
      * Return table schema of certain version from history.
      *
      * @param tblId Table id.
