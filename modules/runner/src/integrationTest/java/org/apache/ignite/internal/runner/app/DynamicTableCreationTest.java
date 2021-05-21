@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Ignition interface tests.
@@ -92,7 +93,7 @@ class DynamicTableCreationTest {
             .changePartitions(10)
             .changeColumns(cols -> cols
                 .create("key", c -> c.changeName("key").changeNullable(false).changeType(t -> t.changeType("INT64")))
-                .create("val", c -> c.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT64")))
+                .create("val", c -> c.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")))
             )
             .changeIndices(idxs -> idxs
                 .create("PK", idx -> idx
@@ -118,8 +119,10 @@ class DynamicTableCreationTest {
         final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
         final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
-        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("key"));
-        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
+        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
 
         assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val"));
         assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
@@ -180,13 +183,13 @@ class DynamicTableCreationTest {
         KeyValueBinaryView kvView2 = tbl2.kvView();
 
         final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", uuid).set("affKey", 42L).build();
-        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", uuid2).set("affKey", 4242L).build();
+        final Tuple keyTuple2 = tbl2.tupleBuilder().set("key", uuid2).set("affKey", 4242L).build();
 
         // KV view must NOT return key columns in value.
-        assertNull(kvView2.get(keyTuple1).value("key"));
-        assertNull(kvView2.get(keyTuple1).value("affKey"));
-        assertNull(kvView2.get(keyTuple2).value("key"));
-        assertNull(kvView2.get(keyTuple2).value("affKey"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple1).value("affKey"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("key"));
+        assertThrows(IllegalArgumentException.class, () -> kvView2.get(keyTuple2).value("affKey"));
 
         // Record binary view MUST return key columns in value.
         assertEquals(uuid, tbl2.get(keyTuple1).value("key"));
