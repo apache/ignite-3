@@ -171,7 +171,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public CompletableFuture<Boolean> initSchemaForTable(final UUID tblId, String tblName) {
         return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
             thenCompose(entry -> {
-                TableConfiguration tblConfig = waitForTableConfiguration(tblName);
+                TableConfiguration tblConfig = configurationMgr.configurationRegistry().
+                    getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
 
                 assert entry.empty();
 
@@ -191,26 +192,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             });
     }
 
-    // TODO: 21.05.21 https://issues.apache.org/jira/browse/IGNITE-14756 tmp, should be removed.
     /**
-     * Checks whether tbl configuration is available and returns it.
-     *
-     * @param tblName Table name.
-     * @return Table configuration.
-     */
-    private TableConfiguration waitForTableConfiguration(String tblName) {
-        while (configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName) == null) {
-            try {
-                Thread.sleep(10);
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
-    }
-            /**
      * Return table schema of certain version from history.
      *
      * @param tblId Table id.
