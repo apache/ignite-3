@@ -85,6 +85,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
+     * @param defValSup Default value supplier.
      */
     Column(
         int schemaIndex,
@@ -172,6 +173,7 @@ public class Column implements Comparable<Column>, Serializable {
 
     /**
      * Validate the object by column's constraint.
+     * @param val Object to validate.
      */
     public void validate(Object val) {
         if (val == null && !nullable) {

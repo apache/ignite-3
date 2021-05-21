@@ -43,10 +43,11 @@ public class SchemaDescriptor implements Serializable {
     /** Value columns in serialization order. */
     private final Columns valCols;
 
-    /** Mapping 'Column name' -> Column. */
+    /** Mapping 'Column name' to Column. */
     private final Map<String, Column> colMap;
 
     /**
+     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
@@ -56,6 +57,7 @@ public class SchemaDescriptor implements Serializable {
     }
 
     /**
+     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param affCols Affinity column names.

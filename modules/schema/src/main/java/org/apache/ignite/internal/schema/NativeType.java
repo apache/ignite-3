@@ -79,7 +79,12 @@ public class NativeType implements Comparable<NativeType>, Serializable {
         return typeSpec;
     }
 
-    /** */
+    /**
+     * Checks type mismatch.
+     *
+     * @param type Native type.
+     * @return {@code true} if type or typeSpec doesn't match given one, {@code false} otherwise.
+     */
     public boolean mismatch(@NotNull NativeType type) {
         return this != type && typeSpec != type.typeSpec;
     }
