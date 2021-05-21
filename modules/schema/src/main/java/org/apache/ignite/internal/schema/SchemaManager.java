@@ -191,6 +191,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             });
     }
 
+    // TODO: 21.05.21 https://issues.apache.org/jira/browse/IGNITE-14756 tmp, should be removed.
     /**
      * Checks whether tbl configuration is available and returns it.
      *
