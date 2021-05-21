@@ -422,7 +422,7 @@ public class BytecodeBlock
         return this;
     }
 
-    public BytecodeBlock invokeDynamic(String name,
+    public BytecodeNode invokeDynamic(String name,
         ParameterizedType returnType,
         Collection<ParameterizedType> parameterTypes,
         Method bootstrapMethod,
