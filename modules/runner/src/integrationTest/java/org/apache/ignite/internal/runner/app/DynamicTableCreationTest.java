@@ -28,6 +28,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /**
  * Ignition interface tests.
  */
-//@Disabled("https://issues.apache.org/jira/browse/IGNITE-14389")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class DynamicTableCreationTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);

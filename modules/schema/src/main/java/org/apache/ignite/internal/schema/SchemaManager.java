@@ -191,10 +191,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             });
     }
 
+    /**
+     * Checks whether tbl configuration is available and returns it.
+     *
+     * @param tblName Table name.
+     * @return Table configuration.
+     */
     private TableConfiguration waitForTableConfiguration(String tblName) {
         while (configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName) == null) {
             try {
-                System.out.println(">>>");
                 Thread.sleep(10);
             }
             catch (InterruptedException e) {
