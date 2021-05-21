@@ -40,5 +40,5 @@ public class ColumnConfigurationSchema {
 
     /** Default value. */
     @Value(hasDefault = true)
-    String defaultValue = "";
+    public String defaultValue = "";
 }

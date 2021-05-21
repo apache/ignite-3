@@ -29,7 +29,7 @@ public class ColumnTypeConfigurationSchema {
 
     /** Length. */
     @Value(hasDefault = true)
-    int length = 0;
+    public int length = 0;
 
     /** Precision. */
     @Value(hasDefault = true)

@@ -129,8 +129,6 @@ public class Processor extends AbstractProcessor {
                 .addModifiers(PUBLIC);
 
             for (VariableElement field : fields) {
-                assert field.getModifiers().contains(PUBLIC) : clazz.getQualifiedName() + "#" + field.getSimpleName();
-
                 Element fieldTypeElement = processingEnv.getTypeUtils().asElement(field.asType());
 
                 // Get original field type (must be another configuration schema or "primitive" like String or long)
@@ -171,6 +169,9 @@ public class Processor extends AbstractProcessor {
                                 "aforementioned type."
                         );
                     }
+
+                    if (valueAnnotation.hasDefault() && !field.getModifiers().contains(PUBLIC))
+                        throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
                 }
 
                 createGetters(configurationInterfaceBuilder, fieldName, interfaceGetMethodType);
