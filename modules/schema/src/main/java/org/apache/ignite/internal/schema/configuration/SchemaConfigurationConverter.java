@@ -392,7 +392,7 @@ public class SchemaConfigurationConverter {
      * @return TablesChange to get result from.
      */
     public static TablesChange createTable(SchemaTable tbl, TablesChange tblsChange) {
-        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg ->  convert(tbl, tblChg)));
+        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg -> convert(tbl, tblChg)));
     }
 
     /**

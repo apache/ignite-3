@@ -23,8 +23,6 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.builder.TableColumnBuilder;
 import org.junit.jupiter.api.Test;
 
-import javax.swing.table.TableColumn;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 

@@ -34,7 +34,7 @@ import java.util.Collection;
  * SchemaTable validator implementation.
  */
 public class SchemaTableValidatorImpl implements Validator<TableValidator, NamedListView<TableView>> {
-    public final static SchemaTableValidatorImpl INSTANCE = new SchemaTableValidatorImpl();
+    public static final SchemaTableValidatorImpl INSTANCE = new SchemaTableValidatorImpl();
 
     /** {@inheritDoc} */
     @Override public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
