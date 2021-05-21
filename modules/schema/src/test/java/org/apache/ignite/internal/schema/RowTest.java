@@ -251,7 +251,7 @@ public class RowTest {
     }
 
     /**
-     * Validates row values after serialization-deserialization.
+     * Validates row values after serialization-then-deserialization.
      *
      * @param schema Row schema.
      * @param vals Row values.
@@ -371,7 +371,7 @@ public class RowTest {
     }
 
     /**
-     * Suffle columns.
+     * Shuffle columns.
      */
     private void shuffle(Column[] cols) {
         Collections.shuffle(Arrays.asList(cols));
