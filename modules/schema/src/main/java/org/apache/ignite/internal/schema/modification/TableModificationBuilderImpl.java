@@ -58,7 +58,7 @@ public class TableModificationBuilderImpl implements TableModificationBuilder {
 
     /** {@inheritDoc} */
     @Override public AlterColumnBuilder alterColumn(String columnName) {
-        return new AlterColumnBuilderImpl(this, columnName);
+        return new AlterColumnBuilderImpl(this);
     }
 
     /** {@inheritDoc} */
