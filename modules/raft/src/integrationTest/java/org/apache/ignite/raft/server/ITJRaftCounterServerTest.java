@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -107,6 +108,10 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
 
         String snapshotDir = path + File.separator + "snapshot";
 
+        long val = applyIncrements(client1, 0, 10);
+
+        assertEquals(sum(10), val);
+
         client1.snapshot(peer0).get();
 
         List<Path> files = Files.list(new File(snapshotDir).toPath()).collect(Collectors.toList());
@@ -164,5 +169,32 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
         client2.shutdown();
 
         assertTrue(Utils.delete(new File(this.dataPath)));
+    }
+
+    /**
+     * @param client The client
+     * @param start Start element.
+     * @param count The count.
+     * @return The counter value.
+     * @throws Exception If failed.
+     */
+    private long applyIncrements(RaftGroupService client, int start, int count) throws Exception {
+        long val = 0;
+
+        for (int i = start; i < start + count; i++) {
+            val = client.<Long>run(new IncrementAndGetCommand(i)).get();
+        }
+
+        return val;
+    }
+
+    /**
+     * Calculates a progresion sum.
+     *
+     * @param until Until value.
+     * @return The sum.
+     */
+    public long sum(long until) {
+        return (1 + until) / 2 * (until - 1);
     }
 }
