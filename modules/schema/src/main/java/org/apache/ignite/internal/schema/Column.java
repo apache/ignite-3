@@ -29,9 +29,6 @@ import org.jetbrains.annotations.NotNull;
  * flag is not taken into account when columns are compared.
  */
 public class Column implements Comparable<Column>, Serializable {
-   // /** {@code Null} value supplier. */
-   // private final Supplier<Object> NULL_DEFAULT_SUPPLIER = (Supplier<Object> & Serializable)() -> null;
-
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
 
