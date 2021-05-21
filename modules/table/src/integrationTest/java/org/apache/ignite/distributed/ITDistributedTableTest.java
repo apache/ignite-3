@@ -153,7 +153,7 @@ public class ITDistributedTableTest {
 
         List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        partSrv.startRaftNode(grpId, new PartitionCommandListener(), conf);
+        partSrv.startRaftGroup(grpId, new PartitionCommandListener(), conf);
 
         RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true);
 
@@ -223,7 +223,7 @@ public class ITDistributedTableTest {
 
             List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
-            rs.startRaftNode(grpId, new PartitionCommandListener(), conf);
+            rs.startRaftGroup(grpId, new PartitionCommandListener(), conf);
 
             partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true));
 

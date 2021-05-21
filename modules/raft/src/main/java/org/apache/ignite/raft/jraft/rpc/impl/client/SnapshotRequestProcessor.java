@@ -17,9 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl.client;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
-import org.apache.ignite.raft.client.message.GetLeaderRequest;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.message.SnapshotRequest;
@@ -27,8 +25,6 @@ import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 
@@ -58,8 +54,9 @@ public class SnapshotRequestProcessor implements RpcProcessor<SnapshotRequest> {
             @Override public void run(Status status) {
                 RaftErrorResponse.Builder resp = factory.raftErrorResponse();
 
-                if (!status.isOk())
-                    resp.errorCode(RaftErrorCode.IOERROR);
+                if (!status.isOk()) {
+                    resp.errorCode(RaftErrorCode.SNAPSHOT).errorMessage(status.getErrorMsg());
+                }
 
                 rpcCtx.sendResponse(resp.build());
             }

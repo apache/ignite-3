@@ -33,6 +33,11 @@ public interface RaftErrorResponse extends NetworkMessage, Serializable {
     public RaftErrorCode errorCode();
 
     /**
+     * @return Error message.
+     */
+    public String errorMessage();
+
+    /**
      * @return The new leader if a current leader is obsolete or null if not applicable.
      */
     public @Nullable Peer newLeader(); // TODO asch use String addr
@@ -44,6 +49,12 @@ public interface RaftErrorResponse extends NetworkMessage, Serializable {
          * @return The builder.
          */
         Builder errorCode(RaftErrorCode errorCode);
+
+        /**
+         * @param errorMsg Error message.
+         * @return The builder.
+         */
+        Builder errorMessage(String errorMsg);
 
         /**
          * @param newLeader New leader.

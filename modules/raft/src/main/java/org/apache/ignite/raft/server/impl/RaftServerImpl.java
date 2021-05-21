@@ -41,6 +41,7 @@ import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
 import org.apache.ignite.raft.server.RaftServer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A single node server implementation.
@@ -146,7 +147,7 @@ public class RaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
         if (listeners.containsKey(groupId))
             return false;
 
@@ -156,8 +157,13 @@ public class RaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean stopRaftNode(String groupId) {
+    @Override public synchronized boolean stopRaftGroup(String groupId) {
         return listeners.remove(groupId) != null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @Nullable Peer localPeer(String groupId) {
+        return new Peer(service.topologyService().localMember().address());
     }
 
     /** {@inheritDoc} */

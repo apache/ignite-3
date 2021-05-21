@@ -87,7 +87,7 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftNode(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId))
             return false;
 
@@ -128,7 +128,7 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean stopRaftNode(String groupId) {
+    @Override public boolean stopRaftGroup(String groupId) {
         RaftGroupService svc = groups.remove(groupId);
 
         boolean stopped = svc != null;
@@ -137,6 +137,26 @@ public class JRaftServerImpl implements RaftServer {
             svc.shutdown();
 
         return stopped;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Peer localPeer(String groupId) {
+        RaftGroupService service = groups.get(groupId);
+
+        if (service == null)
+            return null;
+
+        PeerId peerId = service.getRaftNode().getNodeId().getPeerId();
+
+        return new Peer(peerId.getEndpoint().toString(), peerId.getPriority());
+    }
+
+    /**
+     * @param groupId Group id.
+     * @return Service group.
+     */
+    public RaftGroupService raftGroupService(String groupId) {
+        return groups.get(groupId);
     }
 
     /** {@inheritDoc} */
@@ -201,16 +221,21 @@ public class JRaftServerImpl implements RaftServer {
 
         /** {@inheritDoc} */
         @Override public void onSnapshotSave(SnapshotWriter writer, Closure done) {
-            listener.onSnapshotSave(writer.getPath(), new Consumer<Boolean>() {
-                @Override public void accept(Boolean res) {
-                    if (res == Boolean.TRUE) {
-                        done.run(Status.OK());
+            try {
+                listener.onSnapshotSave(writer.getPath(), new Consumer<Boolean>() {
+                    @Override public void accept(Boolean res) {
+                        if (res == Boolean.TRUE) {
+                            done.run(Status.OK());
+                        }
+                        else {
+                            done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s", writer.getPath()));
+                        }
                     }
-                    else {
-                        done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s", writer.getPath()));
-                    }
-                }
-            });
+                });
+            }
+            catch (Exception e) {
+                done.run(new Status(RaftError.EIO, "Fail to save snapshot %s", e.getMessage()));
+            }
         }
 
         /** {@inheritDoc} */

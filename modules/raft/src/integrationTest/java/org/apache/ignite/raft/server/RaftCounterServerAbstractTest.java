@@ -58,53 +58,6 @@ abstract class RaftCounterServerAbstractTest {
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
 
-    /** */
-    protected static final String COUNTER_GROUP_ID_0 = "counter0";
-
-    /** */
-    protected static final String COUNTER_GROUP_ID_1 = "counter1";
-
-    /** */
-    protected RaftGroupService client1;
-
-    /** */
-    protected RaftGroupService client2;
-
-    /**
-     */
-    @Test
-    public void testRefreshLeader() throws Exception {
-        Peer leader = client1.leader();
-
-        assertNull(leader);
-
-        client1.refreshLeader().get();
-
-        assertNotNull(client1.leader());
-    }
-
-    /**
-     * @throws Exception
-     */
-    @Test
-    public void testCounterCommandListener() throws Exception {
-        client1.refreshLeader().get();
-        client2.refreshLeader().get();
-
-        assertNotNull(client1.leader());
-        assertNotNull(client2.leader());
-
-        assertEquals(2, client1.<Integer>run(new IncrementAndGetCommand(2)).get());
-        assertEquals(2, client1.<Integer>run(new GetValueCommand()).get());
-        assertEquals(3, client1.<Integer>run(new IncrementAndGetCommand(1)).get());
-        assertEquals(3, client1.<Integer>run(new GetValueCommand()).get());
-
-        assertEquals(4, client2.<Integer>run(new IncrementAndGetCommand(4)).get());
-        assertEquals(4, client2.<Integer>run(new GetValueCommand()).get());
-        assertEquals(7, client2.<Integer>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(7, client2.<Integer>run(new GetValueCommand()).get());
-    }
-
     /**
      * @param name Node name.
      * @param port Local port.

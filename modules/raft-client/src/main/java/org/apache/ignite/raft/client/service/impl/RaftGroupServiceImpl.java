@@ -22,8 +22,12 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.NetworkMessage;
@@ -54,7 +58,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static org.apache.ignite.raft.client.RaftErrorCode.LEADER_CHANGED;
 import static org.apache.ignite.raft.client.RaftErrorCode.NO_LEADER;
-import static org.apache.ignite.raft.client.RaftErrorCode.SUCCESS;
 
 /**
  * The implementation of {@link RaftGroupService}
@@ -331,9 +334,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public CompletableFuture<Void> snapshot(Peer peer) {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
-        CompletableFuture<?> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
+        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(peer.address(), req, timeout);
 
-        return fut.thenApply(resp -> null);
+        return fut.handle(new BiFunction<NetworkMessage, Throwable, Void>() {
+            @Override public Void apply(NetworkMessage resp, Throwable throwable) {
+                if (resp != null) {
+                    RaftErrorResponse resp0 = (RaftErrorResponse) resp;
+
+                    if (resp0.errorCode() != null)
+                        throw new RaftException(resp0.errorCode(), resp0.errorMessage());
+                }
+
+                return null;
+            }
+        });
     }
 
     /**
@@ -438,7 +452,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                 }
                             }, retryDelay);
                         }
-                        else if (resp0.errorCode().equals(SUCCESS)) { // Handle default response.
+                        else if (resp0.errorCode() == null) { // Handle default response.
                             leader = peer;
 
                             fut.complete(null); // Void response.

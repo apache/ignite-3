@@ -920,7 +920,7 @@ public class ITMetaStorageServiceTest {
         );
 
         metaStorageRaftSrv.
-            startRaftNode(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageCommandListener(keyValStorageMock), peers);
+            startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageCommandListener(keyValStorageMock), peers);
 
         RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
             METASTORAGE_RAFT_GROUP_NAME,

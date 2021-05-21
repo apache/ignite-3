@@ -18,26 +18,26 @@
 package org.apache.ignite.raft.client;
 
 /**
- * Error codes for raft protocol.
+ * Public error codes for raft protocol.
  */
 public enum RaftErrorCode {
     /** */
-    SUCCESS(1000, "Successful"),
-
-    /** */
-    NO_LEADER(1001, "No leader is found within a timeout"),
+    NO_LEADER(1001, "No leader is elected"),
 
     /** */
     LEADER_CHANGED(1002, "A peer is no longer a leader"),
 
     /** */
-    ILLEGAL_STATE(1003, "A peer is in illegal state"),
+    ILLEGAL_STATE(1003, "Internal server error"),
 
     /** */
-    BUSY(1004, "A peer is busy, retry later"),
+    BUSY(1004, "A peer is overloaded, retry later"),
 
     /** */
-    IOERROR(1005, "Input/Output error");
+    SNAPSHOT(1005, "Snapshot error"),
+
+    /** */
+    STATE_MACHINE(1006, "Unrecoverable state machine error");
 
     /** */
     private final int code;

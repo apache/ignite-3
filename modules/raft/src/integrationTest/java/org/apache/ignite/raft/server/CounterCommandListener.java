@@ -66,6 +66,7 @@ public class CounterCommandListener implements RaftGroupCommandListener {
     @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
         final long currVal = this.counter.get();
 
+        // TODO asch use executor.
         Utils.runInThread(() -> {
             final CounterSnapshotFile snapshot = new CounterSnapshotFile(path + File.separator + "data");
             if (snapshot.save(currVal))

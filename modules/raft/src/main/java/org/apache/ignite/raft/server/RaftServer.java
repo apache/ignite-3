@@ -22,6 +22,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The RAFT protocol based replication server.
@@ -38,7 +39,7 @@ public interface RaftServer {
     ClusterService clusterService();
 
     /**
-     * Returns a path to server persince directory for a raft group.
+     * Returns a path to the server persistence directory for a raft group.
      * @param groupId Group id.
      * @return The path.
      */
@@ -53,14 +54,21 @@ public interface RaftServer {
      * @return {@code True} if a group was successfully started.
      * @throws IgniteInternalException If a group can't be started.
      */
-    boolean startRaftNode(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
+    boolean startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
 
     /**
      * Synchronously stops a raft group.
      * @param groupId Group id.
      * @return {@code True} if a group was successfully stopped.
      */
-    boolean stopRaftNode(String groupId);
+    boolean stopRaftGroup(String groupId);
+
+    /**
+     * Returns a local peer.
+     * @param Group id.
+     * @return Local peer, if presents.
+     */
+    @Nullable Peer localPeer(String groupId);
 
     /**
      * Shutdown a server.

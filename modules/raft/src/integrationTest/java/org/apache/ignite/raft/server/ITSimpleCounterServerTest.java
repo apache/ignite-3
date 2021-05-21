@@ -21,17 +21,34 @@ import java.util.List;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.server.impl.RaftServerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
     /** */
     protected RaftServer server;
+
+    /** */
+    protected static final String COUNTER_GROUP_ID_0 = "counter0";
+
+    /** */
+    protected static final String COUNTER_GROUP_ID_1 = "counter1";
+
+    /** */
+    protected RaftGroupService client1;
+
+    /** */
+    protected RaftGroupService client2;
 
     /**
      * @param testInfo Test info.
@@ -48,8 +65,8 @@ class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
 
         ClusterNode serverNode = this.server.clusterService().topologyService().localMember();
 
-        this.server.startRaftNode(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of(new Peer(serverNode.address())));
-        this.server.startRaftNode(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of(new Peer(serverNode.address())));
+        this.server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of(new Peer(serverNode.address())));
+        this.server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of(new Peer(serverNode.address())));
 
         ClusterService clientNode1 = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(id), false);
 
@@ -72,5 +89,40 @@ class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
         server.shutdown();
         client1.shutdown();
         client2.shutdown();
+    }
+
+    /**
+     */
+    @Test
+    public void testRefreshLeader() throws Exception {
+        Peer leader = client1.leader();
+
+        assertNull(leader);
+
+        client1.refreshLeader().get();
+
+        assertNotNull(client1.leader());
+    }
+
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testCounterCommandListener() throws Exception {
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        assertNotNull(client1.leader());
+        assertNotNull(client2.leader());
+
+        assertEquals(2, client1.<Long>run(new IncrementAndGetCommand(2)).get());
+        assertEquals(2, client1.<Long>run(new GetValueCommand()).get());
+        assertEquals(3, client1.<Long>run(new IncrementAndGetCommand(1)).get());
+        assertEquals(3, client1.<Long>run(new GetValueCommand()).get());
+
+        assertEquals(4, client2.<Long>run(new IncrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Long>run(new GetValueCommand()).get());
+        assertEquals(7, client2.<Long>run(new IncrementAndGetCommand(3)).get());
+        assertEquals(7, client2.<Long>run(new GetValueCommand()).get());
     }
 }

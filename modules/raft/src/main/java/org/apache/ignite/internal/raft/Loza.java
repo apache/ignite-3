@@ -74,7 +74,7 @@ public class Loza {
         //Now we are using only one node in a raft group.
         //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
-            raftServer.startRaftNode(groupId, lsnr, List.of(new Peer(peers.get(0).address())));
+            raftServer.startRaftGroup(groupId, lsnr, List.of(new Peer(peers.get(0).address())));
 
         return new RaftGroupServiceImpl(
             groupId,
@@ -100,7 +100,7 @@ public class Loza {
         //Now we are using only one node in a raft group.
         //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
-            raftServer.stopRaftNode(groupId);
+            raftServer.stopRaftGroup(groupId);
     }
 
     public RaftGroupService startRaftService(String groupId, List<ClusterNode> peers) {

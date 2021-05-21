@@ -31,9 +31,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A framework to implement a raft group service.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-08 7:53:03 PM
+ * TODO asch rename
  */
 public class RaftGroupService {
     private static final Logger LOG = LoggerFactory.getLogger(RaftGroupService.class);

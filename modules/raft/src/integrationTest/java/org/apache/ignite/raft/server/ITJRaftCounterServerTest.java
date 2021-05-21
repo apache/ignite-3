@@ -18,160 +18,261 @@
 package org.apache.ignite.raft.server;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.exception.RaftException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.server.impl.JRaftServerImpl;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
+class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     /** */
-    private List<RaftServer> servers = new ArrayList<>();
+    private static final String COUNTER_GROUP_0 = "counter0";
 
     /** */
-    private String dataPath;
+    private static final String COUNTER_GROUP_1 = "counter1";
 
-    @BeforeEach
-    void before(TestInfo testInfo) {
-        LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
+    /** */
+    private Supplier<CounterCommandListener> listenerFactory = () -> new CounterCommandListener();
 
-        this.dataPath = TestUtils.mkTempDir();
+    private void startCluster() {
+        startServer(0);
+        startServer(1);
+        startServer(2);
 
-        List<String> addresses = new ArrayList<>();
-        List<Peer> peers = new ArrayList<>();
+        List<Peer> initialConf = servers.stream().map(s -> new Peer(s.clusterService().topologyService().localMember().
+            address())).collect(Collectors.toList());
 
-        for (int i = 0; i < 3; i++) {
-            int port = PORT + i;
+        servers.forEach(s -> s.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), initialConf));
+        servers.forEach(s -> s.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), initialConf));
 
-            String name = "server" + i;
+        RaftGroupService client0 = startClient(COUNTER_GROUP_0);
+        RaftGroupService client1 = startClient(COUNTER_GROUP_1);
+    }
 
-            addresses.add(TestUtils.getMyIp() + ":" + port);
+    /**
+     */
+    @Test
+    public void testRefreshLeader() throws Exception {
+        startCluster();
 
-            ClusterService service = clusterService(name, port, addresses, false);
+        Peer leader = clients.get(0).leader();
 
-            RaftServer server = new JRaftServerImpl(service, dataPath, FACTORY, false);
+        assertNull(leader);
 
-            servers.add(server);
+        clients.get(0).refreshLeader().get();
 
-            ClusterNode node = server.clusterService().topologyService().localMember();
+        assertNotNull(clients.get(0).leader());
 
-            peers.add(new Peer(node.address()));
-        }
+        leader = clients.get(1).leader();
 
-        for (RaftServer server : servers) {
-            assertTrue(waitForTopology(server.clusterService(), 3, 5_000));
-        }
+        assertNull(leader);
 
-        for (RaftServer server : servers) {
-            server.startRaftNode(COUNTER_GROUP_ID_0, new CounterCommandListener(), peers);
-            server.startRaftNode(COUNTER_GROUP_ID_1, new CounterCommandListener(), peers);
-        }
+        clients.get(1).refreshLeader().get();
 
-        ClusterService clientNode1 = clusterService("client0", PORT - 1, addresses, false);
+        assertNotNull(clients.get(1).leader());
+    }
 
-        // The client for group 0.
-        client1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 10_000, peers, false, 200, false);
+    /**
+     * @throws Exception
+     */
+    @Test
+    public void testCounterCommandListener() throws Exception {
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
 
-        ClusterService clientNode2 = clusterService("client1:" + (PORT - 2), PORT - 2, addresses, false);
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
 
-        // The client for group 1.
-        client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 10_000, peers, false, 200, false);
+        assertNotNull(client1.leader());
+        assertNotNull(client2.leader());
+
+        assertEquals(2, client1.<Long>run(new IncrementAndGetCommand(2)).get());
+        assertEquals(2, client1.<Long>run(new GetValueCommand()).get());
+        assertEquals(3, client1.<Long>run(new IncrementAndGetCommand(1)).get());
+        assertEquals(3, client1.<Long>run(new GetValueCommand()).get());
+
+        assertEquals(4, client2.<Long>run(new IncrementAndGetCommand(4)).get());
+        assertEquals(4, client2.<Long>run(new GetValueCommand()).get());
+        assertEquals(7, client2.<Long>run(new IncrementAndGetCommand(3)).get());
+        assertEquals(7, client2.<Long>run(new GetValueCommand()).get());
     }
 
     @Test
     public void testCreateSnapshot() throws Exception {
+        startCluster();
+
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
+
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
         RaftServer server = servers.get(0);
 
-        Peer peer0 = new Peer(server.clusterService().topologyService().localMember().address());
-
         long val = applyIncrements(client1, 1, 10);
 
         assertEquals(sum(10), val);
 
-        client1.snapshot(peer0).get();
+        client1.snapshot(server.localPeer(COUNTER_GROUP_0)).get();
 
         long val2 = applyIncrements(client2, 1, 20);
 
         assertEquals(sum(20), val2);
 
-        client1.snapshot(peer0).get();
-        client2.snapshot(peer0).get();
+        client2.snapshot(server.localPeer(COUNTER_GROUP_1)).get();
 
-        String snapshotDir0 = server.getServerDataPath(COUNTER_GROUP_ID_0) + File.separator + "snapshot";
+        String snapshotDir0 = server.getServerDataPath(COUNTER_GROUP_0) + File.separator + "snapshot";
         assertEquals(1, new File(snapshotDir0).list().length);
 
-        String snapshotDir1 = server.getServerDataPath(COUNTER_GROUP_ID_1) + File.separator + "snapshot";
+        String snapshotDir1 = server.getServerDataPath(COUNTER_GROUP_1) + File.separator + "snapshot";
         assertEquals(1, new File(snapshotDir1).list().length);
     }
 
     @Test
-    public void testCreateSnapshotFailure() {
+    public void testCreateSnapshotGracefulFailure() throws Exception {
+        listenerFactory = () -> new CounterCommandListener() {
+            @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
+                doneClo.accept(Boolean.FALSE);
+            }
+        };
 
+        startCluster();
+
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
+
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        RaftServer server = servers.get(0);
+
+        Peer peer = server.localPeer(COUNTER_GROUP_0);
+
+        long val = applyIncrements(client1, 1, 10);
+
+        assertEquals(sum(10), val);
+
+        try {
+            client1.snapshot(peer).get();
+
+            fail();
+        }
+        catch (Exception e) {
+            assertTrue(e.getCause() instanceof RaftException);
+        }
+    }
+
+    @Test
+    public void testCreateSnapshotAbnormalFailure() throws Exception {
+        listenerFactory = () -> new CounterCommandListener() {
+            @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
+                throw new IgniteInternalException("Very bad");
+            }
+        };
+
+        startCluster();
+
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
+
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        RaftServer server = servers.get(0);
+
+        Peer peer = server.localPeer(COUNTER_GROUP_0);
+
+        long val = applyIncrements(client1, 1, 10);
+
+        assertEquals(sum(10), val);
+
+        try {
+            client1.snapshot(peer).get();
+
+            fail();
+        }
+        catch (Exception e) {
+            assertTrue(e.getCause() instanceof RaftException);
+        }
     }
 
     @Test
     public void testFollowerCatchUp() throws Exception {
+        startCluster();
+
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
+
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
         Peer leader1 = client1.leader();
-        Assertions.assertNotNull(leader1);
+        assertNotNull(leader1);
 
         Peer leader2 = client2.leader();
-        Assertions.assertNotNull(leader2);
+        assertNotNull(leader2);
 
-        assertEquals(2, client1.<Integer>run(new IncrementAndGetCommand(2)).get());
-        assertEquals(2, client1.<Integer>run(new GetValueCommand()).get());
-        assertEquals(3, client1.<Integer>run(new IncrementAndGetCommand(1)).get());
-        assertEquals(3, client1.<Integer>run(new GetValueCommand()).get());
+        applyIncrements(client1, 0, 10);
+        applyIncrements(client2, 0, 20);
 
-        assertEquals(4, client2.<Integer>run(new IncrementAndGetCommand(4)).get());
-        assertEquals(4, client2.<Integer>run(new GetValueCommand()).get());
-        assertEquals(7, client2.<Integer>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(7, client2.<Integer>run(new GetValueCommand()).get());
+        client1.snapshot(leader1).get();
+        client2.snapshot(leader2).get();
 
-        RaftServer srv = servers.remove(1);
-        ClusterNode srvNode = srv.clusterService().topologyService().localMember();
-        srv.shutdown();
+        RaftServer toStop = null;
 
-        assertEquals(6, client1.<Integer>run(new IncrementAndGetCommand(3)).get());
-        assertEquals(12, client2.<Integer>run(new IncrementAndGetCommand(5)).get());
+        for (RaftServer server : servers) {
+            Peer peer = server.localPeer(COUNTER_GROUP_0);
 
-        assertNotEquals(client1.leader().address(), srvNode.address());
-        assertNotEquals(client2.leader().address(), srvNode.address());
+            if (!peer.equals(leader1) && !peer.equals(leader2)) {
+                toStop = server;
+                break;
+            }
+        }
+
+        servers.remove(toStop);
+
+        String serverDataPath0 = toStop.getServerDataPath(COUNTER_GROUP_0);
+        String serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
+
+        toStop.shutdown();
+
+        applyIncrements(client1, 11, 20);
+        applyIncrements(client2, 21, 30);
+
+        Utils.delete(new File(serverDataPath0));
+        Utils.delete(new File(serverDataPath1));
+
+        JRaftServerImpl raftServerNew = (JRaftServerImpl) startServer(1);
+
+        Thread.sleep(5000);
+
+        org.apache.ignite.raft.jraft.RaftGroupService s0 = raftServerNew.raftGroupService(COUNTER_GROUP_0);
+        org.apache.ignite.raft.jraft.RaftGroupService s1 = raftServerNew.raftGroupService(COUNTER_GROUP_1);
+
+        JRaftServerImpl.DelegatingStateMachine fsm0 = (JRaftServerImpl.DelegatingStateMachine) s0.getRaftNode().getOptions().getFsm();
+        JRaftServerImpl.DelegatingStateMachine fsm1 = (JRaftServerImpl.DelegatingStateMachine) s1.getRaftNode().getOptions().getFsm();
+
+        System.out.println();
     }
 
-    @AfterEach
-    void after() throws Exception {
-        LOG.info("Start server shutdown servers={}", servers.size());
+    @Test
+    public void testRestartAndApply() {
 
-        for (RaftServer server : servers)
-            server.shutdown();
-
-        LOG.info("Start client shutdown");
-
-        client1.shutdown();
-        client2.shutdown();
-
-        assertTrue(Utils.delete(new File(this.dataPath)));
     }
+
 
     /**
      * @param client The client
