@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.affinity;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,7 +29,6 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.metastorage.client.Conditions;
@@ -63,27 +61,21 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
-    /** Vault manager. */
-    private final VaultManager vaultMgr;
-
     /**
      * Creates a new affinity manager.
      *
      * @param configurationMgr Configuration module.
      * @param metaStorageMgr Meta storage service.
      * @param baselineMgr Baseline manager.
-     * @param vaultMgr Vault manager.
      */
     public AffinityManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
-        BaselineManager baselineMgr,
-        VaultManager vaultMgr
+        BaselineManager baselineMgr
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.baselineMgr = baselineMgr;
-        this.vaultMgr = vaultMgr;
 
         metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
             @Override public boolean onUpdate(@NotNull WatchEvent watchEvt) {

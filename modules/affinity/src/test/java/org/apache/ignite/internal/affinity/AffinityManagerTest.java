@@ -182,7 +182,7 @@ public class AffinityManagerTest {
             return CompletableFuture.completedFuture(true);
         });
 
-        AffinityManager affinityManager = new AffinityManager(cfrMgr, mm, bm, vm);
+        AffinityManager affinityManager = new AffinityManager(cfrMgr, mm, bm);
 
         CompletableFuture<Boolean> assignmentCalculated = new CompletableFuture<>();
 
@@ -238,7 +238,7 @@ public class AffinityManagerTest {
             return CompletableFuture.completedFuture(true);
         });
 
-        AffinityManager affinityManager = new AffinityManager(cfrMgr, mm, bm, vm);
+        AffinityManager affinityManager = new AffinityManager(cfrMgr, mm, bm);
 
         CompletableFuture<Boolean> assignmentRemoved = new CompletableFuture<>();
 

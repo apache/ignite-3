@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
