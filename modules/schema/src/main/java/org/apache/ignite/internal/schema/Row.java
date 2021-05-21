@@ -518,7 +518,7 @@ public class Row implements BinaryRow {
                 for (int i = 0; i < colByteIdx; i++)
                     colOff += cols.foldFixedLength(i, 0);
 
-                colOff += cols.foldFixedLength(colByteIdx,  mask);
+                colOff += cols.foldFixedLength(colByteIdx, mask);
             }
         }
 
