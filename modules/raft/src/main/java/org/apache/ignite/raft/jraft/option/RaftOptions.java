@@ -181,7 +181,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
 
     public boolean isFileCheckHole() {
         return this.fileCheckHole;
-    }
+    } // TODO asch review properties
 
     public void setFileCheckHole(final boolean fileCheckHole) {
         this.fileCheckHole = fileCheckHole;

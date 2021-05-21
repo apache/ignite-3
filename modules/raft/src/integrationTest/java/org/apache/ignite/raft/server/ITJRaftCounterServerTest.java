@@ -18,11 +18,8 @@
 package org.apache.ignite.raft.server;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -104,19 +101,24 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
 
         Peer peer0 = new Peer(server.clusterService().topologyService().localMember().address());
 
-        String path = server.getServerDataPath(COUNTER_GROUP_ID_0);
-
-        String snapshotDir = path + File.separator + "snapshot";
-
-        long val = applyIncrements(client1, 0, 10);
+        long val = applyIncrements(client1, 1, 10);
 
         assertEquals(sum(10), val);
 
         client1.snapshot(peer0).get();
 
-        List<Path> files = Files.list(new File(snapshotDir).toPath()).collect(Collectors.toList());
+        long val2 = applyIncrements(client2, 1, 20);
 
-        assertTrue(!files.isEmpty());
+        assertEquals(sum(20), val2);
+
+        client1.snapshot(peer0).get();
+        client2.snapshot(peer0).get();
+
+        String snapshotDir0 = server.getServerDataPath(COUNTER_GROUP_ID_0) + File.separator + "snapshot";
+        assertEquals(1, new File(snapshotDir0).list().length);
+
+        String snapshotDir1 = server.getServerDataPath(COUNTER_GROUP_ID_1) + File.separator + "snapshot";
+        assertEquals(1, new File(snapshotDir1).list().length);
     }
 
     @Test
@@ -174,27 +176,29 @@ class ITJRaftCounterServerTest extends RaftCounterServerAbstractTest {
     /**
      * @param client The client
      * @param start Start element.
-     * @param count The count.
+     * @param stop Stop element.
      * @return The counter value.
      * @throws Exception If failed.
      */
-    private long applyIncrements(RaftGroupService client, int start, int count) throws Exception {
+    private long applyIncrements(RaftGroupService client, int start, int stop) throws Exception {
         long val = 0;
 
-        for (int i = start; i < start + count; i++) {
+        for (int i = start; i <= stop; i++) {
             val = client.<Long>run(new IncrementAndGetCommand(i)).get();
+
+            LOG.info("Val=" + val + ", i=" + i);
         }
 
         return val;
     }
 
     /**
-     * Calculates a progresion sum.
+     * Calculates a progression sum.
      *
      * @param until Until value.
      * @return The sum.
      */
     public long sum(long until) {
-        return (1 + until) / 2 * (until - 1);
+        return (1 + until) * until / 2;
     }
 }
