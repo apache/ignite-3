@@ -39,7 +39,7 @@ public class Loza {
     private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Timeout. */
-    private static final int TIMEOUT = 100000;
+    private static final int TIMEOUT = 1000;
 
     /** Retry delay. */
     private static final int DELAY = 200;
