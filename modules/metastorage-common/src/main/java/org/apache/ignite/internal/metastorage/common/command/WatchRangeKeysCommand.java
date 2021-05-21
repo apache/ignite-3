@@ -39,7 +39,7 @@ public final class WatchRangeKeysCommand implements WriteCommand {
      * @param keyTo End key of range (exclusive).
      */
     public WatchRangeKeysCommand(@Nullable ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        this(keyFrom, keyTo, 0L);
+        this(keyFrom, keyTo, 1L);
     }
 
     /**

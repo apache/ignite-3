@@ -110,7 +110,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
             @Override public boolean onUpdate(@NotNull WatchEvent events) {
                 for (EntryEvent evt : events.entryEvents()) {
-                    String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length() - 1);
+                    String keyTail = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
 
                     int verPos = keyTail.indexOf(INTERNAL_VER_SUFFIX);
 
@@ -171,7 +171,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public CompletableFuture<Boolean> initSchemaForTable(final UUID tblId, String tblName) {
         return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
             thenCompose(entry -> {
-                TableConfiguration tblConfig = configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
+                TableConfiguration tblConfig = waitForTableConfiguration(tblName);
 
                 assert entry.empty();
 
@@ -182,18 +182,35 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
                 final SchemaDescriptor desc = createSchemaDescriptor(tblId, schemaVer, tblConfig);
 
-                return metaStorageMgr.invoke(
-                    Conditions.value(lastVerKey).eq(entry.value()), // Won't to rewrite if the version goes ahead.
-                    List.of(
-                        //TODO: IGNITE-14679 Serialize schema.
-                        Operations.put(schemaKey, ByteUtils.toBytes(desc)),
-                        Operations.put(lastVerKey, ByteUtils.longToBytes(schemaVer))
-                    ),
-                    List.of(Operations.noop()));
+                return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
+                    Operations.put(schemaKey, ByteUtils.toBytes(desc)),
+                    Operations.noop())
+                    .thenCompose(res -> metaStorageMgr.invoke(Conditions.notExists(lastVerKey),
+                        Operations.put(lastVerKey, ByteUtils.longToBytes(schemaVer)),
+                        Operations.noop()));
             });
     }
 
+    // TODO: 21.05.21 https://issues.apache.org/jira/browse/IGNITE-14756 tmp, should be removed.
     /**
+     * Checks whether tbl configuration is available and returns it.
+     *
+     * @param tblName Table name.
+     * @return Table configuration.
+     */
+    private TableConfiguration waitForTableConfiguration(String tblName) {
+        while (configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName) == null) {
+            try {
+                Thread.sleep(10);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
+    }
+            /**
      * Return table schema of certain version from history.
      *
      * @param tblId Table id.
@@ -271,7 +288,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             case "bitmask":
                 return NativeTypes.bitmaskOf(type.length());
             case "string":
-                return NativeTypes.stringOf(type.length());
+                return type.length() == 0 ? NativeTypes.STRING : NativeTypes.stringOf(type.length());
             case "bytes":
                 return NativeTypes.blobOf(type.length());
 

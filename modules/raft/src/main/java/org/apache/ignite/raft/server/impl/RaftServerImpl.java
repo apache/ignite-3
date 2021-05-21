@@ -126,7 +126,7 @@ public class RaftServerImpl implements RaftServer {
                 }
             }
             else {
-                LOG.warn("Unsupported message class " + message.getClass().getName());
+//                LOG.warn("Unsupported message class " + message.getClass().getName());
             }
         });
 

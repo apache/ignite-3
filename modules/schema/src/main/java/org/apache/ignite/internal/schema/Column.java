@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
@@ -27,9 +28,9 @@ import org.jetbrains.annotations.NotNull;
  * Column instances are comparable in lexicographic order, native type first and then column name. Nullability
  * flag is not taken into account when columns are compared.
  */
-public class Column implements Comparable<Column> {
-    /** {@code Null} value supplier. */
-    private static final Supplier<Object> NULL_DEFAULT_SUPPLIER = () -> null;
+public class Column implements Comparable<Column>, Serializable {
+   // /** {@code Null} value supplier. */
+   // private final Supplier<Object> NULL_DEFAULT_SUPPLIER = (Supplier<Object> & Serializable)() -> null;
 
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
@@ -64,7 +65,7 @@ public class Column implements Comparable<Column> {
         NativeType type,
         boolean nullable
     ) {
-        this(-1, name, type, nullable, NULL_DEFAULT_SUPPLIER);
+        this(-1, name, type, nullable, (Supplier<Object> & Serializable)() -> null);
     }
 
     /**
