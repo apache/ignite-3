@@ -159,7 +159,10 @@ public class TableManagerTest {
         }
     }
 
-    @Disabled("Static configuration issue.")
+    /**
+     * Tests a table which was defined before start through bootstrap configuration.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
     @Test
     public void testStaticTableConfigured() {
         MetaStorageManager mm = mock(MetaStorageManager.class);
@@ -175,6 +178,9 @@ public class TableManagerTest {
         assertNotNull(tableManager.table(STATIC_TABLE_NAME));
     }
 
+    /**
+     * Tests create a table through public API.
+     */
     @Test
     public void testCreateTable() {
         MetaStorageManager mm = mock(MetaStorageManager.class);
@@ -192,6 +198,9 @@ public class TableManagerTest {
         assertNotNull(tableManager.table(DYNAMIC_TABLE_NAME));
     }
 
+    /**
+     * Tests drop a table  through public API.
+     */
     @Test
     public void testDropTable() {
         MetaStorageManager mm = mock(MetaStorageManager.class);

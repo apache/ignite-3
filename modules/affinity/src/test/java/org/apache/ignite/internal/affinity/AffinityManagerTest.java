@@ -129,6 +129,9 @@ public class AffinityManagerTest {
         );
     }
 
+    /**
+     * The test calculates assignment by predefined table configuration and checks assignment calculated event.
+     */
     @Test
     public void testCalculatedAssignment() {
         MetaStorageManager mm = mock(MetaStorageManager.class);
@@ -190,6 +193,9 @@ public class AffinityManagerTest {
         assertTrue(assignmentCalculated.join());
     }
 
+    /**
+     * The test removes an assignment and checks assignment removed event.
+     */
     @Test
     public void testRemovedAssignment() {
         MetaStorageManager mm = mock(MetaStorageManager.class);
