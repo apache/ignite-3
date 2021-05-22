@@ -44,7 +44,6 @@ public class SchemaTableBuilderTest {
 
         assertEquals("SNAME.TNAME", tbl.canonicalName());
         assertEquals("TNAME", tbl.name());
-
         assertEquals(1, tbl.keyColumns().size());
     }
 }

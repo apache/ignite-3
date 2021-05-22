@@ -124,6 +124,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
      */
     public static void validateIndices(Collection<TableIndex> indices, Collection<Column> columns) {
         Set<String> colNames = columns.stream().map(Column::name).collect(Collectors.toSet());
+
         assert indices.stream()
             .filter(ColumnarIndex.class::isInstance)
             .map(ColumnarIndex.class::cast)
@@ -132,6 +133,7 @@ public class SchemaTableBuilderImpl implements SchemaTableBuilder {
             .allMatch(colNames::contains) : "Index column doesn't exists in schema.";
 
         TableIndex pkIdx = indices.stream().filter(idx -> PRIMARY_KEY_INDEX_NAME.equals(idx.name())).findAny().orElse(null);
+
         assert pkIdx != null : "Primary key index is not configured.";
         assert !((PrimaryIndex)pkIdx).affinityColumns().isEmpty() : "Primary key must have one affinity column at least.";
 

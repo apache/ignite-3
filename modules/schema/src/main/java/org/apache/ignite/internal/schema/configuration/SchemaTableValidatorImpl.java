@@ -34,6 +34,7 @@ import java.util.Collection;
  * SchemaTable validator implementation.
  */
 public class SchemaTableValidatorImpl implements Validator<TableValidator, NamedListView<TableView>> {
+    /** Static instance. */
     public static final SchemaTableValidatorImpl INSTANCE = new SchemaTableValidatorImpl();
 
     /** {@inheritDoc} */
@@ -43,8 +44,10 @@ public class SchemaTableValidatorImpl implements Validator<TableValidator, Named
             TableView view = list.get(key);
             try {
                 SchemaTableImpl tbl = SchemaConfigurationConverter.convert(view);
+
                 Collection<Column> allColumns = new ArrayList<>(tbl.keyColumns());
                 allColumns.addAll(tbl.valueColumns());
+
                 SchemaTableBuilderImpl.validateIndices(tbl.indices(), allColumns);
             }
             catch (IllegalArgumentException e) {

@@ -135,7 +135,7 @@ public class SchemaDescriptorConverterTest {
                 postProcess.apply(SchemaBuilders.column("BLOB_FS10", ColumnType.blobOf(10))),
                 postProcess.apply(SchemaBuilders.column("DECIMAL", ColumnType.number(1,1))),
                 postProcess.apply(SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)))
-                // TODO: uncomment after unsigned types available
+                // TODO: IGNITE-13750 uncomment after unsigned types available
                 // postProcess.apply(SchemaBuilders.column("UINT8", ColumnType.UINT8)),
                 // postProcess.apply(SchemaBuilders.column("UINT16", ColumnType.UINT16)),
                 // postProcess.apply(SchemaBuilders.column("UINT32", ColumnType.UINT32)),

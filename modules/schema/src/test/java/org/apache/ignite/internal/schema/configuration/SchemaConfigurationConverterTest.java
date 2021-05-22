@@ -21,6 +21,7 @@ import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.PartialIndex;
@@ -184,7 +185,18 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertTable() {
-        // TODO
+        SchemaTable tbl = TBL_BUILDER.build();
+
+        TableConfiguration tblCfg = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
+            .get(tbl.canonicalName());
+
+        SchemaTable tbl2 = SchemaConfigurationConverter.convert(tblCfg);
+
+        assertEquals(tbl.canonicalName(), tbl2.canonicalName());
+        assertEquals(tbl.indices().size(), tbl2.indices().size());
+        assertEquals(tbl.keyColumns().size(), tbl2.keyColumns().size());
+        assertEquals(tbl.affinityColumns().size(), tbl2.affinityColumns().size());
+        assertEquals(tbl.valueColumns().size(), tbl2.valueColumns().size());
     }
 
     /**
