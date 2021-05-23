@@ -26,25 +26,25 @@ import org.jetbrains.annotations.NotNull;
  * This is a command to get a value before replace it.
  */
 public class GetAndReplaceCommand implements WriteCommand {
-    /** Key row. */
-    private transient BinaryRow keyRow;
+    /** Row. */
+    private transient BinaryRow row;
 
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after.
      */
-    private byte[] keyRowBytes;
+    private byte[] rowBytes;
 
     /**
-     * @param keyRow Key row.
+     * @param row Row.
      */
-    public GetAndReplaceCommand(@NotNull BinaryRow keyRow) {
-        assert keyRow != null;
+    public GetAndReplaceCommand(@NotNull BinaryRow row) {
+        assert row != null;
 
-        this.keyRow = keyRow;
+        this.row = row;
 
-        CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
+        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
     }
 
     /**
@@ -52,10 +52,10 @@ public class GetAndReplaceCommand implements WriteCommand {
      *
      * @return Key row.
      */
-    public BinaryRow getKeyRow() {
-        if (keyRow == null)
-            keyRow = new ByteBufferRow(keyRowBytes);
+    public BinaryRow getRow() {
+        if (row == null)
+            row = new ByteBufferRow(rowBytes);
 
-        return keyRow;
+        return row;
     }
 }

@@ -89,10 +89,11 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
             CommandClosure<WriteCommand> clo = iterator.next();
 
             if (clo.command() instanceof InsertCommand) {
-                BinaryRow previous = storage.putIfAbsent(
-                    extractAndWrapKey(((InsertCommand)clo.command()).getRow()),
-                    ((InsertCommand)clo.command()).getRow()
-                );
+                BinaryRow row = ((InsertCommand)clo.command()).getRow();
+
+                assert row.hasValue() : "Insert command should have a value.";
+
+                BinaryRow previous = storage.putIfAbsent(extractAndWrapKey(row), row);
 
                 clo.success(previous == null);
             }
@@ -122,10 +123,11 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
                     clo.success(false);
             }
             else if (clo.command() instanceof UpsertCommand) {
-                storage.put(
-                    extractAndWrapKey(((UpsertCommand)clo.command()).getRow()),
-                    ((UpsertCommand)clo.command()).getRow()
-                );
+                BinaryRow row = ((UpsertCommand)clo.command()).getRow();
+
+                assert row.hasValue() : "Upsert command should have a value.";
+
+                storage.put(extractAndWrapKey(row), row);
 
                 clo.success(null);
             }
@@ -237,7 +239,7 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
                     clo.success(new SingleRowResponse(oldRow));
             }
             else if (clo.command() instanceof GetAndReplaceCommand) {
-                BinaryRow row = ((GetAndReplaceCommand)clo.command()).getKeyRow();
+                BinaryRow row = ((GetAndReplaceCommand)clo.command()).getRow();
 
                 assert row != null && row.hasValue();
 
@@ -251,7 +253,7 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
                     clo.success(new SingleRowResponse(oldRow));
             }
             else if (clo.command() instanceof GetAndUpsertCommand) {
-                BinaryRow row = ((GetAndReplaceCommand)clo.command()).getKeyRow();
+                BinaryRow row = ((GetAndUpsertCommand)clo.command()).getKeyRow();
 
                 assert row != null && row.hasValue();
 
