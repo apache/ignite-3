@@ -54,7 +54,7 @@ public class ClusterNode implements Serializable {
     }
 
     /**
-     * @return The node id (unique between restarts).
+     * @return Unique name of member in the cluster. Doesn't change between restarts.
      */
     public String id() {
         return id;
