@@ -94,6 +94,10 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                 connectionManager.stop();
             }
 
+            /**
+             * Symmetric method for "io.scalecube.cluster.ClusterImpl#startJmxMonitor()". It unregisters that bean,
+             * becuase "ClusterImpl" doesn't do it by itself.
+             */
             private void stopJmxMonitor() {
                 MBeanServer server = ManagementFactory.getPlatformMBeanServer();
 
