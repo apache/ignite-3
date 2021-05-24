@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
@@ -141,11 +142,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ));
         }
 
+        InternalTableImpl internalTable = new InternalTableImpl(tblId, partitionMap, partitions);
+
+        tables.put(name, new TableImpl(internalTable, schemaReg));
+
         onEvent(TableEvent.CREATE, new TableEventParameters(
             tblId,
             name,
             schemaReg,
-            new InternalTableImpl(tblId, partitionMap, partitions)
+            internalTable
         ), null);
     }
 
@@ -214,7 +219,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
                         Operations.noop())
                         .thenCompose(res -> schemaMgr.initSchemaForTable(tblId, tableView.name()))
-                        .thenCompose(res -> affMgr.calculateAssignments(tblId)));
+                        .thenCompose(res -> affMgr.calculateAssignments(tblId, tableView.name())));
                 }
 
                 final CompletableFuture<AffinityEventParameters> affinityReadyFut = new CompletableFuture<>();
@@ -322,8 +327,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return false;
 
             if (e == null) {
-                tblFut.complete(tables.compute(tableName, (key, val) ->
-                    new TableImpl(params.internalTable(), params.tableSchemaView())));
+                tblFut.complete(tables.get(name));
             }
             else
                 tblFut.completeExceptionally(e);
@@ -331,9 +335,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return true;
         });
 
-        configurationMgr.configurationRegistry()
-            .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
-            change.create(name, tableInitChange));
+        try {
+            configurationMgr.configurationRegistry()
+                .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
+                change.create(name, tableInitChange)).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            LOG.error("Table wasn't created [name=" + name + ']', e);
+
+            tblFut.completeExceptionally(e);
+        }
 
         return tblFut.join();
     }
@@ -363,11 +374,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        configurationMgr
-            .configurationRegistry()
-            .getConfiguration(TablesConfiguration.KEY)
-            .tables()
-            .change(change -> change.delete(name));
+        try {
+            configurationMgr
+                .configurationRegistry()
+                .getConfiguration(TablesConfiguration.KEY)
+                .tables()
+                .change(change -> change.delete(name)).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            LOG.error("Table wasn't dropped [name=" + name + ']', e);
+
+            dropTblFut.completeExceptionally(e);
+        }
 
         dropTblFut.join();
     }
