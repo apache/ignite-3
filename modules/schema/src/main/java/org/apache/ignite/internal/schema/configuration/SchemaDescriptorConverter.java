@@ -119,7 +119,9 @@ public class SchemaDescriptorConverter {
      */
     public static SchemaDescriptor convert(UUID tblId, int schemaVer, SchemaTable tblCfg) {
         List<org.apache.ignite.schema.Column> keyColsCfg = new ArrayList<>(tblCfg.keyColumns());
+        
         Column[] keyCols = new Column[keyColsCfg.size()];
+        
         for (int i = 0;i < keyCols.length;i++)
             keyCols[i] = convert(keyColsCfg.get(i));
 
