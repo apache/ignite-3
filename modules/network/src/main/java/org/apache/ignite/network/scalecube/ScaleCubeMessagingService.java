@@ -96,16 +96,22 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
+    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, final NetworkMessage msg, long timeout) {
+        return invoke(recipient.address(), msg, timeout);
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<NetworkMessage> invoke(String addr, NetworkMessage msg, long timeout) {
         var message = Message
             .withData(msg)
             .correlationId(UUID.randomUUID().toString())
             .build();
+        Address address = Address.from(addr);
         return cluster
-            .requestResponse(clusterNodeAddress(recipient), message)
+            .requestResponse(address, message)
             .timeout(Duration.ofMillis(timeout))
             .toFuture()
-            .thenApply(Message::data);
+            .thenApply(m -> m == null ? null : m.data()); // The result can be null on node stopping.
     }
 
     /**

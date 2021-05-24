@@ -39,8 +39,12 @@ public class ClusterNode implements Serializable {
     /** Node address in host:port format (lazily evaluated) */
     private String address;
 
+
     /**
-     * @param name Unique name of member in cluster.
+     * @param id The id.
+     * @param name The unique node name.
+     * @param host The host.
+     * @param port The port.
      */
     public ClusterNode(String id, String name, String host, int port) {
         this.id = id;
@@ -49,6 +53,9 @@ public class ClusterNode implements Serializable {
         this.port = port;
     }
 
+    /**
+     * @return The node id (unique between restarts).
+     */
     public String id() {
         return id;
     }

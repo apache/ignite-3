@@ -23,7 +23,6 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.raft.client.Peer;
@@ -54,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
@@ -67,9 +67,9 @@ public class RaftGroupServiceTest {
 
     /** */
     private static final List<Peer> NODES = of(
-        new Peer(new ClusterNode("id1", "node1", "foobar", 123)),
-        new Peer(new ClusterNode("id2", "node2", "foobar", 124)),
-        new Peer(new ClusterNode("id3", "node3", "foobar", 125))
+        new Peer("localhost:20000"),
+        new Peer("localhost:20001"),
+        new Peer("localhost:20002")
     );
 
     /** */
@@ -112,7 +112,7 @@ public class RaftGroupServiceTest {
         mockLeaderRequest(false);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, true);
 
         assertNull(service.leader());
 
@@ -134,7 +134,7 @@ public class RaftGroupServiceTest {
         leader = null;
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, true);
 
         assertNull(service.leader());
 
@@ -169,7 +169,7 @@ public class RaftGroupServiceTest {
         }, 500);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, true);
 
         assertNull(service.leader());
 
@@ -188,7 +188,7 @@ public class RaftGroupServiceTest {
         mockLeaderRequest(true);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, true);
 
         try {
             service.refreshLeader().get();
@@ -211,7 +211,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, true);
 
         service.refreshLeader().get();
 
@@ -231,7 +231,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, true);
 
         assertNull(service.leader());
 
@@ -253,7 +253,7 @@ public class RaftGroupServiceTest {
         mockUserInput(true);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, false, DELAY, true);
 
         try {
             service.run(new TestCommand()).get();
@@ -276,7 +276,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, true);
 
         Peer leader = this.leader;
 
@@ -307,7 +307,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, true);
 
         Peer leader = this.leader;
 
@@ -343,7 +343,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false);
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, true);
 
         Peer leader = this.leader;
 
@@ -369,7 +369,7 @@ public class RaftGroupServiceTest {
      */
     private void mockUserInput(boolean simulateTimeout) {
         Mockito.doAnswer(invocation -> {
-            ClusterNode target = invocation.getArgument(0);
+            String target = invocation.getArgument(0);
 
             if (simulateTimeout)
                 return failedFuture(new TimeoutException());
@@ -378,7 +378,7 @@ public class RaftGroupServiceTest {
 
             if (leader == null)
                 resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.NO_LEADER).build();
-            else if (target != leader.getNode())
+            else if (target != leader.address())
                 resp = FACTORY.raftErrorResponse().errorCode(RaftErrorCode.LEADER_CHANGED).newLeader(leader).build();
             else
                 resp = FACTORY.actionResponse().result(new TestResponse()).build();
@@ -387,7 +387,7 @@ public class RaftGroupServiceTest {
         })
             .when(messagingService)
             .invoke(
-                any(),
+                anyString(),
                 argThat(new ArgumentMatcher<ActionRequest>() {
                     @Override public boolean matches(ActionRequest arg) {
                         return arg.command() instanceof TestCommand;
@@ -419,7 +419,7 @@ public class RaftGroupServiceTest {
             return completedFuture(resp);
         })
             .when(messagingService)
-            .invoke(any(), any(GetLeaderRequest.class), anyLong());
+            .invoke(anyString(), any(GetLeaderRequest.class), anyLong());
     }
 
     /** */
