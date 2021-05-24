@@ -52,6 +52,7 @@ public class SchemaDescriptorConverter {
         assert colType != null;
 
         ColumnType.ColumnTypeSpec type = colType.typeSpec();
+        
         switch (type) {
             case INT8:
                 return BYTE;
