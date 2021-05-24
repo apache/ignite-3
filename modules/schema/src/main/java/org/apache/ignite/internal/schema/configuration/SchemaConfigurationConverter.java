@@ -291,6 +291,7 @@ public class SchemaConfigurationConverter {
     public static ColumnType convert(ColumnTypeView colTypeView) {
         String typeName = colTypeView.type();
         ColumnType res = types.get(typeName);
+        
         if (res != null)
             return res;
         else {
