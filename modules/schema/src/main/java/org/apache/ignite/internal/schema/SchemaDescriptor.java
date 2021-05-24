@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Full schema descriptor containing key columns chunk, value columns chunk, and schema version.
  */
-public class SchemaDescriptor {
+public class SchemaDescriptor implements Serializable {
     /** Table identifier.*/
     private final UUID tableId;
 
@@ -46,10 +47,11 @@ public class SchemaDescriptor {
     /** Affinity columns. */
     private final Column[] affCols;
 
-    /** Mapping 'Column name' -> Column. */
+    /** Mapping 'Column name' -&gt; Column. */
     private final Map<String, Column> colMap;
 
     /**
+     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
@@ -59,6 +61,7 @@ public class SchemaDescriptor {
     }
 
     /**
+     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param affCols Affinity column names.
