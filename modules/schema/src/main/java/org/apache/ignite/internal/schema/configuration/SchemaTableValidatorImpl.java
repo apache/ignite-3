@@ -40,8 +40,10 @@ public class SchemaTableValidatorImpl implements Validator<TableValidator, Named
     /** {@inheritDoc} */
     @Override public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
         NamedListView<TableView> list = ctx.getNewValue();
+        
         for (String key : list.namedListKeys()) {
             TableView view = list.get(key);
+            
             try {
                 SchemaTableImpl tbl = SchemaConfigurationConverter.convert(view);
 
