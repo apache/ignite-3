@@ -129,7 +129,9 @@ public class SchemaDescriptorConverter {
             .toArray(String[]::new);
 
         List<org.apache.ignite.schema.Column> valColsCfg = new ArrayList<>(tblCfg.valueColumns());
+        
         Column[] valCols = new Column[valColsCfg.size()];
+        
         for (int i = 0;i < valCols.length;i++)
             valCols[i] = convert(valColsCfg.get(i));
 
