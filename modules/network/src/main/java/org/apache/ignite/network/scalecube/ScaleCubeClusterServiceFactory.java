@@ -17,12 +17,6 @@
 
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.ClusterConfig;
-import io.scalecube.cluster.ClusterImpl;
-import io.scalecube.cluster.ClusterMessageHandler;
-import io.scalecube.cluster.membership.MembershipEvent;
-import io.scalecube.cluster.transport.api.Message;
-import io.scalecube.net.Address;
 import java.lang.management.ManagementFactory;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,6 +25,12 @@ import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
+import io.scalecube.cluster.ClusterConfig;
+import io.scalecube.cluster.ClusterImpl;
+import io.scalecube.cluster.ClusterMessageHandler;
+import io.scalecube.cluster.membership.MembershipEvent;
+import io.scalecube.cluster.transport.api.Message;
+import io.scalecube.net.Address;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -95,8 +95,8 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
             }
 
             /**
-             * Symmetric method for "io.scalecube.cluster.ClusterImpl#startJmxMonitor()". It unregisters that bean,
-             * becuase "ClusterImpl" doesn't do it by itself.
+             * Removes the JMX MBean registered by the "io.scalecube.cluster.ClusterImpl#startJmxMonitor()" method.
+             * Current ScaleCube implementation does not do that which leads to memory leaks.
              */
             private void stopJmxMonitor() {
                 MBeanServer server = ManagementFactory.getPlatformMBeanServer();
