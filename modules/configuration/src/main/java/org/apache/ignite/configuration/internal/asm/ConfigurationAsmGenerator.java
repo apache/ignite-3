@@ -119,11 +119,11 @@ public class ConfigurationAsmGenerator {
     /** {@link ConfigurationSource#unwrap(Class)} */
     private static final Method UNWRAP;
 
-    /** {@link ConstructableTreeNode#copy()} */
-    private static final Method COPY;
+    /** {@link ConfigurationSource#descend(ConstructableTreeNode)} */
+    private static final Method DESCEND;
 
     /** {@link ConstructableTreeNode#copy()} */
-    private static final Method DESCEND;
+    private static final Method COPY;
 
     /** {@link DynamicConfiguration#DynamicConfiguration(List, String, RootKey, ConfigurationChanger)} */
     private static final Constructor DYNAMIC_CONFIGURATION_CTOR;
