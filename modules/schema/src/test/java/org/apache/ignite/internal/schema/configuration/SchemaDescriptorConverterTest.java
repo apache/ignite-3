@@ -162,6 +162,7 @@ public class SchemaDescriptorConverterTest {
         assertEquals(name, col.name());
         assertEquals(type.name(), col.type().spec().name());
         assertEquals(nullable, col.nullable());
+
         if (col.type().spec().fixedLength())
             assertTrue(col.type().sizeInBytes() >= 0);
     }
