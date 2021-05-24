@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.vault;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -37,6 +38,11 @@ import org.jetbrains.annotations.NotNull;
 public class VaultManager {
     /** Special key for vault where applied revision for {@code putAll} operation is stored. */
     private static ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
+
+    /**
+     *
+     */
+    private static final ByteArray NODE_NAME = ByteArray.fromString("node_name");
 
     /** Mutex. */
     private final Object mux = new Object();
@@ -168,6 +174,21 @@ public class VaultManager {
             }
 
             return appliedRevision == null ? 0L : ByteUtils.bytesToLong(appliedRevision, 0);
+        }
+    }
+
+    public CompletableFuture<Void> putName(String name) {
+        return put(NODE_NAME, name.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String name() throws IgniteInternalCheckedException {
+        synchronized (mux) {
+            try {
+                return new String(vaultService.get(APPLIED_REV).get().value());
+            }
+            catch (InterruptedException | ExecutionException e) {
+                throw new IgniteInternalCheckedException("Error occurred when getting node name", e);
+            }
         }
     }
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.app;
 
+import io.netty.util.internal.StringUtil;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -80,7 +82,7 @@ public class IgnitionImpl implements Ignition {
     private static final String VER_KEY = "version";
 
     /** {@inheritDoc} */
-    @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
+    @Override public synchronized Ignite start(String nodeName, String jsonStrBootstrapCfg) {
         ackBanner();
 
         // Vault Component startup.
@@ -120,15 +122,10 @@ public class IgnitionImpl implements Ignition {
 
         MessageSerializationRegistryInitializer.initialize(serializationRegistry);
 
-        String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .name().value();
-
-        assert !StringUtil.isNullOrEmpty(localNodeName) : "Node local name is empty";
-
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
             new ClusterLocalConfiguration(
-                localNodeName,
+                nodeName,
                 netConfigurationView.port(),
                 Arrays.asList(netConfigurationView.netClusterNodes()),
                 serializationRegistry

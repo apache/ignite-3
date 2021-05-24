@@ -44,6 +44,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Operation;
@@ -110,7 +111,6 @@ public class TableManagerTest {
 
             cfrMgr.bootstrap("{\n" +
                 "   \"node\":{\n" +
-                "      \"name\":\"node1\",\n" +
                 "      \"metastorageNodes\":[\n" +
                 "         \"" + NODE_NAME + "\"\n" +
                 "      ]\n" +
@@ -168,12 +168,13 @@ public class TableManagerTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
     @Test
-    public void testStaticTableConfigured() {
+    public void testStaticTableConfigured() throws IgniteInternalCheckedException {
         MetaStorageManager mm = mock(MetaStorageManager.class);
         SchemaManager sm = mock(SchemaManager.class);
         AffinityManager am = mock(AffinityManager.class);
         Loza rm = mock(Loza.class);
         VaultManager vm = mock(VaultManager.class);
+        when(vm.name()).thenAnswer(n -> NODE_NAME);
 
         TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, vm);
 
@@ -186,12 +187,13 @@ public class TableManagerTest {
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() {
+    public void testCreateTable() throws IgniteInternalCheckedException {
         MetaStorageManager mm = mock(MetaStorageManager.class);
         SchemaManager sm = mock(SchemaManager.class);
         AffinityManager am = mock(AffinityManager.class);
         Loza rm = mock(Loza.class);
         VaultManager vm = mock(VaultManager.class);
+        when(vm.name()).thenAnswer(n -> NODE_NAME);
 
         ClusterNode node = new ClusterNode(UUID.randomUUID().toString(), NODE_NAME, "127.0.0.1", PORT);
 
@@ -206,12 +208,13 @@ public class TableManagerTest {
      * Tests drop a table  through public API.
      */
     @Test
-    public void testDropTable() {
+    public void testDropTable() throws IgniteInternalCheckedException {
         MetaStorageManager mm = mock(MetaStorageManager.class);
         SchemaManager sm = mock(SchemaManager.class);
         AffinityManager am = mock(AffinityManager.class);
         Loza rm = mock(Loza.class);
         VaultManager vm = mock(VaultManager.class);
+        when(vm.name()).thenAnswer(n -> NODE_NAME);
 
         ClusterNode node = new ClusterNode(UUID.randomUUID().toString(), NODE_NAME, "127.0.0.1", PORT);
 
@@ -285,6 +288,12 @@ public class TableManagerTest {
         ClusterNode node,
         CompletableFuture<UUID> tblIdFut
     ) {
+        try {
+            when(vm.name()).thenAnswer(n -> NODE_NAME);
+        }
+        catch (IgniteInternalCheckedException e) {
+            throw new RuntimeException(e);
+        }
         when(mm.invoke((Condition)any(), (Operation)any(), (Operation)any())).thenAnswer(invokation -> {
             Condition condition = (Condition)invokation.getArgument(0);
 

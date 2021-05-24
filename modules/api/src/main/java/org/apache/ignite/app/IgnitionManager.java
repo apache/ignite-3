@@ -33,13 +33,13 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(@Nullable String jsonStrBootstrapCfg) {
+    public static synchronized Ignite start(String nodeName, @Nullable String jsonStrBootstrapCfg) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
             ignition = ldr.iterator().next();
         }
 
-        return ignition.start(jsonStrBootstrapCfg);
+        return ignition.start(nodeName, jsonStrBootstrapCfg);
     }
 
     /**
@@ -51,12 +51,12 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(@Nullable String jsonStrBootstrapCfg, @Nullable ClassLoader clsLdr) {
+    public static synchronized Ignite start(String nodeName, @Nullable String jsonStrBootstrapCfg, @Nullable ClassLoader clsLdr) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
             ignition = ldr.iterator().next();
         }
 
-        return ignition.start(jsonStrBootstrapCfg);
+        return ignition.start(nodeName, jsonStrBootstrapCfg);
     }
 }
