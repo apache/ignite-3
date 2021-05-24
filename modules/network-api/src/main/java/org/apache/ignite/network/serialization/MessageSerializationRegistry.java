@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.serialization;
 
+import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -31,7 +32,7 @@ public final class MessageSerializationRegistry {
      */
     public MessageSerializationRegistry registerFactory(short type, MessageSerializationFactory<?> factory) {
         if (this.factories[type] != null)
-            throw new IllegalArgumentException("Message mapper for type " + type + " is already defined");
+            throw new NetworkConfigurationException("Message mapper for type " + type + " is already defined");
 
         this.factories[type] = factory;
 
