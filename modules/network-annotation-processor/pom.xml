@@ -73,7 +73,7 @@
                         <configuration>
                             <compilerArgument>-proc:none</compilerArgument>
                             <includes>
-                                <include>org/apache/ignite/network/messages/internal/processor/*</include>
+                                <include>org/apache/ignite/network/processor/internal/*</include>
                             </includes>
                         </configuration>
                     </execution>
