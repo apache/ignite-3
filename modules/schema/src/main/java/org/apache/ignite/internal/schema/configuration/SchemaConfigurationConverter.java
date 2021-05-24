@@ -332,8 +332,10 @@ public class SchemaConfigurationConverter {
     public static void convert(Column col, ColumnChange colChg) {
         colChg.changeName(col.name());
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
+        
         if (col.defaultValue() != null)
             colChg.changeDefaultValue(col.defaultValue().toString());
+            
         colChg.changeNullable(col.nullable());
     }
 
