@@ -252,6 +252,7 @@ public class SchemaConfigurationConverter {
      */
     public static void convert(ColumnType colType, ColumnTypeChange colTypeChg) {
         String typeName = colType.typeSpec().name();
+        
         if (types.containsKey(typeName))
             colTypeChg.changeType(typeName);
         else {
