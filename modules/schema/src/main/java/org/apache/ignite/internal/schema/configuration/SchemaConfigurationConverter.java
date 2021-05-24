@@ -73,7 +73,7 @@ public class SchemaConfigurationConverter {
     private static final String PK_TYPE = "PK";
 
     /** Types map. */
-    private static Map<String, ColumnType> types = new HashMap<>();
+    private static final Map<String, ColumnType> types = new HashMap<>();
 
     static {
         putType(ColumnType.INT8);
@@ -124,7 +124,7 @@ public class SchemaConfigurationConverter {
         idxChg.changeName(idx.name());
         idxChg.changeType(idx.type());
 
-        switch (idx.type()) {
+        switch (idx.type().toUpperCase()) {
             case HASH_TYPE:
                 HashIndex hashIdx = (HashIndex)idx;
 
@@ -192,16 +192,16 @@ public class SchemaConfigurationConverter {
         String name = idxView.name();
         String type = idxView.type();
 
-        switch (type) {
-            case "HASH":
+        switch (type.toUpperCase()) {
+            case HASH_TYPE:
                 String[] hashCols = idxView.colNames();
 
                 return new HashIndexImpl(name, hashCols);
 
-            case "SORTED":
+            case SORTED_TYPE:
                 boolean sortedUniq = idxView.uniq();
 
-                SortedMap<Integer, SortedIndexColumn> sortedCols = new TreeMap();
+                SortedMap<Integer, SortedIndexColumn> sortedCols = new TreeMap<>();
                 
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(idxView.columns().get(key));
@@ -211,7 +211,7 @@ public class SchemaConfigurationConverter {
 
                 return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()), sortedUniq);
 
-            case "PARTIAL":
+            case PARTIAL_TYPE:
                 boolean partialUniq = idxView.uniq();
                 String expr = idxView.expr();
 
@@ -226,7 +226,7 @@ public class SchemaConfigurationConverter {
 
                 return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), partialUniq, expr);
 
-            case "PK":
+            case PK_TYPE:
                 SortedMap<Integer, SortedIndexColumn> cols = new TreeMap<>();
                 
                 for (String key : idxView.columns().namedListKeys()) {
@@ -237,7 +237,7 @@ public class SchemaConfigurationConverter {
 
                 String[] affCols = idxView.affinityColumns();
 
-                return new PrimaryIndexImpl(new ArrayList(cols.values()), List.of(affCols));
+                return new PrimaryIndexImpl(new ArrayList<>(cols.values()), List.of(affCols));
 
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
@@ -251,7 +251,7 @@ public class SchemaConfigurationConverter {
      * @param colTypeChg ColumnTypeChange to fullfill.
      */
     public static void convert(ColumnType colType, ColumnTypeChange colTypeChg) {
-        String typeName = colType.typeSpec().name();
+        String typeName = colType.typeSpec().name().toUpperCase();
         
         if (types.containsKey(typeName))
             colTypeChg.changeType(typeName);
@@ -289,7 +289,7 @@ public class SchemaConfigurationConverter {
      * @return ColumnType.
      */
     public static ColumnType convert(ColumnTypeView colTypeView) {
-        String typeName = colTypeView.type();
+        String typeName = colTypeView.type().toUpperCase();
         ColumnType res = types.get(typeName);
         
         if (res != null)
@@ -398,7 +398,7 @@ public class SchemaConfigurationConverter {
      */
     public static SchemaTableImpl convert(TableView tblView) {
         String canonicalName = tblView.name();
-        int sepPos = canonicalName.indexOf(".");
+        int sepPos = canonicalName.indexOf('.');
         String schemaName = canonicalName.substring(0, sepPos);
         String tableName = canonicalName.substring(sepPos + 1);
 
