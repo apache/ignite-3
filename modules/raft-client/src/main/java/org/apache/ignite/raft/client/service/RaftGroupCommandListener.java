@@ -27,17 +27,19 @@ import org.apache.ignite.raft.client.WriteCommand;
  */
 public interface RaftGroupCommandListener {
     /**
+     * The callback to apply read commands.
      * @param iterator Read command iterator.
      */
     void onRead(Iterator<CommandClosure<ReadCommand>> iterator);
 
     /**
+     * The callback to apply write commands.
      * @param iterator Write command iterator.
      */
     void onWrite(Iterator<CommandClosure<WriteCommand>> iterator);
 
     /**
-     * The callback to save current snapshot.
+     * The callback to save a snapshot.
      * @param path Snapshot directory to store data.
      * @param doneClo The closure to call on finish. Pass TRUE if snapshot was taken normally, FALSE otherwise.
      */
