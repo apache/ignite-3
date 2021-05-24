@@ -58,7 +58,8 @@ import org.apache.ignite.network.messages.serialization.MessageSerializer;
  */
 // TODO: describe the message declaration contract, see https://issues.apache.org/jira/browse/IGNITE-14715
 @Target(ElementType.TYPE)
-@Retention(RetentionPolicy.SOURCE)
+// using the RUNTIME retention policy in order to avoid problems with incremental compilation in an IDE.
+@Retention(RetentionPolicy.RUNTIME)
 public @interface AutoSerializable {
     /**
      * Message factory class that will be used to create message builders during deserialization.
