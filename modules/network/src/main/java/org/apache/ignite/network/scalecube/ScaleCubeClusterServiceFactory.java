@@ -18,13 +18,19 @@
 package org.apache.ignite.network.scalecube;
 
 import io.scalecube.cluster.ClusterConfig;
-import java.util.List;
-import java.util.stream.Collectors;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
+import java.lang.management.ManagementFactory;
+import java.util.List;
+import java.util.stream.Collectors;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -81,9 +87,24 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override public void shutdown() {
+                stopJmxMonitor();
+
                 cluster.shutdown();
                 cluster.onShutdown().block();
                 connectionManager.stop();
+            }
+
+            private void stopJmxMonitor() {
+                MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+
+                try {
+                    var pattern = new ObjectName("io.scalecube.cluster", "name", cluster.member().id() + "@*");
+
+                    for (ObjectName name : server.queryNames(pattern, null))
+                        server.unregisterMBean(name);
+                }
+                catch (MalformedObjectNameException | InstanceNotFoundException | MBeanRegistrationException ignore) {
+                }
             }
         };
     }
