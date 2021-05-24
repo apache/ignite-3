@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages.internal.processor;
+package org.apache.ignite.network.processor.internal;
 
 import java.util.Arrays;
 import java.util.List;
@@ -25,7 +25,6 @@ import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.processor.internal.AutoSerializableProcessor;
 import org.junit.jupiter.api.Test;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
@@ -35,7 +34,7 @@ import static com.google.testing.compile.CompilationSubject.assertThat;
  */
 public class ITAutoSerializableProcessorTest {
     /** Package name of the test sources. */
-    private static final String RESOURCE_PACKAGE_NAME = "org.apache.ignite.network.messages.internal.processor.";
+    private static final String RESOURCE_PACKAGE_NAME = "org.apache.ignite.network.processor.internal.";
 
     /** Compiler instance configured with the annotation processor being tested. */
     private final Compiler compiler = Compiler.javac().withProcessors(new AutoSerializableProcessor());

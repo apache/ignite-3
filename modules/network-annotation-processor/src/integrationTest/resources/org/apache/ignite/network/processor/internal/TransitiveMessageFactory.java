@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages.internal.processor;
+package org.apache.ignite.network.processor.internal;
 
 public class TransitiveMessageFactory {
     public static TransitiveMessage.Builder transitiveMessage() {

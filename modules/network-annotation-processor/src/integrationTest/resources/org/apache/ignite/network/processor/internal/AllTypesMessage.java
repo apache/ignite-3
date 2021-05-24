@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages.internal.processor;
+package org.apache.ignite.network.processor.internal;
 
 import java.util.BitSet;
 import java.util.Collection;
