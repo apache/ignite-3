@@ -217,8 +217,10 @@ public class SchemaConfigurationConverter {
 
                 NamedListView<? extends IndexColumnView> colsView = idxView.columns();
                 SortedMap<Integer, SortedIndexColumn> partialCols = new TreeMap<>();
+                
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(colsView.get(key));
+                    
                     partialCols.put(Integer.valueOf(key), col);
                 }
 
