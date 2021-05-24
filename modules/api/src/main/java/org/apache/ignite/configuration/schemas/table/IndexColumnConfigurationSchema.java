@@ -21,7 +21,9 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 
-/** Configuration for single column in index. */
+/**
+ * Configuration for single column in index.
+ */
 @Config
 public class IndexColumnConfigurationSchema {
     /** Column name. */
@@ -30,6 +32,6 @@ public class IndexColumnConfigurationSchema {
     String name;
 
     /** Ascending flag. */
-    @Value
-    boolean asc;
+    @Value(hasDefault = true)
+    boolean asc = true;
 }
