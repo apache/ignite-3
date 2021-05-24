@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,7 +41,7 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
     private final String schemaName;
 
     /** Key columns. */
-    private final LinkedHashMap<String, Column> cols;
+    private final Map<String, Column> cols;
 
     /** Indices. */
     private final Map<String, TableIndex> indices;
@@ -67,7 +66,7 @@ public class SchemaTableImpl extends AbstractSchemaObject implements SchemaTable
     public SchemaTableImpl(
         String schemaName,
         String tableName,
-        final LinkedHashMap<String, Column> cols,
+        final Map<String, Column> cols,
         final Map<String, TableIndex> indices
     ) {
         super(tableName);

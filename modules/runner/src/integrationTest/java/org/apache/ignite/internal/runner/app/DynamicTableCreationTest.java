@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Ignition interface tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class DynamicTableCreationTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
@@ -102,8 +101,8 @@ class DynamicTableCreationTest {
             )
             .changeIndices(idxs -> idxs
                 .create("PK", idx -> idx
-                    .changeName("PK")
-                    .changeType("PRIMARY")
+                    .changeName("PRIMARY")
+                    .changeType("PK")
                     .changeColNames(new String[] {"key"})
                     .changeColumns(c -> c
                         .create("key", t -> t.changeName("key")))
@@ -158,6 +157,7 @@ class DynamicTableCreationTest {
      * Check dynamic table creation.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
     void testDynamicTableCreation() {
         List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -180,8 +180,8 @@ class DynamicTableCreationTest {
             )
             .changeIndices(idxs -> idxs
                 .create("PK", idx -> idx
-                    .changeName("PK")
-                    .changeType("PRIMARY")
+                    .changeName("PRIMARY")
+                    .changeType("PK")
                     .changeColNames(new String[] {"key", "affKey"})
                     .changeColumns(c -> c
                         .create("key", t -> t.changeName("key").changeAsc(true))

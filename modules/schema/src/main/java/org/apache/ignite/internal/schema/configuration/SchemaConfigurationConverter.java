@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeChange;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
@@ -47,14 +53,6 @@ import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.SortedIndexColumn;
 import org.apache.ignite.schema.TableIndex;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
 
 /**
  * Configuration to schema and vice versa converter.
@@ -201,12 +199,12 @@ public class SchemaConfigurationConverter {
             case SORTED_TYPE:
                 boolean sortedUniq = idxView.uniq();
 
-                SortedMap<Integer, SortedIndexColumn> sortedCols = new TreeMap<>();
-                
+                SortedMap<String, SortedIndexColumn> sortedCols = new TreeMap<>();
+
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(idxView.columns().get(key));
-                    
-                    sortedCols.put(Integer.valueOf(key), col);
+
+                    sortedCols.put(key, col);
                 }
 
                 return new SortedIndexImpl(name, new ArrayList<>(sortedCols.values()), sortedUniq);
@@ -216,23 +214,23 @@ public class SchemaConfigurationConverter {
                 String expr = idxView.expr();
 
                 NamedListView<? extends IndexColumnView> colsView = idxView.columns();
-                SortedMap<Integer, SortedIndexColumn> partialCols = new TreeMap<>();
-                
+                SortedMap<String, SortedIndexColumn> partialCols = new TreeMap<>();
+
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(colsView.get(key));
-                    
-                    partialCols.put(Integer.valueOf(key), col);
+
+                    partialCols.put(key, col);
                 }
 
                 return new PartialIndexImpl(name, new ArrayList<>(partialCols.values()), partialUniq, expr);
 
             case PK_TYPE:
-                SortedMap<Integer, SortedIndexColumn> cols = new TreeMap<>();
-                
+                SortedMap<String, SortedIndexColumn> cols = new TreeMap<>();
+
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(idxView.columns().get(key));
-                    
-                    cols.put(Integer.valueOf(key), col);
+
+                    cols.put(key, col);
                 }
 
                 String[] affCols = idxView.affinityColumns();
@@ -252,7 +250,7 @@ public class SchemaConfigurationConverter {
      */
     public static void convert(ColumnType colType, ColumnTypeChange colTypeChg) {
         String typeName = colType.typeSpec().name().toUpperCase();
-        
+
         if (types.containsKey(typeName))
             colTypeChg.changeType(typeName);
         else {
@@ -291,7 +289,7 @@ public class SchemaConfigurationConverter {
     public static ColumnType convert(ColumnTypeView colTypeView) {
         String typeName = colTypeView.type().toUpperCase();
         ColumnType res = types.get(typeName);
-        
+
         if (res != null)
             return res;
         else {
@@ -332,10 +330,10 @@ public class SchemaConfigurationConverter {
     public static void convert(Column col, ColumnChange colChg) {
         colChg.changeName(col.name());
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
-        
+
         if (col.defaultValue() != null)
             colChg.changeDefaultValue(col.defaultValue().toString());
-            
+
         colChg.changeNullable(col.nullable());
     }
 
@@ -398,19 +396,30 @@ public class SchemaConfigurationConverter {
      */
     public static SchemaTableImpl convert(TableView tblView) {
         String canonicalName = tblView.name();
+
+        String schemaName;
+        String tableName;
+
         int sepPos = canonicalName.indexOf('.');
-        String schemaName = canonicalName.substring(0, sepPos);
-        String tableName = canonicalName.substring(sepPos + 1);
+
+        if (sepPos == -1) {
+            schemaName = "PUBLIC";
+            tableName = canonicalName;
+        }
+        else {
+            schemaName = canonicalName.substring(0, sepPos);
+            tableName = canonicalName.substring(sepPos + 1);
+        }
 
         NamedListView<? extends ColumnView> colsView = tblView.columns();
 
-        SortedMap<Integer, Column> columns = new TreeMap<>();
+        SortedMap<String, Column> columns = new TreeMap<>();
 
         for (String key : colsView.namedListKeys()) {
             ColumnView colView = colsView.get(key);
             Column col = convert(colView);
 
-            columns.put(Integer.valueOf(key), col);
+            columns.put(key, col);
         }
 
         NamedListView<? extends TableIndexView> idxsView = tblView.indices();
@@ -424,11 +433,7 @@ public class SchemaConfigurationConverter {
             indices.put(idx.name(), idx);
         }
 
-        LinkedHashMap<String, Column> colsMap = new LinkedHashMap<>(colsView.size());
-        
-        columns.forEach((i,v) -> colsMap.put(v.name(), v));
-
-        return new SchemaTableImpl(schemaName, tableName, colsMap, indices);
+        return new SchemaTableImpl(schemaName, tableName, columns, indices);
     }
 
     /**
