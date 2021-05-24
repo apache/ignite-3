@@ -39,7 +39,6 @@ public class HashIndexBuilderTest {
         HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI")
             .withColumns("A", "B", "C")
             .withHints(Collections.singletonMap("param","value"));
-
         HashIndex idx = builder.build();
 
         assertEquals("testHI", idx.name());
