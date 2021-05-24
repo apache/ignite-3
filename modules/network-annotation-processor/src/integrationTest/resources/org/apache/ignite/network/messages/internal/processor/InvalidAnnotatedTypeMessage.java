@@ -17,7 +17,7 @@
 
 package org.apache.ignite.network.messages.internal.processor;
 
-import org.apache.ignite.network.messages.annotations.AutoSerializable;
+import org.apache.ignite.network.processor.annotations.AutoSerializable;
 
 @AutoSerializable(messageFactory = AllTypesMessageFactory.class)
 public interface InvalidAnnotatedTypeMessage {

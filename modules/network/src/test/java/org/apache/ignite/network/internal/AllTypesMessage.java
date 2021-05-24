@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.messages.annotations.AutoSerializable;
+import org.apache.ignite.network.processor.annotations.AutoSerializable;
 
 @AutoSerializable(messageFactory = AllTypesMessageFactory.class)
 public interface AllTypesMessage extends NetworkMessage {

@@ -19,7 +19,7 @@ package org.apache.ignite.network.messages.internal.processor;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.messages.annotations.AutoSerializable;
+import org.apache.ignite.network.processor.annotations.AutoSerializable;
 
 interface NetworkMessage1 extends NetworkMessage {
 

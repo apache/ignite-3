@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages.internal.processor;
+package org.apache.ignite.network.processor.internal;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -44,7 +44,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.messages.annotations.AutoSerializable;
+import org.apache.ignite.network.processor.annotations.AutoSerializable;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;

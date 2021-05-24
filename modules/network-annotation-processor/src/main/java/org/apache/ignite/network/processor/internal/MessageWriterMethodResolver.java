@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages.internal.processor;
+package org.apache.ignite.network.processor.internal;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import com.squareup.javapoet.CodeBlock;
-import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**
- * Class for resolving {@link MessageReader} "read*" methods for the corresponding message field type.
+ * Class for resolving {@link MessageWriter} "write*" methods for the corresponding message field type.
  */
-class MessageReaderMethodResolver {
+class MessageWriterMethodResolver {
     /** */
     private final BaseMethodNameResolver methodNameResolver;
 
@@ -38,63 +41,66 @@ class MessageReaderMethodResolver {
     private final MessageCollectionItemTypeConverter typeConverter;
 
     /** */
-    MessageReaderMethodResolver(ProcessingEnvironment processingEnvironment) {
+    MessageWriterMethodResolver(ProcessingEnvironment processingEnvironment) {
         methodNameResolver = new BaseMethodNameResolver(processingEnvironment);
         typeConverter = new MessageCollectionItemTypeConverter(processingEnvironment);
     }
 
     /**
-     * Resolves the "read" method by the type of the given message's builder method.
+     * Resolves the "write" method by the type of the given message's getter method.
      */
-    CodeBlock resolveReadMethod(ExecutableElement builderSetter) {
-        if (builderSetter.getParameters().size() != 1) {
-            throw new ProcessingException("Invalid number of parameters of a Builder setter (expected 1): " + builderSetter);
+    CodeBlock resolveWriteMethod(ExecutableElement getter) {
+        TypeMirror getterReturnType = getter.getReturnType();
+
+        if (getterReturnType.getKind() == TypeKind.VOID) {
+            throw new ProcessingException(String.format("Getter method %s does not return any value", getter));
         }
 
-        TypeMirror parameterType = builderSetter.getParameters().get(0).asType();
+        String parameterName = getter.getSimpleName().toString();
 
-        String parameterName = builderSetter.getSimpleName().toString();
-
-        String methodName = methodNameResolver.resolveBaseMethodName(parameterType);
+        String methodName = methodNameResolver.resolveBaseMethodName(getterReturnType);
 
         switch (methodName) {
             case "ObjectArray":
-                return resolveReadObjectArray((ArrayType) parameterType, parameterName);
+                return resolveWriteObjectArray((ArrayType) getterReturnType, parameterName);
             case "Collection":
-                return resolveReadCollection((DeclaredType) parameterType, parameterName);
+                return resolveWriteCollection((DeclaredType) getterReturnType, parameterName);
             case "Map":
-                return resolveReadMap((DeclaredType) parameterType, parameterName);
+                return resolveWriteMap((DeclaredType) getterReturnType, parameterName);
             default:
-                return CodeBlock.builder().add("read$L($S)", methodName, parameterName).build();
+                return CodeBlock.builder()
+                    .add("write$L($S, message.$L())", methodName, parameterName, parameterName)
+                    .build();
         }
     }
 
     /**
-     * Creates a {@link MessageReader#readObjectArray(String, MessageCollectionItemType, Class)} method call.
+     * Creates a {@link MessageWriter#writeObjectArray(String, Object[], MessageCollectionItemType)} method call.
      */
-    private CodeBlock resolveReadObjectArray(ArrayType parameterType, String parameterName) {
+    private CodeBlock resolveWriteObjectArray(ArrayType parameterType, String parameterName) {
         TypeMirror componentType = parameterType.getComponentType();
 
         return CodeBlock.builder()
             .add(
-                "readObjectArray($S, $T.$L, $T.class)",
+                "writeObjectArray($S, message.$L(), $T.$L)",
+                parameterName,
                 parameterName,
                 MessageCollectionItemType.class,
-                typeConverter.fromTypeMirror(componentType),
-                componentType
+                typeConverter.fromTypeMirror(componentType)
             )
             .build();
     }
 
     /**
-     * Creates a {@link MessageReader#readCollection(String, MessageCollectionItemType)} method call.
+     * Creates a {@link MessageWriter#writeCollection(String, Collection, MessageCollectionItemType)} method call.
      */
-    private CodeBlock resolveReadCollection(DeclaredType parameterType, String parameterName) {
+    private CodeBlock resolveWriteCollection(DeclaredType parameterType, String parameterName) {
         TypeMirror collectionGenericType = parameterType.getTypeArguments().get(0);
 
         return CodeBlock.builder()
             .add(
-                "readCollection($S, $T.$L)",
+                "writeCollection($S, message.$L(), $T.$L)",
+                parameterName,
                 parameterName,
                 MessageCollectionItemType.class,
                 typeConverter.fromTypeMirror(collectionGenericType)
@@ -103,10 +109,10 @@ class MessageReaderMethodResolver {
     }
 
     /**
-     * Creates a {@link MessageReader#readMap(String, MessageCollectionItemType, MessageCollectionItemType, boolean)}
+     * Creates a {@link MessageWriter#writeMap(String, Map, MessageCollectionItemType, MessageCollectionItemType)}
      * method call.
      */
-    private CodeBlock resolveReadMap(DeclaredType parameterType, String parameterName) {
+    private CodeBlock resolveWriteMap(DeclaredType parameterType, String parameterName) {
         List<? extends TypeMirror> typeArguments = parameterType.getTypeArguments();
 
         MessageCollectionItemType mapKeyType = typeConverter.fromTypeMirror(typeArguments.get(0));
@@ -114,7 +120,8 @@ class MessageReaderMethodResolver {
 
         return CodeBlock.builder()
             .add(
-                "readMap($S, $T.$L, $T.$L, false)",
+                "writeMap($S, message.$L(), $T.$L, $T.$L)",
+                parameterName,
                 parameterName,
                 MessageCollectionItemType.class,
                 mapKeyType,

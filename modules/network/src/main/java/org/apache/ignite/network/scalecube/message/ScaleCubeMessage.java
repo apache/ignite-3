@@ -20,7 +20,7 @@ package org.apache.ignite.network.scalecube.message;
 import java.util.Map;
 import io.scalecube.cluster.transport.api.Message;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.messages.annotations.AutoSerializable;
+import org.apache.ignite.network.processor.annotations.AutoSerializable;
 
 /**
  * Wrapper for ScaleCube's {@link Message}.

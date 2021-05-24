@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages.annotations;
+package org.apache.ignite.network.processor.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
