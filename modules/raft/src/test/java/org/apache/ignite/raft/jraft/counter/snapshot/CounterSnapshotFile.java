@@ -43,13 +43,14 @@ public class CounterSnapshotFile {
     /**
      * Save value to snapshot file.
      */
-    public boolean save(final long value) {
+    public void save(final long value) throws IOException{
         try {
             Files.writeString(new File(path).toPath(), String.valueOf(value));
-            return true;
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             LOG.error("Fail to save snapshot", e);
-            return false;
+
+            throw e;
         }
     }
 

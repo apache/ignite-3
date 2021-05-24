@@ -21,12 +21,12 @@ import java.util.Arrays;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.schema.NativeType.BYTE;
-import static org.apache.ignite.internal.schema.NativeType.BYTES;
-import static org.apache.ignite.internal.schema.NativeType.INTEGER;
-import static org.apache.ignite.internal.schema.NativeType.SHORT;
-import static org.apache.ignite.internal.schema.NativeType.STRING;
-import static org.apache.ignite.internal.schema.NativeType.UUID;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
+import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
+import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 /**
@@ -36,12 +36,18 @@ public class RowAssemblerTest {
     /** Uuid test value. */
     public final java.util.UUID uuidVal = new UUID(-5204230847775358097L, 4916207022290092939L);
 
+    /** Table ID test value. */
+    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+
+    /**
+     * Validate row layout for schema of fix-len non-null key and fix-len nullable value.
+     */
     @Test
-    public void testFixedKeyFixedNullableValue() {
+    public void fixedKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, false)};
         Column[] valCols = new Column[] {new Column("valIntCol", INTEGER, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -49,7 +55,7 @@ public class RowAssemblerTest {
             asm.appendInt(33);
             asm.appendInt(-71);
 
-            assertRowBytesEquals(new byte[] {42, 0, 26, 0, 0, 0, 0, 0, 8, 0, 0, 0, 33, 0, 0, 0, 9, 0, 0, 0, 0, -71, -1, -1, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 26, 0, 33, 0, 0, 0, 8, 0, 0, 0, 33, 0, 0, 0, 9, 0, 0, 0, 0, -71, -1, -1, -1}, asm.build());
         }
 
         { // Null value.
@@ -58,7 +64,7 @@ public class RowAssemblerTest {
             asm.appendInt(-33);
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 26, 0, 0, 0, 0, 0, 8, 0, 0, 0, -33, -1, -1, -1, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 26, 0, -33, -1, -1, -1, 8, 0, 0, 0, -33, -1, -1, -1, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // No value.
@@ -66,16 +72,19 @@ public class RowAssemblerTest {
 
             asm.appendInt(-33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 27, 0, 0, 0, 0, 0, 8, 0, 0, 0, -33, -1, -1, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 27, 0, -33, -1, -1, -1, 8, 0, 0, 0, -33, -1, -1, -1}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len non-null key and fix-len non-null value.
+     */
     @Test
-    public void testFixedKeyFixedValue() {
+    public void fixedKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         { // With value.
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -83,7 +92,7 @@ public class RowAssemblerTest {
             asm.appendShort((short)33);
             asm.appendShort((short)71L);
 
-            assertRowBytesEquals(new byte[] {42, 0, 30, 0, 0, 0, 0, 0, 6, 0, 0, 0, 33, 0, 6, 0, 0, 0, 71, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 30, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0, 6, 0, 0, 0, 71, 0}, asm.build());
         }
 
         { // No value.
@@ -91,16 +100,19 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)-33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 31, 0, 0, 0, 0, 0, 6, 0, 0, 0, -33, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 31, 0, -33, -1, -1, -1, 6, 0, 0, 0, -33, -1}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len non-null key and var-len nullable value.
+     */
     @Test
-    public void testFixedKeyVarlenNullableValue() {
+    public void fixedKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -108,7 +120,7 @@ public class RowAssemblerTest {
             asm.appendShort((short)-33);
             asm.appendString("val");
 
-            assertRowBytesEquals(new byte[] {42, 0, 10, 0, 0, 0, 0, 0, 6, 0, 0, 0, -33, -1, 12, 0, 0, 0, 0, 1, 0, 9, 0, 118, 97, 108}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 10, 0, -33, -1, -1, -1, 6, 0, 0, 0, -33, -1, 12, 0, 0, 0, 0, 1, 0, 9, 0, 118, 97, 108}, asm.build());
         }
 
         { // Null value.
@@ -117,7 +129,7 @@ public class RowAssemblerTest {
             asm.appendShort((short)33);
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 26, 0, 0, 0, 0, 0, 6, 0, 0, 0, 33, 0, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 26, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // No value.
@@ -125,16 +137,19 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 27, 0, 0, 0, 0, 0, 6, 0, 0, 0, 33, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 27, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len non-null key and var-len non-null value.
+     */
     @Test
-    public void testFixedKeyVarlenValue() {
+    public void fixedKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, false)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -142,7 +157,7 @@ public class RowAssemblerTest {
             asm.appendShort((short)-33);
             asm.appendString("val");
 
-            assertRowBytesEquals(new byte[] {42, 0, 14, 0, 0, 0, 0, 0, 6, 0, 0, 0, -33, -1, 11, 0, 0, 0, 1, 0, 8, 0, 118, 97, 108}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 14, 0, -33, -1, -1, -1, 6, 0, 0, 0, -33, -1, 11, 0, 0, 0, 1, 0, 8, 0, 118, 97, 108}, asm.build());
         }
 
         { // No value.
@@ -150,16 +165,19 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 31, 0, 0, 0, 0, 0, 6, 0, 0, 0, 33, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 31, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and fix-len non-null value.
+     */
     @Test
-    public void testFixedNullableKeyFixedValue() {
+    public void fixedNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valByteCol", BYTE, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -167,7 +185,7 @@ public class RowAssemblerTest {
             asm.appendShort((short)-33);
             asm.appendByte((byte)71);
 
-            assertRowBytesEquals(new byte[] {42, 0, 28, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, -33, -1, 5, 0, 0, 0, 71}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 28, 0, -33, -1, -1, -1, 7, 0, 0, 0, 0, -33, -1, 5, 0, 0, 0, 71}, asm.build());
         }
 
         { // Null key.
@@ -184,16 +202,19 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 29, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 29, 0, 33, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and fix-len nullable value.
+     */
     @Test
-    public void testFixedNullableKeyFixedNullableValue() {
+    public void fixedNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyShortCol", SHORT, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
@@ -201,7 +222,7 @@ public class RowAssemblerTest {
             asm.appendShort((short)-1133);
             asm.appendShort((short)-1071);
 
-            assertRowBytesEquals(new byte[] {42, 0, 24, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, -109, -5, 7, 0, 0, 0, 0, -47, -5}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 24, 0, -109, -5, -1, -1, 7, 0, 0, 0, 0, -109, -5, 7, 0, 0, 0, 0, -47, -5}, asm.build());
         }
 
         { // Null key.
@@ -219,7 +240,7 @@ public class RowAssemblerTest {
             asm.appendShort((short)1133);
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 24, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 109, 4, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 24, 0, 109, 4, 0, 0, 7, 0, 0, 0, 0, 109, 4, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // Null both.
@@ -236,16 +257,19 @@ public class RowAssemblerTest {
 
             asm.appendShort((short)1133);
 
-            assertRowBytesEquals(new byte[] {42, 0, 25, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 109, 4}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 25, 0, 109, 4, 0, 0, 7, 0, 0, 0, 0, 109, 4}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and var-len nullable value.
+     */
     @Test
-    public void testFixedNullableKeyVarlenNullableValue() {
+    public void fixedNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyIntCol", INTEGER, true)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -253,7 +277,7 @@ public class RowAssemblerTest {
             asm.appendInt(-33);
             asm.appendString("val");
 
-            assertRowBytesEquals(new byte[] {42, 0, 8, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, -33, -1, -1, -1, 12, 0, 0, 0, 0, 1, 0, 9, 0, 118, 97, 108}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 8, 0, -33, -1, -1, -1, 9, 0, 0, 0, 0, -33, -1, -1, -1, 12, 0, 0, 0, 0, 1, 0, 9, 0, 118, 97, 108}, asm.build());
         }
 
         { // Null key.
@@ -271,7 +295,7 @@ public class RowAssemblerTest {
             asm.appendInt(33);
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 24, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 33, 0, 0, 0, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 24, 0, 33, 0, 0, 0, 9, 0, 0, 0, 0, 33, 0, 0, 0, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // Null both.
@@ -288,16 +312,19 @@ public class RowAssemblerTest {
 
             asm.appendInt(33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 25, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 33, 0, 0, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 25, 0, 33, 0, 0, 0, 9, 0, 0, 0, 0, 33, 0, 0, 0}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of fix-len nullable key and var-len non-null value.
+     */
     @Test
-    public void testFixedNullableKeyVarlenValue() {
+    public void fixedNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyByteCol", BYTE, true)};
         Column[] valCols = new Column[] {new Column("valStrCol", STRING, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
@@ -305,7 +332,7 @@ public class RowAssemblerTest {
             asm.appendByte((byte)-33);
             asm.appendString("val");
 
-            assertRowBytesEquals(new byte[] {42, 0, 12, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, -33, 11, 0, 0, 0, 1, 0, 8, 0, 118, 97, 108}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 12, 0, -33, -1, -1, -1, 6, 0, 0, 0, 0, -33, 11, 0, 0, 0, 1, 0, 8, 0, 118, 97, 108}, asm.build());
         }
 
         { // Null key.
@@ -322,16 +349,19 @@ public class RowAssemblerTest {
 
             asm.appendByte((byte)33);
 
-            assertRowBytesEquals(new byte[] {42, 0, 29, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 33}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 29, 0, 33, 0, 0, 0, 6, 0, 0, 0, 0, 33}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len non-null key and fix-len nullable value.
+     */
     @Test
-    public void testVarlenKeyFixedNullableValue() {
+    public void varlenKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -340,7 +370,7 @@ public class RowAssemblerTest {
             asm.appendUuid(uuidVal);
 
             assertRowBytesEquals(new byte[] {
-                42, 0, 18, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121,
+                42, 0, 18, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121,
                 21, 0, 0, 0, 0, -117, -61, -31, 85, 61, -32, 57, 68, 111, 67, 56, -3, -99, -37, -58, -73}, asm.build());
         }
 
@@ -350,7 +380,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 18, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 18, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // No value.
@@ -358,16 +388,19 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 19, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 19, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len non-null key and fix-len non-null value.
+     */
     @Test
-    public void testVarlenKeyFixedValue() {
+    public void varlenKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valUuidCol", UUID, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -376,7 +409,7 @@ public class RowAssemblerTest {
             asm.appendUuid(uuidVal);
 
             assertRowBytesEquals(new byte[] {
-                42, 0, 22, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121,
+                42, 0, 22, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121,
                 20, 0, 0, 0, -117, -61, -31, 85, 61, -32, 57, 68, 111, 67, 56, -3, -99, -37, -58, -73}, asm.build());
         }
 
@@ -385,16 +418,19 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 23, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 23, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len non-null key and var-len nullable value.
+     */
     @Test
-    public void testVarlenKeyVarlenNullableValue() {
+    public void varlenKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -402,7 +438,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 13, 0, 0, 0, 0, 1, 0, 9, 0, -1, 1, 0, 120}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 13, 0, 0, 0, 0, 1, 0, 9, 0, -1, 1, 0, 120}, asm.build());
         }
 
         { // Null value.
@@ -411,7 +447,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 18, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 18, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // No value.
@@ -419,16 +455,19 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 19, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 19, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len non-null key and var-len non-null value.
+     */
     @Test
-    public void testVarlenKeyVarlenValue() {
+    public void varlenKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, false)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -436,7 +475,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
 
-            assertRowBytesEquals(new byte[] {42, 0, 6, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 12, 0, 0, 0, 1, 0, 8, 0, -1, 1, 0, 120}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 6, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 12, 0, 0, 0, 1, 0, 8, 0, -1, 1, 0, 120}, asm.build());
         }
 
         { // No value.
@@ -444,16 +483,19 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 23, 0, 0, 0, 0, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 23, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and fix-len nullable value.
+     */
     @Test
-    public void testVarlenNullableKeyFixedNullableValue() {
+    public void varlenNullableKeyFixedNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -461,7 +503,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendShort((short)-71);
 
-            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 7, 0, 0, 0, 0, -71, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 7, 0, 0, 0, 0, -71, -1}, asm.build());
         }
 
         { // Null key.
@@ -479,7 +521,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // Null both.
@@ -496,16 +538,19 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 17, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 17, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and fix-len non-null value.
+     */
     @Test
-    public void testVarlenNullableKeyFixedValue() {
+    public void varlenNullableKeyFixedValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valShortCol", SHORT, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
@@ -513,7 +558,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendShort((short)-71L);
 
-            assertRowBytesEquals(new byte[] {42, 0, 20, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 6, 0, 0, 0, -71, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 20, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 6, 0, 0, 0, -71, -1}, asm.build());
         }
 
         { // Null key.
@@ -530,16 +575,19 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 21, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 21, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and var-len nullable value.
+     */
     @Test
-    public void testVarlenNullableKeyVarlenNullableValue() {
+    public void varlenNullableKeyVarlenNullableValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, true)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -547,7 +595,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
 
-            assertRowBytesEquals(new byte[] {42, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 13, 0, 0, 0, 0, 1, 0, 9, 0, -1, 1, 0, 120}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 0, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 13, 0, 0, 0, 0, 1, 0, 9, 0, -1, 1, 0, 120}, asm.build());
         }
 
         { // Null key.
@@ -565,7 +613,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
         }
 
         { // Null both.
@@ -582,16 +630,19 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 17, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 17, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
         }
     }
 
+    /**
+     * Validate row layout for schema of var-len nullable key and var-len non-null value.
+     */
     @Test
-    public void testVarlenNullableKeyVarlenValue() {
+    public void varlenNullableKeyVarlenValue() {
         Column[] keyCols = new Column[] {new Column("keyStrCol", STRING, true)};
         Column[] valCols = new Column[] {new Column("valBytesCol", BYTES, false)};
 
-        SchemaDescriptor schema = new SchemaDescriptor(42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
             RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
@@ -599,7 +650,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
 
-            assertRowBytesEquals(new byte[] {42, 0, 4, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 12, 0, 0, 0, 1, 0, 8, 0, -1, 1, 0, 120}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 4, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 12, 0, 0, 0, 1, 0, 8, 0, -1, 1, 0, 120}, asm.build());
         }
 
         { // Null key.
@@ -616,7 +667,64 @@ public class RowAssemblerTest {
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 21, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 21, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+        }
+    }
+
+    /**
+     * Validate row layout for key\value columns of different types.
+     */
+    @Test
+    public void mixedTypes() {
+        Column[] keyCols = new Column[] {
+            new Column("keyShortCol", SHORT, false),
+            new Column("keyStrCol", STRING, false)
+        };
+        Column[] valCols = new Column[] {
+            new Column("valIntCol", INTEGER, true),
+            new Column("valStrCol", STRING, true)
+        };
+
+        SchemaDescriptor schema = new SchemaDescriptor(tableId,42, keyCols, valCols);
+
+        {
+            RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
+
+            asm.appendShort((short)33);
+            asm.appendString("keystr");
+            asm.appendInt(73);
+            asm.appendString("valstr");
+
+            assertRowBytesEquals(new byte[] {
+                42, 0, 2, 0, -110, -109, 94, -68,
+                16, 0, 0, 0, 1, 0, 10, 0, 33, 0, 107, 101, 121, 115, 116, 114,
+                19, 0, 0, 0, 0, 1, 0, 13, 0, 73, 0, 0, 0, 118, 97, 108, 115, 116, 114}, asm.build());
+        }
+
+        { // Null value.
+            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+
+            asm.appendShort((short)33);
+            asm.appendString("keystr2");
+            asm.appendNull();
+            asm.appendNull();
+
+            assertRowBytesEquals(new byte[] {
+                42, 0, 18, 0, 32, 99, 115, -49,
+                17, 0, 0, 0, 1, 0, 10, 0, 33, 0, 107, 101, 121, 115, 116, 114, 50,
+                5, 0, 0, 0, 3}, asm.build());
+        }
+
+        { // No value.
+            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+
+            asm.appendShort((short)33);
+            asm.appendString("keystr");
+
+            assertRowBytesEquals(new byte[] {
+                42, 0, 19, 0, -110, -109, 94, -68,
+                16, 0, 0, 0, 1, 0, 10, 0, 33, 0, 107, 101, 121, 115, 116, 114}, asm.build());
+
         }
     }
 

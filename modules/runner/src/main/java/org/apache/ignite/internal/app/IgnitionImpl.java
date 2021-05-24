@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.configuration.RootKey;
@@ -105,10 +104,10 @@ public class IgnitionImpl implements Ignition {
 
         if (!cfgBootstrappedFromPds && jsonStrBootstrapCfg != null)
             try {
-                locConfigurationMgr.bootstrap(jsonStrBootstrapCfg);
+                locConfigurationMgr.bootstrap(jsonStrBootstrapCfg, ConfigurationType.LOCAL);
             }
             catch (Exception e) {
-                LOG.warn("Unable to parse user specific configuration, default configuration will be used", e);
+                LOG.warn("Unable to parse user specific configuration, default configuration will be used: " + e.getMessage());
             }
         else if (jsonStrBootstrapCfg != null)
             LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
@@ -159,9 +158,9 @@ public class IgnitionImpl implements Ignition {
         BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, clusterNetSvc);
 
         // Affinity manager startup.
-        AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr, vaultMgr);
+        AffinityManager affinityMgr = new AffinityManager(configurationMgr, metaStorageMgr, baselineMgr);
 
-        SchemaManager schemaMgr = new SchemaManager(configurationMgr);
+        SchemaManager schemaMgr = new SchemaManager(configurationMgr, metaStorageMgr, vaultMgr);
 
         // Distributed table manager startup.
         IgniteTables distributedTblMgr = new TableManager(
@@ -192,9 +191,7 @@ public class IgnitionImpl implements Ignition {
     private static void ackBanner() {
         String ver = IgniteProperties.get(VER_KEY);
 
-        String banner = Arrays
-            .stream(BANNER)
-            .collect(Collectors.joining("\n"));
+        String banner = String.join("\n", BANNER);
 
         LOG.info(banner + '\n' + " ".repeat(22) + "Apache Ignite ver. " + ver + '\n');
     }

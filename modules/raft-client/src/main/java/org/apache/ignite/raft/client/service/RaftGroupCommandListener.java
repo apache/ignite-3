@@ -28,22 +28,34 @@ import org.apache.ignite.raft.client.WriteCommand;
 public interface RaftGroupCommandListener {
     /**
      * The callback to apply read commands.
+     * <p>
+     * If the runtime exception is thrown during iteration all unprocessed read requests will be aborted with the STM
+     * exception.
+     *
      * @param iterator Read command iterator.
      */
     void onRead(Iterator<CommandClosure<ReadCommand>> iterator);
 
     /**
      * The callback to apply write commands.
+     * <p>
+     * If the runtime exception is thrown during iteration, all entries from current iteration are considered unapplied
+     * and the state machine is invalidated and raft node will go into error state (the leader will step down and can't
+     * be elected again).
+     * <p>
+     * At this point all subsequent commands will be ignored until the problem is fixed and the state machine is restarted.
+     *
      * @param iterator Write command iterator.
      */
     void onWrite(Iterator<CommandClosure<WriteCommand>> iterator);
 
     /**
-     * The callback to save a snapshot.
+     * The callback to save a snapshot. The execution should be asynchronous to avoid blocking of STM updates.
+     *
      * @param path Snapshot directory to store data.
-     * @param doneClo The closure to call on finish. Pass TRUE if snapshot was taken normally, FALSE otherwise.
+     * @param doneClo The closure to call on finish. Pass the not null exception if the snapshot was failed to create.
      */
-    public void onSnapshotSave(String path, Consumer<Boolean> doneClo);
+    public void onSnapshotSave(String path, Consumer<Throwable> doneClo);
 
     /**
      * The callback to load a snapshot.

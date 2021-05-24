@@ -170,7 +170,7 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
     }
 
     /** {@inheritDoc} */
-    @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
+    @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
         LOG.warn("onSnapshotSave is not implemented");
     }
 

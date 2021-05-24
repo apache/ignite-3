@@ -26,6 +26,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
@@ -39,7 +40,6 @@ import org.jetbrains.annotations.NotNull;
  * regarding the binary object concept.
  */
 public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinaryView {
-
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
 
@@ -47,12 +47,12 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
      * Constructor.
      *
      * @param tbl Table storage.
-     * @param schemaMgr Schema manager.
+     * @param schemaReg Schema registry.
      */
-    public KVBinaryViewImpl(InternalTable tbl, TableSchemaView schemaMgr) {
-        super(tbl, schemaMgr);
+    public KVBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg) {
+        super(tbl, schemaReg);
 
-        marsh = new TupleMarshallerImpl(schemaMgr);
+        marsh = new TupleMarshallerImpl(schemaReg);
     }
 
     /** {@inheritDoc} */
@@ -267,7 +267,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return new TupleBuilderImpl();
+        return new TupleBuilderImpl(schemaReg.schema());
     }
 
     /**
@@ -285,7 +285,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
         if (row == null)
             return null;
 
-        final SchemaDescriptor schema = schemaMgr.schema(row.schemaVersion());
+        final SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
 
         return new TableRow(schema, new Row(schema, row));
     }

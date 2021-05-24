@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.affinity;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,14 +29,13 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.metastorage.common.Conditions;
-import org.apache.ignite.metastorage.common.Key;
-import org.apache.ignite.metastorage.common.Operations;
-import org.apache.ignite.metastorage.common.WatchEvent;
-import org.apache.ignite.metastorage.common.WatchListener;
+import org.apache.ignite.metastorage.client.Conditions;
+import org.apache.ignite.metastorage.client.EntryEvent;
+import org.apache.ignite.metastorage.client.Operations;
+import org.apache.ignite.metastorage.client.WatchEvent;
+import org.apache.ignite.metastorage.client.WatchListener;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
@@ -63,32 +61,28 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
-    /** Vault manager. */
-    private final VaultManager vaultMgr;
-
     /**
      * Creates a new affinity manager.
      *
      * @param configurationMgr Configuration module.
      * @param metaStorageMgr Meta storage service.
      * @param baselineMgr Baseline manager.
-     * @param vaultMgr Vault manager.
      */
     public AffinityManager(
         ConfigurationManager configurationMgr,
         MetaStorageManager metaStorageMgr,
-        BaselineManager baselineMgr,
-        VaultManager vaultMgr
+        BaselineManager baselineMgr
     ) {
         this.configurationMgr = configurationMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.baselineMgr = baselineMgr;
-        this.vaultMgr = vaultMgr;
 
-        metaStorageMgr.registerWatchByPrefix(new Key(INTERNAL_PREFIX), new WatchListener() {
-            @Override public boolean onUpdate(@NotNull Iterable<WatchEvent> events) {
-                for (WatchEvent evt : events) {
-                    String tabIdVal = evt.newEntry().key().toString().substring(INTERNAL_PREFIX.length());
+        metaStorageMgr.registerWatchByPrefix(new ByteArray(INTERNAL_PREFIX), new WatchListener() {
+            @Override public boolean onUpdate(@NotNull WatchEvent watchEvt) {
+                for (EntryEvent evt : watchEvt.entryEvents()) {
+                    String keyAsString = new ByteArray(evt.newEntry().key().bytes()).toString();
+
+                    String tabIdVal = keyAsString.substring(INTERNAL_PREFIX.length());
 
                     UUID tblId = UUID.fromString(tabIdVal);
 
@@ -112,7 +106,7 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
             }
 
             @Override public void onError(@NotNull Throwable e) {
-                LOG.error("Metastorage listener issue", e);
+                LOG.error("Meta storage listener issue", e);
             }
         });
     }
@@ -121,33 +115,27 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
      * Calculates an assignment for a table which was specified by id.
      *
      * @param tblId Table identifier.
+     * @param tblName Table name.
      * @return A future which will complete when the assignment is calculated.
      */
-    public CompletableFuture<Boolean> calculateAssignments(UUID tblId) {
-        return vaultMgr
-            .get(ByteArray.fromString(INTERNAL_PREFIX + tblId))
-            .thenCompose(entry -> {
-                TableConfiguration tblConfig = configurationMgr
-                    .configurationRegistry()
-                    .getConfiguration(TablesConfiguration.KEY)
-                    .tables()
-                    .get(new String(entry.value(), StandardCharsets.UTF_8));
+    public CompletableFuture<Boolean> calculateAssignments(UUID tblId, String tblName) {
+        TableConfiguration tblConfig = configurationMgr.configurationRegistry()
+            .getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
 
-                var key = new Key(INTERNAL_PREFIX + tblId);
+        var key = new ByteArray(INTERNAL_PREFIX + tblId);
 
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Need to support baseline changes.
-                return metaStorageMgr.invoke(
-                    Conditions.key(key).value().eq(null),
-                    Operations.put(key, ByteUtils.toBytes(
-                        RendezvousAffinityFunction.assignPartitions(
-                            baselineMgr.nodes(),
-                            tblConfig.partitions().value(),
-                            tblConfig.replicas().value(),
-                            false,
-                            null
-                        ))),
-                    Operations.noop());
-        });
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Need to support baseline changes.
+        return metaStorageMgr.invoke(
+            Conditions.notExists(key),
+            Operations.put(key, ByteUtils.toBytes(
+                RendezvousAffinityFunction.assignPartitions(
+                    baselineMgr.nodes(),
+                    tblConfig.partitions().value(),
+                    tblConfig.replicas().value(),
+                    false,
+                    null
+                ))),
+            Operations.noop());
     }
 
     /**
@@ -157,10 +145,10 @@ public class AffinityManager extends Producer<AffinityEvent, AffinityEventParame
      * @return A future which will complete when assignment is removed.
      */
     public CompletableFuture<Boolean> removeAssignment(UUID tblId) {
-        var key = new Key(INTERNAL_PREFIX + tblId);
+        var key = new ByteArray(INTERNAL_PREFIX + tblId);
 
         return metaStorageMgr.invoke(
-            Conditions.key(key).value().ne(null),
+            Conditions.exists(key),
             Operations.remove(key),
             Operations.noop());
     }

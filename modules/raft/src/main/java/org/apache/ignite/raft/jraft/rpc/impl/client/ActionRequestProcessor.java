@@ -40,7 +40,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.server.impl.JRaftServerImpl;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Process action request.
@@ -82,7 +81,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                     @Override public void run(Status status, long index, byte[] reqCtx) {
                         if (status.isOk()) {
-                            JRaftServerImpl.DelegatingStateMachine fsm = (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+                            JRaftServerImpl.DelegatingStateMachine fsm =
+                                (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
                             try {
                                 fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<ReadCommand>() {
@@ -96,7 +96,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                 }).iterator());
                             }
                             catch (Exception e) {
-                                sendError(rpcCtx, RaftErrorCode.ILLEGAL_STATE, null);
+                                sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
                             }
                         }
                         else
@@ -106,7 +106,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             }
             else {
                 // TODO asch remove copy paste, batching.
-                JRaftServerImpl.DelegatingStateMachine fsm = (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+                JRaftServerImpl.DelegatingStateMachine fsm =
+                    (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
                 try {
                     fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<ReadCommand>() {
@@ -120,7 +121,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                     }).iterator());
                 }
                 catch (Exception e) {
-                    sendError(rpcCtx, RaftErrorCode.ILLEGAL_STATE, null);
+                    sendError(rpcCtx, RaftErrorCode.STATE_MACHINE, e.getMessage());
                 }
             }
         }
@@ -142,21 +143,16 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param errorCode Error code.
      * @param newLeader New leader.
      */
-    private void sendError(RpcContext ctx, RaftErrorCode errorCode, @Nullable PeerId newLeader) {
-        RaftErrorResponse.Builder resp = factory.raftErrorResponse().errorCode(errorCode);
-
-        if (newLeader != null) {
-            resp.newLeader(new Peer(newLeader.getEndpoint().toString()));
-        }
+    private void sendError(RpcContext ctx, RaftErrorCode errorCode, String msg) {
+        RaftErrorResponse.Builder resp = factory.raftErrorResponse().errorCode(errorCode).errorMessage(msg);
 
         ctx.sendResponse(((RaftErrorResponse.Builder) resp).build());
     }
 
     /**
-     * @param node The node.
-     * @param corellationId Corellation id.
+     * @param ctx The context.
      * @param status The status.
-     * @param svc Raft group service.
+     * @param node Raft node.
      */
     private void sendError(RpcContext ctx, Status status, Node node) {
         RaftError raftError = status.getRaftError();
@@ -172,8 +168,11 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             raftErrorCode = newLeader == null || myId.equals(newLeader) ?
                 RaftErrorCode.NO_LEADER : RaftErrorCode.LEADER_CHANGED;
         }
+        else if (status.getRaftError() == RaftError.ESTATEMACHINE)
+            raftErrorCode = RaftErrorCode.STATE_MACHINE;
 
-        RaftErrorResponse.Builder resp = factory.raftErrorResponse().errorCode(raftErrorCode);
+        RaftErrorResponse.Builder resp =
+            factory.raftErrorResponse().errorCode(raftErrorCode).errorMessage(status.getErrorMsg());
 
         if (newLeader != null) {
             resp.newLeader(new Peer(newLeader.getEndpoint().toString()));

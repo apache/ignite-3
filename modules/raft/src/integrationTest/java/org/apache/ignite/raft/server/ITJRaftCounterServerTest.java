@@ -18,24 +18,29 @@
 package org.apache.ignite.raft.server;
 
 import java.io.File;
+import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.exception.RaftException;
+import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.server.impl.JRaftServerImpl;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+/** */
 class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     /** */
     private static final String COUNTER_GROUP_0 = "counter0";
@@ -153,8 +158,8 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     @Test
     public void testCreateSnapshotGracefulFailure() throws Exception {
         listenerFactory = () -> new CounterCommandListener() {
-            @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
-                doneClo.accept(Boolean.FALSE);
+            @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
+                doneClo.accept(new IgniteInternalException("Very bad"));
             }
         };
 
@@ -187,8 +192,8 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     @Test
     public void testCreateSnapshotAbnormalFailure() throws Exception {
         listenerFactory = () -> new CounterCommandListener() {
-            @Override public void onSnapshotSave(String path, Consumer<Boolean> doneClo) {
-                throw new IgniteInternalException("Very bad");
+            @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
+                doneClo.accept(new IgniteInternalException("Very bad"));
             }
         };
 
@@ -200,13 +205,11 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
-        RaftServer server = servers.get(0);
-
-        Peer peer = server.localPeer(COUNTER_GROUP_0);
-
         long val = applyIncrements(client1, 1, 10);
 
         assertEquals(sum(10), val);
+
+        Peer peer = servers.get(0).localPeer(COUNTER_GROUP_0);
 
         try {
             client1.snapshot(peer).get();
@@ -218,7 +221,70 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         }
     }
 
-    /** */
+    /** Tests if a raft group become unavaiable in case of a critical error */
+    @Test
+    public void testApplyWithFailure() throws Exception {
+        listenerFactory = () -> new CounterCommandListener() {
+            @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+                Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<CommandClosure<WriteCommand>>() {
+                    @Override public boolean hasNext() {
+                        return iterator.hasNext();
+                    }
+
+                    @Override public CommandClosure<WriteCommand> next() {
+                        CommandClosure<WriteCommand> cmd = iterator.next();
+
+                        IncrementAndGetCommand command = (IncrementAndGetCommand) cmd.command();
+
+                        if (command.delta() == 10)
+                            throw new IgniteInternalException("Very bad");
+
+                        return cmd;
+                    }
+                };
+
+                super.onWrite(wrapper);
+            }
+        };
+
+        startCluster();
+
+        RaftGroupService client1 = clients.get(0);
+        RaftGroupService client2 = clients.get(1);
+
+        client1.refreshLeader().get();
+        client2.refreshLeader().get();
+
+        long val1 = applyIncrements(client1, 1, 5);
+        long val2 = applyIncrements(client2, 1, 7);
+
+        assertEquals(sum(5), val1);
+        assertEquals(sum(7), val2);
+
+        long val3 = applyIncrements(client1, 6, 9);
+        assertEquals(sum(9), val3);
+
+        try {
+            client1.<Long>run(new IncrementAndGetCommand(10)).get();
+
+            fail();
+        }
+        catch (Exception e) {
+            // Expected.
+            Throwable cause = e.getCause();
+
+            assertTrue(cause instanceof RaftException);
+        }
+
+        try {
+            client1.<Long>run(new IncrementAndGetCommand(11)).get();
+        }
+        catch (Exception e) {
+            assertTrue(e.getCause() instanceof TimeoutException, "New leader should not get elected");
+        }
+    }
+
+    /** Tests if a follower is catching up the leader after restarting. */
     @Test
     public void testFollowerCatchUpFromLog() throws Exception {
         doTestFollowerCatchUp(false, true);
@@ -243,8 +309,8 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     }
 
     /**
-     * @param snapshot {@code True} to use snapshot for catch up.
-     * @param cleanDir {@code True} to clean persistent state.
+     * @param snapshot {@code True} to create snapshot on leader and truncate log.
+     * @param cleanDir {@code True} to clean persistent state on follower before restart.
      * @throws Exception If failed.
      */
     private void doTestFollowerCatchUp(boolean snapshot, boolean cleanDir) throws Exception {
@@ -294,7 +360,7 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         applyIncrements(client2, 21, 30);
 
         if (snapshot) {
-            client1.snapshot(leader1).get(); // TODO asch timeout for long snapshots.
+            client1.snapshot(leader1).get();
             client2.snapshot(leader2).get();
         }
 
@@ -303,23 +369,23 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
             Utils.delete(new File(serverDataPath1));
         }
 
-        var raftServerNew = startServer(stopIdx, r -> {
+        var svc2 = startServer(stopIdx, r -> {
             r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
             r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
         });
 
-        waitForCondition(() -> validateStateMachine(sum(20), raftServerNew, COUNTER_GROUP_0), 5_000);
-        waitForCondition(() -> validateStateMachine(sum(30), raftServerNew, COUNTER_GROUP_1), 5_000);
+        waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
+        waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
 
-//        raftServerNew.shutdown();
-//
-//        var raftServerNew2 = startServer(stopIdx, r -> {
-//            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-//            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-//        });
-//
-//        waitForCondition(() -> validateStateMachine(sum(20), raftServerNew2, COUNTER_GROUP_0), 5_000);
-//        waitForCondition(() -> validateStateMachine(sum(30), raftServerNew2, COUNTER_GROUP_1), 5_000);
+        svc2.shutdown();
+
+        var svc3 = startServer(stopIdx, r -> {
+            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
+            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
+        });
+
+        waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);
+        waitForCondition(() -> validateStateMachine(sum(30), svc3, COUNTER_GROUP_1), 5_000);
     }
 
     /**

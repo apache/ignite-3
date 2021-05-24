@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
@@ -36,21 +37,24 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
+import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.event.SchemaEvent;
+import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableSchemaViewImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.metastorage.common.Conditions;
-import org.apache.ignite.metastorage.common.Key;
-import org.apache.ignite.metastorage.common.Operations;
+import org.apache.ignite.metastorage.client.Conditions;
+import org.apache.ignite.metastorage.client.Operations;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
@@ -83,7 +87,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final AffinityManager affMgr;
 
     /** Tables. */
-    private Map<String, TableImpl> tables = new ConcurrentHashMap<>();
+    private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
@@ -118,8 +122,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name Table name.
      * @param tblId Table id.
      * @param assignment Affinity assignment.
+     * @param schemaReg Schema registry for the table.
      */
-    private void createTableLocally(String name, UUID tblId, List<List<ClusterNode>> assignment) {
+    private void createTableLocally(
+        String name,
+        UUID tblId,
+        List<List<ClusterNode>> assignment,
+        SchemaRegistry schemaReg
+    ) {
         int partitions = assignment.size();
 
         HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
@@ -132,11 +142,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ));
         }
 
+        InternalTableImpl internalTable = new InternalTableImpl(tblId, partitionMap, partitions);
+
+        tables.put(name, new TableImpl(internalTable, schemaReg));
+
         onEvent(TableEvent.CREATE, new TableEventParameters(
             tblId,
             name,
-            new TableSchemaViewImpl(tblId, schemaMgr),
-            new InternalTableImpl(tblId, partitionMap, partitions)
+            schemaReg,
+            internalTable
         ), null);
     }
 
@@ -199,22 +213,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 UUID tblId = new UUID(revision, 0L);
 
                 if (hasMetastorageLocally) {
-                    var key = new Key(INTERNAL_PREFIX + tblId.toString());
-
+                    var key = new ByteArray(INTERNAL_PREFIX + tblId);
                     futs.add(metaStorageMgr.invoke(
-                        Conditions.key(key).value().eq(null),
+                        Conditions.notExists(key),
                         Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
-                        Operations.noop()).thenCompose(res ->
-                        affMgr.calculateAssignments(tblId)));
+                        Operations.noop())
+                        .thenCompose(res -> schemaMgr.initSchemaForTable(tblId, tableView.name()))
+                        .thenCompose(res -> affMgr.calculateAssignments(tblId, tableView.name())));
                 }
 
-                affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
+                final CompletableFuture<AffinityEventParameters> affinityReadyFut = new CompletableFuture<>();
+                final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 
-                    if (e == null)
-                        createTableLocally(tblName, tblId, parameters.assignment());
-                    else {
+                CompletableFuture.allOf(affinityReadyFut, schemaReadyFut)
+                    .exceptionally(e -> {
                         LOG.error("Failed to create a new table [name=" + tblName + ", id=" + tblId + ']', e);
 
                         onEvent(TableEvent.CREATE, new TableEventParameters(
@@ -223,7 +235,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             null,
                             null
                         ), e);
-                    }
+
+                        return null;
+                    })
+                    .thenRun(() -> createTableLocally(
+                        tblName,
+                        tblId,
+                        affinityReadyFut.join().assignment(),
+                        schemaReadyFut.join().schemaRegistry()
+                    ));
+
+                affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
+                    if (!tblId.equals(parameters.tableId()))
+                        return false;
+
+                    if (e == null)
+                        affinityReadyFut.complete(parameters);
+                    else
+                        affinityReadyFut.completeExceptionally(e);
+
+                    return true;
+                });
+
+                schemaMgr.listen(SchemaEvent.INITIALIZED, (parameters, e) -> {
+                    if (!tblId.equals(parameters.tableId()))
+                        return false;
+
+                    if (e == null)
+                        schemaReadyFut.complete(parameters);
+                    else
+                        schemaReadyFut.completeExceptionally(e);
 
                     return true;
                 });
@@ -240,12 +281,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 UUID tblId = t.internalTable().tableId();
 
                 if (hasMetastorageLocally) {
-                    var key = new Key(INTERNAL_PREFIX + tblId.toString());
+                    var key = new ByteArray(INTERNAL_PREFIX + tblId);
 
-                    futs.add(affMgr.removeAssignment(tblId).thenCompose(res ->
-                        metaStorageMgr.invoke(Conditions.key(key).value().ne(null),
-                            Operations.remove(key),
-                            Operations.noop())));
+                    futs.add(affMgr.removeAssignment(tblId)
+                        .thenCompose(res -> schemaMgr.unregisterSchemas(tblId))
+                        .thenCompose(res ->
+                            metaStorageMgr.invoke(Conditions.exists(key),
+                                Operations.remove(key),
+                                Operations.noop())));
                 }
 
                 affMgr.listen(AffinityEvent.REMOVED, (parameters, e) -> {
@@ -284,8 +327,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return false;
 
             if (e == null) {
-                tblFut.complete(tables.compute(tableName, (key, val) ->
-                    new TableImpl(params.internalTable(), params.tableSchemaView())));
+                tblFut.complete(tables.get(name));
             }
             else
                 tblFut.completeExceptionally(e);
@@ -293,9 +335,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return true;
         });
 
-        configurationMgr.configurationRegistry()
-            .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
-            change.create(name, tableInitChange));
+        try {
+            configurationMgr.configurationRegistry()
+                .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
+                change.create(name, tableInitChange)).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            LOG.error("Table wasn't created [name=" + name + ']', e);
+
+            tblFut.completeExceptionally(e);
+        }
 
         return tblFut.join();
     }
@@ -304,8 +353,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public void dropTable(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        listen(TableEvent.DROP, new BiPredicate<TableEventParameters, Exception>() {
-            @Override public boolean test(TableEventParameters params, Exception e) {
+        listen(TableEvent.DROP, new BiPredicate<>() {
+            @Override public boolean test(TableEventParameters params, Throwable e) {
                 String tableName = params.tableName();
 
                 if (!name.equals(tableName))
@@ -325,11 +374,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
-        configurationMgr
-            .configurationRegistry()
-            .getConfiguration(TablesConfiguration.KEY)
-            .tables()
-            .change(change -> change.delete(name));
+        try {
+            configurationMgr
+                .configurationRegistry()
+                .getConfiguration(TablesConfiguration.KEY)
+                .tables()
+                .change(change -> change.delete(name)).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            LOG.error("Table wasn't dropped [name=" + name + ']', e);
+
+            dropTblFut.completeExceptionally(e);
+        }
 
         dropTblFut.join();
     }

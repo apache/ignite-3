@@ -28,12 +28,12 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableSchemaView;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
@@ -97,11 +97,11 @@ public class ITDistributedTableTest {
     private ClusterService client;
 
     /** Schema. */
-    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(1, new Column[] {
-        new Column("key", NativeType.LONG, false)
-    }, new Column[] {
-        new Column("value", NativeType.LONG, false)
-    });
+    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(UUID.randomUUID(),
+        1,
+        new Column[] {new Column("key", NativeTypes.LONG, false)},
+        new Column[] {new Column("value", NativeTypes.LONG, false)}
+    );
 
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
@@ -234,7 +234,7 @@ public class ITDistributedTableTest {
             UUID.randomUUID(),
             partMap,
             PARTS
-        ), new TableSchemaView() {
+        ), new SchemaRegistry() {
             @Override public SchemaDescriptor schema() {
                 return SCHEMA;
             }

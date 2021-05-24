@@ -32,13 +32,8 @@ import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * The iterator implementation.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 3:28:37 PM
  */
 public class IteratorImpl {
-
     private final StateMachine fsm;
     private final LogManager logManager;
     private final List<Closure> closures;

@@ -210,10 +210,10 @@ public class JRaftServerImpl implements RaftServer {
                 });
             }
             catch (Exception err) {
-                // TODO asch write a test.
                 Status st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
 
-                iter.done().run(st);
+                if (iter.done() != null)
+                    iter.done().run(st);
 
                 iter.setErrorAndRollback(1, st);
             }
@@ -222,9 +222,9 @@ public class JRaftServerImpl implements RaftServer {
         /** {@inheritDoc} */
         @Override public void onSnapshotSave(SnapshotWriter writer, Closure done) {
             try {
-                listener.onSnapshotSave(writer.getPath(), new Consumer<Boolean>() {
-                    @Override public void accept(Boolean res) {
-                        if (res == Boolean.TRUE) {
+                listener.onSnapshotSave(writer.getPath(), new Consumer<Throwable>() {
+                    @Override public void accept(Throwable res) {
+                        if (res == null) {
                             File file = new File(writer.getPath());
 
                             for (File file0 : file.listFiles()) {
@@ -235,7 +235,8 @@ public class JRaftServerImpl implements RaftServer {
                             done.run(Status.OK());
                         }
                         else {
-                            done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s", writer.getPath()));
+                            done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s, reason %s",
+                                writer.getPath(), res.getMessage()));
                         }
                     }
                 });

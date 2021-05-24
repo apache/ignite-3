@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.tostring.S;
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.tostring.S;
  * A set of columns representing a key or a value chunk in a row.
  * Provides necessary machinery to locate a column value in a concrete row.
  */
-public class Columns {
+public class Columns implements Serializable {
     /** */
     public static final int[][] EMPTY_FOLDING_TABLE = new int[0][];
 
@@ -195,7 +196,7 @@ public class Columns {
         for (int i = 0; i < cp.length; i++) {
             Column c = cp[i];
 
-            cp[i] = new Column(schemaBaseIdx + i, c.name(), c.type(), c.nullable());
+            cp[i] = c.copy(schemaBaseIdx + i);
         }
 
         return cp;
@@ -287,7 +288,7 @@ public class Columns {
                     ", mask=" + mask +
                     ", cols" + Arrays.toString(cols) + ']';
 
-                size += cols[idx].type().length();
+                size += cols[idx].type().sizeInBytes();
             }
         }
 
@@ -307,6 +308,24 @@ public class Columns {
         }
 
         throw new NoSuchElementException("No field '" + colName + "' defined");
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        Columns columns = (Columns)o;
+
+        return Arrays.equals(cols, columns.cols);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Arrays.hashCode(cols);
     }
 
     /** {@inheritDoc} */

@@ -117,13 +117,16 @@ public class CounterStateMachine extends StateMachineAdapter {
         final long currVal = this.value.get();
         Utils.runInThread(() -> {
             final CounterSnapshotFile snapshot = new CounterSnapshotFile(writer.getPath() + File.separator + "data");
-            if (snapshot.save(currVal)) {
-                if (writer.addFile("data")) {
+
+            try {
+                snapshot.save(currVal);
+
+                if (writer.addFile("data"))
                     done.run(Status.OK());
-                } else {
+                else
                     done.run(new Status(RaftError.EIO, "Fail to add file to writer"));
-                }
-            } else {
+            }
+            catch (IOException e) {
                 done.run(new Status(RaftError.EIO, "Fail to save counter snapshot %s", snapshot.getPath()));
             }
         });
@@ -148,11 +151,11 @@ public class CounterStateMachine extends StateMachineAdapter {
         try {
             this.value.set(snapshot.load());
             return true;
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to load snapshot from {}", snapshot.getPath());
             return false;
         }
-
     }
 
     @Override

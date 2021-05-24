@@ -456,7 +456,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             fut.complete(null); // Void response.
                         }
                         else
-                            fut.completeExceptionally(new RaftException(resp0.errorCode()));
+                            fut.completeExceptionally(new RaftException(resp0.errorCode(), resp0.errorMessage()));
                     } else {
                         leader = peer;
 
