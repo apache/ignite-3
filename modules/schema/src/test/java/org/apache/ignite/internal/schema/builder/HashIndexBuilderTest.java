@@ -52,6 +52,6 @@ public class HashIndexBuilderTest {
     public void testBuildNoColumns() {
         HashIndexBuilder builder = SchemaBuilders.hashIndex("testHI");
 
-        assertThrows(AssertionError.class, () -> builder.build());
+        assertThrows(AssertionError.class, builder::build);
     }
 }

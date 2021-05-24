@@ -130,13 +130,13 @@ public class NativeTypes {
                 return UUID;
 
             case STRING:
-                return NativeTypes.stringOf(((CharSequence)val).length());
+                return stringOf(((CharSequence)val).length());
 
             case BYTES:
-                return NativeTypes.blobOf(((byte[])val).length);
+                return blobOf(((byte[])val).length);
 
             case BITMASK:
-                return NativeTypes.bitmaskOf(((BitSet)val).length());
+                return bitmaskOf(((BitSet)val).length());
 
             default:
                 assert false : "Unexpected type: " + spec;

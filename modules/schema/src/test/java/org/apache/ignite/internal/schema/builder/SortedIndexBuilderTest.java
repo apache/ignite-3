@@ -23,6 +23,7 @@ import org.apache.ignite.schema.builder.SortedIndexBuilder;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for sorted index builder.
@@ -42,7 +43,7 @@ public class SortedIndexBuilderTest {
 
         SortedIndex idx = builder.build();
 
-        assertEquals(true, idx.unique());
+        assertTrue(idx.unique());
         assertEquals(2, idx.indexedColumns().size());
     }
 }

@@ -55,8 +55,29 @@ public class SchemaDescriptorConverterTest {
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
 
-        assertEquals(2, tblSchm.keyColumns().size());
-        assertEquals(columns - 2, tblSchm.valueColumns().size());
+        assertEquals(2, tblDscr.keyColumns().length());
+        assertEquals(2, tblDscr.affinityColumns().length);
+        assertEquals(columns - 2, tblDscr.valueColumns().length());
+    }
+
+    /**
+     * Convert table with complex primary key with affinity column configured and check it.
+     */
+    @Test
+    public void testComplexPrimaryIndexWithAffinity() {
+        SchemaTableBuilder bldr = getBuilder(false, false);
+        SchemaTable tblSchm = bldr.withIndex(SchemaBuilders.pkIndex()
+            .addIndexColumn("INT8").done()
+            .addIndexColumn("ID").done()
+            .withAffinityColumns("INT8")
+            .build()
+        ).build();
+
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(UUID.randomUUID(), 1, tblSchm);
+
+        assertEquals(2, tblDscr.keyColumns().length());
+        assertEquals(1, tblDscr.affinityColumns().length);
+        assertEquals(columns - 2, tblDscr.valueColumns().length());
     }
 
     /**

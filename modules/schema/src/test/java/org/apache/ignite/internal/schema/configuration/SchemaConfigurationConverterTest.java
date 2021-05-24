@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationRegistry;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.HashIndex;
 import org.apache.ignite.schema.PartialIndex;
@@ -39,26 +42,16 @@ import org.apache.ignite.schema.builder.SortedIndexBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * SchemaConfigurationConverter tests.
  */
+@SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class SchemaConfigurationConverterTest {
-    private SchemaTableBuilder TBL_BUILDER = SchemaBuilders.tableBuilder("SNAME","TNAME")
-            .columns(
-                SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
-                SchemaBuilders.column("COL2", ColumnType.DOUBLE).build(),
-                SchemaBuilders.column("A", ColumnType.INT8).build(),
-                SchemaBuilders.column("B", ColumnType.INT8).build(),
-                SchemaBuilders.column("C", ColumnType.INT8).build()
-            ).withPrimaryKey("COL1");
+    /** Table builder. */
+    private SchemaTableBuilder tblBuilder;
 
     /** Configuration registry with one table for each test. */
     private ConfigurationRegistry confRegistry;
@@ -66,8 +59,8 @@ public class SchemaConfigurationConverterTest {
     /**
      * Prepare configuration registry for test.
      *
-     * @throws ExecutionException
-     * @throws InterruptedException
+     * @throws ExecutionException If failed.
+     * @throws InterruptedException If failed.
      */
     @BeforeEach
     public void createRegistry() throws ExecutionException, InterruptedException {
@@ -76,7 +69,17 @@ public class SchemaConfigurationConverterTest {
             Collections.singletonMap(TableValidator.class, Collections.singleton(SchemaTableValidatorImpl.INSTANCE)),
             Collections.singleton(new TestConfigurationStorage()));
 
-        SchemaTable tbl = TBL_BUILDER.build();
+        tblBuilder = SchemaBuilders.tableBuilder("SNAME","TNAME")
+            .columns(
+                SchemaBuilders.column("COL1", ColumnType.DOUBLE).build(),
+                SchemaBuilders.column("COL2", ColumnType.DOUBLE).build(),
+                SchemaBuilders.column("A", ColumnType.INT8).build(),
+                SchemaBuilders.column("B", ColumnType.INT8).build(),
+                SchemaBuilders.column("C", ColumnType.INT8).build()
+            ).withPrimaryKey("COL1");
+
+        SchemaTable tbl = tblBuilder.build();
+
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
             ch -> {
                 SchemaConfigurationConverter.createTable(tbl, ch);
@@ -185,7 +188,7 @@ public class SchemaConfigurationConverterTest {
      */
     @Test
     public void testConvertTable() {
-        SchemaTable tbl = TBL_BUILDER.build();
+        SchemaTable tbl = tblBuilder.build();
 
         TableConfiguration tblCfg = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
             .get(tbl.canonicalName());
@@ -205,7 +208,7 @@ public class SchemaConfigurationConverterTest {
      * @return Configuration of default table.
      */
     private TableConfiguration getTbl() {
-        return confRegistry.getConfiguration(TablesConfiguration.KEY).tables().get(TBL_BUILDER.build().canonicalName());
+        return confRegistry.getConfiguration(TablesConfiguration.KEY).tables().get(tblBuilder.build().canonicalName());
     }
 
     /**
