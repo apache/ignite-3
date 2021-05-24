@@ -20,6 +20,8 @@ package org.apache.ignite.raft.server;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.Assert.assertTrue;
 
+/** */
 abstract class ITJRaftServerAbstractTest extends RaftCounterServerAbstractTest {
     /** */
     protected static final IgniteLogger LOG = IgniteLogger.forClass(ITJRaftServerAbstractTest.class);
@@ -87,13 +90,15 @@ abstract class ITJRaftServerAbstractTest extends RaftCounterServerAbstractTest {
     }
 
     /**
-     * @param i The index.
+     * @param idx The index.
      * @return Raft server instance.
      */
-    protected RaftServer startServer(int i) {
-        ClusterService service = clusterService("server" + i, PORT + i, List.of(TestUtils.getMyIp() + ":" + PORT), false);
+    protected JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
+        ClusterService service = clusterService("server" + idx, PORT + idx, List.of(TestUtils.getMyIp() + ":" + PORT), false);
 
-        RaftServer server = new JRaftServerImpl(service, dataPath, FACTORY, false);
+        JRaftServerImpl server = new JRaftServerImpl(service, dataPath, FACTORY, false);
+
+        clo.accept(server);
 
         servers.add(server);
 
@@ -102,6 +107,10 @@ abstract class ITJRaftServerAbstractTest extends RaftCounterServerAbstractTest {
         return server;
     }
 
+    /**
+     * @param groupId Group id.
+     * @return The client.
+     */
     protected RaftGroupService startClient(String groupId) {
         String addr = TestUtils.getMyIp() + ":" + PORT;
 

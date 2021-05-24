@@ -57,7 +57,7 @@ public class Ballot {
      *
      * @param conf    current configuration
      * @param oldConf old configuration
-     * @return true if init success
+     * @return true if init success // TODO asch init cannot return false
      */
     public boolean init(final Configuration conf, final Configuration oldConf) {
         this.peers.clear();

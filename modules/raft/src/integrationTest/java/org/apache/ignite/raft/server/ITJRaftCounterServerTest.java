@@ -21,12 +21,11 @@ import java.io.File;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.exception.RaftException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.StateMachine;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.server.impl.JRaftServerImpl;
 import org.junit.jupiter.api.Test;
@@ -47,19 +46,27 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     /** */
     private Supplier<CounterCommandListener> listenerFactory = () -> new CounterCommandListener();
 
+    /** */
+    private static final List<Peer> INITIAL_CONF = List.of(
+        new Peer(TestUtils.getMyIp() + ":" + PORT),
+        new Peer(TestUtils.getMyIp() + ":" + (PORT + 1)),
+        new Peer(TestUtils.getMyIp() + ":" + (PORT + 2)));
+
+    /**
+     * Starts a cluster for the test.
+     */
     private void startCluster() {
-        startServer(0);
-        startServer(1);
-        startServer(2);
+        for (int i = 0; i < 3; i++) {
+            startServer(i, new Consumer<RaftServer>() {
+                @Override public void accept(RaftServer raftServer) {
+                    raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
+                    raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
+                }
+            });
+        }
 
-        List<Peer> initialConf = servers.stream().map(s -> new Peer(s.clusterService().topologyService().localMember().
-            address())).collect(Collectors.toList());
-
-        servers.forEach(s -> s.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), initialConf));
-        servers.forEach(s -> s.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), initialConf));
-
-        RaftGroupService client0 = startClient(COUNTER_GROUP_0);
-        RaftGroupService client1 = startClient(COUNTER_GROUP_1);
+        startClient(COUNTER_GROUP_0);
+        startClient(COUNTER_GROUP_1);
     }
 
     /**
@@ -90,6 +97,8 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
      */
     @Test
     public void testCounterCommandListener() throws Exception {
+        startCluster();
+
         RaftGroupService client1 = clients.get(0);
         RaftGroupService client2 = clients.get(1);
 
@@ -209,8 +218,36 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         }
     }
 
+    /** */
     @Test
-    public void testFollowerCatchUp() throws Exception {
+    public void testFollowerCatchUpFromLog() throws Exception {
+        doTestFollowerCatchUp(false, true);
+    }
+
+    /** */
+    @Test
+    public void testFollowerCatchUpFromSnapshot() throws Exception {
+        doTestFollowerCatchUp(true, true);
+    }
+
+    /** */
+    @Test
+    public void testFollowerCatchUpFromLog2() throws Exception {
+        doTestFollowerCatchUp(false, false);
+    }
+
+    /** */
+    @Test
+    public void testFollowerCatchUpFromSnapshot2() throws Exception {
+        doTestFollowerCatchUp(true, false);
+    }
+
+    /**
+     * @param snapshot {@code True} to use snapshot for catch up.
+     * @param cleanDir {@code True} to clean persistent state.
+     * @throws Exception If failed.
+     */
+    private void doTestFollowerCatchUp(boolean snapshot, boolean cleanDir) throws Exception {
         startCluster();
 
         RaftGroupService client1 = clients.get(0);
@@ -228,11 +265,13 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         applyIncrements(client1, 0, 10);
         applyIncrements(client2, 0, 20);
 
+        // First snapshot will not truncate logs.
         client1.snapshot(leader1).get();
         client2.snapshot(leader2).get();
 
         RaftServer toStop = null;
 
+        // Find the follower for both groups.
         for (RaftServer server : servers) {
             Peer peer = server.localPeer(COUNTER_GROUP_0);
 
@@ -242,37 +281,46 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
             }
         }
 
-        servers.remove(toStop);
-
         String serverDataPath0 = toStop.getServerDataPath(COUNTER_GROUP_0);
         String serverDataPath1 = toStop.getServerDataPath(COUNTER_GROUP_1);
+
+        int stopIdx = servers.indexOf(toStop);
+
+        servers.remove(stopIdx);
 
         toStop.shutdown();
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
 
-        Utils.delete(new File(serverDataPath0));
-        Utils.delete(new File(serverDataPath1));
+        if (snapshot) {
+            client1.snapshot(leader1).get(); // TODO asch timeout for long snapshots.
+            client2.snapshot(leader2).get();
+        }
 
-        JRaftServerImpl raftServerNew = (JRaftServerImpl) startServer(1);
+        if (cleanDir) {
+            Utils.delete(new File(serverDataPath0));
+            Utils.delete(new File(serverDataPath1));
+        }
 
-        Thread.sleep(5000);
+        var raftServerNew = startServer(stopIdx, r -> {
+            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
+            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
+        });
 
-        org.apache.ignite.raft.jraft.RaftGroupService s0 = raftServerNew.raftGroupService(COUNTER_GROUP_0);
-        org.apache.ignite.raft.jraft.RaftGroupService s1 = raftServerNew.raftGroupService(COUNTER_GROUP_1);
+        waitForCondition(() -> validateStateMachine(sum(20), raftServerNew, COUNTER_GROUP_0), 5_000);
+        waitForCondition(() -> validateStateMachine(sum(30), raftServerNew, COUNTER_GROUP_1), 5_000);
 
-        JRaftServerImpl.DelegatingStateMachine fsm0 = (JRaftServerImpl.DelegatingStateMachine) s0.getRaftNode().getOptions().getFsm();
-        JRaftServerImpl.DelegatingStateMachine fsm1 = (JRaftServerImpl.DelegatingStateMachine) s1.getRaftNode().getOptions().getFsm();
-
-        System.out.println();
+//        raftServerNew.shutdown();
+//
+//        var raftServerNew2 = startServer(stopIdx, r -> {
+//            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
+//            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
+//        });
+//
+//        waitForCondition(() -> validateStateMachine(sum(20), raftServerNew2, COUNTER_GROUP_0), 5_000);
+//        waitForCondition(() -> validateStateMachine(sum(30), raftServerNew2, COUNTER_GROUP_1), 5_000);
     }
-
-    @Test
-    public void testRestartAndApply() {
-
-    }
-
 
     /**
      * @param client The client
@@ -301,5 +349,20 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
      */
     public long sum(long until) {
         return (1 + until) * until / 2;
+    }
+
+    /**
+     * @param expected Expected value.
+     * @param server The server.
+     * @param groupId Group id.
+     * @return Validation result.
+     */
+    private boolean validateStateMachine(long expected, JRaftServerImpl server, String groupId) {
+        org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(groupId);
+
+        JRaftServerImpl.DelegatingStateMachine fsm0 =
+            (JRaftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+
+        return expected == ((CounterCommandListener)fsm0.getListener()).value();
     }
 }

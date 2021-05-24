@@ -240,7 +240,7 @@ public class Replicator implements ThreadId.OnError {
         final Node node = Requires.requireNonNull(replicatorOpts.getNode(), "node");
         final PeerId peer = Requires.requireNonNull(replicatorOpts.getPeerId(), "peer");
 
-        final List<ReplicatorStateListener> listenerList = node.getReplicatorStatueListeners();
+        final List<ReplicatorStateListener> listenerList = node.getReplicatorStateListeners();
         for (int i = 0; i < listenerList.size(); i++) {
             final ReplicatorStateListener listener = listenerList.get(i);
             if (listener != null) {

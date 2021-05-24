@@ -633,7 +633,7 @@ public class LogManagerImpl implements LogManager {
                 // We don't truncate log before the last snapshot immediately since
                 // some log around last_snapshot_index is probably needed by some
                 // followers
-                // TODO if there are still be need?
+                // TODO if there are still be need? TODO asch
                 if (savedLastSnapshotIndex > 0) {
                     truncatePrefix(savedLastSnapshotIndex + 1);
                 }

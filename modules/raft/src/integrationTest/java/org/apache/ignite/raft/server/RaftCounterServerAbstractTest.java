@@ -19,6 +19,7 @@ package org.apache.ignite.raft.server;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -86,6 +87,29 @@ abstract class RaftCounterServerAbstractTest {
 
         while(System.currentTimeMillis() < stop) {
             if (cluster.topologyService().allMembers().size() >= expected)
+                return true;
+
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param cond The condition.
+     * @param timeout The timeout.
+     * @return {@code True} if condition has happened within the timeout.
+     */
+    protected boolean waitForCondition(BooleanSupplier cond, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while(System.currentTimeMillis() < stop) {
+            if (cond.getAsBoolean())
                 return true;
 
             try {

@@ -211,7 +211,8 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * ReplicatorStateListeners
      */
-    private final CopyOnWriteArrayList<Replicator.ReplicatorStateListener> replicatorStateListeners = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Replicator.ReplicatorStateListener> replicatorStateListeners =
+        new CopyOnWriteArrayList<>();
     /**
      * Node's target leader election priority value
      */
@@ -316,10 +317,6 @@ public class NodeImpl implements Node, RaftServerService {
 
     /**
      * Configuration commit context.
-     *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-03 4:29:38 PM
      */
     private static class ConfigurationCtx {
         enum Stage {
@@ -3383,7 +3380,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public List<Replicator.ReplicatorStateListener> getReplicatorStatueListeners() {
+    public List<Replicator.ReplicatorStateListener> getReplicatorStateListeners() {
         return this.replicatorStateListeners;
     }
 

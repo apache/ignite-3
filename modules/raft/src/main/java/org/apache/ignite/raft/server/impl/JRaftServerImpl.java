@@ -225,6 +225,13 @@ public class JRaftServerImpl implements RaftServer {
                 listener.onSnapshotSave(writer.getPath(), new Consumer<Boolean>() {
                     @Override public void accept(Boolean res) {
                         if (res == Boolean.TRUE) {
+                            File file = new File(writer.getPath());
+
+                            for (File file0 : file.listFiles()) {
+                                if (file0.isFile())
+                                    writer.addFile(file0.getName(), null);
+                            }
+
                             done.run(Status.OK());
                         }
                         else {

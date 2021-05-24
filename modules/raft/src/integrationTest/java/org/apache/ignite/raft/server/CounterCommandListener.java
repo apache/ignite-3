@@ -88,4 +88,11 @@ public class CounterCommandListener implements RaftGroupCommandListener {
             return false;
         }
     }
+
+    /**
+     * @return Current value.
+     */
+    public long value() {
+        return counter.get();
+    }
 }

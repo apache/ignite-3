@@ -479,16 +479,16 @@ public class ITNodeTest {
             waitForCondition(() -> follower.getLeaderId() != null, 5_000);
 
         assertEquals(4, this.startedCounter.get());
-        assertEquals(2, cluster.getLeader().getReplicatorStatueListeners().size());
-        assertEquals(2, cluster.getFollowers().get(0).getReplicatorStatueListeners().size());
-        assertEquals(2, cluster.getFollowers().get(1).getReplicatorStatueListeners().size());
+        assertEquals(2, cluster.getLeader().getReplicatorStateListeners().size());
+        assertEquals(2, cluster.getFollowers().get(0).getReplicatorStateListeners().size());
+        assertEquals(2, cluster.getFollowers().get(1).getReplicatorStateListeners().size());
 
         for (Node node : cluster.getNodes()) {
             node.removeReplicatorStateListener(listener1);
         }
-        assertEquals(1, cluster.getLeader().getReplicatorStatueListeners().size());
-        assertEquals(1, cluster.getFollowers().get(0).getReplicatorStatueListeners().size());
-        assertEquals(1, cluster.getFollowers().get(1).getReplicatorStatueListeners().size());
+        assertEquals(1, cluster.getLeader().getReplicatorStateListeners().size());
+        assertEquals(1, cluster.getFollowers().get(0).getReplicatorStateListeners().size());
+        assertEquals(1, cluster.getFollowers().get(1).getReplicatorStateListeners().size());
 
         cluster.stopAll();
     }
@@ -592,9 +592,9 @@ public class ITNodeTest {
         for (Node node : cluster.getNodes()) {
             node.clearReplicatorStateListeners();
         }
-        assertEquals(0, cluster.getLeader().getReplicatorStatueListeners().size());
-        assertEquals(0, cluster.getFollowers().get(0).getReplicatorStatueListeners().size());
-        assertEquals(0, cluster.getFollowers().get(1).getReplicatorStatueListeners().size());
+        assertEquals(0, cluster.getLeader().getReplicatorStateListeners().size());
+        assertEquals(0, cluster.getFollowers().get(0).getReplicatorStateListeners().size());
+        assertEquals(0, cluster.getFollowers().get(1).getReplicatorStateListeners().size());
 
         cluster.stopAll();
     }

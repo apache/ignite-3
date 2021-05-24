@@ -46,7 +46,7 @@ public interface RaftGroupCommandListener {
     /**
      * The callback to load a snapshot.
      * @param path Snapshot directory.
-     * @return {@code True} if the snapshot was saved successfully.
+     * @return {@code True} if the snapshot was loaded successfully.
      */
     boolean onSnapshotLoad(String path);
 }

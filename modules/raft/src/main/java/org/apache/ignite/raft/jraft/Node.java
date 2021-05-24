@@ -314,7 +314,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      *
      * @return node's replicatorStatueListeners which have been added by users.
      */
-    List<Replicator.ReplicatorStateListener> getReplicatorStatueListeners();
+    List<Replicator.ReplicatorStateListener> getReplicatorStateListeners();
 
     /**
      * Get the node's target election priority value.

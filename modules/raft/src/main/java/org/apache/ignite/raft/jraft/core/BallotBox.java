@@ -217,10 +217,10 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
 
     /**
      * Called by follower, otherwise the behavior is undefined.
-     * Set committed index received from leader
+     * Set committed index received from leader.
      *
-     * @param lastCommittedIndex last committed index
-     * @return returns true if set success
+     * @param lastCommittedIndex Last committed index.
+     * @return Returns true if set success.
      */
     public boolean setLastCommittedIndex(final long lastCommittedIndex) {
         boolean doUnlock = true;
