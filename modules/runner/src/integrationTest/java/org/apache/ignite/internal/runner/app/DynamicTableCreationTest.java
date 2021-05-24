@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -35,15 +37,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Ignition interface tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14389")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class DynamicTableCreationTest {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
+
     /** Nodes bootstrap configuration. */
     private final String[] nodesBootstrapCfg =
         {
             "{\n" +
                 "  \"node\": {\n" +
                 "    \"name\":node0,\n" +
-                "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
+                "    \"metastorageNodes\":[ \"node0\" ]\n" +
                 "  },\n" +
                 "  \"network\": {\n" +
                 "    \"port\":3344,\n" +
@@ -54,7 +59,7 @@ class DynamicTableCreationTest {
             "{\n" +
                 "  \"node\": {\n" +
                 "    \"name\":node1,\n" +
-                "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
+                "    \"metastorageNodes\":[ \"node0\" ]\n" +
                 "  },\n" +
                 "  \"network\": {\n" +
                 "    \"port\":3345,\n" +
@@ -65,7 +70,7 @@ class DynamicTableCreationTest {
             "{\n" +
                 "  \"node\": {\n" +
                 "    \"name\":node2,\n" +
-                "    \"metastorageNodes\":[ \"node0\", \"node1\" ]\n" +
+                "    \"metastorageNodes\":[ \"node0\"]\n" +
                 "  },\n" +
                 "  \"network\": {\n" +
                 "    \"port\":3346,\n" +
@@ -106,14 +111,14 @@ class DynamicTableCreationTest {
             ));
 
         // Put data on node 1.
-        Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
+        Table tbl1 = waitForTable(clusterNodes.get(1));
         KeyValueBinaryView kvView1 = tbl1.kvView();
 
         tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val", 111).build());
         kvView1.put(tbl1.tupleBuilder().set("key", 2L).build(), tbl1.tupleBuilder().set("val", 222).build());
 
         // Get data on node 2.
-        Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
+        Table tbl2 = waitForTable(clusterNodes.get(2));
         KeyValueBinaryView kvView2 = tbl2.kvView();
 
         final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
@@ -128,6 +133,25 @@ class DynamicTableCreationTest {
         assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
         assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
         assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
+    }
+
+    /**
+     * Waits for table, until it is initialized.
+     *
+     * @param ign Ignite.
+     * @return Table.
+     */
+    private Table waitForTable(Ignite ign) {
+        while (ign.tables().table("tbl1") == null) {
+            try {
+                Thread.sleep(100);
+            }
+            catch (InterruptedException e) {
+                LOG.warn("Waiting for table is interrupted.");
+            }
+        }
+
+        return ign.tables().table("tbl1");
     }
 
     /**
@@ -169,7 +193,7 @@ class DynamicTableCreationTest {
         final UUID uuid2 = UUID.randomUUID();
 
         // Put data on node 1.
-        Table tbl1 = clusterNodes.get(1).tables().table("tbl1");
+        Table tbl1 = waitForTable(clusterNodes.get(1));
         KeyValueBinaryView kvView1 = tbl1.kvView();
 
         tbl1.insert(tbl1.tupleBuilder().set("key", uuid).set("affKey", 42L)
@@ -179,7 +203,7 @@ class DynamicTableCreationTest {
             kvView1.tupleBuilder().set("valStr", "String value 2").set("valInt", 7373).set("valNull", null).build());
 
         // Get data on node 2.
-        Table tbl2 = clusterNodes.get(2).tables().table("tbl1");
+        Table tbl2 = waitForTable(clusterNodes.get(2));
         KeyValueBinaryView kvView2 = tbl2.kvView();
 
         final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", uuid).set("affKey", 42L).build();
