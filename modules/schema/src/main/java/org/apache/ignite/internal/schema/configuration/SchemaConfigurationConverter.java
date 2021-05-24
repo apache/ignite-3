@@ -228,6 +228,7 @@ public class SchemaConfigurationConverter {
 
             case "PK":
                 SortedMap<Integer, SortedIndexColumn> cols = new TreeMap<>();
+                
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(idxView.columns().get(key));
                     
