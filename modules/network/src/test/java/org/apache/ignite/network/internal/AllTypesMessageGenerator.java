@@ -24,7 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.network.messages.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**

@@ -25,12 +25,12 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.direct.DirectMarshallingUtils;
 import org.apache.ignite.network.internal.direct.DirectMessageReader;
-import org.apache.ignite.network.messages.NetworkMessage;
-import org.apache.ignite.network.messages.serialization.MessageDeserializer;
-import org.apache.ignite.network.messages.serialization.MessageReader;
-import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * Decodes {@link ByteBuf}s into {@link NetworkMessage}s.

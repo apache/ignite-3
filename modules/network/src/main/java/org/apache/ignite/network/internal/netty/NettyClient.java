@@ -25,7 +25,7 @@ import java.util.function.Function;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 
 /**

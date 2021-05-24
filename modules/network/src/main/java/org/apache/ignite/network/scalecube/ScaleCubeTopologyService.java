@@ -16,16 +16,15 @@
  */
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.Member;
-import io.scalecube.cluster.membership.MembershipEvent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import io.scalecube.cluster.Member;
+import io.scalecube.cluster.membership.MembershipEvent;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Implementation of {@link TopologyService} based on ScaleCube.

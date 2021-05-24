@@ -25,10 +25,10 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.stream.ChunkedInput;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
-import org.apache.ignite.network.messages.NetworkMessage;
-import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.messages.serialization.MessageSerializer;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageSerializer;
 
 /**
  * Wrapper for a Netty {@link Channel}, that uses {@link ChunkedInput} and {@link DirectMessageWriter} to send data.

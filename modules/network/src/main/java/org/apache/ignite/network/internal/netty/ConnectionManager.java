@@ -39,8 +39,8 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.messages.NetworkMessage;
-import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.TestOnly;
 
 /**

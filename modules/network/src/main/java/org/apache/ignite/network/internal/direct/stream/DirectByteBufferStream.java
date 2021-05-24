@@ -23,9 +23,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.messages.NetworkMessage;
-import org.apache.ignite.network.messages.serialization.MessageReader;
-import org.apache.ignite.network.messages.serialization.MessageWriter;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**

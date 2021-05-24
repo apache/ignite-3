@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.messages.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.messages.annotations.AutoSerializable;
 
 @AutoSerializable(messageFactory = AllTypesMessageFactory.class)

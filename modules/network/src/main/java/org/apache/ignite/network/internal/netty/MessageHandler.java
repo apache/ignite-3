@@ -21,7 +21,7 @@ import java.net.SocketAddress;
 import java.util.function.BiConsumer;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import org.apache.ignite.network.messages.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Network message handler that delegates handling to {@link #messageListener}.

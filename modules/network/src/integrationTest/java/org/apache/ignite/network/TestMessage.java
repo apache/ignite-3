@@ -18,7 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.Map;
-import org.apache.ignite.network.messages.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.messages.annotations.AutoSerializable;
 
 @AutoSerializable(messageFactory = TestMessageFactory.class)

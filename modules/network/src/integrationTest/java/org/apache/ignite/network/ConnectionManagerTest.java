@@ -29,8 +29,8 @@ import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.internal.netty.NettyClient;
 import org.apache.ignite.network.internal.netty.NettySender;
 import org.apache.ignite.network.internal.netty.NettyServer;
-import org.apache.ignite.network.messages.NetworkMessage;
-import org.apache.ignite.network.messages.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
