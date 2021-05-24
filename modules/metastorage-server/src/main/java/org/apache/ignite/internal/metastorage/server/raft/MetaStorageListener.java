@@ -64,14 +64,14 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 
 /**
  * Meta storage command listener.
  */
-public class MetaStorageCommandListener implements RaftGroupCommandListener {
+public class MetaStorageListener implements RaftGroupListener {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageCommandListener.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageListener.class);
 
     /** Storage. */
     private final KeyValueStorage storage;
@@ -82,7 +82,7 @@ public class MetaStorageCommandListener implements RaftGroupCommandListener {
     /**
      * @param storage Storage.
      */
-    public MetaStorageCommandListener(KeyValueStorage storage) {
+    public MetaStorageListener(KeyValueStorage storage) {
         this.storage = storage;
         this.cursors = new ConcurrentHashMap<>();
     }

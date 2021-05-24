@@ -18,10 +18,9 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>
  * Supports multiple RAFT groups.
  * <p>
- * The server listens for client commands, submits them to a replicated log and calls {@link RaftGroupCommandListener}
+ * The server listens for client commands, submits them to a replicated log and calls {@link RaftGroupListener}
  * {@code onRead} and {@code onWrite} methods then after the command was committed to the log.
  */
 public interface RaftServer {
@@ -54,7 +53,7 @@ public interface RaftServer {
      * @return {@code True} if a group was successfully started.
      * @throws IgniteInternalException If a group can't be started.
      */
-    boolean startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf);
+    boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf);
 
     /**
      * Synchronously stops a raft group.

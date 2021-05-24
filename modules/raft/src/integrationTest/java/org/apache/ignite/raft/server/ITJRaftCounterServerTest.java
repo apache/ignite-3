@@ -49,7 +49,7 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     private static final String COUNTER_GROUP_1 = "counter1";
 
     /** */
-    private Supplier<CounterCommandListener> listenerFactory = () -> new CounterCommandListener();
+    private Supplier<CounterListener> listenerFactory = () -> new CounterListener();
 
     /** */
     private static final List<Peer> INITIAL_CONF = List.of(
@@ -157,7 +157,7 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
 
     @Test
     public void testCreateSnapshotGracefulFailure() throws Exception {
-        listenerFactory = () -> new CounterCommandListener() {
+        listenerFactory = () -> new CounterListener() {
             @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
                 doneClo.accept(new IgniteInternalException("Very bad"));
             }
@@ -191,7 +191,7 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
 
     @Test
     public void testCreateSnapshotAbnormalFailure() throws Exception {
-        listenerFactory = () -> new CounterCommandListener() {
+        listenerFactory = () -> new CounterListener() {
             @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
                 doneClo.accept(new IgniteInternalException("Very bad"));
             }
@@ -224,7 +224,7 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     /** Tests if a raft group become unavaiable in case of a critical error */
     @Test
     public void testApplyWithFailure() throws Exception {
-        listenerFactory = () -> new CounterCommandListener() {
+        listenerFactory = () -> new CounterListener() {
             @Override public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
                 Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<CommandClosure<WriteCommand>>() {
                     @Override public boolean hasNext() {
@@ -429,6 +429,6 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         JRaftServerImpl.DelegatingStateMachine fsm0 =
             (JRaftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-        return expected == ((CounterCommandListener)fsm0.getListener()).value();
+        return expected == ((CounterListener)fsm0.getListener()).value();
     }
 }

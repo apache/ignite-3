@@ -39,7 +39,7 @@ import org.apache.ignite.raft.client.message.GetLeaderResponse;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,7 +60,7 @@ public class RaftServerImpl implements RaftServer {
     private final ClusterService service;
 
     /** */
-    private final ConcurrentMap<String, RaftGroupCommandListener> listeners = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RaftGroupListener> listeners = new ConcurrentHashMap<>();
 
     /** */
     private final BlockingQueue<CommandClosureEx<ReadCommand>> readQueue;
@@ -106,7 +106,7 @@ public class RaftServerImpl implements RaftServer {
             else if (message instanceof ActionRequest) {
                 ActionRequest<?> req0 = (ActionRequest<?>)message;
 
-                RaftGroupCommandListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
+                RaftGroupListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
 
                 if (lsnr == null) {
                     sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
@@ -125,11 +125,11 @@ public class RaftServerImpl implements RaftServer {
         if (!reuse)
             service.start();
 
-        readWorker = new Thread(() -> processQueue(readQueue, RaftGroupCommandListener::onRead), "read-cmd-worker#" + service.topologyService().localMember().toString());
+        readWorker = new Thread(() -> processQueue(readQueue, RaftGroupListener::onRead), "read-cmd-worker#" + service.topologyService().localMember().toString());
         readWorker.setDaemon(true);
         readWorker.start();
 
-        writeWorker = new Thread(() -> processQueue(writeQueue, RaftGroupCommandListener::onWrite), "write-cmd-worker#" + service.topologyService().localMember().toString());
+        writeWorker = new Thread(() -> processQueue(writeQueue, RaftGroupListener::onWrite), "write-cmd-worker#" + service.topologyService().localMember().toString());
         writeWorker.setDaemon(true);
         writeWorker.start();
 
@@ -147,7 +147,7 @@ public class RaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupCommandListener lsnr, List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf) {
         if (listeners.containsKey(groupId))
             return false;
 
@@ -193,10 +193,10 @@ public class RaftServerImpl implements RaftServer {
         ActionRequest<?> req,
         String corellationId,
         BlockingQueue<CommandClosureEx<T>> queue,
-        RaftGroupCommandListener lsnr
+        RaftGroupListener lsnr
     ) {
         if (!queue.offer(new CommandClosureEx<>() {
-            @Override public RaftGroupCommandListener listener() {
+            @Override public RaftGroupListener listener() {
                 return lsnr;
             }
 
@@ -221,13 +221,13 @@ public class RaftServerImpl implements RaftServer {
      */
     private <T extends Command> void processQueue(
         BlockingQueue<CommandClosureEx<T>> queue,
-        BiConsumer<RaftGroupCommandListener, Iterator<CommandClosure<T>>> clo
+        BiConsumer<RaftGroupListener, Iterator<CommandClosure<T>>> clo
     ) {
         while (!Thread.interrupted()) {
             try {
                 CommandClosureEx<T> cmdClo = queue.take();
 
-                RaftGroupCommandListener lsnr = cmdClo.listener();
+                RaftGroupListener lsnr = cmdClo.listener();
 
                 clo.accept(lsnr, List.<CommandClosure<T>>of(cmdClo).iterator());
             }
@@ -248,6 +248,6 @@ public class RaftServerImpl implements RaftServer {
         /**
          * @return The listener.
          */
-        RaftGroupCommandListener listener();
+        RaftGroupListener listener();
     }
 }

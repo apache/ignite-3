@@ -65,8 +65,8 @@ class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
 
         ClusterNode serverNode = this.server.clusterService().topologyService().localMember();
 
-        this.server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterCommandListener(), List.of(new Peer(serverNode.address())));
-        this.server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterCommandListener(), List.of(new Peer(serverNode.address())));
+        this.server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address())));
+        this.server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address())));
 
         ClusterService clientNode1 = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(id), false);
 

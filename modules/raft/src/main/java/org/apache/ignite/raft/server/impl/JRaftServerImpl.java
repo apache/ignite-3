@@ -15,7 +15,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -87,7 +87,7 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupCommandListener lsnr, @Nullable List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId))
             return false;
 
@@ -169,16 +169,16 @@ public class JRaftServerImpl implements RaftServer {
 
     /** */
     public static class DelegatingStateMachine extends StateMachineAdapter {
-        private final RaftGroupCommandListener listener;
+        private final RaftGroupListener listener;
 
         /**
          * @param listener The listener.
          */
-        DelegatingStateMachine(RaftGroupCommandListener listener) {
+        DelegatingStateMachine(RaftGroupListener listener) {
             this.listener = listener;
         }
 
-        public RaftGroupCommandListener getListener() {
+        public RaftGroupListener getListener() {
             return listener;
         }
 

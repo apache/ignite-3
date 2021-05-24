@@ -35,7 +35,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageCommandListener;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.metastorage.client.CompactedException;
 import org.apache.ignite.metastorage.client.Condition;
 import org.apache.ignite.metastorage.client.Conditions;
@@ -1033,7 +1033,7 @@ public class ITMetaStorageServiceTest {
     }
 
     /**
-     * Prepares meta storage by instantiating corresponding raft server with {@link MetaStorageCommandListener} and
+     * Prepares meta storage by instantiating corresponding raft server with {@link MetaStorageListener} and
      * {@link MetaStorageServiceImpl}.
      *
      * @param keyValStorageMock {@link KeyValueStorage} mock.
@@ -1049,7 +1049,7 @@ public class ITMetaStorageServiceTest {
         );
 
         metaStorageRaftSrv.
-            startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageCommandListener(keyValStorageMock), peers);
+            startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
 
         RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
             METASTORAGE_RAFT_GROUP_NAME,

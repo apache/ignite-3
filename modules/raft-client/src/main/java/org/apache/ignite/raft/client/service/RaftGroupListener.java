@@ -25,7 +25,7 @@ import org.apache.ignite.raft.client.WriteCommand;
 /**
  * A listener for replication group commands.
  */
-public interface RaftGroupCommandListener {
+public interface RaftGroupListener {
     /**
      * The callback to apply read commands.
      * <p>

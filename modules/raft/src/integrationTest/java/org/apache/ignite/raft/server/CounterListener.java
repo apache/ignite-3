@@ -26,16 +26,16 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.counter.snapshot.CounterSnapshotFile;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * TODO asch support for batch updates.
  */
-public class CounterCommandListener implements RaftGroupCommandListener {
+public class CounterListener implements RaftGroupListener {
     /** */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CounterCommandListener.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(CounterListener.class);
 
     /** */
     private AtomicLong counter = new AtomicLong();

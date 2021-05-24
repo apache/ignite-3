@@ -32,15 +32,15 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
-import org.apache.ignite.raft.client.service.RaftGroupCommandListener;
+import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Partition command handler.
  */
-public class PartitionCommandListener implements RaftGroupCommandListener {
+public class PartitionListener implements RaftGroupListener {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PartitionCommandListener.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(PartitionListener.class);
 
     /** Storage. */
     private ConcurrentHashMap<KeyWrapper, BinaryRow> storage = new ConcurrentHashMap<>();

@@ -37,7 +37,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
-import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -153,7 +153,7 @@ public class ITDistributedTableTest {
 
         List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        partSrv.startRaftGroup(grpId, new PartitionCommandListener(), conf);
+        partSrv.startRaftGroup(grpId, new PartitionListener(), conf);
 
         RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true);
 
@@ -223,7 +223,7 @@ public class ITDistributedTableTest {
 
             List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
-            rs.startRaftGroup(grpId, new PartitionCommandListener(), conf);
+            rs.startRaftGroup(grpId, new PartitionListener(), conf);
 
             partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true));
 
