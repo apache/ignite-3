@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.messages;
 
+import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
@@ -52,7 +53,7 @@ public class MessageSerializationRegistryTest {
 
         registry.registerFactory(Msg.TYPE, new MsgSerializationFactory());
 
-        assertThrows(IllegalArgumentException.class, () -> registry.registerFactory(Msg.TYPE, new MsgSerializationFactory()));
+        assertThrows(NetworkConfigurationException.class, () -> registry.registerFactory(Msg.TYPE, new MsgSerializationFactory()));
     }
 
     /**
