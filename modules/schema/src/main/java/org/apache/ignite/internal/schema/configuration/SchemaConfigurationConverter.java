@@ -205,6 +205,7 @@ public class SchemaConfigurationConverter {
                 
                 for (String key : idxView.columns().namedListKeys()) {
                     SortedIndexColumn col = convert(idxView.columns().get(key));
+                    
                     sortedCols.put(Integer.valueOf(key), col);
                 }
 
