@@ -675,7 +675,7 @@ public class RowAssemblerTest {
      * Validate row layout for key\value columns of different types.
      */
     @Test
-    public void testhMixedTypes() {
+    public void mixedTypes() {
         Column[] keyCols = new Column[] {
             new Column("keyShortCol", SHORT, false),
             new Column("keyStrCol", STRING, false)
