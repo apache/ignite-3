@@ -879,54 +879,59 @@ public class ConfigurationAsmGenerator {
         addConfigurationImplConstructor(classDef, schemaClassInfo, schemaFields, fieldDefs);
 
         for (Field schemaField : schemaFields) {
-            Class<?> schemaFieldType = schemaField.getType();
-
-            String fieldName = schemaField.getName();
-            FieldDefinition fieldDef = fieldDefs.get(fieldName);
-
-            // View
-            {
-                ParameterizedType returnType;
-
-                if (isConfigValue(schemaField))
-                    returnType = typeFromJavaClassName(new SchemaClassesInfo(schemaFieldType).cfgClassName);
-                else if (isNamedConfigValue(schemaField))
-                    returnType = type(NamedConfigurationTree.class);
-                else {
-                    assert isValue(schemaField) : schemaClass;
-
-                    returnType = type(ConfigurationValue.class);
-                }
-
-                MethodDefinition viewMtd = classDef.declareMethod(
-                    of(PUBLIC),
-                    fieldName,
-                    returnType
-                );
-
-                BytecodeBlock viewBody = viewMtd.getBody();
-
-                viewBody
-                    .append(viewMtd.getThis())
-                    .getField(fieldDef)
-                    .retObject();
-            }
-
+            addConfigurationImplGetMethod(classDef, schemaClass, fieldDefs, schemaField);
         }
 
         return classDef;
     }
 
     /**
-     * Implements default constructor for the node class. It initializes all fields and adds them to members collection.
-     * @param classDef Node class definition.
+     * Declares field that corresponds to configuration value. Depending on the schema, 3 options possible:
+     * <ul>
+     *     <li>
+     *         {@code @Value public type fieldName}<br/>becomes<br/>
+     *         {@code private DynamicProperty fieldName}
+     *     </li>
+     *     <li>
+     *         {@code @ConfigValue public MyConfigurationSchema fieldName}<br/>becomes<br/>
+     *         {@code private MyConfiguration fieldName}
+     *     </li>
+     *     <li>
+     *         {@code @NamedConfigValue public type fieldName}<br/>becomes<br/>
+     *         {@code private NamedListConfiguration fieldName}
+     *     </li>
+     * </ul>
+     * @param classDef Configuration impl class definition.
+     * @param schemaField Configuration Schema class field.
+     * @return Declared field definition.
+     */
+    private FieldDefinition addConfigurationImplField(ClassDefinition classDef, Field schemaField) {
+        ParameterizedType fieldType;
+
+        if (isConfigValue(schemaField))
+            fieldType = typeFromJavaClassName(schemasInfo.get(schemaField.getType()).cfgClassName);
+        else if (isNamedConfigValue(schemaField))
+            fieldType = type(NamedListConfiguration.class);
+        else
+            fieldType = type(DynamicProperty.class);
+
+        return classDef.declareField(of(PRIVATE), schemaField.getName(), fieldType);
+    }
+
+    /**
+     * Implements default constructor for the configuration class. It initializes all fields and adds them to members
+     * collection.
+     * @param classDef Configuration impl class definition.
      * @param schemaClassInfo Configuration Schema class info.
      * @param schemaFields Configuration Schema class fields.
      * @param fieldDefs Field definitions for all fields of configuration impl class.
      */
-    private void addConfigurationImplConstructor(ClassDefinition classDef, SchemaClassesInfo schemaClassInfo,
+    private void addConfigurationImplConstructor(
+        ClassDefinition classDef,
+        SchemaClassesInfo schemaClassInfo,
         Field[] schemaFields,
-        Map<String, FieldDefinition> fieldDefs) {
+        Map<String, FieldDefinition> fieldDefs
+    ) {
         MethodDefinition ctor = classDef.declareConstructor(
             of(PUBLIC),
             arg("prefix", List.class),
@@ -1043,36 +1048,47 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Declares field that corresponds to configuration value. Depending on the schema, 3 options possible:
-     * <ul>
-     *     <li>
-     *         {@code @Value public type fieldName}<br/>becomes<br/>
-     *         {@code private DynamicProperty fieldName}
-     *     </li>
-     *     <li>
-     *         {@code @ConfigValue public MyConfigurationSchema fieldName}<br/>becomes<br/>
-     *         {@code private MyConfiguration fieldName}
-     *     </li>
-     *     <li>
-     *         {@code @NamedConfigValue public type fieldName}<br/>becomes<br/>
-     *         {@code private NamedListConfiguration fieldName}
-     *     </li>
-     * </ul>
-     * @param classDef Node class definition.
+     * Implements accessor method in configuration impl class.
+     * @param classDef Configuration impl class definition.
+     * @param schemaClass Configuration Schema class.
+     * @param fieldDefs Field definitions for all fields of configuration impl class.
      * @param schemaField Configuration Schema class field.
-     * @return Declared field definition.
      */
-    private FieldDefinition addConfigurationImplField(ClassDefinition classDef, Field schemaField) {
-        ParameterizedType fieldType;
+    private void addConfigurationImplGetMethod(
+        ClassDefinition classDef,
+        Class<?> schemaClass,
+        Map<String, FieldDefinition> fieldDefs,
+        Field schemaField
+    ) {
+        Class<?> schemaFieldType = schemaField.getType();
+
+        String fieldName = schemaField.getName();
+        FieldDefinition fieldDef = fieldDefs.get(fieldName);
+
+        ParameterizedType returnType;
 
         if (isConfigValue(schemaField))
-            fieldType = typeFromJavaClassName(schemasInfo.get(schemaField.getType()).cfgClassName);
+            returnType = typeFromJavaClassName(new SchemaClassesInfo(schemaFieldType).cfgClassName);
         else if (isNamedConfigValue(schemaField))
-            fieldType = type(NamedListConfiguration.class);
-        else
-            fieldType = type(DynamicProperty.class);
+            returnType = type(NamedConfigurationTree.class);
+        else {
+            assert isValue(schemaField) : schemaClass;
 
-        return classDef.declareField(of(PRIVATE), schemaField.getName(), fieldType);
+            returnType = type(ConfigurationValue.class);
+        }
+
+        MethodDefinition viewMtd = classDef.declareMethod(
+            of(PUBLIC),
+            fieldName,
+            returnType
+        );
+
+        BytecodeBlock viewBody = viewMtd.getBody();
+
+        viewBody
+            .append(viewMtd.getThis())
+            .getField(fieldDef)
+            .retObject();
     }
 
     /**
