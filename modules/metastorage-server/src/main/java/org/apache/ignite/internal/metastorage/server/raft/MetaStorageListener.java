@@ -59,7 +59,6 @@ import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -70,9 +69,6 @@ import org.apache.ignite.raft.client.service.RaftGroupListener;
  * Meta storage listener.
  */
 public class MetaStorageListener implements RaftGroupListener {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageListener.class);
-
     /** Storage. */
     private final KeyValueStorage storage;
 

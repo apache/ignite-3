@@ -226,8 +226,11 @@ public class RaftServerImpl implements RaftServer {
 
                 clo.accept(lsnr, List.<CommandClosure<T>>of(cmdClo).iterator());
             }
-            catch (InterruptedException e) {
+            catch (InterruptedException e0) {
                 return;
+            }
+            catch (Exception e) {
+                LOG.error("Failed to process the command", e);
             }
         }
     }
