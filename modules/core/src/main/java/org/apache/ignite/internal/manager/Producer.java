@@ -43,6 +43,17 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
     }
 
     /**
+     * Removes a listener associated with the event.
+     *
+     * @param evt Event.
+     * @param closure Closure.
+     */
+    public void removeListener(T evt, BiPredicate<P, Throwable> closure) {
+        listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>())
+            .remove(closure);
+    }
+
+    /**
      * Notifies every listener that subscribed before.
      *
      * @param evt Event type.

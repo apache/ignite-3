@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,6 +41,9 @@ import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Conditions;
+import org.apache.ignite.internal.metastorage.client.Entry;
+import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -50,11 +54,12 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
@@ -70,6 +75,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Internal prefix for the metasorage. */
     private static final String INTERNAL_PREFIX = "internal.tables.";
+
+    /** Public prefix for metastorage. */
+    private static final String PUBLIC_PREFIX = "dst-cfg.table.tables.";
 
     /** Meta storage service. */
     private final MetaStorageManager metaStorageMgr;
@@ -326,9 +334,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (!name.equals(tableName))
                 return false;
 
-            if (e == null) {
+            if (e == null)
                 tblFut.complete(tables.get(name));
-            }
             else
                 tblFut.completeExceptionally(e);
 
@@ -397,6 +404,74 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public Table table(String name) {
-        return tables.get(name);
+        if (!isTableConfigured(name))
+            throw new IgniteException("Table wasn't found.");
+
+        Table tbl = tables.get(name);
+
+        if (tbl != null)
+            return tbl;
+
+        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
+
+        BiPredicate<TableEventParameters, Throwable> clo = (params, e) -> {
+            String tableName = params.tableName();
+
+            if (!name.equals(tableName))
+                return false;
+
+            if (e == null)
+                getTblFut.complete(tables.get(name));
+            else
+                getTblFut.completeExceptionally(e);
+
+            return true;
+        };
+
+        listen(TableEvent.CREATE, clo);
+
+        tbl = tables.get(name);
+
+        if (tbl != null && getTblFut.complete(tbl) ||
+            !isTableConfigured(name) && getTblFut.completeExceptionally(new IgniteException("Table was removed.")))
+            removeListener(TableEvent.CREATE, clo);
+
+        return getTblFut.join();
+    }
+
+    /**
+     * Checks that the table is configured.
+     *
+     * @param name Table name.
+     * @return True if table configured, false otherwise.
+     */
+    private boolean isTableConfigured(String name) {
+        IgniteBiTuple<ByteArray, ByteArray> rabge = toRange(new ByteArray(PUBLIC_PREFIX + name + '.'));
+
+        try (Cursor<Entry> cursor = metaStorageMgr.range(rabge.get1(), rabge.get2())) {
+            return cursor.hasNext();
+        }
+        catch (Exception e) {
+            LOG.error("Can't get a table [name=" + name + ']', e);
+        }
+
+        return false;
+    }
+
+    /**
+     * Transforms a prefix bytes to range.
+     *
+     * @param prefixKey Prefix bytes.
+     * @return Tuple with left and right borders for range.
+     */
+    private IgniteBiTuple<ByteArray, ByteArray> toRange(ByteArray prefixKey) {
+        var bytes = Arrays.copyOf(prefixKey.bytes(), prefixKey.bytes().length);
+
+        if (bytes[bytes.length - 1] != Byte.MAX_VALUE)
+            bytes[bytes.length - 1]++;
+        else
+            bytes = Arrays.copyOf(bytes, bytes.length + 1);
+
+        return new IgniteBiTuple<>(prefixKey, new ByteArray(bytes));
     }
 }
