@@ -32,42 +32,16 @@ import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemTy
  * Class for extracting {@link MessageCollectionItemType} from different type representations.
  */
 class MessageCollectionItemTypeConverter {
-    /** */
+    /**
+     *
+     */
     private final ProcessingEnvironment processingEnvironment;
 
-    /** */
+    /**
+     *
+     */
     MessageCollectionItemTypeConverter(ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
-    }
-
-    /**
-     * Converts the given {@link TypeMirror} into a {@link MessageCollectionItemType}.
-     */
-    MessageCollectionItemType fromTypeMirror(TypeMirror parameterType) {
-        switch (parameterType.getKind()) {
-            case BYTE:
-                return MessageCollectionItemType.BYTE;
-            case SHORT:
-                return MessageCollectionItemType.SHORT;
-            case CHAR:
-                return MessageCollectionItemType.CHAR;
-            case INT:
-                return MessageCollectionItemType.INT;
-            case LONG:
-                return MessageCollectionItemType.LONG;
-            case FLOAT:
-                return MessageCollectionItemType.FLOAT;
-            case DOUBLE:
-                return MessageCollectionItemType.DOUBLE;
-            case BOOLEAN:
-                return MessageCollectionItemType.BOOLEAN;
-            case ARRAY:
-                return fromArrayType((ArrayType) parameterType);
-            case DECLARED:
-                return fromDeclaredType((DeclaredType) parameterType);
-            default:
-                throw new ProcessingException("Unsupported MessageCollectionItemType: " + parameterType);
-        }
     }
 
     /**
@@ -97,6 +71,36 @@ class MessageCollectionItemTypeConverter {
     }
 
     /**
+     * Converts the given {@link TypeMirror} into a {@link MessageCollectionItemType}.
+     */
+    MessageCollectionItemType fromTypeMirror(TypeMirror parameterType) {
+        switch (parameterType.getKind()) {
+            case BYTE:
+                return MessageCollectionItemType.BYTE;
+            case SHORT:
+                return MessageCollectionItemType.SHORT;
+            case CHAR:
+                return MessageCollectionItemType.CHAR;
+            case INT:
+                return MessageCollectionItemType.INT;
+            case LONG:
+                return MessageCollectionItemType.LONG;
+            case FLOAT:
+                return MessageCollectionItemType.FLOAT;
+            case DOUBLE:
+                return MessageCollectionItemType.DOUBLE;
+            case BOOLEAN:
+                return MessageCollectionItemType.BOOLEAN;
+            case ARRAY:
+                return fromArrayType((ArrayType)parameterType);
+            case DECLARED:
+                return fromDeclaredType((DeclaredType)parameterType);
+            default:
+                throw new ProcessingException("Unsupported MessageCollectionItemType: " + parameterType);
+        }
+    }
+
+    /**
      * Converts the given {@link DeclaredType} into a {@link MessageCollectionItemType}.
      */
     private MessageCollectionItemType fromDeclaredType(DeclaredType parameterType) {
@@ -106,17 +110,23 @@ class MessageCollectionItemTypeConverter {
 
         if (unboxedType != null) {
             return fromTypeMirror(unboxedType);
-        } else if (typeUtils.isSameType(parameterType, String.class)) {
+        }
+        else if (typeUtils.isSameType(parameterType, String.class)) {
             return MessageCollectionItemType.STRING;
-        } else if (typeUtils.isSameType(parameterType, UUID.class)) {
+        }
+        else if (typeUtils.isSameType(parameterType, UUID.class)) {
             return MessageCollectionItemType.UUID;
-        } else if (typeUtils.isSameType(parameterType, IgniteUuid.class)) {
+        }
+        else if (typeUtils.isSameType(parameterType, IgniteUuid.class)) {
             return MessageCollectionItemType.IGNITE_UUID;
-        } else if (typeUtils.isSameType(parameterType, NetworkMessage.class)) {
+        }
+        else if (typeUtils.isSameType(parameterType, NetworkMessage.class)) {
             return MessageCollectionItemType.MSG;
-        } else if (typeUtils.isSameType(parameterType, BitSet.class)) {
+        }
+        else if (typeUtils.isSameType(parameterType, BitSet.class)) {
             return MessageCollectionItemType.BIT_SET;
-        } else {
+        }
+        else {
             throw new ProcessingException("Unsupported MessageCollectionItemType: " + parameterType);
         }
     }

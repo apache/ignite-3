@@ -31,10 +31,14 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  * Class for generating {@link MessageSerializationFactory} classes.
  */
 class SerializationFactoryGenerator {
-    /** Element representing a network message type declaration */
+    /**
+     * Element representing a network message type declaration
+     */
     private final ClassName messageClassName;
 
-    /** */
+    /**
+     *
+     */
     SerializationFactoryGenerator(TypeElement messageClass) {
         messageClassName = ClassName.get(messageClass);
     }

@@ -30,67 +30,47 @@ import org.apache.ignite.network.NetworkMessage;
  * Message with all types supported by Direct Marshalling.
  */
 class AllTypesMessageImpl implements AllTypesMessage, AllTypesMessage.Builder {
-    
+
     private byte a;
 
-    
     private short b;
 
-    
     private int c;
 
-    
     private long d;
 
-    
     private float e;
 
-    
     private double f;
 
-    
     private char g;
 
-    
     private boolean h;
 
-    
     private byte[] i;
 
-    
     private short[] j;
 
-    
     private int[] k;
 
-    
     private long[] l;
 
-    
     private float[] m;
 
-    
     private double[] n;
 
-    
     private char[] o;
 
-    
     private boolean[] p;
 
-    
     private String q;
 
-    
     private BitSet r;
 
-    
     private UUID s;
 
-    
     private IgniteUuid t;
 
-    
     private NetworkMessage u;
 
     private NetworkMessage[] v;
@@ -488,7 +468,9 @@ class AllTypesMessageImpl implements AllTypesMessage, AllTypesMessage.Builder {
         return result;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override public AllTypesMessage build() {
         return this;
     }

@@ -39,16 +39,24 @@ import org.apache.ignite.network.serialization.MessageWriter;
  * Class for generating {@link MessageSerializer} classes.
  */
 class MessageSerializerGenerator {
-    /** Element representing a network message type declaration */
+    /**
+     * Element representing a network message type declaration
+     */
     private final TypeElement messageClass;
 
-    /** {@link ClassName} for the corresponding message type */
+    /**
+     * {@link ClassName} for the corresponding message type
+     */
     private final ClassName messageClassName;
 
-    /** */
+    /**
+     *
+     */
     private final MessageWriterMethodResolver methodResolver;
 
-    /** */
+    /**
+     *
+     */
     MessageSerializerGenerator(ProcessingEnvironment processingEnvironment, TypeElement messageClass) {
         this.messageClass = messageClass;
         messageClassName = ClassName.get(messageClass);

@@ -31,13 +31,19 @@ import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemTy
  * Class for resolving {@link MessageReader} "read*" methods for the corresponding message field type.
  */
 class MessageReaderMethodResolver {
-    /** */
+    /**
+     *
+     */
     private final BaseMethodNameResolver methodNameResolver;
 
-    /** */
+    /**
+     *
+     */
     private final MessageCollectionItemTypeConverter typeConverter;
 
-    /** */
+    /**
+     *
+     */
     MessageReaderMethodResolver(ProcessingEnvironment processingEnvironment) {
         methodNameResolver = new BaseMethodNameResolver(processingEnvironment);
         typeConverter = new MessageCollectionItemTypeConverter(processingEnvironment);
@@ -59,11 +65,11 @@ class MessageReaderMethodResolver {
 
         switch (methodName) {
             case "ObjectArray":
-                return resolveReadObjectArray((ArrayType) parameterType, parameterName);
+                return resolveReadObjectArray((ArrayType)parameterType, parameterName);
             case "Collection":
-                return resolveReadCollection((DeclaredType) parameterType, parameterName);
+                return resolveReadCollection((DeclaredType)parameterType, parameterName);
             case "Map":
-                return resolveReadMap((DeclaredType) parameterType, parameterName);
+                return resolveReadMap((DeclaredType)parameterType, parameterName);
             default:
                 return CodeBlock.builder().add("read$L($S)", methodName, parameterName).build();
         }

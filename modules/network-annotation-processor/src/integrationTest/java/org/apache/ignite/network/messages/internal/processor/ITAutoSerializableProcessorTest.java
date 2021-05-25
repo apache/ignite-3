@@ -33,11 +33,25 @@ import static com.google.testing.compile.CompilationSubject.assertThat;
  * Integration tests for {@link AutoSerializableProcessor}.
  */
 public class ITAutoSerializableProcessorTest {
-    /** Package name of the test sources. */
+    /**
+     * Package name of the test sources.
+     */
     private static final String RESOURCE_PACKAGE_NAME = "org.apache.ignite.network.processor.internal.";
 
-    /** Compiler instance configured with the annotation processor being tested. */
+    /**
+     * Compiler instance configured with the annotation processor being tested.
+     */
     private final Compiler compiler = Compiler.javac().withProcessors(new AutoSerializableProcessor());
+
+    /**
+     * Converts given test source class names to a list of {@link JavaFileObject}s.
+     */
+    private static List<JavaFileObject> getSources(String... sourceNames) {
+        return Arrays.stream(sourceNames)
+            .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + source + ".java")
+            .map(JavaFileObjects::forResource)
+            .collect(Collectors.toList());
+    }
 
     /**
      * Compiles the network message with all supported directly marshallable types and checks that the compilation
@@ -105,8 +119,8 @@ public class ITAutoSerializableProcessorTest {
     }
 
     /**
-     * Compiles a network message that does not implement {@link NetworkMessage} directly but rather through a bunch
-     * of superinterfaces.
+     * Compiles a network message that does not implement {@link NetworkMessage} directly but rather through a bunch of
+     * superinterfaces.
      */
     @Test
     void testTransitiveMessage() {
@@ -119,15 +133,5 @@ public class ITAutoSerializableProcessorTest {
         assertThat(compilation).generatedSourceFile(RESOURCE_PACKAGE_NAME + "TransitiveMessageSerializer");
         assertThat(compilation).generatedSourceFile(RESOURCE_PACKAGE_NAME + "TransitiveMessageDeserializer");
         assertThat(compilation).generatedSourceFile(RESOURCE_PACKAGE_NAME + "TransitiveMessageSerializationFactory");
-    }
-
-    /**
-     * Converts given test source class names to a list of {@link JavaFileObject}s.
-     */
-    private static List<JavaFileObject> getSources(String... sourceNames) {
-        return Arrays.stream(sourceNames)
-            .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + source + ".java")
-            .map(JavaFileObjects::forResource)
-            .collect(Collectors.toList());
     }
 }

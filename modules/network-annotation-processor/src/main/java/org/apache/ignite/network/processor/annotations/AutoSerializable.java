@@ -40,7 +40,7 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@link MessageDeserializer};</li>
  *     <li>{@link MessageSerializationFactory}.</li>
  * </ol>
- *
+ * <p>
  * These messages must obey the <i>network message declaration contract</i> and can only contain
  * <i>directly marshallable types</i>, which can be one of the following:
  *
@@ -65,8 +65,8 @@ public @interface AutoSerializable {
      * Message factory class that will be used to create message builders during deserialization.
      * <p>
      * Message factories must have a static method with the same name as the created message type and return a builder
-     * for that type, e.g. a factory for creating {@code TestMessage} instances must have a
-     * {@code TestMessage.Builder testMessage()} method.
+     * for that type, e.g. a factory for creating {@code TestMessage} instances must have a {@code TestMessage.Builder
+     * testMessage()} method.
      */
     Class<?> messageFactory();
 }

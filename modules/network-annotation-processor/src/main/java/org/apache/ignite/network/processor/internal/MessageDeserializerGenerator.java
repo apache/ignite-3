@@ -44,13 +44,19 @@ import org.apache.ignite.network.serialization.MessageReader;
  * Class for generating {@link MessageDeserializer} classes.
  */
 class MessageDeserializerGenerator {
-    /** Element representing a network message type declaration */
+    /**
+     * Element representing a network message type declaration
+     */
     private final TypeElement messageClass;
 
-    /** {@link ClassName} for the corresponding message type */
+    /**
+     * {@link ClassName} for the corresponding message type
+     */
     private final ClassName messageClassName;
 
-    /** */
+    /**
+     *
+     */
     private final MessageReaderMethodResolver methodResolver;
 
     /**
@@ -58,7 +64,9 @@ class MessageDeserializerGenerator {
      */
     private final FieldSpec msgField;
 
-    /** */
+    /**
+     *
+     */
     MessageDeserializerGenerator(ProcessingEnvironment processingEnvironment, TypeElement messageClass) {
         this.messageClass = messageClass;
         messageClassName = ClassName.get(messageClass);
@@ -105,7 +113,8 @@ class MessageDeserializerGenerator {
         try {
             // always throws
             messageClass.getAnnotation(AutoSerializable.class).messageFactory();
-        } catch (MirroredTypeException e) {
+        }
+        catch (MirroredTypeException e) {
             return TypeName.get(e.getTypeMirror());
         }
 
