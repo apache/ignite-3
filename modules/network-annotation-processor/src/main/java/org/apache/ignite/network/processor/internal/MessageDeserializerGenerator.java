@@ -54,9 +54,7 @@ class MessageDeserializerGenerator {
      */
     private final ClassName messageClassName;
 
-    /**
-     *
-     */
+    /** */
     private final MessageReaderMethodResolver methodResolver;
 
     /**
@@ -64,9 +62,7 @@ class MessageDeserializerGenerator {
      */
     private final FieldSpec msgField;
 
-    /**
-     *
-     */
+    /** */
     MessageDeserializerGenerator(ProcessingEnvironment processingEnvironment, TypeElement messageClass) {
         this.messageClass = messageClass;
         messageClassName = ClassName.get(messageClass);

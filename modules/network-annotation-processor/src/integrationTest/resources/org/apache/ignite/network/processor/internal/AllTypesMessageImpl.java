@@ -439,9 +439,7 @@ class AllTypesMessageImpl implements AllTypesMessage, AllTypesMessage.Builder {
         return this;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public boolean equals(Object o1) {
         if (this == o1)
             return true;
@@ -451,9 +449,7 @@ class AllTypesMessageImpl implements AllTypesMessage, AllTypesMessage.Builder {
         return a == message.a && b == message.b && c == message.c && d == message.d && Float.compare(message.e, e) == 0 && Double.compare(message.f, f) == 0 && g == message.g && h == message.h && Arrays.equals(i, message.i) && Arrays.equals(j, message.j) && Arrays.equals(k, message.k) && Arrays.equals(l, message.l) && Arrays.equals(m, message.m) && Arrays.equals(n, message.n) && Arrays.equals(o, message.o) && Arrays.equals(p, message.p) && Objects.equals(q, message.q) && Objects.equals(r, message.r) && Objects.equals(s, message.s) && Objects.equals(t, message.t) && Objects.equals(u, message.u) && Arrays.equals(v, message.v) && Objects.equals(w, message.w) && Objects.equals(x, message.x);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public int hashCode() {
         int result = Objects.hash(a, b, c, d, e, f, g, h, q, r, s, t, u, w, x);
         result = 31 * result + Arrays.hashCode(i);
@@ -468,9 +464,7 @@ class AllTypesMessageImpl implements AllTypesMessage, AllTypesMessage.Builder {
         return result;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public AllTypesMessage build() {
         return this;
     }

@@ -34,19 +34,13 @@ import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemTy
  * Class for resolving {@link MessageWriter} "write*" methods for the corresponding message field type.
  */
 class MessageWriterMethodResolver {
-    /**
-     *
-     */
+    /** */
     private final BaseMethodNameResolver methodNameResolver;
 
-    /**
-     *
-     */
+    /** */
     private final MessageCollectionItemTypeConverter typeConverter;
 
-    /**
-     *
-     */
+    /** */
     MessageWriterMethodResolver(ProcessingEnvironment processingEnvironment) {
         methodNameResolver = new BaseMethodNameResolver(processingEnvironment);
         typeConverter = new MessageCollectionItemTypeConverter(processingEnvironment);

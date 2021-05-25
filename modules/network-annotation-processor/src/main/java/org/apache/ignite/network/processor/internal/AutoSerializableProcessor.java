@@ -56,16 +56,12 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  */
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class AutoSerializableProcessor extends AbstractProcessor {
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public Set<String> getSupportedAnnotationTypes() {
         return Set.of(AutoSerializable.class.getName());
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         Set<TypeElement> annotatedElements = annotations.stream()
             .map(roundEnv::getElementsAnnotatedWith)

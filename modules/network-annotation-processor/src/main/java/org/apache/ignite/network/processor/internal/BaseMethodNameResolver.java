@@ -37,14 +37,10 @@ import org.apache.ignite.network.NetworkMessage;
  * @see MessageWriterMethodResolver
  */
 class BaseMethodNameResolver {
-    /**
-     *
-     */
+    /** */
     private final ProcessingEnvironment processingEnvironment;
 
-    /**
-     *
-     */
+    /** */
     BaseMethodNameResolver(ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
     }

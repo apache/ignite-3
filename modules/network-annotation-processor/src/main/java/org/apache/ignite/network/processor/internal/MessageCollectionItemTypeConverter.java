@@ -32,14 +32,10 @@ import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemTy
  * Class for extracting {@link MessageCollectionItemType} from different type representations.
  */
 class MessageCollectionItemTypeConverter {
-    /**
-     *
-     */
+    /** */
     private final ProcessingEnvironment processingEnvironment;
 
-    /**
-     *
-     */
+    /** */
     MessageCollectionItemTypeConverter(ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
     }

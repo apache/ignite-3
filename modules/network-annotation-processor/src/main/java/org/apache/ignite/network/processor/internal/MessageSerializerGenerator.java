@@ -49,14 +49,10 @@ class MessageSerializerGenerator {
      */
     private final ClassName messageClassName;
 
-    /**
-     *
-     */
+    /** */
     private final MessageWriterMethodResolver methodResolver;
 
-    /**
-     *
-     */
+    /** */
     MessageSerializerGenerator(ProcessingEnvironment processingEnvironment, TypeElement messageClass) {
         this.messageClass = messageClass;
         messageClassName = ClassName.get(messageClass);

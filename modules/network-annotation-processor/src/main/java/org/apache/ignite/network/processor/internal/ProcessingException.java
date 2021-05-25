@@ -21,9 +21,7 @@ package org.apache.ignite.network.processor.internal;
  * Exception used by all annotation-processor related classes to gracefully display processing errors.
  */
 class ProcessingException extends RuntimeException {
-    /**
-     *
-     */
+    /** */
     ProcessingException(String message) {
         super(message);
     }

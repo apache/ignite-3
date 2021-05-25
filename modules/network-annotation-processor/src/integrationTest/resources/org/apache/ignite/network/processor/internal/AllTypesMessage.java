@@ -77,9 +77,7 @@ public interface AllTypesMessage extends NetworkMessage {
 
     Map<String, NetworkMessage> x();
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public default short directType() {
         return 5555;
     }

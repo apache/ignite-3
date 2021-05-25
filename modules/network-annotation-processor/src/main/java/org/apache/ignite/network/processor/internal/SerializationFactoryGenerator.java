@@ -36,9 +36,7 @@ class SerializationFactoryGenerator {
      */
     private final ClassName messageClassName;
 
-    /**
-     *
-     */
+    /** */
     SerializationFactoryGenerator(TypeElement messageClass) {
         messageClassName = ClassName.get(messageClass);
     }

@@ -27,14 +27,10 @@ import org.jetbrains.annotations.Nullable;
  * Various utilities for working with {@link TypeMirror} instances.
  */
 class TypeUtils {
-    /**
-     *
-     */
+    /** */
     private final ProcessingEnvironment processingEnvironment;
 
-    /**
-     *
-     */
+    /** */
     TypeUtils(ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
     }
