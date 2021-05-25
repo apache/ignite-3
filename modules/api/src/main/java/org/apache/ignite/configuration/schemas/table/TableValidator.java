@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
-import org.jetbrains.annotations.NotNull;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * Table schema registry interface.
+ * Annotation to validate whole table configuration.
+ *
+ * Activate SchemaTableValidatorImpl in configuration engine for {@link TablesConfigurationSchema#tables}.
  */
-public interface SchemaRegistry {
-    /**
-     * @return Current schema.
-     */
-    SchemaDescriptor schema();
+@Target({ FIELD, PARAMETER })
+@Retention(RUNTIME)
+public @interface TableValidator {
 
-    /**
-     * @param ver Schema version.
-     * @return Schema of given version.
-     * @throws SchemaRegistryException If schema was not found.
-     */
-    @NotNull SchemaDescriptor schema(int ver) throws SchemaRegistryException;
 }

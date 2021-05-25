@@ -213,7 +213,7 @@ public abstract class ConfigurationChanger {
 
         storagesRootsMap.put(configurationStorage.type(), storageRoots);
 
-        configurationStorage.addListener(changedEntries -> updateFromListener(
+        configurationStorage.registerConfigurationListener(changedEntries -> updateFromListener(
             configurationStorage.type(),
             changedEntries
         ));

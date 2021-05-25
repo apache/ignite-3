@@ -15,24 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.builder;
 
-import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.schema.PartialIndex;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.builder.PartialIndexBuilder;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Table schema registry interface.
+ * Tests for partial index builder.
  */
-public interface SchemaRegistry {
+public class PartialIndexBuilderTest {
     /**
-     * @return Current schema.
+     * Test partial index parameters.
      */
-    SchemaDescriptor schema();
+    @Test
+    public void testPartialIndexCreate() {
+        PartialIndexBuilder builder = SchemaBuilders.partialIndex("TEST");
 
-    /**
-     * @param ver Schema version.
-     * @return Schema of given version.
-     * @throws SchemaRegistryException If schema was not found.
-     */
-    @NotNull SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+        builder.addIndexColumn("A").done();
+        builder.withExpression("WHERE A > 0");
+
+        PartialIndex idx = builder.build();
+
+        assertEquals(1, idx.columns().size());
+        assertEquals("WHERE A > 0", idx.expr());
+    }
 }

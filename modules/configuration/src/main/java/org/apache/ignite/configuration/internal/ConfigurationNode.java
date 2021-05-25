@@ -111,11 +111,13 @@ public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationPr
 
             synchronized (this) {
                 if (cachedRootNode == oldRootNode) {
-                    cachedRootNode = newRootNode;
-
                     beforeRefreshValue(newVal);
 
-                    return val = newVal;
+                    val = newVal;
+
+                    cachedRootNode = newRootNode;
+
+                    return newVal;
                 }
                 else {
                     if (invalid)

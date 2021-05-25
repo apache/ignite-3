@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.presentation.json;
+package org.apache.ignite.internal.schema.configuration;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -29,8 +29,10 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.configuration.storage.Data;
 import org.apache.ignite.configuration.storage.StorageException;
 
-/** */
-class TestConfigurationStorage implements ConfigurationStorage {
+/**
+ * Configuration storage for tests.
+ */
+public class TestConfigurationStorage implements ConfigurationStorage {
     /** */
     private final Set<ConfigurationStorageListener> listeners = new HashSet<>();
 
@@ -57,6 +59,6 @@ class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
+        return ConfigurationType.DISTRIBUTED;
     }
 }
