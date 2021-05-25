@@ -44,16 +44,6 @@ public class ITAutoSerializableProcessorTest {
     private final Compiler compiler = Compiler.javac().withProcessors(new AutoSerializableProcessor());
 
     /**
-     * Converts given test source class names to a list of {@link JavaFileObject}s.
-     */
-    private static List<JavaFileObject> getSources(String... sourceNames) {
-        return Arrays.stream(sourceNames)
-            .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + source + ".java")
-            .map(JavaFileObjects::forResource)
-            .collect(Collectors.toList());
-    }
-
-    /**
      * Compiles the network message with all supported directly marshallable types and checks that the compilation
      * completed successfully.
      */
@@ -133,5 +123,15 @@ public class ITAutoSerializableProcessorTest {
         assertThat(compilation).generatedSourceFile(RESOURCE_PACKAGE_NAME + "TransitiveMessageSerializer");
         assertThat(compilation).generatedSourceFile(RESOURCE_PACKAGE_NAME + "TransitiveMessageDeserializer");
         assertThat(compilation).generatedSourceFile(RESOURCE_PACKAGE_NAME + "TransitiveMessageSerializationFactory");
+    }
+
+    /**
+     * Converts given test source class names to a list of {@link JavaFileObject}s.
+     */
+    private static List<JavaFileObject> getSources(String... sourceNames) {
+        return Arrays.stream(sourceNames)
+            .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + source + ".java")
+            .map(JavaFileObjects::forResource)
+            .collect(Collectors.toList());
     }
 }

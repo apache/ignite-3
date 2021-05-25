@@ -57,29 +57,6 @@ import org.apache.ignite.network.serialization.MessageSerializer;
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class AutoSerializableProcessor extends AbstractProcessor {
     /**
-     * Generates a class for registering all generated {@link MessageSerializationFactory} for the current module.
-     */
-    // TODO: refactor this method to use module names as part of the generated class,
-    //  see https://issues.apache.org/jira/browse/IGNITE-14715
-    private static TypeSpec generateRegistryInitializer(Map<TypeElement, TypeSpec> factoriesByMessageType) {
-        MethodSpec.Builder initializeMethod = MethodSpec.methodBuilder("initialize")
-            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-            .addParameter(TypeName.get(MessageSerializationRegistry.class), "serializationRegistry");
-
-        factoriesByMessageType.forEach((messageClass, factory) -> {
-            var factoryPackage = ClassName.get(messageClass).packageName();
-            var factoryType = ClassName.get(factoryPackage, factory.name);
-
-            initializeMethod.addStatement("serializationRegistry.registerFactory($T.TYPE, new $T())", messageClass, factoryType);
-        });
-
-        return TypeSpec.classBuilder("MessageSerializationRegistryInitializer")
-            .addModifiers(Modifier.PUBLIC)
-            .addMethod(initializeMethod.build())
-            .build();
-    }
-
-    /**
      * {@inheritDoc}
      */
     @Override public Set<String> getSupportedAnnotationTypes() {
@@ -173,6 +150,29 @@ public class AutoSerializableProcessor extends AbstractProcessor {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializationFactory", messageClass);
 
         return new SerializationFactoryGenerator(messageClass).generateFactory(serializer, deserializer);
+    }
+
+    /**
+     * Generates a class for registering all generated {@link MessageSerializationFactory} for the current module.
+     */
+    // TODO: refactor this method to use module names as part of the generated class,
+    //  see https://issues.apache.org/jira/browse/IGNITE-14715
+    private static TypeSpec generateRegistryInitializer(Map<TypeElement, TypeSpec> factoriesByMessageType) {
+        MethodSpec.Builder initializeMethod = MethodSpec.methodBuilder("initialize")
+            .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+            .addParameter(TypeName.get(MessageSerializationRegistry.class), "serializationRegistry");
+
+        factoriesByMessageType.forEach((messageClass, factory) -> {
+            var factoryPackage = ClassName.get(messageClass).packageName();
+            var factoryType = ClassName.get(factoryPackage, factory.name);
+
+            initializeMethod.addStatement("serializationRegistry.registerFactory($T.TYPE, new $T())", messageClass, factoryType);
+        });
+
+        return TypeSpec.classBuilder("MessageSerializationRegistryInitializer")
+            .addModifiers(Modifier.PUBLIC)
+            .addMethod(initializeMethod.build())
+            .build();
     }
 
     /**

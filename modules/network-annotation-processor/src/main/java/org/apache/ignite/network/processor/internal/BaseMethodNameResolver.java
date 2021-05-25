@@ -50,6 +50,24 @@ class BaseMethodNameResolver {
     }
 
     /**
+     * Resolves a "base" part of a (de-)serialization method.
+     */
+    String resolveBaseMethodName(TypeMirror parameterType) {
+        if (parameterType.getKind().isPrimitive()) {
+            return resolvePrimitiveMethodName(parameterType);
+        }
+        else if (parameterType.getKind() == TypeKind.ARRAY) {
+            return resolveArrayMethodName((ArrayType)parameterType);
+        }
+        else if (parameterType.getKind() == TypeKind.DECLARED) {
+            return resolveReferenceMethodName((DeclaredType)parameterType);
+        }
+        else {
+            throw new ProcessingException("Unsupported type for message (de-)serialization: " + parameterType);
+        }
+    }
+
+    /**
      * Resolves a "base" part of a (de-)serialization method for the given primitive type.
      */
     private static String resolvePrimitiveMethodName(TypeMirror parameterType) {
@@ -84,24 +102,6 @@ class BaseMethodNameResolver {
         }
         else {
             return "ObjectArray";
-        }
-    }
-
-    /**
-     * Resolves a "base" part of a (de-)serialization method.
-     */
-    String resolveBaseMethodName(TypeMirror parameterType) {
-        if (parameterType.getKind().isPrimitive()) {
-            return resolvePrimitiveMethodName(parameterType);
-        }
-        else if (parameterType.getKind() == TypeKind.ARRAY) {
-            return resolveArrayMethodName((ArrayType)parameterType);
-        }
-        else if (parameterType.getKind() == TypeKind.DECLARED) {
-            return resolveReferenceMethodName((DeclaredType)parameterType);
-        }
-        else {
-            throw new ProcessingException("Unsupported type for message (de-)serialization: " + parameterType);
         }
     }
 
