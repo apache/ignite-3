@@ -103,17 +103,15 @@ public class AutoSerializableProcessor extends AbstractProcessor {
                     writeToFile(packageName, factory);
 
                     factories.put(messageClass, factory);
-                } else {
-                    processingEnv.getMessager().printMessage(
-                        Diagnostic.Kind.ERROR,
-                        String.format(
-                            "%s annotation must only be present on interfaces that extend %s",
-                            AutoSerializable.class, NetworkMessage.class
-                        ),
-                        messageClass
-                    );
                 }
-            } catch (ProcessingException e) {
+                else {
+                    throw new ProcessingException(String.format(
+                        "%s annotation must only be present on interfaces that extend %s",
+                        AutoSerializable.class, NetworkMessage.class
+                    ));
+                }
+            }
+            catch (ProcessingException e) {
                 processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), messageClass);
             }
         }
@@ -196,7 +194,8 @@ public class AutoSerializableProcessor extends AbstractProcessor {
 
             if (distinctSubPackageNames.size() == 1) {
                 result.add(distinctSubPackageNames.iterator().next());
-            } else {
+            }
+            else {
                 break;
             }
         }

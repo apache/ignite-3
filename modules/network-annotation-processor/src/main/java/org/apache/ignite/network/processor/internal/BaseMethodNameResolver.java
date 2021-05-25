@@ -51,11 +51,14 @@ class BaseMethodNameResolver {
     String resolveBaseMethodName(TypeMirror parameterType) {
         if (parameterType.getKind().isPrimitive()) {
             return resolvePrimitiveMethodName(parameterType);
-        } else if (parameterType.getKind() == TypeKind.ARRAY) {
+        }
+        else if (parameterType.getKind() == TypeKind.ARRAY) {
             return resolveArrayMethodName((ArrayType) parameterType);
-        } else if (parameterType.getKind() == TypeKind.DECLARED) {
+        }
+        else if (parameterType.getKind() == TypeKind.DECLARED) {
             return resolveReferenceMethodName((DeclaredType) parameterType);
-        } else {
+        }
+        else {
             throw new ProcessingException("Unsupported type for message (de-)serialization: " + parameterType);
         }
     }
