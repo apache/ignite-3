@@ -39,7 +39,6 @@ public class ClusterNode implements Serializable {
     /** Node address in host:port format (lazily evaluated) */
     private String address;
 
-
     /**
      * @param id The id.
      * @param name The unique node name.

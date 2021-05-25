@@ -44,7 +44,6 @@ public interface RaftServer {
      * @param initialConf Inititial group configuration.
      *
      * @return {@code True} if a group was successfully started.
-     * @throws IgniteInternalException If a group can't be started.
      */
     boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf);
 
@@ -57,7 +56,7 @@ public interface RaftServer {
 
     /**
      * Returns a local peer.
-     * @param Group id.
+     * @param groupId Group id.
      * @return Local peer or null if the group is not started.
      */
     @Nullable Peer localPeer(String groupId);

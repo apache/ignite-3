@@ -58,7 +58,6 @@ public class CounterListener implements RaftGroupListener {
 
     @Override public boolean onSnapshotLoad(String path) {
         // Not implemented.
-
         return false;
     }
 }
