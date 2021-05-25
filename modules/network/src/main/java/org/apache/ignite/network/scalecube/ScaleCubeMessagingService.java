@@ -66,6 +66,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             return;
 
         String correlationId = message.correlationId();
+
         for (NetworkMessageHandler handler : getMessageHandlers())
             handler.onReceived(msg, sender, correlationId);
     }
@@ -90,6 +91,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             .withData(msg)
             .correlationId(correlationId)
             .build();
+
         return cluster
             .send(clusterNodeAddress(recipient), message)
             .toFuture();
@@ -106,7 +108,9 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
             .withData(msg)
             .correlationId(UUID.randomUUID().toString())
             .build();
+
         Address address = Address.from(addr);
+
         return cluster
             .requestResponse(address, message)
             .timeout(Duration.ofMillis(timeout))
