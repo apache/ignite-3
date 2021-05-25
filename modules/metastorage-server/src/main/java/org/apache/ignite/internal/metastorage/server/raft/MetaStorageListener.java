@@ -67,6 +67,7 @@ import org.apache.ignite.raft.client.service.RaftGroupListener;
 
 /**
  * Meta storage listener.
+ * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
 public class MetaStorageListener implements RaftGroupListener {
     /** Storage. */
