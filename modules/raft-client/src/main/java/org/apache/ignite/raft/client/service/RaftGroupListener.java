@@ -41,7 +41,7 @@ public interface RaftGroupListener {
      * <p>
      * If the runtime exception is thrown during iteration, all entries starting from current iteration are considered
      * unapplied, the state machine is invalidated and raft node will go into error state (will no longer can be
-     * elected as a leader).
+     * elected as a leader and process replication commands).
      * <p>
      * At this point the next step is to fix the problem and restart the raft node.
      *
