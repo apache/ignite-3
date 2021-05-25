@@ -33,5 +33,5 @@ public class IndexColumnConfigurationSchema {
 
     /** Ascending flag. */
     @Value(hasDefault = true)
-    boolean asc = true;
+    public boolean asc = true;
 }
