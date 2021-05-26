@@ -250,7 +250,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         this.readIndexDisruptor = DisruptorBuilder.<ReadIndexEvent>newInstance() //
             .setEventFactory(new ReadIndexEventFactory()) //
             .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
-            .setThreadFactory(new NamedThreadFactory("JRaft-ReadOnlyService-Disruptor-" + node.getNodeId().toString(), true)) //
+            .setThreadFactory(new NamedThreadFactory("JRaft-ReadOnlyService-Disruptor-" +
+                node.getOptions().getServerName() + "-" + node.getNodeId().toString(), true)) //
             .setWaitStrategy(new BlockingWaitStrategy()) //
             .setProducerType(ProducerType.MULTI) //
             .build();

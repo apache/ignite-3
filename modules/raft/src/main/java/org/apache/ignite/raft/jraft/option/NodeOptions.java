@@ -178,11 +178,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** */
     private List<Replicator.ReplicatorStateListener> replicationStateListeners;
 
-    /** */
+    /** The executor for short running tasks. */
     private ExecutorService commonExecutor;
 
-    /** */
+    /** Striped executor. */
     private FixedThreadsExecutorGroup stripedExecutor;
+
+    /** Server name. */
+    private String serverName;
 
     /**
      * The rpc client.
@@ -444,6 +447,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.stripedExecutor = stripedExecutor;
     }
 
+    public String getServerName() {
+        return serverName;
+    }
+
+    public void setServerName(String serverName) {
+        this.serverName = serverName;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -469,6 +480,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setReplicationStateListeners(this.replicationStateListeners);
         nodeOptions.setCommonExecutor(this.getCommonExecutor());
         nodeOptions.setStripedExecutor(this.getStripedExecutor());
+        nodeOptions.setServerName(this.getServerName());
 
         return nodeOptions;
     }

@@ -184,7 +184,8 @@ public class FSMCallerImpl implements FSMCaller {
         this.disruptor = DisruptorBuilder.<ApplyTask> newInstance() //
             .setEventFactory(new ApplyTaskFactory()) //
             .setRingBufferSize(opts.getDisruptorBufferSize()) //
-            .setThreadFactory(new NamedThreadFactory("JRaft-FSMCaller-Disruptor-" + node.getNodeId().toString(), true)) //
+            .setThreadFactory(new NamedThreadFactory("JRaft-FSMCaller-Disruptor-" +
+                node.getOptions().getServerName() + "-" + node.getNodeId().toString(), true)) //
             .setProducerType(ProducerType.MULTI) //
             .setWaitStrategy(new BlockingWaitStrategy()) //
             .build();

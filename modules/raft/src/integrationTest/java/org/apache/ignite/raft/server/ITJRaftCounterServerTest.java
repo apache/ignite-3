@@ -95,8 +95,6 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         clients.get(1).refreshLeader().get();
 
         assertNotNull(clients.get(1).leader());
-
-        Thread.sleep(1000000);
     }
 
     /**

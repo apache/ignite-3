@@ -92,7 +92,10 @@ public class JRaftServerImpl implements RaftServer {
 
         assert !reuse || service.topologyService().localMember() != null;
 
-        String suffix = service.localConfiguration().getName() + "-";
+        if (opts.getServerName() == null)
+            opts.setServerName(service.localConfiguration().getName());
+
+        String suffix = opts.getServerName() + "-";
 
         ExecutorService commonExecutor = createExecutor("JRaft-Common-Executor-" + suffix, opts.getCommonThreadPollSize());
 
@@ -101,7 +104,7 @@ public class JRaftServerImpl implements RaftServer {
         FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
             .newExecutorGroup(
                 Utils.APPEND_ENTRIES_THREADS_SEND,
-                "JRaft-AppendEntries-Processor-" + suffix,
+                "JRaft-AppendEntries-Processor-" +  suffix,
                 Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
                 true);
 

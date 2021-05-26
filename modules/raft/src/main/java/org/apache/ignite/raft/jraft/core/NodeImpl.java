@@ -889,12 +889,12 @@ public class NodeImpl implements Node, RaftServerService {
             this.replicatorStateListeners.addAll(opts.getReplicationStateListeners());
 
         if (this.serverId.getIp().equals(Utils.IP_ANY)) {
-            LOG.error("Node can't started from IP_ANY.");
+            LOG.error("Node can't start from IP_ANY.");
             return false;
         }
 
         // Init timers
-        final String suffix = getNodeId().toString();
+        final String suffix = getOptions().getServerName() + "-" + getNodeId().toString();
 
         timerManager = this.timerFactory.createScheduler(this.options.getTimerPoolSize(),
             "JRaft-Node-ScheduleThreadPool-" + suffix);

@@ -191,7 +191,8 @@ public class LogManagerImpl implements LogManager {
             this.disruptor = DisruptorBuilder.<StableClosureEvent>newInstance() //
                 .setEventFactory(new StableClosureEventFactory()) //
                 .setRingBufferSize(opts.getDisruptorBufferSize()) //
-                .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-" + opts.getNode().getNodeId(), true)) //
+                .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-" +
+                    opts.getNode().getOptions().getServerName() + "-" + opts.getNode().getNodeId(), true)) //
                 .setProducerType(ProducerType.MULTI) //
                 /*
                  *  Use timeout strategy in log manager. If timeout happens, it will called reportError to halt the node.
