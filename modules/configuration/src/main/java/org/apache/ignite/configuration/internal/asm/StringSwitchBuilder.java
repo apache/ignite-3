@@ -139,40 +139,38 @@ class StringSwitchBuilder {
         //         if (expVar.equals("c")) idxVar = 2;
         //     ...
         // }
-        {
-            SwitchBuilder hashSwitch = switchBuilder()
-                .expression(expVar.invoke(HASH_CODE));
+        SwitchBuilder hashSwitch = switchBuilder()
+            .expression(expVar.invoke(HASH_CODE));
 
-            // Case for each hash value may have multiple matching strings due to collisions.
-            Map<Integer, List<CaseStatement>> groupedCases = cases.stream().collect(
-                groupingBy(statement -> statement.key.hashCode())
-            );
+        // Case for each hash value may have multiple matching strings due to collisions.
+        Map<Integer, List<CaseStatement>> groupedCases = cases.stream().collect(
+            groupingBy(statement -> statement.key.hashCode())
+        );
 
-            int idx = 0;
-            for (Map.Entry<Integer, List<CaseStatement>> entry : groupedCases.entrySet()) {
-                BytecodeBlock caseBody = new BytecodeBlock();
+        int idx = 0;
+        for (Map.Entry<Integer, List<CaseStatement>> entry : groupedCases.entrySet()) {
+            BytecodeBlock caseBody = new BytecodeBlock();
 
-                for (CaseStatement caseStmt : entry.getValue()) {
-                    caseBody.append(new IfStatement()
-                        .condition(expVar.invoke(EQUALS, constantString(caseStmt.key)))
-                        .ifTrue(idxVar.set(constantInt(idx)))
-                    );
+            for (CaseStatement caseStmt : entry.getValue()) {
+                caseBody.append(new IfStatement()
+                    .condition(expVar.invoke(EQUALS, constantString(caseStmt.key)))
+                    .ifTrue(idxVar.set(constantInt(idx)))
+                );
 
-                    caseBodies[idx++] = caseStmt.body;
-                }
-
-                hashSwitch.addCase(entry.getKey(), caseBody);
+                caseBodies[idx++] = caseStmt.body;
             }
 
-            // No default statement required because "idxVar" was preemptively assigned to -1.
-            res.append(hashSwitch.build());
+            hashSwitch.addCase(entry.getKey(), caseBody);
         }
+
+        // No default statement required because "idxVar" was preemptively assigned to -1.
+        res.append(hashSwitch.build());
 
         // Here's the actual switch by "idxVar" variable that uses user-defined "case" and "default" clauses.
         res.append(range(0, caseBodies.length).boxed()
             .reduce(
                 switchBuilder().expression(idxVar),
-                (builder, idx) -> builder.addCase(idx, caseBodies[idx]),
+                (builder, i) -> builder.addCase(i, caseBodies[i]),
                 (b0, b1) -> b0 // Won't be used by sequential stream but required to be non-null.
             )
             .defaultCase(defaultBody)
