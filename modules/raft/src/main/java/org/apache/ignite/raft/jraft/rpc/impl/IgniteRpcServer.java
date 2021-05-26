@@ -62,14 +62,12 @@ public class IgniteRpcServer implements RpcServer<Void> {
      * @param service The cluster service.
      * @param reuse {@code True} to reuse service (do no manage lifecycle).
      * @param nodeManager The node manager.
-     * @param commonExecutor Common executor for short lived tasks.
      * @param rpcExecutor The executor for RPC requests.
      */
     public IgniteRpcServer(
         ClusterService service,
         boolean reuse,
         NodeManager nodeManager,
-        Executor commonExecutor,
         @Nullable Executor rpcExecutor
     ) {
         this.reuse = reuse;
@@ -83,7 +81,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new GetFileRequestProcessor(rpcExecutor));
         registerProcessor(new InstallSnapshotRequestProcessor(rpcExecutor));
         registerProcessor(new RequestVoteRequestProcessor(rpcExecutor));
-        registerProcessor(new PingRequestProcessor());
+        registerProcessor(new PingRequestProcessor(rpcExecutor));
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor));
         // raft cli service
@@ -132,8 +130,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 if (executor == null)
                     executor = prc.executor();
 
-                if (executor == null)
-                    executor = commonExecutor;
+                assert executor != null;
 
                 RpcProcessor finalPrc = prc;
 

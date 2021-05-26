@@ -19,6 +19,8 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.network.ClusterService;
@@ -76,6 +78,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -88,6 +92,7 @@ import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -186,6 +191,21 @@ public class ITNodeTest {
     public void testInitShutdown() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final NodeOptions nodeOptions = new NodeOptions();
+
+        ExecutorService commonExecutor =
+            createExecutor("JRaft-Common-Executor-" + addr.toString(), nodeOptions.getCommonThreadPollSize());
+
+        nodeOptions.setCommonExecutor(commonExecutor);
+
+        FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
+            .newExecutorGroup(
+                Utils.APPEND_ENTRIES_THREADS_SEND,
+                "JRaft-AppendEntries-Processor-" + addr.toString(),
+                Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
+                true);
+
+        nodeOptions.setStripedExecutor(stripedExecutor);
+
         nodeOptions.setFsm(new MockStateMachine(addr));
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");
         nodeOptions.setRaftMetaUri(this.dataPath + File.separator + "meta");
@@ -2501,7 +2521,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testLeaderTransferBeforeLogIsCompleted() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2598,11 +2618,11 @@ public class ITNodeTest {
      */
     static class MockFSM1 extends MockStateMachine {
 
-        public MockFSM1() {
+        MockFSM1() {
             this(new Endpoint(Utils.IP_ANY, 0));
         }
 
-        public MockFSM1(final Endpoint address) {
+        MockFSM1(final Endpoint address) {
             super(address);
         }
 
@@ -2610,7 +2630,6 @@ public class ITNodeTest {
         public boolean onSnapshotLoad(final SnapshotReader reader) {
             return false;
         }
-
     }
 
     @Test
@@ -2693,7 +2712,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testRemovingLeaderTriggerTimeoutNow() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2825,7 +2844,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @Test
+    @Test // TODO asch flaky
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         final List<PeerId> peers = TestUtils.generatePeers(5);
@@ -3215,7 +3234,7 @@ public class ITNodeTest {
         volatile boolean stop;
         boolean          dontRemoveFirstPeer;
 
-        public ChangeArg(final TestCluster c, final List<PeerId> peers, final boolean stop,
+        ChangeArg(final TestCluster c, final List<PeerId> peers, final boolean stop,
                          final boolean dontRemoveFirstPeer) {
             super();
             this.c = c;
@@ -3511,8 +3530,22 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
+    // TODO asch shared timer not supported.
     private NodeOptions createNodeOptionsWithSharedTimer() {
         final NodeOptions options = new NodeOptions();
+
+        ExecutorService commonExecutor =
+            createExecutor("JRaft-Common-Executor", options.getCommonThreadPollSize());
+
+        FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
+            .newExecutorGroup(
+                Utils.APPEND_ENTRIES_THREADS_SEND,
+                "JRaft-AppendEntries-Processor",
+                Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
+                true);
+
+        options.setCommonExecutor(commonExecutor);
+        options.setStripedExecutor(stripedExecutor);
         options.setSharedElectionTimer(true);
         options.setSharedVoteTimer(true);
         return options;

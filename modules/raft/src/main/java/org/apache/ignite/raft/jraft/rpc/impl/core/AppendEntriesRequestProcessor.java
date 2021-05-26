@@ -348,8 +348,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                     assert (node != null);
                     peerCtx = new PeerRequestContext(groupId, pair, node.getRaftOptions().getMaxReplicatorInflightMsgs());
 
-                    SingleThreadExecutor executor = node.getOptions().getStripedExecutor().next();
-                    peerCtx.executor = executor;
+                    peerCtx.executor = node.getOptions().getStripedExecutor().next();
 
                     groupContexts.put(pair, peerCtx);
                 }

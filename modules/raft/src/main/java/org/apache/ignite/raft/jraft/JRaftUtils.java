@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -69,7 +70,7 @@ public final class JRaftUtils {
             .coreThreads(number) //
             .maximumThreads(number) //
             .keepAliveSeconds(60L) //
-            .workQueue(new SynchronousQueue<>()) //
+            .workQueue(new LinkedBlockingQueue<>()) //
             .threadFactory(createThreadFactory(prefix)) //
             .build();
     }

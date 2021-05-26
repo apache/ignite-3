@@ -178,10 +178,10 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** */
     private List<Replicator.ReplicatorStateListener> replicationStateListeners;
 
-    /** The executor for short running tasks. */
+    /** The common executor for short running tasks. */
     private ExecutorService commonExecutor;
 
-    /** Striped executor. */
+    /** Striped executor. Used for processing AppendEntries request/reponse */
     private FixedThreadsExecutorGroup stripedExecutor;
 
     /** Server name. */

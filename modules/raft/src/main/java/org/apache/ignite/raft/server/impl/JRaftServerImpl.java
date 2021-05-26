@@ -97,21 +97,21 @@ public class JRaftServerImpl implements RaftServer {
 
         String suffix = opts.getServerName() + "-";
 
-        ExecutorService commonExecutor = createExecutor("JRaft-Common-Executor-" + suffix, opts.getCommonThreadPollSize());
+        ExecutorService commonExecutor = createExecutor("JRaft-Common-Executor-" + suffix,
+            opts.getCommonThreadPollSize());
 
         this.opts.setCommonExecutor(commonExecutor);
 
         FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
             .newExecutorGroup(
                 Utils.APPEND_ENTRIES_THREADS_SEND,
-                "JRaft-AppendEntries-Processor-" +  suffix,
+                "JRaft-AppendEntries-Processor-" + suffix,
                 Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
                 true);
 
         this.opts.setStripedExecutor(stripedExecutor);
 
         rpcServer = new IgniteRpcServer(service, reuse, nodeManager,
-            commonExecutor,
             createExecutor("JRaft-Request-Processor-" + suffix, opts.getRaftRpcThreadPoolSize())
         );
 

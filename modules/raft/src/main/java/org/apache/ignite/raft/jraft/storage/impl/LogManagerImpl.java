@@ -403,7 +403,7 @@ public class LogManagerImpl implements LogManager {
         for (int i = 0; i < waiterCount; i++) {
             final WaitMeta wm = wms.get(i);
             wm.errorCode = errCode;
-            Utils.runInThread(nodeOptions.getCommonExecutor(), () -> runOnNewLog(wm)); // TODO asch fix threading.
+            Utils.runInThread(nodeOptions.getCommonExecutor(), () -> runOnNewLog(wm));
         }
         return true;
     }

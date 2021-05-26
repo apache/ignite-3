@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -29,6 +30,15 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
  * @author jiachun.fjc
  */
 public class PingRequestProcessor implements RpcProcessor<PingRequest> {
+    /** The executor */
+    private final Executor executor;
+
+    /**
+     * @param executor The executor.
+     */
+    public PingRequestProcessor(Executor executor) {
+        this.executor = executor;
+    }
 
     @Override
     public void handleRequest(final RpcContext rpcCtx, final PingRequest request) {
@@ -40,5 +50,9 @@ public class PingRequestProcessor implements RpcProcessor<PingRequest> {
     @Override
     public String interest() {
         return PingRequest.class.getName();
+    }
+
+    @Override public Executor executor() {
+        return executor;
     }
 }
