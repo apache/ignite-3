@@ -18,64 +18,43 @@
 package org.apache.ignite.network.internal.recovery.message;
 
 import java.util.UUID;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.processor.annotations.AutoSerializable;
 
 /**
  * Handshake start response message.
  */
-public class HandshakeStartResponseMessage implements NetworkMessage {
+@AutoSerializable(messageFactory = HandshakeMessageFactory.class)
+public interface HandshakeStartResponseMessage extends NetworkMessage {
     /** */
     public static final byte TYPE = 3;
 
     /** Launch id. */
-    private final UUID launchId;
+    UUID launchId();
 
     /** Consistent id. */
-    private final String consistentId;
+    String consistentId();
 
     /** Number of received messages. */
-    private final long rcvCnt;
+    long receivedCount();
 
     /** Connections count. */
-    private final long connectCnt;
+    long connectionsCount();
 
-    public HandshakeStartResponseMessage(UUID launchId, String consistentId, long rcvCnt, long connectCnt) {
-        this.launchId = launchId;
-        this.consistentId = consistentId;
-        this.rcvCnt = rcvCnt;
-        this.connectCnt = connectCnt;
-    }
+    interface Builder {
+        HandshakeStartResponseMessage.Builder launchId(UUID launchId);
 
-    /**
-     * @return Launch id.
-     */
-    public UUID launchId() {
-        return launchId;
-    }
+        HandshakeStartResponseMessage.Builder consistentId(String consistentId);
 
-    /**
-     * @return Consistent id.
-     */
-    public String consistentId() {
-        return consistentId;
-    }
+        HandshakeStartResponseMessage.Builder receivedCount(long receivedCount);
 
-    /**
-     * @return Number of received messages.
-     */
-    public long receivedCount() {
-        return rcvCnt;
-    }
+        HandshakeStartResponseMessage.Builder connectionsCount(long connectionsCount);
 
-    /**
-     * @return Connections count.
-     */
-    public long connectCount() {
-        return connectCnt;
+        HandshakeStartResponseMessage build();
     }
 
     /** {@inheritDoc} */
-    @Override public short directType() {
+    @Override default short directType() {
         return TYPE;
     }
 }

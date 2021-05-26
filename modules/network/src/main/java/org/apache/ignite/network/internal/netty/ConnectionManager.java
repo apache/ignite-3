@@ -17,11 +17,6 @@
 
 package org.apache.ignite.network.internal.netty;
 
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,17 +31,14 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.stream.ChunkedWriteHandler;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.internal.handshake.HandshakeManager;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.internal.handshake.HandshakeManager;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;

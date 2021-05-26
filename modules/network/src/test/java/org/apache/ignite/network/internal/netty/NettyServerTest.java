@@ -17,6 +17,9 @@
 
 package org.apache.ignite.network.internal.netty;
 
+import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -29,17 +32,14 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import java.nio.channels.ClosedChannelException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.internal.MessageReader;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.handshake.HandshakeAction;
 import org.apache.ignite.network.internal.handshake.HandshakeManager;
-import org.apache.ignite.network.message.MessageDeserializer;
-import org.apache.ignite.network.message.MessageMappingException;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageMappingException;
+import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -187,7 +187,7 @@ public class NettyServerTest {
         MessageSerializationRegistry registry = new MessageSerializationRegistry() {
             /** {@inheritDoc} */
             @Override public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short type) {
-                return (MessageDeserializer<T>) new MessageDeserializer<NetworkMessage>() {
+                return (MessageDeserializer<T>) new MessageDeserializer<>() {
                     /** {@inheritDoc} */
                     @Override public boolean readMessage(MessageReader reader) throws MessageMappingException {
                         return true;
@@ -258,7 +258,7 @@ public class NettyServerTest {
     /**
      * Creates a server from a backing {@link ChannelFuture}.
      *
-     * @param channel Server channel.
+     * @param future Server channel future.
      * @param shouldStart {@code true} if a server should start successfully
      * @return NettyServer.
      * @throws Exception If failed.

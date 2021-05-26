@@ -17,9 +17,6 @@
 
 package org.apache.ignite.network.internal.netty;
 
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -27,10 +24,13 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.handshake.HandshakeManager;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.message.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**

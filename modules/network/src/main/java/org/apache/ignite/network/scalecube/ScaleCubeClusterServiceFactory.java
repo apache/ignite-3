@@ -17,9 +17,9 @@
 
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.ClusterConfig;
 import java.lang.management.ManagementFactory;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.management.InstanceNotFoundException;
 import javax.management.MBeanRegistrationException;
@@ -32,9 +32,6 @@ import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -43,7 +40,6 @@ import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**

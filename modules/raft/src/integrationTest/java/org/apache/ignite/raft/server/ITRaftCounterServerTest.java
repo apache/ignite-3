@@ -27,7 +27,6 @@ import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;

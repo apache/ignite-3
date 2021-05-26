@@ -17,18 +17,19 @@
 
 package org.apache.ignite.network.internal.recovery;
 
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.handshake.HandshakeAction;
 import org.apache.ignite.network.internal.handshake.HandshakeException;
 import org.apache.ignite.network.internal.handshake.HandshakeManager;
 import org.apache.ignite.network.internal.netty.NettySender;
 import org.apache.ignite.network.internal.netty.NettyUtils;
+import org.apache.ignite.network.internal.recovery.message.HandshakeMessageFactory;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Recovery protocol handshake manager for a server.
@@ -61,7 +62,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
     /** {@inheritDoc} */
     @Override public HandshakeAction onConnectionOpen(Channel channel) {
-        ChannelFuture sendFuture = channel.writeAndFlush(new HandshakeStartMessage(launchId, consistentId));
+        HandshakeStartMessage handshakeStartMessage = HandshakeMessageFactory.handshakeStartMessage()
+            .launchId(launchId)
+            .consistentId(consistentId)
+            .build();
+
+        ChannelFuture sendFuture = channel.writeAndFlush(handshakeStartMessage);
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null)

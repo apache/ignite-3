@@ -17,34 +17,13 @@
 
 package org.apache.ignite.network.internal.recovery.message;
 
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.processor.annotations.AutoSerializable;
+public class HandshakeMessageFactory {
 
-/**
- * Handshake start message.
- */
-@AutoSerializable(messageFactory = HandshakeMessageFactory.class)
-public interface HandshakeStartMessage extends NetworkMessage {
-    /** */
-    public static final byte TYPE = 2;
-
-    /** Launch id. */
-    UUID launchId();
-
-    /** Consistent id. */
-    String consistentId();
-
-    interface Builder {
-        HandshakeStartMessage.Builder launchId(UUID launchId);
-
-        HandshakeStartMessage.Builder consistentId(String consistentId);
-
-        HandshakeStartMessage build();
+    public static HandshakeStartMessage.Builder handshakeStartMessage() {
+        return new HandshakeStartMessageImpl();
     }
 
-    /** {@inheritDoc} */
-    @Override default short directType() {
-        return TYPE;
+    public static HandshakeStartResponseMessage.Builder handshakeStartResponseMessage() {
+        return new HandshakeStartResponseMessageImpl();
     }
 }

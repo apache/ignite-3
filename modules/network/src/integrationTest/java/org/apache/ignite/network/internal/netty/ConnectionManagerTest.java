@@ -26,7 +26,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageFactory;
 import org.apache.ignite.network.TestMessageSerializationFactory;
 import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
@@ -34,7 +36,6 @@ import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -110,7 +111,7 @@ public class ConnectionManagerTest {
         NettySender senderFrom1to2 = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
         // Ensure a handshake has finished on both sides.
-        senderFrom1to2.send(new TestMessage("test")).get(3, TimeUnit.SECONDS);
+        senderFrom1to2.send(TestMessageFactory.testMessage().msg("test").build()).get(3, TimeUnit.SECONDS);
 
         NettySender senderFrom2to1 = manager2.channel(manager1.consistentId(), new InetSocketAddress(port1)).get(3, TimeUnit.SECONDS);
 
@@ -120,7 +121,7 @@ public class ConnectionManagerTest {
 
         assertEquals(clientLocalAddress, clientRemoteAddress);
 
-        TestMessage testMessage = new TestMessage(msgText);
+        TestMessage testMessage = TestMessageFactory.testMessage().msg("test").build();
 
         senderFrom2to1.send(testMessage).get(3, TimeUnit.SECONDS);
 

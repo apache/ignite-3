@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.internal.netty;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import io.netty.buffer.ByteBuf;
@@ -24,9 +25,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.List;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.direct.DirectMarshallingUtils;

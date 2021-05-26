@@ -18,33 +18,38 @@
 package org.apache.ignite.network.internal.recovery.message;
 
 import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.processor.annotations.AutoSerializable;
 
-/**
- * Handshake start message.
- */
-@AutoSerializable(messageFactory = HandshakeMessageFactory.class)
-public interface HandshakeStartMessage extends NetworkMessage {
+public class HandshakeStartMessageImpl implements HandshakeStartMessage, HandshakeStartMessage.Builder {
     /** */
-    public static final byte TYPE = 2;
+    private UUID launchId;
 
-    /** Launch id. */
-    UUID launchId();
+    /** */
+    private String consistentId;
 
-    /** Consistent id. */
-    String consistentId();
-
-    interface Builder {
-        HandshakeStartMessage.Builder launchId(UUID launchId);
-
-        HandshakeStartMessage.Builder consistentId(String consistentId);
-
-        HandshakeStartMessage build();
+    /** {@inheritDoc} */
+    @Override public UUID launchId() {
+        return launchId;
     }
 
     /** {@inheritDoc} */
-    @Override default short directType() {
-        return TYPE;
+    @Override public String consistentId() {
+        return consistentId;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Builder launchId(UUID launchId) {
+        this.launchId = launchId;
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Builder consistentId(String consistentId) {
+        this.consistentId = consistentId;
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public HandshakeStartMessage build() {
+        return this;
     }
 }

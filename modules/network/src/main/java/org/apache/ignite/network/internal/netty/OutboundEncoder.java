@@ -17,17 +17,17 @@
 
 package org.apache.ignite.network.internal.netty;
 
+import java.nio.ByteBuffer;
+import java.util.List;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.stream.ChunkedInput;
-import java.nio.ByteBuffer;
-import java.util.List;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.message.MessageSerializer;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageSerializer;
 
 /**
  * An encoder for the outbound messages that uses {@link DirectMessageWriter}.

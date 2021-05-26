@@ -17,11 +17,11 @@
 
 package org.apache.ignite.network.internal.handshake;
 
-import io.netty.channel.Channel;
 import java.util.concurrent.CompletableFuture;
+import io.netty.channel.Channel;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.netty.HandshakeHandler;
 import org.apache.ignite.network.internal.netty.NettySender;
-import org.apache.ignite.network.message.NetworkMessage;
 
 /**
  * Handshake operation manager.

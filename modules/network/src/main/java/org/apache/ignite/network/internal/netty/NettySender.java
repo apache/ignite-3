@@ -17,17 +17,12 @@
 
 package org.apache.ignite.network.internal.netty;
 
-import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Wrapper for a Netty {@link Channel}, that uses {@link ChunkedInput} and {@link DirectMessageWriter} to send data.

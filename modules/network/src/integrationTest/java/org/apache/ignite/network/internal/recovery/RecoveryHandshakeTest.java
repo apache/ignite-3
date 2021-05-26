@@ -17,12 +17,14 @@
 
 package org.apache.ignite.network.internal.recovery;
 
-import io.netty.channel.Channel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import io.netty.channel.Channel;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageFactory;
 import org.apache.ignite.network.TestMessageSerializationFactory;
 import org.apache.ignite.network.internal.handshake.HandshakeAction;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
@@ -31,8 +33,7 @@ import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -105,7 +106,7 @@ public class RecoveryHandshakeTest {
         assertNotNull(from2to1);
 
         // Ensure the handshake has finished on both sides.
-        from2to1.send(new TestMessage("test")).get(3, TimeUnit.SECONDS);
+        from2to1.send(TestMessageFactory.testMessage().msg("test").build()).get(3, TimeUnit.SECONDS);
 
         NettySender from1to2 = manager1.channel(manager2.consistentId(), manager2.getLocalAddress()).get(3, TimeUnit.SECONDS);
 
