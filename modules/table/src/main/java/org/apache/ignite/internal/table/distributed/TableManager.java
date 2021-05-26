@@ -150,16 +150,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ));
         }
 
-        InternalTableImpl internalTable = new InternalTableImpl(tblId, partitionMap, partitions);
+        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions);
 
-        tables.put(name, new TableImpl(internalTable, schemaReg));
+        var table = new TableImpl(internalTable, schemaReg);
 
-        onEvent(TableEvent.CREATE, new TableEventParameters(
-            tblId,
-            name,
-            schemaReg,
-            internalTable
-        ), null);
+        tables.put(name, table);
+
+        onEvent(TableEvent.CREATE, new TableEventParameters(table), null);
     }
 
     /**
@@ -179,12 +176,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         assert table != null : "There is no table with the name specified [name=" + name + ']';
 
-        onEvent(TableEvent.DROP, new TableEventParameters(
-            tblId,
-            name,
-            table.schemaView(),
-            table.internalTable()
-        ), null);
+        onEvent(TableEvent.DROP, new TableEventParameters(table), null);
     }
 
     /**
@@ -237,12 +229,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .exceptionally(e -> {
                         LOG.error("Failed to create a new table [name=" + tblName + ", id=" + tblId + ']', e);
 
-                        onEvent(TableEvent.CREATE, new TableEventParameters(
-                            tblId,
-                            tblName,
-                            null,
-                            null
-                        ), e);
+                        onEvent(TableEvent.CREATE, new TableEventParameters(tblId, tblName), e);
 
                         return null;
                     })
@@ -286,7 +273,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             for (String tblName : tablesToStop) {
                 TableImpl t = tables.get(tblName);
 
-                UUID tblId = t.internalTable().tableId();
+                UUID tblId = t.tableId();
 
                 if (hasMetastorageLocally) {
                     var key = new ByteArray(INTERNAL_PREFIX + tblId);
@@ -308,12 +295,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     else {
                         LOG.error("Failed to drop a table [name=" + tblName + ", id=" + tblId + ']', e);
 
-                        onEvent(TableEvent.DROP, new TableEventParameters(
-                            tblId,
-                            tblName,
-                            null,
-                            null
-                        ), e);
+                        onEvent(TableEvent.DROP, new TableEventParameters(tblId, tblName), e);
                     }
 
                     return true;
@@ -335,7 +317,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return false;
 
             if (e == null)
-                tblFut.complete(tables.get(name));
+                tblFut.complete(params.table());
             else
                 tblFut.completeExceptionally(e);
 
@@ -421,7 +403,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return false;
 
             if (e == null)
-                getTblFut.complete(tables.get(name));
+                getTblFut.complete(params.table());
             else
                 getTblFut.completeExceptionally(e);
 

@@ -567,12 +567,10 @@ public class ITMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
                         assertArrayEquals(expKeyFrom.bytes(), keyFrom);
 
                         assertArrayEquals(expKeyTo.bytes(), keyTo);
-
-                        assertEquals(LATEST_REVISION, revUpperBound);
 
                         return new Cursor<>() {
                             private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = new Iterator<>() {
@@ -620,12 +618,10 @@ public class ITMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
                         assertArrayEquals(expKeyFrom.bytes(), keyFrom);
 
                         assertNull(keyTo);
-
-                        assertEquals(LATEST_REVISION, revUpperBound);
 
                         return new Cursor<>() {
                             private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = new Iterator<>() {
@@ -672,7 +668,7 @@ public class ITMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
                         return new Cursor<>() {
                             private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = new Iterator<>() {
                                 @Override public boolean hasNext() {
@@ -718,7 +714,7 @@ public class ITMetaStorageServiceTest {
     public void testRangeNext() throws Exception {
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
                         return new Cursor<>() {
                             private final Iterator<org.apache.ignite.internal.metastorage.server.Entry> it = new Iterator<>() {
                                 @Override public boolean hasNext() {
@@ -768,7 +764,7 @@ public class ITMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
+                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
                         return cursorMock;
                     }
                 });

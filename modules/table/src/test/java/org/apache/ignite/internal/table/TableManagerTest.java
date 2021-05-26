@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.BiPredicate;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
@@ -36,6 +37,9 @@ import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Condition;
+import org.apache.ignite.internal.metastorage.client.Entry;
+import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -43,23 +47,27 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.internal.metastorage.client.Condition;
-import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.util.ReflectionUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -194,11 +202,29 @@ public class TableManagerTest {
 
         ClusterNode node = new ClusterNode(UUID.randomUUID().toString(), NODE_NAME, "127.0.0.1", PORT);
 
-        CompletableFuture<UUID> tblIdFut = new CompletableFuture<>();
+        CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
-        TableManager tableManager = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, mm, sm, am, rm, vm, node, tblIdFut);
+        Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, mm, sm, am, rm, vm, node, tblManagerFut);
 
-        assertNotNull(tableManager.table("PUBLIC." + DYNAMIC_TABLE_NAME));
+        when(mm.range(any(), any())).thenAnswer(invokation -> {
+            ByteArray from = invokation.getArgument(0);
+
+            assertTrue(new String(from.bytes()).contains(DYNAMIC_TABLE_NAME));
+
+            ByteArray to = invokation.getArgument(1);
+
+            assertTrue(new String(to.bytes()).contains(DYNAMIC_TABLE_NAME));
+
+            Cursor<Entry> cursor = mock(Cursor.class);
+
+            when(cursor.hasNext()).thenReturn(true);
+
+            return cursor;
+        });
+
+        assertNotNull(table);
+
+        assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
     }
 
     /**
@@ -214,23 +240,37 @@ public class TableManagerTest {
 
         ClusterNode node = new ClusterNode(UUID.randomUUID().toString(), NODE_NAME, "127.0.0.1", PORT);
 
-        CompletableFuture<UUID> tblIdFut = new CompletableFuture<>();
+        CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
 
-        TableManager tableManager = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, mm, sm, am, rm, vm, node, tblIdFut);
+        Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, mm, sm, am, rm, vm, node, tblManagerFut);
 
-        assertNotNull(tableManager.table("PUBLIC." + DYNAMIC_TABLE_FOR_DROP_NAME));
+        TableManager tableManager = tblManagerFut.join();
+
+        when(mm.range(any(), any())).thenAnswer(invokation -> {
+            ByteArray from = invokation.getArgument(0);
+
+            assertTrue(new String(from.bytes()).contains(DYNAMIC_TABLE_FOR_DROP_NAME));
+
+            ByteArray to = invokation.getArgument(1);
+
+            assertTrue(new String(to.bytes()).contains(DYNAMIC_TABLE_FOR_DROP_NAME));
+
+            Cursor<Entry> cursor = mock(Cursor.class);
+
+            when(cursor.hasNext()).thenReturn(false);
+
+            return cursor;
+        });
 
         when(sm.unregisterSchemas(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invokation -> {
             BiPredicate<SchemaEventParameters, Exception> schemaInitialized = invokation.getArgument(1);
 
-            assertTrue(tblIdFut.isDone());
-
             SchemaRegistry schemaRegistry = mock(SchemaRegistry.class);
 
             CompletableFuture.supplyAsync(() -> schemaInitialized.test(
-                new SchemaEventParameters(tblIdFut.join(), schemaRegistry),
+                new SchemaEventParameters(table.tableId(), schemaRegistry),
                 null));
 
             return null;
@@ -247,10 +287,8 @@ public class TableManagerTest {
                 assignment.add(new ArrayList<ClusterNode>(Collections.singleton(node)));
             }
 
-            assertTrue(tblIdFut.isDone());
-
             CompletableFuture.supplyAsync(() -> affinityRemovedDelegate.test(
-                new AffinityEventParameters(tblIdFut.join(), assignment),
+                new AffinityEventParameters(table.tableId(), assignment),
                 null));
 
             return null;
@@ -258,7 +296,55 @@ public class TableManagerTest {
 
         tableManager.dropTable("PUBLIC." + DYNAMIC_TABLE_FOR_DROP_NAME);
 
-        assertNull(tableManager.table("PUBLIC." + DYNAMIC_TABLE_FOR_DROP_NAME));
+        assertThrows(IgniteException.class, () -> tableManager.table("PUBLIC." + DYNAMIC_TABLE_FOR_DROP_NAME));
+    }
+
+    /**
+     * Instantiates a table and prepares Table manager.
+     */
+    @Test
+    public void testGetTableDuringCreation() {
+        MetaStorageManager mm = mock(MetaStorageManager.class);
+        SchemaManager sm = mock(SchemaManager.class);
+        AffinityManager am = mock(AffinityManager.class);
+        Loza rm = mock(Loza.class);
+        VaultManager vm = mock(VaultManager.class);
+
+        ClusterNode node = new ClusterNode(UUID.randomUUID().toString(), NODE_NAME, "127.0.0.1", PORT);
+
+        CompletableFuture<TableManager> tblManagerFut = new CompletableFuture<>();
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        when(mm.range(any(), any())).thenAnswer(invokation -> {
+            ByteArray from = invokation.getArgument(0);
+
+            assertTrue(new String(from.bytes()).contains(DYNAMIC_TABLE_FOR_DROP_NAME));
+
+            ByteArray to = invokation.getArgument(1);
+
+            assertTrue(new String(to.bytes()).contains(DYNAMIC_TABLE_FOR_DROP_NAME));
+
+            Cursor<Entry> cursor = mock(Cursor.class);
+
+            when(cursor.hasNext()).thenReturn(true);
+
+            return cursor;
+        });
+
+        CompletableFuture<Table> createFut = CompletableFuture.supplyAsync(() ->
+            mockManagersAndCreateTableWithDelay(DYNAMIC_TABLE_FOR_DROP_NAME, mm, sm, am, rm, vm, node, tblManagerFut, latch)
+        );
+
+        CompletableFuture<Table> getFut = CompletableFuture.supplyAsync(() ->
+            tblManagerFut.join().table(DYNAMIC_TABLE_FOR_DROP_NAME));
+
+        assertFalse(createFut.isDone());
+        assertFalse(getFut.isDone());
+
+        latch.countDown();
+
+        assertSame(createFut.join(), getFut.join());
     }
 
     /**
@@ -271,10 +357,10 @@ public class TableManagerTest {
      * @param rm Raft manager mock.
      * @param vm Vault manager mock.
      * @param node This cluster node.
-     * @param tblIdFut Future which will determine a table id.
-     * @return Table manager.
+     * @param tblManagerFut Future for table manager.
+     * @return Table.
      */
-    private TableManager mockManagersAndCreateTable(
+    private Table mockManagersAndCreateTable(
         String tableName,
         MetaStorageManager mm,
         SchemaManager sm,
@@ -282,9 +368,39 @@ public class TableManagerTest {
         Loza rm,
         VaultManager vm,
         ClusterNode node,
-        CompletableFuture<UUID> tblIdFut
+        CompletableFuture<TableManager> tblManagerFut
+    ) {
+        return mockManagersAndCreateTableWithDelay(tableName, mm, sm, am, rm, vm, node, tblManagerFut, null);
+    }
+
+    /**
+     * Instantiates a table and prepares Table manager. When the latch would open, the method completes.
+     *
+     * @param tableName Table name.
+     * @param mm Metastorage manager mock.
+     * @param sm Schema manager mock.
+     * @param am Affinity manager mock.
+     * @param rm Raft manager mock.
+     * @param vm Vault manager mock.
+     * @param node This cluster node.
+     * @param tblManagerFut Future for table manager.
+     * @param latch Latch for the wait.
+     * @return Table manager.
+     */
+    @NotNull private Table mockManagersAndCreateTableWithDelay(
+        String tableName,
+        MetaStorageManager mm,
+        SchemaManager sm,
+        AffinityManager am,
+        Loza rm,
+        VaultManager vm,
+        ClusterNode node,
+        CompletableFuture<TableManager> tblManagerFut,
+        CountDownLatch latch
     ) {
         when(mm.hasMetastorageLocally(any())).thenReturn(true);
+
+        CompletableFuture<UUID> tblIdFut = new CompletableFuture<>();
 
         when(mm.invoke((Condition)any(), (Operation)any(), (Operation)any())).thenAnswer(invokation -> {
             Condition condition = (Condition)invokation.getArgument(0);
@@ -317,7 +433,12 @@ public class TableManagerTest {
             return null;
         }).when(sm).listen(same(SchemaEvent.INITIALIZED), any());
 
-        when(am.calculateAssignments(any(), eq(tableName))).thenReturn(CompletableFuture.completedFuture(true));
+        when(am.calculateAssignments(any(), eq(tableName))).thenAnswer(invocation -> {
+            if (latch != null)
+                latch.await();
+
+            return CompletableFuture.completedFuture(true);
+        });
 
         doAnswer(invokation -> {
             BiPredicate<AffinityEventParameters, Exception> affinityClaculatedDelegate = (BiPredicate)invokation.getArgument(1);
@@ -339,6 +460,8 @@ public class TableManagerTest {
 
         TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, vm);
 
+        tblManagerFut.complete(tableManager);
+
         int tablesBeforeCreation = tableManager.tables().size();
 
         SchemaTable scmTbl2 = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
@@ -355,7 +478,7 @@ public class TableManagerTest {
 
         assertEquals(tablesBeforeCreation + 1, tableManager.tables().size());
 
-        return tableManager;
+        return tbl2;
     }
 
     /**

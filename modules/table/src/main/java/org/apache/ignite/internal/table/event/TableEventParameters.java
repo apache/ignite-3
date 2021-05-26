@@ -19,12 +19,10 @@ package org.apache.ignite.internal.table.event;
 
 import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;
-import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.table.Table;
 
 /**
- * Table event parameters.
- * There are properties which associate with a concrete table.
+ * Table event parameters. There are properties which associate with a concrete table.
  */
 public class TableEventParameters implements EventParameters {
     /** Table identifier. */
@@ -33,28 +31,33 @@ public class TableEventParameters implements EventParameters {
     /** Table name. */
     private final String tableName;
 
-    /** Table schema view. */
-    private final SchemaRegistry schemaRegistry;
+    /** Table instance. */
+    private final Table table;
 
-    /** Internal table. */
-    private final InternalTable internalTable;
+    /**
+     * @param table Table instance.
+     */
+    public TableEventParameters(Table table) {
+        this(table.tableId(), table.tableName(), table);
+    }
 
     /**
      * @param tableId Table identifier.
      * @param tableName Table name.
-     * @param schemaRegistry Table schema view.
-     * @param internalTable Internal table.
      */
-    public TableEventParameters(
-        UUID tableId,
-        String tableName,
-        SchemaRegistry schemaRegistry,
-        InternalTable internalTable
-    ) {
+    public TableEventParameters(UUID tableId, String tableName) {
+        this(tableId, tableName, null);
+    }
+
+    /**
+     * @param tableId Table identifier.
+     * @param tableName Table name.
+     * @param table Table instance.
+     */
+    public TableEventParameters(UUID tableId, String tableName, Table table) {
         this.tableId = tableId;
         this.tableName = tableName;
-        this.schemaRegistry = schemaRegistry;
-        this.internalTable = internalTable;
+        this.table = table;
     }
 
     /**
@@ -76,20 +79,11 @@ public class TableEventParameters implements EventParameters {
     }
 
     /**
-     * Gets a schema view for the table.
+     * Gets a table instance associated with the event.
      *
-     * @return Schema descriptor.
+     * @return Table.
      */
-    public SchemaRegistry tableSchemaView() {
-        return schemaRegistry;
-    }
-
-    /**
-     * Gets an internal table associated with the table.
-     *
-     * @return Internal table.
-     */
-    public InternalTable internalTable() {
-        return internalTable;
+    public Table table() {
+        return table;
     }
 }
