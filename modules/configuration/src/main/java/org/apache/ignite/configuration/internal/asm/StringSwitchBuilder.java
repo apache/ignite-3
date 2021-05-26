@@ -182,11 +182,20 @@ class StringSwitchBuilder {
         return res;
     }
 
+    /**
+     * Case statement class for the builder.
+     */
     private static class CaseStatement {
+        /** String key of the case statement. */
         private final String key;
 
+        /** Body of the case statement. */
         private final BytecodeNode body;
 
+        /**
+         * @param key String key of the case statement.
+         * @param body Body of the case statement.
+         */
         CaseStatement(String key, BytecodeNode body) {
             this.key = key;
             this.body = requireNonNull(body, "body is null");

@@ -20,23 +20,37 @@ package org.apache.ignite.configuration.internal.asm;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.tree.InnerNode;
 
+/**
+ * Class to cache compiled classes and hold precalculated names to reference other existing classes.
+ */
 class SchemaClassesInfo {
+    /** Configuration Schema class. */
     public final Class<?> schemaClass;
 
+    /** Class name for the VIEW class. */
     public final String viewClassName;
 
+    /** Class name for the CHANGE class. */
     public final String changeClassName;
 
+    /** Class name for the Configuration class. */
     public final String cfgClassName;
 
+    /** Class name for the Node class. */
     public final String nodeClassName;
 
+    /** Class name for the Configuration Impl class. */
     public final String cfgImplClassName;
 
+    /** Node class instance. */
     public Class<? extends InnerNode> nodeClass;
 
+    /** Configuration Impl class instance. */
     public Class<? extends DynamicConfiguration<?, ?>> cfgImplClass;
 
+    /**
+     * @param schemaClass Configuration Schema class instance.
+     */
     SchemaClassesInfo(Class<?> schemaClass) {
         this.schemaClass = schemaClass;
         String schemaClassName = schemaClass.getPackageName() + "." + schemaClass.getSimpleName(); // Support inner classes.
