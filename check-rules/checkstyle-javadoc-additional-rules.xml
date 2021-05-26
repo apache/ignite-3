@@ -38,13 +38,13 @@
             See: https://checkstyle.org/config_javadoc.html#JavadocStyle
         -->
         <module name="JavadocStyle">
-            <property name="scope" value="public"/>
+            <property name="scope" value="package"/>
             <property name="checkEmptyJavadoc" value="true"/>
         </module>
 
         <module name="JavadocStyle">
             <property name="scope" value="private"/>
-            <property name="excludeScope" value="protected"/>
+            <property name="excludeScope" value="package"/>
         </module>
 
         <!--
@@ -52,7 +52,7 @@
             See: https://checkstyle.org/config_javadoc.html#MissingJavadocMethod
         -->
         <module name="MissingJavadocMethod">
-            <property name="scope" value="protected"/>
+            <property name="scope" value="package"/>
         </module>
 
         <!--
