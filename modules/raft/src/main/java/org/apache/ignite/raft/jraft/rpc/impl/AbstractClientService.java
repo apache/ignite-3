@@ -96,17 +96,18 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         this.rpcClient.init(null);
 
         this.rpcExecutor = ThreadPoolUtil.newBuilder()
-            .poolName("JRaft-RPC-Processor") //
+            .poolName("JRaft-Response-Processor") //
             .enableMetric(true) //
             .coreThreads(rpcProcessorThreadPoolSize / 3) //
             .maximumThreads(rpcProcessorThreadPoolSize) //
             .keepAliveSeconds(60L) //
             .workQueue(new ArrayBlockingQueue<>(10000)) //
-            .threadFactory(new NamedThreadFactory("JRaft-RPC-Processor-", true)) //
+            .threadFactory(new NamedThreadFactory("JRaft-Response-Processor-", true)) //
             .build();
 
         if (this.rpcOptions.getMetricRegistry() != null) {
-            this.rpcOptions.getMetricRegistry().register("raft-rpc-client-thread-pool", new ThreadPoolMetricSet(this.rpcExecutor));
+            this.rpcOptions.getMetricRegistry().register("raft-rpc-client-thread-pool",
+                new ThreadPoolMetricSet(this.rpcExecutor));
         }
 
         return true;

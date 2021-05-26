@@ -19,19 +19,16 @@ package org.apache.ignite.raft.jraft.util.timer;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public interface RaftTimerFactory {
+    Timer getElectionTimer(final String name);
 
-    Timer getElectionTimer(final boolean shared, final String name);
+    Timer getVoteTimer(final String name);
 
-    Timer getVoteTimer(final boolean shared, final String name);
+    Timer getStepDownTimer(final String name);
 
-    Timer getStepDownTimer(final boolean shared, final String name);
-
-    Timer getSnapshotTimer(final boolean shared, final String name);
-
-    Scheduler getRaftScheduler(final boolean shared, final int workerNum, final String name);
+    Timer getSnapshotTimer(final String name);
 
     Timer createTimer(final String name);
 

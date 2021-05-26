@@ -16,14 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -32,9 +30,9 @@ import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.ConnectionClosedEventListener;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor;
 import org.apache.ignite.raft.jraft.util.concurrent.SingleThreadExecutor;
 
 /**
@@ -44,16 +42,13 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     ConnectionClosedEventListener {
     /**
      * Peer executor selector.
-     *
-     * @author dennis
      */
     final class PeerExecutorSelector implements ExecutorSelector {
-
         PeerExecutorSelector() {
             super();
         }
 
-        @Override // TODO asch should be select(Message msg)
+        @Override
         public Executor select(final String reqClass, final Object req, NodeManager nodeManager) {
             final AppendEntriesRequest req0 = (AppendEntriesRequest) req;
             final String groupId = req0.getGroupId();
@@ -72,7 +67,9 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                 return executor();
             }
 
-            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pairOf(peerId, serverId), nodeManager);
+            PeerPair pair = pairOf(peerId, serverId);
+
+            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pair, nodeManager);
 
             return ctx.executor;
         }
@@ -90,7 +87,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         private final PeerPair pair;
         private final boolean isHeartbeat;
 
-        public SequenceRpcRequestClosure(final RpcRequestClosure parent, final Message defaultResp,
+        SequenceRpcRequestClosure(final RpcRequestClosure parent, final Message defaultResp,
                                          final String groupId, final PeerPair pair, final int sequence,
                                          final boolean isHeartbeat) {
             super(parent.getRpcCtx(), defaultResp);
@@ -120,7 +117,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         private final int sequence;
         private final RpcContext rpcCtx;
 
-        public SequenceMessage(final RpcContext rpcCtx, final Message msg, final int sequence) {
+        SequenceMessage(final RpcContext rpcCtx, final Message msg, final int sequence) {
             super();
             this.rpcCtx = rpcCtx;
             this.msg = msg;
@@ -220,23 +217,22 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
         // Executor to run the requests
         private SingleThreadExecutor executor;
+
         // The request sequence;
         private int sequence;
+
         // The required sequence to be sent.
         private int nextRequiredSequence;
+
         // The response queue,it's not thread-safe and protected by it self object monitor.
         private final PriorityQueue<SequenceMessage> responseQueue;
 
         private final int maxPendingResponses;
 
-        public PeerRequestContext(final String groupId, final PeerPair pair, final int maxPendingResponses) {
+        PeerRequestContext(final String groupId, final PeerPair pair, final int maxPendingResponses) {
             super();
             this.pair = pair;
             this.groupId = groupId;
-            // TODO asch refactor
-            this.executor = new MpscSingleThreadExecutor(Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
-                JRaftUtils.createThreadFactory(groupId + "/" + pair + "-AppendEntriesThread"));
-
             this.sequence = 0;
             this.nextRequiredSequence = 0;
             this.maxPendingResponses = maxPendingResponses;
@@ -254,14 +250,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                 this.sequence = 0;
             }
             return prev;
-        }
-
-        synchronized void destroy() {
-            if (this.executor != null) {
-                LOG.info("Destroyed peer request context for {}/{}", this.groupId, this.pair);
-                this.executor.shutdownGracefully();
-                this.executor = null;
-            }
         }
 
         int getNextRequiredSequence() {
@@ -359,6 +347,10 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                     final Node node = nodeManager.get(groupId, peer);
                     assert (node != null);
                     peerCtx = new PeerRequestContext(groupId, pair, node.getRaftOptions().getMaxReplicatorInflightMsgs());
+
+                    SingleThreadExecutor executor = node.getOptions().getStripedExecutor().next();
+                    peerCtx.executor = executor;
+
                     groupContexts.put(pair, peerCtx);
                 }
             }
@@ -369,15 +361,12 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     void removePeerRequestContext(final String groupId, final PeerPair pair) {
         final ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);
+
         if (groupContexts == null) {
             return;
         }
-        synchronized (Utils.withLockObject(groupContexts)) {
-            final PeerRequestContext ctx = groupContexts.remove(pair);
-            if (ctx != null) {
-                ctx.destroy();
-            }
-        }
+
+        groupContexts.remove(pair);
     }
 
     /**
@@ -463,11 +452,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     // TODO called when shutdown service.
     public void destroy() {
-        for (final ConcurrentMap<PeerPair, PeerRequestContext> map : this.peerRequestContexts.values()) {
-            for (final PeerRequestContext ctx : map.values()) {
-                ctx.destroy();
-            }
-        }
         this.peerRequestContexts.clear();
     }
 
@@ -481,13 +465,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         for (final Map.Entry<String, ConcurrentMap<PeerPair, PeerRequestContext>> entry : this.peerRequestContexts
             .entrySet()) {
             final ConcurrentMap<PeerPair, PeerRequestContext> groupCtxs = entry.getValue();
-            synchronized (Utils.withLockObject(groupCtxs)) {
-                final PeerRequestContext ctx = groupCtxs.remove(pair);
-                if (ctx != null) {
-                    ctx.destroy();
-                }
-            }
+            groupCtxs.remove(pair);
         }
-
     }
 }

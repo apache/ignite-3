@@ -43,7 +43,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
         ClusterService service = createService(endpoint.toString(), endpoint.getPort(), List.of());
 
         return new IgniteRpcServer(service, false, new NodeManager(),
-            JRaftUtils.createExecutor("test-common-pool-", Utils.cpus()), null, null);
+            JRaftUtils.createExecutor("test-common-pool-", Utils.cpus()), null);
     }
 
     @Override public RpcClient createClient() {

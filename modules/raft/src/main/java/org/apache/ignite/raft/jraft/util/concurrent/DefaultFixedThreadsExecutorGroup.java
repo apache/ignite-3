@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 
 /**
  *
- * @author jiachun.fjc
  */
 public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecutorGroup {
 
@@ -64,6 +63,11 @@ public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecu
     @Override
     public void execute(final int index, final Runnable task) {
         this.chooser.select(index).execute(task);
+    }
+
+    @Override
+    public SingleThreadExecutor select(int index) {
+        return this.chooser.select(index);
     }
 
     @Override

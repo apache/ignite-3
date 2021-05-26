@@ -33,6 +33,9 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
@@ -91,14 +94,23 @@ public class JRaftServerImpl implements RaftServer {
 
         String suffix = service.localConfiguration().getName() + "-";
 
-        ExecutorService commonExecutor = createExecutor("JRaft-common-executor-" + suffix, opts.getCommonThreadPollSize());
+        ExecutorService commonExecutor = createExecutor("JRaft-Common-Executor-" + suffix, opts.getCommonThreadPollSize());
 
         this.opts.setCommonExecutor(commonExecutor);
 
+        FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
+            .newExecutorGroup(
+                Utils.APPEND_ENTRIES_THREADS_SEND,
+                "JRaft-AppendEntries-Processor-" + suffix,
+                Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
+                true);
+
+        this.opts.setStripedExecutor(stripedExecutor);
+
         rpcServer = new IgniteRpcServer(service, reuse, nodeManager,
             commonExecutor,
-            createExecutor("JRaft-RPC-executor-" + suffix, opts.getRaftRpcThreadPoolSize()),
-            createExecutor("JRaft-CLI-executor-" + suffix, opts.getCliRpcThreadPoolSize()));
+            createExecutor("JRaft-Request-Processor-" + suffix, opts.getRaftRpcThreadPoolSize())
+        );
 
         rpcServer.init(null);
     }

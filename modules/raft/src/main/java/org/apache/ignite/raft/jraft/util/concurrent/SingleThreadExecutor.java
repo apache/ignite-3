@@ -20,8 +20,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
- *
- * @author jiachun.fjc
  */
 public interface SingleThreadExecutor extends Executor {
 

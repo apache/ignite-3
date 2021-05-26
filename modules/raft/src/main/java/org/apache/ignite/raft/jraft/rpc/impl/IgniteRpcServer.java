@@ -14,7 +14,6 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
-import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
@@ -59,44 +58,50 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private final NodeManager nodeManager; // TODO asch refactor (replace with a reference to self)
 
+    /**
+     * @param service The cluster service.
+     * @param reuse {@code True} to reuse service (do no manage lifecycle).
+     * @param nodeManager The node manager.
+     * @param commonExecutor Common executor for short lived tasks.
+     * @param rpcExecutor The executor for RPC requests.
+     */
     public IgniteRpcServer(
         ClusterService service,
         boolean reuse,
         NodeManager nodeManager,
         Executor commonExecutor,
-        @Nullable Executor raftExecutor,
-        @Nullable Executor cliExecutor
+        @Nullable Executor rpcExecutor
     ) {
         this.reuse = reuse;
         this.nodeManager = nodeManager;
         this.service = service;
 
         // raft server RPC
-        AppendEntriesRequestProcessor appendEntriesRequestProcessor = new AppendEntriesRequestProcessor(raftExecutor);
+        AppendEntriesRequestProcessor appendEntriesRequestProcessor = new AppendEntriesRequestProcessor(rpcExecutor);
         registerConnectionClosedEventListener(appendEntriesRequestProcessor);
         registerProcessor(appendEntriesRequestProcessor);
-        registerProcessor(new GetFileRequestProcessor(raftExecutor));
-        registerProcessor(new InstallSnapshotRequestProcessor(raftExecutor));
-        registerProcessor(new RequestVoteRequestProcessor(raftExecutor));
+        registerProcessor(new GetFileRequestProcessor(rpcExecutor));
+        registerProcessor(new InstallSnapshotRequestProcessor(rpcExecutor));
+        registerProcessor(new RequestVoteRequestProcessor(rpcExecutor));
         registerProcessor(new PingRequestProcessor());
-        registerProcessor(new TimeoutNowRequestProcessor(raftExecutor));
-        registerProcessor(new ReadIndexRequestProcessor(raftExecutor));
+        registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor));
+        registerProcessor(new ReadIndexRequestProcessor(rpcExecutor));
         // raft cli service
-        registerProcessor(new AddPeerRequestProcessor(cliExecutor));
-        registerProcessor(new RemovePeerRequestProcessor(cliExecutor));
-        registerProcessor(new ResetPeerRequestProcessor(cliExecutor));
-        registerProcessor(new ChangePeersRequestProcessor(cliExecutor));
-        registerProcessor(new GetLeaderRequestProcessor(cliExecutor));
-        registerProcessor(new SnapshotRequestProcessor(cliExecutor));
-        registerProcessor(new TransferLeaderRequestProcessor(cliExecutor));
-        registerProcessor(new GetPeersRequestProcessor(cliExecutor));
-        registerProcessor(new AddLearnersRequestProcessor(cliExecutor));
-        registerProcessor(new RemoveLearnersRequestProcessor(cliExecutor));
-        registerProcessor(new ResetLearnersRequestProcessor(cliExecutor));
+        registerProcessor(new AddPeerRequestProcessor(rpcExecutor));
+        registerProcessor(new RemovePeerRequestProcessor(rpcExecutor));
+        registerProcessor(new ResetPeerRequestProcessor(rpcExecutor));
+        registerProcessor(new ChangePeersRequestProcessor(rpcExecutor));
+        registerProcessor(new GetLeaderRequestProcessor(rpcExecutor));
+        registerProcessor(new SnapshotRequestProcessor(rpcExecutor));
+        registerProcessor(new TransferLeaderRequestProcessor(rpcExecutor));
+        registerProcessor(new GetPeersRequestProcessor(rpcExecutor));
+        registerProcessor(new AddLearnersRequestProcessor(rpcExecutor));
+        registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor));
+        registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor));
         // common client integration
-        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.GetLeaderRequestProcessor(cliExecutor, FACTORY));
-        registerProcessor(new ActionRequestProcessor(cliExecutor, FACTORY));
-        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(cliExecutor, FACTORY));
+        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.GetLeaderRequestProcessor(rpcExecutor, FACTORY));
+        registerProcessor(new ActionRequestProcessor(rpcExecutor, FACTORY));
+        registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(rpcExecutor, FACTORY));
 
         service.messagingService().addMessageHandler(new NetworkMessageHandler() {
             @Override public void onReceived(NetworkMessage msg, ClusterNode sender, String corellationId) {

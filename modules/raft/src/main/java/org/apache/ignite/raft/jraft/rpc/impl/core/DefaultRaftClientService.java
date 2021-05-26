@@ -16,6 +16,18 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.error.RemotingException;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.option.RpcOptions;
+import org.apache.ignite.raft.jraft.rpc.InvokeContext;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
@@ -28,43 +40,16 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowResponse;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
-import org.apache.ignite.raft.jraft.ReplicatorGroup;
-import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.error.RemotingException;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.rpc.InvokeContext;
-import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RaftClientService;
-import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.jraft.rpc.impl.FutureImpl;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
-import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 
 /**
- * Raft rpc service based bolt.
- *
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+ * Raft rpc service.
  */
 public class DefaultRaftClientService extends AbstractClientService implements RaftClientService {
-    // TODO asch refactor.
-    private static final FixedThreadsExecutorGroup APPEND_ENTRIES_EXECUTORS = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
-        .newExecutorGroup(
-            Utils.APPEND_ENTRIES_THREADS_SEND,
-            "Append-Entries-Thread-Send",
-            Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
-            true);
-
+    /** Stripes map */
     private final ConcurrentMap<Endpoint, Executor> appendEntriesExecutorMap = new ConcurrentHashMap<>();
 
     // cached node options
@@ -98,7 +83,9 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 //        if (request.getEntriesCount() > 0)
 //            LOG.info("appendEntries to={}, size={}", endpoint.toString(), request.getEntriesCount());
 
-        final Executor executor = this.appendEntriesExecutorMap.computeIfAbsent(endpoint, k -> APPEND_ENTRIES_EXECUTORS.next());
+        // Assign an executor in round-robin fasion.
+        final Executor executor = this.appendEntriesExecutorMap.computeIfAbsent(endpoint,
+            k -> nodeOptions.getStripedExecutor().next());
 
         if (connect(endpoint)) { // Replicator should be started asynchronously by node joined event.
             return invokeWithDone(endpoint, request, done, timeoutMs, executor);
@@ -106,6 +93,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
         // fail-fast when no connection
         final FutureImpl<Message> future = new FutureImpl<>();
+
         executor.execute(() -> {
             if (done != null) {
                 try {

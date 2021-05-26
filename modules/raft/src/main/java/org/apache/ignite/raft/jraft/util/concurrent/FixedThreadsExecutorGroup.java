@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.util.concurrent;
 import java.util.concurrent.TimeUnit;
 
 /**
- *
- * @author jiachun.fjc
+ * Striped executor.
  */
 public interface FixedThreadsExecutorGroup extends Iterable<SingleThreadExecutor> {
 
@@ -38,6 +37,13 @@ public interface FixedThreadsExecutorGroup extends Iterable<SingleThreadExecutor
      * @param task  the runnable task
      */
     void execute(final int index, final Runnable task);
+
+    /**
+     * Selects an executor by index.
+     * @param index The index.
+     * @return The executor.
+     */
+    SingleThreadExecutor select(final int index);
 
     /**
      * Shortcut method for {@link #shutdownGracefully(long, TimeUnit)} with

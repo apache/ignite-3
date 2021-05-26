@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.List;
-import java.util.concurrent.Executors;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
@@ -65,6 +64,6 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
      */
     public TestIgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
         super(factory.createClusterService(new ClusterLocalConfiguration(name, port, servers, serializationRegistry)),
-            false, nodeManager, JRaftUtils.createExecutor("test-common-pool-", Utils.cpus()), null, null);
+            false, nodeManager, JRaftUtils.createExecutor("test-common-pool-", Utils.cpus()), null);
     }
 }

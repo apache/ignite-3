@@ -28,10 +28,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Repeatable timer based on java.util.Timer.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-30 3:45:37 PM
  */
 public abstract class RepeatedTimer implements Describer {
 

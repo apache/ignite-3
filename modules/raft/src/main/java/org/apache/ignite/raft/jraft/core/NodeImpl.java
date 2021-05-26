@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
@@ -48,7 +47,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import org.apache.ignite.raft.jraft.Closure;
@@ -898,13 +896,11 @@ public class NodeImpl implements Node, RaftServerService {
         // Init timers
         final String suffix = getNodeId().toString();
 
-        this.timerManager = this.timerFactory.getRaftScheduler(this.options.isSharedTimerPool(),
-            this.options.getTimerPoolSize(), "JRaft-Node-ScheduleThreadPool-" + suffix);
+        timerManager = this.timerFactory.createScheduler(this.options.getTimerPoolSize(),
+            "JRaft-Node-ScheduleThreadPool-" + suffix);
 
         String name = "JRaft-VoteTimer-" + suffix;
-        this.voteTimer = new RepeatedTimer(name, this.options.getElectionTimeoutMs(), this.timerFactory.getVoteTimer(
-            this.options.isSharedVoteTimer(), name)) {
-
+        this.voteTimer = new RepeatedTimer(name, options.getElectionTimeoutMs(), timerFactory.getVoteTimer(name)) {
             @Override
             protected void onTrigger() {
                 handleVoteTimeout();
@@ -915,10 +911,9 @@ public class NodeImpl implements Node, RaftServerService {
                 return randomTimeout(timeoutMs);
             }
         };
-        name = "JRaft-ElectionTimer-" + suffix;
-        this.electionTimer = new RepeatedTimer(name, this.options.getElectionTimeoutMs(),
-            this.timerFactory.getElectionTimer(this.options.isSharedElectionTimer(), name)) {
 
+        name = "JRaft-ElectionTimer-" + suffix;
+        electionTimer = new RepeatedTimer(name, options.getElectionTimeoutMs(), timerFactory.getElectionTimer(name)) {
             @Override
             protected void onTrigger() {
                 handleElectionTimeout();
@@ -929,19 +924,17 @@ public class NodeImpl implements Node, RaftServerService {
                 return randomTimeout(timeoutMs);
             }
         };
-        name = "JRaft-StepDownTimer-" + suffix;
-        this.stepDownTimer = new RepeatedTimer(name, this.options.getElectionTimeoutMs() >> 1,
-            this.timerFactory.getStepDownTimer(this.options.isSharedStepDownTimer(), name)) {
 
+        name = "JRaft-StepDownTimer-" + suffix;
+        stepDownTimer = new RepeatedTimer(name, options.getElectionTimeoutMs() >> 1, timerFactory.getStepDownTimer(name)) {
             @Override
             protected void onTrigger() {
                 handleStepDownTimeout();
             }
         };
-        name = "JRaft-SnapshotTimer-" + suffix;
-        this.snapshotTimer = new RepeatedTimer(name, this.options.getSnapshotIntervalSecs() * 1000,
-            this.timerFactory.getSnapshotTimer(this.options.isSharedSnapshotTimer(), name)) {
 
+        name = "JRaft-SnapshotTimer-" + suffix;
+        snapshotTimer = new RepeatedTimer(name, options.getSnapshotIntervalSecs() * 1000, timerFactory.getSnapshotTimer(name)) {
             private volatile boolean firstSchedule = true;
 
             @Override

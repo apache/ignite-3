@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -29,6 +28,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 
 /**
  * Node options.
@@ -180,6 +180,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     /** */
     private ExecutorService commonExecutor;
+
+    /** */
+    private FixedThreadsExecutorGroup stripedExecutor;
 
     /**
      * The rpc client.
@@ -433,6 +436,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         return commonExecutor;
     }
 
+    public FixedThreadsExecutorGroup getStripedExecutor() {
+        return stripedExecutor;
+    }
+
+    public void setStripedExecutor(FixedThreadsExecutorGroup stripedExecutor) {
+        this.stripedExecutor = stripedExecutor;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -457,6 +468,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setSharedSnapshotTimer(this.sharedSnapshotTimer);
         nodeOptions.setReplicationStateListeners(this.replicationStateListeners);
         nodeOptions.setCommonExecutor(this.getCommonExecutor());
+        nodeOptions.setStripedExecutor(this.getStripedExecutor());
 
         return nodeOptions;
     }
