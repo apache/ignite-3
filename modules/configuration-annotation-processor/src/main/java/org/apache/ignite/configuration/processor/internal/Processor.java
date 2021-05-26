@@ -17,15 +17,6 @@
 
 package org.apache.ignite.configuration.processor.internal;
 
-import com.squareup.javapoet.ArrayTypeName;
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.TypeSpec;
-import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -43,6 +34,15 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
+import com.squareup.javapoet.ArrayTypeName;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.WildcardTypeName;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -169,9 +169,6 @@ public class Processor extends AbstractProcessor {
                                 "aforementioned type."
                         );
                     }
-
-                    if (valueAnnotation.hasDefault() && !field.getModifiers().contains(PUBLIC))
-                        throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
                 }
 
                 createGetters(configurationInterfaceBuilder, fieldName, interfaceGetMethodType);
