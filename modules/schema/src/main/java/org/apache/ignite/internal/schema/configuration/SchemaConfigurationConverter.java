@@ -44,6 +44,7 @@ import org.apache.ignite.schema.IndexColumn;
 import org.apache.ignite.schema.PartialIndex;
 import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaTable;
+import org.apache.ignite.schema.SortOrder;
 import org.apache.ignite.schema.SortedIndex;
 import org.apache.ignite.schema.SortedIndexColumn;
 import org.apache.ignite.schema.TableIndex;
@@ -102,7 +103,8 @@ public class SchemaConfigurationConverter {
      */
     public static IndexColumnChange convert(SortedIndexColumn col, IndexColumnChange colInit) {
         colInit.changeName(col.name());
-        colInit.changeAsc(col.asc());
+
+        colInit.changeAsc(col.sortOrder() == SortOrder.ASC);
 
         return colInit;
     }
@@ -114,7 +116,7 @@ public class SchemaConfigurationConverter {
      * @return SortedIndexColumn.
      */
     public static SortedIndexColumn convert(IndexColumnView colCfg) {
-        return new SortedIndexColumnImpl(colCfg.name(), colCfg.asc());
+        return new SortedIndexColumnImpl(colCfg.name(), colCfg.asc() ? SortOrder.ASC : SortOrder.DESC);
     }
 
     /**
