@@ -82,7 +82,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsert(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).run(new UpsertCommand(row));
+        return partitionMap.get(Math.abs(row.hash()) % partitions).run(new UpsertCommand(row));
     }
 
     /** {@inheritDoc} */
