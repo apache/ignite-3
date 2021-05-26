@@ -72,9 +72,6 @@ public class NativeTypes {
      * @return Native type.
      */
     public static NativeType stringOf(int len) {
-        if (len == 0)
-            len = Integer.MAX_VALUE;
-
         return new VarlenNativeType(NativeTypeSpec.STRING, len);
     }
 

@@ -21,8 +21,12 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.schema.ColumnType;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
 
@@ -89,8 +93,7 @@ public class StrictSchemaOperationsTest {
             1,
             new Column[] {new Column("id", NativeTypes.LONG, false)},
             new Column[] {
-                new Column("valString", NativeTypes.stringOf(3), true),
-                new Column("valBytes", NativeTypes.blobOf(3), true)
+                new Column("valString", NativeTypes.stringOf(3), true)
             }
         );
 
@@ -104,5 +107,26 @@ public class StrictSchemaOperationsTest {
 
         // Chek string 3 char length and 9 bytes.
         tbl.tupleBuilder().set("valString", "我是谁");
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void bytesTypeMatch() {
+        SchemaTable scmTbl = SchemaBuilders.tableBuilder("PUBLIC", "TBL").columns(
+            SchemaBuilders.column("key", ColumnType.INT8).asNonNull().build(),
+            SchemaBuilders.column("valUnlimited", ColumnType.blobOf()).asNullable().build(),
+            SchemaBuilders.column("valLimited", ColumnType.blobOf(2)).asNullable().build()
+        ).withPrimaryKey("key").build();
+
+        SchemaDescriptor schema = SchemaDescriptorConverter.convert(tableId, 1, scmTbl);
+
+        Table tbl = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema));
+
+        tbl.tupleBuilder().set("valUnlimited", null);
+        tbl.tupleBuilder().set("valLimited", null);
+        tbl.tupleBuilder().set("valUnlimited", new byte[0]);
+        tbl.tupleBuilder().set("valLimited", new byte[0]);
     }
 }
