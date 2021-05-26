@@ -129,6 +129,12 @@ public class Processor extends AbstractProcessor {
                 .addModifiers(PUBLIC);
 
             for (VariableElement field : fields) {
+                if (field.getModifiers().contains(STATIC))
+                    continue;
+
+                if (!field.getModifiers().contains(PUBLIC))
+                    throw new ProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
+
                 Element fieldTypeElement = processingEnv.getTypeUtils().asElement(field.asType());
 
                 // Get original field type (must be another configuration schema or "primitive" like String or long)

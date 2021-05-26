@@ -29,7 +29,7 @@ public class IndexColumnConfigurationSchema {
     /** Column name. */
     @Value
     @Immutable
-    String name;
+    public String name;
 
     /** Ascending flag. */
     @Value(hasDefault = true)

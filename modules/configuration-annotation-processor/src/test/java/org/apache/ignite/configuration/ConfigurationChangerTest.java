@@ -66,11 +66,11 @@ public class ConfigurationChangerTest {
         /** */
         @ConfigValue
         @MaybeInvalid
-        private BConfigurationSchema child;
+        public BConfigurationSchema child;
 
         /** */
         @NamedConfigValue
-        private CConfigurationSchema elements;
+        public CConfigurationSchema elements;
     }
 
     /** */
@@ -253,11 +253,11 @@ public class ConfigurationChangerTest {
     public static class DefaultsConfigurationSchema {
         /** */
         @ConfigValue
-        private DefaultsChildConfigurationSchema child;
+        public DefaultsChildConfigurationSchema child;
 
         /** */
         @NamedConfigValue
-        private DefaultsChildConfigurationSchema childsList;
+        public DefaultsChildConfigurationSchema childsList;
 
         /** */
         @Value(hasDefault = true)

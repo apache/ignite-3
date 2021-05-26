@@ -30,15 +30,15 @@ public class ColumnConfigurationSchema {
     /** Column name. */
     @Value
     @Immutable
-    String name;
+    public String name;
 
     /** Column type. */
     @ConfigValue
-    ColumnTypeConfigurationSchema type;
+    public ColumnTypeConfigurationSchema type;
 
     /** Nullable flag. */
     @Value
-    boolean nullable;
+    public boolean nullable;
 
     /** Default value. */
     @Value(hasDefault = true)

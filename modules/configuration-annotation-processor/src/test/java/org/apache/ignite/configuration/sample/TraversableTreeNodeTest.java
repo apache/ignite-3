@@ -76,11 +76,11 @@ public class TraversableTreeNodeTest {
     public static class ParentConfigurationSchema {
         /** */
         @ConfigValue
-        private ChildConfigurationSchema child;
+        public ChildConfigurationSchema child;
 
         /** */
         @NamedConfigValue
-        private NamedElementConfigurationSchema elements;
+        public NamedElementConfigurationSchema elements;
     }
 
     /** */

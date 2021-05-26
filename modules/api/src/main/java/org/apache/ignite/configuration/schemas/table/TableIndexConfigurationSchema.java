@@ -30,11 +30,11 @@ public class TableIndexConfigurationSchema {
     /** Index name. */
     @Value
     @Immutable
-    String name;
+    public String name;
 
     /** Index type name. */
     @Value
-    String type;
+    public String type;
 
     /** Has default value flag. */
     @Value(hasDefault = true)
@@ -42,7 +42,7 @@ public class TableIndexConfigurationSchema {
 
     /** Columns configuration for sorted indexes. */
     @NamedConfigValue
-    IndexColumnConfigurationSchema columns;
+    public IndexColumnConfigurationSchema columns;
 
     /** Columns names for hash indexes. */
     @Value(hasDefault = true)

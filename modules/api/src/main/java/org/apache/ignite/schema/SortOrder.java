@@ -15,29 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.table;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+package org.apache.ignite.schema;
 
 /**
- * Configuration for SQL table column type.
+ * Index column sort order.
  */
-@Config
-public class ColumnTypeConfigurationSchema {
-    /** Type name. */
-    @Value
-    public String type;
+public enum SortOrder {
+    /**
+     * Ascending sort order.
+     */
+    ASC,
 
-    /** Length. */
-    @Value(hasDefault = true)
-    public int length = 0;
-
-    /** Precision. */
-    @Value(hasDefault = true)
-    public int precision = 0;
-
-    /** Scale. */
-    @Value(hasDefault = true)
-    public int scale = 0;
+    /**
+     * Descending sort order.
+     */
+    DESC
 }
