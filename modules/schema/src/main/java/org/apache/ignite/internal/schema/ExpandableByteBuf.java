@@ -189,7 +189,7 @@ public class ExpandableByteBuf {
                     break;
 
                 if (cr.isOverflow()) {
-                    expand(len + 1);
+                    expand(len + val.length());
 
                     continue;
                 }
@@ -205,7 +205,7 @@ public class ExpandableByteBuf {
                 len = buf.position();
 
                 if (cr.isOverflow()) {
-                    expand(len + 1);
+                    expand(len + val.length());
 
                     continue;
                 }
