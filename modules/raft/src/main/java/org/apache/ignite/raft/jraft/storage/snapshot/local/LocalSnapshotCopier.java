@@ -29,6 +29,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
@@ -46,32 +47,49 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Copy another machine snapshot to local.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-07 11:32:30 AM
  */
 public class LocalSnapshotCopier extends SnapshotCopier {
+    private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotCopier.class);
 
-    private static final Logger          LOG  = LoggerFactory.getLogger(LocalSnapshotCopier.class);
+    private final Lock lock = new ReentrantLock();
+    /**
+     * The copy job future object
+     */
+    private volatile Future<?> future;
 
-    private final Lock                   lock = new ReentrantLock();
-    /** The copy job future object*/
-    private volatile Future<?>           future;
-    private boolean                      cancelled;
-    /** snapshot writer */
+    private boolean cancelled;
+
+    /**
+     * snapshot writer
+     */
     private LocalSnapshotWriter writer;
-    /** snapshot reader */
+
+    /**
+     * snapshot reader
+     */
     private volatile LocalSnapshotReader reader;
-    /** snapshot storage*/
+
+    /**
+     * snapshot storage
+     */
     private LocalSnapshotStorage storage;
-    private boolean                      filterBeforeCopyRemote;
+
+    private boolean filterBeforeCopyRemote;
+
     private LocalSnapshot remoteSnapshot;
-    /** remote file copier*/
+
+    /**
+     * remote file copier
+     */
     private RemoteFileCopier copier;
-    /** current copying session*/
+    /**
+     * current copying session
+     */
     private Session curSession;
+
     private SnapshotThrottle snapshotThrottle;
+
+    private NodeOptions nodeOptions;
 
     public void setSnapshotThrottle(final SnapshotThrottle snapshotThrottle) {
         this.snapshotThrottle = snapshotThrottle;
@@ -356,6 +374,8 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         this.cancelled = false;
         this.filterBeforeCopyRemote = opts.getNodeOptions().isFilterBeforeCopyRemote();
         this.remoteSnapshot = new LocalSnapshot(opts.getRaftOptions());
+        this.nodeOptions = opts.getNodeOptions();
+
         return this.copier.init(uri, this.snapshotThrottle, opts);
     }
 
@@ -380,14 +400,15 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         cancel();
         try {
             join();
-        } catch (final InterruptedException e) {
+        }
+        catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
 
     @Override
     public void start() {
-        this.future = Utils.runInThread(this::startCopy);
+        this.future = Utils.runInThread(nodeOptions.getCommonExecutor(), this::startCopy);
     }
 
     @Override

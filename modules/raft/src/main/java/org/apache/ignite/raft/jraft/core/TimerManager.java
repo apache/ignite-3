@@ -24,13 +24,8 @@ import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
 /**
  * The global timer manager.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-30 3:24:34 PM
  */
 public class TimerManager implements Scheduler {
-
     private final ScheduledExecutorService executor;
 
     public TimerManager(int workerNum) {

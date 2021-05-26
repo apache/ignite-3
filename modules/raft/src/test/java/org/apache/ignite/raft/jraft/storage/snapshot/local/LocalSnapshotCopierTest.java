@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
+import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.core.TimerManager;
@@ -146,13 +147,13 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
         this.copier.start();
         Thread.sleep(10);
 
-        Utils.runInThread(new Runnable() {
-
+        Utils.runInThread(Executors.newSingleThreadExecutor(), new Runnable() {
             @Override
             public void run() {
                 LocalSnapshotCopierTest.this.copier.cancel();
             }
         });
+
         this.copier.join();
         //start timer
         final SnapshotReader reader = this.copier.getReader();

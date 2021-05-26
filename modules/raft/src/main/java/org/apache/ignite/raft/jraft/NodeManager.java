@@ -33,40 +33,11 @@ import org.apache.ignite.raft.jraft.util.OnlyForTest;
 public class NodeManager {
     private final ConcurrentMap<NodeId, Node>       nodeMap  = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<Node>> groupMap = new ConcurrentHashMap<>();
-    //private final ConcurrentHashSet<Endpoint> addrSet  = new ConcurrentHashSet<>(); // TODO asch useless ?
-
-    /**
-     * Return true when RPC service is registered.
-     */
-//    public boolean serverExists(final Endpoint addr) {
-//        if (addr.getIp().equals(Utils.IP_ANY)) {
-//            return this.addrSet.contains(new Endpoint(Utils.IP_ANY, addr.getPort()));
-//        }
-//        return this.addrSet.contains(addr);
-//    }
-
-//    /**
-//     * Remove a RPC service address.
-//     */
-//    public boolean removeAddress(final Endpoint addr) {
-//        return this.addrSet.remove(addr);
-//    }
-//
-//    /**
-//     * Adds a RPC service address.
-//     */
-//    public void addAddress(final Endpoint addr) {
-//        this.addrSet.add(addr);
-//    }
 
     /**
      * Adds a node.
      */
     public boolean add(final Node node) {
-        // check address ok?
-//        if (!serverExists(node.getNodeId().getPeerId().getEndpoint())) {
-//            return false;
-//        }
         final NodeId nodeId = node.getNodeId();
         if (this.nodeMap.putIfAbsent(nodeId, node) == null) {
             final String groupId = node.getGroupId();

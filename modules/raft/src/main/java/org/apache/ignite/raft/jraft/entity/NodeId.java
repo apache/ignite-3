@@ -20,21 +20,24 @@ import java.io.Serializable;
 
 /**
  * A raft node identifier.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 4:08:14 PM
  */
 public final class NodeId implements Serializable {
-
     private static final long serialVersionUID = 4428173460056804264L;
 
-    /** Raft group id*/
-    private final String      groupId;
-    /** Node peer id*/
+    /**
+     * Raft group id
+     */
+    private final String groupId;
+
+    /**
+     * Node peer id
+     */
     private final PeerId peerId;
-    /** cached toString result*/
-    private String            str;
+
+    /**
+     * cached toString result
+     */
+    private String str;
 
     public NodeId(String groupId, PeerId peerId) {
         super();

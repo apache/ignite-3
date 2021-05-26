@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.counter;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
@@ -52,10 +54,13 @@ public class CounterStateMachine extends StateMachineAdapter {
      * Counter value
      */
     private final AtomicLong value = new AtomicLong(0);
+
     /**
      * Leader term
      */
     private final AtomicLong leaderTerm = new AtomicLong(-1);
+
+    private Executor executor = Executors.newSingleThreadExecutor();
 
     public boolean isLeader() {
         return this.leaderTerm.get() > 0;
@@ -115,7 +120,7 @@ public class CounterStateMachine extends StateMachineAdapter {
     @Override
     public void onSnapshotSave(final SnapshotWriter writer, final Closure done) {
         final long currVal = this.value.get();
-        Utils.runInThread(() -> {
+        Utils.runInThread(executor, () -> {
             final CounterSnapshotFile snapshot = new CounterSnapshotFile(writer.getPath() + File.separator + "data");
 
             try {

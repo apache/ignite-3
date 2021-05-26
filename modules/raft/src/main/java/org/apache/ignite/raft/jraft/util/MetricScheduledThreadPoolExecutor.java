@@ -24,11 +24,8 @@ import java.util.concurrent.ThreadFactory;
  * A {@link java.util.concurrent.ThreadPoolExecutor} that can additionally
  * schedule commands to run after a given delay with a timer metric
  * which aggregates timing durations and provides duration statistics.
- *
- * @author jiachun.fjc
  */
 public class MetricScheduledThreadPoolExecutor extends LogScheduledThreadPoolExecutor {
-
     public MetricScheduledThreadPoolExecutor(int corePoolSize, String name) {
         super(corePoolSize, name);
     }

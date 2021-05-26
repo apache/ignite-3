@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -31,7 +32,7 @@ public class ClosureQueueTest {
 
     @Before
     public void setup() {
-        this.queue = new ClosureQueueImpl();
+        this.queue = new ClosureQueueImpl(new NodeOptions());
     }
 
     @SuppressWarnings("SameParameterValue")

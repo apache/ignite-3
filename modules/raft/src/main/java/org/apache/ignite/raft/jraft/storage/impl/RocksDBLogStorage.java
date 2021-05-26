@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -60,10 +62,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Log storage based on rocksdb.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-06 7:27:47 AM
  */
 public class RocksDBLogStorage implements LogStorage, Describer {
 
@@ -75,10 +73,6 @@ public class RocksDBLogStorage implements LogStorage, Describer {
 
     /**
      * Write batch template.
-     *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2017-Nov-08 11:19:22 AM
      */
     private interface WriteBatchTemplate {
 
@@ -87,8 +81,6 @@ public class RocksDBLogStorage implements LogStorage, Describer {
 
     /**
      * A write context
-     * @author boyan(boyan@antfin.com)
-     *
      */
     public interface WriteContext {
         /**
@@ -112,6 +104,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
 
         /**
          * Set an exception to context.
+         *
          * @param e exception
          */
         default void setError(final Exception e) {
@@ -126,34 +119,34 @@ public class RocksDBLogStorage implements LogStorage, Describer {
 
     /**
      * An empty write context
-     * @author boyan(boyan@antfin.com)
-     *
      */
     protected static class EmptyWriteContext implements WriteContext {
         static EmptyWriteContext INSTANCE = new EmptyWriteContext();
     }
 
     private final String path;
-    private final boolean                   sync;
-    private final boolean                   openStatistics;
-    private RocksDB                         db;
-    private DBOptions                       dbOptions;
-    private WriteOptions                    writeOptions;
-    private final List<ColumnFamilyOptions> cfOptions     = new ArrayList<>();
-    private ColumnFamilyHandle              defaultHandle;
-    private ColumnFamilyHandle              confHandle;
-    private ReadOptions                     totalOrderReadOptions;
+    private final boolean sync;
+    private final boolean openStatistics;
+    private RocksDB db;
+    private DBOptions dbOptions;
+    private WriteOptions writeOptions;
+    private final List<ColumnFamilyOptions> cfOptions = new ArrayList<>();
+    private ColumnFamilyHandle defaultHandle;
+    private ColumnFamilyHandle confHandle;
+    private ReadOptions totalOrderReadOptions;
     private DebugStatistics statistics;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-    private final Lock readLock      = this.readWriteLock.readLock();
-    private final Lock writeLock     = this.readWriteLock.writeLock();
+    private final Lock readLock = this.readWriteLock.readLock();
+    private final Lock writeLock = this.readWriteLock.writeLock();
 
-    private volatile long                   firstLogIndex = 1;
+    private volatile long firstLogIndex = 1;
 
-    private volatile boolean                hasLoadFirstLogIndex;
+    private volatile boolean hasLoadFirstLogIndex;
 
     private LogEntryEncoder logEntryEncoder;
     private LogEntryDecoder logEntryDecoder;
+
+    private Executor executor = Executors.newSingleThreadExecutor();
 
     public RocksDBLogStorage(final String path, final RaftOptions raftOptions) {
         super();
@@ -168,11 +161,11 @@ public class RocksDBLogStorage implements LogStorage, Describer {
 
     public static ColumnFamilyOptions createColumnFamilyOptions() {
         final BlockBasedTableConfig tConfig = StorageOptionsFactory
-                .getRocksDBTableFormatConfig(RocksDBLogStorage.class);
+            .getRocksDBTableFormatConfig(RocksDBLogStorage.class);
         return StorageOptionsFactory.getRocksDBColumnFamilyOptions(RocksDBLogStorage.class) //
-                .useFixedLengthPrefixExtractor(8) //
-                .setTableFormatConfig(tConfig) //
-                .setMergeOperator(new StringAppendOperator());
+            .useFixedLengthPrefixExtractor(8) //
+            .setTableFormatConfig(tConfig) //
+            .setMergeOperator(new StringAppendOperator());
     }
 
     @Override
@@ -572,7 +565,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
 
     private void truncatePrefixInBackground(final long startIndex, final long firstIndexKept) {
         // delete logs in background.
-        Utils.runInThread(() -> {
+        Utils.runInThread(executor, () -> {
             this.readLock.lock();
             try {
                 if (this.db == null) {

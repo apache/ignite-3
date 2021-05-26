@@ -50,6 +50,7 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.LogManagerOptions;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
@@ -95,6 +96,7 @@ public class LogManagerImpl implements LogManager {
     private volatile CountDownLatch shutDownLatch;
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastLogIndexListener> lastLogIndexListeners = new CopyOnWriteArrayList<>();
+    private NodeOptions nodeOptions;
 
     private enum EventType {
         OTHER, // other event type.
@@ -172,6 +174,7 @@ public class LogManagerImpl implements LogManager {
             this.nodeMetrics = opts.getNodeMetrics();
             this.logStorage = opts.getLogStorage();
             this.configManager = opts.getConfigurationManager();
+            this.nodeOptions = opts.getNode().getOptions();
 
             LogStorageOptions lsOpts = new LogStorageOptions();
             lsOpts.setConfigurationManager(this.configManager);
@@ -188,7 +191,7 @@ public class LogManagerImpl implements LogManager {
             this.disruptor = DisruptorBuilder.<StableClosureEvent>newInstance() //
                 .setEventFactory(new StableClosureEventFactory()) //
                 .setRingBufferSize(opts.getDisruptorBufferSize()) //
-                .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-", true)) //
+                .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-" + opts.getNode().getNodeId(), true)) //
                 .setProducerType(ProducerType.MULTI) //
                 /*
                  *  Use timeout strategy in log manager. If timeout happens, it will called reportError to halt the node.
@@ -212,7 +215,7 @@ public class LogManagerImpl implements LogManager {
 
     private void stopDiskThread() {
         this.shutDownLatch = new CountDownLatch(1);
-        Utils.runInThread(() -> this.diskQueue.publishEvent((event, sequence) -> {
+        Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
             event.type = EventType.SHUTDOWN;
         }));
@@ -286,7 +289,7 @@ public class LogManagerImpl implements LogManager {
         Requires.requireNonNull(done, "done");
         if (this.hasError) {
             entries.clear();
-            Utils.runClosureInThread(done, new Status(RaftError.EIO, "Corrupted LogStorage"));
+            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.EIO, "Corrupted LogStorage"));
             return;
         }
         boolean doUnlock = true;
@@ -350,7 +353,7 @@ public class LogManagerImpl implements LogManager {
 
     private void offerEvent(final StableClosure done, final EventType type) {
         if (this.stopped) {
-            Utils.runClosureInThread(done, new Status(RaftError.ESTOP, "Log manager is stopped."));
+            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.ESTOP, "Log manager is stopped."));
             return;
         }
         if (!this.diskQueue.tryPublishEvent((event, sequence) -> {
@@ -359,13 +362,13 @@ public class LogManagerImpl implements LogManager {
             event.done = done;
         })) {
             reportError(RaftError.EBUSY.getNumber(), "Log manager is overload.");
-            Utils.runClosureInThread(done, new Status(RaftError.EBUSY, "Log manager is overload."));
+            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.EBUSY, "Log manager is overload."));
         }
     }
 
     private boolean tryOfferEvent(final StableClosure done, final EventTranslator<StableClosureEvent> translator) {
         if (this.stopped) {
-            Utils.runClosureInThread(done, new Status(RaftError.ESTOP, "Log manager is stopped."));
+            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.ESTOP, "Log manager is stopped."));
             return true;
         }
         return this.diskQueue.tryPublishEvent(translator);
@@ -399,7 +402,7 @@ public class LogManagerImpl implements LogManager {
         for (int i = 0; i < waiterCount; i++) {
             final WaitMeta wm = wms.get(i);
             wm.errorCode = errCode;
-            Utils.runInThread(() -> runOnNewLog(wm)); // TODO asch fix threading.
+            Utils.runInThread(nodeOptions.getCommonExecutor(), () -> runOnNewLog(wm)); // TODO asch fix threading.
         }
         return true;
     }
@@ -998,7 +1001,7 @@ public class LogManagerImpl implements LogManager {
             // should check and resolve the conflicts between the local logs and
             // |entries|
             if (firstLogEntry.getId().getIndex() > this.lastLogIndex + 1) {
-                Utils.runClosureInThread(done, new Status(RaftError.EINVAL,
+                Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.EINVAL,
                     "There's gap between first_index=%d and last_log_index=%d", firstLogEntry.getId().getIndex(),
                     this.lastLogIndex));
                 return false;
@@ -1010,7 +1013,7 @@ public class LogManagerImpl implements LogManager {
                     "Received entries of which the lastLog={} is not greater than appliedIndex={}, return immediately with nothing changed.",
                     lastLogEntry.getId().getIndex(), appliedIndex);
                 // Replicate old logs before appliedIndex should be considered successfully, response OK.
-                Utils.runClosureInThread(done);
+                Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done);
                 return false;
             }
             if (firstLogEntry.getId().getIndex() == this.lastLogIndex + 1) {
@@ -1083,7 +1086,7 @@ public class LogManagerImpl implements LogManager {
         try {
             if (expectedLastLogIndex != this.lastLogIndex || this.stopped) {
                 wm.errorCode = this.stopped ? RaftError.ESTOP.getNumber() : 0;
-                Utils.runInThread(() -> runOnNewLog(wm));
+                Utils.runInThread(nodeOptions.getCommonExecutor(), () -> runOnNewLog(wm));
                 return 0L;
             }
             if (this.nextWaitId == 0) { //skip 0

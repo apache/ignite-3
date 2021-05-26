@@ -16,10 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
@@ -45,14 +48,15 @@ import static org.junit.Assert.assertSame;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class CopySessionTest {
-    private CopySession                        session;
+    private CopySession session;
     @Mock
-    private RaftClientService                  rpcService;
+    private RaftClientService rpcService;
     private RpcRequests.GetFileRequest.Builder rb;
-    private final Endpoint                     address = new Endpoint("localhost", 8081);
-    private CopyOptions                        copyOpts;
-    private RaftOptions                        raftOpts;
-    private TimerManager                       timerManager;
+    private final Endpoint address = new Endpoint("localhost", 8081);
+    private CopyOptions copyOpts;
+    private RaftOptions raftOpts;
+    private NodeOptions nodeOptions;
+    private TimerManager timerManager;
 
     @Before
     public void setup() {
@@ -62,7 +66,9 @@ public class CopySessionTest {
         this.rb.setReaderId(99);
         this.rb.setFilename("data");
         this.raftOpts = new RaftOptions();
-        this.session = new CopySession(rpcService, timerManager, null, raftOpts, rb, address);
+        this.nodeOptions = new NodeOptions();
+        this.nodeOptions.setCommonExecutor(Executors.newSingleThreadExecutor());
+        this.session = new CopySession(rpcService, timerManager, null, raftOpts, this.nodeOptions, rb, address);
         this.session.setCopyOptions(copyOpts);
     }
 

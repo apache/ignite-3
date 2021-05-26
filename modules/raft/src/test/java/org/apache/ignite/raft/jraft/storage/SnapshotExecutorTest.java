@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage;
 
+import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.LoadSnapshotClosure;
@@ -155,13 +156,12 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         Mockito.when(
             this.raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb.build()),
                 eq(this.copyOpts.getTimeoutMs()), argument.capture())).thenReturn(future);
-        Utils.runInThread(new Runnable() {
 
+        Utils.runInThread(Executors.newSingleThreadExecutor(), new Runnable() {
             @Override
             public void run() {
                 SnapshotExecutorTest.this.executor.installSnapshot(irb.build(), RpcRequests.InstallSnapshotResponse
                     .newBuilder(), new RpcRequestClosure(SnapshotExecutorTest.this.asyncCtx));
-
             }
         });
 
@@ -223,8 +223,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         Mockito.lenient().when(
             this.raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb.build()),
                 eq(this.copyOpts.getTimeoutMs()), argument.capture())).thenReturn(future);
-        Utils.runInThread(new Runnable() {
-
+        Utils.runInThread(Executors.newSingleThreadExecutor(), new Runnable() {
             @Override
             public void run() {
                 SnapshotExecutorTest.this.executor.installSnapshot(irb.build(), RpcRequests.InstallSnapshotResponse

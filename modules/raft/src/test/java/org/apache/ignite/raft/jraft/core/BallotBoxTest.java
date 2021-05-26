@@ -23,6 +23,8 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ClosureQueueImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BallotBoxOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,7 +48,9 @@ public class BallotBoxTest {
     @Before
     public void setup() {
         BallotBoxOptions opts = new BallotBoxOptions();
-        this.closureQueue = new ClosureQueueImpl();
+        NodeOptions options = new NodeOptions();
+        options.setCommonExecutor(JRaftUtils.createExecutor("test-executor-", Utils.cpus()));
+        this.closureQueue = new ClosureQueueImpl(options);
         opts.setClosureQueue(this.closureQueue);
         opts.setWaiter(this.waiter);
         box = new BallotBox();

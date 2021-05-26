@@ -30,30 +30,35 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Represent a participant in a replicating group.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:27:37 PM
  */
 public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
+    private static final long serialVersionUID = 8083529734784884641L;
 
-    private static final long   serialVersionUID = 8083529734784884641L;
+    private static final Logger LOG = LoggerFactory.getLogger(PeerId.class);
 
-    private static final Logger LOG              = LoggerFactory.getLogger(PeerId.class);
+    /**
+     * Peer address.
+     */
+    private Endpoint endpoint = new Endpoint(Utils.IP_ANY, 0);
 
-    /** Peer address. */
-    private Endpoint endpoint         = new Endpoint(Utils.IP_ANY, 0);
-    /** Index in same addr, default is 0. */
-    private int                 idx; // TODO asch seem we not need this, drop ?
-    /** Cached toString result. */
-    private String              str;
+    /**
+     * Index in same addr, default is 0.
+     */
+    private int idx; // TODO asch seem we not need this, drop ?
 
-    /** Node's local priority value, if node don't support priority election, this value is -1. */
-    private int                 priority         = ElectionPriority.Disabled;
+    /**
+     * Cached toString result.
+     */
+    private String str;
 
-    public static final PeerId ANY_PEER         = new PeerId();
+    /**
+     * Node's local priority value, if node don't support priority election, this value is -1.
+     */
+    private int priority = ElectionPriority.Disabled;
 
-    private long                checksum;
+    public static final PeerId ANY_PEER = new PeerId();
+
+    private long checksum;
 
     public PeerId() {
         super();
@@ -69,6 +74,7 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
 
     /**
      * Create an empty peer.
+     *
      * @return empty peer
      */
     public static PeerId emptyPeer() {
@@ -188,7 +194,6 @@ public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
      * PeerId.parse("a:b::d")       = new PeerId("a", "b", 0, "d")
      * PeerId.parse("a:b:c:d")      = new PeerId("a", "b", "c", "d")
      * </pre>
-     *
      */
     public boolean parse(final String s) {
         if (StringUtils.isEmpty(s)) {

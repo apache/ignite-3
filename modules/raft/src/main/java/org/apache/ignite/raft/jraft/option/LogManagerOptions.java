@@ -17,7 +17,9 @@
 package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
@@ -25,17 +27,13 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 /**
  * Options for log manager.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-13 5:15:15 PM
  */
 public class LogManagerOptions {
-
+    private Node node;
     private LogStorage logStorage;
     private ConfigurationManager configurationManager;
     private FSMCaller fsmCaller;
-    private int                  disruptorBufferSize  = 1024;
+    private int disruptorBufferSize = 1024;
     private RaftOptions raftOptions;
     private NodeMetrics nodeMetrics;
     private LogEntryCodecFactory logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
@@ -96,4 +94,11 @@ public class LogManagerOptions {
         this.fsmCaller = fsmCaller;
     }
 
+    public void setNode(Node node) {
+        this.node = node;
+    }
+
+    public Node getNode() {
+        return node;
+    }
 }

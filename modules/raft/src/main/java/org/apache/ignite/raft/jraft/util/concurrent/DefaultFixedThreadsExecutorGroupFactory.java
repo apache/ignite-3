@@ -23,8 +23,6 @@ import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
- *
- * @author jiachun.fjc
  */
 public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThreadsExecutorGroupFactory {
 

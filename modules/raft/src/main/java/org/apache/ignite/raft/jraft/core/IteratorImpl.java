@@ -26,6 +26,7 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.error.LogEntryCorruptedException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -37,16 +38,17 @@ public class IteratorImpl {
     private final StateMachine fsm;
     private final LogManager logManager;
     private final List<Closure> closures;
-    private final long          firstClosureIndex;
-    private long                currentIndex;
-    private final long          committedIndex;
+    private final long firstClosureIndex;
+    private final NodeOptions options;
+    private long currentIndex;
+    private final long committedIndex;
     private LogEntry currEntry = new LogEntry(); // blank entry
-    private final AtomicLong    applyingIndex;
+    private final AtomicLong applyingIndex;
     private RaftException error;
 
     public IteratorImpl(final StateMachine fsm, final LogManager logManager, final List<Closure> closures,
                         final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
-                        final AtomicLong applyingIndex) {
+                        final AtomicLong applyingIndex, NodeOptions options) {
         super();
         this.fsm = fsm;
         this.logManager = logManager;
@@ -55,15 +57,16 @@ public class IteratorImpl {
         this.currentIndex = lastAppliedIndex;
         this.committedIndex = committedIndex;
         this.applyingIndex = applyingIndex;
+        this.options = options;
         next();
     }
 
     @Override
     public String toString() {
         return "IteratorImpl [fsm=" + this.fsm + ", logManager=" + this.logManager + ", closures=" + this.closures
-               + ", firstClosureIndex=" + this.firstClosureIndex + ", currentIndex=" + this.currentIndex
-               + ", committedIndex=" + this.committedIndex + ", currEntry=" + this.currEntry + ", applyingIndex="
-               + this.applyingIndex + ", error=" + this.error + "]";
+            + ", firstClosureIndex=" + this.firstClosureIndex + ", currentIndex=" + this.currentIndex
+            + ", committedIndex=" + this.committedIndex + ", currEntry=" + this.currEntry + ", applyingIndex="
+            + this.applyingIndex + ", error=" + this.error + "]";
     }
 
     public LogEntry entry() {
@@ -126,7 +129,7 @@ public class IteratorImpl {
                 Requires.requireNonNull(this.error, "error");
                 Requires.requireNonNull(this.error.getStatus(), "error.status");
                 final Status status = this.error.getStatus();
-                Utils.runClosureInThread(done, status);
+                Utils.runClosureInThread(options.getCommonExecutor(), done, status);
             }
         }
     }

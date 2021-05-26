@@ -20,15 +20,13 @@ import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
-import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class IgniteRpcClient implements RpcClientEx {
-    private static final Logger LOG                    = LoggerFactory.getLogger(IgniteRpcClient.class);
-
-    public volatile ReplicatorGroup replicatorGroup = null; // TODO asch not used
+    private static final Logger LOG = LoggerFactory.getLogger(IgniteRpcClient.class);
 
     private volatile BiPredicate<Object, String> recordPred;
     private BiPredicate<Object, String> blockPred;
@@ -114,13 +112,14 @@ public class IgniteRpcClient implements RpcClientEx {
                     recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
                 if (err instanceof ExecutionException)
-                    err = new RemotingException(err); // TODO asch use IgniteException.
+                    err = new RemotingException(err);
                 else if (err instanceof TimeoutException) // Translate timeout exception.
                     err = new InvokeTimeoutException();
 
                 Throwable finalErr = err;
 
-                RpcUtils.runInThread(() -> callback.complete(res, finalErr)); // Avoid deadlocks if a closure has completed in the same thread.
+                // Avoid deadlocks if a closure has completed in the same thread.
+                Utils.runInThread(callback.executor(), () -> callback.complete(res, finalErr));
             });
 
         // Future hashcode used as corellation id.

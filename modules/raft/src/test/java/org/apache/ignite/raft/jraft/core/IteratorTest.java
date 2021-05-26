@@ -23,6 +23,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -66,7 +67,7 @@ public class IteratorTest {
             log.setData(ByteBuffer.allocate(i));
             Mockito.when(this.logManager.getEntry(i)).thenReturn(log);
         }
-        this.iterImpl = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex);
+        this.iterImpl = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, new NodeOptions());
         this.iter = new IteratorWrapper(iterImpl);
     }
 

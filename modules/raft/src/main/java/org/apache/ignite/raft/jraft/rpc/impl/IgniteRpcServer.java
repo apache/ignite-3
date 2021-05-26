@@ -14,11 +14,11 @@ import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
-import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddPeerRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersRequestProcessor;
@@ -37,6 +37,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcesso
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
@@ -58,15 +59,19 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private final NodeManager nodeManager; // TODO asch refactor (replace with a reference to self)
 
-    public IgniteRpcServer(ClusterService service, boolean reuse, NodeManager nodeManager) {
+    public IgniteRpcServer(
+        ClusterService service,
+        boolean reuse,
+        NodeManager nodeManager,
+        Executor commonExecutor,
+        @Nullable Executor raftExecutor,
+        @Nullable Executor cliExecutor
+    ) {
         this.reuse = reuse;
         this.nodeManager = nodeManager;
         this.service = service;
 
-        // TODO asch configure executors ?
-        final Executor raftExecutor = null;
-        final Executor cliExecutor = null;
-
+        // raft server RPC
         AppendEntriesRequestProcessor appendEntriesRequestProcessor = new AppendEntriesRequestProcessor(raftExecutor);
         registerConnectionClosedEventListener(appendEntriesRequestProcessor);
         registerProcessor(appendEntriesRequestProcessor);
@@ -88,7 +93,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new AddLearnersRequestProcessor(cliExecutor));
         registerProcessor(new RemoveLearnersRequestProcessor(cliExecutor));
         registerProcessor(new ResetLearnersRequestProcessor(cliExecutor));
-        // client integration
+        // common client integration
         registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.GetLeaderRequestProcessor(cliExecutor, FACTORY));
         registerProcessor(new ActionRequestProcessor(cliExecutor, FACTORY));
         registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(cliExecutor, FACTORY));
@@ -116,11 +121,14 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 Executor executor = null;
 
                 if (selector != null) {
-                    executor = selector.select(null, msg, nodeManager);
+                    executor = selector.select(prc.getClass().getName(), msg, nodeManager);
                 }
 
                 if (executor == null)
-                    executor = RpcUtils.RPC_CLOSURE_EXECUTOR;
+                    executor = prc.executor();
+
+                if (executor == null)
+                    executor = commonExecutor;
 
                 RpcProcessor finalPrc = prc;
 

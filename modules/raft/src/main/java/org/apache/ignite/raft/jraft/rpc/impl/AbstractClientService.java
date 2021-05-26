@@ -37,7 +37,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcClient;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
-import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.ThreadPoolMetricSet;
@@ -54,10 +53,12 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractClientService.class);
 
     protected volatile RpcClient rpcClient;
-    protected ThreadPoolExecutor  rpcExecutor;
+    protected ThreadPoolExecutor rpcExecutor;
     protected RpcOptions rpcOptions;
 
-    /** The set of pinged addresses */
+    /**
+     * The set of pinged addresses
+     */
     private Set<String> readyAddresses = new ConcurrentHashSet<>();
 
     public RpcClient getRpcClient() {
@@ -88,10 +89,13 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     // TODO asch init can be moved to constructor.
     protected boolean initRpcClient(final int rpcProcessorThreadPoolSize) {
         this.rpcClient = rpcOptions.getRpcClient();
+
         configRpcClient(this.rpcClient);
+
         // TODO asch should the client be created lazily. A client doesn't make sence without a server.
         this.rpcClient.init(null);
-        this.rpcExecutor = ThreadPoolUtil.newBuilder() // TODO asch refactor
+
+        this.rpcExecutor = ThreadPoolUtil.newBuilder()
             .poolName("JRaft-RPC-Processor") //
             .enableMetric(true) //
             .coreThreads(rpcProcessorThreadPoolSize / 3) //
@@ -100,11 +104,11 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             .workQueue(new ArrayBlockingQueue<>(10000)) //
             .threadFactory(new NamedThreadFactory("JRaft-RPC-Processor-", true)) //
             .build();
+
         if (this.rpcOptions.getMetricRegistry() != null) {
-            this.rpcOptions.getMetricRegistry().register("raft-rpc-client-thread-pool",
-                new ThreadPoolMetricSet(this.rpcExecutor));
-            Utils.registerClosureExecutorMetrics(this.rpcOptions.getMetricRegistry());
+            this.rpcOptions.getMetricRegistry().register("raft-rpc-client-thread-pool", new ThreadPoolMetricSet(this.rpcExecutor));
         }
+
         return true;
     }
 
@@ -189,14 +193,13 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             if (rc == null) {
                 future.failure(new IllegalStateException("Client service is uninitialized."));
                 // should be in another thread to avoid dead locking.
-                RpcUtils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
+                Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
                     "Client service is uninitialized."));
                 return future;
             }
 
             rc.invokeAsync(endpoint, request, ctx, new InvokeCallback() {
-
-                @SuppressWarnings({ "unchecked", "ConstantConditions" })
+                @SuppressWarnings({"unchecked", "ConstantConditions"})
                 @Override
                 public void complete(final Object result, final Throwable err) {
                     if (future.isCancelled()) {
@@ -215,8 +218,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                             if (eResp != null) {
                                 status = handleErrorResponse(eResp);
                                 msg = eResp;
-                            }
-                            else {
+                            } else {
                                 msg = (T) result;
                             }
                         } else {
@@ -259,12 +261,12 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             Thread.currentThread().interrupt();
             future.failure(e);
             // should be in another thread to avoid dead locking.
-            RpcUtils.runClosureInExecutor(currExecutor, done,
+            Utils.runClosureInExecutor(currExecutor, done,
                 new Status(RaftError.EINTR, "Sending rpc was interrupted"));
         } catch (final RemotingException e) {
             future.failure(e);
             // should be in another thread to avoid dead locking.
-            RpcUtils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
+            Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
                 "Fail to send a RPC request:" + e.getMessage()));
 
         }

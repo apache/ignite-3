@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.network.ClusterService;
@@ -3229,7 +3232,9 @@ public class ITNodeTest {
         expectedErrors.add(RaftError.EPERM);
         expectedErrors.add(RaftError.ECATCHUP);
 
-        return Utils.runInThread(() -> {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        return Utils.runInThread(executor, () -> {
             try {
                 while (!arg.stop) {
                     arg.c.waitLeader();
@@ -3385,12 +3390,15 @@ public class ITNodeTest {
         final List<ChangeArg> args = new ArrayList<>();
         final List<Future<?>> futures = new ArrayList<>();
         final CountDownLatch latch = new CountDownLatch(threads);
+
+        Executor executor = Executors.newFixedThreadPool(threads);
+
         for (int t = 0; t < threads; t++) {
             final ChangeArg arg = new ChangeArg(cluster, peers, false, true);
             args.add(arg);
             futures.add(startChangePeersThread(arg));
 
-            Utils.runInThread(() -> {
+            Utils.runInThread(executor, () -> {
                 try {
                     for (int i = 0; i < 5000;) {
                         cluster.waitLeader();

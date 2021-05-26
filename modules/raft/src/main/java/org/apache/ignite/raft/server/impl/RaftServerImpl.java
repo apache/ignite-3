@@ -142,11 +142,6 @@ public class RaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public String getServerDataPath(String groupId) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
     @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf) {
         if (listeners.containsKey(groupId))
             return false;

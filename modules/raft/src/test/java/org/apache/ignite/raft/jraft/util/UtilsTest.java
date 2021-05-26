@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -36,12 +38,13 @@ import static org.junit.Assert.assertTrue;
  * 2018-Apr-10 5:51:20 PM
  */
 public class UtilsTest {
+    private Executor executor = Executors.newSingleThreadExecutor();
 
     @Test
     public void testRunThread() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
-        Utils.runInThread(new Runnable() {
 
+        Utils.runInThread(executor, new Runnable() {
             @Override
             public void run() {
                 latch.countDown();
@@ -84,7 +87,7 @@ public class UtilsTest {
     @Test
     public void testRunClosure() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
-        Utils.runClosureInThread(new Closure() {
+        Utils.runClosureInExecutor(executor, new Closure() {
 
             @Override
             public void run(Status status) {
@@ -98,7 +101,7 @@ public class UtilsTest {
     @Test
     public void testRunClosureWithStatus() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
-        Utils.runClosureInThread(new Closure() {
+        Utils.runClosureInExecutor(executor, new Closure() {
 
             @Override
             public void run(Status status) {

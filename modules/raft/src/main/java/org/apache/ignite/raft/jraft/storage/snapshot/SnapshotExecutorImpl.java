@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot;
 
+import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
@@ -51,42 +52,32 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Snapshot executor implementation.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-22 5:38:56 PM
  */
 public class SnapshotExecutorImpl implements SnapshotExecutor {
+    private static final Logger LOG = LoggerFactory.getLogger(SnapshotExecutorImpl.class);
 
-    private static final Logger                        LOG                 = LoggerFactory
-                                                                               .getLogger(SnapshotExecutorImpl.class);
+    private final Lock lock = new ReentrantLock();
 
-    private final Lock                                 lock                = new ReentrantLock();
-
-    private long                                       lastSnapshotTerm;
-    private long                                       lastSnapshotIndex;
-    private long                                       term;
-    private volatile boolean                           savingSnapshot;
-    private volatile boolean                           loadingSnapshot;
-    private volatile boolean                           stopped;
+    private long lastSnapshotTerm;
+    private long lastSnapshotIndex;
+    private long term;
+    private volatile boolean savingSnapshot;
+    private volatile boolean loadingSnapshot;
+    private volatile boolean stopped;
     private SnapshotStorage snapshotStorage;
     private SnapshotCopier curCopier;
     private FSMCaller fsmCaller;
     private NodeImpl node;
     private LogManager logManager;
     private final AtomicReference<DownloadingSnapshot> downloadingSnapshot = new AtomicReference<>(null);
-    private SnapshotMeta                               loadingSnapshotMeta;
-    private final CountDownEvent runningJobs         = new CountDownEvent();
+    private SnapshotMeta loadingSnapshotMeta;
+    private final CountDownEvent runningJobs = new CountDownEvent();
 
     /**
      * Downloading snapshot job.
-     *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-08 3:07:19 PM
      */
     static class DownloadingSnapshot {
-        InstallSnapshotRequest          request;
+        InstallSnapshotRequest request;
         InstallSnapshotResponse.Builder responseBuilder;
         RpcRequestClosure done;
 
@@ -117,26 +108,25 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     /**
      * Save snapshot done closure
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-08 3:07:52 PM
      */
     private class SaveSnapshotDone implements SaveSnapshotClosure {
 
         SnapshotWriter writer;
         Closure done;
-        SnapshotMeta   meta;
+        SnapshotMeta meta;
+        Executor executor;
 
-        public SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta) {
+        public SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta, Executor executor) {
             super();
             this.writer = writer;
             this.done = done;
             this.meta = meta;
+            this.executor = executor;
         }
 
         @Override
         public void run(final Status status) {
-            Utils.runInThread(() -> continueRun(status));
+            Utils.runInThread(executor, () -> continueRun(status));
         }
 
         void continueRun(final Status st) {
@@ -145,7 +135,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 st.setError(ret, "node call onSnapshotSaveDone failed");
             }
             if (this.done != null) {
-                Utils.runClosureInThread(this.done, st);
+                Utils.runClosureInExecutor(executor, this.done, st);
             }
         }
 
@@ -158,8 +148,9 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     /**
      * Install snapshot done closure
-     * @author boyan (boyan@alibaba-inc.com)
      *
+     * @author boyan (boyan@alibaba-inc.com)
+     * <p>
      * 2018-Apr-08 3:08:09 PM
      */
     private class InstallSnapshotDone implements LoadSnapshotClosure {
@@ -184,8 +175,9 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     /**
      * Load snapshot at first time closure
-     * @author boyan (boyan@alibaba-inc.com)
      *
+     * @author boyan (boyan@alibaba-inc.com)
+     * <p>
      * 2018-Apr-16 2:57:46 PM
      */
     private class FirstSnapshotLoadDone implements LoadSnapshotClosure {
@@ -299,16 +291,16 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         this.lock.lock();
         try {
             if (this.stopped) {
-                Utils.runClosureInThread(done, new Status(RaftError.EPERM, "Is stopped."));
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EPERM, "Is stopped."));
                 return;
             }
             if (this.downloadingSnapshot.get() != null) {
-                Utils.runClosureInThread(done, new Status(RaftError.EBUSY, "Is loading another snapshot."));
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EBUSY, "Is loading another snapshot."));
                 return;
             }
 
             if (this.savingSnapshot) {
-                Utils.runClosureInThread(done, new Status(RaftError.EBUSY, "Is saving another snapshot."));
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EBUSY, "Is saving another snapshot."));
                 return;
             }
 
@@ -319,7 +311,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 doUnlock = false;
                 this.lock.unlock();
                 this.logManager.clearBufferedLogs();
-                Utils.runClosureInThread(done);
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done);
                 return;
             }
 
@@ -334,20 +326,20 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 }
                 doUnlock = false;
                 this.lock.unlock();
-                Utils.runClosureInThread(done);
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done);
                 return;
             }
 
             final SnapshotWriter writer = this.snapshotStorage.create();
             if (writer == null) {
-                Utils.runClosureInThread(done, new Status(RaftError.EIO, "Fail to create writer."));
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EIO, "Fail to create writer."));
                 reportError(RaftError.EIO.getNumber(), "Fail to create snapshot writer.");
                 return;
             }
             this.savingSnapshot = true;
-            final SaveSnapshotDone saveSnapshotDone = new SaveSnapshotDone(writer, done, null);
+            final SaveSnapshotDone saveSnapshotDone = new SaveSnapshotDone(writer, done, null, this.node.getOptions().getCommonExecutor());
             if (!this.fsmCaller.onSnapshotSave(saveSnapshotDone)) {
-                Utils.runClosureInThread(done, new Status(RaftError.EHOSTDOWN, "The raft node is down."));
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EHOSTDOWN, "The raft node is down."));
                 return;
             }
             this.runningJobs.incrementAndGet();

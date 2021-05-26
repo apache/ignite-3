@@ -3,6 +3,8 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.test.TestUtils;
@@ -243,7 +245,10 @@ public abstract class AbstractRpcTest {
 
         assertEquals(1, resp2.val);
 
-        Future<Response1> resp = Utils.runInThread(() -> (Response1) client1.invokeSync(endpoint, new Request1(), 30_000));
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        Future<Response1> resp = Utils.runInThread(executorService,
+            () -> (Response1) client1.invokeSync(endpoint, new Request1(), 30_000));
 
         Thread.sleep(500);
 

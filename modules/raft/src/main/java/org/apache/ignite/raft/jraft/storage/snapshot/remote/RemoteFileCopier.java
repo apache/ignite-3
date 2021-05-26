@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -50,6 +51,7 @@ public class RemoteFileCopier {
     private RaftClientService rpcService;
     private Endpoint endpoint;
     private RaftOptions raftOptions;
+    private NodeOptions nodeOptions;
     private Scheduler timerManager;
     private SnapshotThrottle snapshotThrottle;
 
@@ -67,6 +69,7 @@ public class RemoteFileCopier {
         this.rpcService = opts.getRaftClientService();
         this.timerManager = opts.getTimerManager();
         this.raftOptions = opts.getRaftOptions();
+        this.nodeOptions = opts.getNodeOptions();
         this.snapshotThrottle = snapshotThrottle;
 
         final int prefixSize = Snapshot.REMOTE_SNAPSHOT_URI_SCHEME.length();
@@ -152,7 +155,7 @@ public class RemoteFileCopier {
         final GetFileRequest.Builder reqBuilder = GetFileRequest.newBuilder() //
             .setFilename(source) //
             .setReaderId(this.readId);
-        return new CopySession(this.rpcService, this.timerManager, this.snapshotThrottle, this.raftOptions, reqBuilder,
+        return new CopySession(this.rpcService, this.timerManager, this.snapshotThrottle, this.raftOptions, this.nodeOptions, reqBuilder,
             this.endpoint);
     }
 

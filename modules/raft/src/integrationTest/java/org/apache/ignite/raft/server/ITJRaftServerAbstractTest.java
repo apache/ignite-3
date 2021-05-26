@@ -58,7 +58,7 @@ abstract class ITJRaftServerAbstractTest extends RaftCounterServerAbstractTest {
     protected static final int CLIENT_PORT = 6003;
 
     /** */
-    protected List<RaftServer> servers = new ArrayList<>();
+    protected List<JRaftServerImpl> servers = new ArrayList<>();
 
     /** */
     protected List<RaftGroupService> clients = new ArrayList<>();

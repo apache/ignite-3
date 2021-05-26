@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -58,7 +59,7 @@ public final class JRaftUtils {
      * @param number thread number
      * @return a new {@link ThreadPoolExecutor} instance
      */
-    public static Executor createExecutor(final String prefix, final int number) {
+    public static ExecutorService createExecutor(final String prefix, final int number) {
         if (number <= 0) {
             return null;
         }

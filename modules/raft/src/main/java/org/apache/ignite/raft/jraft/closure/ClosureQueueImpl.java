@@ -23,6 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -31,17 +32,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Closure queue implementation.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-28 11:44:01 AM
  */
 public class ClosureQueueImpl implements ClosureQueue {
 
     private static final Logger LOG = LoggerFactory.getLogger(ClosureQueueImpl.class);
 
-    private final Lock          lock;
-    private long                firstIndex;
+    private final Lock lock;
+    private final NodeOptions options;
+    private long firstIndex;
     private LinkedList<Closure> queue;
 
     @OnlyForTest
@@ -54,11 +52,12 @@ public class ClosureQueueImpl implements ClosureQueue {
         return queue;
     }
 
-    public ClosureQueueImpl() {
+    public ClosureQueueImpl(NodeOptions options) {
         super();
         this.lock = new ReentrantLock();
         this.firstIndex = 0;
         this.queue = new LinkedList<>();
+        this.options = options;
     }
 
     @Override
@@ -74,7 +73,7 @@ public class ClosureQueueImpl implements ClosureQueue {
         }
 
         final Status status = new Status(RaftError.EPERM, "Leader stepped down");
-        Utils.runInThread(() -> {
+        Utils.runInThread(options.getCommonExecutor(), () -> {
             for (final Closure done : savedQueue) {
                 if (done != null) {
                     done.run(status);

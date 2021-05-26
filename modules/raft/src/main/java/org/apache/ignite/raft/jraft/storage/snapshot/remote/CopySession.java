@@ -16,8 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -32,11 +30,13 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
-import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.Endpoint;
@@ -48,33 +48,30 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Copy session.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 12:01:23 PM
  */
 @ThreadSafe
 public class CopySession implements Session {
+    private static final Logger LOG = LoggerFactory.getLogger(CopySession.class);
 
-    private static final Logger          LOG         = LoggerFactory.getLogger(CopySession.class);
-
-    private final Lock                   lock        = new ReentrantLock();
-    private final Status st          = Status.OK();
-    private final CountDownLatch         finishLatch = new CountDownLatch(1);
-    private final GetFileResponseClosure done        = new GetFileResponseClosure();
+    private final Lock lock = new ReentrantLock();
+    private final Status st = Status.OK();
+    private final CountDownLatch finishLatch = new CountDownLatch(1);
+    private final GetFileResponseClosure done = new GetFileResponseClosure();
     private final RaftClientService rpcService;
     private final GetFileRequest.Builder requestBuilder;
     private final Endpoint endpoint;
     private final Scheduler timerManager;
     private final SnapshotThrottle snapshotThrottle;
     private final RaftOptions raftOptions;
-    private int                          retryTimes  = 0;
-    private boolean                      finished;
+    private int retryTimes = 0;
+    private boolean finished;
     private ByteBufferCollector destBuf;
     private CopyOptions copyOptions = new CopyOptions();
-    private OutputStream                 outputStream;
-    private ScheduledFuture<?>           timer;
-    private String                       destPath;
-    private Future<Message>              rpcCall;
+    private OutputStream outputStream;
+    private ScheduledFuture<?> timer;
+    private String destPath;
+    private Future<Message> rpcCall;
+    private NodeOptions nodeOptions;
 
     /**
      * Get file response closure to answer client.
@@ -122,7 +119,7 @@ public class CopySession implements Session {
 
     public CopySession(final RaftClientService rpcService, final Scheduler timerManager,
                        final SnapshotThrottle snapshotThrottle, final RaftOptions raftOptions,
-                       final GetFileRequest.Builder rb, final Endpoint ep) {
+                       NodeOptions nodeOptions, final GetFileRequest.Builder rb, final Endpoint ep) {
         super();
         this.snapshotThrottle = snapshotThrottle;
         this.raftOptions = raftOptions;
@@ -130,6 +127,7 @@ public class CopySession implements Session {
         this.rpcService = rpcService;
         this.requestBuilder = rb;
         this.endpoint = ep;
+        this.nodeOptions = nodeOptions;
     }
 
     public void setDestBuf(final ByteBufferCollector bufRef) {
@@ -200,7 +198,7 @@ public class CopySession implements Session {
     }
 
     private void onTimer() {
-        RpcUtils.runInThread(this::sendNextRpc);
+        Utils.runInThread(nodeOptions.getCommonExecutor(), this::sendNextRpc);
     }
 
     void onRpcReturned(final Status status, final GetFileResponse response) {
@@ -222,7 +220,7 @@ public class CopySession implements Session {
 
                 // Throttled reading failure does not increase _retry_times
                 if (status.getCode() != RaftError.EAGAIN.getNumber()
-                        && ++this.retryTimes >= this.copyOptions.getMaxRetry()) {
+                    && ++this.retryTimes >= this.copyOptions.getMaxRetry()) {
                     if (this.st.isOk()) {
                         this.st.setError(status.getCode(), status.getErrorMsg());
                         onFinished();

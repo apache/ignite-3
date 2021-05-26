@@ -99,7 +99,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
             }
             return;
         }
-        Replicator.sendHeartbeat(rid, closure);
+        Replicator.sendHeartbeat(rid, closure, this.commonOptions.getCommonExecutor());
     }
 
     @Override
@@ -166,7 +166,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
             return false;
         }
 
-        Replicator.waitForCaughtUp(rid, maxMargin, dueTime, done);
+        Replicator.waitForCaughtUp(rid, maxMargin, dueTime, done, this.commonOptions.getCommonExecutor());
         return true;
     }
 

@@ -153,6 +153,7 @@ public class RaftGroupService {
         } else {
             LOG.warn("RPC server is not started in RaftGroupService.");
         }
+
         this.nodeManager.add(this.node);
         this.started = true;
         LOG.info("Start the RaftGroupService successfully.");

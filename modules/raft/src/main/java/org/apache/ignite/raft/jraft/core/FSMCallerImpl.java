@@ -184,7 +184,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.disruptor = DisruptorBuilder.<ApplyTask> newInstance() //
             .setEventFactory(new ApplyTaskFactory()) //
             .setRingBufferSize(opts.getDisruptorBufferSize()) //
-            .setThreadFactory(new NamedThreadFactory("JRaft-FSMCaller-Disruptor-", true)) //
+            .setThreadFactory(new NamedThreadFactory("JRaft-FSMCaller-Disruptor-" + node.getNodeId().toString(), true)) //
             .setProducerType(ProducerType.MULTI) //
             .setWaitStrategy(new BlockingWaitStrategy()) //
             .build();
@@ -210,7 +210,7 @@ public class FSMCallerImpl implements FSMCaller {
         if (this.taskQueue != null) {
             final CountDownLatch latch = new CountDownLatch(1);
             this.shutdownLatch = latch;
-            Utils.runInThread(() -> this.taskQueue.publishEvent((task, sequence) -> {
+            Utils.runInThread(this.node.getOptions().getCommonExecutor(), () -> this.taskQueue.publishEvent((task, sequence) -> {
                 task.reset();
                 task.type = TaskType.SHUTDOWN;
                 task.shutdownLatch = latch;
@@ -482,7 +482,8 @@ public class FSMCallerImpl implements FSMCaller {
 
             Requires.requireTrue(firstClosureIndex >= 0, "Invalid firstClosureIndex");
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
-                lastAppliedIndex, committedIndex, this.applyingIndex);
+                lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
+
             while (iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
                 if (logEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
@@ -555,8 +556,8 @@ public class FSMCallerImpl implements FSMCaller {
         final ConfigurationEntry confEntry = this.logManager.getConfiguration(lastAppliedIndex);
         if (confEntry == null || confEntry.isEmpty()) {
             LOG.error("Empty conf entry for lastAppliedIndex={}", lastAppliedIndex);
-            Utils.runClosureInThread(done, new Status(RaftError.EINVAL, "Empty conf entry for lastAppliedIndex=%s",
-                lastAppliedIndex));
+            Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EINVAL,
+                "Empty conf entry for lastAppliedIndex=%s", lastAppliedIndex));
             return;
         }
         for (final PeerId peer : confEntry.getConf()) {

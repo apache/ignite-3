@@ -38,30 +38,30 @@ public class DefaultRaftTimerFactory implements RaftTimerFactory {
     private static final String GLOBAL_SNAPSHOT_TIMER_WORKERS = "jraft.timer.global_snapshot_timer_workers";
     private static final String GLOBAL_SCHEDULER_WORKERS = "jraft.timer.global_scheduler_workers";
 
-    private static final TimerSharedRef ELECTION_TIMER_REF = new TimerSharedRef(
+    private final TimerSharedRef ELECTION_TIMER_REF = new TimerSharedRef(
         SystemPropertyUtil.getInt(
             GLOBAL_ELECTION_TIMER_WORKERS,
             Utils.cpus()),
         "JRaft-Global-ElectionTimer");
 
-    private static final TimerSharedRef VOTE_TIMER_REF = new TimerSharedRef(
+    private final TimerSharedRef VOTE_TIMER_REF = new TimerSharedRef(
         SystemPropertyUtil.getInt(
             GLOBAL_VOTE_TIMER_WORKERS,
             Utils.cpus()),
         "JRaft-Global-VoteTimer");
 
-    private static final TimerSharedRef STEP_DOWN_TIMER_REF = new TimerSharedRef(
+    private final TimerSharedRef STEP_DOWN_TIMER_REF = new TimerSharedRef(
         SystemPropertyUtil.getInt(
             GLOBAL_STEP_DOWN_TIMER_WORKERS,
             Utils.cpus()),
         "JRaft-Global-StepDownTimer");
-    private static final TimerSharedRef SNAPSHOT_TIMER_REF = new TimerSharedRef(
+    private final TimerSharedRef SNAPSHOT_TIMER_REF = new TimerSharedRef(
         SystemPropertyUtil.getInt(
             GLOBAL_SNAPSHOT_TIMER_WORKERS,
             Utils.cpus()),
         "JRaft-Global-SnapshotTimer");
 
-    private static final SchedulerSharedRef SCHEDULER_REF = new SchedulerSharedRef(
+    private final SchedulerSharedRef SCHEDULER_REF = new SchedulerSharedRef(
         SystemPropertyUtil.getInt(
             GLOBAL_SCHEDULER_WORKERS,
             Utils.cpus() * 3 > 20 ? 20 : Utils
@@ -104,7 +104,6 @@ public class DefaultRaftTimerFactory implements RaftTimerFactory {
     }
 
     private static abstract class Shared<T> {
-
         private AtomicInteger refCount = new AtomicInteger(0);
         private AtomicBoolean started = new AtomicBoolean(true);
         protected final T shared;

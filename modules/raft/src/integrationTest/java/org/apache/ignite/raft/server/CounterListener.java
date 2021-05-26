@@ -20,6 +20,8 @@ package org.apache.ignite.raft.server;
 import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteLogger;
@@ -39,6 +41,8 @@ public class CounterListener implements RaftGroupListener {
 
     /** */
     private AtomicLong counter = new AtomicLong();
+
+    private Executor executor = Executors.newSingleThreadExecutor();
 
     /** {@inheritDoc} */
     @Override public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
@@ -66,8 +70,7 @@ public class CounterListener implements RaftGroupListener {
     @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
         final long currVal = this.counter.get();
 
-        // TODO asch use executor.
-        Utils.runInThread(() -> {
+        Utils.runInThread(executor, () -> {
             final CounterSnapshotFile snapshot = new CounterSnapshotFile(path + File.separator + "data");
 
             try {

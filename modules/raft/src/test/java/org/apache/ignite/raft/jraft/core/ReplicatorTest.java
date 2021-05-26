@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
 import org.apache.ignite.raft.jraft.core.Replicator.RequestType;
@@ -26,6 +27,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -102,10 +104,14 @@ public class ReplicatorTest {
         this.opts.setDynamicHeartBeatTimeoutMs(100);
         this.opts.setElectionTimeoutMs(1000);
 
+        NodeOptions options = new NodeOptions();
+        options.setCommonExecutor(JRaftUtils.createExecutor("test-executor-", Utils.cpus()));
+
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);
         Mockito.when(this.rpcService.connect(this.peerId.getEndpoint())).thenReturn(true);
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(true));
+        Mockito.when(this.node.getOptions()).thenReturn(options);
         // mock send empty entries
         mockSendEmptyEntries();
 
@@ -345,13 +351,12 @@ public class ReplicatorTest {
 
         final CountDownLatch latch = new CountDownLatch(1);
         Replicator.waitForCaughtUp(this.id, 1, System.currentTimeMillis() + 5000, new CatchUpClosure() {
-
             @Override
             public void run(final Status status) {
                 assertTrue(status.isOk());
                 latch.countDown();
             }
-        });
+        }, node.getOptions().getCommonExecutor());
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
             Utils.monotonicMs());
@@ -565,13 +570,11 @@ public class ReplicatorTest {
             }
         });
         Replicator.sendHeartbeat(this.id, new RpcResponseClosureAdapter<RpcRequests.AppendEntriesResponse>() {
-
             @Override
             public void run(final Status status) {
                 assertTrue(status.isOk());
-
             }
-        });
+        }, node.getOptions().getCommonExecutor());
 
         assertNotNull(r.getHeartbeatInFly());
 

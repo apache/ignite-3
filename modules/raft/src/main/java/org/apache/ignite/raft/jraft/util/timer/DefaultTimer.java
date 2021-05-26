@@ -59,7 +59,6 @@ public class DefaultTimer implements Timer {
     }
 
     private class TimeoutTask implements Runnable {
-
         private final TimerTask task;
         private final Timeout timeout;
         private volatile ScheduledFuture<?> future;

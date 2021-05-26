@@ -23,14 +23,15 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.util.Utils;
 
 /** */
 public class IgniteRpcTest extends AbstractRpcTest {
@@ -41,7 +42,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
     @Override public RpcServer createServer(Endpoint endpoint) {
         ClusterService service = createService(endpoint.toString(), endpoint.getPort(), List.of());
 
-        return new IgniteRpcServer(service, false, new NodeManager());
+        return new IgniteRpcServer(service, false, new NodeManager(),
+            JRaftUtils.createExecutor("test-common-pool-", Utils.cpus()), null, null);
     }
 
     @Override public RpcClient createClient() {

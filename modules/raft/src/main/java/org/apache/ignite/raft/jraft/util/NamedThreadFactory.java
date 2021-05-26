@@ -23,22 +23,16 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Named thread factory with prefix.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-21 11:32:02 AM
  */
 public class NamedThreadFactory implements ThreadFactory {
-
-    private static final Logger                      LOG                 = LoggerFactory
-                                                                             .getLogger(NamedThreadFactory.class);
+    private static final Logger LOG = LoggerFactory.getLogger(NamedThreadFactory.class);
 
     private static final LogUncaughtExceptionHandler UNCAUGHT_EX_HANDLER = new LogUncaughtExceptionHandler();
 
-    private final String                             prefix;
+    private final String prefix;
 
-    private final AtomicInteger                      counter             = new AtomicInteger(0);
-    private final boolean                            daemon;
+    private final AtomicInteger counter = new AtomicInteger(0);
+    private final boolean daemon;
 
     public NamedThreadFactory(String prefix) {
         this(prefix, false);
@@ -60,7 +54,6 @@ public class NamedThreadFactory implements ThreadFactory {
     }
 
     private static final class LogUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
-
         @Override
         public void uncaughtException(Thread t, Throwable e) {
             LOG.error("Uncaught exception in thread {}", t, e);

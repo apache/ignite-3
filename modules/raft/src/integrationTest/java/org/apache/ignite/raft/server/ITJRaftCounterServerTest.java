@@ -95,6 +95,8 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         clients.get(1).refreshLeader().get();
 
         assertNotNull(clients.get(1).leader());
+
+        Thread.sleep(1000000);
     }
 
     /**
@@ -134,7 +136,7 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         client1.refreshLeader().get();
         client2.refreshLeader().get();
 
-        RaftServer server = servers.get(0);
+        JRaftServerImpl server = servers.get(0);
 
         long val = applyIncrements(client1, 1, 10);
 
@@ -335,10 +337,10 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         client1.snapshot(leader1).get();
         client2.snapshot(leader2).get();
 
-        RaftServer toStop = null;
+        JRaftServerImpl toStop = null;
 
         // Find the follower for both groups.
-        for (RaftServer server : servers) {
+        for (JRaftServerImpl server : servers) {
             Peer peer = server.localPeer(COUNTER_GROUP_0);
 
             if (!peer.equals(leader1) && !peer.equals(leader2)) {

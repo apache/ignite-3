@@ -17,6 +17,8 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -30,10 +32,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * Node options.
- *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-04 2:59:12 PM
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // A follower would become a candidate if it doesn't receive any message
@@ -79,7 +77,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // |catchup_margin|
     //
     // Default: 1000
-    private int catchupMargin = 1000;
+    private int catchupMargin = 1000; // TODO asch why do we need this ?
 
     // If node is starting from a empty environment (both LogStorage and
     // SnapshotStorage are empty), it would use |initial_conf| as the
@@ -120,6 +118,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * Whether use global timer pool, if true, the {@code timerPoolSize} will be invalid.
      */
     private boolean sharedTimerPool = false;
+
     /**
      * Timer manager thread pool size
      */
@@ -129,10 +128,17 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * CLI service request RPC executor pool size, use default executor if -1.
      */
     private int cliRpcThreadPoolSize = Utils.cpus();
+
     /**
      * RAFT request RPC executor pool size, use default executor if -1.
      */
     private int raftRpcThreadPoolSize = Utils.cpus() * 6;
+
+    /**
+     * Common executor pool size.
+     */
+    private int commonThreadPollSize = Utils.cpus();
+
     /**
      * Whether to enable metrics for node.
      */
@@ -145,17 +151,20 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private SnapshotThrottle snapshotThrottle;
 
     /**
-     * Whether use global election timer
+     * Whether use global election timer TODO asch need this ?
      */
     private boolean sharedElectionTimer = false;
+
     /**
      * Whether use global vote timer
      */
     private boolean sharedVoteTimer = false;
+
     /**
      * Whether use global step down timer
      */
     private boolean sharedStepDownTimer = false;
+
     /**
      * Whether use global snapshot timer
      */
@@ -168,6 +177,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     /** */
     private List<Replicator.ReplicatorStateListener> replicationStateListeners;
+
+    /** */
+    private ExecutorService commonExecutor;
 
     /**
      * The rpc client.
@@ -215,6 +227,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setRaftRpcThreadPoolSize(final int raftRpcThreadPoolSize) {
         this.raftRpcThreadPoolSize = raftRpcThreadPoolSize;
+    }
+
+    public int getCommonThreadPollSize() {
+        return commonThreadPollSize;
+    }
+
+    public void setCommonThreadPollSize(int commonThreadPollSize) {
+        this.commonThreadPollSize = commonThreadPollSize;
     }
 
     public boolean isSharedTimerPool() {
@@ -405,6 +425,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.sharedSnapshotTimer = sharedSnapshotTimer;
     }
 
+    public void setCommonExecutor(ExecutorService commonExecutor) {
+        this.commonExecutor = commonExecutor;
+    }
+
+    public ExecutorService getCommonExecutor() {
+        return commonExecutor;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -420,6 +448,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setTimerPoolSize(this.timerPoolSize);
         nodeOptions.setCliRpcThreadPoolSize(this.cliRpcThreadPoolSize);
         nodeOptions.setRaftRpcThreadPoolSize(this.raftRpcThreadPoolSize);
+        nodeOptions.setCommonThreadPollSize(this.commonThreadPollSize);
         nodeOptions.setEnableMetrics(this.enableMetrics);
         nodeOptions.setRaftOptions(this.raftOptions == null ? new RaftOptions() : this.raftOptions.copy());
         nodeOptions.setSharedElectionTimer(this.sharedElectionTimer);
@@ -427,6 +456,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setSharedStepDownTimer(this.sharedStepDownTimer);
         nodeOptions.setSharedSnapshotTimer(this.sharedSnapshotTimer);
         nodeOptions.setReplicationStateListeners(this.replicationStateListeners);
+        nodeOptions.setCommonExecutor(this.getCommonExecutor());
+
         return nodeOptions;
     }
 

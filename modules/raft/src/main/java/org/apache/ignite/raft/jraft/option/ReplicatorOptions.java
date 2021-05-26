@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.core.BallotBox;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.ReplicatorType;
@@ -29,22 +30,18 @@ import org.apache.ignite.raft.jraft.util.Copiable;
 
 /**
  * Replicator options.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 2:59:24 PM
  */
 public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
 
-    private int               dynamicHeartBeatTimeoutMs;
-    private int               electionTimeoutMs;
-    private String            groupId;
+    private int dynamicHeartBeatTimeoutMs;
+    private int electionTimeoutMs;
+    private String groupId;
     private PeerId serverId;
     private PeerId peerId;
     private LogManager logManager;
     private BallotBox ballotBox;
     private NodeImpl node;
-    private long              term;
+    private long term;
     private SnapshotStorage snapshotStorage;
     private RaftClientService raftRpcService;
     private Scheduler timerManager;
@@ -209,10 +206,17 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     @Override
     public String toString() {
         return "ReplicatorOptions{" + "replicatorType=" + this.replicatorType + "dynamicHeartBeatTimeoutMs="
-               + this.dynamicHeartBeatTimeoutMs + ", electionTimeoutMs=" + this.electionTimeoutMs + ", groupId='"
-               + this.groupId + '\'' + ", serverId=" + this.serverId + ", peerId=" + this.peerId + ", logManager="
-               + this.logManager + ", ballotBox=" + this.ballotBox + ", node=" + this.node + ", term=" + this.term
-               + ", snapshotStorage=" + this.snapshotStorage + ", raftRpcService=" + this.raftRpcService
-               + ", timerManager=" + this.timerManager + '}';
+            + this.dynamicHeartBeatTimeoutMs + ", electionTimeoutMs=" + this.electionTimeoutMs + ", groupId='"
+            + this.groupId + '\'' + ", serverId=" + this.serverId + ", peerId=" + this.peerId + ", logManager="
+            + this.logManager + ", ballotBox=" + this.ballotBox + ", node=" + this.node + ", term=" + this.term
+            + ", snapshotStorage=" + this.snapshotStorage + ", raftRpcService=" + this.raftRpcService
+            + ", timerManager=" + this.timerManager + '}';
+    }
+
+    /**
+     * @return Common executor.
+     */
+    public ExecutorService getCommonExecutor() {
+        return getNode().getOptions().getCommonExecutor();
     }
 }

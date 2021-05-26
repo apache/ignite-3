@@ -39,16 +39,9 @@ import org.apache.ignite.raft.jraft.util.concurrent.SingleThreadExecutor;
 
 /**
  * Append entries request processor.
- *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-04 3:00:13 PM
  */
 public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEntriesRequest> implements
     ConnectionClosedEventListener {
-
-    static final String PAIR_ATTR = "jraft-peer-pairs";
-
     /**
      * Peer executor selector.
      *
@@ -61,11 +54,11 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         }
 
         @Override // TODO asch should be select(Message msg)
-        public Executor select(final String reqClass, final Object reqHeader, NodeManager nodeManager) {
-            final AppendEntriesRequest header = (AppendEntriesRequest) reqHeader;
-            final String groupId = header.getGroupId();
-            final String peerId = header.getPeerId();
-            final String serverId = header.getServerId();
+        public Executor select(final String reqClass, final Object req, NodeManager nodeManager) {
+            final AppendEntriesRequest req0 = (AppendEntriesRequest) req;
+            final String groupId = req0.getGroupId();
+            final String peerId = req0.getPeerId();
+            final String serverId = req0.getServerId();
 
             final PeerId peer = new PeerId();
 
@@ -78,9 +71,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             if (node == null || !node.getRaftOptions().isReplicatorPipeline()) {
                 return executor();
             }
-
-            // The node enable pipeline, we should ensure bolt support it. TODO asch fixme
-            //RpcFactoryHelper.rpcFactory().ensurePipeline();
 
             final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pairOf(peerId, serverId), nodeManager);
 

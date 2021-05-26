@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteLogger;
@@ -35,8 +36,11 @@ import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
+
 /** */
 public class JRaftServerImpl implements RaftServer {
+    /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftServerImpl.class);
 
     private final ClusterService service;
@@ -50,6 +54,8 @@ public class JRaftServerImpl implements RaftServer {
 
     private final NodeManager nodeManager;
 
+    private final NodeOptions opts;
+
     /**
      * @param service Cluster service.
      * @param dataPath Data path.
@@ -57,15 +63,43 @@ public class JRaftServerImpl implements RaftServer {
      * @param reuse {@code True} to reuse cluster service (do not manage lifecyle)
      */
     public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessageFactory factory, boolean reuse) {
+        this(service, dataPath, factory, reuse, new NodeOptions());
+    }
+
+    /**
+     * @param service Cluster service.
+     * @param dataPath Data path.
+     * @param factory The factory.
+     * @param reuse {@code True} to reuse cluster service (do not manage lifecyle)
+     * @param opts Default node options.
+     */
+    public JRaftServerImpl(
+        ClusterService service,
+        String dataPath,
+        RaftClientMessageFactory factory,
+        boolean reuse,
+        NodeOptions opts
+    ) {
         this.service = service;
         this.reuse = reuse;
         this.dataPath = dataPath;
         this.clientMsgFactory = factory;
         this.nodeManager = new NodeManager();
+        this.opts = opts;
 
         assert !reuse || service.topologyService().localMember() != null;
 
-        rpcServer = new IgniteRpcServer(service, reuse, nodeManager);
+        String suffix = service.localConfiguration().getName() + "-";
+
+        ExecutorService commonExecutor = createExecutor("JRaft-common-executor-" + suffix, opts.getCommonThreadPollSize());
+
+        this.opts.setCommonExecutor(commonExecutor);
+
+        rpcServer = new IgniteRpcServer(service, reuse, nodeManager,
+            commonExecutor,
+            createExecutor("JRaft-RPC-executor-" + suffix, opts.getRaftRpcThreadPoolSize()),
+            createExecutor("JRaft-CLI-executor-" + suffix, opts.getCliRpcThreadPoolSize()));
+
         rpcServer.init(null);
     }
 
@@ -78,7 +112,7 @@ public class JRaftServerImpl implements RaftServer {
      * @param groupId Group id.
      * @return The path to persistence folder.
      */
-    @Override public String getServerDataPath(String groupId) {
+    public String getServerDataPath(String groupId) {
         ClusterNode clusterNode = service.topologyService().localMember();
 
         Endpoint endpoint = new Endpoint(clusterNode.host(), clusterNode.port());
@@ -91,7 +125,7 @@ public class JRaftServerImpl implements RaftServer {
         if (groups.containsKey(groupId))
             return false;
 
-        final NodeOptions nodeOptions = new NodeOptions();
+        final NodeOptions nodeOptions = opts.copy();
 
         ClusterNode clusterNode = service.topologyService().localMember();
         Endpoint endpoint = new Endpoint(clusterNode.host(), clusterNode.port());

@@ -25,7 +25,6 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
  *
- * @author jiachun.fjc
  */
 public interface RpcClient extends Lifecycle<RpcOptions> {
 

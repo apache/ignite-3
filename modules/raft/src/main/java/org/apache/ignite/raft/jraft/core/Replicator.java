@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
@@ -52,7 +53,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
-import org.apache.ignite.raft.jraft.rpc.RpcUtils;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
@@ -247,13 +247,13 @@ public class Replicator implements ThreadId.OnError {
                 try {
                     switch (event) {
                         case CREATED:
-                            RpcUtils.runInThread(() -> listener.onCreated(peer));
+                            Utils.runInThread(replicatorOpts.getCommonExecutor(), () -> listener.onCreated(peer));
                             break;
                         case ERROR:
-                            RpcUtils.runInThread(() -> listener.onError(peer, status));
+                            Utils.runInThread(replicatorOpts.getCommonExecutor(), () -> listener.onError(peer, status));
                             break;
                         case DESTROYED:
-                            RpcUtils.runInThread(() -> listener.onDestroyed(peer));
+                            Utils.runInThread(replicatorOpts.getCommonExecutor(), () -> listener.onDestroyed(peer));
                             break;
                         default:
                             break;
@@ -665,7 +665,7 @@ public class Replicator implements ThreadId.OnError {
             // id is unlock in installSnapshot
             installSnapshot();
             if (isHeartbeat && heartBeatClosure != null) {
-                RpcUtils.runClosureInThread(heartBeatClosure, new Status(RaftError.EAGAIN,
+                Utils.runClosureInThread(options.getCommonExecutor(), heartBeatClosure, new Status(RaftError.EAGAIN,
                     "Fail to send heartbeat to peer %s", this.options.getPeerId()));
             }
             return;
@@ -816,17 +816,17 @@ public class Replicator implements ThreadId.OnError {
     }
 
     public static void waitForCaughtUp(final ThreadId id, final long maxMargin, final long dueTime,
-                                       final CatchUpClosure done) {
+                                       final CatchUpClosure done, ExecutorService executor) {
         final Replicator r = (Replicator) id.lock();
 
         if (r == null) {
-            RpcUtils.runClosureInThread(done, new Status(RaftError.EINVAL, "No such replicator"));
+            Utils.runClosureInThread(executor, done, new Status(RaftError.EINVAL, "No such replicator"));
             return;
         }
         try {
             if (r.catchUpClosure != null) {
                 LOG.error("Previous wait_for_caught_up is not over");
-                Utils.runClosureInThread(done, new Status(RaftError.EINVAL, "Duplicated call"));
+                Utils.runClosureInThread(executor, done, new Status(RaftError.EINVAL, "Duplicated call"));
                 return;
             }
             done.setMaxMargin(maxMargin);
@@ -867,7 +867,7 @@ public class Replicator implements ThreadId.OnError {
         try {
             if (r.blockTimer != null) {
                 if (r.blockTimer.cancel(true)) {
-                    onBlockTimeout(id);
+                    onBlockTimeout(id, r.options.getCommonExecutor());
                 }
             }
         } finally {
@@ -902,8 +902,8 @@ public class Replicator implements ThreadId.OnError {
         return true;
     }
 
-    static void onBlockTimeout(final ThreadId arg) {
-        RpcUtils.runInThread(() -> onBlockTimeoutInNewThread(arg));
+    static void onBlockTimeout(final ThreadId arg, ExecutorService executor) {
+        Utils.runInThread(executor, () -> onBlockTimeoutInNewThread(arg));
     }
 
     void block(final long startTimeMs, @SuppressWarnings("unused") final int errorCode) {
@@ -920,8 +920,8 @@ public class Replicator implements ThreadId.OnError {
         final long dueTime = startTimeMs + this.options.getDynamicHeartBeatTimeoutMs();
         try {
             LOG.debug("Blocking {} for {} ms", this.options.getPeerId(), this.options.getDynamicHeartBeatTimeoutMs());
-            this.blockTimer = this.timerManager.schedule(() -> onBlockTimeout(this.id), dueTime - Utils.nowMs(),
-                TimeUnit.MILLISECONDS);
+            this.blockTimer = this.timerManager.schedule(() -> onBlockTimeout(this.id, this.options.getCommonExecutor()),
+                dueTime - Utils.nowMs(), TimeUnit.MILLISECONDS);
             this.statInfo.runningState = RunningState.BLOCKING;
             this.id.unlock();
         } catch (final Exception e) {
@@ -971,7 +971,7 @@ public class Replicator implements ThreadId.OnError {
             }
         } else if (errorCode == RaftError.ETIMEDOUT.getNumber()) {
             id.unlock();
-            RpcUtils.runInThread(() -> sendHeartbeat(id));
+            Utils.runInThread(options.getCommonExecutor(), () -> sendHeartbeat(id));
         } else {
             id.unlock();
             // noinspection ConstantConditions
@@ -1022,7 +1022,7 @@ public class Replicator implements ThreadId.OnError {
         }
         final CatchUpClosure savedClosure = this.catchUpClosure;
         this.catchUpClosure = null;
-        RpcUtils.runClosureInThread(savedClosure, savedClosure.getStatus());
+        Utils.runClosureInThread(options.getCommonExecutor(), savedClosure, savedClosure.getStatus());
     }
 
     private static void onTimeout(final ThreadId id) {
@@ -1577,10 +1577,14 @@ public class Replicator implements ThreadId.OnError {
         return true;
     }
 
-    public static void sendHeartbeat(final ThreadId id, final RpcResponseClosure<AppendEntriesResponse> closure) {
+    public static void sendHeartbeat(
+        final ThreadId id,
+        final RpcResponseClosure<AppendEntriesResponse> closure,
+        ExecutorService executor
+    ) {
         final Replicator r = (Replicator) id.lock();
         if (r == null) {
-            RpcUtils.runClosureInThread(closure, new Status(RaftError.EHOSTDOWN, "Peer %s is not connected", id));
+            Utils.runClosureInThread(executor, closure, new Status(RaftError.EHOSTDOWN, "Peer %s is not connected", id));
             return;
         }
         //id unlock in send empty entries.

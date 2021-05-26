@@ -17,12 +17,19 @@
 package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 
 public class CountDownEventTest {
+    private static final Logger LOG = LoggerFactory.getLogger(CountDownEventTest.class);
+
     @Test
     public void testAwait() throws Exception {
         CountDownEvent e = new CountDownEvent();
@@ -30,8 +37,8 @@ public class CountDownEventTest {
         e.incrementAndGet();
         AtomicLong cost = new AtomicLong(0);
         CountDownLatch latch = new CountDownLatch(1);
-        Utils.runInThread(new Runnable() {
-
+        Executor executor = Executors.newSingleThreadExecutor();
+        Utils.runInThread(executor, new Runnable() {
             @Override
             public void run() {
                 try {
@@ -39,7 +46,7 @@ public class CountDownEventTest {
                     e.await();
                     cost.set(System.currentTimeMillis() - start);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LOG.error("Failed to wait", e);
                 }
                 latch.countDown();
             }
@@ -58,17 +65,16 @@ public class CountDownEventTest {
         e.incrementAndGet();
         e.incrementAndGet();
         Thread thread = Thread.currentThread();
-        Utils.runInThread(new Runnable() {
-
+        Executor executor = Executors.newSingleThreadExecutor();
+        Utils.runInThread(executor, new Runnable() {
             @Override
             public void run() {
                 try {
                     Thread.sleep(100);
                     thread.interrupt();
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LOG.error("Failed to wait", e);
                 }
-
             }
         });
         e.await();
