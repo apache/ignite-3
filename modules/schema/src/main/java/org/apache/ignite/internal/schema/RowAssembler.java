@@ -86,8 +86,10 @@ public class RowAssembler {
      * @return Total size of the varlen table.
      */
     public static int varlenTableChunkSize(int nonNullVarlenCols) {
-        return nonNullVarlenCols == 0 ? 0 :
-            VARLEN_TABLE_SIZE_FIELD_SIZE + nonNullVarlenCols * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
+        int items = nonNullVarlenCols - 1; // Ignore very first varlen.
+
+        return items <= 0 ? 0 :
+            VARLEN_TABLE_SIZE_FIELD_SIZE + items * VARLEN_COLUMN_OFFSET_FIELD_SIZE;
     }
 
     /**
@@ -189,10 +191,10 @@ public class RowAssembler {
 
         buf.putShort(0, (short)schema.version());
 
-        if (nonNullVarlenKeyCols == 0)
-            flags |= OMIT_KEY_VARTBL_FLAG;
+        if (nonNullVarlenKeyCols > 1) // First varlen column offset is known.
+            buf.putShort(varlenTblChunkOff, (short)(nonNullVarlenKeyCols - 1));
         else
-            buf.putShort(varlenTblChunkOff, (short)nonNullVarlenKeyCols);
+            flags |= OMIT_KEY_VARTBL_FLAG;
     }
 
     /**
@@ -337,7 +339,8 @@ public class RowAssembler {
         try {
             int written = buf.putString(curOff, val, encoder());
 
-            writeOffset(curVarlenTblEntry, curOff - baseOff);
+            if (curVarlenTblEntry != 0)
+                writeOffset(curVarlenTblEntry - 1, curOff - baseOff);
 
             if (isKeyColumn())
                 keyHash += 31 * keyHash + val.hashCode();
@@ -362,7 +365,8 @@ public class RowAssembler {
         if (isKeyColumn())
             keyHash += 31 * keyHash + Arrays.hashCode(val);
 
-        writeOffset(curVarlenTblEntry, curOff - baseOff);
+        if (curVarlenTblEntry != 0)
+            writeOffset(curVarlenTblEntry - 1, curOff - baseOff);
 
         shiftColumn(val.length, true);
     }
@@ -514,10 +518,10 @@ public class RowAssembler {
 
             initOffsets(baseOff + chunkLen, nonNullVarlenValCols);
 
-            if (nonNullVarlenValCols == 0)
-                flags |= OMIT_VAL_VARTBL_FLAG;
+            if (nonNullVarlenValCols > 1)
+                buf.putShort(varlenTblChunkOff, (short)(nonNullVarlenValCols - 1));
             else
-                buf.putShort(varlenTblChunkOff, (short)nonNullVarlenValCols);
+                flags |= OMIT_VAL_VARTBL_FLAG;
         }
     }
 

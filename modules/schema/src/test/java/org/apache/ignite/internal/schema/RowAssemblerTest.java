@@ -438,7 +438,7 @@ public class RowAssemblerTest {
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 13, 0, 0, 0, 0, 1, 0, 9, 0, -1, 1, 0, 120}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 26, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121, 9, 0, 0, 0, 0, -1, 1, 0, 120}, asm.build());
         }
 
         { // Null value.
