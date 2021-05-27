@@ -32,7 +32,7 @@ public class InsertCommand implements WriteCommand {
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after.
+     * TODO: Remove the field after (IGNITE-14793).
      */
     private byte[] rowBytes;
 

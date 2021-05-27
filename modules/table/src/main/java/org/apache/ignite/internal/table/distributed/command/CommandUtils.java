@@ -30,6 +30,7 @@ import org.apache.ignite.lang.IgniteLogger;
 /**
  * This is an utility class for serialization cache tuples. It will be removed after another way for serialization is
  * implemented into the network layer.
+ * TODO: Remove it after (IGNITE-14793)
  */
 public class CommandUtils {
     /** The logger. */
