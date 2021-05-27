@@ -51,7 +51,11 @@ import org.jetbrains.annotations.NotNull;
  * Partition command handler.
  */
 public class PartitionCommandListener implements RaftGroupCommandListener {
-    /** Storage. */
+    /**
+     * Storage.
+     * This is a temporary solution, it will apply until persistence layer would not be implemented.
+     * TODO: IGNITE-14790.
+     */
     private ConcurrentHashMap<KeyWrapper, BinaryRow> storage = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
@@ -149,8 +153,7 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
 
                 assert rows != null && !rows.isEmpty();
 
-                rows.stream()
-                    .forEach(k -> storage.put(extractAndWrapKey(k), k));
+                rows.forEach(k -> storage.put(extractAndWrapKey(k), k));
 
                 clo.success(null);
             }
@@ -163,14 +166,8 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
                     .map(k -> {
                         if (k.hasValue())
                             return null;
-                        else {
-                            BinaryRow r = storage.remove(extractAndWrapKey(k));
-
-                            if (r == null)
-                                return null;
-                            else
-                                return r;
-                        }
+                        else
+                            return storage.remove(extractAndWrapKey(k));
                     })
                     .filter(Objects::nonNull)
                     .filter(BinaryRow::hasValue)
@@ -310,10 +307,19 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
     }
 
     /**
-     * @param row Row.
-     * @return Extracted key.
+     * Compares two rows.
+     *
+     * @param row Row to compare.
+     * @param row2 Row to compare.
+     * @return True if these rows is equivalent, false otherwise.
      */
-    @NotNull private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
+    private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
+        if (row == row2)
+            return true;
+
+        if (row == null || row2 == null)
+            return false;
+
         if (row.hasValue() ^ row2.hasValue())
             return false;
 
@@ -321,6 +327,8 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
     }
 
     /**
+     * Makes a wrapped key from a table row.
+     *
      * @param row Row.
      * @return Extracted key.
      */

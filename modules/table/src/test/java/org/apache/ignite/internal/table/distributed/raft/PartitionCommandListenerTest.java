@@ -90,11 +90,12 @@ public class PartitionCommandListenerTest {
     }
 
     /**
-     *
+     * Insrets rows and checks them.
+     * All rows remove before return.
      */
     @Test
     public void testInsertCommands() {
-        readAndChak(false);
+        readAndCheck(false);
 
         delete(false);
 
@@ -102,29 +103,31 @@ public class PartitionCommandListenerTest {
 
         insert(true);
 
-        readAndChak(true);
+        readAndCheck(true);
 
         delete(true);
     }
 
     /**
-     *
+     * Upserts rows and checks them.
+     * All rows remove before return.
      */
     @Test
     public void testUpsertValues() {
-        readAndChak(false);
+        readAndCheck(false);
 
         upsert();
 
-        readAndChak(true);
+        readAndCheck(true);
 
         delete(true);
 
-        readAndChak(false);
+        readAndCheck(false);
     }
 
     /**
-     *
+     * Adds rows, replaces and checks them.
+     * All rows remove before return.
      */
     @Test
     public void testReplaceCommand() {
@@ -134,61 +137,63 @@ public class PartitionCommandListenerTest {
 
         replaceValues(true);
 
-        readAndChak(true, i -> i + 1);
+        readAndCheck(true, i -> i + 1);
 
         replaceValues(false);
 
-        readAndChak(true, i -> i + 1);
+        readAndCheck(true, i -> i + 1);
 
         deleteExactValues(true);
 
-        readAndChak(false);
+        readAndCheck(false);
     }
 
     /**
-     *
+     * The test checks PutIfExist command.
+     * All rows remove before return.
      */
     @Test
     public void testPutIfExistCommand() {
         putIfExistValues(false);
 
-        readAndChak(false);
+        readAndCheck(false);
 
         upsert();
 
         putIfExistValues(true);
 
-        readAndChak(true, i -> i + 1);
+        readAndCheck(true, i -> i + 1);
 
         getAndDeleteValues(true);
 
-        readAndChak(false);
+        readAndCheck(false);
 
         getAndDeleteValues(false);
     }
 
     /**
-     *
+     * The test checks GetAndReplace command.
+     * All rows remove before return.
      */
     @Test
     public void testGetAndReplaceCommand() {
-        readAndChak(false);
+        readAndCheck(false);
 
         getAndUpsertValues(false);
 
-        readAndChak(true);
+        readAndCheck(true);
 
         getAndReplaceValues(true);
 
-        readAndChak(true, i -> i + 1);
+        readAndCheck(true, i -> i + 1);
 
         getAndUpsertValues(true);
 
-        readAndChak(true);
+        readAndCheck(true);
 
         deleteExactAllValues(true);
 
-        readAndChak(false);
+        readAndCheck(false);
 
         getAndReplaceValues(false);
 
@@ -196,7 +201,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
-     *
+     * The test checks a batch upsert command.
+     * All rows remove before return.
      */
     @Test
     public void testUpsertRowsBatchedAndCheck() {
@@ -214,7 +220,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
-     *
+     * The test checks a batch insert command.
+     * All rows remove before return.
      */
     @Test
     public void testInsertRowsBatchedAndCheck() {
@@ -462,8 +469,8 @@ public class PartitionCommandListenerTest {
      *
      * @param existed True if rows are existed, false otherwise.
      */
-    private void readAndChak(boolean existed) {
-        readAndChak(existed, i -> i);
+    private void readAndCheck(boolean existed) {
+        readAndCheck(existed, i -> i);
     }
 
     /**
@@ -472,7 +479,7 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      * @param keyValueMapper Mapper a key to the value which will be expected.
      */
-    private void readAndChak(boolean existed, Function<Integer, Integer> keyValueMapper) {
+    private void readAndCheck(boolean existed, Function<Integer, Integer> keyValueMapper) {
         commandListener.onRead(iterator((i, clo) -> {
             when(clo.command()).thenReturn(new GetCommand(getTestKey(i)));
 
