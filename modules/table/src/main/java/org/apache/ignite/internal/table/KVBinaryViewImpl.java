@@ -139,9 +139,8 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull Tuple key, @NotNull Tuple val) {
+    @Override public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
 
         Row row = marshaller().marshal(key, val); // Convert to portable format to pass TX/storage layer.
 
@@ -239,12 +238,14 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple getAndReplace(Tuple key, Tuple val) {
+    @Override public Tuple getAndReplace(@NotNull Tuple key, Tuple val) {
         return sync(getAndReplaceAsync(key, val));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(Tuple key, Tuple val) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple key, Tuple val) {
+        Objects.requireNonNull(key);
+
         return tbl.getAndReplace(marsh.marshal(key, val))
             .thenApply(this::wrap)
             .thenApply(t -> t == null ? null : t.valueChunk());
@@ -252,7 +253,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public <R extends Serializable> R invoke(
-        Tuple key,
+        @NotNull Tuple key,
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
@@ -261,7 +262,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-        Tuple key,
+        @NotNull Tuple key,
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
@@ -270,7 +271,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public <R extends Serializable> Map<Tuple, R> invokeAll(
-        Collection<Tuple> keys,
+        @NotNull Collection<Tuple> keys,
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
@@ -279,7 +280,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public @NotNull <R extends Serializable> CompletableFuture<Map<Tuple, R>> invokeAllAsync(
-        Collection<Tuple> keys,
+        @NotNull Collection<Tuple> keys,
         InvokeProcessor<Tuple, Tuple, R> proc,
         Serializable... args
     ) {
