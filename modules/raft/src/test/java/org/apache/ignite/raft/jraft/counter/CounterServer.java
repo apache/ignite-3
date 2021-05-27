@@ -24,7 +24,6 @@ import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -35,7 +34,10 @@ import org.apache.ignite.raft.jraft.counter.rpc.IncrementAndGetRequestProcessor;
 import org.apache.ignite.raft.jraft.counter.rpc.ValueResponse;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
-import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.util.Utils;
+
+import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
+import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 
 /**
  * Counter server that keeps a counter value in a raft group.
@@ -122,6 +124,11 @@ public class CounterServer {
 
     public static CounterServer start(String dataPath, String groupId, PeerId serverId, Configuration initConf) throws IOException {
         final NodeOptions nodeOptions = new NodeOptions();
+
+        nodeOptions.setCommonExecutor(createExecutor("JRaft-Common-Executor-" + serverId.getEndpoint().toString(),
+            nodeOptions.getCommonThreadPollSize()));
+        nodeOptions.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor-" + serverId.getEndpoint().toString(),
+            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
 
         nodeOptions.setElectionTimeoutMs(1000);
         nodeOptions.setDisableCli(false);

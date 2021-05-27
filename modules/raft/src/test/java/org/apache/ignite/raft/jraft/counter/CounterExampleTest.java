@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.jraft.RouteTable;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -42,7 +41,7 @@ public class CounterExampleTest {
 
     @Before
     public void setup() throws Exception {
-        System.out.println(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
+        LOG.info(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
         this.dataPath = TestUtils.mkTempDir();
         new File(this.dataPath).mkdirs();
     }
@@ -51,7 +50,7 @@ public class CounterExampleTest {
     public void teardown() throws Exception {
         assertTrue(Utils.delete(new File(this.dataPath)));
 
-        System.out.println(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());
+        LOG.info(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());
     }
 
     @Test
@@ -93,7 +92,7 @@ public class CounterExampleTest {
             }
 
             final PeerId leader = RouteTable.getInstance().selectLeader(groupId);
-            System.out.println("Leader is " + leader);
+            LOG.info("Leader is " + leader);
             final int n = 1000;
             final CountDownLatch latch = new CountDownLatch(n);
             final long start = System.currentTimeMillis();
@@ -101,7 +100,7 @@ public class CounterExampleTest {
                 incrementAndGet(cliClientService, leader, i, latch);
             }
             latch.await();
-            System.out.println(n + " ops, cost : " + (System.currentTimeMillis() - start) + " ms.");
+            LOG.info(n + " ops, cost : " + (System.currentTimeMillis() - start) + " ms.");
         } finally {
             CounterServer.stopAll();
         }
@@ -113,21 +112,15 @@ public class CounterExampleTest {
         request.setDelta(delta);
 
         cliClientService.getRpcClient().invokeAsync(leader.getEndpoint(), request, new InvokeCallback() {
-
             @Override
             public void complete(Object result, Throwable err) {
                 if (err == null) {
                     latch.countDown();
-                    System.out.println("incrementAndGet result:" + result);
+                    LOG.info("incrementAndGet result:" + result);
                 } else {
                     LOG.error("Failed to comnplete operation", err);
                     latch.countDown();
                 }
-            }
-
-            @Override
-            public Executor executor() {
-                return null;
             }
         }, 5000);
     }

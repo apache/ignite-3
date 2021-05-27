@@ -104,8 +104,7 @@ public class JRaftServerImpl implements RaftServer {
             Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
 
         rpcServer = new IgniteRpcServer(service, reuse, nodeManager,
-            createExecutor("JRaft-Request-Processor-" + suffix, opts.getRaftRpcThreadPoolSize())
-        );
+            createExecutor("JRaft-Request-Processor-" + suffix, opts.getRaftRpcThreadPoolSize()));
 
         rpcServer.init(null);
     }
