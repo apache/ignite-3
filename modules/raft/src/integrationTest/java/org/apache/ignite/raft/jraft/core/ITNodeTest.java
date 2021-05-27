@@ -19,8 +19,6 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.network.ClusterService;
@@ -93,6 +91,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
+import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -103,32 +102,34 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-/** */
+/**
+ * Integration tests for raft cluster.
+ */
 public class ITNodeTest {
-    static final Logger         LOG            = LoggerFactory.getLogger(ITNodeTest.class);
+    static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
 
-    private String              dataPath;
+    private String dataPath;
 
     private final AtomicInteger startedCounter = new AtomicInteger(0);
     private final AtomicInteger stoppedCounter = new AtomicInteger(0);
 
     @Rule
-    public TestName             testName       = new TestName();
+    public TestName testName = new TestName();
 
-    private long                testStartMs;
+    private long testStartMs;
 
-    private static DumpThread   dumpThread;
+    private static DumpThread dumpThread;
 
     static class DumpThread extends Thread {
-        private static long      DUMP_TIMEOUT_MS = 5 * 60 * 1000;
-        private volatile boolean stopped         = false;
+        private static long DUMP_TIMEOUT_MS = 5 * 60 * 1000;
+        private volatile boolean stopped = false;
 
         @Override
         public void run() {
             while (!this.stopped) {
                 try {
                     Thread.sleep(DUMP_TIMEOUT_MS);
-                    System.out.println("Test hang too long, dump threads");
+                    LOG.info("Test hang too long, dump threads");
                     TestUtils.dumpThreads();
                 } catch (InterruptedException e) {
                     // reset request, continue
@@ -155,7 +156,7 @@ public class ITNodeTest {
 
     @Before
     public void setup() throws Exception {
-        System.out.println(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
+        LOG.info(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
         this.dataPath = TestUtils.mkTempDir();
 
         File dataFile = new File(this.dataPath);
@@ -164,7 +165,6 @@ public class ITNodeTest {
             assertTrue(Utils.delete(dataFile));
 
         dataFile.mkdirs();
-        // assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0); // TODO asch
         this.testStartMs = Utils.monotonicMs();
         dumpThread.interrupt(); // reset dump timeout
     }
@@ -176,15 +176,11 @@ public class ITNodeTest {
                 c.stopAll();
             }
         }
-//        if (NodeImpl.GLOBAL_NUM_NODES.get() > 0) { // TODO asch
-//            Thread.sleep(5000);
-//            assertEquals(0, NodeImpl.GLOBAL_NUM_NODES.get());
-//        }
         assertTrue(Utils.delete(new File(this.dataPath)));
         this.startedCounter.set(0);
         this.stoppedCounter.set(0);
-        System.out.println(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName() + ", cost:"
-                           + (Utils.monotonicMs() - this.testStartMs) + " ms.");
+        LOG.info(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName() + ", cost:"
+            + (Utils.monotonicMs() - this.testStartMs) + " ms.");
     }
 
     @Test
@@ -192,19 +188,9 @@ public class ITNodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final NodeOptions nodeOptions = new NodeOptions();
 
-        ExecutorService commonExecutor =
-            createExecutor("JRaft-Common-Executor-" + addr.toString(), nodeOptions.getCommonThreadPollSize());
-
-        nodeOptions.setCommonExecutor(commonExecutor);
-
-        FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
-            .newExecutorGroup(
-                Utils.APPEND_ENTRIES_THREADS_SEND,
-                "JRaft-AppendEntries-Processor-" + addr.toString(),
-                Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
-                true);
-
-        nodeOptions.setStripedExecutor(stripedExecutor);
+        nodeOptions.setCommonExecutor(createExecutor("JRaft-Common-Executor", nodeOptions.getCommonThreadPollSize()));
+        nodeOptions.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor",
+            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
 
         nodeOptions.setFsm(new MockStateMachine(addr));
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -223,7 +209,7 @@ public class ITNodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final PeerId peer = new PeerId(addr, 0);
 
-        final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+        final NodeOptions nodeOptions = createNodeOptions();
         final RaftOptions raftOptions = new RaftOptions();
         raftOptions.setDisruptorBufferSize(2);
         nodeOptions.setRaftOptions(raftOptions);
@@ -253,7 +239,7 @@ public class ITNodeTest {
                 System.out.println(status);
                 if (!status.isOk()) {
                     assertTrue(
-                            status.getRaftError() == RaftError.EBUSY || status.getRaftError() == RaftError.EPERM);
+                        status.getRaftError() == RaftError.EBUSY || status.getRaftError() == RaftError.EPERM);
                 }
                 c.incrementAndGet();
             }));
@@ -277,7 +263,7 @@ public class ITNodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final PeerId peer = new PeerId(addr, 0);
 
-        final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+        final NodeOptions nodeOptions = createNodeOptions();
         final CountDownLatch applyCompleteLatch = new CountDownLatch(1);
         final CountDownLatch applyLatch = new CountDownLatch(1);
         final CountDownLatch readIndexLatch = new CountDownLatch(1);
@@ -352,7 +338,7 @@ public class ITNodeTest {
                         } else {
                             assertTrue("Unexpected status: " + status,
                                 status.getErrorMsg().contains(errorMsg) || status.getRaftError() == RaftError.ETIMEDOUT
-                                        || status.getErrorMsg().contains("Invalid state for readIndex: STATE_ERROR"));
+                                    || status.getErrorMsg().contains("Invalid state for readIndex: STATE_ERROR"));
                         }
                     } finally {
                         latch.countDown();
@@ -382,7 +368,7 @@ public class ITNodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final PeerId peer = new PeerId(addr, 0);
 
-        final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+        final NodeOptions nodeOptions = createNodeOptions();
         final MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -687,11 +673,11 @@ public class ITNodeTest {
         final PeerId learnerPeer = new PeerId(learnerAddr, 0);
 
         final int cnt = 10;
-        MockStateMachine learnerFsm ;
+        MockStateMachine learnerFsm;
         RaftGroupService learnerServer;
         {
             // Start learner
-            final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+            final NodeOptions nodeOptions = createNodeOptions();
             learnerFsm = new MockStateMachine(learnerAddr);
             nodeOptions.setFsm(learnerFsm);
             nodeOptions.setLogUri(this.dataPath + File.separator + "log1");
@@ -706,7 +692,7 @@ public class ITNodeTest {
 
         {
             // Start leader
-            final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+            final NodeOptions nodeOptions = createNodeOptions();
             final MockStateMachine fsm = new MockStateMachine(addr);
             nodeOptions.setFsm(fsm);
             nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -1502,7 +1488,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @SuppressWarnings({ "unused", "SameParameterValue" })
+    @SuppressWarnings({"unused", "SameParameterValue"})
     private boolean assertReadIndex(final Node node, final int index) throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         final byte[] requestContext = TestUtils.getRandomBytes();
@@ -2119,12 +2105,12 @@ public class ITNodeTest {
     }
 
     private void triggerLeaderSnapshot(final TestCluster cluster, final Node leader, final int times)
-                                                                                                     throws InterruptedException {
+        throws InterruptedException {
         // trigger leader snapshot
         // first snapshot will be triggered randomly
         int snapshotTimes = cluster.getLeaderFsm().getSaveSnapshotTimes();
         assertTrue("snapshotTimes=" + snapshotTimes + ", times=" + times, snapshotTimes == times - 1
-                                                                          || snapshotTimes == times);
+            || snapshotTimes == times);
         final CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -2368,7 +2354,7 @@ public class ITNodeTest {
     @Test
     public void testNoSnapshot() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
-        final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+        final NodeOptions nodeOptions = createNodeOptions();
         final MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -2396,7 +2382,7 @@ public class ITNodeTest {
     @Test
     public void testAutoSnapshot() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
-        final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+        final NodeOptions nodeOptions = createNodeOptions();
         final MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -2612,8 +2598,9 @@ public class ITNodeTest {
 
     /**
      * mock state machine that fails to load snapshot.
-     * @author boyan (boyan@alibaba-inc.com)
      *
+     * @author boyan (boyan@alibaba-inc.com)
+     * <p>
      * 2018-Apr-23 11:45:29 AM
      */
     static class MockFSM1 extends MockStateMachine {
@@ -2636,7 +2623,7 @@ public class ITNodeTest {
     public void testShutdownAndJoinWorkAfterInitFails() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         {
-            final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+            final NodeOptions nodeOptions = createNodeOptions();
             final MockStateMachine fsm = new MockStateMachine(addr);
             nodeOptions.setFsm(fsm);
             nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -2658,7 +2645,7 @@ public class ITNodeTest {
             service.shutdown();
         }
         {
-            final NodeOptions nodeOptions = createNodeOptionsWithSharedTimer();
+            final NodeOptions nodeOptions = createNodeOptions();
             final MockStateMachine fsm = new MockFSM1(addr);
             nodeOptions.setFsm(fsm);
             nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -2672,11 +2659,9 @@ public class ITNodeTest {
                 service.start(true);
 
                 fail();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 // Expected.
-            }
-            finally {
+            } finally {
                 service.shutdown();
             }
 
@@ -2844,7 +2829,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         final List<PeerId> peers = TestUtils.generatePeers(5);
@@ -2864,7 +2849,7 @@ public class ITNodeTest {
         final List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (final Node node : firstFollowers) {
-            assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
+            assertTrue(waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
             assertEquals(0, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -3017,7 +3002,7 @@ public class ITNodeTest {
         final MockStateMachine fsm = new MockStateMachine(addr);
 
         for (char ch = 'a'; ch <= 'z'; ch++) {
-            fsm.getLogs().add(ByteBuffer.wrap(new byte[] { (byte) ch }));
+            fsm.getLogs().add(ByteBuffer.wrap(new byte[]{(byte) ch}));
         }
 
         final BootstrapOptions opts = new BootstrapOptions();
@@ -3030,7 +3015,7 @@ public class ITNodeTest {
 
         assertTrue(JRaftUtils.bootstrap(opts));
 
-        final NodeOptions nodeOpts = createNodeOptionsWithSharedTimer();
+        final NodeOptions nodeOpts = createNodeOptions();
         nodeOpts.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOpts.setLogUri(this.dataPath + File.separator + "log");
         nodeOpts.setSnapshotUri(this.dataPath + File.separator + "snapshot");
@@ -3055,7 +3040,8 @@ public class ITNodeTest {
     }
 
     @Test
-    @Ignore // TODO asch the test doesn't work with volatile log. Initial configuration is not set and group is empty on start.
+    @Ignore
+    // TODO asch the test doesn't work with volatile log. Initial configuration is not set and group is empty on start.
     public void testBootStrapWithoutSnapshot() throws Exception {
         final Endpoint addr = JRaftUtils.getEndPoint("127.0.0.1:5006");
         final MockStateMachine fsm = new MockStateMachine(addr);
@@ -3070,7 +3056,7 @@ public class ITNodeTest {
 
         assertTrue(JRaftUtils.bootstrap(opts));
 
-        final NodeOptions nodeOpts = createNodeOptionsWithSharedTimer();
+        final NodeOptions nodeOpts = createNodeOptions();
         nodeOpts.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOpts.setLogUri(this.dataPath + File.separator + "log");
         nodeOpts.setSnapshotUri(this.dataPath + File.separator + "snapshot");
@@ -3230,12 +3216,12 @@ public class ITNodeTest {
 
     static class ChangeArg {
         TestCluster c;
-        List<PeerId>     peers;
+        List<PeerId> peers;
         volatile boolean stop;
-        boolean          dontRemoveFirstPeer;
+        boolean dontRemoveFirstPeer;
 
         ChangeArg(final TestCluster c, final List<PeerId> peers, final boolean stop,
-                         final boolean dontRemoveFirstPeer) {
+                  final boolean dontRemoveFirstPeer) {
             super();
             this.c = c;
             this.peers = peers;
@@ -3305,7 +3291,7 @@ public class ITNodeTest {
         final ChangeArg arg = new ChangeArg(cluster, peers, false, false);
 
         final Future<?> future = startChangePeersThread(arg);
-        for (int i = 0; i < 5000;) {
+        for (int i = 0; i < 5000; ) {
             cluster.waitLeader();
             final Node leader = cluster.getLeader();
             if (leader == null) {
@@ -3357,7 +3343,7 @@ public class ITNodeTest {
 
         final Future<?> future = startChangePeersThread(arg);
         final int tasks = 5000;
-        for (int i = 0; i < tasks;) {
+        for (int i = 0; i < tasks; ) {
             cluster.waitLeader();
             final Node leader = cluster.getLeader();
             if (leader == null) {
@@ -3419,7 +3405,7 @@ public class ITNodeTest {
 
             Utils.runInThread(executor, () -> {
                 try {
-                    for (int i = 0; i < 5000;) {
+                    for (int i = 0; i < 5000; ) {
                         cluster.waitLeader();
                         final Node leader = cluster.getLeader();
                         if (leader == null) {
@@ -3484,7 +3470,7 @@ public class ITNodeTest {
 
         Node leader = cluster.getLeader();
 
-        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), ((NodeImpl)leader).getOptions().getElectionTimeoutMs());
+        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getOptions().getElectionTimeoutMs());
 
         List<Node> followers = cluster.getFollowers();
 
@@ -3530,28 +3516,19 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    // TODO asch shared timer not supported.
-    private NodeOptions createNodeOptionsWithSharedTimer() {
+    private NodeOptions createNodeOptions() {
         final NodeOptions options = new NodeOptions();
 
-        ExecutorService commonExecutor =
-            createExecutor("JRaft-Common-Executor", options.getCommonThreadPollSize());
+        options.setCommonExecutor(createExecutor("JRaft-Common-Executor", options.getCommonThreadPollSize()));
+        options.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor",
+            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
 
-        FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
-            .newExecutorGroup(
-                Utils.APPEND_ENTRIES_THREADS_SEND,
-                "JRaft-AppendEntries-Processor",
-                Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
-                true);
-
-        options.setCommonExecutor(commonExecutor);
-        options.setStripedExecutor(stripedExecutor);
-        options.setSharedElectionTimer(true);
-        options.setSharedVoteTimer(true);
         return options;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     private boolean waitForTopology(TestCluster cluster, Endpoint addr, int expected, long timeout) {
         RaftGroupService grp = cluster.getServer(addr);
 
@@ -3563,37 +3540,17 @@ public class ITNodeTest {
         if (!(rpcServer instanceof IgniteRpcServer))
             return true;
 
-        ClusterService service = ((IgniteRpcServer)grp.getRpcServer()).clusterService();
+        ClusterService service = ((IgniteRpcServer) grp.getRpcServer()).clusterService();
 
         long stop = System.currentTimeMillis() + timeout;
 
-        while(System.currentTimeMillis() < stop) {
+        while (System.currentTimeMillis() < stop) {
             if (service.topologyService().allMembers().size() >= expected)
                 return true;
 
             try {
                 Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
-                return false;
-            }
-        }
-
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    private boolean waitForCondition(BooleanSupplier cond, long timeout) {
-        long stop = System.currentTimeMillis() + timeout;
-
-        while(System.currentTimeMillis() < stop) {
-            if (cond.getAsBoolean())
-                return true;
-
-            try {
-                Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 return false;
             }
         }
@@ -3602,8 +3559,28 @@ public class ITNodeTest {
     }
 
     /**
-     * @param groupId Group id.
-     * @param peerId Peer id.
+     * {@inheritDoc}
+     */
+    private boolean waitForCondition(BooleanSupplier cond, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while (System.currentTimeMillis() < stop) {
+            if (cond.getAsBoolean())
+                return true;
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param groupId     Group id.
+     * @param peerId      Peer id.
      * @param nodeOptions Node options.
      * @return Raft group service.
      */

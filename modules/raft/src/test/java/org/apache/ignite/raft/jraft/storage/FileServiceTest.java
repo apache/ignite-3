@@ -40,8 +40,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class FileServiceTest {
-
-    private String         path;
+    private String path;
     private LocalDirReader fileReader;
 
     @Before

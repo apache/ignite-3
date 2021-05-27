@@ -130,7 +130,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 if (executor == null)
                     executor = prc.executor();
 
-                assert executor != null;
+                if (executor == null)
+                    executor = rpcExecutor;
 
                 RpcProcessor finalPrc = prc;
 

@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -52,6 +53,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
+import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 
 /**
  * Test cluster for NodeTest
@@ -193,19 +195,10 @@ public class TestCluster {
 
         final NodeOptions nodeOptions = new NodeOptions();
 
-        ExecutorService commonExecutor =
-            createExecutor("JRaft-Common-Executor-" + listenAddr.toString(), nodeOptions.getCommonThreadPollSize());
-
-        nodeOptions.setCommonExecutor(commonExecutor);
-
-        FixedThreadsExecutorGroup stripedExecutor = DefaultFixedThreadsExecutorGroupFactory.INSTANCE
-            .newExecutorGroup(
-                Utils.APPEND_ENTRIES_THREADS_SEND,
-                "JRaft-AppendEntries-Processor-" + listenAddr.toString(),
-                Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
-                true);
-
-        nodeOptions.setStripedExecutor(stripedExecutor);
+        nodeOptions.setCommonExecutor(createExecutor("JRaft-Common-Executor-" + listenAddr.toString(),
+            nodeOptions.getCommonThreadPollSize()));
+        nodeOptions.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor-" + listenAddr.toString(),
+                Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
 
         nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);
         nodeOptions.setEnableMetrics(enableMetrics);

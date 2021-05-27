@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -27,6 +28,7 @@ import org.apache.ignite.raft.jraft.storage.LogManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,14 +45,17 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class IteratorImplTest {
+    private IteratorImpl iter;
 
-    private IteratorImpl  iter;
     @Mock
-    private StateMachine  fsm;
+    private StateMachine fsm;
+
     @Mock
-    private LogManager    logManager;
+    private LogManager logManager;
+
     private List<Closure> closures;
-    private AtomicLong    applyingIndex;
+
+    private AtomicLong applyingIndex;
 
     @Before
     public void setup() {
@@ -63,7 +68,9 @@ public class IteratorImplTest {
             log.getId().setTerm(1);
             Mockito.when(this.logManager.getEntry(i)).thenReturn(log);
         }
-        this.iter = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, new NodeOptions());
+        NodeOptions nodeOptions = new NodeOptions();
+        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        this.iter = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, nodeOptions);
     }
 
     @Test

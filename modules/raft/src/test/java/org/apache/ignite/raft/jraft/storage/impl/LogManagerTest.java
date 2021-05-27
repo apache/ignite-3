@@ -27,10 +27,12 @@ import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.LogManagerOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
@@ -39,12 +41,14 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
@@ -56,12 +60,17 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class LogManagerTest extends BaseStorageTest {
-    private LogManagerImpl       logManager;
-    private ConfigurationManager confManager;
-    @Mock
-    private FSMCaller            fsmCaller;
+    private LogManagerImpl logManager;
 
-    private LogStorage           logStorage;
+    private ConfigurationManager confManager;
+
+    @Mock
+    private FSMCaller fsmCaller;
+
+    @Mock
+    private Node node;
+
+    private LogStorage logStorage;
 
     @Override
     @Before
@@ -72,7 +81,12 @@ public class LogManagerTest extends BaseStorageTest {
         this.logStorage = newLogStorage(raftOptions);
         this.logManager = new LogManagerImpl();
         final LogManagerOptions opts = new LogManagerOptions();
-        final Node node = new NodeImpl("test", new PeerId("localhost", 8082));
+
+        Mockito.when(node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8082)));
+        NodeOptions nodeOptions = new NodeOptions();
+        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        Mockito.when(node.getOptions()).thenReturn(nodeOptions);
+
         opts.setConfigurationManager(this.confManager);
         opts.setLogEntryCodecFactory(LogEntryV1CodecFactory.getInstance());
         opts.setFsmCaller(this.fsmCaller);

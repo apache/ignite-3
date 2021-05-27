@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.storage;
 
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.LoadSnapshotClosure;
 import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
@@ -110,7 +111,9 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         this.copyOpts = new CopyOptions();
 
         Mockito.when(this.node.getRaftOptions()).thenReturn(new RaftOptions());
-        Mockito.when(this.node.getOptions()).thenReturn(new NodeOptions());
+        NodeOptions options = new NodeOptions();
+        options.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        Mockito.when(this.node.getOptions()).thenReturn(options);
         Mockito.when(this.node.getRpcClientService()).thenReturn(this.raftClientService);
         Mockito.when(this.node.getTimerManager()).thenReturn(this.timerManager);
         Mockito.when(this.node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory());
@@ -202,7 +205,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     }
 
     @Test
-    public void testInterruptInstallaling() throws Exception {
+    public void testInterruptInstalling() throws Exception {
         final RpcRequests.InstallSnapshotRequest.Builder irb = RpcRequests.InstallSnapshotRequest.newBuilder();
         irb.setGroupId("test");
         irb.setPeerId(this.addr.toString());
@@ -261,6 +264,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     public void testNotDoSnapshotWithIntervalDist() throws Exception {
         final NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setSnapshotLogIndexMargin(10);
+        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
         Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(this.fSMCaller.getLastAppliedIndex()).thenReturn(1L);
         this.executor.doSnapshot(null);
@@ -275,6 +279,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
     public void testDoSnapshotWithIntervalDist() throws Exception {
         final NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setSnapshotLogIndexMargin(5);
+        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
         Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(this.fSMCaller.getLastAppliedIndex()).thenReturn(6L);
 

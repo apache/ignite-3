@@ -30,6 +30,9 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
+import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 
 /**
  * Some helper methods for jraft usage.
@@ -73,6 +76,23 @@ public final class JRaftUtils {
             .workQueue(new LinkedBlockingQueue<>()) //
             .threadFactory(createThreadFactory(prefix)) //
             .build();
+    }
+
+    /**
+     * Create a striped executor.
+     *
+     * @param prefix Thread name prefix.
+     * @param number Thread number.
+     * @param tasksPerThread Max tasks per thread.
+     * @return The executor.
+     */
+    public static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number, final int tasksPerThread) {
+        return DefaultFixedThreadsExecutorGroupFactory.INSTANCE
+            .newExecutorGroup(
+                number,
+                prefix,
+                tasksPerThread,
+                true);
     }
 
     /**

@@ -65,7 +65,7 @@ import static org.junit.Assert.fail;
 
 // TODO asch move to integration
 public class CliServiceTest {
-    static final Logger LOG     = LoggerFactory.getLogger(CliServiceTest.class);
+    static final Logger LOG = LoggerFactory.getLogger(CliServiceTest.class);
 
     /** */
     private final static MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
@@ -74,27 +74,25 @@ public class CliServiceTest {
     /** */
     private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
 
-    private String           dataPath;
+    private String dataPath;
 
     private TestCluster cluster;
-    private final String     groupId           = "CliServiceTest";
+    private final String groupId = "CliServiceTest";
 
-    private CliService       cliService;
+    private CliService cliService;
 
-    private Configuration    conf;
+    private Configuration conf;
 
     @Rule
-    public TestName          testName          = new TestName();
+    public TestName testName = new TestName();
 
     private static final int LEARNER_PORT_STEP = 100;
 
     @Before
     public void setup() throws Exception {
-        // TODO asch replace with logger
-        System.out.println(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
+        LOG.info(">>>>>>>>>>>>>>> Start test method: " + this.testName.getMethodName());
         this.dataPath = TestUtils.mkTempDir();
         new File(this.dataPath).mkdirs();
-        // assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0); // TODO asch
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
         final LinkedHashSet<PeerId> learners = new LinkedHashSet<>();
@@ -131,13 +129,9 @@ public class CliServiceTest {
     public void teardown() throws Exception {
         this.cliService.shutdown();
         this.cluster.stopAll();
-//        if (NodeImpl.GLOBAL_NUM_NODES.get() > 0) { // TODO asch
-//            Thread.sleep(1000);
-//            assertEquals(NodeImpl.GLOBAL_NUM_NODES.get(), 0);
-//        }
         Utils.delete(new File(this.dataPath));
         RouteTable.getInstance().reset();
-        System.out.println(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());
+        LOG.info(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());
     }
 
     @Test
@@ -462,7 +456,7 @@ public class CliServiceTest {
     class MockCliService extends CliServiceImpl {
 
         private final Map<String, PeerId> rebalancedLeaderIds;
-        private final PeerId              initialLeaderId;
+        private final PeerId initialLeaderId;
 
         MockCliService(final Map<String, PeerId> rebalancedLeaderIds, final PeerId initialLeaderId) {
             this.rebalancedLeaderIds = rebalancedLeaderIds;

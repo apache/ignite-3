@@ -17,11 +17,14 @@
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
+import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.ReadIndexState;
 import org.apache.ignite.raft.jraft.entity.ReadIndexStatus;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyServiceOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
@@ -51,7 +54,6 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ReadOnlyServiceTest {
-
     private ReadOnlyServiceImpl readOnlyServiceImpl;
 
     @Mock
@@ -69,6 +71,10 @@ public class ReadOnlyServiceTest {
         opts.setRaftOptions(new RaftOptions());
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getGroupId()).thenReturn("test");
+        NodeOptions nodeOptions = new NodeOptions();
+        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
+        Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost:8081", 0)));
         Mockito.when(this.node.getServerId()).thenReturn(new PeerId("localhost:8081", 0));
         assertTrue(this.readOnlyServiceImpl.init(opts));
     }

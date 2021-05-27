@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  *
@@ -25,6 +26,6 @@ public interface InvokeCallback {
     void complete(final Object result, final Throwable err);
 
     default Executor executor() {
-        return null;
+        return ForkJoinPool.commonPool();
     }
 }

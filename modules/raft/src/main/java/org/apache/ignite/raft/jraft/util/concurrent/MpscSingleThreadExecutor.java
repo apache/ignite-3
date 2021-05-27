@@ -34,35 +34,30 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
- * @author jiachun.fjc
  */
 public class MpscSingleThreadExecutor implements SingleThreadExecutor {
+    private static final Logger LOG = LoggerFactory.getLogger(MpscSingleThreadExecutor.class);
 
-    private static final Logger                                              LOG                      = LoggerFactory
-                                                                                                          .getLogger(MpscSingleThreadExecutor.class);
+    private static final AtomicIntegerFieldUpdater<MpscSingleThreadExecutor> STATE_UPDATER = AtomicIntegerFieldUpdater
+        .newUpdater(MpscSingleThreadExecutor.class, "state");
 
-    private static final AtomicIntegerFieldUpdater<MpscSingleThreadExecutor> STATE_UPDATER            = AtomicIntegerFieldUpdater
-                                                                                                          .newUpdater(
-                                                                                                              MpscSingleThreadExecutor.class,
-                                                                                                              "state");
+    private static final long DEFAULT_SHUTDOWN_TIMEOUT = 15;
 
-    private static final long                                                DEFAULT_SHUTDOWN_TIMEOUT = 15;
+    private static final int ST_NOT_STARTED = 1;
+    private static final int ST_STARTED = 2;
+    private static final int ST_SHUTDOWN = 3;
+    private static final int ST_TERMINATED = 4;
 
-    private static final int                                                 ST_NOT_STARTED           = 1;
-    private static final int                                                 ST_STARTED               = 2;
-    private static final int                                                 ST_SHUTDOWN              = 3;
-    private static final int                                                 ST_TERMINATED            = 4;
+    private static final Runnable WAKEUP_TASK = () -> {};
 
-    private static final Runnable                                            WAKEUP_TASK              = () -> {};
-
-    private final Queue<Runnable>                                            taskQueue;
-    private final Executor                                                   executor;
+    private final Queue<Runnable> taskQueue;
+    private final Executor executor;
     private final RejectedExecutionHandler rejectedExecutionHandler;
-    private final Set<Runnable>                                              shutdownHooks            = new LinkedHashSet<>();
-    private final Semaphore                                                  threadLock               = new Semaphore(0);
+    private final Set<Runnable> shutdownHooks = new LinkedHashSet<>();
+    private final Semaphore threadLock = new Semaphore(0);
 
-    private volatile int                                                     state                    = ST_NOT_STARTED;
-    private volatile Worker                                                  worker;
+    private volatile int state = ST_NOT_STARTED;
+    private volatile Worker worker;
 
     public MpscSingleThreadExecutor(int maxPendingTasks, ThreadFactory threadFactory) {
         this(maxPendingTasks, threadFactory, RejectedExecutionHandlers.reject());
@@ -89,7 +84,7 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
 
         boolean wakeup;
         int oldState;
-        for (;;) {
+        for (; ; ) {
             if (isShutdown()) {
                 return awaitTermination(timeout, unit);
             }
@@ -205,8 +200,7 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
     }
 
     /**
-     * Add a task to the task queue, or throws a {@link RejectedExecutionException} if
-     * this instance was shutdown before.
+     * Add a task to the task queue or throws a {@link RejectedExecutionException} if this instance was shutdown before.
      */
     protected void addTask(final Runnable task) {
         if (!offerTask(task)) {
@@ -262,7 +256,7 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
             } catch (final Throwable t) {
                 LOG.warn("Unexpected exception from executor: ", t);
             } finally {
-                for (;;) {
+                for (; ; ) {
                     int oldState = MpscSingleThreadExecutor.this.state;
                     if (oldState >= ST_SHUTDOWN || STATE_UPDATER.compareAndSet(MpscSingleThreadExecutor.this, oldState, ST_SHUTDOWN)) {
                         break;
@@ -291,15 +285,15 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
     }
 
     private static final AtomicIntegerFieldUpdater<Worker> NOTIFY_UPDATER = AtomicIntegerFieldUpdater.newUpdater(
-                                                                              Worker.class, "notifyNeeded");
-    private static final int                               NOT_NEEDED     = 0;
-    private static final int                               NEEDED         = 1;
+        Worker.class, "notifyNeeded");
+    private static final int NOT_NEEDED = 0;
+    private static final int NEEDED = 1;
 
     private class Worker implements Runnable {
 
         final Thread thread;
         volatile int notifyNeeded = NOT_NEEDED;
-        boolean      stop         = false;
+        boolean stop = false;
 
         private Worker(Thread thread) {
             this.thread = thread;
@@ -307,7 +301,7 @@ public class MpscSingleThreadExecutor implements SingleThreadExecutor {
 
         @Override
         public void run() {
-            for (;;) {
+            for (; ; ) {
                 final Runnable task = pollTask();
                 if (task == null) {
                     // wait task

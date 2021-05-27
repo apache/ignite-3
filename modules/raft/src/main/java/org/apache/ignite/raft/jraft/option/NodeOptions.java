@@ -156,7 +156,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private boolean sharedElectionTimer = false;
 
     /**
-     * Whether use global vote timer
+     * Whether use global vote timer TODO asch need this ?
      */
     private boolean sharedVoteTimer = false;
 

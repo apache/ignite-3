@@ -16,13 +16,18 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
+import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,6 +35,9 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
+
+import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
+import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public abstract class BaseNodeRequestProcessorTest<T extends Message> {
@@ -70,6 +78,14 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
         final PeerId peerId = new PeerId();
         peerId.parse(this.peerIdStr);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId(groupId, peerId));
+
+        NodeOptions nodeOptions = new NodeOptions();
+
+        nodeOptions.setCommonExecutor(createExecutor("JRaft-Common-Executor", nodeOptions.getCommonThreadPollSize()));
+        nodeOptions.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor",
+            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
+
+        Mockito.when(node.getOptions()).thenReturn(nodeOptions);
         if (asyncContext != null)
             asyncContext.getNodeManager().add(node);
         return peerId;
