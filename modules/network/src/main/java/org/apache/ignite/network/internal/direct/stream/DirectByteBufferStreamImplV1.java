@@ -38,6 +38,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BOOLEAN_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_ARRAY;
@@ -91,6 +92,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private boolean msgTypeDone;
 
     /** */
+    @Nullable
     private MessageDeserializer<NetworkMessage> msgDeserializer;
 
     /** */
@@ -534,7 +536,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                     writer.setCurrentWriteClass(msg.getClass());
 
-                    MessageSerializer<NetworkMessage> serializer = serializationRegistry.createSerializer(msg.directType());
+                    MessageSerializer<NetworkMessage> serializer =
+                        serializationRegistry.createSerializer(msg.moduleType(), msg.messageType());
 
                     writer.setBuffer(buf);
 
@@ -1029,15 +1032,22 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override public <T extends NetworkMessage> T readMessage(MessageReader reader) {
         if (!msgTypeDone) {
-            if (buf.remaining() < NetworkMessage.DIRECT_TYPE_SIZE) {
+            if (buf.remaining() < NetworkMessage.MSG_TYPE_SIZE_BYTES) {
                 lastFinished = false;
 
                 return null;
             }
 
-            short type = readShort();
+            short moduleType = readShort();
 
-            msgDeserializer = type == Short.MIN_VALUE ? null : serializationRegistry.createDeserializer(type);
+            if (moduleType == Short.MIN_VALUE) {
+                msgDeserializer = null;
+            }
+            else {
+                short messageType = readShort();
+
+                msgDeserializer = serializationRegistry.createDeserializer(moduleType, messageType);
+            }
 
             msgTypeDone = true;
         }

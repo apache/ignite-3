@@ -22,6 +22,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
@@ -36,7 +37,7 @@ public class MessageSerializationRegistryTest {
     public void testRegisterFactory() {
         var registry = new MessageSerializationRegistry();
 
-        registry.registerFactory(Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
     }
 
     /**
@@ -47,9 +48,32 @@ public class MessageSerializationRegistryTest {
     public void testRegisterFactoryWithSameType() {
         var registry = new MessageSerializationRegistry();
 
-        registry.registerFactory(Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
-        assertThrows(NetworkConfigurationException.class, () -> registry.registerFactory(Msg.TYPE, new MsgSerializationFactory()));
+        assertThrows(
+            NetworkConfigurationException.class,
+            () -> registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory())
+        );
+    }
+
+    /**
+     * Tests that it is possible to register serialization factories for the same message types but for different
+     * modules.
+     */
+    @Test
+    public void testRegisterFactoryWithSameTypeDifferentModule() {
+        var registry = new MessageSerializationRegistry();
+
+        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
+
+        short nextModuleType = Msg.MODULE_TYPE + 1;
+
+        registry.registerFactory(nextModuleType, Msg.TYPE, new MsgSerializationFactory());
+
+        assertNotSame(
+            registry.createDeserializer(Msg.MODULE_TYPE, Msg.TYPE),
+            registry.createDeserializer(nextModuleType, Msg.TYPE)
+        );
     }
 
     /**
@@ -60,10 +84,10 @@ public class MessageSerializationRegistryTest {
     public void testCreateSerializers() {
         var registry = new MessageSerializationRegistry();
 
-        registry.registerFactory(Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
-        assertNotNull(registry.createSerializer(Msg.TYPE));
-        assertNotNull(registry.createDeserializer(Msg.TYPE));
+        assertNotNull(registry.createSerializer(Msg.MODULE_TYPE, Msg.TYPE));
+        assertNotNull(registry.createDeserializer(Msg.MODULE_TYPE, Msg.TYPE));
     }
 
     /**
@@ -74,18 +98,26 @@ public class MessageSerializationRegistryTest {
     public void testCreateSerializersIfNotRegistered() {
         var registry = new MessageSerializationRegistry();
 
-        assertThrows(AssertionError.class, () -> registry.createSerializer(Msg.TYPE));
-        assertThrows(AssertionError.class, () -> registry.createDeserializer(Msg.TYPE));
+        assertThrows(AssertionError.class, () -> registry.createSerializer(Msg.MODULE_TYPE, Msg.TYPE));
+        assertThrows(AssertionError.class, () -> registry.createDeserializer(Msg.MODULE_TYPE, Msg.TYPE));
     }
 
     /** */
-    static class Msg implements NetworkMessage {
+    private static class Msg implements NetworkMessage {
         /** */
-        static final byte TYPE = 0;
+        static final short MODULE_TYPE = 0;
+
+        /** */
+        static final short TYPE = 0;
 
         /** {@inheritDoc} */
-        @Override public short directType() {
+        @Override public short messageType() {
             return TYPE;
+        }
+
+        /** {@inheritDoc} */
+        @Override public short moduleType() {
+            return MODULE_TYPE;
         }
     }
 

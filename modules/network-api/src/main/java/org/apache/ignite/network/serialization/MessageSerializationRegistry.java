@@ -17,6 +17,8 @@
 
 package org.apache.ignite.network.serialization;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
 
@@ -25,22 +27,29 @@ import org.apache.ignite.network.NetworkMessage;
  */
 public class MessageSerializationRegistry {
     /** message type -> MessageSerializerProvider instance */
-    private final MessageSerializationFactory<?>[] factories = new MessageSerializationFactory<?>[Short.MAX_VALUE << 1];
+    private final Map<Integer, MessageSerializationFactory<?>> factories = new HashMap<>();
 
     /**
      * Registers message serialization factory by message type.
      *
-     * @param type Direct type of a message.
+     * @param moduleType Module type of a message.
+     * @param messageType Message type.
      * @param factory Message's serialization factory.
      * @return This registry.
      * @throws NetworkConfigurationException If there is an already registered factory for the given type.
      */
-    public MessageSerializationRegistry registerFactory(short type,
-        MessageSerializationFactory<?> factory) {
-        if (this.factories[type] != null)
-            throw new NetworkConfigurationException("Message serialization factory for direct type " + type + " is already defined");
+    public MessageSerializationRegistry registerFactory(
+        short moduleType, short messageType, MessageSerializationFactory<?> factory
+    ) {
+        Integer index = asInt(moduleType, messageType);
 
-        this.factories[type] = factory;
+        if (factories.containsKey(index))
+            throw new NetworkConfigurationException(String.format(
+                "Message serialization factory for message type %d in module %d is already defined",
+                messageType, moduleType
+            ));
+
+        factories.put(index, factory);
 
         return this;
     }
@@ -49,13 +58,16 @@ public class MessageSerializationRegistry {
      * Gets a {@link MessageSerializationFactory} for the given message type.
      *
      * @param <T> Type of a message.
-     * @param type Direct type of a message.
+     * @param moduleType Module type of a message.
+     * @param messageType Message type.
      * @return Message's serialization factory.
      */
-    private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(short type) {
-        var provider = factories[type];
+    private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(
+        short moduleType, short messageType
+    ) {
+        var provider = factories.get(asInt(moduleType, messageType));
 
-        assert provider != null : "No serializer provider defined for type " + type;
+        assert provider != null : "No serializer provider defined for type " + messageType;
 
         return (MessageSerializationFactory<T>) provider;
     }
@@ -68,11 +80,12 @@ public class MessageSerializationRegistry {
      * method.
      *
      * @param <T> Type of a message.
-     * @param type Direct type of a message.
+     * @param moduleType Module type of a message.
+     * @param messageType Message type.
      * @return Message's serializer.
      */
-    public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short type) {
-        MessageSerializationFactory<T> factory = getFactory(type);
+    public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short moduleType, short messageType) {
+        MessageSerializationFactory<T> factory = getFactory(moduleType, messageType);
         return factory.createSerializer();
     }
 
@@ -84,11 +97,22 @@ public class MessageSerializationRegistry {
      * method.
      *
      * @param <T> Type of a message.
-     * @param type Direct type of a message.
+     * @param moduleType Module type of a message.
+     * @param messageType Message type.
      * @return Message's deserializer.
      */
-    public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short type) {
-        MessageSerializationFactory<T> factory = getFactory(type);
+    public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short moduleType, short messageType) {
+        MessageSerializationFactory<T> factory = getFactory(moduleType, messageType);
         return factory.createDeserializer();
+    }
+
+    /**
+     * Concatenates two given {@code short}s into an {@code int}.
+     *
+     * @param higher Higher bytes.
+     * @param lower Lower bytes.
+     */
+    private static int asInt(short higher, short lower) {
+        return (higher << Short.SIZE) | lower;
     }
 }

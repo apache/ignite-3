@@ -19,6 +19,8 @@ package org.apache.ignite.network.internal.netty;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -30,14 +32,14 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
-import org.apache.ignite.network.TestMessageFactory;
-import org.apache.ignite.network.TestMessageSerializationFactory;
+import org.apache.ignite.network.TestMessagesFactory;
+import org.apache.ignite.network.TestMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.internal.AllTypesMessage;
 import org.apache.ignite.network.internal.AllTypesMessageGenerator;
-import org.apache.ignite.network.internal.AllTypesMessageSerializationFactory;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -53,6 +55,15 @@ public class InboundDecoderTest {
     /** {@link ByteBuf} allocator. */
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 
+    /** Registry. */
+    private final MessageSerializationRegistry registry = new MessageSerializationRegistry();
+
+    /** */
+    @BeforeEach
+    void setUp() {
+        TestMessagesSerializationRegistryInitializer.initialize(registry);
+    }
+
     /**
      * Tests that an {@link InboundDecoder} can successfully read a message with all types supported
      * by direct marshalling.
@@ -62,17 +73,13 @@ public class InboundDecoderTest {
     @ParameterizedTest
     @MethodSource("messageGenerationSeed")
     public void testAllTypes(long seed) {
-        var registry = new MessageSerializationRegistry();
-
         AllTypesMessage msg = AllTypesMessageGenerator.generate(seed, true);
-
-        registry.registerFactory(msg.directType(), new AllTypesMessageSerializationFactory());
 
         var channel = new EmbeddedChannel(new InboundDecoder(registry));
 
         var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
-        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.directType());
+        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.moduleType(), msg.messageType());
 
         ByteBuffer buf = ByteBuffer.allocate(10_000);
 
@@ -94,7 +101,7 @@ public class InboundDecoderTest {
             channel.writeInbound(buffer);
         } while ((output = channel.readInbound()) == null);
 
-        assertEquals(msg, output);
+        assertTrue(equals(msg, output));
     }
 
     /**
@@ -105,8 +112,6 @@ public class InboundDecoderTest {
      */
     @Test
     public void testPartialHeader() throws Exception {
-        var registry = new MessageSerializationRegistry();
-
         var channel = new EmbeddedChannel(new InboundDecoder(registry));
 
         ByteBuf buffer = allocator.buffer();
@@ -125,16 +130,13 @@ public class InboundDecoderTest {
     }
 
     /**
-     * Tests that an {@link InboundDecoder} can handle a {@link ByteBuf} where reaeder index
+     * Tests that an {@link InboundDecoder} can handle a {@link ByteBuf} where reader index
      * is not {@code 0} at the start of the {@link InboundDecoder#decode}.
      *
      * @throws Exception If failed.
      */
     @Test
     public void testPartialReadWithReuseBuffer() throws Exception {
-        MessageSerializationRegistry registry = new MessageSerializationRegistry()
-            .registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
-
         ChannelHandlerContext ctx = Mockito.mock(ChannelHandlerContext.class);
 
         var channel = new EmbeddedChannel();
@@ -147,9 +149,9 @@ public class InboundDecoderTest {
 
         var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
-        var msg = TestMessageFactory.testMessage().msg("abcdefghijklmn").build();
+        var msg = new TestMessagesFactory().testMessage().msg("abcdefghijklmn").build();
 
-        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.directType());
+        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.moduleType(), msg.messageType());
 
         ByteBuffer nioBuffer = ByteBuffer.allocate(10_000);
 
@@ -190,7 +192,11 @@ public class InboundDecoderTest {
         decoder.decode(ctx, buffer, list);
 
         assertEquals(1, list.size());
-        assertEquals(msg, list.get(0));
+
+        TestMessage actualMessage = (TestMessage) list.get(0);
+
+        assertEquals(msg.msg(), actualMessage.msg());
+        assertEquals(msg.map(), actualMessage.map());
     }
 
     /**
@@ -201,5 +207,67 @@ public class InboundDecoderTest {
     private static LongStream messageGenerationSeed() {
         var random = new Random();
         return IntStream.range(0, 100).mapToLong(ignored -> random.nextLong());
+    }
+
+    /**
+     * Returns {@code true} if the content of the given messages is equal.
+     */
+    private static boolean equals(AllTypesMessage o1, AllTypesMessage o2) {
+        if (o1 == o2) {
+            return true;
+        }
+
+        boolean fieldEquals = o1.a() == o2.a()
+            && o1.b() == o2.b()
+            && o1.c() == o2.c()
+            && o1.d() == o2.d()
+            && Float.compare(o1.e(), o2.e()) == 0
+            && Double.compare(o1.f(), o2.f()) == 0
+            && o1.g() == o2.g()
+            && o1.h() == o2.h()
+            && Arrays.equals(o1.i(), o2.i())
+            && Arrays.equals(o1.j(), o2.j())
+            && Arrays.equals(o1.k(), o2.k())
+            && Arrays.equals(o1.l(), o2.l())
+            && Arrays.equals(o1.m(), o2.m())
+            && Arrays.equals(o1.n(), o2.n())
+            && Arrays.equals(o1.o(), o2.o())
+            && Arrays.equals(o1.p(), o2.p())
+            && Objects.equals(o1.q(), o2.q())
+            && Objects.equals(o1.r(), o2.r())
+            && Objects.equals(o1.s(), o2.s())
+            && Objects.equals(o1.t(), o2.t())
+            && equals((AllTypesMessage)o1.u(), (AllTypesMessage)o2.u());
+
+        boolean arrayEquals;
+
+        if (o1.v() == null && o2.v() == null) {
+            arrayEquals = true;
+        } else {
+            arrayEquals = IntStream.range(0, o1.v().length)
+                .allMatch(i -> equals((AllTypesMessage)o1.v()[i], (AllTypesMessage)o2.v()[i]));
+        }
+
+        boolean collectionEquals;
+
+        if (o1.w() == null && o2.w() == null) {
+            collectionEquals = true;
+        } else {
+            var iterator1 = o1.w().iterator();
+
+            collectionEquals = o2.w().stream()
+                .allMatch(w -> equals((AllTypesMessage)w, (AllTypesMessage)iterator1.next()));
+        }
+
+        boolean mapEquals;
+
+        if (o1.x() == null && o2.x() == null) {
+            mapEquals = true;
+        } else {
+            mapEquals = o2.x().entrySet().stream()
+                .allMatch(e -> equals((AllTypesMessage)e.getValue(), (AllTypesMessage)o1.x().get(e.getKey())));
+        }
+
+        return fieldEquals && arrayEquals && collectionEquals && mapEquals;
     }
 }

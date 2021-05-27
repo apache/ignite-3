@@ -44,9 +44,9 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessageSerializationRegistryInitializer;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -60,7 +60,7 @@ public class IgnitionImpl implements Ignition {
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
 
     /** */
-    private static final String[] BANNER = new String[] {
+    private static final String[] BANNER = {
         "",
         "           #              ___                         __",
         "         ###             /   |   ____   ____ _ _____ / /_   ___",
@@ -118,7 +118,7 @@ public class IgnitionImpl implements Ignition {
 
         var serializationRegistry = new MessageSerializationRegistry();
 
-        MessageSerializationRegistryInitializer.initialize(serializationRegistry);
+        NetworkMessagesSerializationRegistryInitializer.initialize(serializationRegistry);
 
         String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();

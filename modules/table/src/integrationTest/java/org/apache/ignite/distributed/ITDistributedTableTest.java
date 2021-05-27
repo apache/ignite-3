@@ -40,21 +40,15 @@ import org.apache.ignite.internal.table.distributed.command.response.KVGetRespon
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
-import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
-import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
-import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
+import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.server.RaftServer;
@@ -88,16 +82,17 @@ public class ITDistributedTableTest {
     public static final int PARTS = 10;
 
     /** Factory. */
-    private static RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
+    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
 
     /** Network factory. */
     private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** */
-    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
-        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
-        .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
-        .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
+
+    static {
+        NetworkMessagesSerializationRegistryInitializer.initialize(SERIALIZATION_REGISTRY);
+    }
 
     /** Client. */
     private ClusterService client;

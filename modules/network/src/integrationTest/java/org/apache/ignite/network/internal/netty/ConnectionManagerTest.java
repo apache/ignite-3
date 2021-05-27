@@ -26,16 +26,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.network.NetworkMessagesFactory;
+import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
-import org.apache.ignite.network.TestMessageFactory;
-import org.apache.ignite.network.TestMessageSerializationFactory;
+import org.apache.ignite.network.TestMessagesFactory;
+import org.apache.ignite.network.TestMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +50,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ConnectionManagerTest {
     /** Started connection managers. */
     private final List<ConnectionManager> startedManagers = new ArrayList<>();
+
+    /** Message factory. */
+    private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
     /** */
     @AfterEach
@@ -80,7 +81,7 @@ public class ConnectionManagerTest {
 
         NettySender sender = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
-        TestMessage testMessage = TestMessageFactory.testMessage().msg(msgText).build();
+        TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
         sender.send(testMessage).get(3, TimeUnit.SECONDS);
 
@@ -111,7 +112,7 @@ public class ConnectionManagerTest {
         NettySender senderFrom1to2 = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
         // Ensure a handshake has finished on both sides.
-        senderFrom1to2.send(TestMessageFactory.testMessage().msg("test").build()).get(3, TimeUnit.SECONDS);
+        senderFrom1to2.send(messageFactory.testMessage().msg("test").build()).get(3, TimeUnit.SECONDS);
 
         NettySender senderFrom2to1 = manager2.channel(manager1.consistentId(), new InetSocketAddress(port1)).get(3, TimeUnit.SECONDS);
 
@@ -121,7 +122,7 @@ public class ConnectionManagerTest {
 
         assertEquals(clientLocalAddress, clientRemoteAddress);
 
-        TestMessage testMessage = TestMessageFactory.testMessage().msg("test").build();
+        TestMessage testMessage = messageFactory.testMessage().msg("test").build();
 
         senderFrom2to1.send(testMessage).get(3, TimeUnit.SECONDS);
 
@@ -180,7 +181,7 @@ public class ConnectionManagerTest {
 
         NettySender sender = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
-        TestMessage testMessage = TestMessageFactory.testMessage().msg(msgText).build();
+        TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
         manager2.stop();
 
@@ -217,20 +218,22 @@ public class ConnectionManagerTest {
      * @return Connection manager.
      */
     private ConnectionManager startManager(int port) {
-        var registry = new MessageSerializationRegistry()
-            .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
-            .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory())
-            .registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
+        var registry = new MessageSerializationRegistry();
+
+        TestMessagesSerializationRegistryInitializer.initialize(registry);
+        NetworkMessagesSerializationRegistryInitializer.initialize(registry);
 
         UUID launchId = UUID.randomUUID();
         String consistentId = UUID.randomUUID().toString();
+
+        var messageFactory = new NetworkMessagesFactory();
 
         var manager = new ConnectionManager(
             port,
             registry,
             consistentId,
-            () -> new RecoveryServerHandshakeManager(launchId, consistentId),
-            () -> new RecoveryClientHandshakeManager(launchId, consistentId)
+            () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
+            () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
         );
 
         manager.start();

@@ -56,10 +56,11 @@ public class DirectMessageWriter implements MessageWriter {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean writeHeader(short type, byte fieldCnt) {
+    @Override public boolean writeHeader(short moduleType, short messageType, byte fieldCnt) {
         DirectByteBufferStream stream = state.item().stream;
 
-        stream.writeShort(type);
+        stream.writeShort(moduleType);
+        stream.writeShort(messageType);
 
         return stream.lastFinished();
     }
@@ -345,9 +346,6 @@ public class DirectMessageWriter implements MessageWriter {
 
         /** */
         private boolean hdrWritten;
-
-        /** */
-        private MessageSerializationRegistry registry;
 
         /**
          * @param registry Serialization registry.

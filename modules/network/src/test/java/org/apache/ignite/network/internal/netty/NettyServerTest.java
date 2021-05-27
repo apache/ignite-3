@@ -49,6 +49,7 @@ import org.mockito.verification.VerificationMode;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests for {@link NettyServer}.
@@ -170,9 +171,9 @@ public class NettyServerTest {
      */
     @Test
     public void testHandshakeManagerInvoked() throws Exception {
-        HandshakeManager handshakeManager = Mockito.mock(HandshakeManager.class);
+        HandshakeManager handshakeManager = mock(HandshakeManager.class);
 
-        Mockito.doReturn(CompletableFuture.completedFuture(Mockito.mock(NettySender.class)))
+        Mockito.doReturn(CompletableFuture.completedFuture(mock(NettySender.class)))
             .when(handshakeManager).handshakeFuture();
 
         Mockito.doReturn(HandshakeAction.NOOP)
@@ -186,7 +187,7 @@ public class NettyServerTest {
 
         MessageSerializationRegistry registry = new MessageSerializationRegistry() {
             /** {@inheritDoc} */
-            @Override public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short type) {
+            @Override public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short moduleType, short type) {
                 return (MessageDeserializer<T>) new MessageDeserializer<>() {
                     /** {@inheritDoc} */
                     @Override public boolean readMessage(MessageReader reader) throws MessageMappingException {
@@ -200,12 +201,7 @@ public class NettyServerTest {
 
                     /** {@inheritDoc} */
                     @Override public NetworkMessage getMessage() {
-                        return new NetworkMessage() {
-                            /** {@inheritDoc} */
-                            @Override public short directType() {
-                                return 0;
-                            }
-                        };
+                        return mock(NetworkMessage.class);
                     }
                 };
             }
@@ -233,7 +229,7 @@ public class NettyServerTest {
         ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer();
 
         // One message only.
-        for (int i = 0; i < (NetworkMessage.DIRECT_TYPE_SIZE + 1); i++)
+        for (int i = 0; i < (NetworkMessage.MSG_TYPE_SIZE_BYTES + 1); i++)
             buffer.writeByte(1);
 
         channel.writeAndFlush(buffer).get(3, TimeUnit.SECONDS);
@@ -268,7 +264,7 @@ public class NettyServerTest {
 
         Mockito.doReturn(future).when(bootstrap).bind(Mockito.anyInt());
 
-        var server = new NettyServer(bootstrap, 0, Mockito.mock(HandshakeManager.class), null, null, null);
+        var server = new NettyServer(bootstrap, 0, mock(HandshakeManager.class), null, null, null);
 
         try {
             server.start().get(3, TimeUnit.SECONDS);

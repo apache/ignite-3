@@ -1,0 +1,96 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.raft.client.message;
+
+import org.apache.ignite.network.annotations.ModuleMessageTypes;
+
+/**
+ * Message types for the raft-client module.
+ */
+@ModuleMessageTypes(moduleType = 2, moduleName = "RaftClientMessages")
+public class RaftClientMessageTypes {
+    /**
+     * Message type for {@link ActionRequest}.
+     */
+    public static final short ACTION_REQUEST = 1;
+
+    /**
+     * Message type for {@link ActionResponse}.
+     */
+    public static final short ACTION_RESPONSE = 2;
+
+    /**
+     * Message type for {@link AddLearnersRequest}.
+     */
+    public static final short ADD_LEARNERS_REQUEST = 3;
+
+    /**
+     * Message type for {@link AddPeersRequest}.
+     */
+    public static final short ADD_PEERS_REQUEST = 4;
+
+    /**
+     * Message type for {@link ChangePeersResponse}.
+     */
+    public static final short CHANGE_PEERS_RESPONSE = 5;
+
+    /**
+     * Message type for {@link GetLeaderRequest}.
+     */
+    public static final short GET_LEADER_REQUEST = 6;
+
+    /**
+     * Message type for {@link GetLeaderResponse}.
+     */
+    public static final short GET_LEADER_RESPONSE = 7;
+
+    /**
+     * Message type for {@link GetPeersRequest}.
+     */
+    public static final short GET_PEERS_REQUEST = 8;
+
+    /**
+     * Message type for {@link GetPeersResponse}.
+     */
+    public static final short GET_PEERS_RESPONSE = 9;
+
+    /**
+     * Message type for {@link RaftErrorResponse}.
+     */
+    public static final short RAFT_ERROR_RESPONSE = 10;
+
+    /**
+     * Message type for {@link RemoveLearnersRequest}.
+     */
+    public static final short REMOVE_LEARNERS_REQUEST = 11;
+
+    /**
+     * Message type for {@link RemovePeersRequest}.
+     */
+    public static final short REMOVE_PEERS_REQUEST = 12;
+
+    /**
+     * Message type for {@link SnapshotRequest}.
+     */
+    public static final short SNAPSHOT_REQUEST = 13;
+
+    /**
+     * Message type for {@link TransferLeadershipRequest}.
+     */
+    public static final short TRANSFER_LEADERSHIP_REQUEST = 14;
+}
