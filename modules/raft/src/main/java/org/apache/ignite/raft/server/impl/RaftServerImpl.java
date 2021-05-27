@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server.impl;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -199,7 +200,7 @@ public class RaftServerImpl implements RaftServer {
                 return (T)req.command();
             }
 
-            @Override public void result(Object res) {
+            @Override public void result(Serializable res) {
                 var msg = clientMsgFactory.actionResponse().result(res).build();
                 service.messagingService().send(sender, msg, corellationId);
             }

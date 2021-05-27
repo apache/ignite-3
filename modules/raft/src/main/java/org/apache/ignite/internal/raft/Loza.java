@@ -102,17 +102,4 @@ public class Loza {
         if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
             raftServer.stopRaftGroup(groupId);
     }
-
-    public RaftGroupService startRaftService(String groupId, List<ClusterNode> peers) {
-        return new RaftGroupServiceImpl(
-            groupId,
-            clusterNetSvc,
-            FACTORY,
-            TIMEOUT,
-            peers.stream().map(i -> new Peer(i.address())).collect(Collectors.toList()),
-            true,
-            DELAY,
-            true
-        );
-    }
 }

@@ -59,6 +59,7 @@ class ActionRequestImpl<T> implements ActionRequest, ActionRequest.Builder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override public Builder readOnlySafe(boolean readOnlySafe) {
         this.readOnlySafe = readOnlySafe;
 
