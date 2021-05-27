@@ -586,6 +586,54 @@ public class RowAssemblerSimpleSchemaTest {
     }
 
     /**
+     * Validate row layout for key\value columns of different types.
+     */
+    @Test
+    public void mixedTypes() {
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42,
+            new Column[] {
+                new Column("keyShortCol", SHORT, false),
+                new Column("keyStrCol", STRING, false)
+            },
+            new Column[] {
+                new Column("valIntCol", INTEGER, true),
+                new Column("valStrCol", STRING, true)
+            });
+
+        assertRowBytesEquals(new byte[] {
+                42, 0, 26, 0, -110, -109, 94, -68,
+                12, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114,
+                15, 0, 0, 0, 0, 73, 0, 0, 0, 118, 97, 108, 115, 116, 114},
+            new RowAssembler(schema, 0, 1, 1)
+                .appendShort((short)33)
+                .appendString("keystr")
+                .appendInt(73)
+                .appendString("valstr")
+                .build());
+
+        // Null value.
+        assertRowBytesEquals(new byte[] {
+                42, 0, 26, 0, 32, 99, 115, -49,
+                13, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114, 50,
+                5, 0, 0, 0, 3},
+            new RowAssembler(schema, 0, 1, 0)
+                .appendShort((short)33)
+                .appendString("keystr2")
+                .appendNull()
+                .appendNull()
+                .build());
+
+        // No value.
+        assertRowBytesEquals(new byte[] {
+                42, 0, 27, 0, -110, -109, 94, -68,
+                12, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114},
+            new RowAssembler(schema, 0, 1, 0)
+                .appendShort((short)33)
+                .appendString("keystr")
+                .build());
+    }
+
+    /**
      * @param expected Expected row bytes.
      * @param actual Actual row bytes.
      */

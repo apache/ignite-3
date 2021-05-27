@@ -186,7 +186,8 @@ public class RowAssemblerAdvancedSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 17, 0, -47, -112, 1, 24,
+            new byte[] {
+                42, 0, 17, 0, -47, -112, 1, 24,
                 29, 0, 0, 0, 0, 2, 0, 14, 0, 24, 0, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
             new RowAssembler(schema, 0, 3, 0)
                 .appendBytes(new byte[] {33, -77, 120})
@@ -196,50 +197,106 @@ public class RowAssemblerAdvancedSchemaTest {
     }
 
     /**
-     * Validate row layout for key\value columns of different types.
+     * Validate row layout for schema of fix-len nullable key and fix-len nullable value.
      */
     @Test
     public void mixedTypes() {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42,
             new Column[] {
-                new Column("keyShortCol", SHORT, false),
-                new Column("keyStrCol", STRING, false)
+                new Column("keyCol1", BYTE, true),
+                new Column("keyCol1", SHORT, true),
+                new Column("keyCol2", BYTES, true),
+                new Column("keyCol3", STRING, true)
             },
             new Column[] {
-                new Column("valIntCol", INTEGER, true),
-                new Column("valStrCol", STRING, true)
+                new Column("valCol1", BYTE, true),
+                new Column("valCol1", SHORT, true),
+                new Column("valCol2", BYTES, true),
+                new Column("valCol3", STRING, true)
             });
 
-        assertRowBytesEquals(new byte[] {
-                42, 0, 26, 0, -110, -109, 94, -68,
-                12, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114,
-                15, 0, 0, 0, 0, 73, 0, 0, 0, 118, 97, 108, 115, 116, 114},
+        // Check null/non-null all fixlen/varlen.
+        assertRowBytesEquals(
+            new byte[] {
+                42, 0, 0, 0, -85, 82, 5, 0,
+                12, 0, 0, 0, 12, 1, 0, 0, 0, 11, 22, 0,
+                16, 0, 0, 0, 3, 1, 0, 11, 0, 77, -88, 97, 115, 99, 105, 105},
+            new RowAssembler(schema, 0, 2, 2)
+                .appendByte((byte)11)
+                .appendShort((short)22)
+                .appendNull()
+                .appendNull()
+                .appendNull()
+                .appendNull()
+                .appendBytes(new byte[] {77, -88})
+                .appendString("ascii")
+                .build());
+
+        // Check null/non-null fixlen.
+        assertRowBytesEquals(
+            new byte[] {
+                42, 0, 0, 0, -20, 4, 120, -80,
+                23, 0, 0, 0, 1, 1, 0, 13, 0, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                17, 0, 0, 0, 2, 1, 0, 12, 0, 55, 77, -88, 97, 115, 99, 105, 105},
+            new RowAssembler(schema, 0, 2, 2)
+                .appendNull()
+                .appendShort((short)22)
+                .appendBytes(new byte[] {33, -44})
+                .appendString("我愛Java")
+                .appendByte((byte)55)
+                .appendNull()
+                .appendBytes(new byte[] {77, -88})
+                .appendString("ascii")
+                .build());
+
+        // Check null/non-null varlen.
+        assertRowBytesEquals(
+            new byte[] {
+                42, 0, 24, 0, 12, 57, 124, -80,
+                18, 0, 0, 0, 4, 11, 22, 0, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                10, 0, 0, 0, 8, 55, 22, 0, 77, -88},
             new RowAssembler(schema, 0, 1, 1)
-                .appendShort((short)33)
-                .appendString("keystr")
-                .appendInt(73)
-                .appendString("valstr")
-                .build());
-
-        // Null value.
-        assertRowBytesEquals(new byte[] {
-                42, 0, 26, 0, 32, 99, 115, -49,
-                13, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114, 50,
-                5, 0, 0, 0, 3},
-            new RowAssembler(schema, 0, 1, 0)
-                .appendShort((short)33)
-                .appendString("keystr2")
+                .appendByte((byte)11)
+                .appendShort((short)22)
                 .appendNull()
+                .appendString("我愛Java")
+                .appendByte((byte)55)
+                .appendShort((short)22)
+                .appendBytes(new byte[] {77, -88})
                 .appendNull()
                 .build());
 
-        // No value.
-        assertRowBytesEquals(new byte[] {
-                42, 0, 27, 0, -110, -109, 94, -68,
-                12, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114},
-            new RowAssembler(schema, 0, 1, 0)
-                .appendShort((short)33)
-                .appendString("keystr")
+        // Check null/non-null mixed.
+        assertRowBytesEquals(
+            new byte[] {
+                42, 0, 24, 0, -52, -29, 123, -80,
+                16, 0, 0, 0, 6, 11, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                9, 0, 0, 0, 9, 22, 0, 77, -88},
+            new RowAssembler(schema, 0, 1, 1)
+                .appendByte((byte)11)
+                .appendNull()
+                .appendNull()
+                .appendString("我愛Java")
+                .appendNull()
+                .appendShort((short)22)
+                .appendBytes(new byte[] {77, -88})
+                .appendNull()
+                .build());
+
+        // Check all null/non-null.
+        assertRowBytesEquals(
+            new byte[] {42, 0, 16, 0, -20, 88, 125, -80,
+                24, 0, 0, 0, 0, 1, 0, 14, 0, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                5, 0, 0, 0, 15},
+            new RowAssembler(schema, 0, 2, 0)
+                .appendByte((byte)11)
+                .appendShort((short)22)
+                .appendBytes(new byte[] {33, -44})
+                .appendString("我愛Java")
+                .appendNull()
+                .appendNull()
+                .appendNull()
+                .appendNull()
                 .build());
     }
 
