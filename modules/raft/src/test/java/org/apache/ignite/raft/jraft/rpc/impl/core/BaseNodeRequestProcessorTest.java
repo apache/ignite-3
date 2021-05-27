@@ -85,7 +85,7 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
         nodeOptions.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor",
             Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
 
-        Mockito.when(node.getOptions()).thenReturn(nodeOptions);
+        Mockito.lenient().when(node.getOptions()).thenReturn(nodeOptions);
         if (asyncContext != null)
             asyncContext.getNodeManager().add(node);
         return peerId;

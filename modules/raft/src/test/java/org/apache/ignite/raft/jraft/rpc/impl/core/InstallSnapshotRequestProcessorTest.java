@@ -26,19 +26,14 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.eq;
 
 public class InstallSnapshotRequestProcessorTest extends BaseNodeRequestProcessorTest<InstallSnapshotRequest> {
-
     private InstallSnapshotRequest request;
 
     @Override
     public InstallSnapshotRequest createRequest(String groupId, PeerId peerId) {
-        request = InstallSnapshotRequest.newBuilder().setGroupId(groupId)
-            . //
-            setServerId("localhostL8082")
-            . //
-            setPeerId(peerId.toString())
-            . //
-            setTerm(0)
-            . //
+        request = InstallSnapshotRequest.newBuilder().setGroupId(groupId). //
+            setServerId("localhost:8082"). //
+            setPeerId(peerId.toString()). //
+            setTerm(0). //
             setMeta(SnapshotMeta.newBuilder().setLastIncludedIndex(1).setLastIncludedTerm(1).build()).setUri("test")
             .build();
         return request;

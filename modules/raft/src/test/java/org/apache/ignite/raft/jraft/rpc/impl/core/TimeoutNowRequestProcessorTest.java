@@ -25,7 +25,6 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.eq;
 
 public class TimeoutNowRequestProcessorTest extends BaseNodeRequestProcessorTest<TimeoutNowRequest> {
-
     private TimeoutNowRequest request;
 
     @Override

@@ -18,16 +18,11 @@ package org.apache.ignite.raft.jraft.option;
 
 /**
  * Copier options.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 2:58:53 PM
  */
 public class CopyOptions {
-
-    private int  maxRetry        = 3;
+    private int maxRetry = 3;
     private long retryIntervalMs = 1000L;
-    private int  timeoutMs       = 10 * 1000;
+    private int timeoutMs = 10 * 1000;
 
     public int getMaxRetry() {
         return this.maxRetry;

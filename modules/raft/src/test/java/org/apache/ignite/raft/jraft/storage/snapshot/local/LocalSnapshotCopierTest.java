@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.util.concurrent.Executors;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.core.TimerManager;
@@ -92,8 +93,10 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
         this.copier = new LocalSnapshotCopier();
         this.copyOpts = new CopyOptions();
         Mockito.when(this.raftClientService.connect(new Endpoint("localhost", 8081))).thenReturn(true);
+        NodeOptions nodeOptions = new NodeOptions();
+        nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
         assertTrue(this.copier.init(this.uri, new SnapshotCopierOptions(this.raftClientService, this.timerManager,
-            this.raftOptions, new NodeOptions())));
+            this.raftOptions, nodeOptions)));
         this.copier.setStorage(this.snapshotStorage);
     }
 
