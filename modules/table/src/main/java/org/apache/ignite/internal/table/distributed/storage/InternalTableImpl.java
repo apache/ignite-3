@@ -85,7 +85,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> get(BinaryRow keyRow) {
-        return partitionMap.get(keyRow.hash() % partitions).<SingleRowResponse>run(new GetCommand(keyRow))
+        return partitionMap.get(partId(keyRow)).<SingleRowResponse>run(new GetCommand(keyRow))
             .thenApply(SingleRowResponse::getValue);
     }
 
@@ -94,7 +94,7 @@ public class InternalTableImpl implements InternalTable {
         HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
         for (BinaryRow keyRow : keyRows) {
-            keyRowsByPartition.computeIfAbsent(keyRow.hash() % partitions, HashSet::new)
+            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
                 .add(keyRow);
         }
 
@@ -118,7 +118,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Void> upsert(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).run(new UpsertCommand(row));
+        return partitionMap.get(partId(row)).run(new UpsertCommand(row));
     }
 
     /** {@inheritDoc} */
@@ -126,7 +126,7 @@ public class InternalTableImpl implements InternalTable {
         HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
         for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(keyRow.hash() % partitions, HashSet::new)
+            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
                 .add(keyRow);
         }
 
@@ -145,13 +145,13 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).<SingleRowResponse>run(new GetAndUpsertCommand(row))
+        return partitionMap.get(partId(row)).<SingleRowResponse>run(new GetAndUpsertCommand(row))
             .thenApply(SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> insert(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).run(new InsertCommand(row));
+        return partitionMap.get(partId(row)).run(new InsertCommand(row));
     }
 
     /** {@inheritDoc} */
@@ -159,7 +159,7 @@ public class InternalTableImpl implements InternalTable {
         HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
         for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(keyRow.hash() % partitions, HashSet::new)
+            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
                 .add(keyRow);
         }
 
@@ -183,33 +183,33 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).<Boolean>run(new ReplaceIfExistCommand(row));
+        return partitionMap.get(partId(row)).<Boolean>run(new ReplaceIfExistCommand(row));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow) {
-        return partitionMap.get(oldRow.hash() % partitions).run(new ReplaceCommand(oldRow, newRow));
+        return partitionMap.get(partId(oldRow)).run(new ReplaceCommand(oldRow, newRow));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> getAndReplace(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).<SingleRowResponse>run(new ReplaceIfExistCommand(row))
+        return partitionMap.get(partId(row)).<SingleRowResponse>run(new ReplaceIfExistCommand(row))
             .thenApply(SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> delete(BinaryRow keyRow) {
-        return partitionMap.get(keyRow.hash() % partitions).run(new DeleteCommand(keyRow));
+        return partitionMap.get(partId(keyRow)).run(new DeleteCommand(keyRow));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Boolean> deleteExact(BinaryRow oldRow) {
-        return partitionMap.get(oldRow.hash() % partitions).<Boolean>run(new DeleteExactCommand(oldRow));
+        return partitionMap.get(partId(oldRow)).<Boolean>run(new DeleteExactCommand(oldRow));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<BinaryRow> getAndDelete(BinaryRow row) {
-        return partitionMap.get(row.hash() % partitions).<SingleRowResponse>run(new GetAndDeleteCommand(row))
+        return partitionMap.get(partId(row)).<SingleRowResponse>run(new GetAndDeleteCommand(row))
             .thenApply(SingleRowResponse::getValue);
     }
 
@@ -218,7 +218,7 @@ public class InternalTableImpl implements InternalTable {
         HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
         for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(keyRow.hash() % partitions, HashSet::new)
+            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
                 .add(keyRow);
         }
 
@@ -245,7 +245,7 @@ public class InternalTableImpl implements InternalTable {
         HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
         for (BinaryRow keyRow : rows) {
-            keyRowsByPartition.computeIfAbsent(keyRow.hash() % partitions, HashSet::new)
+            keyRowsByPartition.computeIfAbsent(partId(keyRow), HashSet::new)
                 .add(keyRow);
         }
 
@@ -265,5 +265,17 @@ public class InternalTableImpl implements InternalTable {
                 .map(MultiRowsResponse::getValues)
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList()));
+    }
+
+    /**
+     * Get partition id by key row.
+     *
+     * @param row Key row.
+     * @return partition id.
+     */
+    private int partId(BinaryRow row) {
+        int partId = row.hash() % partitions;
+
+        return (partId < 0) ? -partId : partId;
     }
 }

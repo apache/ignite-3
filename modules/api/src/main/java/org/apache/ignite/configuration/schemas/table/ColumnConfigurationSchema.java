@@ -22,23 +22,25 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 
-/** Configuration for single column in SQL table. */
+/**
+ * Configuration for single column in SQL table.
+ */
 @Config
 public class ColumnConfigurationSchema {
     /** Column name. */
     @Value
     @Immutable
-    String name;
+    public String name;
 
     /** Column type. */
     @ConfigValue
-    ColumnTypeConfigurationSchema type;
+    public ColumnTypeConfigurationSchema type;
 
     /** Nullable flag. */
     @Value
-    boolean nullable;
+    public boolean nullable;
 
     /** Default value. */
     @Value(hasDefault = true)
-    String defaultValue = "";
+    public String defaultValue = "";
 }

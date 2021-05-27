@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Full schema descriptor containing key columns chunk, value columns chunk, and schema version.
  */
-public class SchemaDescriptor {
+public class SchemaDescriptor implements Serializable {
     /** Table identifier.*/
     private final UUID tableId;
 
@@ -42,10 +44,14 @@ public class SchemaDescriptor {
     /** Value columns in serialization order. */
     private final Columns valCols;
 
-    /** Mapping 'Column name' -> Column. */
+    /** Affinity columns. */
+    private final Column[] affCols;
+
+    /** Mapping 'Column name' -&gt; Column. */
     private final Map<String, Column> colMap;
 
     /**
+     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
@@ -55,6 +61,7 @@ public class SchemaDescriptor {
     }
 
     /**
+     * @param tableId Table id.
      * @param ver Schema version.
      * @param keyCols Key columns.
      * @param affCols Affinity column names.
@@ -74,7 +81,10 @@ public class SchemaDescriptor {
         Arrays.stream(this.keyCols.columns()).forEach(c -> colMap.put(c.name(), c));
         Arrays.stream(this.valCols.columns()).forEach(c -> colMap.put(c.name(), c));
 
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-14388 Add affinity columns support.
+        // Preserving key chunk column order is not actually required.
+        // It is sufficient to has same column order for all nodes.
+        this.affCols = (ArrayUtils.nullOrEmpty(affCols)) ? keyCols :
+            Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
     }
 
     /**
@@ -92,8 +102,8 @@ public class SchemaDescriptor {
     }
 
     /**
-     * @param idx Index to check.
-     * @return {@code true} if the column belongs to the key chunk.
+     * @param idx Column index to check.
+     * @return {@code true} if the column belongs to the key chunk, {@code false} otherwise.
      */
     public boolean isKeyColumn(int idx) {
         return idx < keyCols.length();
@@ -121,6 +131,13 @@ public class SchemaDescriptor {
      */
     public Columns keyColumns() {
         return keyCols;
+    }
+
+    /**
+     * @return Key affinity columns chunk.
+     */
+    public Column[] affinityColumns() {
+        return affCols;
     }
 
     /**

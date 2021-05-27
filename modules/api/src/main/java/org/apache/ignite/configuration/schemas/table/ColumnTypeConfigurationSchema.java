@@ -20,22 +20,24 @@ package org.apache.ignite.configuration.schemas.table;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
-/** Configuration for SQL table column type. */
+/**
+ * Configuration for SQL table column type.
+ */
 @Config
 public class ColumnTypeConfigurationSchema {
     /** Type name. */
     @Value
-    String type;
+    public String type;
 
     /** Length. */
     @Value(hasDefault = true)
-    int length = 0;
+    public int length = 0;
 
     /** Precision. */
     @Value(hasDefault = true)
-    int precision = 0;
+    public int precision = 0;
 
     /** Scale. */
     @Value(hasDefault = true)
-    int scale = 0;
+    public int scale = 0;
 }
