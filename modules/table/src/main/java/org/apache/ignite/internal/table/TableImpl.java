@@ -94,12 +94,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple get(Tuple keyRec) {
+    @Override public Tuple get(@NotNull Tuple keyRec) {
         return sync(getAsync(keyRec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Tuple> getAsync(Tuple keyRec) {
+    @Override public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         final Row keyRow = marshaller().marshal(keyRec, null); // Convert to portable format to pass TX/storage layer.
@@ -108,12 +108,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Tuple> getAll(Collection<Tuple> keyRecs) {
+    @Override public Collection<Tuple> getAll(@NotNull Collection<Tuple> keyRecs) {
         return sync(getAllAsync(keyRecs));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(Collection<Tuple> keyRecs) {
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         HashSet<BinaryRow> keys = new HashSet<>(keyRecs.size());
@@ -128,12 +128,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public void upsert(Tuple rec) {
+    @Override public void upsert(@NotNull Tuple rec) {
         sync(upsertAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Void> upsertAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Void> upsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row keyRow = marshaller().marshal(rec);
@@ -142,12 +142,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public void upsertAll(Collection<Tuple> recs) {
+    @Override public void upsertAll(@NotNull Collection<Tuple> recs) {
         sync(upsertAllAsync(recs));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Void> upsertAllAsync(Collection<Tuple> recs) {
+    @Override public @NotNull CompletableFuture<Void> upsertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
@@ -162,12 +162,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple getAndUpsert(Tuple rec) {
+    @Override public Tuple getAndUpsert(@NotNull Tuple rec) {
         return sync(getAndUpsertAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row keyRow = marshaller().marshal(rec);
@@ -176,12 +176,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean insert(Tuple rec) {
+    @Override public boolean insert(@NotNull Tuple rec) {
         return sync(insertAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> insertAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Boolean> insertAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row keyRow = marshaller().marshal(rec);
@@ -190,12 +190,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Tuple> insertAll(Collection<Tuple> recs) {
+    @Override public Collection<Tuple> insertAll(@NotNull Collection<Tuple> recs) {
         return sync(insertAllAsync(recs));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(Collection<Tuple> recs) {
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
@@ -210,12 +210,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(Tuple rec) {
+    @Override public boolean replace(@NotNull Tuple rec) {
         return sync(replaceAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row keyRow = marshaller().marshal(rec);
@@ -224,12 +224,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean replace(Tuple oldRec, Tuple newRec) {
+    @Override public boolean replace(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
         return sync(replaceAsync(oldRec, newRec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(Tuple oldRec, Tuple newRec) {
+    @Override public @NotNull CompletableFuture<Boolean> replaceAsync(@NotNull Tuple oldRec, @NotNull Tuple newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
@@ -240,12 +240,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple getAndReplace(Tuple rec) {
+    @Override public Tuple getAndReplace(@NotNull Tuple rec) {
         return sync(getAndReplaceAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row keyRow = marshaller().marshal(rec);
@@ -254,12 +254,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean delete(Tuple keyRec) {
+    @Override public boolean delete(@NotNull Tuple keyRec) {
         return sync(deleteAsync(keyRec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> deleteAsync(Tuple keyRec) {
+    @Override public @NotNull CompletableFuture<Boolean> deleteAsync(@NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         final Row keyRow = marshaller().marshal(keyRec, null);
@@ -268,12 +268,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean deleteExact(Tuple rec) {
+    @Override public boolean deleteExact(@NotNull Tuple rec) {
         return sync(deleteExactAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Boolean> deleteExactAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshaller().marshal(rec);
@@ -282,12 +282,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Tuple getAndDelete(Tuple rec) {
+    @Override public Tuple getAndDelete(@NotNull Tuple rec) {
         return sync(getAndDeleteAsync(rec));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(Tuple rec) {
+    @Override public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@NotNull Tuple rec) {
         Objects.requireNonNull(rec);
 
         final Row row = marshaller().marshal(rec);
@@ -296,12 +296,12 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Tuple> deleteAll(Collection<Tuple> recs) {
+    @Override public Collection<Tuple> deleteAll(@NotNull Collection<Tuple> recs) {
         return sync(deleteAllAsync(recs));
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(Collection<Tuple> recs) {
+    @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
@@ -316,13 +316,14 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<Tuple> deleteAllExact(Collection<Tuple> recs) {
+    @Override public Collection<Tuple> deleteAllExact(@NotNull Collection<Tuple> recs) {
         return sync(deleteAllExactAsync(recs));
     }
 
     /** {@inheritDoc} */
     @Override public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(
-        Collection<Tuple> recs) {
+        @NotNull Collection<Tuple> recs
+    ) {
         Objects.requireNonNull(recs);
 
         HashSet<BinaryRow> keys = new HashSet<>(recs.size());
@@ -338,7 +339,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public <T extends Serializable> T invoke(
-        Tuple keyRec,
+        @NotNull Tuple keyRec,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
@@ -346,7 +347,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
-        Tuple keyRec,
+        @NotNull Tuple keyRec,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
@@ -354,7 +355,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public <T extends Serializable> Map<Tuple, T> invokeAll(
-        Collection<Tuple> keyRecs,
+        @NotNull Collection<Tuple> keyRecs,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
@@ -362,7 +363,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(
-        Collection<Tuple> keyRecs,
+        @NotNull Collection<Tuple> keyRecs,
         InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
