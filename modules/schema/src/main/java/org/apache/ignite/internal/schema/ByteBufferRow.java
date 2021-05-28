@@ -129,8 +129,12 @@ public class ByteBufferRow implements BinaryRow {
 
     /** {@inheritDoc} */
     @Override public ByteBuffer keySlice() {
+        final short flags = readShort(FLAGS_FIELD_OFFSET);
+
         final int off = KEY_CHUNK_OFFSET;
-        final int len = readInteger(off);
+        final int len = (flags & RowFlags.KEY_LARGE_ROW_FORMAT) != 0 ? readInteger(off) :
+            (flags & RowFlags.KEY_TYNY_FORMAT) != 0 ? readByte(off) :
+                readShort(off);
 
         try {
             return buf.limit(off + len).position(off).slice();
@@ -143,8 +147,14 @@ public class ByteBufferRow implements BinaryRow {
 
     /** {@inheritDoc} */
     @Override public ByteBuffer valueSlice() {
-        int off = KEY_CHUNK_OFFSET + readInteger(KEY_CHUNK_OFFSET);
-        int len = hasValue() ? readInteger(off) : 0;
+        final short flags = readShort(FLAGS_FIELD_OFFSET);
+
+        int off = KEY_CHUNK_OFFSET +
+            ((flags & RowFlags.KEY_LARGE_ROW_FORMAT) != 0 ? readInteger(KEY_CHUNK_OFFSET) :
+            (flags & RowFlags.KEY_TYNY_FORMAT) != 0 ? readByte(KEY_CHUNK_OFFSET) : readShort(KEY_CHUNK_OFFSET));
+
+        int len = hasValue() ? (flags & RowFlags.VAL_LARGE_FORMAT) != 0 ? readInteger(off) :
+            (flags & RowFlags.VAL_TYNY_FORMAT) != 0 ? readByte(off) : readShort(off) : 0;
 
         try {
             return buf.limit(off + len).position(off).slice();

@@ -28,16 +28,25 @@ import java.nio.ByteBuffer;
 public interface BinaryRow {
     /** */
     int SCHEMA_VERSION_OFFSET = 0;
+
     /** */
     int FLAGS_FIELD_OFFSET = SCHEMA_VERSION_OFFSET + 2 /* version length */;
+
     /** */
     int KEY_HASH_FIELD_OFFSET = FLAGS_FIELD_OFFSET + 2 /* flags length */;
+
     /** */
     int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4 /* hash length */;
+
+    /** */
+    int HEADER_SIZE = KEY_CHUNK_OFFSET;
+
     /** */
     int CHUNK_LEN_FIELD_SIZE = 4;
+
     /** */
     int VARLEN_TABLE_SIZE_FIELD_SIZE = 2;
+
     /** */
     int VARLEN_COLUMN_OFFSET_FIELD_SIZE = 2;
 
@@ -147,6 +156,14 @@ public interface BinaryRow {
 
         /** Flag indicates value chunk omits varlen table. */
         public static final int OMIT_VAL_VARTBL_FLAG = 1 << 4;
+
+        public static final int KEY_TYNY_FORMAT = 1 << 5;
+
+        public static final int KEY_LARGE_ROW_FORMAT = 1 << 6;
+
+        public static final int VAL_TYNY_FORMAT = 1 << 7;
+
+        public static final int VAL_LARGE_FORMAT = 1 << 8;
 
         /** Stub. */
         private RowFlags() {

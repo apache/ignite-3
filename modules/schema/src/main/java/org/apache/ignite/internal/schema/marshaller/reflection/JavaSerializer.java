@@ -89,7 +89,7 @@ public class JavaSerializer extends AbstractSerializer {
             schema.keyColumns(), keyStat.nonNullCols, keyStat.nonNullColsSize,
             schema.valueColumns(), valStat.nonNullCols, valStat.nonNullColsSize);
 
-        return new RowAssembler(schema, size, keyStat.nonNullCols, valStat.nonNullCols);
+        return new RowAssembler(schema, size, 2, keyStat.nonNullCols, 2, valStat.nonNullCols);
     }
 
     /**

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.io.Serializable;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 
@@ -50,6 +51,7 @@ public class Column implements Comparable<Column>, Serializable {
     /**
      * Default value supplier.
      */
+    @IgniteToStringExclude
     private final Supplier<Object> defValSup;
 
     /**

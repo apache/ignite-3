@@ -51,6 +51,8 @@ public class RowAssembler {
     /** Target byte buffer to write to. */
     private final ExpandableByteBuf buf;
 
+    private final int valOffSize;
+
     /** Current columns chunk. */
     private Columns curCols;
 
@@ -71,6 +73,8 @@ public class RowAssembler {
 
     /** Offset of the varlen table for current chunk. */
     private int varlenTblChunkOff;
+
+    private int adaptiveItemSize;
 
     /** Row hashcode. */
     private int keyHash;
@@ -155,6 +159,14 @@ public class RowAssembler {
 
         return size + nonNullVarlenSize;
     }
+    public RowAssembler(
+        SchemaDescriptor schema,
+        int size,
+        int nonNullVarlenKeyCols,
+        int nonNullVarlenValCols
+    ) {
+        this(schema, size, 2, nonNullVarlenKeyCols, 2, nonNullVarlenValCols);
+    }
 
     /**
      * @param schema Row schema.
@@ -166,24 +178,37 @@ public class RowAssembler {
     public RowAssembler(
         SchemaDescriptor schema,
         int size,
+        int keyOffSize,
         int nonNullVarlenKeyCols,
+        int valOffSize,
         int nonNullVarlenValCols
     ) {
         this.schema = schema;
         this.nonNullVarlenValCols = nonNullVarlenValCols;
+        this.valOffSize = valOffSize;
 
         curCols = schema.keyColumns();
         flags = 0;
         keyHash = 0;
         strEncoder = null;
 
-        initOffsets(BinaryRow.KEY_CHUNK_OFFSET, nonNullVarlenKeyCols);
+        initOffsets(BinaryRow.KEY_CHUNK_OFFSET, keyOffSize, nonNullVarlenKeyCols);
 
         if (schema.keyColumns().nullMapSize() == 0)
             flags |= RowFlags.OMIT_KEY_NULL_MAP_FLAG;
 
         if (schema.valueColumns().nullMapSize() == 0)
             flags |= RowFlags.OMIT_VAL_NULL_MAP_FLAG;
+
+        if (keyOffSize == 1)
+            flags |= RowFlags.KEY_TYNY_FORMAT;
+        else if (keyOffSize != 2)
+            flags |= RowFlags.KEY_LARGE_ROW_FORMAT;
+
+        if (valOffSize == 1)
+            flags |= RowFlags.VAL_TYNY_FORMAT;
+        else if (valOffSize != 2)
+            flags |= RowFlags.VAL_LARGE_FORMAT;
 
         buf = new ExpandableByteBuf(size);
 
@@ -192,7 +217,16 @@ public class RowAssembler {
         if (nonNullVarlenKeyCols == 0)
             flags |= OMIT_KEY_VARTBL_FLAG;
         else
-            buf.putShort(varlenTblChunkOff, (short)nonNullVarlenKeyCols);
+            writeAdaptiveItem(varlenTblChunkOff, (short)nonNullVarlenKeyCols);
+    }
+
+    public static int vartableOffSize(int vartableItems, int dataSize) {
+        if (dataSize + vartableItems + 2 < (1 << 8))
+            return 1;
+        if (dataSize + (vartableItems + 2) * 2 < (1 << 16))
+            return 2;
+        else
+            return 4;
     }
 
     /**
@@ -435,7 +469,22 @@ public class RowAssembler {
         assert (flags & (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? OMIT_KEY_VARTBL_FLAG : OMIT_VAL_VARTBL_FLAG)) == 0 :
             "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
-        buf.putShort(varlenTblChunkOff + Row.varlenItemOffset(tblEntryIdx), (short)off);
+        writeAdaptiveItem(varlenTblChunkOff + vartableItemOffset(tblEntryIdx), off);
+    }
+
+    private void writeAdaptiveItem(int off, int val) {
+        switch (adaptiveItemSize) {
+            case Byte.BYTES:
+                buf.put(off, (byte)val);
+
+                return;
+            case Short.BYTES:
+                buf.putShort(off, (short)val);
+
+                return;
+            default:
+                buf.putInt(off, val);
+        }
     }
 
     /**
@@ -505,19 +554,19 @@ public class RowAssembler {
         if (curCol == curCols.length()) {
             int chunkLen = curOff - baseOff;
 
-            buf.putInt(baseOff, chunkLen);
+            writeAdaptiveItem(baseOff, chunkLen);
 
             if (schema.valueColumns() == curCols)
                 return; // No more columns.
 
             curCols = schema.valueColumns(); // Switch key->value columns.
 
-            initOffsets(baseOff + chunkLen, nonNullVarlenValCols);
+            initOffsets(baseOff + chunkLen, valOffSize, nonNullVarlenValCols);
 
             if (nonNullVarlenValCols == 0)
                 flags |= OMIT_VAL_VARTBL_FLAG;
             else
-                buf.putShort(varlenTblChunkOff, (short)nonNullVarlenValCols);
+                writeAdaptiveItem(varlenTblChunkOff, (short)nonNullVarlenValCols);
         }
     }
 
@@ -525,16 +574,26 @@ public class RowAssembler {
      * @param base Chunk base offset.
      * @param nonNullVarlenCols Number of non-null varlen columns.
      */
-    private void initOffsets(int base, int nonNullVarlenCols) {
+    private void initOffsets(int base, int adaptiveItemSize, int nonNullVarlenCols) {
         baseOff = base;
+
+        this.adaptiveItemSize = adaptiveItemSize;
 
         curCol = 0;
         curVarlenTblEntry = 0;
 
-        nullMapOff = baseOff + BinaryRow.CHUNK_LEN_FIELD_SIZE;
+        nullMapOff = baseOff + adaptiveItemSize /* chunk length. */;
         varlenTblChunkOff = nullMapOff + curCols.nullMapSize();
 
-        curOff = varlenTblChunkOff + varlenTableChunkSize(nonNullVarlenCols);
+        curOff = varlenTblChunkOff + vartableSize(nonNullVarlenCols, adaptiveItemSize);
+    }
+
+    public int vartableItemOffset(int nonNullVarlenCols) {
+        return adaptiveItemSize + nonNullVarlenCols * adaptiveItemSize;
+    }
+
+    public static int vartableSize(int items, int itemSize) {
+        return items == 0 ? 0 : itemSize + items * itemSize;
     }
 
     /**

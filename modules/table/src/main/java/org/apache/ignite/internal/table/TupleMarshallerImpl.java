@@ -19,8 +19,11 @@ package org.apache.ignite.internal.table;
 
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -62,28 +65,72 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         validate(keyTuple, schema.keyColumns());
 
-        final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
+        ChunkData keyChunk = chunkData(schema.keyColumns(), keyTuple);
+        ChunkData valChunk = chunkData(schema.valueColumns(), valTuple);
+
+        final RowAssembler rowBuilder = createAssembler(schema, keyChunk, valChunk);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
             final Column col = schema.keyColumns().column(i);
 
-            writeColumn(keyTuple, col, rowBuilder);
+            writeColumn(rowBuilder, col, keyChunk.data.get(i));
         }
 
-        if (valTuple != null) {
+        if (valChunk.data != null) {
             validate(valTuple, schema.valueColumns());
 
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);
 
-                writeColumn(valTuple, col, rowBuilder);
+                writeColumn(rowBuilder, col, valChunk.data.get(i));
             }
         }
 
         return new Row(schema, new ByteBufferRow(rowBuilder.build()));
     }
 
-    /** */
+    private ChunkData chunkData(Columns cols, Tuple tuple) {
+        if (tuple == null)
+            return new ChunkData();
+
+        ChunkData chunk = new ChunkData();
+
+        chunk.data = new HashMap<>();
+
+        for (int i = 0; i < cols.length(); i++) {
+            Column col = cols.column(i);
+
+            Object val = (tuple.contains(col.name())) ? tuple.value(col.name()) : col.defaultValue();
+
+            if (val == null)
+                chunk.hasNulls = true;
+            else {
+                chunk.data.put(i, val);
+
+                if (col.type().spec().fixedLength())
+                    chunk.dataSize += col.type().sizeInBytes();
+                else {
+                    chunk.nonNullVarlen++;
+
+                    chunk.dataSize += getValueSize(val, col.type());
+                }
+            }
+        }
+
+        return chunk;
+    }
+
+    class ChunkData {
+        public boolean hasNulls;
+        public int dataSize;
+        public int nonNullVarlen;
+        Map<Integer, Object> data;
+
+    }
+
+    /**
+     *
+     */
     private void validate(Tuple tuple, Columns columns) {
         if (tuple instanceof TupleBuilderImpl) {
             TupleBuilderImpl t0 = (TupleBuilderImpl)tuple;
@@ -105,31 +152,27 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param valTuple Value tuple.
      * @return Row assembler.
      */
-    private RowAssembler createAssembler(SchemaDescriptor schema, Tuple keyTuple, Tuple valTuple) {
-        final ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyTuple);
-        final ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valTuple);
+    private RowAssembler createAssembler(SchemaDescriptor schema, ChunkData keyChunk, ChunkData valChunk) {
+        final int keyOffSize = RowAssembler.vartableOffSize(keyChunk.nonNullVarlen, keyChunk.dataSize);
+        final int valOffSize = RowAssembler.vartableOffSize(valChunk.nonNullVarlen, valChunk.dataSize);
 
-        int size = RowAssembler.rowSize(
-            schema.keyColumns(), keyStat.nonNullCols, keyStat.nonNullColsSize,
-            schema.valueColumns(), valStat.nonNullCols, valStat.nonNullColsSize);
+        int size = BinaryRow.HEADER_SIZE +
+            (keyChunk.hasNulls ? schema.keyColumns().nullMapSize() : 0) +
+            RowAssembler.vartableSize(valChunk.nonNullVarlen, valOffSize) +
+            keyChunk.dataSize +
+            (valChunk.hasNulls ? schema.valueColumns().nullMapSize() : 0) +
+            RowAssembler.vartableSize(valChunk.nonNullVarlen, valOffSize) +
+            valChunk.dataSize;
 
-        return new RowAssembler(schema, size, keyStat.nonNullCols, valStat.nonNullCols);
+        return new RowAssembler(schema, size, keyOffSize, keyChunk.nonNullVarlen, valOffSize, valChunk.nonNullVarlen);
     }
 
     /**
-     * @param tup Tuple.
-     * @param col Column.
      * @param rowAsm Row assembler.
+     * @param col Column.
+     * @param val Value.
      */
-    private void writeColumn(Tuple tup, Column col, RowAssembler rowAsm) {
-        Object val;
-
-        if (!tup.contains(col.name()))
-            val = col.defaultValue();
-        else {
-            val = tup.value(col.name());
-        }
-
+    private void writeColumn(RowAssembler rowAsm, Column col, Object val) {
         if (val == null) {
             rowAsm.appendNull();
 
@@ -189,52 +232,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
-        }
-    }
-
-    /**
-     * Reads object fields and gather statistic.
-     *
-     * @param cols Schema columns.
-     * @param tup Tuple.
-     * @return Object statistic.
-     */
-    private ObjectStatistic collectObjectStats(Columns cols, Tuple tup) {
-        if (tup == null || !cols.hasVarlengthColumns())
-            return new ObjectStatistic(0, 0);
-
-        int cnt = 0;
-        int size = 0;
-
-        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
-            Column col = cols.column(i);
-
-            final Object val = tup.contains(col.name()) ? tup.value(col.name()) : col.defaultValue();
-
-            if (val == null || cols.column(i).type().spec().fixedLength())
-                continue;
-
-            size += getValueSize(val, cols.column(i).type());
-            cnt++;
-        }
-
-        return new ObjectStatistic(cnt, size);
-    }
-
-    /**
-     * Object statistic.
-     */
-    private static class ObjectStatistic {
-        /** Non-null fields of varlen type. */
-        int nonNullCols;
-
-        /** Length of all non-null fields of varlen types. */
-        int nonNullColsSize;
-
-        /** Constructor. */
-        ObjectStatistic(int nonNullCols, int nonNullColsSize) {
-            this.nonNullCols = nonNullCols;
-            this.nonNullColsSize = nonNullColsSize;
         }
     }
 }
