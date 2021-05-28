@@ -119,7 +119,6 @@ public class RaftServerImpl implements RaftServer {
                 else
                     handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
             }
-            // Ignore unsupported messages. TODO asch invoke responses should not be delivered to message handlers.
         });
 
         if (!reuse)
