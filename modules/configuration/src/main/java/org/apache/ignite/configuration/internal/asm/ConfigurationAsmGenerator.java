@@ -17,15 +17,6 @@
 
 package org.apache.ignite.configuration.internal.asm;
 
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.ClassGenerator;
-import com.facebook.presto.bytecode.FieldDefinition;
-import com.facebook.presto.bytecode.MethodDefinition;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -48,6 +39,15 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassGenerator;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import org.apache.ignite.configuration.ConfigurationChanger;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -1110,6 +1110,12 @@ public class ConfigurationAsmGenerator {
         return className.replace('.', '/');
     }
 
+    /**
+     * Creates boxed version of the class. Types that it can box: {@code boolean}, {@code int}, {@code long} and
+     *      {@code double}. Other primitive types are not supported by configuration framework.
+     * @param clazz Maybe primitive class.
+     * @return Not primitive class that represents parameter class.
+     */
     private static Class<?> box(Class<?> clazz) {
         if (!clazz.isPrimitive())
             return clazz;
