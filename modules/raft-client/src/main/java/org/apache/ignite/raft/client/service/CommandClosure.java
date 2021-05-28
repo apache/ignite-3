@@ -21,7 +21,7 @@ import java.io.Serializable;
 import org.apache.ignite.raft.client.Command;
 
 /**
- * A closure to notify about command processing outcome.
+ * A closure to notify about a command processing outcome.
  *
  * @see RaftGroupListener
  * @param <R> Command type.

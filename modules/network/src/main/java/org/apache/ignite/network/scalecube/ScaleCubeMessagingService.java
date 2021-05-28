@@ -98,7 +98,7 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, final NetworkMessage msg, long timeout) {
+    @Override public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
         return invoke(recipient.address(), msg, timeout);
     }
 

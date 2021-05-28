@@ -26,7 +26,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -289,17 +288,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         // Disable the timeout for a snapshot request.
         CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(peer.address(), req, Integer.MAX_VALUE);
 
-        return fut.handle(new BiFunction<NetworkMessage, Throwable, Void>() {
-            @Override public Void apply(NetworkMessage resp, Throwable throwable) {
-                if (resp != null) {
-                    RaftErrorResponse resp0 = (RaftErrorResponse) resp;
+        return fut.thenApply(resp -> {
+            if (resp != null) {
+                RaftErrorResponse resp0 = (RaftErrorResponse) resp;
 
-                    if (resp0.errorCode() != null)
-                        throw new RaftException(resp0.errorCode(), resp0.errorMessage());
-                }
-
-                return null;
+                if (resp0.errorCode() != null)
+                    throw new RaftException(resp0.errorCode(), resp0.errorMessage());
             }
+
+            return null;
         });
     }
 
@@ -408,14 +405,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             }, retryDelay, TimeUnit.MILLISECONDS);
                         }
                         else if (resp0.errorCode() == null) { // Handle default response.
-                            leader = peer;
+                            leader = peer; // The OK response was received from a leader.
 
                             fut.complete(null); // Void response.
                         }
                         else
                             fut.completeExceptionally(new RaftException(resp0.errorCode(), resp0.errorMessage()));
                     } else {
-                        leader = peer;
+                        leader = peer; // The OK response was received from a leader.
 
                         fut.complete((R) resp);
                     }
