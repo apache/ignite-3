@@ -378,38 +378,37 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     else
                         fut.completeExceptionally(err);
                 }
-                else {
-                    if (resp instanceof RaftErrorResponse) {
-                        RaftErrorResponse resp0 = (RaftErrorResponse) resp;
+                else if (resp instanceof RaftErrorResponse) {
+                    RaftErrorResponse resp0 = (RaftErrorResponse) resp;
 
-                        if (resp0.errorCode().equals(NO_LEADER)) {
-                            executor.schedule(() -> {
-                                sendWithRetry(randomNode(), req, stopTime, fut);
-
-                                return null;
-                            }, retryDelay, TimeUnit.MILLISECONDS);
-                        }
-                        else if (resp0.errorCode().equals(LEADER_CHANGED)) {
-                            leader = resp0.newLeader(); // Update a leader.
-
-                            executor.schedule(() -> {
-                                sendWithRetry(resp0.newLeader(), req, stopTime, fut);
-
-                                return null;
-                            }, retryDelay, TimeUnit.MILLISECONDS);
-                        }
-                        else if (resp0.errorCode() == null) { // Handle default response.
-                            leader = peer; // The OK response was received from a leader.
-
-                            fut.complete(null); // Void response.
-                        }
-                        else
-                            fut.completeExceptionally(new RaftException(resp0.errorCode(), resp0.errorMessage()));
-                    } else {
+                    if (resp0.errorCode() == null) { // Handle OK response.
                         leader = peer; // The OK response was received from a leader.
 
-                        fut.complete((R) resp);
+                        fut.complete(null); // Void response.
                     }
+                    else if (resp0.errorCode().equals(NO_LEADER)) {
+                        executor.schedule(() -> {
+                            sendWithRetry(randomNode(), req, stopTime, fut);
+
+                            return null;
+                        }, retryDelay, TimeUnit.MILLISECONDS);
+                    }
+                    else if (resp0.errorCode().equals(LEADER_CHANGED)) {
+                        leader = resp0.newLeader(); // Update a leader.
+
+                        executor.schedule(() -> {
+                            sendWithRetry(resp0.newLeader(), req, stopTime, fut);
+
+                            return null;
+                        }, retryDelay, TimeUnit.MILLISECONDS);
+                    }
+                    else
+                        fut.completeExceptionally(new RaftException(resp0.errorCode(), resp0.errorMessage()));
+                }
+                else {
+                    leader = peer; // The OK response was received from a leader.
+
+                    fut.complete((R) resp);
                 }
             }
         });
