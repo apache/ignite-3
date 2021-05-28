@@ -23,7 +23,7 @@ import org.apache.ignite.network.processor.annotations.AutoSerializable;
 @AutoSerializable(messageFactory = TestMessageFactory.class)
 public interface TestMessage extends NetworkMessage {
     /** Visible type for tests. */
-    public static final short TYPE = 3;
+    public static final short TYPE = 4;
 
     String msg();
 

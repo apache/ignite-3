@@ -15,34 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.processor.internal;
+package org.apache.ignite.internal.metastorage.client;
 
-import com.squareup.javapoet.TypeName;
-import java.util.ArrayList;
-import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Configuration and all it's inner fields.
+ * The listener which receives and handles watch updates.
  */
-public class ConfigurationDescription extends ConfigurationElement {
-    /** Inner configuration fields. */
-    private List<ConfigurationElement> fields = new ArrayList<>();
+public interface WatchListener {
+    /**
+     * The method will be called on each meta storage update.
+     *
+     * @param evt A single event or a batch. The batch always contains updates for specific revision.
+     * @return {@code True} if listener must continue event handling. If returns {@code false} then the listener and
+     * corresponding watch will be unregistered.
+     */
+    boolean onUpdate(@NotNull WatchEvent evt);
 
     /**
-     * Constructor.
-     * @param type Configuration type.
-     * @param name Name of configuration element.
-     * @param view Configuration VIEW type.
-     * @param change Configuration CHANGE type.
+     * The method will be called in case of an error occurred. The listener and corresponding watch will be
+     * unregistered.
+     *
+     * @param e Exception.
      */
-    public ConfigurationDescription(TypeName type, String name, TypeName view, TypeName change) {
-        super(type, name, view, change);
-    }
-
-    /**
-     * @return Configuration fields.
-     */
-    public List<ConfigurationElement> getFields() {
-        return fields;
-    }
+    void onError(@NotNull Throwable e);
 }

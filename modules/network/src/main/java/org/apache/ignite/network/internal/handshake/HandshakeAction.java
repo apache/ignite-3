@@ -15,7 +15,20 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.network.internal.handshake;
+
+import org.apache.ignite.network.internal.netty.HandshakeHandler;
+
 /**
- * Defines client interface for access to a meta storage server.
+ * Enum representing actions that are propagated from a {@link HandshakeManager} to a {@link HandshakeHandler}.
  */
-package org.apache.ignite.metastorage.client;
+public enum HandshakeAction {
+    /** Fail the handshake operation and close the channel. */
+    FAIL,
+
+    /** Remove the handshake handler. */
+    REMOVE_HANDLER,
+
+    /** Do nothing. */
+    NOOP
+}
