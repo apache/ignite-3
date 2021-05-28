@@ -350,7 +350,7 @@ public class RaftGroupServiceTest {
         mockUserInput(false, NODES.get(0));
 
         RaftGroupService service =
-            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT, NODES, true, DELAY, true);
+            new RaftGroupServiceImpl(groupId, cluster, FACTORY, TIMEOUT * 3, NODES, true, DELAY, true);
 
         Peer leader = this.leader;
 
@@ -364,6 +364,8 @@ public class RaftGroupServiceTest {
 
         timer.schedule(new TimerTask() {
             @Override public void run() {
+                LOG.info("Set leader {0}", NODES.get(1));
+
                 RaftGroupServiceTest.this.leader = NODES.get(1);
             }
         }, 500);
