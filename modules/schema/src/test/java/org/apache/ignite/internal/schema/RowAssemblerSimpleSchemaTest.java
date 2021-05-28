@@ -34,10 +34,10 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
  */
 public class RowAssemblerSimpleSchemaTest {
     /** Uuid test value. */
-    public final java.util.UUID uuidVal = new UUID(-5204230847775358097L, 4916207022290092939L);
+    public final UUID uuidVal = new UUID(-5204230847775358097L, 4916207022290092939L);
 
     /** Table ID test value. */
-    public final java.util.UUID tableId = java.util.UUID.randomUUID();
+    public final UUID tableId = java.util.UUID.randomUUID();
 
     /**
      * Validate row layout for schema of fix-len non-null key and fix-len nullable value.
