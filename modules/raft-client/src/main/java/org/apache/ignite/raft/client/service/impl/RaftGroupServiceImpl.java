@@ -369,12 +369,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             @Override public void accept(Object resp, Throwable err) {
                 if (err != null) {
                     if (recoverable(err)) {
-                        executor.schedule(new Callable<Void>() {
-                            @Override public Void call() {
-                                sendWithRetry(randomNode(), req, stopTime, fut);
+                        executor.schedule(() -> {
+                            sendWithRetry(randomNode(), req, stopTime, fut);
 
-                                return null;
-                            }
+                            return null;
                         }, retryDelay, TimeUnit.MILLISECONDS);
                     }
                     else
@@ -385,23 +383,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         RaftErrorResponse resp0 = (RaftErrorResponse) resp;
 
                         if (resp0.errorCode().equals(NO_LEADER)) {
-                            executor.schedule(new Callable<Void>() {
-                                @Override public Void call() {
-                                    sendWithRetry(randomNode(), req, stopTime, fut);
+                            executor.schedule(() -> {
+                                sendWithRetry(randomNode(), req, stopTime, fut);
 
-                                    return null;
-                                }
+                                return null;
                             }, retryDelay, TimeUnit.MILLISECONDS);
                         }
                         else if (resp0.errorCode().equals(LEADER_CHANGED)) {
                             leader = resp0.newLeader(); // Update a leader.
 
-                            executor.schedule(new Callable<Void>() {
-                                @Override public Void call() {
-                                    sendWithRetry(resp0.newLeader(), req, stopTime, fut);
+                            executor.schedule(() -> {
+                                sendWithRetry(resp0.newLeader(), req, stopTime, fut);
 
-                                    return null;
-                                }
+                                return null;
                             }, retryDelay, TimeUnit.MILLISECONDS);
                         }
                         else if (resp0.errorCode() == null) { // Handle default response.
