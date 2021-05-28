@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -387,7 +388,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override public Table table(String name) {
         if (!isTableConfigured(name))
-            throw new IgniteException("Table wasn't found.");
+            throw new IgniteException("Table wasn't found [name=" + name + ']');
 
         Table tbl = tables.get(name);
 
@@ -415,7 +416,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tbl = tables.get(name);
 
         if (tbl != null && getTblFut.complete(tbl) ||
-            !isTableConfigured(name) && getTblFut.completeExceptionally(new IgniteException("Table was removed.")))
+            !isTableConfigured(name) && getTblFut.completeExceptionally(new IgniteException("Table was removed [name=" + name + ']')))
             removeListener(TableEvent.CREATE, clo);
 
         return getTblFut.join();
@@ -428,7 +429,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True if table configured, false otherwise.
      */
     private boolean isTableConfigured(String name) {
-        IgniteBiTuple<ByteArray, ByteArray> rabge = toRange(new ByteArray(PUBLIC_PREFIX + name + '.'));
+        IgniteBiTuple<ByteArray, ByteArray> rabge = toRange(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + '.'));
 
         try (Cursor<Entry> cursor = metaStorageMgr.range(rabge.get1(), rabge.get2())) {
             return cursor.hasNext();
