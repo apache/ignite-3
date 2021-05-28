@@ -24,7 +24,7 @@ import org.apache.ignite.raft.client.RaftErrorCode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft error response. Also used as a default response when errorCode == {@link RaftErrorCode#SUCCESS}
+ * Raft error response.
  */
 public interface RaftErrorResponse extends NetworkMessage, Serializable {
     /**

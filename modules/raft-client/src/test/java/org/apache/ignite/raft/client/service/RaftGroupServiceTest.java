@@ -435,7 +435,7 @@ public class RaftGroupServiceTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testSnapshotExecutionFailedResponse() throws Exception{
+    public void testSnapshotExecutionFailedResponse() throws Exception {
         String groupId = "test";
 
         mockSnapshotRequest(0);
