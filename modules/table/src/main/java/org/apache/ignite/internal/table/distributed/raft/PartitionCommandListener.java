@@ -313,7 +313,7 @@ public class PartitionCommandListener implements RaftGroupCommandListener {
      * @param row2 Row to compare.
      * @return True if these rows is equivalent, false otherwise.
      */
-    private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
+    private boolean equalValues(BinaryRow row, BinaryRow row2) {
         if (row == row2)
             return true;
 
