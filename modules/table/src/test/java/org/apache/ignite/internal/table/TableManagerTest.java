@@ -288,12 +288,8 @@ public class TableManagerTest {
         ClusterNode node,
         CompletableFuture<UUID> tblIdFut
     ) {
-        try {
-            when(vm.name()).thenAnswer(n -> NODE_NAME);
-        }
-        catch (IgniteInternalCheckedException e) {
-            throw new RuntimeException(e);
-        }
+        when(mm.hasMetastorageLocally(any())).thenReturn(true);
+
         when(mm.invoke((Condition)any(), (Operation)any(), (Operation)any())).thenAnswer(invokation -> {
             Condition condition = (Condition)invokation.getArgument(0);
 
