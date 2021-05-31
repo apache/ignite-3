@@ -174,7 +174,6 @@ public class TableManagerTest {
         AffinityManager am = mock(AffinityManager.class);
         Loza rm = mock(Loza.class);
         VaultManager vm = mock(VaultManager.class);
-        when(vm.name()).thenAnswer(n -> NODE_NAME);
 
         TableManager tableManager = new TableManager(cfrMgr, mm, sm, am, rm, vm);
 
@@ -193,7 +192,6 @@ public class TableManagerTest {
         AffinityManager am = mock(AffinityManager.class);
         Loza rm = mock(Loza.class);
         VaultManager vm = mock(VaultManager.class);
-        when(vm.name()).thenAnswer(n -> NODE_NAME);
 
         ClusterNode node = new ClusterNode(UUID.randomUUID().toString(), NODE_NAME, "127.0.0.1", PORT);
 
@@ -214,7 +212,6 @@ public class TableManagerTest {
         AffinityManager am = mock(AffinityManager.class);
         Loza rm = mock(Loza.class);
         VaultManager vm = mock(VaultManager.class);
-        when(vm.name()).thenAnswer(n -> NODE_NAME);
 
         ClusterNode node = new ClusterNode(UUID.randomUUID().toString(), NODE_NAME, "127.0.0.1", PORT);
 

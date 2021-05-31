@@ -26,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
 public interface Ignition {
     /**
      * Starts Ignite node with optional bootstrap configuration in json format.
+     * @param name Name of the node.
      * @param jsonStrBootstrapCfg Node configuration in json format.
      * @return Started Ignite node.
      */

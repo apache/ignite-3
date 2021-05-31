@@ -94,10 +94,13 @@ public class NodeManager {
             cmdArgs.add("-cp");
             cmdArgs.add(classpath());
             cmdArgs.add(MAIN_CLASS);
-            cmdArgs.add(nodeName);
 
-            if (srvCfg != null)
+            if (srvCfg != null) {
+                cmdArgs.add("--config");
                 cmdArgs.add(srvCfg.toAbsolutePath().toString());
+            }
+
+            cmdArgs.add(nodeName);
 
             ProcessBuilder pb = new ProcessBuilder(
                 cmdArgs

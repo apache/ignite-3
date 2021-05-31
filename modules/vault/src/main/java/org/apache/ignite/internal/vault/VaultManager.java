@@ -39,9 +39,7 @@ public class VaultManager {
     /** Special key for vault where applied revision for {@code putAll} operation is stored. */
     private static ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
-    /**
-     *
-     */
+    /** Special key, which reserved for storing the name of the current node. */
     private static final ByteArray NODE_NAME = ByteArray.fromString("node_name");
 
     /** Mutex. */
@@ -177,14 +175,14 @@ public class VaultManager {
         }
     }
 
-    public CompletableFuture<Void> putName(String name) {
+    @NotNull public CompletableFuture<Void> putName(String name) {
         return put(NODE_NAME, name.getBytes(StandardCharsets.UTF_8));
     }
 
     public String name() throws IgniteInternalCheckedException {
         synchronized (mux) {
             try {
-                return new String(vaultService.get(APPLIED_REV).get().value());
+                return new String(vaultService.get(NODE_NAME).get().value());
             }
             catch (InterruptedException | ExecutionException e) {
                 throw new IgniteInternalCheckedException("Error occurred when getting node name", e);

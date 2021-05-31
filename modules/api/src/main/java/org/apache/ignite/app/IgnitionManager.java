@@ -29,6 +29,7 @@ public class IgnitionManager {
 
     /**
      * Starts Ignite node with optional bootstrap configuration in json format.
+     * @param nodeName Name of the node.
      * @param jsonStrBootstrapCfg Node configuration in json format.
      * @return Started Ignite node.
      */
@@ -44,6 +45,7 @@ public class IgnitionManager {
 
     /**
      * Starts Ignite node with optional bootstrap configuration in json format.
+     * @param nodeName Name of the node.
      * @param jsonStrBootstrapCfg Node configuration in json format.
      * @param clsLdr The class loader to be used to load provider-configuration files
      * and provider classes, or {@code null} if the system class
