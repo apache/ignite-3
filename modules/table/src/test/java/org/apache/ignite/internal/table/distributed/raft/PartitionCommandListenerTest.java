@@ -58,7 +58,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -79,14 +78,14 @@ public class PartitionCommandListenerTest {
     );
 
     /** Table command listener. */
-    private static PartitionCommandListener commandListener;
+    private static PartitionListener commandListener;
 
     /**
      * Inisializes a table listener before tests.
      */
     @BeforeAll
     public static void before() {
-        commandListener = new PartitionCommandListener();
+        commandListener = new PartitionListener();
     }
 
     /**
@@ -258,12 +257,6 @@ public class PartitionCommandListenerTest {
             @Override public CommandClosure<T> next() {
                 CommandClosure<T> clo = mock(CommandClosure.class);
 
-                doAnswer(invocation -> {
-                    fail("Exception happened: " + invocation.getArgument(0));
-
-                    return null;
-                }).when(clo).failure(any());
-
                 func.accept(clo);
 
                 moved = true;
@@ -293,12 +286,6 @@ public class PartitionCommandListenerTest {
             /** {@inheritDoc} */
             @Override public CommandClosure<T> next() {
                 CommandClosure<T> clo = mock(CommandClosure.class);
-
-                doAnswer(invocation -> {
-                    fail("Exception happened: " + invocation.getArgument(0));
-
-                    return null;
-                }).when(clo).failure(any());
 
                 func.accept(i, clo);
 
@@ -333,7 +320,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any(MultiRowsResponse.class));
+            }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
@@ -353,7 +340,7 @@ public class PartitionCommandListenerTest {
                 assertNull(invocation.getArgument(0));
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
@@ -388,7 +375,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any(MultiRowsResponse.class));
+            }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
@@ -423,7 +410,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any(MultiRowsResponse.class));
+            }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
@@ -445,7 +432,7 @@ public class PartitionCommandListenerTest {
                 assertNull(invocation.getArgument(0));
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -460,7 +447,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, invocation.getArgument(0));
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -500,7 +487,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any(SingleRowResponse.class));
+            }).when(clo).result(any(SingleRowResponse.class));
         }));
     }
 
@@ -515,7 +502,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(!existed, mock.getArgument(0));
 
                 return null;
-            }).when(clo).success(!existed);
+            }).when(clo).result(!existed);
         }));
     }
 
@@ -551,7 +538,7 @@ public class PartitionCommandListenerTest {
                     assertTrue(resp.getValues().isEmpty());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -575,7 +562,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -599,7 +586,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -624,7 +611,7 @@ public class PartitionCommandListenerTest {
                     assertNull(resp.getValue());
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -641,7 +628,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, result);
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -658,7 +645,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, result);
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
@@ -679,7 +666,7 @@ public class PartitionCommandListenerTest {
                 assertEquals(existed, result);
 
                 return null;
-            }).when(clo).success(any());
+            }).when(clo).result(any());
         }));
     }
 
