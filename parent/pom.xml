@@ -469,7 +469,7 @@
         </profile>
 
         <!--
-            Profile that activates automatically when maven.test.skip is set to true and excludes test phase
+            Profile that activates automatically when maven.test.skip is set to true and excludes the test phase
         -->
         <profile>
             <id>skip-all-tests</id>
