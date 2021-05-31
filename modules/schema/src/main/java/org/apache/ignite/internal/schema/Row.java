@@ -436,12 +436,11 @@ public class Row implements BinaryRow {
      * @param cols Columns chunk.
      * @param baseOff Chunk base offset.
      * @param idx Column index in the chunk.
-     * @param hasVarTable
+     * @param hasVarTbl Has varlen table flag.
      * @param hasNullMap Has null map flag.
      * @return Encoded offset (from the row start) and length of the column with the given index.
      */
-    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasVarTable,
-        boolean hasNullMap) {
+    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasVarTbl, boolean hasNullMap) {
         int vartableOff = baseOff + CHUNK_LEN_FIELD_SIZE;
 
         int numNullsBefore = 0;
@@ -476,10 +475,10 @@ public class Row implements BinaryRow {
 
         if (idx == 0) { // Very first non-null varlen column.
             int off = cols.numberOfFixsizeColumns() == 0 ?
-                (hasVarTable ? vartableOff + varlenItemOffset(readShort(vartableOff)) : vartableOff) :
-                fixlenColumnOffset(cols, baseOff, cols.numberOfFixsizeColumns(), hasVarTable, hasNullMap);
+                (hasVarTbl ? vartableOff + varlenItemOffset(readShort(vartableOff)) : vartableOff) :
+                fixlenColumnOffset(cols, baseOff, cols.numberOfFixsizeColumns(), hasVarTbl, hasNullMap);
 
-            long len = hasVarTable ?
+            long len = hasVarTbl ?
                 readShort(vartableOff + varlenItemOffset(0)) - (off - baseOff) :
                 readInteger(baseOff) - (off - baseOff);
 
