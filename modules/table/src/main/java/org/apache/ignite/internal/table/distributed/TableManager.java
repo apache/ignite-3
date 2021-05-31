@@ -59,7 +59,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -382,13 +381,66 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override public List<Table> tables() {
-        return new ArrayList<>(tables.values());
+        ArrayList<Table> tables = new ArrayList<>();
+
+        for (String tblName : tableNamesConfigured()) {
+            Table tbl = table(tblName, false);
+
+            if (tbl != null)
+                tables.add(tbl);
+        }
+
+        return tables;
+    }
+
+    /**
+     * Collects a set of table names from the distributed configuration storage.
+     *
+     * @return A set of table names.
+     */
+    private HashSet<String> tableNamesConfigured() {
+        IgniteBiTuple<ByteArray, ByteArray> rabge = toRange(new ByteArray(PUBLIC_PREFIX));
+
+        HashSet tableNames = new HashSet();
+
+        try (Cursor<Entry> cursor = metaStorageMgr.range(rabge.get1(), rabge.get2())) {
+            while (cursor.hasNext()) {
+                Entry entry = cursor.next();
+
+                String keyTail = entry.key().toString().substring(PUBLIC_PREFIX.length());
+
+                int idx = -1;
+
+                while ((idx = keyTail.indexOf('.', idx + 1)) > 0 && keyTail.charAt(idx - 1) == '\\');
+
+                String tablName = keyTail.substring(0, idx);
+
+                tableNames.add(ConfigurationUtil.unescape(tablName));
+            }
+        }
+        catch (Exception e) {
+            LOG.error("Can't get table names.", e);
+        }
+
+        return tableNames;
     }
 
     /** {@inheritDoc} */
     @Override public Table table(String name) {
-        if (!isTableConfigured(name))
-            throw new IgniteException("Table wasn't found [name=" + name + ']');
+        return table(name, true);
+    }
+
+    /**
+     * Gets a table if it exists or {@code null} if it was not created or was removed before.
+     *
+     * @param name Table name.
+     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
+     * false otherwise.
+     * @return A table or {@code null} if table does not exist.
+     */
+    private Table table(String name, boolean checkConfiguration) {
+        if (checkConfiguration && !isTableConfigured(name))
+            return null;
 
         Table tbl = tables.get(name);
 
@@ -416,7 +468,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tbl = tables.get(name);
 
         if (tbl != null && getTblFut.complete(tbl) ||
-            !isTableConfigured(name) && getTblFut.completeExceptionally(new IgniteException("Table was removed [name=" + name + ']')))
+            !isTableConfigured(name) && getTblFut.complete(null))
             removeListener(TableEvent.CREATE, clo);
 
         return getTblFut.join();
@@ -443,6 +495,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Transforms a prefix bytes to range.
+     * This method should be replaced to direct call of range by prefix
+     * in Meta storage manager when it will be implemented.
+     * TODO: IGNITE-14799
      *
      * @param prefixKey Prefix bytes.
      * @return Tuple with left and right borders for range.

@@ -267,6 +267,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
     /**
      * Transforms a prefix bytes to range.
+     * This method should be replaced to direct call of range by prefix
+     * in Meta storage manager when it will be implemented.
+     * TODO: IGNITE-14799
      *
      * @param prefixKey Prefix bytes.
      * @return Tuple with left and right borders for range.
