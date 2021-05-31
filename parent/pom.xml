@@ -449,7 +449,7 @@
             Profile to exclude running surefire (unit) tests but do not prevent running integration ones
         -->
         <profile>
-            <id>skip-surefire</id>
+            <id>skip-unit-tests</id>
             <activation>
                 <property>
                     <name>skip.surefire.tests</name>
@@ -469,7 +469,8 @@
         </profile>
 
         <!--
-            Profile that activates automatically when maven.test.skip is set to true and excludes the test phase
+            Profile to exclude the test phase from maven lifecycle when maven.test.skip is set.
+            It is required to mitigate the issue with test-scope dependencies in non tested builds
         -->
         <profile>
             <id>skip-all-tests</id>
