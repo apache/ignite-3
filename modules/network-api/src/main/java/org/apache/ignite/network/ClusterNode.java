@@ -40,7 +40,14 @@ public class ClusterNode implements Serializable {
     private String address;
 
     /**
+     * @param id The id.
+     * @param name The unique node name.
+     * @param host The host.
+     * @param port The port.
+     * @param id Local id that changes between restarts.
      * @param name Unique name of member in cluster.
+     * @param host Node host.
+     * @param port Node port.
      */
     public ClusterNode(String id, String name, String host, int port) {
         this.id = id;
@@ -49,6 +56,9 @@ public class ClusterNode implements Serializable {
         this.port = port;
     }
 
+    /**
+     * @return Node's local id.
+     */
     public String id() {
         return id;
     }

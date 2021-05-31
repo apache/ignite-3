@@ -43,6 +43,7 @@ public interface MessagingService {
      *
      * @param recipient Recipient of the message.
      * @param msg Message which should be delivered.
+     * @return Future of the send operation.
      */
     CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg);
 
@@ -52,6 +53,7 @@ public interface MessagingService {
      * @param recipient Recipient of the message.
      * @param msg Message which should be delivered.
      * @param correlationId Correlation id when replying to the request.
+     * @return Future of the send operation.
      */
     CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg, String correlationId);
 
@@ -60,14 +62,27 @@ public interface MessagingService {
      * returns a future that will be completed successfully upon receiving a response.
      *
      * @param recipient Recipient of the message.
-     * @param msg A message.
+     * @param msg The message.
      * @param timeout Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
     CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout);
 
     /**
+     * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and
+     * returns a future that will be completed successfully upon receiving a response.
+     *
+     * @param addr Recipient network address in host:port format.
+     * @param msg A message.
+     * @param timeout Waiting for response timeout in milliseconds.
+     * @return A future holding the response or error if the expected response was not received.
+     */
+    CompletableFuture<NetworkMessage> invoke(String addr, NetworkMessage msg, long timeout);
+
+    /**
      * Registers a handler for network message events.
+     *
+     * @param handler Message handler.
      */
     void addMessageHandler(NetworkMessageHandler handler);
 }
