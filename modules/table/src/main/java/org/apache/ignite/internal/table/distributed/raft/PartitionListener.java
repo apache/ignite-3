@@ -28,7 +28,6 @@ import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -39,9 +38,6 @@ import org.jetbrains.annotations.NotNull;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PartitionListener.class);
-
     /** Storage. */
     private ConcurrentHashMap<KeyWrapper, BinaryRow> storage = new ConcurrentHashMap<>();
 
@@ -178,17 +174,5 @@ public class PartitionListener implements RaftGroupListener {
         @Override public int hashCode() {
             return hash;
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
-        LOG.warn("onSnapshotSave is not implemented");
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean onSnapshotLoad(String path) {
-        LOG.warn("onSnapshotLoad is not implemented");
-
-        return false;
     }
 }
