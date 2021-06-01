@@ -17,17 +17,12 @@
 package org.apache.ignite.raft.jraft.rpc.message;
 
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 public class GetLeaderResponseImpl implements CliRequests.GetLeaderResponse, CliRequests.GetLeaderResponse.Builder {
     private String leaderId;
 
     @Override public String getLeaderId() {
         return leaderId;
-    }
-
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
     }
 
     @Override public CliRequests.GetLeaderResponse build() {

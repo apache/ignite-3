@@ -30,10 +30,6 @@ public class InstallSnapshotResponseImpl implements RpcRequests.InstallSnapshotR
         return success;
     }
 
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
-    }
-
     @Override public RpcRequests.InstallSnapshotResponse build() {
         return this;
     }

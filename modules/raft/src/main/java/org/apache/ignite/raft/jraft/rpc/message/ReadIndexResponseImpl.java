@@ -30,10 +30,6 @@ class ReadIndexResponseImpl implements RpcRequests.ReadIndexResponse, RpcRequest
         return success;
     }
 
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
-    }
-
     @Override public RpcRequests.ReadIndexResponse build() {
         return this;
     }

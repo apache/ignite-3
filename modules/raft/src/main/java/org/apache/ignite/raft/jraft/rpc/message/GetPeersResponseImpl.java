@@ -19,7 +19,6 @@ package org.apache.ignite.raft.jraft.rpc.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 public class GetPeersResponseImpl implements CliRequests.GetPeersResponse, CliRequests.GetPeersResponse.Builder {
     private List<String> peersList = new ArrayList<>();
@@ -47,10 +46,6 @@ public class GetPeersResponseImpl implements CliRequests.GetPeersResponse, CliRe
 
     @Override public String getLearners(int index) {
         return learnersList.get(index);
-    }
-
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
     }
 
     @Override public Builder addPeers(String peerId) {

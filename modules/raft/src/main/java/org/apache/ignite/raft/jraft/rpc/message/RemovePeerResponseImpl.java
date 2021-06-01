@@ -19,7 +19,6 @@ package org.apache.ignite.raft.jraft.rpc.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 public class RemovePeerResponseImpl implements CliRequests.RemovePeerResponse, CliRequests.RemovePeerResponse.Builder {
     private List<String> oldPeersList = new ArrayList<>();
@@ -47,10 +46,6 @@ public class RemovePeerResponseImpl implements CliRequests.RemovePeerResponse, C
 
     @Override public String getNewPeers(int index) {
         return newPeersList.get(index);
-    }
-
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
     }
 
     @Override public Builder addOldPeers(String oldPeerId) {

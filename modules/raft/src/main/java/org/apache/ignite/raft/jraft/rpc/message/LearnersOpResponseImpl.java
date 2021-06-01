@@ -19,7 +19,6 @@ package org.apache.ignite.raft.jraft.rpc.message;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 public class LearnersOpResponseImpl implements CliRequests.LearnersOpResponse, CliRequests.LearnersOpResponse.Builder {
     private List<String> oldLearnersList = new ArrayList<>();
@@ -47,10 +46,6 @@ public class LearnersOpResponseImpl implements CliRequests.LearnersOpResponse, C
 
     @Override public String getNewLearners(int index) {
         return newLearnersList.get(index);
-    }
-
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
     }
 
     @Override public Builder addOldLearners(String oldLearnersId) {

@@ -31,7 +31,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.eq;
 
 public class RemoveLearnersRequestProcessorTest extends AbstractCliRequestProcessorTest<RemoveLearnersRequest> {
-
     @Override
     public RemoveLearnersRequest createRequest(final String groupId, final PeerId peerId) {
         return RemoveLearnersRequest.newBuilder(). //

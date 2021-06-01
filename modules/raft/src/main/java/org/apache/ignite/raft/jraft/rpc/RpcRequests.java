@@ -105,7 +105,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface InstallSnapshotResponse extends HasErrorResponse {
+    public interface InstallSnapshotResponse extends Message {
         static Message getDefaultInstance() { // TODO asch remove.
             return null;
         }
@@ -117,8 +117,6 @@ public final class RpcRequests {
         long getTerm();
 
         boolean getSuccess();
-
-        ErrorResponse getErrorResponse();
 
         interface Builder {
             InstallSnapshotResponse build();
@@ -155,7 +153,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface TimeoutNowResponse extends HasErrorResponse {
+    public interface TimeoutNowResponse extends Message {
         static Builder newBuilder() {
             return MessageBuilderFactory.DEFAULT.createTimeoutNowResponse();
         }
@@ -173,11 +171,6 @@ public final class RpcRequests {
          * <code>required bool success = 2;</code>
          */
         boolean getSuccess();
-
-        /**
-         * <code>optional .jraft.ErrorResponse errorResponse = 99;</code>
-         */
-        ErrorResponse getErrorResponse();
 
         interface Builder {
             TimeoutNowResponse build();
@@ -226,7 +219,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface RequestVoteResponse extends HasErrorResponse {
+    public interface RequestVoteResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -244,11 +237,6 @@ public final class RpcRequests {
          * <code>required bool granted = 2;</code>
          */
         boolean getGranted();
-
-        /**
-         * <code>optional .jraft.ErrorResponse errorResponse = 99;</code>
-         */
-        ErrorResponse getErrorResponse();
 
         interface Builder {
             RequestVoteResponse build();
@@ -337,7 +325,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface AppendEntriesResponse extends HasErrorResponse {
+    public interface AppendEntriesResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -351,8 +339,6 @@ public final class RpcRequests {
         boolean getSuccess();
 
         long getLastLogIndex();
-
-        ErrorResponse getErrorResponse();
 
         interface Builder {
             AppendEntriesResponse build();
@@ -403,7 +389,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface GetFileResponse extends HasErrorResponse {
+    public interface GetFileResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -415,8 +401,6 @@ public final class RpcRequests {
         boolean getEof();
 
         long getReadSize();
-
-        ErrorResponse getErrorResponse();
 
         ByteString getData();
 
@@ -463,7 +447,7 @@ public final class RpcRequests {
         }
     }
 
-    public interface ReadIndexResponse extends HasErrorResponse {
+    public interface ReadIndexResponse extends Message {
         static Builder newBuilder() {
             return MessageBuilderFactory.DEFAULT.createReadIndexResponse();
         }
@@ -475,8 +459,6 @@ public final class RpcRequests {
         long getIndex();
 
         boolean getSuccess();
-
-        ErrorResponse getErrorResponse();
 
         interface Builder {
             ReadIndexResponse build();

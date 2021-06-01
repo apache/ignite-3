@@ -32,10 +32,6 @@ public class GetFileResponseImpl implements RpcRequests.GetFileResponse, RpcRequ
         return readSize;
     }
 
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
-    }
-
     @Override public ByteString getData() {
         return data;
     }

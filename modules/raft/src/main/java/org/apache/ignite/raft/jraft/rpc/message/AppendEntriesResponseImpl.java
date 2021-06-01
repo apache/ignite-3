@@ -35,10 +35,6 @@ public class AppendEntriesResponseImpl implements RpcRequests.AppendEntriesRespo
         return lastLogIndex;
     }
 
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
-    }
-
     @Override public RpcRequests.AppendEntriesResponse build() {
         return this;
     }

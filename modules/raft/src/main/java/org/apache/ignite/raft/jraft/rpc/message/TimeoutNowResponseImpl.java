@@ -30,10 +30,6 @@ class TimeoutNowResponseImpl implements RpcRequests.TimeoutNowResponse, RpcReque
         return success;
     }
 
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
-    }
-
     @Override public RpcRequests.TimeoutNowResponse build() {
         return this;
     }

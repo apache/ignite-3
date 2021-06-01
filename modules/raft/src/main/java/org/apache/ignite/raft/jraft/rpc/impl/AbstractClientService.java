@@ -29,7 +29,6 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.ClientService;
-import org.apache.ignite.raft.jraft.rpc.HasErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -217,16 +216,6 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         if (result instanceof ErrorResponse) {
                             status = handleErrorResponse((ErrorResponse) result);
                             msg = (Message) result;
-                        }
-                        else if (result instanceof HasErrorResponse) { // TODO asch we don't need this.
-                            final ErrorResponse eResp = ((HasErrorResponse) result).getErrorResponse();
-                            if (eResp != null) {
-                                status = handleErrorResponse(eResp);
-                                msg = eResp;
-                            }
-                            else {
-                                msg = (T) result;
-                            }
                         }
                         else {
                             msg = (T) result;

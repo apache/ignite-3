@@ -30,10 +30,6 @@ public class RequestVoteResponseImpl implements RpcRequests.RequestVoteResponse,
         return granted;
     }
 
-    @Override public RpcRequests.ErrorResponse getErrorResponse() {
-        return null;
-    }
-
     @Override public RpcRequests.RequestVoteResponse build() {
         return this;
     }
