@@ -43,7 +43,6 @@ import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerialization
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.CliService;
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.RouteTable;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -67,15 +66,15 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-// TODO asch move to integration
+/** Jraft cli tests */
 public class CliServiceTest {
     /**
-     *
+     * The logger.
      */
     static final Logger LOG = LoggerFactory.getLogger(CliServiceTest.class);
 
     /**
-     *
+     * The registry.
      */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
@@ -83,7 +82,7 @@ public class CliServiceTest {
         .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
     /**
-     *
+     * The message factory.
      */
     private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
 
@@ -143,7 +142,6 @@ public class CliServiceTest {
         this.cliService.shutdown();
         this.cluster.stopAll();
         Utils.delete(new File(this.dataPath));
-        RouteTable.getInstance().reset();
         LOG.info(">>>>>>>>>>>>>>> End test method: " + this.testName.getMethodName());
     }
 

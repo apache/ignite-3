@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.counter.snapshot;
+package org.apache.ignite.raft.server;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,22 +26,35 @@ import org.slf4j.LoggerFactory;
 /**
  * Counter snapshot file.
  */
-public class CounterSnapshotFile {
+class CounterSnapshotFile {
+    /**
+     * The logger.
+     */
     private static final Logger LOG = LoggerFactory.getLogger(CounterSnapshotFile.class);
 
+    /**
+     * The path.
+     */
     private String path;
 
-    public CounterSnapshotFile(String path) {
+    /**
+     * @param path The path.
+     */
+    CounterSnapshotFile(String path) {
         super();
         this.path = path;
     }
 
+    /**
+     * @return The path.
+     */
     public String getPath() {
         return this.path;
     }
 
     /**
      * Save value to snapshot file.
+     * @param value The value.
      */
     public void save(final long value) throws IOException {
         try {
@@ -54,6 +67,10 @@ public class CounterSnapshotFile {
         }
     }
 
+    /**
+     * @return The loaded counter value.
+     * @throws IOException If failed.
+     */
     public long load() throws IOException {
         final String s = Files.readString(new File(path).toPath());
         if (!StringUtils.isBlank(s)) {

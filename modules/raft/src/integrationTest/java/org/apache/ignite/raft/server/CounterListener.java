@@ -29,7 +29,6 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.jraft.counter.snapshot.CounterSnapshotFile;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
@@ -47,7 +46,7 @@ public class CounterListener implements RaftGroupListener {
     private AtomicLong counter = new AtomicLong();
 
     /**
-     * Snapshot execitor.
+     * Snapshot executor.
      */
     private Executor executor = Executors.newSingleThreadExecutor();
 

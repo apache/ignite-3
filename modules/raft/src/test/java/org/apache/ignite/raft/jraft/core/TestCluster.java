@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -57,35 +56,8 @@ import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 public class TestCluster {
     private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
 
-    static class Clusters {
-
-        public final IdentityHashMap<TestCluster, Object> needCloses = new IdentityHashMap<>();
-        private final Object EXIST = new Object();
-
-        public synchronized void add(final TestCluster cluster) {
-            this.needCloses.put(cluster, EXIST);
-        }
-
-        public synchronized boolean remove(final TestCluster cluster) {
-            return this.needCloses.remove(cluster) != null;
-        }
-
-        public synchronized boolean isEmpty() {
-            return this.needCloses.isEmpty();
-        }
-
-        public synchronized List<TestCluster> removeAll() {
-            final List<TestCluster> clusters = new ArrayList<>(this.needCloses.keySet());
-            this.needCloses.clear();
-            return clusters;
-        }
-    }
-
-    // TODO asch remove ?
-    public static final Clusters CLUSTERS = new Clusters();
-
     private final String dataPath;
-    private final String name;                                              // groupId
+    private final String name;
     private final List<PeerId> peers;
     private final List<NodeImpl> nodes;
     private final LinkedHashMap<PeerId, MockStateMachine> fsms;
@@ -143,7 +115,6 @@ public class TestCluster {
         this.electionTimeoutMs = electionTimeoutMs;
         this.learners = learners;
         this.optsClo = optsClo;
-        CLUSTERS.add(this);
     }
 
     public boolean start(final Endpoint addr) throws Exception {
@@ -312,7 +283,6 @@ public class TestCluster {
         for (final Node node : nodes) {
             node.join(); // TODO asch fixme
         }
-        CLUSTERS.remove(this);
     }
 
     public void clean(final Endpoint listenAddr) throws IOException {
