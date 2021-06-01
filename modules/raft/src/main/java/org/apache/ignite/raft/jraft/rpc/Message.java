@@ -1,7 +1,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.io.Serializable;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Base message. Temporary extends Serializable for compatibility with JDK serialization.

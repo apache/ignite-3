@@ -1,6 +1,7 @@
 package org.apache.ignite.raft.server.impl;
 
 import java.io.File;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -239,7 +240,7 @@ public class JRaftServerImpl implements RaftServer {
                                 return JDKMarshaller.DEFAULT.unmarshall(data.array());
                             }
 
-                            @Override public void result(Object res) {
+                            @Override public void result(Serializable res) {
                                 if (done != null)
                                     done.result(res);
 

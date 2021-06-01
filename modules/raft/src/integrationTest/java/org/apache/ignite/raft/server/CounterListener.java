@@ -42,6 +42,7 @@ public class CounterListener implements RaftGroupListener {
     /** */
     private AtomicLong counter = new AtomicLong();
 
+    /** */
     private Executor executor = Executors.newSingleThreadExecutor();
 
     /** {@inheritDoc} */

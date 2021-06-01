@@ -16,8 +16,6 @@
  */
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.ClusterImpl;
-import io.scalecube.cluster.transport.api.Transport;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -29,17 +27,24 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import io.scalecube.cluster.ClusterImpl;
+import io.scalecube.cluster.transport.api.Transport;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageFactory;
 import org.apache.ignite.network.TestMessageSerializationFactory;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -86,7 +91,7 @@ class ITScaleCubeNetworkMessagingTest {
 
         testCluster.startAwait();
 
-        var testMessage = new TestMessage("Message from Alice");
+        var testMessage = TestMessageFactory.testMessage().msg("Message from Alice").build();
 
         ClusterService alice = testCluster.members.get(0);
 
@@ -135,7 +140,9 @@ class ITScaleCubeNetworkMessagingTest {
 
         class Data {
             private final NetworkMessage message;
+
             private final ClusterNode sender;
+
             private final String correlationId;
 
             private Data(NetworkMessage message, ClusterNode sender, String correlationId) {
@@ -151,7 +158,7 @@ class ITScaleCubeNetworkMessagingTest {
             (message, sender, correlationId) -> dataFuture.complete(new Data(message, sender, correlationId))
         );
 
-        var requestMessage = new TestMessage("request");
+        var requestMessage = TestMessageFactory.testMessage().msg("request").build();
         var correlationId = "foobar";
 
         member.messagingService().send(self, requestMessage, correlationId);
@@ -175,8 +182,8 @@ class ITScaleCubeNetworkMessagingTest {
 
         ClusterNode self = member.topologyService().localMember();
 
-        var requestMessage = new TestMessage("request");
-        var responseMessage = new TestMessage("response");
+        var requestMessage = TestMessageFactory.testMessage().msg("request").build();
+        var responseMessage = TestMessageFactory.testMessage().msg("response").build();
 
         member.messagingService().addMessageHandler((message, sender, correlationId) -> {
             if (message.equals(requestMessage))
@@ -263,6 +270,8 @@ class ITScaleCubeNetworkMessagingTest {
         /** */
         private final MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
             .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
+            .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
+            .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory())
             .registerFactory(TestMessage.TYPE, new TestMessageSerializationFactory());
 
         /** */
@@ -332,29 +341,5 @@ class ITScaleCubeNetworkMessagingTest {
         void shutdown() {
             members.forEach(ClusterService::shutdown);
         }
-    }
-
-    /**
-     * @param cluster The cluster.
-     * @param expected Expected count.
-     * @param timeout The timeout in millis.
-     * @return {@code True} if topology size is equal to expected.
-     */
-    protected boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
-        long stop = System.currentTimeMillis() + timeout;
-
-        while(System.currentTimeMillis() < stop) {
-            if (cluster.topologyService().allMembers().size() >= expected)
-                return true;
-
-            try {
-                Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
-                return false;
-            }
-        }
-
-        return false;
     }
 }

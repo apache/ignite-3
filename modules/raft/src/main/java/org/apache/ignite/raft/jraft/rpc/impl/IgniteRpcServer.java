@@ -11,7 +11,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -84,7 +84,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new PingRequestProcessor(rpcExecutor));
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor));
-        // raft cli service
+        // raft native cli service
         registerProcessor(new AddPeerRequestProcessor(rpcExecutor));
         registerProcessor(new RemovePeerRequestProcessor(rpcExecutor));
         registerProcessor(new ResetPeerRequestProcessor(rpcExecutor));

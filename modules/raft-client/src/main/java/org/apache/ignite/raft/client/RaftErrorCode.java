@@ -25,7 +25,7 @@ public enum RaftErrorCode {
     NO_LEADER(1001, "No leader is elected"),
 
     /** */
-    LEADER_CHANGED(1002, "A peer is no longer a leader"),
+    LEADER_CHANGED(1002, "Stale leader"),
 
     /** */
     ILLEGAL_STATE(1003, "Internal server error"),

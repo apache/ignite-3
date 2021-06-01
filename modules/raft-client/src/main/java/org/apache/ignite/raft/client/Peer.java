@@ -25,7 +25,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public final class Peer implements Serializable {
     /**
-     * Network node.
+     * Network address.
      */
     private final String addr;
 

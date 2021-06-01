@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server.impl;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -44,7 +45,7 @@ import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A single node server implementation.
+ * A single node service implementation.
  */
 public class RaftServerImpl implements RaftServer {
     /** */
@@ -119,7 +120,7 @@ public class RaftServerImpl implements RaftServer {
                 else
                     handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
             }
-            // Ignore unsupported messages. TODO asch invoke responses should not be delivered to message handlers.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-14775
         });
 
         if (!reuse)
@@ -199,7 +200,7 @@ public class RaftServerImpl implements RaftServer {
                 return (T)req.command();
             }
 
-            @Override public void result(Object res) {
+            @Override public void result(Serializable res) {
                 var msg = clientMsgFactory.actionResponse().result(res).build();
                 service.messagingService().send(sender, msg, corellationId);
             }
@@ -226,8 +227,11 @@ public class RaftServerImpl implements RaftServer {
 
                 clo.accept(lsnr, List.<CommandClosure<T>>of(cmdClo).iterator());
             }
-            catch (InterruptedException e) {
+            catch (InterruptedException e0) {
                 return;
+            }
+            catch (Exception e) {
+                LOG.error("Failed to process the command", e);
             }
         }
     }

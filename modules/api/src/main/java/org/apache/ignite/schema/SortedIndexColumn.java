@@ -22,7 +22,7 @@ package org.apache.ignite.schema;
  */
 public interface SortedIndexColumn extends IndexColumn {
     /**
-     * @return {@code True} for ascending sort order, {@code false} otherwise.
+     * @return Column sort order.
      */
-    boolean asc();
+    SortOrder sortOrder();
 }

@@ -26,16 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
-import org.apache.ignite.configuration.internal.RootKeyImpl;
 import org.apache.ignite.configuration.internal.SuperRoot;
+import org.apache.ignite.configuration.internal.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
 import org.apache.ignite.configuration.internal.util.KeyNotFoundException;
 import org.apache.ignite.configuration.internal.validation.ImmutableValidator;
@@ -48,8 +42,11 @@ import org.apache.ignite.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.configuration.tree.InnerNode;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.Max;
+import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.lang.IgniteLogger;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationNotificationsUtil.notifyListeners;
@@ -64,7 +61,15 @@ public class ConfigurationRegistry {
     private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
 
     /** */
-    private final ConfigurationChanger changer = new ConfigurationChanger(this::notificator);
+    private final ConfigurationChanger changer = new ConfigurationChanger(this::notificator) {
+        /** {@inheritDoc} */
+        @Override public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+            return cgen.instantiateNode(rootKey.schemaClass());
+        }
+    };
+
+    /** */
+    private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
 
     {
         // Default vaildators implemented in current module.
@@ -85,10 +90,14 @@ public class ConfigurationRegistry {
         Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
         Collection<ConfigurationStorage> configurationStorages
     ) {
-        rootKeys.forEach(rootKey ->
-        {
+        rootKeys.forEach(rootKey -> {
+            cgen.compileRootSchema(rootKey.schemaClass());
+
             changer.addRootKey(rootKey);
-            configs.put(rootKey.key(), (DynamicConfiguration<?, ?>)rootKey.createPublicRoot(changer));
+
+            DynamicConfiguration<?, ?> cfg = cgen.instantiateCfg(rootKey, changer);
+
+            configs.put(rootKey.key(), cfg);
         });
 
         validators.forEach(changer::addValidators);
@@ -190,26 +199,5 @@ public class ConfigurationRegistry {
         CompletableFuture[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(resultFutures);
-    }
-
-    /**
-     * Method to instantiate a new {@link RootKey} for your configuration root. Invoked in generated code only.
-     * Does not register this root anywhere, used for static object initialization only.
-     *
-     * @param rootName Name of the root as described in {@link ConfigurationRoot#rootName()}.
-     * @param storageType Storage class as described in {@link ConfigurationRoot#type()}.
-     * @param rootSupplier Closure to instantiate internal configuration tree roots.
-     * @param publicRootCreator Function to create public user-facing tree instance.
-     * @param <T> Type of public configuration tree.
-     * @param <V> View type for the root.
-     * @return Root key instance.
-     */
-    public static <T extends ConfigurationTree<V, ?>, V> RootKey<T, V> newRootKey(
-        String rootName,
-        ConfigurationType storageType,
-        Supplier<InnerNode> rootSupplier,
-        BiFunction<RootKey<T, V>, ConfigurationChanger, T> publicRootCreator
-    ) {
-        return new RootKeyImpl<>(rootName, storageType, rootSupplier, publicRootCreator);
     }
 }

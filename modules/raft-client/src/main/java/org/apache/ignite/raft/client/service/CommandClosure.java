@@ -17,10 +17,13 @@
 
 package org.apache.ignite.raft.client.service;
 
+import java.io.Serializable;
 import org.apache.ignite.raft.client.Command;
 
 /**
- * A closure to notify about command processing outcome.
+ * A closure to notify about a command processing outcome.
+ *
+ * @see RaftGroupListener
  * @param <R> Command type.
  */
 public interface CommandClosure<R extends Command> {
@@ -30,8 +33,8 @@ public interface CommandClosure<R extends Command> {
     R command();
 
     /**
-     * Must be called after a command is processed in expected way.
-     * @param res Exection outcome.
+     * Must be called after a command has been processed normally.
+     * @param res Execution result.
      */
-    void result(Object res);
+    void result(Serializable res);
 }

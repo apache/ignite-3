@@ -16,12 +16,12 @@
  */
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.Member;
-import io.scalecube.cluster.membership.MembershipEvent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import io.scalecube.cluster.Member;
+import io.scalecube.cluster.membership.MembershipEvent;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -39,6 +39,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /**
      * Sets the ScaleCube's local {@link Member}.
+     *
+     * @param member Local member.
      */
     void setLocalMember(Member member) {
         localMember = fromMember(member);
@@ -49,6 +51,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
 
     /**
      * Delegates the received topology event to the registered event handlers.
+     *
+     * @param event Membership event.
      */
     void onMembershipEvent(MembershipEvent event) {
         ClusterNode member = fromMember(event.member());

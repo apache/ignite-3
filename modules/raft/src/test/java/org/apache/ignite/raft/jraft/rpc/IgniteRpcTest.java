@@ -22,17 +22,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /** */
 public class IgniteRpcTest extends AbstractRpcTest {
+    /** */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcTest.class);
+
+    /** */
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
+        .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
+        .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
     private AtomicInteger cntr = new AtomicInteger();
 
@@ -59,10 +70,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
      * @return The client cluster view.
      */
     protected ClusterService createService(String name, int port, List<String> servers) {
-        MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
-            .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
-
-        var context = new ClusterLocalConfiguration(name, port, servers, serializationRegistry);
+        var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
         var factory = new TestScaleCubeClusterServiceFactory();
 
         return factory.createClusterService(context);

@@ -19,11 +19,15 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.CliService;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RouteTable;
@@ -65,11 +69,14 @@ import static org.junit.Assert.fail;
 
 // TODO asch move to integration
 public class CliServiceTest {
+    /** */
     static final Logger LOG = LoggerFactory.getLogger(CliServiceTest.class);
 
     /** */
-    private final static MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
-        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
+        .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
+        .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
     /** */
     private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
@@ -118,7 +125,7 @@ public class CliServiceTest {
 
         ClusterService clientSvc = factory.createClusterService(new ClusterLocalConfiguration("client",
             TestUtils.INIT_PORT - 1, peers.stream().map(p -> p.getEndpoint().toString()).collect(Collectors.toList()),
-            serializationRegistry));
+            SERIALIZATION_REGISTRY));
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc, false);
         opts.setRpcClient(rpcClient);

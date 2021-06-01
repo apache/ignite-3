@@ -18,28 +18,23 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
-import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static java.lang.Thread.sleep;
 
 /** */
 abstract class RaftCounterServerAbstractTest {
@@ -57,7 +52,9 @@ abstract class RaftCounterServerAbstractTest {
 
     /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
-        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
+        .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
+        .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
     /**
      * @param name Node name.
@@ -83,21 +80,7 @@ abstract class RaftCounterServerAbstractTest {
      * @return {@code True} if topology size is equal to expected.
      */
     protected boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
-        long stop = System.currentTimeMillis() + timeout;
-
-        while(System.currentTimeMillis() < stop) {
-            if (cluster.topologyService().allMembers().size() >= expected)
-                return true;
-
-            try {
-                Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
-                return false;
-            }
-        }
-
-        return false;
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
     }
 
     /**
@@ -105,7 +88,7 @@ abstract class RaftCounterServerAbstractTest {
      * @param timeout The timeout.
      * @return {@code True} if condition has happened within the timeout.
      */
-    protected boolean waitForCondition(BooleanSupplier cond, long timeout) {
+    @SuppressWarnings("BusyWait") protected boolean waitForCondition(BooleanSupplier cond, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while(System.currentTimeMillis() < stop) {
@@ -113,7 +96,7 @@ abstract class RaftCounterServerAbstractTest {
                 return true;
 
             try {
-                Thread.sleep(50);
+                sleep(50);
             }
             catch (InterruptedException e) {
                 return false;

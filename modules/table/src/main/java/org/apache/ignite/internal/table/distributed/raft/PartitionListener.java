@@ -107,6 +107,17 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
+        // Not implemented yet.
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean onSnapshotLoad(String path) {
+        // Not implemented yet.
+        return false;
+    }
+
     /**
      * @param row Row.
      * @return Extracted key.

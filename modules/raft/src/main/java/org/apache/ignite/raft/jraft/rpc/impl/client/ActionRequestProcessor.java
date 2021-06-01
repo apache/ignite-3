@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.client;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -64,8 +65,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         }
 
         if (request.command() instanceof WriteCommand) {
-            node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())), new CommandClosureImpl<>(request.command()) {
-                @Override public void result(Object res) {
+            node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
+                new CommandClosureImpl<>(request.command()) {
+                @Override public void result(Serializable res) {
                     rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                 }
 
@@ -90,7 +92,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                         return (ReadCommand) request.command();
                                     }
 
-                                    @Override public void result(Object res) {
+                                    @Override public void result(Serializable res) {
                                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                                     }
                                 }).iterator());
@@ -115,7 +117,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             return (ReadCommand) request.command();
                         }
 
-                        @Override public void result(Object res) {
+                        @Override public void result(Serializable res) {
                             rpcCtx.sendResponse(factory.actionResponse().result(res).build());
                         }
                     }).iterator());
