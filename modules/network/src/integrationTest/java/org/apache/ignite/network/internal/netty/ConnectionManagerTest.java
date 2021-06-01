@@ -26,15 +26,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.ignite.network.NetworkMessagesFactory;
-import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessagesFactory;
 import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
-import org.apache.ignite.network.TestMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -218,10 +216,7 @@ public class ConnectionManagerTest {
      * @return Connection manager.
      */
     private ConnectionManager startManager(int port) {
-        var registry = new MessageSerializationRegistry();
-
-        TestMessagesSerializationRegistryInitializer.initialize(registry);
-        NetworkMessagesSerializationRegistryInitializer.initialize(registry);
+        var registry = new TestMessageSerializationRegistryImpl();
 
         UUID launchId = UUID.randomUUID();
         String consistentId = UUID.randomUUID().toString();

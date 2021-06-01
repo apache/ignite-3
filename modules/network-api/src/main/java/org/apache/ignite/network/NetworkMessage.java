@@ -24,20 +24,20 @@ public interface NetworkMessage {
     static final int MSG_TYPE_SIZE_BYTES = 4;
 
     /**
-     * Message type. Must be <b>distinct</b> among all messages in a <i>module</i>.
+     * Message type. Must be <b>distinct</b> among all messages in a <i>message group</i>.
      * <p>
-     * Message types are not required to be universally unique among multiple modules.
+     * Message types are not required to be universally unique among multiple groups.
      *
      * @return message type.
      */
     short messageType();
 
     /**
-     * Message module type. Must be the <b>same</b> for all messages in a <i>module</i>.
+     * Message group type. Must be the <b>same</b> for all messages in a <i>message group</i>.
      * <p>
-     * Module types are required to be universally unique among all modules.
+     * Message group types are required to be universally unique among all groups.
      *
-     * @return module type.
+     * @return group type.
      */
-    short moduleType();
+    short groupType();
 }

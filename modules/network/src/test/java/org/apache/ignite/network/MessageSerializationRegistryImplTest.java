@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.serialization;
+package org.apache.ignite.network;
 
-import org.apache.ignite.network.NetworkConfigurationException;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -27,15 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 /**
- * {@link MessageSerializationRegistry} tests.
+ * {@link MessageSerializationRegistryImpl} tests.
  */
-public class MessageSerializationRegistryTest {
+public class MessageSerializationRegistryImplTest {
     /**
      * Tests that a serialization factory can be registered.
      */
     @Test
     public void testRegisterFactory() {
-        var registry = new MessageSerializationRegistry();
+        var registry = new MessageSerializationRegistryImpl();
 
         registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
     }
@@ -46,7 +47,7 @@ public class MessageSerializationRegistryTest {
      */
     @Test
     public void testRegisterFactoryWithSameType() {
-        var registry = new MessageSerializationRegistry();
+        var registry = new MessageSerializationRegistryImpl();
 
         registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
@@ -62,7 +63,7 @@ public class MessageSerializationRegistryTest {
      */
     @Test
     public void testRegisterFactoryWithSameTypeDifferentModule() {
-        var registry = new MessageSerializationRegistry();
+        var registry = new MessageSerializationRegistryImpl();
 
         registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
@@ -82,7 +83,7 @@ public class MessageSerializationRegistryTest {
      */
     @Test
     public void testCreateSerializers() {
-        var registry = new MessageSerializationRegistry();
+        var registry = new MessageSerializationRegistryImpl();
 
         registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
@@ -96,7 +97,7 @@ public class MessageSerializationRegistryTest {
      */
     @Test
     public void testCreateSerializersIfNotRegistered() {
-        var registry = new MessageSerializationRegistry();
+        var registry = new MessageSerializationRegistryImpl();
 
         assertThrows(AssertionError.class, () -> registry.createSerializer(Msg.MODULE_TYPE, Msg.TYPE));
         assertThrows(AssertionError.class, () -> registry.createDeserializer(Msg.MODULE_TYPE, Msg.TYPE));
@@ -116,7 +117,7 @@ public class MessageSerializationRegistryTest {
         }
 
         /** {@inheritDoc} */
-        @Override public short moduleType() {
+        @Override public short groupType() {
             return MODULE_TYPE;
         }
     }

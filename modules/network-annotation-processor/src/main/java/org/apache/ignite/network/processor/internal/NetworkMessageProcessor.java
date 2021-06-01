@@ -35,7 +35,7 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.AutoMessage;
-import org.apache.ignite.network.annotations.ModuleMessageTypes;
+import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.processor.internal.messages.MessageBuilderGenerator;
 import org.apache.ignite.network.processor.internal.messages.MessageFactoryGenerator;
 import org.apache.ignite.network.processor.internal.messages.MessageImplGenerator;
@@ -78,11 +78,11 @@ public class NetworkMessageProcessor extends AbstractProcessor {
         try {
             validateMessages(messages);
 
-            MessageTypes moduleMessageTypes = getModuleMessageTypes(roundEnv);
+            MessageGroupWrapper messageGroup = getMessageGroup(roundEnv);
 
-            generateMessageImpls(messages, moduleMessageTypes);
+            generateMessageImpls(messages, messageGroup);
 
-            generateSerializers(messages, moduleMessageTypes);
+            generateSerializers(messages, messageGroup);
         }
         catch (ProcessingException e) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), e.getElement());
@@ -100,18 +100,20 @@ public class NetworkMessageProcessor extends AbstractProcessor {
      *     <li>Message factory for all generated messages.</li>
      * </ol>
      */
-    private void generateMessageImpls(List<MessageClass> annotatedMessages, MessageTypes messageTypes) {
+    private void generateMessageImpls(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
+        var messageBuilderGenerator = new MessageBuilderGenerator(processingEnv, messageGroup);
+        var messageImplGenerator = new MessageImplGenerator(processingEnv, messageGroup);
+        var messageFactoryGenerator = new MessageFactoryGenerator(processingEnv, messageGroup);
+
         for (MessageClass message : annotatedMessages) {
             try {
                 // generate a Builder interface with setters
-                TypeSpec builder = new MessageBuilderGenerator(processingEnv, message)
-                    .generateBuilderInterface();
+                TypeSpec builder = messageBuilderGenerator.generateBuilderInterface(message);
 
                 writeToFile(message.packageName(), builder);
 
                 // generate the message and the builder implementations
-                TypeSpec messageImpl = new MessageImplGenerator(processingEnv, message, builder, messageTypes)
-                    .generateMessageImpl();
+                TypeSpec messageImpl = messageImplGenerator.generateMessageImpl(message, builder);
 
                 writeToFile(message.packageName(), messageImpl);
             }
@@ -121,10 +123,9 @@ public class NetworkMessageProcessor extends AbstractProcessor {
         }
 
         // generate a factory for all messages inside the current compilation unit
-        TypeSpec messageFactory = new MessageFactoryGenerator(processingEnv, annotatedMessages, messageTypes)
-            .generateMessageFactory();
+        TypeSpec messageFactory = messageFactoryGenerator.generateMessageFactory(annotatedMessages);
 
-        writeToFile(messageTypes.packageName(), messageFactory);
+        writeToFile(messageGroup.packageName(), messageFactory);
     }
 
     /**
@@ -138,44 +139,49 @@ public class NetworkMessageProcessor extends AbstractProcessor {
      *     {@link MessageSerializationRegistry}.</li>
      * </ol>
      */
-    private void generateSerializers(List<MessageClass> annotatedMessages, MessageTypes messageTypes) {
+    private void generateSerializers(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
+        List<MessageClass> serializableMessages = annotatedMessages.stream()
+            .filter(MessageClass::isAutoSerializable)
+            .collect(Collectors.toList());
+
+        if (serializableMessages.isEmpty()) {
+            return;
+        }
+
         var factories = new HashMap<MessageClass, TypeSpec>();
 
-        annotatedMessages.stream()
-            .filter(MessageClass::isAutoSerializable)
-            .forEach(message -> {
-                try {
-                    // MessageSerializer
-                    TypeSpec serializer = new MessageSerializerGenerator(processingEnv, message)
-                        .generateSerializer();
+        var serializerGenerator = new MessageSerializerGenerator(processingEnv, messageGroup);
+        var deserializerGenerator = new MessageDeserializerGenerator(processingEnv, messageGroup);
+        var factoryGenerator = new SerializationFactoryGenerator(processingEnv, messageGroup);
+        var initializerGenerator = new RegistryInitializerGenerator(processingEnv, messageGroup);
 
-                    writeToFile(message.packageName(), serializer);
+        for (MessageClass message : serializableMessages) {
+            try {
+                // MessageSerializer
+                TypeSpec serializer = serializerGenerator.generateSerializer(message);
 
-                    // MessageDeserializer
-                    TypeSpec deserializer = new MessageDeserializerGenerator(processingEnv, message, messageTypes)
-                        .generateDeserializer();
+                writeToFile(message.packageName(), serializer);
 
-                    writeToFile(message.packageName(), deserializer);
+                // MessageDeserializer
+                TypeSpec deserializer = deserializerGenerator.generateDeserializer(message);
 
-                    // MessageSerializationFactory
-                    TypeSpec factory = new SerializationFactoryGenerator(processingEnv, message, messageTypes)
-                        .generateFactory(serializer, deserializer);
+                writeToFile(message.packageName(), deserializer);
 
-                    writeToFile(message.packageName(), factory);
+                // MessageSerializationFactory
+                TypeSpec factory = factoryGenerator.generateFactory(message, serializer, deserializer);
 
-                    factories.put(message, factory);
-                }
-                catch (ProcessingException e) {
-                    throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
-                }
-            });
+                writeToFile(message.packageName(), factory);
 
-        if (!factories.isEmpty()) {
-            TypeSpec registryInitializer = new RegistryInitializerGenerator(processingEnv)
-                .generateRegistryInitializer(factories, messageTypes);
-
-            writeToFile(messageTypes.packageName(), registryInitializer);
+                factories.put(message, factory);
+            }
+            catch (ProcessingException e) {
+                throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
+            }
         }
+
+        TypeSpec registryInitializer = initializerGenerator.generateRegistryInitializer(factories);
+
+        writeToFile(messageGroup.packageName(), registryInitializer);
     }
 
     /**
@@ -210,7 +216,7 @@ public class NetworkMessageProcessor extends AbstractProcessor {
 
             if (!messageTypesSet.add(messageType)) {
                 var errorMsg = String.format(
-                    "Conflicting message types in a module, message with type %d already exists",
+                    "Conflicting message types in a group, message with type %d already exists",
                     messageType
                 );
 
@@ -220,21 +226,21 @@ public class NetworkMessageProcessor extends AbstractProcessor {
     }
 
     /**
-     * Extracts and validates the declared module message types marked with the {@link ModuleMessageTypes}
+     * Extracts and validates the declared message group types marked with the {@link MessageGroup}
      * annotation.
      */
-    private static MessageTypes getModuleMessageTypes(RoundEnvironment roundEnv) {
-        Set<? extends Element> moduleMessageTypesSet = roundEnv.getElementsAnnotatedWith(ModuleMessageTypes.class);
+    private static MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv) {
+        Set<? extends Element> messagemessageGroupSet = roundEnv.getElementsAnnotatedWith(MessageGroup.class);
 
-        if (moduleMessageTypesSet.size() != 1) {
-            var errorMsg = "Invalid number of module message types classes (annotated with @ModuleMessageTypes): " +
-                moduleMessageTypesSet.size();
+        if (messagemessageGroupSet.size() != 1) {
+            var errorMsg = "Invalid number of message groups (classes annotated with @MessageGroup): " +
+                messagemessageGroupSet.size();
 
             throw new ProcessingException(errorMsg);
         }
 
-        Element singleElement = moduleMessageTypesSet.iterator().next();
-        return new MessageTypes((TypeElement) singleElement);
+        Element singleElement = messagemessageGroupSet.iterator().next();
+        return new MessageGroupWrapper((TypeElement) singleElement);
     }
 
     /**

@@ -26,7 +26,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.network.processor.internal.MessageClass;
-import org.apache.ignite.network.processor.internal.MessageTypes;
+import org.apache.ignite.network.processor.internal.MessageGroupWrapper;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializer;
@@ -38,31 +38,23 @@ public class SerializationFactoryGenerator {
     /** */
     private final ProcessingEnvironment processingEnv;
 
-    /**
-     * Element representing a network message type declaration.
-     */
-    private final MessageClass message;
-
-    /** Module message types. */
-    private final MessageTypes messageTypes;
+    /** Message group. */
+    private final MessageGroupWrapper messageGroup;
 
     /** */
-    public SerializationFactoryGenerator(
-        ProcessingEnvironment processingEnv, MessageClass message, MessageTypes messageTypes
-    ) {
+    public SerializationFactoryGenerator(ProcessingEnvironment processingEnv, MessageGroupWrapper messageGroup) {
         this.processingEnv = processingEnv;
-        this.message = message;
-        this.messageTypes = messageTypes;
+        this.messageGroup = messageGroup;
     }
 
     /**
      * Generates a {@link MessageSerializationFactory} class for the given network message type.
      */
-    public TypeSpec generateFactory(TypeSpec serializer, TypeSpec deserializer) {
+    public TypeSpec generateFactory(MessageClass message, TypeSpec serializer, TypeSpec deserializer) {
         processingEnv.getMessager()
             .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializationFactory", message.element());
 
-        ClassName messageFactoryClassName = messageTypes.messageFactoryClassName();
+        ClassName messageFactoryClassName = messageGroup.messageFactoryClassName();
 
         FieldSpec messageFactoryField = FieldSpec.builder(messageFactoryClassName, "messageFactory")
             .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
@@ -97,6 +89,8 @@ public class SerializationFactoryGenerator {
                     .addStatement("return new $N()", serializer)
                     .build()
             )
+            .addOriginatingElement(message.element())
+            .addOriginatingElement(messageGroup.element())
             .build();
     }
 }

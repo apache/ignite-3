@@ -19,24 +19,32 @@ package org.apache.ignite.network.processor.internal;
 
 import javax.lang.model.element.TypeElement;
 import com.squareup.javapoet.ClassName;
-import org.apache.ignite.network.annotations.ModuleMessageTypes;
+import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * Wrapper around an element annotated with {@link ModuleMessageTypes}.
+ * Wrapper around an element annotated with {@link MessageGroup}.
  */
-public class MessageTypes {
-    /** Class name of the currently processed element. */
+public class MessageGroupWrapper {
+    /** Message group element */
+    private final TypeElement element;
+
+    /** Class name of the {@code element}. */
     private final ClassName className;
 
-    /** Annotation class of the currently processed element. */
-    private final ModuleMessageTypes annotation;
+    /** Annotation present on the {@code element}. */
+    private final MessageGroup annotation;
 
     /**
-     * @param moduleMessageTypes Element annotated with {@link ModuleMessageTypes}.
+     * @param messageGroup Element annotated with {@link MessageGroup}.
      */
-    public MessageTypes(TypeElement moduleMessageTypes) {
-        className = ClassName.get(moduleMessageTypes);
-        annotation = moduleMessageTypes.getAnnotation(ModuleMessageTypes.class);
+    public MessageGroupWrapper(TypeElement messageGroup) {
+        element = messageGroup;
+        className = ClassName.get(messageGroup);
+        annotation = messageGroup.getAnnotation(MessageGroup.class);
+    }
+
+    public TypeElement element() {
+        return element;
     }
 
     /**
@@ -47,24 +55,24 @@ public class MessageTypes {
     }
 
     /**
-     * Returns the {@link ModuleMessageTypes#moduleName()} declared in the annotation.
+     * Returns the {@link MessageGroup#groupName()} declared in the annotation.
      */
-    public String moduleName() {
-        return capitalize(annotation.moduleName());
+    public String groupName() {
+        return capitalize(annotation.groupName());
     }
 
     /**
-     * Returns the {@link ModuleMessageTypes#moduleType()} declared in the annotation.
+     * Returns the {@link MessageGroup#groupType()} declared in the annotation.
      */
-    public short moduleType() {
-        return annotation.moduleType();
+    public short groupType() {
+        return annotation.groupType();
     }
 
     /**
      * Returns the class name of the message factory that should be generated for the current module.
      */
     public ClassName messageFactoryClassName() {
-        return ClassName.get(packageName(), moduleName() + "Factory");
+        return ClassName.get(packageName(), groupName() + "Factory");
     }
 
     /**

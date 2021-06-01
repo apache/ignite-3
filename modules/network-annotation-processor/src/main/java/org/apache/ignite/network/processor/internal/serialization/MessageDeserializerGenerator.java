@@ -29,7 +29,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.network.processor.internal.MessageClass;
-import org.apache.ignite.network.processor.internal.MessageTypes;
+import org.apache.ignite.network.processor.internal.MessageGroupWrapper;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageMappingException;
 import org.apache.ignite.network.serialization.MessageReader;
@@ -42,74 +42,62 @@ public class MessageDeserializerGenerator {
     private final ProcessingEnvironment processingEnv;
 
     /**
-     * Element representing a network message type declaration
-     */
-    private final MessageClass message;
-
-    /**
      * Message Types declarations for the current module.
      */
-    private final MessageTypes messageTypes;
-
-    /**
-     * @see #msgField()
-     */
-    private final FieldSpec msgField;
+    private final MessageGroupWrapper messageGroup;
 
     /** */
-    public MessageDeserializerGenerator(
-        ProcessingEnvironment processingEnv,
-        MessageClass message,
-        MessageTypes messageTypes
-    ) {
+    public MessageDeserializerGenerator(ProcessingEnvironment processingEnv, MessageGroupWrapper messageGroup) {
         this.processingEnv = processingEnv;
-        this.message = message;
-        this.messageTypes = messageTypes;
-
-        msgField = msgField();
+        this.messageGroup = messageGroup;
     }
 
     /**
      * Generates a {@link MessageDeserializer} class for the given network message type.
      */
-    public TypeSpec generateDeserializer() {
+    public TypeSpec generateDeserializer(MessageClass message) {
         processingEnv.getMessager()
             .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageDeserializer", message.element());
+
+        FieldSpec msgField = FieldSpec.builder(message.builderClassName(), "msg")
+            .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
+            .build();
 
         return TypeSpec.classBuilder(message.simpleName() + "Deserializer")
             .addSuperinterface(ParameterizedTypeName.get(ClassName.get(MessageDeserializer.class), message.className()))
             .addField(msgField)
-            .addMethod(constructor())
-            .addMethod(readMessageMethod())
-            .addMethod(klassMethod())
-            .addMethod(getMessageMethod())
-            .build();
-    }
-
-    /**
-     * Generates the declaration of a message builder field used to accumulate incoming message parts inside the
-     * deserializer.
-     */
-    private FieldSpec msgField() {
-        return FieldSpec.builder(message.builderClassName(), "msg")
-            .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
-            .build();
-    }
-
-    /**
-     * Creates a constructor for the deserializer.
-     */
-    private MethodSpec constructor() {
-        return MethodSpec.constructorBuilder()
-            .addParameter(messageTypes.messageFactoryClassName(), "messageFactory")
-            .addStatement("this.$N = messageFactory.$L()", msgField, message.asMethodName())
+            .addMethod(
+                MethodSpec.constructorBuilder()
+                    .addParameter(messageGroup.messageFactoryClassName(), "messageFactory")
+                    .addStatement("this.$N = messageFactory.$L()", msgField, message.asMethodName())
+                    .build()
+            )
+            .addMethod(
+                MethodSpec.methodBuilder("klass")
+                    .addAnnotation(Override.class)
+                    .addModifiers(Modifier.PUBLIC)
+                    .returns(ParameterizedTypeName.get(ClassName.get(Class.class), message.className()))
+                    .addStatement("return $T.class", message.className())
+                    .build()
+            )
+            .addMethod(
+                MethodSpec.methodBuilder("getMessage")
+                    .addAnnotation(Override.class)
+                    .addModifiers(Modifier.PUBLIC)
+                    .returns(message.className())
+                    .addStatement("return $N.build()", msgField)
+                    .build()
+            )
+            .addMethod(readMessageMethod(message, msgField))
+            .addOriginatingElement(message.element())
+            .addOriginatingElement(messageGroup.element())
             .build();
     }
 
     /**
      * Generates the {@link MessageDeserializer#readMessage(MessageReader)} implementation.
      */
-    private MethodSpec readMessageMethod() {
+    private MethodSpec readMessageMethod(MessageClass message, FieldSpec msgField) {
         MethodSpec.Builder method = MethodSpec.methodBuilder("readMessage")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
@@ -130,7 +118,7 @@ public class MessageDeserializerGenerator {
         for (int i = 0; i < getters.size(); ++i) {
             method
                 .beginControlFlow("case $L:", i)
-                .addStatement(readMessageCodeBlock(getters.get(i)))
+                .addStatement(readMessageCodeBlock(getters.get(i), msgField))
                 .addCode("\n")
                 .addCode(CodeBlock.builder()
                     .beginControlFlow("if (!reader.isLastRead())")
@@ -154,37 +142,13 @@ public class MessageDeserializerGenerator {
     /**
      * Helper method for resolving a {@link MessageReader} "read*" call based on the message field type.
      */
-    private CodeBlock readMessageCodeBlock(ExecutableElement getter) {
+    private CodeBlock readMessageCodeBlock(ExecutableElement getter, FieldSpec msgField) {
         var methodResolver = new MessageReaderMethodResolver(processingEnv);
 
         return CodeBlock.builder()
             .add("$N.$N(reader.", msgField, getter.getSimpleName())
             .add(methodResolver.resolveReadMethod(getter))
             .add(")")
-            .build();
-    }
-
-    /**
-     * Generates the {@link MessageDeserializer#klass()} implementation.
-     */
-    private MethodSpec klassMethod() {
-        return MethodSpec.methodBuilder("klass")
-            .addAnnotation(Override.class)
-            .addModifiers(Modifier.PUBLIC)
-            .returns(ParameterizedTypeName.get(ClassName.get(Class.class), message.className()))
-            .addStatement("return $T.class", message.className())
-            .build();
-    }
-
-    /**
-     * Generates the {@link MessageDeserializer#getMessage()} implementation.
-     */
-    private MethodSpec getMessageMethod() {
-        return MethodSpec.methodBuilder("getMessage")
-            .addAnnotation(Override.class)
-            .addModifiers(Modifier.PUBLIC)
-            .returns(message.className())
-            .addStatement("return $N.build()", msgField)
             .build();
     }
 }

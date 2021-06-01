@@ -26,7 +26,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.network.processor.internal.MessageClass;
-import org.apache.ignite.network.processor.internal.MessageTypes;
+import org.apache.ignite.network.processor.internal.MessageGroupWrapper;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
@@ -40,40 +40,45 @@ public class RegistryInitializerGenerator {
     /** */
     private final ProcessingEnvironment processingEnv;
 
+    private final MessageGroupWrapper messageGroup;
+
     /** */
-    public RegistryInitializerGenerator(ProcessingEnvironment processingEnv) {
+    public RegistryInitializerGenerator(ProcessingEnvironment processingEnv, MessageGroupWrapper messageGroup) {
         this.processingEnv = processingEnv;
+        this.messageGroup = messageGroup;
     }
 
     /**
      * Generates a class for registering all generated {@link MessageSerializationFactory} for the current module.
      */
-    public TypeSpec generateRegistryInitializer(
-        Map<MessageClass, TypeSpec> messageFactories,
-        MessageTypes messageTypes
-    ) {
-        String initializerName = messageTypes.moduleName() + "SerializationRegistryInitializer";
+    public TypeSpec generateRegistryInitializer(Map<MessageClass, TypeSpec> messageFactories) {
+        String initializerName = messageGroup.groupName() + "SerializationRegistryInitializer";
 
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating " + initializerName);
 
-        MethodSpec.Builder initializeMethod = MethodSpec.methodBuilder("initialize")
+        TypeSpec.Builder registryInitializer = TypeSpec.classBuilder(initializerName);
+
+        MethodSpec.Builder initializeMethod = MethodSpec.methodBuilder("registerFactories")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addParameter(TypeName.get(MessageSerializationRegistry.class), "registry")
-            .addStatement("var messageFactory = new $T()", messageTypes.messageFactoryClassName())
+            .addStatement("var messageFactory = new $T()", messageGroup.messageFactoryClassName())
             .addCode("\n");
 
         messageFactories.forEach((message, factory) -> {
             var factoryType = ClassName.get(message.packageName(), factory.name);
 
             initializeMethod.addStatement(
-                "registry.registerFactory($T.MODULE_TYPE, $T.TYPE, new $T(messageFactory))",
+                "registry.registerFactory($T.GROUP_TYPE, $T.TYPE, new $T(messageFactory))",
                 message.implClassName(), message.implClassName(), factoryType
             );
+
+            registryInitializer.addOriginatingElement(message.element());
         });
 
-        return TypeSpec.classBuilder(initializerName)
+        return registryInitializer
             .addModifiers(Modifier.PUBLIC)
             .addMethod(initializeMethod.build())
+            .addOriginatingElement(messageGroup.element())
             .build();
     }
 }

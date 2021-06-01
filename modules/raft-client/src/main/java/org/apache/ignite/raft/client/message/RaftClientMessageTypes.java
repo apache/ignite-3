@@ -17,12 +17,12 @@
 
 package org.apache.ignite.raft.client.message;
 
-import org.apache.ignite.network.annotations.ModuleMessageTypes;
+import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message types for the raft-client module.
  */
-@ModuleMessageTypes(moduleType = 2, moduleName = "RaftClientMessages")
+@MessageGroup(groupType = 2, groupName = "RaftClientMessages")
 public class RaftClientMessageTypes {
     /**
      * Message type for {@link ActionRequest}.

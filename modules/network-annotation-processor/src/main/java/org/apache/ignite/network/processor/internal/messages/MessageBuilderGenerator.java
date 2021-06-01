@@ -26,6 +26,7 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import org.apache.ignite.network.processor.internal.MessageGroupWrapper;
 import org.apache.ignite.network.processor.internal.MessageClass;
 
 /**
@@ -35,19 +36,20 @@ public class MessageBuilderGenerator {
     /** */
     private final ProcessingEnvironment processingEnvironment;
 
-    /** Network message element. */
-    private final MessageClass message;
+    private final MessageGroupWrapper messageGroup;
 
     /** */
-    public MessageBuilderGenerator(ProcessingEnvironment processingEnvironment, MessageClass message) {
+    public MessageBuilderGenerator(
+        ProcessingEnvironment processingEnvironment, MessageGroupWrapper messageGroup
+    ) {
         this.processingEnvironment = processingEnvironment;
-        this.message = message;
+        this.messageGroup = messageGroup;
     }
 
     /**
      * Generates a Builder interface for constructing the given Network Message.
      */
-    public TypeSpec generateBuilderInterface() {
+    public TypeSpec generateBuilderInterface(MessageClass message) {
         ClassName builderName = message.builderClassName();
 
         processingEnvironment.getMessager()
@@ -75,6 +77,8 @@ public class MessageBuilderGenerator {
             .addModifiers(Modifier.PUBLIC)
             .addMethods(setters)
             .addMethod(buildMethod)
+            .addOriginatingElement(message.element())
+            .addOriginatingElement(messageGroup.element())
             .build();
     }
 }

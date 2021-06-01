@@ -17,9 +17,9 @@
 
 package org.apache.ignite.network.processor.internal;
 
-import org.apache.ignite.network.annotations.ModuleMessageTypes;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-@ModuleMessageTypes(moduleType = 1, moduleName = "NetworkMessageProcessorTest")
-public class NetworkMessageProcessorMessageTypes {
+@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
+public class TestMessageGroup {
     public static final short ALL_TYPES = 1;
 }

@@ -22,15 +22,13 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import io.netty.channel.Channel;
-import org.apache.ignite.network.NetworkMessagesFactory;
-import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessagesFactory;
+import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
-import org.apache.ignite.network.TestMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.internal.handshake.HandshakeAction;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.internal.netty.NettySender;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -324,10 +322,7 @@ public class RecoveryHandshakeTest {
         ServerStageFail serverHandshakeFailAt,
         ClientStageFail clientHandshakeFailAt
     ) {
-        var registry = new MessageSerializationRegistry();
-
-        NetworkMessagesSerializationRegistryInitializer.initialize(registry);
-        TestMessagesSerializationRegistryInitializer.initialize(registry);
+        var registry = new TestMessageSerializationRegistryImpl();
 
         var messageFactory = new NetworkMessagesFactory();
 

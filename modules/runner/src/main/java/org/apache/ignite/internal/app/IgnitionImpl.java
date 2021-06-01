@@ -44,11 +44,10 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
 
@@ -116,9 +115,7 @@ public class IgnitionImpl implements Ignition {
         NetworkView netConfigurationView =
             locConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY).value();
 
-        var serializationRegistry = new MessageSerializationRegistry();
-
-        NetworkMessagesSerializationRegistryInitializer.initialize(serializationRegistry);
+        var serializationRegistry = new MessageSerializationRegistryImpl();
 
         String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
             .name().value();

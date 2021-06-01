@@ -17,11 +17,8 @@
 
 package org.apache.ignite.network.processor.internal;
 
-import java.util.ArrayList;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-@AutoMessage(value = TestMessageGroup.ALL_TYPES, autoSerializable = false)
-public interface UnmarshallableTypeNonSerializableMessage extends NetworkMessage {
-    ArrayList<Integer> a();
+@MessageGroup(groupType = 1, groupName = "Test")
+public class SecondGroup {
 }

@@ -28,6 +28,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.processor.internal.MessageGroupWrapper;
 import org.apache.ignite.network.processor.internal.MessageClass;
 import org.apache.ignite.network.serialization.MessageMappingException;
 import org.apache.ignite.network.serialization.MessageSerializer;
@@ -40,34 +41,33 @@ public class MessageSerializerGenerator {
     /** */
     private final ProcessingEnvironment processingEnvironment;
 
-    /**
-     * Element representing a network message type declaration
-     */
-    private final MessageClass message;
+    private final MessageGroupWrapper messageGroup;
 
     /** */
-    public MessageSerializerGenerator(ProcessingEnvironment processingEnvironment, MessageClass message) {
+    public MessageSerializerGenerator(ProcessingEnvironment processingEnvironment, MessageGroupWrapper messageGroup) {
         this.processingEnvironment = processingEnvironment;
-        this.message = message;
+        this.messageGroup = messageGroup;
     }
 
     /**
      * Generates a {@link MessageSerializer} class for the given network message type.
      */
-    public TypeSpec generateSerializer() {
+    public TypeSpec generateSerializer(MessageClass message) {
         processingEnvironment.getMessager()
             .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer", message.element());
 
         return TypeSpec.classBuilder(message.simpleName() + "Serializer")
             .addSuperinterface(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))
-            .addMethod(writeMessageMethod())
+            .addMethod(writeMessageMethod(message))
+            .addOriginatingElement(message.element())
+            .addOriginatingElement(messageGroup.element())
             .build();
     }
 
     /**
      * Generates the {@link MessageSerializer#writeMessage(NetworkMessage, MessageWriter)} implementation.
      */
-    private MethodSpec writeMessageMethod() {
+    private MethodSpec writeMessageMethod(MessageClass message) {
         MethodSpec.Builder method = MethodSpec.methodBuilder("writeMessage")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
@@ -80,7 +80,7 @@ public class MessageSerializerGenerator {
 
         method
             .beginControlFlow("if (!writer.isHeaderWritten())")
-            .beginControlFlow("if (!writer.writeHeader(message.moduleType(), message.messageType(), (byte) $L))", getters.size())
+            .beginControlFlow("if (!writer.writeHeader(message.groupType(), message.messageType(), (byte) $L))", getters.size())
             .addStatement("return false")
             .endControlFlow()
             .addStatement("writer.onHeaderWritten()")

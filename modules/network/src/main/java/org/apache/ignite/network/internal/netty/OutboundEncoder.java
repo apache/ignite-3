@@ -48,7 +48,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<NetworkMessage> {
     /** {@inheritDoc} */
     @Override protected void encode(ChannelHandlerContext ctx, NetworkMessage msg, List<Object> out) throws Exception {
         MessageSerializer<NetworkMessage> serializer =
-            serializationRegistry.createSerializer(msg.moduleType(), msg.messageType());
+            serializationRegistry.createSerializer(msg.groupType(), msg.messageType());
 
         out.add(new NetworkMessageChunkedInput(msg, serializer, serializationRegistry));
     }

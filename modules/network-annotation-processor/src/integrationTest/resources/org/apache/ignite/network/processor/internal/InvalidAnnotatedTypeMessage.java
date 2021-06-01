@@ -19,6 +19,6 @@ package org.apache.ignite.network.processor.internal;
 
 import org.apache.ignite.network.annotations.AutoMessage;
 
-@AutoMessage(NetworkMessageProcessorMessageTypes.ALL_TYPES)
+@AutoMessage(TestMessageGroup.ALL_TYPES)
 public interface InvalidAnnotatedTypeMessage {
 }

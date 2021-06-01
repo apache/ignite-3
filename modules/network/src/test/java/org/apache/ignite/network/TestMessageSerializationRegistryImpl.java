@@ -15,10 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.processor.internal;
+package org.apache.ignite.network;
 
-import org.apache.ignite.network.annotations.ModuleMessageTypes;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
-@ModuleMessageTypes(moduleType = 1, moduleName = "Test")
-public class SecondTypes {
+/**
+ * Implementation of a {@link MessageSerializationRegistry} for tests.
+ */
+public class TestMessageSerializationRegistryImpl extends MessageSerializationRegistryImpl {
+    /**
+     * Default constructor.
+     */
+    public TestMessageSerializationRegistryImpl() {
+        TestMessagesSerializationRegistryInitializer.registerFactories(this);
+    }
 }

@@ -537,7 +537,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     writer.setCurrentWriteClass(msg.getClass());
 
                     MessageSerializer<NetworkMessage> serializer =
-                        serializationRegistry.createSerializer(msg.moduleType(), msg.messageType());
+                        serializationRegistry.createSerializer(msg.groupType(), msg.messageType());
 
                     writer.setBuffer(buf);
 

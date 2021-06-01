@@ -47,12 +47,12 @@ public interface MessageWriter {
     /**
      * Writes the header of a message.
      *
-     * @param moduleType Message module type.
+     * @param groupType Message group type.
      * @param messageType Message type.
      * @param fieldCnt Fields count.
      * @return {@code true} if successfully. Otherwise returns {@code false}.
      */
-    public boolean writeHeader(short moduleType, short messageType, byte fieldCnt);
+    public boolean writeHeader(short groupType, short messageType, byte fieldCnt);
 
     /**
      * Writes a {@code byte} value.

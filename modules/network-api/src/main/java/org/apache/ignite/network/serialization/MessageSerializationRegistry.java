@@ -17,60 +17,25 @@
 
 package org.apache.ignite.network.serialization;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Container that maps message types to {@link MessageSerializationFactory} instances.
  */
-public class MessageSerializationRegistry {
-    /** message type -> MessageSerializerProvider instance */
-    private final Map<Integer, MessageSerializationFactory<?>> factories = new HashMap<>();
-
+public interface MessageSerializationRegistry {
     /**
      * Registers message serialization factory by message type.
      *
-     * @param moduleType Module type of a message.
+     * @param groupType Message group type.
      * @param messageType Message type.
      * @param factory Message's serialization factory.
      * @return This registry.
      * @throws NetworkConfigurationException If there is an already registered factory for the given type.
      */
-    public MessageSerializationRegistry registerFactory(
-        short moduleType, short messageType, MessageSerializationFactory<?> factory
-    ) {
-        Integer index = asInt(moduleType, messageType);
-
-        if (factories.containsKey(index))
-            throw new NetworkConfigurationException(String.format(
-                "Message serialization factory for message type %d in module %d is already defined",
-                messageType, moduleType
-            ));
-
-        factories.put(index, factory);
-
-        return this;
-    }
-
-    /**
-     * Gets a {@link MessageSerializationFactory} for the given message type.
-     *
-     * @param <T> Type of a message.
-     * @param moduleType Module type of a message.
-     * @param messageType Message type.
-     * @return Message's serialization factory.
-     */
-    private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(
-        short moduleType, short messageType
-    ) {
-        var provider = factories.get(asInt(moduleType, messageType));
-
-        assert provider != null : "No serializer provider defined for type " + messageType;
-
-        return (MessageSerializationFactory<T>) provider;
-    }
+    MessageSerializationRegistry registerFactory(
+        short groupType, short messageType, MessageSerializationFactory<?> factory
+    );
 
     /**
      * Creates a {@link MessageSerializer} for the given message type.
@@ -80,14 +45,11 @@ public class MessageSerializationRegistry {
      * method.
      *
      * @param <T> Type of a message.
-     * @param moduleType Module type of a message.
+     * @param groupType Group type of a message.
      * @param messageType Message type.
      * @return Message's serializer.
      */
-    public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short moduleType, short messageType) {
-        MessageSerializationFactory<T> factory = getFactory(moduleType, messageType);
-        return factory.createSerializer();
-    }
+    <T extends NetworkMessage> MessageSerializer<T> createSerializer(short groupType, short messageType);
 
     /**
      * Creates a {@link MessageDeserializer} for the given message type.
@@ -97,22 +59,9 @@ public class MessageSerializationRegistry {
      * method.
      *
      * @param <T> Type of a message.
-     * @param moduleType Module type of a message.
+     * @param groupType Group type of a message.
      * @param messageType Message type.
      * @return Message's deserializer.
      */
-    public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short moduleType, short messageType) {
-        MessageSerializationFactory<T> factory = getFactory(moduleType, messageType);
-        return factory.createDeserializer();
-    }
-
-    /**
-     * Concatenates two given {@code short}s into an {@code int}.
-     *
-     * @param higher Higher bytes.
-     * @param lower Lower bytes.
-     */
-    private static int asInt(short higher, short lower) {
-        return (higher << Short.SIZE) | lower;
-    }
+    <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short groupType, short messageType);
 }

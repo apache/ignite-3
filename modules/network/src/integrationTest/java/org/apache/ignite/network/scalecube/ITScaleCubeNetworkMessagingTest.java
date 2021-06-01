@@ -29,14 +29,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
-import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
-import org.apache.ignite.network.TestMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
@@ -265,7 +264,7 @@ class ITScaleCubeNetworkMessagingTest {
         private final ClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
 
         /** */
-        private final MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry();
+        private final MessageSerializationRegistry serializationRegistry = new TestMessageSerializationRegistryImpl();
 
         /** */
         final List<ClusterService> members;
@@ -275,9 +274,6 @@ class ITScaleCubeNetworkMessagingTest {
 
         /** Constructor. */
         Cluster(int numOfNodes) {
-            TestMessagesSerializationRegistryInitializer.initialize(serializationRegistry);
-            NetworkMessagesSerializationRegistryInitializer.initialize(serializationRegistry);
-
             startupLatch = new CountDownLatch(numOfNodes - 1);
 
             int initialPort = 3344;

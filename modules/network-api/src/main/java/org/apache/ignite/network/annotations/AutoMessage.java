@@ -71,11 +71,10 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@code Map} where both keys and values can be of a directly marshallable type.</li>
  * </ol>
  *
- * After all messages in the module have been processed, the processor will use the <i>module descriptor</i> (class
- * annotated with {@link ModuleMessageTypes}) to expose the builders via a
- * Message Factory.
+ * After all messages in a module have been processed, the processor will use the <i>message group descriptor</i>
+ * (class annotated with {@link MessageGroup}) to expose the builders via a Message Factory.
  *
- * @see ModuleMessageTypes
+ * @see MessageGroup
  */
 @Target(ElementType.TYPE)
 // using the RUNTIME retention policy in order to avoid problems with incremental compilation in an IDE.

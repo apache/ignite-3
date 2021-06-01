@@ -20,14 +20,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.TestMessagesSerializationRegistryInitializer;
+import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static java.util.stream.Collectors.toList;
@@ -41,20 +39,13 @@ class ITNodeRestartsTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeRestartsTest.class);
 
     /** */
-    private final MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry();
+    private final MessageSerializationRegistry serializationRegistry = new TestMessageSerializationRegistryImpl();
 
     /** */
     private final ClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
 
     /** */
     private List<ClusterService> services;
-
-    /** */
-    @BeforeEach
-    void setUp() {
-        NetworkMessagesSerializationRegistryInitializer.initialize(serializationRegistry);
-        TestMessagesSerializationRegistryInitializer.initialize(serializationRegistry);
-    }
 
     /** */
     @AfterEach

@@ -20,10 +20,10 @@ package org.apache.ignite.raft.server;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
@@ -45,11 +45,7 @@ abstract class RaftCounterServerAbstractTest {
     protected static final int PORT = 20010;
 
     /** */
-    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
-
-    static {
-        NetworkMessagesSerializationRegistryInitializer.initialize(SERIALIZATION_REGISTRY);
-    }
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /**
      * @param name Node name.

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.network;
 
-import org.apache.ignite.network.annotations.ModuleMessageTypes;
+import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
@@ -25,7 +25,7 @@ import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 /**
  * Message types for the network module.
  */
-@ModuleMessageTypes(moduleName = "NetworkMessages", moduleType = 1)
+@MessageGroup(groupName = "NetworkMessages", groupType = 1)
 public class NetworkMessageTypes {
     /**
      * Type for {@link ScaleCubeMessage}.

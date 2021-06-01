@@ -32,14 +32,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessage;
+import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
-import org.apache.ignite.network.TestMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.internal.AllTypesMessage;
 import org.apache.ignite.network.internal.AllTypesMessageGenerator;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -56,13 +55,7 @@ public class InboundDecoderTest {
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 
     /** Registry. */
-    private final MessageSerializationRegistry registry = new MessageSerializationRegistry();
-
-    /** */
-    @BeforeEach
-    void setUp() {
-        TestMessagesSerializationRegistryInitializer.initialize(registry);
-    }
+    private final MessageSerializationRegistry registry = new TestMessageSerializationRegistryImpl();
 
     /**
      * Tests that an {@link InboundDecoder} can successfully read a message with all types supported
@@ -79,7 +72,7 @@ public class InboundDecoderTest {
 
         var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
-        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.moduleType(), msg.messageType());
+        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
         ByteBuffer buf = ByteBuffer.allocate(10_000);
 
@@ -151,7 +144,7 @@ public class InboundDecoderTest {
 
         var msg = new TestMessagesFactory().testMessage().msg("abcdefghijklmn").build();
 
-        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.moduleType(), msg.messageType());
+        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
         ByteBuffer nioBuffer = ByteBuffer.allocate(10_000);
 

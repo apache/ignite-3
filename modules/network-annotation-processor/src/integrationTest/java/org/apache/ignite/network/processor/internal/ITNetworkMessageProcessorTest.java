@@ -26,7 +26,7 @@ import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.AutoMessage;
-import org.apache.ignite.network.annotations.ModuleMessageTypes;
+import org.apache.ignite.network.annotations.MessageGroup;
 import org.junit.jupiter.api.Test;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
@@ -96,7 +96,7 @@ public class ITNetworkMessageProcessorTest {
     @Test
     void testCompileMultipleMessage() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "TransitiveMessage", "NetworkMessageProcessorMessageTypes")
+            sources("AllTypesMessage", "TransitiveMessage", "TestMessageGroup")
         );
 
         assertThat(compilation).succeededWithoutWarnings();
@@ -165,28 +165,28 @@ public class ITNetworkMessageProcessorTest {
     }
 
     /**
-     * Tests that compilation fails if no {@link ModuleMessageTypes} annotated elements were found.
+     * Tests that compilation fails if no {@link MessageGroup} annotated elements were found.
      */
     @Test
-    void testMissingModuleTypes() {
+    void testMissingMessageGroup() {
         Compilation compilation = compiler.compile(sources("AllTypesMessage"));
 
         assertThat(compilation).hadErrorContaining(
-            "Invalid number of module message types classes (annotated with @ModuleMessageTypes): 0"
+            "Invalid number of message groups (classes annotated with @MessageGroup): 0"
         );
     }
 
     /**
-     * Tests that compilation fails if multiple {@link ModuleMessageTypes} annotated elements were found.
+     * Tests that compilation fails if multiple {@link MessageGroup} annotated elements were found.
      */
     @Test
-    void testMultipleModuleTypes() {
+    void testMultipleMessageGroups() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "NetworkMessageProcessorMessageTypes", "SecondTypes")
+            sources("AllTypesMessage", "TestMessageGroup", "SecondGroup")
         );
 
         assertThat(compilation).hadErrorContaining(
-            "Invalid number of module message types classes (annotated with @ModuleMessageTypes): 2"
+            "Invalid number of message groups (classes annotated with @MessageGroup): 2"
         );
     }
 
@@ -218,7 +218,7 @@ public class ITNetworkMessageProcessorTest {
     @Test
     void testConflictingMessageTypes() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "ConflictingTypeMessage", "NetworkMessageProcessorMessageTypes")
+            sources("AllTypesMessage", "ConflictingTypeMessage", "TestMessageGroup")
         );
 
         assertThat(compilation).hadErrorContaining("message with type 1 already exists");
@@ -228,7 +228,7 @@ public class ITNetworkMessageProcessorTest {
      * Compiles the given network message.
      */
     private Compilation compile(String messageSource) {
-        return compiler.compile(sources(messageSource, "NetworkMessageProcessorMessageTypes"));
+        return compiler.compile(sources(messageSource, "TestMessageGroup"));
     }
 
     /**
