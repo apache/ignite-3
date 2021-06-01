@@ -2675,6 +2675,10 @@ public class ITNodeTest {
         }
     }
 
+    /**
+     * 4.2.2 Removing the current leader
+     * @throws Exception If failed.
+     */
     @Test
     public void testShuttingDownLeaderTriggerTimeoutNow() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
