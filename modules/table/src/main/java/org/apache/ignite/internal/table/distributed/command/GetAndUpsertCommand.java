@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * This is a command to get a value before upsert it.
  */
 public class GetAndUpsertCommand implements WriteCommand {
-    /** Key row. */
+    /** Binary key row. */
     private transient BinaryRow keyRow;
 
     /*
@@ -37,20 +37,23 @@ public class GetAndUpsertCommand implements WriteCommand {
     private byte[] keyRowBytes;
 
     /**
-     * @param keyRow Key row.
+     * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted.
+     * The {@code row} should not be {@code null}.
+     *
+     * @param row Binary row.
      */
-    public GetAndUpsertCommand(@NotNull BinaryRow keyRow) {
-        assert keyRow != null;
+    public GetAndUpsertCommand(@NotNull BinaryRow row) {
+        assert row != null;
 
-        this.keyRow = keyRow;
+        this.keyRow = row;
 
-        CommandUtils.rowToBytes(keyRow, bytes -> keyRowBytes = bytes);
+        CommandUtils.rowToBytes(row, bytes -> keyRowBytes = bytes);
     }
 
     /**
-     * Gets a key row.
+     * Gets a binary key row to be got and upserted.
      *
-     * @return Key row.
+     * @return Binary key.
      */
     public BinaryRow getKeyRow() {
         if (keyRow == null)

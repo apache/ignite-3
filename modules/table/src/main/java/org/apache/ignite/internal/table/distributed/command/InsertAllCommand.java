@@ -21,12 +21,13 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The command inserts a batch rows.
  */
 public class InsertAllCommand implements WriteCommand {
-    /** Rows. */
+    /** Binary rows. */
     private transient Set<BinaryRow> rows;
 
     /*
@@ -37,9 +38,12 @@ public class InsertAllCommand implements WriteCommand {
     private byte[] rowsBytes;
 
     /**
-     * @param rows Rows.
+     * Creates a new instance of InsertAllCommand with the given rows to be inserted.
+     * The {@code rows} should not be {@code null} or empty.
+     *
+     * @param rows Binary rows.
      */
-    public InsertAllCommand(Set<BinaryRow> rows) {
+    public InsertAllCommand(@NotNull Set<BinaryRow> rows) {
         assert rows != null && !rows.isEmpty();
 
         this.rows = rows;
@@ -48,9 +52,9 @@ public class InsertAllCommand implements WriteCommand {
     }
 
     /**
-     * Gets a list of keys which will used in the command.
+     * Gets a set of binary rows to be inserted.
      *
-     * @return List keys.
+     * @return Binary rows.
      */
     public Set<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {

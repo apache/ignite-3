@@ -21,12 +21,13 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * The command deletes a batch rows.
+ * The command deletes entries that exact the same as the rows passed.
  */
 public class DeleteExactAllCommand implements WriteCommand {
-    /** Rows. */
+    /** Binary rows. */
     private transient Set<BinaryRow> rows;
 
     /*
@@ -37,9 +38,12 @@ public class DeleteExactAllCommand implements WriteCommand {
     private byte[] rowsBytes;
 
     /**
-     * @param rows Rows.
+     * Creates a new instance of DeleteExactAllCommand with the given set of rows to be deleted.
+     * The {@code rows} should not be {@code null} or empty
+     *
+     * @param rows Binary rows.
      */
-    public DeleteExactAllCommand(Set<BinaryRow> rows) {
+    public DeleteExactAllCommand(@NotNull Set<BinaryRow> rows) {
         assert rows != null && !rows.isEmpty();
 
         this.rows = rows;
@@ -48,9 +52,9 @@ public class DeleteExactAllCommand implements WriteCommand {
     }
 
     /**
-     * Gets a list of keys which will used in the command.
+     * Gets a set of binary rows to be deleted.
      *
-     * @return List keys.
+     * @return Binary rows.
      */
     public Set<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {

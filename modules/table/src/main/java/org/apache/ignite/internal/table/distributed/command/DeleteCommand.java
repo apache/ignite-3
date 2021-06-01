@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * The command deletes a entry by passed key.
  */
 public class DeleteCommand implements WriteCommand {
-    /** Key row. */
+    /** Binary key row. */
     private transient BinaryRow keyRow;
 
     /*
@@ -37,7 +37,10 @@ public class DeleteCommand implements WriteCommand {
     private byte[] keyRowBytes;
 
     /**
-     * @param keyRow Key row.
+     * Creates a new instance of DeleteCommand with the given key to be deleted.
+     * The {@code keyRow} should not be {@code null}.
+     *
+     * @param keyRow Binary key row.
      */
     public DeleteCommand(@NotNull BinaryRow keyRow) {
         assert keyRow != null;
@@ -48,9 +51,9 @@ public class DeleteCommand implements WriteCommand {
     }
 
     /**
-     * Gets a key row.
+     * Gets a binary key row to be deleted.
      *
-     * @return Key row.
+     * @return Binary key.
      */
     public BinaryRow getKeyRow() {
         if (keyRow == null)

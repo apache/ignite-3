@@ -39,7 +39,7 @@ public class CommandUtils {
     /**
      * Writes a list of rows to byte array.
      *
-     * @param rows List of rows.
+     * @param rows Collection of rows.
      * @param consumer Byte array consumer.
      */
     public static void rowsToBytes(Collection<BinaryRow> rows, Consumer<byte[]> consumer) {

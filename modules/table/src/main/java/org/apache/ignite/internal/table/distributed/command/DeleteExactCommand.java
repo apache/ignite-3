@@ -23,10 +23,10 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command deletes a entry by passed key.
+ * The command deletes an entry that is exact the same as the row passed.
  */
 public class DeleteExactCommand implements WriteCommand {
-    /** Row. */
+    /** Binary row. */
     private transient BinaryRow row;
 
     /*
@@ -37,20 +37,23 @@ public class DeleteExactCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * @param keyRow Key row.
+     * Creates a new instance of DeleteExactCommand with the given row to be deleted.
+     * The {@code row} should not be {@code null}.
+     *
+     * @param row Binary row.
      */
-    public DeleteExactCommand(@NotNull BinaryRow keyRow) {
-        assert keyRow != null;
+    public DeleteExactCommand(@NotNull BinaryRow row) {
+        assert row != null;
 
-        this.row = keyRow;
+        this.row = row;
 
-        CommandUtils.rowToBytes(keyRow, bytes -> rowBytes = bytes);
+        CommandUtils.rowToBytes(row, bytes -> rowBytes = bytes);
     }
 
     /**
-     * Gets a key row.
+     * Gets a binary key row to be got.
      *
-     * @return Key row.
+     * @return Binary row.
      */
     public BinaryRow getRow() {
         if (row == null)

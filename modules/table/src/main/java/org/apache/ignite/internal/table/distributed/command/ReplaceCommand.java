@@ -26,9 +26,10 @@ import org.jetbrains.annotations.NotNull;
  * The command replaces an old entry to a new one.
  */
 public class ReplaceCommand implements WriteCommand {
+    /** Replacing binary row. */
     private transient BinaryRow row;
 
-    /** Old row. */
+    /** Replaced binary row. */
     private transient BinaryRow oldRow;
 
     /*
@@ -45,8 +46,11 @@ public class ReplaceCommand implements WriteCommand {
     private byte[] oldRowBytes;
 
     /**
-     * @param oldRow Old row.
-     * @param row Row.
+     * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
+     * Both rows should not be {@code null}.
+     *
+     * @param oldRow Old Binary row.
+     * @param row Binary row.
      */
     public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row) {
         assert oldRow != null;
@@ -60,9 +64,9 @@ public class ReplaceCommand implements WriteCommand {
     }
 
     /**
-     * Gets a data row.
+     * Gets a binary row which will be after replace.
      *
-     * @return Data row.
+     * @return Binary row.
      */
     public BinaryRow getRow() {
         if (row == null)
@@ -72,9 +76,9 @@ public class ReplaceCommand implements WriteCommand {
     }
 
     /**
-     * Gets an old row.
+     * Gets a binary row which should be before replace.
      *
-     * @return Data row.
+     * @return Binary row.
      */
     public BinaryRow getOldRow() {
         if (oldRow == null)

@@ -21,12 +21,13 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * The command deletes a batch rows.
+ * The command deletes entries by the passed keys.
  */
 public class DeleteAllCommand implements WriteCommand {
-    /** Rows. */
+    /** Binary rows. */
     private transient Set<BinaryRow> rows;
 
     /*
@@ -37,20 +38,23 @@ public class DeleteAllCommand implements WriteCommand {
     private byte[] rowsBytes;
 
     /**
-     * @param rows Rows.
+     * Creates a new instance of DeleteAllCommand with the given set of keys to be deleted.
+     * The {@code keyRows} should not be {@code null} or empty.
+     *
+     * @param keyRows Collection of binary row keys to be deleted.
      */
-    public DeleteAllCommand(Set<BinaryRow> rows) {
-        assert rows != null && !rows.isEmpty();
+    public DeleteAllCommand(@NotNull Set<BinaryRow> keyRows) {
+        assert keyRows != null && !keyRows.isEmpty();
 
-        this.rows = rows;
+        this.rows = keyRows;
 
-        CommandUtils.rowsToBytes(rows, bytes -> rowsBytes = bytes);
+        CommandUtils.rowsToBytes(keyRows, bytes -> rowsBytes = bytes);
     }
 
     /**
-     * Gets a list of keys which will used in the command.
+     * Returns a set of binary key rows to be deleted.
      *
-     * @return List keys.
+     * @return Binary keys.
      */
     public Set<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {

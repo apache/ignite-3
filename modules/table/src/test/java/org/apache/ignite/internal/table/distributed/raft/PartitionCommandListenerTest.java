@@ -65,6 +65,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * There are a tests for a table command listener.
+ * All rows should be removed before returning form each test.
  */
 public class PartitionCommandListenerTest {
     /** Key count. */
@@ -81,7 +82,7 @@ public class PartitionCommandListenerTest {
     private static PartitionListener commandListener;
 
     /**
-     * Inisializes a table listener before tests.
+     * Initializes a table listener before tests.
      */
     @BeforeAll
     public static void before() {
@@ -89,8 +90,8 @@ public class PartitionCommandListenerTest {
     }
 
     /**
-     * Insrets rows and checks them.
-     * All rows remove before return.
+     * Inserts rows and checks them.
+     * All rows are removed before returning.
      */
     @Test
     public void testInsertCommands() {
@@ -109,7 +110,7 @@ public class PartitionCommandListenerTest {
 
     /**
      * Upserts rows and checks them.
-     * All rows remove before return.
+     * All rows are removed before returning.
      */
     @Test
     public void testUpsertValues() {
@@ -126,7 +127,7 @@ public class PartitionCommandListenerTest {
 
     /**
      * Adds rows, replaces and checks them.
-     * All rows remove before return.
+     * All rows are removed before returning.
      */
     @Test
     public void testReplaceCommand() {
@@ -149,7 +150,7 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks PutIfExist command.
-     * All rows remove before return.
+     * All rows are removed before returning.
      */
     @Test
     public void testPutIfExistCommand() {
@@ -172,7 +173,7 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks GetAndReplace command.
-     * All rows remove before return.
+     * All rows are removed before returning.
      */
     @Test
     public void testGetAndReplaceCommand() {
@@ -201,7 +202,7 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch upsert command.
-     * All rows remove before return.
+     * All rows are removed before returning.
      */
     @Test
     public void testUpsertRowsBatchedAndCheck() {
@@ -220,7 +221,7 @@ public class PartitionCommandListenerTest {
 
     /**
      * The test checks a batch insert command.
-     * All rows remove before return.
+     * All rows are removed before returning.
      */
     @Test
     public void testInsertRowsBatchedAndCheck() {
@@ -461,7 +462,7 @@ public class PartitionCommandListenerTest {
     }
 
     /**
-     * Reades rows from the listener and checks values as expected by a mapper.
+     * Reads rows from the listener and checks values as expected by a mapper.
      *
      * @param existed True if rows are existed, false otherwise.
      * @param keyValueMapper Mapper a key to the value which will be expected.

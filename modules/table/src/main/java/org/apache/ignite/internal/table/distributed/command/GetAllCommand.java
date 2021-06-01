@@ -21,12 +21,13 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.raft.client.ReadCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * This is a command for the batch get operation.
  */
 public class GetAllCommand implements ReadCommand {
-    /** Key row. */
+    /** Binary key rows. */
     private transient Set<BinaryRow> keyRows;
 
     /*
@@ -37,9 +38,12 @@ public class GetAllCommand implements ReadCommand {
     private byte[] keyRowsBytes;
 
     /**
-     * @param keyRows Key rows.
+     * Creates a new instance of GetAllCommand with the given key to be got.
+     * The {@code keyRows} should not be {@code null} or empty.
+     *
+     * @param keyRows Binary key rows.
      */
-    public GetAllCommand(Set<BinaryRow> keyRows) {
+    public GetAllCommand(@NotNull Set<BinaryRow> keyRows) {
         assert keyRows != null && !keyRows.isEmpty();
 
         this.keyRows = keyRows;
@@ -48,9 +52,9 @@ public class GetAllCommand implements ReadCommand {
     }
 
     /**
-     * Gets a list of keys which will used in the command.
+     * Gets a set of binary key rows to be got.
      *
-     * @return List keys.
+     * @return Binary keys.
      */
     public Set<BinaryRow> getKeyRows() {
         if (keyRows == null && keyRowsBytes != null) {

@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * The command inserts a row.
  */
 public class InsertCommand implements WriteCommand {
-    /** Row. */
+    /** Binary row. */
     private transient BinaryRow row;
 
     /*
@@ -37,7 +37,10 @@ public class InsertCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * @param row Row.
+     * Creates a new instance of InsertCommand with the given row to be inserted.
+     * The {@code row} should not be {@code null}.
+     *
+     * @param row Binary row.
      */
     public InsertCommand(@NotNull BinaryRow row) {
         assert row != null;
@@ -48,9 +51,9 @@ public class InsertCommand implements WriteCommand {
     }
 
     /**
-     * Gets a data row.
+     * Gets a binary row to be inserted.
      *
-     * @return Data row.
+     * @return Binary row.
      */
     public BinaryRow getRow() {
         if (row == null)

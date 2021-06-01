@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * This is a command to get a value before replace it.
  */
 public class GetAndReplaceCommand implements WriteCommand {
-    /** Row. */
+    /** Binary row. */
     private transient BinaryRow row;
 
     /*
@@ -37,7 +37,10 @@ public class GetAndReplaceCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * @param row Row.
+     * Creates a new instance of GetAndReplaceCommand with the given row to be got and replaced.
+     * The {@code row} should not be {@code null}.
+     *
+     * @param row Binary row.
      */
     public GetAndReplaceCommand(@NotNull BinaryRow row) {
         assert row != null;
@@ -48,9 +51,9 @@ public class GetAndReplaceCommand implements WriteCommand {
     }
 
     /**
-     * Gets a key row.
+     * Gets a binary row to be got and replaced.
      *
-     * @return Key row.
+     * @return Binary row.
      */
     public BinaryRow getRow() {
         if (row == null)

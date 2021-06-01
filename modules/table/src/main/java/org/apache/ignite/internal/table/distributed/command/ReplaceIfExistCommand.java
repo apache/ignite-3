@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * The command replaces an old entry to a new one.
  */
 public class ReplaceIfExistCommand implements WriteCommand {
-    /** Row. */
+    /** Binary row. */
     private transient BinaryRow row;
 
     /*
@@ -37,7 +37,10 @@ public class ReplaceIfExistCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * @param row Row.
+     * Creates a new instance of ReplaceIfExistCommand with the given row to be replaced.
+     * The {@code row} should not be {@code null}.
+     *
+     * @param row Binary row.
      */
     public ReplaceIfExistCommand(@NotNull BinaryRow row) {
         assert row != null;
@@ -48,9 +51,9 @@ public class ReplaceIfExistCommand implements WriteCommand {
     }
 
     /**
-     * Gets a data row.
+     * Gets a binary row to be replaced.
      *
-     * @return Data row.
+     * @return Binary row.
      */
     public BinaryRow getRow() {
         if (row == null)

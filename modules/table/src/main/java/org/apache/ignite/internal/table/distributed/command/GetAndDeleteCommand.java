@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * This is a command to get a value before delete it.
  */
 public class GetAndDeleteCommand implements WriteCommand {
-    /** Key row. */
+    /** Binary key row. */
     private transient BinaryRow keyRow;
 
     /*
@@ -37,7 +37,10 @@ public class GetAndDeleteCommand implements WriteCommand {
     private byte[] keyRowBytes;
 
     /**
-     * @param keyRow Key row.
+     * Creates a new instance of GetAndDeleteCommand with the given key to be got and deleted.
+     * The {@code keyRow} should not be {@code null}.
+     *
+     * @param keyRow Binary key row.
      */
     public GetAndDeleteCommand(@NotNull BinaryRow keyRow) {
         assert keyRow != null;
@@ -48,9 +51,9 @@ public class GetAndDeleteCommand implements WriteCommand {
     }
 
     /**
-     * Gets a key row.
+     * Gets a binary key row to be got and deleted.
      *
-     * @return Key row.
+     * @return Binary key.
      */
     public BinaryRow getKeyRow() {
         if (keyRow == null)

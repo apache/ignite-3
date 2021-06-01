@@ -27,14 +27,14 @@ import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 
 /**
- * It is a response object to return a row from the single operation.
+ * This class represents a response object message that contains a single {@link BinaryRow}.
  * @see GetCommand
  * @see GetAndDeleteCommand
  * @see GetAndUpsertCommand
  * @see GetAndReplaceCommand
  */
 public class SingleRowResponse implements Serializable {
-    /** Row. */
+    /** Binary row. */
     private transient BinaryRow row;
 
     /*
@@ -45,7 +45,9 @@ public class SingleRowResponse implements Serializable {
     private byte[] rowBytes;
 
     /**
-     * @param row Row.
+     * Creates a new instance of SingleRowResponse with the given binary row.
+     *
+     * @param row Binary row.
      */
     public SingleRowResponse(BinaryRow row) {
         this.row = row;
@@ -54,7 +56,7 @@ public class SingleRowResponse implements Serializable {
     }
 
     /**
-     * @return Data row.
+     * @return Binary row.
      */
     public BinaryRow getValue() {
         if (row == null && rowBytes != null)

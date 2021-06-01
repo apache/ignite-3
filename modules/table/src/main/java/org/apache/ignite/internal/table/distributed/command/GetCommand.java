@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * The command gets a value by key specified.
  */
 public class GetCommand implements ReadCommand {
-    /** Key row. */
+    /** Binary key row. */
     private transient BinaryRow keyRow;
 
     /*
@@ -37,7 +37,10 @@ public class GetCommand implements ReadCommand {
     private byte[] keyRowBytes;
 
     /**
-     * @param keyRow Key row.
+     * Creates a new instance of GetCommand with the given key to be got.
+     * The {@code keyRow} should not be {@code null}.
+     *
+     * @param keyRow Binary key row.
      */
     public GetCommand(@NotNull BinaryRow keyRow) {
         assert keyRow != null;
@@ -48,9 +51,9 @@ public class GetCommand implements ReadCommand {
     }
 
     /**
-     * Gets a key row.
+     * Gets a binary key row to be got.
      *
-     * @return Key row.
+     * @return Binary key.
      */
     public BinaryRow getKeyRow() {
         if (keyRow == null)

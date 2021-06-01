@@ -28,14 +28,14 @@ import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 
 /**
- * It is a response object to return a collection from the batch operation.
+ * This class represents a response object that contains a collection {@link BinaryRow} from a batch operation.
  * @see GetAllCommand
  * @see DeleteAllCommand
  * @see InsertAllCommand
  * @see DeleteExactAllCommand
  */
 public class MultiRowsResponse implements Serializable {
-    /** Row. */
+    /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
     /*
@@ -46,7 +46,9 @@ public class MultiRowsResponse implements Serializable {
     private byte[] rowsBytes;
 
     /**
-     * @param rows Rows.
+     * Creates a new instance of MultiRowsResponse with the given collection of binary rows.
+     *
+     * @param rows Collection of binary rows.
      */
     public MultiRowsResponse(Collection<BinaryRow> rows) {
         this.rows = rows;
@@ -55,7 +57,7 @@ public class MultiRowsResponse implements Serializable {
     }
 
     /**
-     * @return Data row.
+     * @return Binary rows.
      */
     public Collection<BinaryRow> getValues() {
         if (rows == null && rowsBytes != null) {

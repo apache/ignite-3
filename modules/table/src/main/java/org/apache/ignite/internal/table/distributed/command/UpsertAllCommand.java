@@ -21,12 +21,13 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The command puts a batch rows.
  */
 public class UpsertAllCommand implements WriteCommand {
-    /** Rows. */
+    /** Binary rows. */
     private transient Set<BinaryRow> rows;
 
     /*
@@ -37,9 +38,12 @@ public class UpsertAllCommand implements WriteCommand {
     private byte[] rowsBytes;
 
     /**
-     * @param rows Rows.
+     * Creates a new instance of UpsertAllCommand with the given rows to be upserted.
+     * The {@code rows} should not be {@code null} or empty.
+     *
+     * @param rows Binary rows.
      */
-    public UpsertAllCommand(Set<BinaryRow> rows) {
+    public UpsertAllCommand(@NotNull Set<BinaryRow> rows) {
         assert rows != null && !rows.isEmpty();
 
         this.rows = rows;
@@ -48,9 +52,9 @@ public class UpsertAllCommand implements WriteCommand {
     }
 
     /**
-     * Gets a list of keys which will used in the command.
+     * Gets a set of binary rows to be upserted.
      *
-     * @return List keys.
+     * @return Binary rows.
      */
     public Set<BinaryRow> getRows() {
         if (rows == null && rowsBytes != null) {

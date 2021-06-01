@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
  * The command inserts or updates a value for the key specified.
  */
 public class UpsertCommand implements WriteCommand {
-    /** Row. */
+    /** Binary row. */
     private transient BinaryRow row;
 
     /*
@@ -37,7 +37,10 @@ public class UpsertCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * @param row Row.
+     * Creates a new instance of UpsertCommand with the given row to be upserted.
+     * The {@code row} should not be {@code null}.
+     *
+     * @param row Binary row.
      */
     public UpsertCommand(@NotNull BinaryRow row) {
         assert row != null;
@@ -48,9 +51,9 @@ public class UpsertCommand implements WriteCommand {
     }
 
     /**
-     * Gets a data row.
+     * Gets a binary row to be upserted.
      *
-     * @return Data row.
+     * @return Binary row.
      */
     public BinaryRow getRow() {
         if (row == null)
