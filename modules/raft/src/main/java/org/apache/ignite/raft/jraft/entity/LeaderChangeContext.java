@@ -25,9 +25,7 @@ import org.apache.ignite.raft.jraft.Status;
  * <li>term: the leader term.</li>
  * <li>Status: context status.</li>
  * </ul>
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-13 3:23:48 PM
+*
  */
 public class LeaderChangeContext {
 

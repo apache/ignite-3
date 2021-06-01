@@ -20,8 +20,7 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 /**
  * Default log entry codec factory
- * @author boyan(boyan@antfin.com)
- *
+*
  */
 public class DefaultLogEntryCodecFactory implements LogEntryCodecFactory {
 

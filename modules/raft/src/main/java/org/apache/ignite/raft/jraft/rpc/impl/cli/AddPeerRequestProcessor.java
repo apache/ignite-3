@@ -29,8 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * AddPeer request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+* @author jiachun.fjc
  */
 public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequest> {
 

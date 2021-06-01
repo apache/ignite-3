@@ -30,8 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * RemoveLearners request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
+*
  */
 public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<RemoveLearnersRequest> {
 

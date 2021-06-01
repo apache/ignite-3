@@ -25,8 +25,7 @@ import java.util.concurrent.ThreadFactory;
 
 /**
  * A builder to build a disruptor instance.
- * @author boyan(boyan@antfin.com)
- *
+*
  */
 public class DisruptorBuilder<T> {
     private EventFactory<T> eventFactory;

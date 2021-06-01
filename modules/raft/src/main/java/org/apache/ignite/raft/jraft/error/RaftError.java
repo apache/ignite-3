@@ -38,8 +38,7 @@ public enum RaftError {
      * <pre>
      * All Kinds of Timeout(Including Election_timeout, Timeout_now, Stepdown_timeout)
      * </pre>
-     * <p>
-     * <code>ERAFTTIMEDOUT = 10001;</code>
+     *     * <code>ERAFTTIMEDOUT = 10001;</code>
      */
     ERAFTTIMEDOUT(10001),
 
@@ -47,8 +46,7 @@ public enum RaftError {
      * <pre>
      * Bad User State Machine
      * </pre>
-     * <p>
-     * <code>ESTATEMACHINE = 10002;</code>
+     *     * <code>ESTATEMACHINE = 10002;</code>
      */
     ESTATEMACHINE(10002),
 
@@ -56,8 +54,7 @@ public enum RaftError {
      * <pre>
      * Catchup Failed
      * </pre>
-     * <p>
-     * <code>ECATCHUP = 10003;</code>
+     *     * <code>ECATCHUP = 10003;</code>
      */
     ECATCHUP(10003),
 
@@ -65,8 +62,7 @@ public enum RaftError {
      * <pre>
      * Trigger step_down(Not All)
      * </pre>
-     * <p>
-     * <code>ELEADERREMOVED = 10004;</code>
+     *     * <code>ELEADERREMOVED = 10004;</code>
      */
     ELEADERREMOVED(10004),
 
@@ -74,8 +70,7 @@ public enum RaftError {
      * <pre>
      * Leader Is Not In The New Configuration
      * </pre>
-     * <p>
-     * <code>ESETPEER = 10005;</code>
+     *     * <code>ESETPEER = 10005;</code>
      */
     ESETPEER(10005),
 
@@ -83,8 +78,7 @@ public enum RaftError {
      * <pre>
      * Shut_down
      * </pre>
-     * <p>
-     * <code>ENODESHUTDOWN = 10006;</code>
+     *     * <code>ENODESHUTDOWN = 10006;</code>
      */
     ENODESHUTDOWN(10006),
 
@@ -92,8 +86,7 @@ public enum RaftError {
      * <pre>
      * Receive Higher Term Requests
      * </pre>
-     * <p>
-     * <code>EHIGHERTERMREQUEST = 10007;</code>
+     *     * <code>EHIGHERTERMREQUEST = 10007;</code>
      */
     EHIGHERTERMREQUEST(10007),
 
@@ -101,8 +94,7 @@ public enum RaftError {
      * <pre>
      * Receive Higher Term Response
      * </pre>
-     * <p>
-     * <code>EHIGHERTERMRESPONSE = 10008;</code>
+     *     * <code>EHIGHERTERMRESPONSE = 10008;</code>
      */
     EHIGHERTERMRESPONSE(10008),
 
@@ -110,8 +102,7 @@ public enum RaftError {
      * <pre>
      * Node Is In Error
      * </pre>
-     * <p>
-     * <code>EBADNODE = 10009;</code>
+     *     * <code>EBADNODE = 10009;</code>
      */
     EBADNODE(10009),
 
@@ -119,8 +110,7 @@ public enum RaftError {
      * <pre>
      * Node Votes For Some Candidate
      * </pre>
-     * <p>
-     * <code>EVOTEFORCANDIDATE = 10010;</code>
+     *     * <code>EVOTEFORCANDIDATE = 10010;</code>
      */
     EVOTEFORCANDIDATE(10010),
 
@@ -128,8 +118,7 @@ public enum RaftError {
      * <pre>
      * Follower(without leader) or Candidate Receives
      * </pre>
-     * <p>
-     * <code>ENEWLEADER = 10011;</code>
+     *     * <code>ENEWLEADER = 10011;</code>
      */
     ENEWLEADER(10011),
 
@@ -137,8 +126,7 @@ public enum RaftError {
      * <pre>
      * Append_entries/Install_snapshot Request from a new leader
      * </pre>
-     * <p>
-     * <code>ELEADERCONFLICT = 10012;</code>
+     *     * <code>ELEADERCONFLICT = 10012;</code>
      */
     ELEADERCONFLICT(10012),
 
@@ -146,8 +134,7 @@ public enum RaftError {
      * <pre>
      * Trigger on_leader_stop
      * </pre>
-     * <p>
-     * <code>ETRANSFERLEADERSHIP = 10013;</code>
+     *     * <code>ETRANSFERLEADERSHIP = 10013;</code>
      */
     ETRANSFERLEADERSHIP(10013),
 
@@ -155,8 +142,7 @@ public enum RaftError {
      * <pre>
      * The log at the given index is deleted
      * </pre>
-     * <p>
-     * <code>ELOGDELETED = 10014;</code>
+     *     * <code>ELOGDELETED = 10014;</code>
      */
     ELOGDELETED(10014),
 
@@ -164,8 +150,7 @@ public enum RaftError {
      * <pre>
      * No available user log to read
      * </pre>
-     * <p>
-     * <code>ENOMOREUSERLOG = 10015;</code>
+     *     * <code>ENOMOREUSERLOG = 10015;</code>
      */
     ENOMOREUSERLOG(10015),
 

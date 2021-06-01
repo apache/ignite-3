@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 import org.apache.ignite.raft.jraft.NodeManager;
 
 /**
- * @author jiachun.fjc
- */
+*/
 public interface RpcContext {
     /**
      * @return Node manager.

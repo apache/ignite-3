@@ -33,8 +33,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
 
 /**
- * @author jiachun.fjc
- */
+*/
 @State(Scope.Benchmark)
 public class Utf8CodecBenchmark {
     /**

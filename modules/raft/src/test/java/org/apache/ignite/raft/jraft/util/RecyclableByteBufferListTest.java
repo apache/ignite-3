@@ -22,8 +22,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertSame;
 
 /**
- * @author jiachun.fjc
- */
+*/
 public class RecyclableByteBufferListTest {
 
     @Test(expected = IllegalStateException.class)

@@ -32,9 +32,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A configuration with a set of peers.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-15 11:00:26 AM
+*
  */
 public class Configuration implements Iterable<PeerId>, Copiable<Configuration> {
 

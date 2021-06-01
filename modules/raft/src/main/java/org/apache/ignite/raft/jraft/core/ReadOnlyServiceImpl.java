@@ -134,8 +134,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
     /**
      * ReadIndexResponse process closure
      *
-     * @author dennis
-     */
+    */
     class ReadIndexResponseClosure extends RpcResponseClosureAdapter<ReadIndexResponse> {
 
         final List<ReadIndexState> states;

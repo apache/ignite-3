@@ -26,17 +26,14 @@ import org.apache.ignite.raft.jraft.util.Describer;
 /**
  * Finite state machine caller.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 11:07:52 AM
+*
  */
 public interface FSMCaller extends Lifecycle<FSMCallerOptions>, Describer {
 
     /**
      * Listen on lastAppliedLogIndex update events.
      *
-     * @author dennis
-     */
+    */
     interface LastAppliedLogIndexListener {
 
         /**

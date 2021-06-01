@@ -22,9 +22,7 @@ import org.apache.ignite.raft.jraft.Status;
 /**
  * Copy snapshot from the give resources.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 4:55:26 PM
+*
  */
 public abstract class SnapshotCopier extends Status implements Closeable {
 

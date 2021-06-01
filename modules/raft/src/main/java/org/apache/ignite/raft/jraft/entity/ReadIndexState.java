@@ -21,8 +21,7 @@ import org.apache.ignite.raft.jraft.util.Bytes;
 
 /**
  * ReadIndex state
- * @author dennis
- *
+*
  */
 public class ReadIndexState {
 

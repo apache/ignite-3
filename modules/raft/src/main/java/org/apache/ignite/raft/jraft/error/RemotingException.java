@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.error;
 /**
  * Exception for default remoting problems.
  *
- * @author jiachun.fjc
- */
+*/
 public class RemotingException extends Exception {
 
     private static final long serialVersionUID = -6326244159775972292L;

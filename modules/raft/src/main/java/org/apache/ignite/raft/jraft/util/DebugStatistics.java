@@ -20,8 +20,7 @@ import org.rocksdb.Statistics;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public class DebugStatistics extends Statistics {
 
     public String getString() {

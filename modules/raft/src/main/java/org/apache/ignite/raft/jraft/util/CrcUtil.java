@@ -21,8 +21,7 @@ import java.nio.ByteBuffer;
 /**
  * CRC utilities to compute CRC64 checksum.
  *
- * @author boyan(boyan@antfin.com)
- */
+*/
 public final class CrcUtil {
 
     private static final ThreadLocal<CRC64> CRC_64_THREAD_LOCAL = ThreadLocal.withInitial(CRC64::new);

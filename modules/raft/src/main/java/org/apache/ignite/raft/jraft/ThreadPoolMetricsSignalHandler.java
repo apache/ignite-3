@@ -29,8 +29,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public class ThreadPoolMetricsSignalHandler extends FileOutputSignalHandler {
 
     private static Logger       LOG       = LoggerFactory.getLogger(ThreadPoolMetricsSignalHandler.class);

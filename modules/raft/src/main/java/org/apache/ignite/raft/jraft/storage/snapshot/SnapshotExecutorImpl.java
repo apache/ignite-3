@@ -149,10 +149,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     /**
      * Install snapshot done closure
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-08 3:08:09 PM
-     */
+    *     */
     private class InstallSnapshotDone implements LoadSnapshotClosure {
 
         SnapshotReader reader;
@@ -176,10 +173,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     /**
      * Load snapshot at first time closure
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-16 2:57:46 PM
-     */
+    *     */
     private class FirstSnapshotLoadDone implements LoadSnapshotClosure {
 
         SnapshotReader reader;

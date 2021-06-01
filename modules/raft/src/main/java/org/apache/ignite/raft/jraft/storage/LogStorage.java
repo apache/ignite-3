@@ -24,9 +24,7 @@ import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 /**
  * Log entry storage service.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:43:54 PM
+*
  */
 public interface LogStorage extends Lifecycle<LogStorageOptions>, Storage {
     /**

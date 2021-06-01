@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.util;
 /**
  * Recycle tool for {@link Recyclable}.
  *
- * @author jiachun.fjc
- */
+*/
 public final class RecycleUtil {
 
     /**

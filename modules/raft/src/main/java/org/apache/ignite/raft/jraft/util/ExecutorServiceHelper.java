@@ -23,8 +23,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public final class ExecutorServiceHelper {
 
     private static final Logger LOG = LoggerFactory.getLogger(ExecutorServiceHelper.class);

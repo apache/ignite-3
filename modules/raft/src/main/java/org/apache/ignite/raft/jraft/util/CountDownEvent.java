@@ -23,9 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * CountDown event.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-17 1:36:36 PM
+*
  */
 public class CountDownEvent {
 

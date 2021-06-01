@@ -27,8 +27,7 @@ import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
  * Abstract factory to create services for SOFAJRaft. TODO kill this.
- * @author boyan(boyan@antfin.com)
- * @since  1.2.6
+* @since  1.2.6
  */
 public interface JRaftServiceFactory {
 

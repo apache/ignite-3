@@ -29,9 +29,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
  * called sequentially, saying that every single operation will block all the
  * following ones.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 5:43:21 PM
+*
  */
 public interface StateMachine {
 

@@ -26,9 +26,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 /**
  * Replicator group options.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 5:47:43 PM
+*
  */
 public class ReplicatorGroupOptions {
 

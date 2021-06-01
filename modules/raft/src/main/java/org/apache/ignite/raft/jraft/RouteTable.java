@@ -39,9 +39,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Maintain routes to raft groups.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 10:41:21 AM
+*
  */
 public class RouteTable implements Describer {
 

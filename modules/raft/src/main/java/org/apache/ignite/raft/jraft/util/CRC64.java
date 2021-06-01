@@ -20,8 +20,7 @@ import java.util.zip.Checksum;
 
 /**
  * CRC64
- * @author boyan(boyan@antfin.com)
- *
+*
  */
 public class CRC64 implements Checksum {
     /**

@@ -39,9 +39,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Remote file copier
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-23 2:03:14 PM
+*
  */
 public class RemoteFileCopier {
 

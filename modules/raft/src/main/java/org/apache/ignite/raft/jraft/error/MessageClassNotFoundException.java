@@ -18,9 +18,7 @@ package org.apache.ignite.raft.jraft.error;
 
 /**
  * Protobuf message class not found exception.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-19 5:17:38 PM
+*
  */
 public class MessageClassNotFoundException extends RuntimeException {
 

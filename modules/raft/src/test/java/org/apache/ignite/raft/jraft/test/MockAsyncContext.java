@@ -22,9 +22,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 
 /**
  * mock alipay remoting async context
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-19 6:05:46 PM
+*
  */
 public class MockAsyncContext implements RpcContext {
     private Object responseObject;

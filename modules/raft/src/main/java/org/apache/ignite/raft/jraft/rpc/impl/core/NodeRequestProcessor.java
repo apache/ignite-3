@@ -30,8 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestProcessor;
  * Node handle requests processor template.
  *
  * @param <T> Message
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+* @author jiachun.fjc
  */
 public abstract class NodeRequestProcessor<T extends Message> extends RpcRequestProcessor<T> {
     public NodeRequestProcessor(Executor executor, Message defaultResp) {

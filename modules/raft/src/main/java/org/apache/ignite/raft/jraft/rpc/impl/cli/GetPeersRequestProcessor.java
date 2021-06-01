@@ -27,8 +27,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * Process get all peers of the replication group request.
  *
- * @author jiachun.fjc
- */
+*/
 public class GetPeersRequestProcessor extends BaseCliRequestProcessor<GetPeersRequest> {
 
     public GetPeersRequestProcessor(final Executor executor) {

@@ -21,9 +21,7 @@ import java.io.Serializable;
 /**
  * A IP address with port.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:29:12 PM
+*
  */
 public class Endpoint implements Copiable<Endpoint>, Serializable {
 

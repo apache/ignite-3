@@ -27,8 +27,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 /**
- * @author jiachun.fjc
- */
+*/
 public class MpscSingleThreadExecutorTest {
 
     private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true);

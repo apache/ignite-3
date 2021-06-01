@@ -22,8 +22,7 @@ import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
 /**
  *  Old V1 log entry codec implementation.
- * @author boyan(boyan@antfin.com)
- *
+*
  */
 @Deprecated
 public class LogEntryV1CodecFactory implements LogEntryCodecFactory {

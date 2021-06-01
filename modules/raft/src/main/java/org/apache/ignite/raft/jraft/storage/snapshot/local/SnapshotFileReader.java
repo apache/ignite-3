@@ -30,9 +30,7 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 /**
  * Snapshot file reader
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-13 2:03:09 PM
+*
  */
 public class SnapshotFileReader extends LocalDirReader {
 

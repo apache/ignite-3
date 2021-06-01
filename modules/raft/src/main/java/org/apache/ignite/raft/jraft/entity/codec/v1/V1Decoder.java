@@ -29,8 +29,7 @@ import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  * V1 log entry decoder
- * @author boyan(boyan@antfin.com)
- *
+*
  * TODO checksum
  */
 @Deprecated

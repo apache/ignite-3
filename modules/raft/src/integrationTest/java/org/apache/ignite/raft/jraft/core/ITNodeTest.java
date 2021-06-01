@@ -2605,10 +2605,6 @@ public class ITNodeTest {
 
     /**
      * mock state machine that fails to load snapshot.
-     *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-23 11:45:29 AM
      */
     static class MockFSM1 extends MockStateMachine {
 

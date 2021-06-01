@@ -20,8 +20,7 @@ import java.lang.reflect.Field;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 final class ReflectionLongFieldUpdater<U> implements LongFieldUpdater<U> {
 
     private final Field field;

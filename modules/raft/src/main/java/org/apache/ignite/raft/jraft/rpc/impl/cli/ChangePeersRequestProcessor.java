@@ -30,8 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * Change peers request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+* @author jiachun.fjc
  */
 public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangePeersRequest> {
 

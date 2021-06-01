@@ -28,9 +28,7 @@ import org.apache.ignite.raft.jraft.util.Describer;
 /**
  * Executing Snapshot related stuff.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-22 2:27:02 PM
+*
  */
 public interface SnapshotExecutor extends Lifecycle<SnapshotExecutorOptions>, Describer {
 

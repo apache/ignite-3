@@ -37,9 +37,7 @@ public class Status implements Copiable<Status> {
     /**
      * Status internal state.
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-03 11:17:51 AM
+    *
      */
     private static class State {
         /** error code */

@@ -42,9 +42,7 @@ import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 /**
  * Counter server that keeps a counter value in a raft group.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 4:51:02 PM
+*
  */
 public class CounterServer {
     private static Set<CounterServer> servers = Collections.newSetFromMap(new ConcurrentHashMap<>());

@@ -30,8 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * ResetLearners request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
+*
  */
 public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<ResetLearnersRequest> {
 

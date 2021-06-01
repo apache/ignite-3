@@ -25,10 +25,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * The RAFT protocol based replication server.
- * <p>
- * Supports multiple RAFT groups.
- * <p>
- * The server listens for client commands, submits them to a replicated log and calls {@link RaftGroupListener}
+ * * Supports multiple RAFT groups.
+ * * The server listens for client commands, submits them to a replicated log and calls {@link RaftGroupListener}
  * {@code onRead} and {@code onWrite} methods then after the command was committed to the log.
  */
 public interface RaftServer {

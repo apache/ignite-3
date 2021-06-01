@@ -42,10 +42,7 @@ import static org.apache.ignite.raft.jraft.counter.CounterOperation.INCREMENT;
 /**
  * Counter state machine.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-09 4:52:31 PM
- */
+* */
 public class CounterStateMachine extends StateMachineAdapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(CounterStateMachine.class);

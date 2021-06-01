@@ -22,9 +22,7 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 /**
  * Raft client RPC service.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 5:59:52 PM
+*
  */
 public interface RaftClientService extends ClientService {
 

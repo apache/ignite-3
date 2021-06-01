@@ -32,8 +32,7 @@ import org.apache.ignite.raft.jraft.util.internal.Updaters;
  *         segment             segment              segment
  *      [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
  *
- * @author boyan(boyan@antfin.com)
- * @since 1.3.1
+* @since 1.3.1
  *
  */
 public class SegmentList<T> {
@@ -62,8 +61,7 @@ public class SegmentList<T> {
 
     /**
      * A recyclable segment.
-     * @author boyan(boyan@antfin.com)
-     *
+    *
      * @param <T>
      */
     private final static class Segment<T> implements Recyclable {

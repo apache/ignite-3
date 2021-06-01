@@ -22,8 +22,7 @@ import org.apache.ignite.raft.jraft.NodeManager;
 /**
  * Defined functions for process user defined request.
  *
- * @author jiachun.fjc
- */
+*/
 public interface RpcProcessor<T> {
 
     /**

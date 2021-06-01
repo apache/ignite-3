@@ -25,8 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * Fork from bolt
  * 
- * @author yunliang.shi
- */
+*/
 public class ConcurrentHashSet<E> extends AbstractSet<E> {
     private ConcurrentHashMap<E, Boolean> map;
 

@@ -30,18 +30,14 @@ import org.apache.ignite.raft.jraft.util.Describer;
 /**
  * Log manager.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 3:02:42 PM
+*
  */
 public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
 
     /**
      * Closure to to run in stable state.
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-04 4:35:29 PM
+    *
      */
     abstract class StableClosure implements Closure {
 
@@ -85,8 +81,7 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
      * Listen on last log index change event, but it's not reliable,
      * the user should not count on this listener to receive all changed events.
      *
-     * @author dennis
-     */
+    */
     interface LastLogIndexListener {
 
         /**
@@ -192,9 +187,7 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     /**
      * New log notifier callback.
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-04 4:40:04 PM
+    *
      */
     interface NewLogCallback {
 

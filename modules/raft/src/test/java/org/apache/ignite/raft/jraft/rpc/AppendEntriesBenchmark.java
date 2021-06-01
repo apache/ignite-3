@@ -41,8 +41,7 @@ import static org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 @State(Scope.Benchmark)
 public class AppendEntriesBenchmark {
 

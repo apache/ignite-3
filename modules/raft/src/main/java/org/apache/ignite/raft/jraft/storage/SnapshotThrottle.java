@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.storage;
 /**
  * Snapshot throttling during heavy disk reading/writing
  *
- * @author dennis
- */
+*/
 public interface SnapshotThrottle {
 
     /**

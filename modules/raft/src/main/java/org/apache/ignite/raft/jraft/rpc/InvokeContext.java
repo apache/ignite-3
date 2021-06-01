@@ -24,8 +24,7 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * RPC invoke context.
  *
- * @author jiachun.fjc
- */
+*/
 public class InvokeContext {
 
     public final static String                  CRC_SWITCH = "invoke.crc.switch";

@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.error;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public class JRaftException extends RuntimeException {
 
     private static final long serialVersionUID = 0L;

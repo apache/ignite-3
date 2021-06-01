@@ -21,9 +21,7 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 /**
  * Get the latest value request.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 4:54:17 PM
+*
  */
 public class GetValueRequest implements Message {
 

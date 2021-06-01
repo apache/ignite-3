@@ -26,9 +26,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 /**
  * Handle PreVote and RequestVote requests.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 6:11:09 PM
+*
  */
 public class RequestVoteRequestProcessor extends NodeRequestProcessor<RequestVoteRequest> {
 

@@ -25,9 +25,7 @@ import org.apache.ignite.raft.jraft.counter.CounterService;
 /**
  * GetValueRequest processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 5:48:33 PM
+*
  */
 public class GetValueRequestProcessor implements RpcProcessor<GetValueRequest> {
 

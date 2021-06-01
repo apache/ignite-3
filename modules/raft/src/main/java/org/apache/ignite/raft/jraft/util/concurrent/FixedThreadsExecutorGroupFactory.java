@@ -20,8 +20,7 @@ import java.util.concurrent.ExecutorService;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public interface FixedThreadsExecutorGroupFactory {
 
     FixedThreadsExecutorGroup newExecutorGroup(final int nThreads, final String poolName,

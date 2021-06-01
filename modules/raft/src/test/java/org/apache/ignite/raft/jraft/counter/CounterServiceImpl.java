@@ -30,8 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * @author likun (saimu.msm@antfin.com)
- */
+*/
 public class CounterServiceImpl implements CounterService {
     private static final Logger LOG = LoggerFactory.getLogger(CounterServiceImpl.class);
 

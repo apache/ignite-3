@@ -21,8 +21,7 @@ import org.apache.ignite.raft.jraft.entity.codec.v1.V1Decoder;
 
 /**
  * Decoder that supports both v1 and v2 log entry codec protocol.
- * @author boyan(boyan@antfin.com)
- *
+*
  */
 public class AutoDetectDecoder implements LogEntryDecoder {
 

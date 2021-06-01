@@ -37,9 +37,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Raft meta storage,it's not thread-safe.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-26 7:30:36 PM
+*
  */
 public class LocalRaftMetaStorage implements RaftMetaStorage {
 

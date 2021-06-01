@@ -27,9 +27,7 @@ import org.apache.ignite.raft.jraft.storage.FileService;
 /**
  * Get file request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 3:01:25 PM
+*
  */
 public class GetFileRequestProcessor extends RpcRequestProcessor<GetFileRequest> {
 

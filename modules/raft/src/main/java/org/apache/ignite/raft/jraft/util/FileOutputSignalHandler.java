@@ -24,8 +24,7 @@ import java.util.Date;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public abstract class FileOutputSignalHandler implements JRaftSignalHandler {
 
     protected File getOutputFile(final String path, final String baseFileName) throws IOException {

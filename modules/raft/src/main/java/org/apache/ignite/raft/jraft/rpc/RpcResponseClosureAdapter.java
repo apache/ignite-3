@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 /**
  * RpcResponseClosure adapter holds the response.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
+*
  * 2018-Mar-29 2:30:35 PM 
  * @param <T>
  */

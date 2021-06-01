@@ -26,8 +26,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * A {@link ReadWriteLock} that can report some info when the lock is held by a thread very long time.
  *
- * @author jiachun.fjc
- */
+*/
 public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
     public enum AcquireMode {
         Read, Write

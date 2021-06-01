@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.util.internal;
 /**
  * Throwing tool.
  *
- * @author jiachun.fjc
- */
+*/
 public final class ThrowUtil {
 
     private static final ReferenceFieldUpdater<Throwable, Throwable> causeUpdater = Updaters.newReferenceFieldUpdater(

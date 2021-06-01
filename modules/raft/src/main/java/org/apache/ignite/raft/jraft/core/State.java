@@ -18,9 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 /**
  * Node state
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 5:41:54 PM
+*
  */
 public enum State {
     STATE_LEADER, // It's a leader

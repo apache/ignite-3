@@ -73,8 +73,6 @@ public class CopySession implements Session {
 
     /**
      * Get file response closure to answer client.
-     *
-     * @author boyan (boyan@alibaba-inc.com)
      */
     private class GetFileResponseClosure extends RpcResponseClosureAdapter<GetFileResponse> {
 
@@ -110,14 +108,15 @@ public class CopySession implements Session {
             if (!this.finished) {
                 Utils.closeQuietly(this.outputStream);
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
 
     public CopySession(final RaftClientService rpcService, final Scheduler timerManager,
-                       final SnapshotThrottle snapshotThrottle, final RaftOptions raftOptions,
-                       NodeOptions nodeOptions, final GetFileRequest.Builder rb, final Endpoint ep) {
+        final SnapshotThrottle snapshotThrottle, final RaftOptions raftOptions,
+        NodeOptions nodeOptions, final GetFileRequest.Builder rb, final Endpoint ep) {
         super();
         this.snapshotThrottle = snapshotThrottle;
         this.raftOptions = raftOptions;
@@ -157,7 +156,8 @@ public class CopySession implements Session {
                 this.st.setError(RaftError.ECANCELED, RaftError.ECANCELED.name());
             }
             onFinished();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -238,20 +238,23 @@ public class CopySession implements Session {
             if (this.outputStream != null) {
                 try {
                     response.getData().writeTo(this.outputStream);
-                } catch (final IOException e) {
+                }
+                catch (final IOException e) {
                     LOG.error("Fail to write into file {}", this.destPath);
                     this.st.setError(RaftError.EIO, RaftError.EIO.name());
                     onFinished();
                     return;
                 }
-            } else {
+            }
+            else {
                 this.destBuf.put(response.getData().asReadOnlyByteBuffer());
             }
             if (response.getEof()) {
                 onFinished();
                 return;
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
         sendNextRpc();
@@ -287,7 +290,8 @@ public class CopySession implements Session {
             final GetFileRequest request = this.requestBuilder.build();
             LOG.debug("Send get file request {} to peer {}", request, this.endpoint);
             this.rpcCall = this.rpcService.getFile(this.endpoint, request, this.copyOptions.getTimeoutMs(), this.done);
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }

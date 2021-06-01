@@ -254,10 +254,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Node service event.
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-03 4:29:55 PM
-     */
+    *     */
     private static class LogEntryAndClosure {
         LogEntry entry;
         Closure done;
@@ -283,10 +280,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Event handler.
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-03 4:30:07 PM
-     */
+    *     */
     private class LogEntryAndClosureHandler implements EventHandler<LogEntryAndClosure> {
         // task list for batch
         private final List<LogEntryAndClosure> tasks = new ArrayList<>(NodeImpl.this.raftOptions.getApplyBatch());
@@ -1417,8 +1411,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * ReadIndex response closure
      *
-     * @author dennis
-     */
+    */
     private class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
         final ReadIndexResponse.Builder respBuilder;
         final RpcResponseClosure<ReadIndexResponse> closure;
@@ -2083,10 +2076,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Peer catch up callback
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-11 2:10:02 PM
-     */
+    *     */
     private static class OnCaughtUp extends CatchUpClosure {
         private final NodeImpl node;
         private final long term;
@@ -2271,10 +2261,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Configuration changed callback.
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     * <p>
-     * 2018-Apr-11 2:53:43 PM
-     */
+    *     */
     private class ConfigurationChangeDone implements Closure {
         private final long term;
         private final boolean leaderStart;

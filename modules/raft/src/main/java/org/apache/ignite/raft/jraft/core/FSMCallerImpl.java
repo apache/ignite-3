@@ -64,9 +64,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The finite state machine caller implementation.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 11:12:14 AM
+*
  */
 public class FSMCallerImpl implements FSMCaller {
 
@@ -74,9 +72,7 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Task type
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-03 11:12:25 AM
+    *
      */
     private enum TaskType {
         IDLE, //
@@ -104,9 +100,7 @@ public class FSMCallerImpl implements FSMCaller {
     /**
      * Apply task for disruptor.
      *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-03 11:12:35 AM
+    *
      */
     private static class ApplyTask {
         TaskType            type;
@@ -310,9 +304,7 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Closure runs with an error.
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-04 2:20:31 PM
+    *
      */
     public class OnErrorClosure implements Closure {
         private RaftException error;

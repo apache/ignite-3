@@ -29,9 +29,7 @@ import org.apache.ignite.raft.jraft.util.CrcUtil;
 /**
  * A replica log entry.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:13:02 PM
+*
  */
 public class LogEntry implements Checksum {
     /** entry type */

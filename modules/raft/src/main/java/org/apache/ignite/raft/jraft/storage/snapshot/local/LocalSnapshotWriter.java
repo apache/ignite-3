@@ -33,9 +33,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Snapshot writer to write snapshot into local file system.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 11:51:43 AM
+*
  */
 public class LocalSnapshotWriter extends SnapshotWriter {
 

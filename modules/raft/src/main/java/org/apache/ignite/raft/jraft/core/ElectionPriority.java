@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 /**
  * ElectionPriority Type
  *
- * @author zongtanghu
- */
+*/
 public class ElectionPriority {
 
     /**

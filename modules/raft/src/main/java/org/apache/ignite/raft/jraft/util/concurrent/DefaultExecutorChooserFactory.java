@@ -21,8 +21,7 @@ import org.apache.ignite.raft.jraft.util.Ints;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public final class DefaultExecutorChooserFactory implements ExecutorChooserFactory {
 
     public static final DefaultExecutorChooserFactory INSTANCE = new DefaultExecutorChooserFactory();

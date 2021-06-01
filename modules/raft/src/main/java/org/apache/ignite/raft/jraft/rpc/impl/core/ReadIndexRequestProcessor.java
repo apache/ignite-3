@@ -28,8 +28,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 /**
  * Handle read index request.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+* @author jiachun.fjc
  */
 public class ReadIndexRequestProcessor extends NodeRequestProcessor<ReadIndexRequest> {
 

@@ -35,9 +35,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Snapshot reader on local file system.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 11:10:34 AM
+*
  */
 public class LocalSnapshotReader extends SnapshotReader {
 

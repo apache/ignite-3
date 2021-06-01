@@ -24,9 +24,7 @@ import org.apache.ignite.raft.jraft.util.CrcUtil;
 /**
  * Log identifier.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:12:29 PM
+*
  */
 public class LogId implements Comparable<LogId>, Copiable<LogId>, Serializable, Checksum {
 

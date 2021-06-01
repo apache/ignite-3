@@ -21,8 +21,7 @@ import org.apache.ignite.raft.jraft.Closure;
 /**
  * RPC response closure.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
+*
  * 2018-Apr-08 5:55:01 PM 
  * @param <T>
  */

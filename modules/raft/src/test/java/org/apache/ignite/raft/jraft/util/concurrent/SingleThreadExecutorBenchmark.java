@@ -45,8 +45,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)

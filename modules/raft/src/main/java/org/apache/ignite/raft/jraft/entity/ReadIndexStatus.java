@@ -21,8 +21,7 @@ import java.util.List;
 
 /**
  * ReadIndex requests statuses.
- * @author dennis
- *
+*
  */
 public class ReadIndexStatus {
 

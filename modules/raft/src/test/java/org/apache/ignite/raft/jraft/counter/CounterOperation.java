@@ -21,8 +21,7 @@ import java.io.Serializable;
 /**
  * The counter operation
  *
- * @author likun (saimu.msm@antfin.com)
- */
+*/
 public class CounterOperation implements Serializable {
 
     private static final long serialVersionUID = -6597003954824547294L;

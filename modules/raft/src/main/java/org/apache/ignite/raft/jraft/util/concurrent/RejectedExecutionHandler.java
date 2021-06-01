@@ -21,8 +21,7 @@ package org.apache.ignite.raft.jraft.util.concurrent;
  *
  * Reference from netty project.
  *
- * @author jiachun.fjc
- */
+*/
 public interface RejectedExecutionHandler {
 
     /**

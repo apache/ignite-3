@@ -23,10 +23,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 /**
  * Bootstrap options
  *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-04 2:58:45 PM
- */
+* */
 public class BootstrapOptions {
     // Containing the initial member of this raft group
     // Default: empty conf

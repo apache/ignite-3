@@ -40,9 +40,7 @@ import static org.junit.Assert.assertTrue;
 
 /**
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-11 4:50:23 PM
+*
  */
 @RunWith(MockitoJUnitRunner.class)
 public class LocalRaftMetaStorageTest extends BaseStorageTest {

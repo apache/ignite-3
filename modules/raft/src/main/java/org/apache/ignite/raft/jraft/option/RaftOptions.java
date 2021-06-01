@@ -21,10 +21,7 @@ import org.apache.ignite.raft.jraft.util.Copiable;
 /**
  * Raft options.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-03 4:38:40 PM
- */
+* */
 public class RaftOptions implements Copiable<RaftOptions> {
     /**
      * Maximum of block size per RPC
@@ -97,11 +94,9 @@ public class RaftOptions implements Copiable<RaftOptions> {
 
     /**
      * ReadOnlyOption specifies how the read only request is processed.
-     * <p>
-     * {@link ReadOnlyOption#ReadOnlySafe} guarantees the linearizability of the read only request by
+     *     * {@link ReadOnlyOption#ReadOnlySafe} guarantees the linearizability of the read only request by
      * communicating with the quorum. It is the default and suggested option.
-     * <p>
-     * {@link ReadOnlyOption#ReadOnlyLeaseBased} ensures linearizability of the read only request by
+     *     * {@link ReadOnlyOption#ReadOnlyLeaseBased} ensures linearizability of the read only request by
      * relying on the leader lease. It can be affected by clock drift.
      * If the clock drift is unbounded, leader might keep the lease longer than it
      * should (clock can move backward/pause without any bound). ReadIndex is not safe

@@ -26,8 +26,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 /**
  * Ping request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+* @author jiachun.fjc
  */
 public class PingRequestProcessor implements RpcProcessor<PingRequest> {
     /** The executor */

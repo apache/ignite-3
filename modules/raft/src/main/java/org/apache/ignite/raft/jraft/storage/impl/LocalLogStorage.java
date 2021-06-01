@@ -21,8 +21,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Stores log in heap.
- * <p>
- * TODO asch can use SegmentList.
+ * * TODO asch can use SegmentList.
  */
 public class LocalLogStorage implements LogStorage, Describer {
     private static final Logger LOG = LoggerFactory.getLogger(LocalLogStorage.class);

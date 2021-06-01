@@ -21,9 +21,7 @@ import java.nio.ByteBuffer;
 /**
  * User log entry.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 10:03:28 AM
+*
  */
 public class UserLog {
 

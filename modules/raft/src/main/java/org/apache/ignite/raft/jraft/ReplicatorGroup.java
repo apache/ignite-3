@@ -31,9 +31,7 @@ import org.apache.ignite.raft.jraft.util.ThreadId;
 /**
  * Replicators in a raft group.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 5:35:26 PM
+*
  */
 public interface ReplicatorGroup extends Describer {
     /**

@@ -19,8 +19,7 @@ package org.apache.ignite.raft.jraft.storage;
 /**
  * Common interface for storage.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
+*
  * 2018-Mar-12 3:52:36 PM 
  */
 public interface Storage {

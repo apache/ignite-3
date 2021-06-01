@@ -21,9 +21,7 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 /**
  * Increment value with delta and get the new value request.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 4:53:22 PM
+*
  */
 public class IncrementAndGetRequest implements Message {
 

@@ -21,8 +21,7 @@ import java.util.Comparator;
 
 
 /**
- * @author jiachun.fjc
- */
+*/
 public final class BytesUtil {
 
     public static final byte[]               EMPTY_BYTES             = new byte[0];

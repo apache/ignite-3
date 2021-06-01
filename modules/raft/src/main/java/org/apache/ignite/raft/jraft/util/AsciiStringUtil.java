@@ -17,8 +17,7 @@
 package org.apache.ignite.raft.jraft.util;
 
 /**
- * @author jiachun.fjc
- */
+*/
 public final class AsciiStringUtil {
 
     public static byte[] unsafeEncode(final CharSequence in) {

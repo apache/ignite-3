@@ -25,8 +25,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Node metrics
  *
- * @author dennis
- */
+*/
 public class NodeMetrics {
 
     private final MetricRegistry metrics;

@@ -22,8 +22,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public class Platform {
 
     private static final Logger  LOG        = LoggerFactory.getLogger(Platform.class);

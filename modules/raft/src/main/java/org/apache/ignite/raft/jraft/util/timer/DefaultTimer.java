@@ -27,8 +27,7 @@ import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
 /**
- * @author jiachun.fjc
- */
+*/
 public class DefaultTimer implements Timer {
     private final ScheduledExecutorService scheduledExecutorService;
 

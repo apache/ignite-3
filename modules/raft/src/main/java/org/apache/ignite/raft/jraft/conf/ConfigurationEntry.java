@@ -25,9 +25,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A configuration entry with current peers and old peers.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 2:25:06 PM
+*
  */
 public class ConfigurationEntry {
 

@@ -25,9 +25,7 @@ import org.apache.ignite.raft.jraft.counter.CounterService;
 /**
  * IncrementAndGetRequest processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-09 5:43:57 PM
+*
  */
 public class IncrementAndGetRequestProcessor implements RpcProcessor<IncrementAndGetRequest> {
 

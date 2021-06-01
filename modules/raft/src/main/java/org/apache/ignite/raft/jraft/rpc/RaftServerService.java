@@ -26,9 +26,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 /**
  * Raft RPC service in server.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 4:25:09 PM
+*
  */
 public interface RaftServerService {
 

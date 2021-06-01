@@ -32,9 +32,7 @@ import org.apache.ignite.raft.jraft.closure.JoinableClosure;
  * <li>done: task closure, called when the data is successfully committed to the raft group.</li>
  * <li>expectedTerm: Reject this task if expectedTerm doesn't match the current term of this Node if the value is not -1, default is -1.</li>
  * </ul>
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-13 3:08:12 PM
+*
  */
 public class Task implements Serializable {
 

@@ -24,8 +24,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
 /**
  * SnapshotThrottle with throughput threshold used in installSnapshot.
  *
- * @author dennis
- */
+*/
 public class ThroughputSnapshotThrottle implements SnapshotThrottle {
 
     private final long throttleThroughputBytes;

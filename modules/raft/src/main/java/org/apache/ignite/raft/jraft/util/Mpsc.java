@@ -27,8 +27,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 //import org.apache.ignite.raft.jraft.util.internal.UnsafeUtil;
 
 /**
- * @author jiachun.fjc
- * TODO asch fixme.
+* TODO asch fixme.
  */
 public final class Mpsc {
 

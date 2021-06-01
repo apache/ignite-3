@@ -29,8 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * Remove peer request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
- * @author jiachun.fjc
+* @author jiachun.fjc
  */
 public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePeerRequest> {
 

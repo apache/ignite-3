@@ -25,9 +25,7 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 /**
  * Snapshot writer.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 4:52:10 PM
+*
  */
 public abstract class SnapshotWriter extends Snapshot implements Closeable, Lifecycle<Void> {
 

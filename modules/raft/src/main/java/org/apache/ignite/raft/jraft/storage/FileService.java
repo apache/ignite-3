@@ -40,9 +40,7 @@ import org.slf4j.LoggerFactory;
 /**
  * File reader service.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-30 10:23:13 AM
+*
  */
 public final class FileService {
 

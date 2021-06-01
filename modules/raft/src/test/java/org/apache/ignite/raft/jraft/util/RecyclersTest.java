@@ -27,8 +27,7 @@ import static org.junit.Assert.assertTrue;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public class RecyclersTest {
 
     private static Recyclers<RecyclableObject> newRecyclers(final int max) {

@@ -37,9 +37,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 /**
  * Some helper methods for jraft usage.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-23 3:48:45 PM
+*
  */
 public final class JRaftUtils {
     /**

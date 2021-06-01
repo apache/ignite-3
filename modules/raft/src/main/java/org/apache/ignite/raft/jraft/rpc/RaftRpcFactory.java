@@ -22,8 +22,7 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 /**
  * Raft RPC service factory.
  *
- * @author jiachun.fjc
- */
+*/
 public interface RaftRpcFactory {
     RpcResponseFactory DEFAULT = new RpcResponseFactory() {};
 }

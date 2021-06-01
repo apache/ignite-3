@@ -22,9 +22,7 @@ import org.apache.ignite.raft.jraft.Status;
 /**
  * A copy session.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 12:02:12 PM
+*
  */
 public interface Session extends Closeable {
 

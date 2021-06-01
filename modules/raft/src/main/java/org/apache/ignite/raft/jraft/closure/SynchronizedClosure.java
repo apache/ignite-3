@@ -23,9 +23,7 @@ import org.apache.ignite.raft.jraft.Status;
 /**
  * A special Closure which provides synchronization primitives.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-16 2:45:34 PM
+*
  */
 public class SynchronizedClosure implements Closure {
 

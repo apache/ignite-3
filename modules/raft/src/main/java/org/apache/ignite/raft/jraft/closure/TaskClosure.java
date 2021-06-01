@@ -20,8 +20,7 @@ import org.apache.ignite.raft.jraft.Closure;
 
 /**
  * Closure for task applying.
- * @author dennis
- */
+*/
 public interface TaskClosure extends Closure {
 
     /**

@@ -23,9 +23,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 /**
  * A ballot to vote.
  *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-15 2:29:11 PM
+*
  */
 public class Ballot {
 

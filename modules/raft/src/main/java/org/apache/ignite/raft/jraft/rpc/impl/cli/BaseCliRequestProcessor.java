@@ -33,8 +33,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Base template to handle cli requests.
- * @author boyan (boyan@alibaba-inc.com)
- *
+*
  * 2018-Apr-09 11:51:42 AM 
  * @param <T>
  */
@@ -63,9 +62,7 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
 
     /**
      * Cli request context
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-09 11:55:45 AM
+    *
      */
     public static class CliRequestContext {
 

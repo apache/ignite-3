@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.util;
 
 /**
  *
- * @author jiachun.fjc
- */
+*/
 public interface JRaftSignalHandler {
 
     void handle(final String signalName);
