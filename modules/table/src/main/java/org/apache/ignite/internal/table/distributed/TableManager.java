@@ -399,11 +399,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A set of table names.
      */
     private HashSet<String> tableNamesConfigured() {
-        IgniteBiTuple<ByteArray, ByteArray> rabge = toRange(new ByteArray(PUBLIC_PREFIX));
+        IgniteBiTuple<ByteArray, ByteArray> range = toRange(new ByteArray(PUBLIC_PREFIX));
 
         HashSet tableNames = new HashSet();
 
-        try (Cursor<Entry> cursor = metaStorageMgr.range(rabge.get1(), rabge.get2())) {
+        try (Cursor<Entry> cursor = metaStorageMgr.range(range.get1(), range.get2())) {
             while (cursor.hasNext()) {
                 Entry entry = cursor.next();
 
@@ -481,9 +481,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True if table configured, false otherwise.
      */
     private boolean isTableConfigured(String name) {
-        IgniteBiTuple<ByteArray, ByteArray> rabge = toRange(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + '.'));
+        IgniteBiTuple<ByteArray, ByteArray> range = toRange(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + ".name"));
 
-        try (Cursor<Entry> cursor = metaStorageMgr.range(rabge.get1(), rabge.get2())) {
+        try (Cursor<Entry> cursor = metaStorageMgr.range(range.get1(), range.get2())) {
             return cursor.hasNext();
         }
         catch (Exception e) {
