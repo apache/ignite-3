@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.locks.StampedLock;
-import javax.annotation.concurrent.ThreadSafe;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Lifecycle;
@@ -36,7 +35,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Ballot box for voting.
  */
-@ThreadSafe
 public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
 
     private static final Logger LOG = LoggerFactory.getLogger(BallotBox.class);

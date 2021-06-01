@@ -17,19 +17,12 @@
 package org.apache.ignite.raft.jraft.closure;
 
 import java.util.List;
-import javax.annotation.concurrent.ThreadSafe;
 import org.apache.ignite.raft.jraft.Closure;
 
 /**
  * A thread-safe closure queue.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-14 10:29:12 AM
  */
-@ThreadSafe
 public interface ClosureQueue {
-
     /**
      * Clear all closure in queue.
      */

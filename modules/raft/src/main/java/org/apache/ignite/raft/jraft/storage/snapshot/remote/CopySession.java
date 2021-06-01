@@ -25,7 +25,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import javax.annotation.concurrent.ThreadSafe;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -49,7 +48,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Copy session.
  */
-@ThreadSafe
 public class CopySession implements Session {
     private static final Logger LOG = LoggerFactory.getLogger(CopySession.class);
 

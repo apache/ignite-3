@@ -39,11 +39,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

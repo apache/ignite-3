@@ -37,7 +37,6 @@ import java.util.PriorityQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.concurrent.ThreadSafe;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
@@ -70,7 +69,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Replicator for replicating log entry from leader to followers.
  */
-@ThreadSafe
 public class Replicator implements ThreadId.OnError {
     /** The log. */
     private static final Logger LOG = LoggerFactory.getLogger(Replicator.class);
@@ -316,7 +314,7 @@ public class Replicator implements ThreadId.OnError {
         // Request sequence.
         final int seq;
 
-        public Inflight(final RequestType requestType, final long startIndex, final int count, final int size,
+        Inflight(final RequestType requestType, final long startIndex, final int count, final int size,
                         final int seq, final Future<Message> rpcFuture) {
             super();
             this.seq = seq;
@@ -349,7 +347,7 @@ public class Replicator implements ThreadId.OnError {
         final int seq;
         final RequestType requestType;
 
-        public RpcResponse(final RequestType reqType, final int seq, final Status status, final Message request,
+        RpcResponse(final RequestType reqType, final int seq, final Status status, final Message request,
                            final Message response, final long rpcSendTime) {
             super();
             this.requestType = reqType;
