@@ -23,15 +23,13 @@ import org.apache.ignite.raft.jraft.util.CrcUtil;
 
 /**
  * Log identifier.
- *
-*
  */
 public class LogId implements Comparable<LogId>, Copiable<LogId>, Serializable, Checksum {
 
     private static final long serialVersionUID = -6680425579347357313L;
 
-    private long              index;
-    private long              term;
+    private long index;
+    private long term;
 
     @Override
     public LogId copy() {
@@ -93,7 +91,8 @@ public class LogId implements Comparable<LogId>, Copiable<LogId>, Serializable, 
         final int c = Long.compare(getTerm(), o.getTerm());
         if (c == 0) {
             return Long.compare(getIndex(), o.getIndex());
-        } else {
+        }
+        else {
             return c;
         }
     }

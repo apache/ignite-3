@@ -17,7 +17,8 @@
 package org.apache.ignite.raft.jraft.util.internal;
 
 /**
-*/
+ *
+ */
 public interface LongFieldUpdater<U> {
 
     void set(final U obj, final long newValue);

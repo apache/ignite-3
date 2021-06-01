@@ -115,7 +115,8 @@ public class IteratorImplTest {
             final MockClosure mc = (MockClosure) closure;
             if (i < 7) {
                 assertNull(mc.s);
-            } else {
+            }
+            else {
                 final Status s = mc.s;
                 Assert.assertEquals(RaftError.ESTATEMACHINE.getNumber(), s.getCode());
                 assertEquals(

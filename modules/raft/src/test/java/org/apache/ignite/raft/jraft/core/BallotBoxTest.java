@@ -40,9 +40,9 @@ import static org.junit.Assert.fail;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class BallotBoxTest {
-    private BallotBox        box;
+    private BallotBox box;
     @Mock
-    private FSMCaller        waiter;
+    private FSMCaller waiter;
     private ClosureQueueImpl closureQueue;
 
     @Before
@@ -125,7 +125,8 @@ public class BallotBoxTest {
         try {
             this.box.commitAt(1, 3, new PeerId("localhost", 8081));
             fail();
-        } catch (ArrayIndexOutOfBoundsException e) {
+        }
+        catch (ArrayIndexOutOfBoundsException e) {
 
         }
         assertTrue(this.box.commitAt(1, 1, new PeerId("localhost", 8081)));

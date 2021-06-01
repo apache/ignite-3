@@ -29,7 +29,7 @@ import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  * V1 log entry decoder
-*
+ *
  * TODO checksum
  */
 @Deprecated

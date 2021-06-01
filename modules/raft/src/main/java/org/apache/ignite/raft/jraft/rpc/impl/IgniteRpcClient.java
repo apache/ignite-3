@@ -61,7 +61,8 @@ public class IgniteRpcClient implements RpcClientEx {
         service.topologyService().addEventHandler(handler);
     }
 
-    @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {
+    @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx,
+        long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
             throw new RemotingException("Server is dead " + endpoint);
 
@@ -69,7 +70,7 @@ public class IgniteRpcClient implements RpcClientEx {
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, endpoint.toString()))
-            recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+            recordedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
         boolean wasBlocked;
 
@@ -77,7 +78,7 @@ public class IgniteRpcClient implements RpcClientEx {
             wasBlocked = blockPred != null && blockPred.test(request, endpoint.toString());
 
             if (wasBlocked)
-                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut, timeoutMs)});
+                blockedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut, timeoutMs)});
         }
 
         if (!wasBlocked)
@@ -88,16 +89,19 @@ public class IgniteRpcClient implements RpcClientEx {
                 assert !(res == null && err == null) : res + " " + err;
 
                 if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
             }).get(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             throw new RemotingException(e);
-        } catch (TimeoutException e) {
+        }
+        catch (TimeoutException e) {
             throw new InvokeTimeoutException();
         }
     }
 
-    @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback, long timeoutMs) throws InterruptedException, RemotingException {
+    @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback,
+        long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
             throw new RemotingException("Server is dead " + endpoint);
 
@@ -108,7 +112,7 @@ public class IgniteRpcClient implements RpcClientEx {
                 assert !(res == null && err == null) : res + " " + err;
 
                 if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
                 if (err instanceof ExecutionException)
                     err = new RemotingException(err);
@@ -123,11 +127,12 @@ public class IgniteRpcClient implements RpcClientEx {
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, endpoint.toString()))
-            recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+            recordedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
         synchronized (this) {
             if (blockPred != null && blockPred.test(request, endpoint.toString())) {
-                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
+                blockedMsgs.add(new Object[] {
+                    request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
                     @Override public void run() {
                         send(endpoint, request, fut, timeoutMs);
                     }
@@ -176,7 +181,6 @@ public class IgniteRpcClient implements RpcClientEx {
 
         synchronized (this) {
             blockedMsgs.drainTo(msgs);
-
 
             blockPred = null;
         }

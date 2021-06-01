@@ -24,14 +24,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Configuration manager
- *
-* */
+ */
 public class ConfigurationManager {
 
-    private static final Logger                  LOG            = LoggerFactory.getLogger(ConfigurationManager.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ConfigurationManager.class);
 
     private final LinkedList<ConfigurationEntry> configurations = new LinkedList<>();
-    private ConfigurationEntry snapshot       = new ConfigurationEntry();
+    private ConfigurationEntry snapshot = new ConfigurationEntry();
 
     /**
      * Adds a new conf entry.
@@ -75,7 +74,8 @@ public class ConfigurationManager {
     public ConfigurationEntry getLastConfiguration() {
         if (this.configurations.isEmpty()) {
             return snapshot;
-        } else {
+        }
+        else {
             return this.configurations.peekLast();
         }
     }
@@ -97,7 +97,8 @@ public class ConfigurationManager {
         if (it.hasPrevious()) {
             // find the first position that is less than or equal to lastIncludedIndex.
             return it.previous();
-        } else {
+        }
+        else {
             // position not found position, return snapshot.
             return this.snapshot;
         }

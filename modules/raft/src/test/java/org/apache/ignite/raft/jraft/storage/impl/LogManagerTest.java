@@ -254,7 +254,8 @@ public class LogManagerTest extends BaseStorageTest {
         for (int i = 0; i < 20; i++) {
             if (11 + i >= 15) {
                 mockEntries.get(i).getId().setTerm(2);
-            } else {
+            }
+            else {
                 mockEntries.get(i).getId().setTerm(1);
             }
             mockEntries.get(i).getId().setIndex(11 + i);
@@ -277,7 +278,8 @@ public class LogManagerTest extends BaseStorageTest {
             assertEquals(i + 1, entry.getId().getIndex());
             if (i + 1 >= 15) {
                 assertEquals(2, entry.getId().getTerm());
-            } else {
+            }
+            else {
                 assertEquals(1, entry.getId().getTerm());
             }
         }
@@ -383,7 +385,8 @@ public class LogManagerTest extends BaseStorageTest {
         for (int i = 0; i < 10; i++) {
             if (i > 2) {
                 Assert.assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
-            } else {
+            }
+            else {
                 //before index=3 logs were dropped.
                 assertNull(this.logManager.getEntry(i + 1));
             }

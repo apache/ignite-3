@@ -21,18 +21,17 @@ import org.apache.ignite.raft.jraft.util.Bytes;
 
 /**
  * ReadIndex state
-*
  */
 public class ReadIndexState {
 
-    /** The committed log index*/
-    private long                   index = -1;
-    /** User request context*/
+    /** The committed log index */
+    private long index = -1;
+    /** User request context */
     private final Bytes requestContext;
-    /** User ReadIndex closure*/
+    /** User ReadIndex closure */
     private final ReadIndexClosure done;
-    /** Request start timestamp*/
-    private final long             startTimeMs;
+    /** Request start timestamp */
+    private final long startTimeMs;
 
     public ReadIndexState(Bytes requestContext, ReadIndexClosure done, long startTimeMs) {
         super();

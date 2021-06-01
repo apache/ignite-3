@@ -25,14 +25,13 @@ import java.util.concurrent.ThreadFactory;
 
 /**
  * A builder to build a disruptor instance.
-*
  */
 public class DisruptorBuilder<T> {
     private EventFactory<T> eventFactory;
-    private Integer         ringBufferSize;
-    private ThreadFactory   threadFactory = new NamedThreadFactory("Disruptor-", true);
-    private ProducerType    producerType  = ProducerType.MULTI;
-    private WaitStrategy    waitStrategy  = new BlockingWaitStrategy();
+    private Integer ringBufferSize;
+    private ThreadFactory threadFactory = new NamedThreadFactory("Disruptor-", true);
+    private ProducerType producerType = ProducerType.MULTI;
+    private WaitStrategy waitStrategy = new BlockingWaitStrategy();
 
     private DisruptorBuilder() {
     }

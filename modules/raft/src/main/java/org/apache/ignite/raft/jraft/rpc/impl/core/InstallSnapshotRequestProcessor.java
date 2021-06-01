@@ -26,7 +26,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 /**
  * Handle install snapshot request.
  *
-*
+ *
  * TODO asch use dedicated executor for potentially long jobs ?
  */
 public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<InstallSnapshotRequest> {
@@ -47,7 +47,7 @@ public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<Instal
 
     @Override
     public Message processRequest0(final RaftServerService service, final InstallSnapshotRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         return service.handleInstallSnapshot(request, done);
     }
 

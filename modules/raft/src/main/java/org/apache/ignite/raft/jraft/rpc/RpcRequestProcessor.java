@@ -24,10 +24,12 @@ import org.slf4j.LoggerFactory;
  * Abstract AsyncUserProcessor for RPC processors.
  *
  * @param <T> Message
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public abstract class RpcRequestProcessor<T extends Message> implements RpcProcessor<T> {
-    /** */
+    /**
+     *
+     */
     protected static final Logger LOG = LoggerFactory.getLogger(RpcRequestProcessor.class);
 
     private final Executor executor;
@@ -48,7 +50,8 @@ public abstract class RpcRequestProcessor<T extends Message> implements RpcProce
             if (msg != null) {
                 rpcCtx.sendResponse(msg);
             }
-        } catch (final Throwable t) {
+        }
+        catch (final Throwable t) {
             LOG.error("handleRequest {} failed", request, t);
             rpcCtx.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), -1, "handleRequest internal error"));

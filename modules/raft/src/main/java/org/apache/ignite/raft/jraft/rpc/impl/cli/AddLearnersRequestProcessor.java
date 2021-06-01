@@ -30,7 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * AddLearners request processor.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLearnersRequest> {
     public AddLearnersRequestProcessor(final Executor executor) {
@@ -49,7 +49,7 @@ public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLear
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final AddLearnersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> addingLearners = new ArrayList<>(request.getLearnersCount());
 
@@ -67,7 +67,8 @@ public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLear
         ctx.node.addLearners(addingLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            } else {
+            }
+            else {
                 final LearnersOpResponse.Builder rb = LearnersOpResponse.newBuilder();
 
                 for (final PeerId peer : oldLearners) {

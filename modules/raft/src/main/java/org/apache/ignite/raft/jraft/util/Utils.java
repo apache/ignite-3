@@ -56,9 +56,8 @@ public final class Utils {
     private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
 
     /**
-     * The configured number of available processors. The default is
-     * {@link Runtime#availableProcessors()}. This can be overridden by setting the system property
-     * "jraft.available_processors".
+     * The configured number of available processors. The default is {@link Runtime#availableProcessors()}. This can be
+     * overridden by setting the system property "jraft.available_processors".
      */
     private static final int CPUS = SystemPropertyUtil.getInt(
         "jraft.available_processors", getRuntime().availableProcessors());
@@ -113,7 +112,8 @@ public final class Utils {
      * @param reg The registry.
      * @param executor The executor.
      */
-    public static void registerClosureExecutorMetrics(String name, final MetricRegistry reg, ThreadPoolExecutor executor) {
+    public static void registerClosureExecutorMetrics(String name, final MetricRegistry reg,
+        ThreadPoolExecutor executor) {
         reg.register(name, new ThreadPoolMetricSet(executor));
     }
 
@@ -152,7 +152,8 @@ public final class Utils {
      * Run closure with status in thread pool.
      */
     @SuppressWarnings("Convert2Lambda")
-    public static Future<?> runClosureInThread(final ExecutorService executor, final Closure done, final Status status) {
+    public static Future<?> runClosureInThread(final ExecutorService executor, final Closure done,
+        final Status status) {
         if (done == null) {
             return null;
         }
@@ -161,7 +162,8 @@ public final class Utils {
             @Override public void run() {
                 try {
                     done.run(status);
-                } catch (final Throwable t) {
+                }
+                catch (final Throwable t) {
                     LOG.error("Fail to run done closure", t);
                 }
             }
@@ -181,7 +183,8 @@ public final class Utils {
         executor.execute(() -> {
             try {
                 done.run(status);
-            } catch (final Throwable t) {
+            }
+            catch (final Throwable t) {
                 LOG.error("Fail to run done closure.", t);
             }
         });
@@ -204,7 +207,8 @@ public final class Utils {
         try {
             closeable.close();
             return 0;
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to close", e);
             return RaftError.EIO.getNumber();
         }
@@ -235,7 +239,8 @@ public final class Utils {
 
         try {
             return Long.parseLong(jvmName.substring(0, index));
-        } catch (final NumberFormatException e) {
+        }
+        catch (final NumberFormatException e) {
             // ignore
         }
         return fallback;
@@ -309,8 +314,7 @@ public final class Utils {
     }
 
     /**
-     * Returns the current time in milliseconds, it's not monotonic, would be forwarded/backward by
-     * clock synchronous.
+     * Returns the current time in milliseconds, it's not monotonic, would be forwarded/backward by clock synchronous.
      */
     public static long nowMs() {
         return System.currentTimeMillis();
@@ -346,12 +350,14 @@ public final class Utils {
         boolean success;
         try {
             success = Files.move(sourcePath, targetPath, StandardCopyOption.ATOMIC_MOVE) != null;
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             // If it falls here that can mean many things. Either that the atomic move is not supported,
             // or something wrong happened. Anyway, let's try to be over-diagnosing
             if (e instanceof AtomicMoveNotSupportedException) {
                 LOG.warn("Atomic move not supported. falling back to non-atomic move, error: {}.", e.getMessage());
-            } else {
+            }
+            else {
                 LOG.warn("Unable to move atomically, falling back to non-atomic move, error: {}.", e.getMessage());
             }
 
@@ -361,13 +367,15 @@ public final class Utils {
 
             try {
                 success = Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING) != null;
-            } catch (final IOException e1) {
+            }
+            catch (final IOException e1) {
                 e1.addSuppressed(e);
                 LOG.warn("Unable to move {} to {}. Attempting to delete {} and abandoning.", sourcePath, targetPath,
                     sourcePath);
                 try {
                     Files.deleteIfExists(sourcePath);
-                } catch (final IOException e2) {
+                }
+                catch (final IOException e2) {
                     e2.addSuppressed(e1);
                     LOG.warn("Unable to delete {}, good bye then!", sourcePath);
                     throw e2;
@@ -407,8 +415,7 @@ public final class Utils {
      * Deletes file or directory with all sub-directories and files.
      *
      * @param file File or directory to delete.
-     * @return {@code true} if and only if the file or directory is successfully deleted,
-     * {@code false} otherwise
+     * @return {@code true} if and only if the file or directory is successfully deleted, {@code false} otherwise
      */
     public static boolean delete(@Nullable File file) {
         return file != null && delete(file.toPath());
@@ -418,8 +425,7 @@ public final class Utils {
      * Deletes file or directory with all sub-directories and files.
      *
      * @param path File or directory to delete.
-     * @return {@code true} if and only if the file or directory is successfully deleted,
-     * {@code false} otherwise
+     * @return {@code true} if and only if the file or directory is successfully deleted, {@code false} otherwise
      */
     public static boolean delete(Path path) {
         if (Files.isDirectory(path)) {
@@ -432,7 +438,8 @@ public final class Utils {
                             return false;
                     }
                 }
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 LOG.error("Failed to read directory " + path, e);
 
                 return false;
@@ -443,7 +450,8 @@ public final class Utils {
             try {
                 // Why do we do this?
                 new JarFile(path.toString(), false).close();
-            } catch (IOException ignore) {
+            }
+            catch (IOException ignore) {
                 // Ignore it here...
             }
         }
@@ -452,7 +460,8 @@ public final class Utils {
             Files.delete(path);
 
             return true;
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             LOG.error("Failed to remove " + path, e);
 
             return false;
@@ -478,14 +487,15 @@ public final class Utils {
     public static boolean isIPv6(String addr) {
         try {
             return InetAddress.getByName(addr).getAddress().length == IPV6_ADDRESS_LENGTH;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new IllegalArgumentException(e);
         }
     }
 
     /**
-     * Parse peerId from string that generated by {@link #toString()}
-     * This method can support parameter string values are below:
+     * Parse peerId from string that generated by {@link #toString()} This method can support parameter string values
+     * are below:
      *
      * <pre>
      * PeerId.parse("a:b")          = new PeerId("a", "b", 0 , -1)
@@ -499,7 +509,8 @@ public final class Utils {
             String ipv6Addr;
             if (s.endsWith(IPV6_END_MARK)) {
                 ipv6Addr = s;
-            } else {
+            }
+            else {
                 ipv6Addr = s.substring(0, (s.indexOf(IPV6_END_MARK) + 1));
             }
             if (!isIPv6(ipv6Addr)) {
@@ -514,7 +525,8 @@ public final class Utils {
             result[0] = ipv6Addr;
             System.arraycopy(tempArr, 0, result, 1, tempArr.length);
             return result;
-        } else {
+        }
+        else {
             return StringUtils.splitPreserveAllTokens(s, ':');
         }
     }

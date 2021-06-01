@@ -26,8 +26,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * Process get all peers of the replication group request.
- *
-*/
+ */
 public class GetPeersRequestProcessor extends BaseCliRequestProcessor<GetPeersRequest> {
 
     public GetPeersRequestProcessor(final Executor executor) {
@@ -46,13 +45,14 @@ public class GetPeersRequestProcessor extends BaseCliRequestProcessor<GetPeersRe
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final GetPeersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> peers;
         final List<PeerId> learners;
         if (request.getOnlyAlive()) {
             peers = ctx.node.listAlivePeers();
             learners = ctx.node.listAliveLearners();
-        } else {
+        }
+        else {
             peers = ctx.node.listPeers();
             learners = ctx.node.listLearners();
         }

@@ -30,8 +30,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
 
 /**
-*/
-@SuppressWarnings({ "all" })
+ *
+ */
+@SuppressWarnings({"all"})
 @State(Scope.Benchmark)
 public class AsciiCodecBenchmark {
 
@@ -43,7 +44,7 @@ public class AsciiCodecBenchmark {
         AsciiCodecBenchmark.normalpathEncode  thrpt    3  0.017 ± 0.032  ops/ns
      */
 
-    private static final String PEER_STR   = "127.0.0.1:18090:1";
+    private static final String PEER_STR = "127.0.0.1:18090:1";
     private static final byte[] PEER_BYTES = PEER_STR.getBytes();
 
     @Benchmark

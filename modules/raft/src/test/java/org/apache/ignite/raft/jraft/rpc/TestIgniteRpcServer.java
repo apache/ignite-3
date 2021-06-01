@@ -34,15 +34,21 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 
-/** */
+/**
+ *
+ */
 public class TestIgniteRpcServer extends IgniteRpcServer {
-    /** */
+    /**
+     *
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
         .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
         .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
-    /** */
+    /**
+     *
+     */
     private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
 
     /**

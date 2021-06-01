@@ -21,8 +21,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 
 /**
  * Snapshot copier options.
- *
-*
  */
 public class SnapshotCopierOptions {
 
@@ -36,7 +34,7 @@ public class SnapshotCopierOptions {
     }
 
     public SnapshotCopierOptions(RaftClientService raftClientService, Scheduler timerManager, RaftOptions raftOptions,
-                                 NodeOptions nodeOptions) {
+        NodeOptions nodeOptions) {
         super();
         this.raftClientService = raftClientService;
         this.timerManager = timerManager;

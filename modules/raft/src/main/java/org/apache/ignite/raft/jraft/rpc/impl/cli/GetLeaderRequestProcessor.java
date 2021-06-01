@@ -32,7 +32,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * Process get leader request.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeaderRequest> {
 
@@ -52,7 +52,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final GetLeaderRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         // ignore
         return null;
     }
@@ -71,11 +71,13 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
                     return RaftRpcFactory.DEFAULT //
                         .newResponse(defaultResp(), st);
                 }
-            } else {
+            }
+            else {
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
-        } else {
+        }
+        else {
             nodes = done.getRpcCtx().getNodeManager().getNodesByGroupId(groupId);
         }
         if (nodes == null || nodes.isEmpty()) {

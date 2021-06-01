@@ -18,8 +18,6 @@ package org.apache.ignite.raft.jraft.option;
 
 /**
  * Cli service options.
- *
-*
  */
 public class CliOptions extends RpcOptions {
 

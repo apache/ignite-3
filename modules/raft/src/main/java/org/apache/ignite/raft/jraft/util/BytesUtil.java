@@ -19,12 +19,12 @@ package org.apache.ignite.raft.jraft.util;
 import java.io.Serializable;
 import java.util.Comparator;
 
-
 /**
-*/
+ *
+ */
 public final class BytesUtil {
 
-    public static final byte[]               EMPTY_BYTES             = new byte[0];
+    public static final byte[] EMPTY_BYTES = new byte[0];
 
     // A byte array comparator based on lexicograpic ordering.
     private static final ByteArrayComparator BYTES_LEXICO_COMPARATOR = new LexicographicByteArrayComparator();
@@ -75,7 +75,7 @@ public final class BytesUtil {
         Requires.requireNonNull(bytes, "bytes");
         final int len = bytes.length;
         if (len == 0) { // fast path
-            return new byte[] { 0 };
+            return new byte[] {0};
         }
         final byte[] nextBytes = new byte[len + 1];
         System.arraycopy(bytes, 0, nextBytes, 0, len);
@@ -102,7 +102,7 @@ public final class BytesUtil {
     public interface ByteArrayComparator extends Comparator<byte[]>, Serializable {
 
         int compare(final byte[] buffer1, final int offset1, final int length1, final byte[] buffer2,
-                    final int offset2, final int length2);
+            final int offset2, final int length2);
     }
 
     private static class LexicographicByteArrayComparator implements ByteArrayComparator {
@@ -116,7 +116,7 @@ public final class BytesUtil {
 
         @Override
         public int compare(final byte[] buffer1, final int offset1, final int length1, final byte[] buffer2,
-                           final int offset2, final int length2) {
+            final int offset2, final int length2) {
             // short circuit equal case
             if (buffer1 == buffer2 && offset1 == offset2 && length1 == length2) {
                 return 0;
@@ -138,8 +138,8 @@ public final class BytesUtil {
     private final static char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
     /**
-     * Dump byte array into a hex string.
-     * See https://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java
+     * Dump byte array into a hex string. See https://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java
+     *
      * @param bytes bytes
      * @return hex string
      */
@@ -157,8 +157,8 @@ public final class BytesUtil {
     }
 
     /**
-     * Convert a string representation of a hex dump to a byte array.
-     * See https://stackoverflow.com/questions/140131/convert-a-string-representation-of-a-hex-dump-to-a-byte-array-using-java
+     * Convert a string representation of a hex dump to a byte array. See https://stackoverflow.com/questions/140131/convert-a-string-representation-of-a-hex-dump-to-a-byte-array-using-java
+     *
      * @param s hex string
      * @return bytes
      */

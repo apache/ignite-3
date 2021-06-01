@@ -56,13 +56,13 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class FSMCallerTest {
-    private FSMCallerImpl    fsmCaller;
+    private FSMCallerImpl fsmCaller;
     @Mock
-    private NodeImpl         node;
+    private NodeImpl node;
     @Mock
-    private StateMachine     fsm;
+    private StateMachine fsm;
     @Mock
-    private LogManager       logManager;
+    private LogManager logManager;
     private ClosureQueueImpl closureQueue;
 
     @Before

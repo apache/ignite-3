@@ -22,8 +22,6 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 
 /**
  * Snapshot reader.
- *
-*
  */
 public abstract class SnapshotReader extends Snapshot implements Closeable, Lifecycle<Void> {
 
@@ -33,8 +31,7 @@ public abstract class SnapshotReader extends Snapshot implements Closeable, Life
     public abstract SnapshotMeta load();
 
     /**
-     * Generate uri for other peers to copy this snapshot.
-     * Return an empty string if some error has occur.
+     * Generate uri for other peers to copy this snapshot. Return an empty string if some error has occur.
      */
     public abstract String generateURIForCopy();
 }

@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.util;
 
 /**
  *
-*/
+ */
 public interface Recyclable {
 
     /**

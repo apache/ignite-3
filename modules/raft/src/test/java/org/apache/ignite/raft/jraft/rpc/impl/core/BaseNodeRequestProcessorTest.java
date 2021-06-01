@@ -38,10 +38,10 @@ import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public abstract class BaseNodeRequestProcessorTest<T extends Message> {
-    @Mock(extraInterfaces = { RaftServerService.class })
-    private Node               node;
-    protected final String     groupId   = "test";
-    protected final String     peerIdStr = "localhost:8081";
+    @Mock(extraInterfaces = {RaftServerService.class})
+    private Node node;
+    protected final String groupId = "test";
+    protected final String peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;
 
     public abstract T createRequest(String groupId, PeerId peerId);

@@ -40,18 +40,28 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-/** */
+/**
+ * Tests counter service implementation based in jraft.
+ */
 class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
-    /** */
+    /**
+     * Counter group name 0.
+     */
     private static final String COUNTER_GROUP_0 = "counter0";
 
-    /** */
+    /**
+     * Counter group name 1.
+     */
     private static final String COUNTER_GROUP_1 = "counter1";
 
-    /** */
+    /**
+     * Listener factory.
+     */
     private Supplier<CounterListener> listenerFactory = () -> new CounterListener();
 
-    /** */
+    /**
+     * Initial configuration.
+     */
     private static final List<Peer> INITIAL_CONF = List.of(
         new Peer(TestUtils.getMyIp() + ":" + PORT),
         new Peer(TestUtils.getMyIp() + ":" + (PORT + 1)),
@@ -75,6 +85,7 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
     }
 
     /**
+     *
      */
     @Test
     public void testRefreshLeader() throws Exception {
@@ -290,19 +301,25 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         doTestFollowerCatchUp(false, true);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void testFollowerCatchUpFromSnapshot() throws Exception {
         doTestFollowerCatchUp(true, true);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void testFollowerCatchUpFromLog2() throws Exception {
         doTestFollowerCatchUp(false, false);
     }
 
-    /** */
+    /**
+     *
+     */
     @Test
     public void testFollowerCatchUpFromSnapshot2() throws Exception {
         doTestFollowerCatchUp(true, false);
@@ -429,6 +446,6 @@ class ITJRaftCounterServerTest extends ITJRaftServerAbstractTest {
         JRaftServerImpl.DelegatingStateMachine fsm0 =
             (JRaftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-        return expected == ((CounterListener)fsm0.getListener()).value();
+        return expected == ((CounterListener) fsm0.getListener()).value();
     }
 }

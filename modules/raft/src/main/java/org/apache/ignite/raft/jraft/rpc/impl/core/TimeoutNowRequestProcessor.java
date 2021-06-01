@@ -26,7 +26,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 /**
  * TimeoutNow request processor.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class TimeoutNowRequestProcessor extends NodeRequestProcessor<TimeoutNowRequest> {
 
@@ -46,7 +46,7 @@ public class TimeoutNowRequestProcessor extends NodeRequestProcessor<TimeoutNowR
 
     @Override
     public Message processRequest0(final RaftServerService service, final TimeoutNowRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         return service.handleTimeoutNowRequest(request, done);
     }
 

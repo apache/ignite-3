@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.error;
 
 /**
  * Retry request exception without stack tracing.
- *
-*/
+ */
 public class RetryAgainException extends Exception {
 
     private static final long serialVersionUID = 8690835003361525337L;

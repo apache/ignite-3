@@ -29,8 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * RemoveLearners request processor.
- *
-*
  */
 public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<RemoveLearnersRequest> {
 
@@ -50,7 +48,7 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final RemoveLearnersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> removeingLearners = new ArrayList<>(request.getLearnersCount());
 
@@ -68,7 +66,8 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
         ctx.node.removeLearners(removeingLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            } else {
+            }
+            else {
                 final LearnersOpResponse.Builder rb = LearnersOpResponse.newBuilder();
 
                 for (final PeerId peer : oldLearners) {

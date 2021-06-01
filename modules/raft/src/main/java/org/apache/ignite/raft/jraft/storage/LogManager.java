@@ -29,21 +29,17 @@ import org.apache.ignite.raft.jraft.util.Describer;
 
 /**
  * Log manager.
- *
-*
  */
 public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
 
     /**
      * Closure to to run in stable state.
-     *
-    *
      */
     abstract class StableClosure implements Closure {
 
-        protected long           firstLogIndex = 0;
+        protected long firstLogIndex = 0;
         protected List<LogEntry> entries;
-        protected int            nEntries;
+        protected int nEntries;
 
         public StableClosure() {
             // NO-OP
@@ -65,7 +61,8 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
             this.entries = entries;
             if (entries != null) {
                 this.nEntries = entries.size();
-            } else {
+            }
+            else {
                 this.nEntries = 0;
             }
         }
@@ -78,10 +75,9 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     }
 
     /**
-     * Listen on last log index change event, but it's not reliable,
-     * the user should not count on this listener to receive all changed events.
-     *
-    */
+     * Listen on last log index change event, but it's not reliable, the user should not count on this listener to
+     * receive all changed events.
+     */
     interface LastLogIndexListener {
 
         /**
@@ -105,8 +101,7 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     /**
      * Wait the log manager to be shut down.
      *
-     * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     void join() throws InterruptedException;
 
@@ -114,22 +109,20 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
      * Append log entry vector and wait until it's stable (NOT COMMITTED!)
      *
      * @param entries log entries
-     * @param done    callback
+     * @param done callback
      */
     void appendEntries(final List<LogEntry> entries, StableClosure done);
 
     /**
-     * Notify the log manager about the latest snapshot, which indicates the
-     * logs which can be safely truncated.
+     * Notify the log manager about the latest snapshot, which indicates the logs which can be safely truncated.
      *
      * @param meta snapshot metadata
      */
     void setSnapshot(final SnapshotMeta meta);
 
     /**
-     * We don't delete all the logs before last snapshot to avoid installing
-     * snapshot on slow replica. Call this method to drop all the logs before
-     * last snapshot immediately.
+     * We don't delete all the logs before last snapshot to avoid installing snapshot on slow replica. Call this method
+     * to drop all the logs before last snapshot immediately.
      */
     void clearBufferedLogs();
 
@@ -179,34 +172,32 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     ConfigurationEntry getConfiguration(final long index);
 
     /**
-     * Check if |current| should be updated to the latest configuration
-     * Returns the latest configuration, otherwise null.
+     * Check if |current| should be updated to the latest configuration Returns the latest configuration, otherwise
+     * null.
      */
     ConfigurationEntry checkAndSetConfiguration(final ConfigurationEntry current);
 
     /**
      * New log notifier callback.
-     *
-    *
      */
     interface NewLogCallback {
 
         /**
          * Called while new log come in.
          *
-         * @param arg       the waiter pass-in argument
+         * @param arg the waiter pass-in argument
          * @param errorCode error code
          */
         boolean onNewLog(final Object arg, final int errorCode);
     }
 
     /**
-     * Wait until there are more logs since |last_log_index| and |on_new_log|
-     * would be called after there are new logs or error occurs, return the waiter id.
-     * 
-     * @param expectedLastLogIndex  expected last index of log
-     * @param cb                    callback
-     * @param arg                   the waiter pass-in argument
+     * Wait until there are more logs since |last_log_index| and |on_new_log| would be called after there are new logs
+     * or error occurs, return the waiter id.
+     *
+     * @param expectedLastLogIndex expected last index of log
+     * @param cb callback
+     * @param arg the waiter pass-in argument
      */
     long wait(final long expectedLastLogIndex, final NewLogCallback cb, final Object arg);
 
@@ -219,13 +210,13 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
     boolean removeWaiter(final long id);
 
     /**
-     * Set the applied id, indicating that the log before applied_id (included)
-     * can be dropped from memory logs.
+     * Set the applied id, indicating that the log before applied_id (included) can be dropped from memory logs.
      */
     void setAppliedId(final LogId appliedId);
 
     /**
      * Check log consistency, returns the status
+     *
      * @return status
      */
     Status checkConsistency();

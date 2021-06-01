@@ -68,7 +68,8 @@ public class ClosureQueueImpl implements ClosureQueue {
             this.firstIndex = 0;
             savedQueue = this.queue;
             this.queue = new LinkedList<>();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
 
@@ -88,7 +89,8 @@ public class ClosureQueueImpl implements ClosureQueue {
         try {
             Requires.requireTrue(this.queue.isEmpty(), "Queue is not empty.");
             this.firstIndex = firstIndex;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -98,7 +100,8 @@ public class ClosureQueueImpl implements ClosureQueue {
         this.lock.lock();
         try {
             this.queue.add(closure);
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -109,7 +112,8 @@ public class ClosureQueueImpl implements ClosureQueue {
     }
 
     @Override
-    public long popClosureUntil(final long endIndex, final List<Closure> closures, final List<TaskClosure> taskClosures) {
+    public long popClosureUntil(final long endIndex, final List<Closure> closures,
+        final List<TaskClosure> taskClosures) {
         closures.clear();
         if (taskClosures != null) {
             taskClosures.clear();
@@ -135,7 +139,8 @@ public class ClosureQueueImpl implements ClosureQueue {
             }
             this.firstIndex = endIndex + 1;
             return outFirstIndex;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }

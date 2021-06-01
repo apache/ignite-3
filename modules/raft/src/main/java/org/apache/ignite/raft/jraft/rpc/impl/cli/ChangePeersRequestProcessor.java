@@ -30,7 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * Change peers request processor.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangePeersRequest> {
 
@@ -49,7 +49,8 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
     }
 
     @Override
-    protected Message processRequest0(final CliRequestContext ctx, final ChangePeersRequest request, final RpcRequestClosure done) {
+    protected Message processRequest0(final CliRequestContext ctx, final ChangePeersRequest request,
+        final RpcRequestClosure done) {
         final List<PeerId> oldConf = ctx.node.listPeers();
 
         final Configuration conf = new Configuration();
@@ -57,7 +58,8 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {
                 conf.addPeer(peer);
-            } else {
+            }
+            else {
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
@@ -67,7 +69,8 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
         ctx.node.changePeers(conf, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            } else {
+            }
+            else {
                 ChangePeersResponse.Builder rb = ChangePeersResponse.newBuilder();
                 for (final PeerId peer : oldConf) {
                     rb.addOldPeers(peer.toString());

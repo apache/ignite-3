@@ -22,25 +22,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A collection of utility methods to retrieve and
- * parse the values of the Java system properties.
- *
+ * A collection of utility methods to retrieve and parse the values of the Java system properties.
  */
 public final class SystemPropertyUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(SystemPropertyUtil.class);
 
     /**
-     * Returns {@code true} if and only if the system property
-     * with the specified {@code key} exists.
+     * Returns {@code true} if and only if the system property with the specified {@code key} exists.
      */
     public static boolean contains(String key) {
         return get(key) != null;
     }
 
     /**
-     * Returns the value of the Java system property with the
-     * specified {@code key}, while falling back to {@code null}
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to {@code null}
      * if the property access fails.
      *
      * @return the property value or {@code null}
@@ -50,13 +46,11 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the
-     * specified {@code key}, while falling back to the specified
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
      * default value if the property access fails.
      *
-     * @return the property value.
-     * {@code def} if there's no such property or if an access to
-     * the specified property is not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
+     * not allowed.
      */
     public static String get(final String key, String def) {
         if (key == null) {
@@ -70,10 +64,12 @@ public final class SystemPropertyUtil {
         try {
             if (System.getSecurityManager() == null) {
                 value = System.getProperty(key);
-            } else {
+            }
+            else {
                 value = AccessController.doPrivileged((PrivilegedAction<String>) () -> System.getProperty(key));
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             if (LOG.isWarnEnabled()) {
                 LOG.warn("Unable to retrieve a system property '{}'; default values will be used, {}.", key, e);
             }
@@ -87,13 +83,11 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the
-     * specified {@code key}, while falling back to the specified
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
      * default value if the property access fails.
      *
-     * @return the property value.
-     * {@code def} if there's no such property or if an access to
-     * the specified property is not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
+     * not allowed.
      */
     public static boolean getBoolean(String key, boolean def) {
         String value = get(key);
@@ -120,13 +114,11 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the
-     * specified {@code key}, while falling back to the specified
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
      * default value if the property access fails.
      *
-     * @return the property value.
-     * {@code def} if there's no such property or if an access
-     * to the specified property is not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
+     * not allowed.
      */
     public static int getInt(String key, int def) {
         String value = get(key);
@@ -137,7 +129,8 @@ public final class SystemPropertyUtil {
         value = value.trim().toLowerCase();
         try {
             return Integer.parseInt(value);
-        } catch (Exception ignored) {
+        }
+        catch (Exception ignored) {
             // ignored
         }
 
@@ -147,13 +140,11 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Returns the value of the Java system property with the
-     * specified {@code key}, while falling back to the specified
+     * Returns the value of the Java system property with the specified {@code key}, while falling back to the specified
      * default value if the property access fails.
      *
-     * @return the property value.
-     * {@code def} if there's no such property or if an access to
-     * the specified property is not allowed.
+     * @return the property value. {@code def} if there's no such property or if an access to the specified property is
+     * not allowed.
      */
     public static long getLong(String key, long def) {
         String value = get(key);
@@ -164,7 +155,8 @@ public final class SystemPropertyUtil {
         value = value.trim().toLowerCase();
         try {
             return Long.parseLong(value);
-        } catch (Exception ignored) {
+        }
+        catch (Exception ignored) {
             // ignored
         }
 
@@ -175,8 +167,7 @@ public final class SystemPropertyUtil {
     }
 
     /**
-     * Sets the value of the Java system property with the
-     * specified {@code key}
+     * Sets the value of the Java system property with the specified {@code key}
      */
     public static Object setProperty(String key, String value) {
         return System.getProperties().setProperty(key, value);

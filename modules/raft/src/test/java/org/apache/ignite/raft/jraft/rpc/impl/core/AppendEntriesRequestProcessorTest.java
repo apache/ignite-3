@@ -112,7 +112,7 @@ public class AppendEntriesRequestProcessorTest extends BaseNodeRequestProcessorT
 
     @Override
     public void verify(final String interest, final RaftServerService service,
-                       final NodeRequestProcessor<AppendEntriesRequest> processor) {
+        final NodeRequestProcessor<AppendEntriesRequest> processor) {
         assertEquals(interest, AppendEntriesRequest.class.getName());
         Mockito.verify(service).handleAppendEntriesRequest(eq(this.request), Mockito.any());
         final PeerPair pair = ((AppendEntriesRequestProcessor) processor).pairOf(this.peerIdStr, this.serverId);

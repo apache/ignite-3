@@ -29,7 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * AddPeer request processor.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequest> {
 
@@ -48,7 +48,8 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
     }
 
     @Override
-    protected Message processRequest0(final CliRequestContext ctx, final AddPeerRequest request, final RpcRequestClosure done) {
+    protected Message processRequest0(final CliRequestContext ctx, final AddPeerRequest request,
+        final RpcRequestClosure done) {
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final String addingPeerIdStr = request.getPeerId();
         final PeerId addingPeer = new PeerId();
@@ -58,7 +59,8 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
             ctx.node.addPeer(addingPeer, status -> {
                 if (!status.isOk()) {
                     done.run(status);
-                } else {
+                }
+                else {
                     final AddPeerResponse.Builder rb = AddPeerResponse.newBuilder();
                     boolean alreadyExists = false;
                     for (final PeerId oldPeer : oldPeers) {
@@ -74,7 +76,8 @@ public class AddPeerRequestProcessor extends BaseCliRequestProcessor<AddPeerRequ
                     done.sendResponse(rb.build());
                 }
             });
-        } else {
+        }
+        else {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", addingPeerIdStr);
         }

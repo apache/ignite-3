@@ -57,14 +57,16 @@ public class ArrayDequeTest {
         try {
             list.pollFirst();
             fail();
-        } catch (IndexOutOfBoundsException e) {
+        }
+        catch (IndexOutOfBoundsException e) {
             assertTrue(true);
         }
 
         try {
             list.pollLast();
             fail();
-        } catch (IndexOutOfBoundsException e) {
+        }
+        catch (IndexOutOfBoundsException e) {
             assertTrue(true);
         }
     }

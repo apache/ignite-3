@@ -9,7 +9,6 @@ public class GetFileRequestImpl implements RpcRequests.GetFileRequest, RpcReques
     private long offset;
     private boolean readPartly;
 
-
     @Override public long getReaderId() {
         return readerId;
     }
@@ -65,15 +64,21 @@ public class GetFileRequestImpl implements RpcRequests.GetFileRequest, RpcReques
     }
 
     @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
 
         GetFileRequestImpl that = (GetFileRequestImpl) o;
 
-        if (readerId != that.readerId) return false;
-        if (count != that.count) return false;
-        if (offset != that.offset) return false;
-        if (readPartly != that.readPartly) return false;
+        if (readerId != that.readerId)
+            return false;
+        if (count != that.count)
+            return false;
+        if (offset != that.offset)
+            return false;
+        if (readPartly != that.readPartly)
+            return false;
         return filename.equals(that.filename);
     }
 

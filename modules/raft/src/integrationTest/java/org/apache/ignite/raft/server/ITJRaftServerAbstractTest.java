@@ -39,30 +39,46 @@ import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.Assert.assertTrue;
 
-/** */
-abstract class ITJRaftServerAbstractTest extends RaftCounterServerAbstractTest {
-    /** */
+/**
+ * Abstract test class for jraft server implementations.
+ */
+abstract class ITJRaftServerAbstractTest extends RaftServerAbstractTest {
+    /**
+     * The logger.
+     */
     protected static final IgniteLogger LOG = IgniteLogger.forClass(ITJRaftServerAbstractTest.class);
 
-    /** */
+    /**
+     * Message factory.
+     */
     protected static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Network factory. */
     protected static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /** */
+    /**
+     * The server port offset.
+     */
     protected static final int PORT = 5003;
 
-    /** */
+    /**
+     * The client port offset.
+     */
     protected static final int CLIENT_PORT = 6003;
 
-    /** */
+    /**
+     * Servers list.
+     */
     protected List<JRaftServerImpl> servers = new ArrayList<>();
 
-    /** */
+    /**
+     * Clients list.
+     */
     protected List<RaftGroupService> clients = new ArrayList<>();
 
-    /** */
+    /**
+     * Data path.
+     */
     private String dataPath;
 
     @BeforeEach

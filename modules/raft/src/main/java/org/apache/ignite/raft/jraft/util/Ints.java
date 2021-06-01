@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.util;
 
 /**
  * Static utility methods pertaining to {@code int} primitives.
- *
-*/
+ */
 public final class Ints {
 
     /**
@@ -47,8 +46,8 @@ public final class Ints {
     /**
      * Fast method of finding the next power of 2 greater than or equal to the supplied value.
      *
-     * If the value is {@code <= 0} then 1 will be returned.
-     * This method is not suitable for {@link Integer#MIN_VALUE} or numbers greater than 2^30.
+     * If the value is {@code <= 0} then 1 will be returned. This method is not suitable for {@link Integer#MIN_VALUE}
+     * or numbers greater than 2^30.
      *
      * @param value from which to search for next power of 2
      * @return The next power of 2 or the value itself if it is a power of 2
@@ -58,8 +57,8 @@ public final class Ints {
     }
 
     /**
-     * Find the next larger positive power of two value up from the given value.
-     * If value is a power of two then this value will be returned.
+     * Find the next larger positive power of two value up from the given value. If value is a power of two then this
+     * value will be returned.
      *
      * @param value from which next positive power of two will be found
      * @return the next positive power of 2 or this value if it is a power of 2

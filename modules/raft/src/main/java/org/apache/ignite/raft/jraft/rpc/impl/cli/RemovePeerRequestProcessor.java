@@ -29,7 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * Remove peer request processor.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePeerRequest> {
 
@@ -48,7 +48,8 @@ public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePe
     }
 
     @Override
-    protected Message processRequest0(final CliRequestContext ctx, final RemovePeerRequest request, final RpcRequestClosure done) {
+    protected Message processRequest0(final CliRequestContext ctx, final RemovePeerRequest request,
+        final RpcRequestClosure done) {
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final String removingPeerIdStr = request.getPeerId();
         final PeerId removingPeer = new PeerId();
@@ -58,7 +59,8 @@ public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePe
             ctx.node.removePeer(removingPeer, status -> {
                 if (!status.isOk()) {
                     done.run(status);
-                } else {
+                }
+                else {
                     final RemovePeerResponse.Builder rb = RemovePeerResponse.newBuilder();
                     for (final PeerId oldPeer : oldPeers) {
                         rb.addOldPeers(oldPeer.toString());
@@ -69,7 +71,8 @@ public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePe
                     done.sendResponse(rb.build());
                 }
             });
-        } else {
+        }
+        else {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", removingPeerIdStr);
         }

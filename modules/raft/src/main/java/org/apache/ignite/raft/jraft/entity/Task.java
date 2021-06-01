@@ -30,20 +30,23 @@ import org.apache.ignite.raft.jraft.closure.JoinableClosure;
  * <ul>
  * <li>data: associated  task data</li>
  * <li>done: task closure, called when the data is successfully committed to the raft group.</li>
- * <li>expectedTerm: Reject this task if expectedTerm doesn't match the current term of this Node if the value is not -1, default is -1.</li>
+ * <li>expectedTerm: Reject this task if expectedTerm doesn't match the current term of this Node if the value is not
+ * -1, default is -1.</li>
  * </ul>
-*
  */
 public class Task implements Serializable {
 
     private static final long serialVersionUID = 2971309899898274575L;
 
-    /** Associated  task data*/
-    private ByteBuffer        data;
-    /** task closure, called when the data is successfully committed to the raft group or failures happen.*/
+    /** Associated  task data */
+    private ByteBuffer data;
+    /** task closure, called when the data is successfully committed to the raft group or failures happen. */
     private Closure done;
-    /** Reject this task if expectedTerm doesn't match the current term of this Node if the value is not -1, default is -1.*/
-    private long              expectedTerm     = -1;
+    /**
+     * Reject this task if expectedTerm doesn't match the current term of this Node if the value is not -1, default is
+     * -1.
+     */
+    private long expectedTerm = -1;
 
     public Task() {
         super();
@@ -93,8 +96,7 @@ public class Task implements Serializable {
     }
 
     /**
-     * Waiting for the task to complete, to note that throughput may be reduced,
-     * which is generally not recommended.
+     * Waiting for the task to complete, to note that throughput may be reduced, which is generally not recommended.
      *
      * @return done closure
      * @throws InterruptedException if the current thread is interrupted while waiting
@@ -107,10 +109,10 @@ public class Task implements Serializable {
     }
 
     /**
-     * Waiting for the task to complete with a timeout millis, to note that throughput
-     * may be reduced, which is generally not recommended.
+     * Waiting for the task to complete with a timeout millis, to note that throughput may be reduced, which is
+     * generally not recommended.
      *
-     * @param timeoutMillis  the maximum millis to wait
+     * @param timeoutMillis the maximum millis to wait
      * @return done closure
      * @throws InterruptedException if the current thread is interrupted while waiting
      * @throws TimeoutException if timeout
@@ -141,7 +143,7 @@ public class Task implements Serializable {
     /**
      * Waiting for all tasks to complete with a timeout millis.
      *
-     * @param tasks         task list
+     * @param tasks task list
      * @param timeoutMillis the maximum millis to wait
      * @return the closure list in the tasks
      * @throws InterruptedException if the current thread is interrupted while waiting
@@ -149,7 +151,7 @@ public class Task implements Serializable {
      * @since 1.3.1
      */
     public static List<Closure> joinAll(final List<Task> tasks, long timeoutMillis) throws InterruptedException,
-                                                                                   TimeoutException {
+        TimeoutException {
         final List<Closure> closures = new ArrayList<>(tasks.size());
         for (final Task t : tasks) {
             final long start = System.nanoTime();

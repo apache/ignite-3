@@ -25,7 +25,7 @@ import org.junit.Test;
 
 /**
  *
-*/
+ */
 public class LongHeldDetectingReadWriteLockTest {
 
     @Test
@@ -33,12 +33,13 @@ public class LongHeldDetectingReadWriteLockTest {
         final ReadWriteLock readWriteLock = new LongHeldDetectingReadWriteLock(100, TimeUnit.MILLISECONDS) {
 
             @Override
-            public void report(AcquireMode acquireMode, Thread owner, Collection<Thread> queuedThreads, long blockedNanos) {
+            public void report(AcquireMode acquireMode, Thread owner, Collection<Thread> queuedThreads,
+                long blockedNanos) {
                 System.out.println("currentThread=" + Thread.currentThread() +
-                " acquireMode=" + acquireMode +
-                " lockOwner=" + owner +
-                " queuedThreads= " + queuedThreads +
-                " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
+                    " acquireMode=" + acquireMode +
+                    " lockOwner=" + owner +
+                    " queuedThreads= " + queuedThreads +
+                    " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
 
                 Assert.assertTrue(Thread.currentThread().getName().contains("read-lock-thread"));
                 Assert.assertSame(AcquireMode.Read, acquireMode);
@@ -53,13 +54,15 @@ public class LongHeldDetectingReadWriteLockTest {
             latch.countDown();
             try {
                 Thread.sleep(2000);
-            } catch (final InterruptedException e) {
+            }
+            catch (final InterruptedException e) {
                 e.printStackTrace();
-            } finally {
+            }
+            finally {
                 readWriteLock.writeLock().unlock();
             }
         }, "write-lock-thread") //
-        .start();
+            .start();
 
         latch.await();
 
@@ -84,12 +87,13 @@ public class LongHeldDetectingReadWriteLockTest {
         final ReadWriteLock readWriteLock = new LongHeldDetectingReadWriteLock(100, TimeUnit.MILLISECONDS) {
 
             @Override
-            public void report(AcquireMode acquireMode, Thread owner, Collection<Thread> queuedThreads, long blockedNanos) {
+            public void report(AcquireMode acquireMode, Thread owner, Collection<Thread> queuedThreads,
+                long blockedNanos) {
                 System.out.println("currentThread=" + Thread.currentThread() +
-                        " acquireMode=" + acquireMode +
-                        " lockOwner=" + owner +
-                        " queuedThreads= " + queuedThreads +
-                        " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
+                    " acquireMode=" + acquireMode +
+                    " lockOwner=" + owner +
+                    " queuedThreads= " + queuedThreads +
+                    " blockedMs=" + TimeUnit.NANOSECONDS.toMillis(blockedNanos));
 
                 Assert.assertTrue(Thread.currentThread().getName().contains("write-lock-thread"));
                 Assert.assertSame(AcquireMode.Write, acquireMode);
@@ -104,13 +108,15 @@ public class LongHeldDetectingReadWriteLockTest {
             latch.countDown();
             try {
                 Thread.sleep(2000);
-            } catch (final InterruptedException e) {
+            }
+            catch (final InterruptedException e) {
                 e.printStackTrace();
-            } finally {
+            }
+            finally {
                 readWriteLock.readLock().unlock();
             }
         }, "read-lock-thread") //
-                .start();
+            .start();
 
         latch.await();
 

@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.core;
 
 /**
  * Node state
-*
  */
 public enum State {
     STATE_LEADER, // It's a leader

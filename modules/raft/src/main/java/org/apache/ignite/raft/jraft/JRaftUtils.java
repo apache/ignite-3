@@ -33,8 +33,6 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 
 /**
  * Some helper methods for jraft usage.
- *
-*
  */
 public final class JRaftUtils {
     /**
@@ -81,7 +79,8 @@ public final class JRaftUtils {
      * @param tasksPerThread Max tasks per thread.
      * @return The executor.
      */
-    public static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number, final int tasksPerThread) {
+    public static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number,
+        final int tasksPerThread) {
         return DefaultFixedThreadsExecutorGroupFactory.INSTANCE
             .newExecutorGroup(
                 number,
@@ -95,7 +94,6 @@ public final class JRaftUtils {
      *
      * @param prefixName the prefix name of thread
      * @return a new {@link ThreadFactory} instance
-     *
      * @since 0.0.3
      */
     public static ThreadFactory createThreadFactory(final String prefixName) {
@@ -103,8 +101,8 @@ public final class JRaftUtils {
     }
 
     /**
-     * Create a configuration from a string in the form of "host1:port1[:idx],host2:port2[:idx]......",
-     * returns a empty configuration when string is blank.
+     * Create a configuration from a string in the form of "host1:port1[:idx],host2:port2[:idx]......", returns a empty
+     * configuration when string is blank.
      */
     public static Configuration getConfiguration(final String s) {
         final Configuration conf = new Configuration();
@@ -118,8 +116,7 @@ public final class JRaftUtils {
     }
 
     /**
-     * Create a peer from a string in the form of "host:port[:idx]",
-     * returns a empty peer when string is blank.
+     * Create a peer from a string in the form of "host:port[:idx]", returns a empty peer when string is blank.
      */
     public static PeerId getPeerId(final String s) {
         final PeerId peer = new PeerId();
@@ -133,8 +130,7 @@ public final class JRaftUtils {
     }
 
     /**
-     * Create a Endpoint instance from  a string in the form of "host:port",
-     * returns null when string is blank.
+     * Create a Endpoint instance from  a string in the form of "host:port", returns null when string is blank.
      */
     public static Endpoint getEndPoint(final String s) {
         if (StringUtils.isBlank(s)) {

@@ -39,14 +39,13 @@ import static org.junit.Assert.assertTrue;
 
 /**
  *
-*
  */
 @RunWith(MockitoJUnitRunner.class)
 public class LocalRaftMetaStorageTest extends BaseStorageTest {
     private RaftMetaStorage raftMetaStorage;
 
     @Mock
-    private NodeImpl        node;
+    private NodeImpl node;
 
     @Override
     @Before

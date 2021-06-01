@@ -38,14 +38,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Maintain routes to raft groups.
- *
-*
  */
 public class RouteTable implements Describer {
 
-    private static final Logger                    LOG            = LoggerFactory.getLogger(RouteTable.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RouteTable.class);
 
-    private static final RouteTable INSTANCE       = new RouteTable();
+    private static final RouteTable INSTANCE = new RouteTable();
 
     // Map<groupId, groupConf>
     private final ConcurrentMap<String, GroupConf> groupConfTable = new ConcurrentHashMap<>();
@@ -58,7 +56,7 @@ public class RouteTable implements Describer {
      * Update configuration of group in route table.
      *
      * @param groupId raft group id
-     * @param conf    configuration to update
+     * @param conf configuration to update
      * @return true on success
      */
     public boolean updateConfiguration(final String groupId, final Configuration conf) {
@@ -73,7 +71,8 @@ public class RouteTable implements Describer {
             if (gc.leader != null && !gc.conf.contains(gc.leader)) {
                 gc.leader = null;
             }
-        } finally {
+        }
+        finally {
             stampedLock.unlockWrite(stamp);
         }
         return true;
@@ -105,16 +104,16 @@ public class RouteTable implements Describer {
         final Configuration conf = new Configuration();
         if (conf.parse(confStr)) {
             return updateConfiguration(groupId, conf);
-        } else {
+        }
+        else {
             LOG.error("Fail to parse confStr: {}", confStr);
             return false;
         }
     }
 
     /**
-     * Get the cached leader of the group, return it when found, null otherwise.
-     * Make sure calls {@link #refreshLeader(CliClientService, String, int)} already
-     * before invoke this method.
+     * Get the cached leader of the group, return it when found, null otherwise. Make sure calls {@link
+     * #refreshLeader(CliClientService, String, int)} already before invoke this method.
      *
      * @param groupId raft group id
      * @return peer of leader
@@ -133,7 +132,8 @@ public class RouteTable implements Describer {
             stamp = stampedLock.readLock();
             try {
                 leader = gc.leader;
-            } finally {
+            }
+            finally {
                 stampedLock.unlockRead(stamp);
             }
         }
@@ -144,7 +144,7 @@ public class RouteTable implements Describer {
      * Update leader info.
      *
      * @param groupId raft group id
-     * @param leader  peer of leader
+     * @param leader peer of leader
      * @return true on success
      */
     public boolean updateLeader(final String groupId, final PeerId leader) {
@@ -160,7 +160,8 @@ public class RouteTable implements Describer {
         final long stamp = stampedLock.writeLock();
         try {
             gc.leader = leader;
-        } finally {
+        }
+        finally {
             stampedLock.unlockWrite(stamp);
         }
         return true;
@@ -169,7 +170,7 @@ public class RouteTable implements Describer {
     /**
      * Update leader info.
      *
-     * @param groupId   raft group id
+     * @param groupId raft group id
      * @param leaderStr peer string of leader
      * @return true on success
      */
@@ -180,7 +181,8 @@ public class RouteTable implements Describer {
         final PeerId leader = new PeerId();
         if (leader.parse(leaderStr)) {
             return updateLeader(groupId, leader);
-        } else {
+        }
+        else {
             LOG.error("Fail to parse leaderStr: {}", leaderStr);
             return false;
         }
@@ -206,7 +208,8 @@ public class RouteTable implements Describer {
             stamp = stampedLock.readLock();
             try {
                 conf = gc.conf;
-            } finally {
+            }
+            finally {
                 stampedLock.unlockRead(stamp);
             }
         }
@@ -216,13 +219,13 @@ public class RouteTable implements Describer {
     /**
      * Blocking the thread until query_leader finishes.
      *
-     * @param groupId   raft group id
+     * @param groupId raft group id
      * @param timeoutMs timeout millis
      * @return operation status
      */
     public Status refreshLeader(final CliClientService cliClientService, final String groupId, final int timeoutMs)
-                                                                                                                   throws InterruptedException,
-                                                                                                                   TimeoutException {
+        throws InterruptedException,
+        TimeoutException {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireTrue(timeoutMs > 0, "Invalid timeout: " + timeoutMs);
 
@@ -240,7 +243,8 @@ public class RouteTable implements Describer {
             if (!cliClientService.connect(peer.getEndpoint())) {
                 if (st.isOk()) {
                     st.setError(-1, "Fail to init channel to %s", peer);
-                } else {
+                }
+                else {
                     final String savedMsg = st.getErrorMsg();
                     st.setError(-1, "%s, Fail to init channel to %s", savedMsg, peer);
                 }
@@ -252,21 +256,26 @@ public class RouteTable implements Describer {
                 if (msg instanceof RpcRequests.ErrorResponse) {
                     if (st.isOk()) {
                         st.setError(-1, ((RpcRequests.ErrorResponse) msg).getErrorMsg());
-                    } else {
+                    }
+                    else {
                         final String savedMsg = st.getErrorMsg();
                         st.setError(-1, "%s, %s", savedMsg, ((RpcRequests.ErrorResponse) msg).getErrorMsg());
                     }
-                } else {
+                }
+                else {
                     final CliRequests.GetLeaderResponse response = (CliRequests.GetLeaderResponse) msg;
                     updateLeader(groupId, response.getLeaderId());
                     return Status.OK();
                 }
-            } catch (final TimeoutException e) {
+            }
+            catch (final TimeoutException e) {
                 timeoutException = e;
-            } catch (final ExecutionException e) {
+            }
+            catch (final ExecutionException e) {
                 if (st.isOk()) {
                     st.setError(-1, e.getMessage());
-                } else {
+                }
+                else {
                     final String savedMsg = st.getErrorMsg();
                     st.setError(-1, "%s, %s", savedMsg, e.getMessage());
                 }
@@ -280,7 +289,7 @@ public class RouteTable implements Describer {
     }
 
     public Status refreshConfiguration(final CliClientService cliClientService, final String groupId,
-                                       final int timeoutMs) throws InterruptedException, TimeoutException {
+        final int timeoutMs) throws InterruptedException, TimeoutException {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireTrue(timeoutMs > 0, "Invalid timeout: " + timeoutMs);
 
@@ -321,11 +330,13 @@ public class RouteTable implements Describer {
                     LOG.info("Configuration of replication group {} changed from {} to {}", groupId, conf, newConf);
                 }
                 updateConfiguration(groupId, newConf);
-            } else {
+            }
+            else {
                 final RpcRequests.ErrorResponse resp = (RpcRequests.ErrorResponse) result;
                 st.setError(resp.getErrorCode(), resp.getErrorMsg());
             }
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             st.setError(-1, e.getMessage());
         }
         return st;

@@ -53,14 +53,19 @@ class TimeoutNowRequestImpl implements RpcRequests.TimeoutNowRequest, RpcRequest
     }
 
     @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
 
         TimeoutNowRequestImpl that = (TimeoutNowRequestImpl) o;
 
-        if (term != that.term) return false;
-        if (!groupId.equals(that.groupId)) return false;
-        if (!serverId.equals(that.serverId)) return false;
+        if (term != that.term)
+            return false;
+        if (!groupId.equals(that.groupId))
+            return false;
+        if (!serverId.equals(that.serverId))
+            return false;
         return peerId.equals(that.peerId);
     }
 

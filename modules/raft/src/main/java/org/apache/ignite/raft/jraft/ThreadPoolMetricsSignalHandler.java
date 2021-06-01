@@ -29,12 +29,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
-*/
+ */
 public class ThreadPoolMetricsSignalHandler extends FileOutputSignalHandler {
 
-    private static Logger       LOG       = LoggerFactory.getLogger(ThreadPoolMetricsSignalHandler.class);
+    private static Logger LOG = LoggerFactory.getLogger(ThreadPoolMetricsSignalHandler.class);
 
-    private static final String DIR       = SystemPropertyUtil.get("jraft.signal.thread.pool.metrics.dir", "");
+    private static final String DIR = SystemPropertyUtil.get("jraft.signal.thread.pool.metrics.dir", "");
     private static final String BASE_NAME = "thread_pool_metrics.log";
 
     @Override
@@ -50,7 +50,8 @@ public class ThreadPoolMetricsSignalHandler extends FileOutputSignalHandler {
                     .build() //
                     .report();
             }
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to print thread pools metrics.", e);
         }
     }

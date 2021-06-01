@@ -44,7 +44,8 @@ public class CountDownEventTest {
                     long start = System.currentTimeMillis();
                     e.await();
                     cost.set(System.currentTimeMillis() - start);
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     LOG.error("Failed to wait", e);
                 }
                 latch.countDown();
@@ -71,7 +72,8 @@ public class CountDownEventTest {
                 try {
                     Thread.sleep(100);
                     thread.interrupt();
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     LOG.error("Failed to wait", e);
                 }
             }

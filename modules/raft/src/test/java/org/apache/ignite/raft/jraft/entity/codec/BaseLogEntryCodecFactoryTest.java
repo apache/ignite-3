@@ -52,7 +52,8 @@ public abstract class BaseLogEntryCodecFactoryTest {
         try {
             assertNull(this.encoder.encode(null));
             fail();
-        } catch (NullPointerException e) {
+        }
+        catch (NullPointerException e) {
             assertTrue(true);
         }
         assertNull(this.decoder.decode(null));

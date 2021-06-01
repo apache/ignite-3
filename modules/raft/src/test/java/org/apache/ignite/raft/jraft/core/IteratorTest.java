@@ -45,15 +45,15 @@ import static org.junit.Assert.assertTrue;
 @RunWith(value = MockitoJUnitRunner.class)
 public class IteratorTest {
 
-    private IteratorImpl  iterImpl;
-    private Iterator      iter;
+    private IteratorImpl iterImpl;
+    private Iterator iter;
 
     @Mock
-    private StateMachine  fsm;
+    private StateMachine fsm;
     @Mock
-    private LogManager    logManager;
+    private LogManager logManager;
     private List<Closure> closures;
-    private AtomicLong    applyingIndex;
+    private AtomicLong applyingIndex;
 
     @Before
     public void setup() {

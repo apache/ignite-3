@@ -36,21 +36,31 @@ import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
 
 import static java.lang.Thread.sleep;
 
-/** */
-abstract class RaftCounterServerAbstractTest {
-    /** */
-    protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftCounterServerAbstractTest.class);
+/**
+ * Abstract test for raft server.
+ */
+abstract class RaftServerAbstractTest {
+    /**
+     * The logger.
+     */
+    protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerAbstractTest.class);
 
-    /** */
+    /**
+     * The message factory.
+     */
     protected static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
 
     /** Network factory. */
     protected static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
-    /** */
+    /**
+     * Server port offset.
+     */
     protected static final int PORT = 20010;
 
-    /** */
+    /**
+     * The registry.
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
         .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
@@ -91,7 +101,7 @@ abstract class RaftCounterServerAbstractTest {
     @SuppressWarnings("BusyWait") protected boolean waitForCondition(BooleanSupplier cond, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
-        while(System.currentTimeMillis() < stop) {
+        while (System.currentTimeMillis() < stop) {
             if (cond.getAsBoolean())
                 return true;
 

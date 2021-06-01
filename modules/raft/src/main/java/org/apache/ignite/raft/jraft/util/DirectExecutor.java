@@ -20,8 +20,7 @@ import java.util.concurrent.Executor;
 
 /**
  * An executor that direct run command.
- * 
-*/
+ */
 public enum DirectExecutor implements Executor {
     INSTANCE;
 

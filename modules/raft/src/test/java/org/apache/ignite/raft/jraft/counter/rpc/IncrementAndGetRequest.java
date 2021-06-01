@@ -20,14 +20,12 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**
  * Increment value with delta and get the new value request.
- *
-*
  */
 public class IncrementAndGetRequest implements Message {
 
     private static final long serialVersionUID = -5623664785560971849L;
 
-    private long              delta;
+    private long delta;
 
     public long getDelta() {
         return this.delta;

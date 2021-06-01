@@ -63,8 +63,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The finite state machine caller implementation.
- *
-*
  */
 public class FSMCallerImpl implements FSMCaller {
 
@@ -72,7 +70,6 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Task type
-    *
      */
     private enum TaskType {
         IDLE, //
@@ -99,18 +96,16 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Apply task for disruptor.
-     *
-    *
      */
     private static class ApplyTask {
-        TaskType            type;
+        TaskType type;
         // union fields
-        long                committedIndex;
-        long                term;
+        long committedIndex;
+        long term;
         Status status;
         LeaderChangeContext leaderChangeCtx;
         Closure done;
-        CountDownLatch      shutdownLatch;
+        CountDownLatch shutdownLatch;
 
         public void reset() {
             this.type = null;
@@ -144,16 +139,16 @@ public class FSMCallerImpl implements FSMCaller {
     private LogManager logManager;
     private StateMachine fsm;
     private ClosureQueue closureQueue;
-    private final AtomicLong                                        lastAppliedIndex;
-    private long                                                    lastAppliedTerm;
+    private final AtomicLong lastAppliedIndex;
+    private long lastAppliedTerm;
     private Closure afterShutdown;
     private NodeImpl node;
-    private volatile TaskType                                       currTask;
-    private final AtomicLong                                        applyingIndex;
+    private volatile TaskType currTask;
+    private final AtomicLong applyingIndex;
     private volatile RaftException error;
-    private Disruptor<ApplyTask>                                    disruptor;
-    private RingBuffer<ApplyTask>                                   taskQueue;
-    private volatile CountDownLatch                                 shutdownLatch;
+    private Disruptor<ApplyTask> disruptor;
+    private RingBuffer<ApplyTask> taskQueue;
+    private volatile CountDownLatch shutdownLatch;
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
 
@@ -175,7 +170,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.lastAppliedIndex.set(opts.getBootstrapId().getIndex());
         notifyLastAppliedIndexUpdated(this.lastAppliedIndex.get());
         this.lastAppliedTerm = opts.getBootstrapId().getTerm();
-        this.disruptor = DisruptorBuilder.<ApplyTask> newInstance() //
+        this.disruptor = DisruptorBuilder.<ApplyTask>newInstance() //
             .setEventFactory(new ApplyTaskFactory()) //
             .setRingBufferSize(opts.getDisruptorBufferSize()) //
             .setThreadFactory(new NamedThreadFactory("JRaft-FSMCaller-Disruptor-" +
@@ -304,7 +299,6 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Closure runs with an error.
-    *
      */
     public class OnErrorClosure implements Closure {
         private RaftException error;
@@ -365,7 +359,8 @@ public class FSMCallerImpl implements FSMCaller {
             if (task.committedIndex > maxCommittedIndex) {
                 maxCommittedIndex = task.committedIndex;
             }
-        } else {
+        }
+        else {
             if (maxCommittedIndex >= 0) {
                 this.currTask = TaskType.COMMITTED;
                 doCommitted(maxCommittedIndex);
@@ -421,7 +416,8 @@ public class FSMCallerImpl implements FSMCaller {
                         shutdown = task.shutdownLatch;
                         break;
                 }
-            } finally {
+            }
+            finally {
                 this.nodeMetrics.recordLatency(task.type.metricName(), Utils.monotonicMs() - startMs);
             }
         }
@@ -433,7 +429,8 @@ public class FSMCallerImpl implements FSMCaller {
             }
             this.currTask = TaskType.IDLE;
             return maxCommittedIndex;
-        } finally {
+        }
+        finally {
             if (shutdown != null) {
                 shutdown.countDown();
             }
@@ -511,7 +508,8 @@ public class FSMCallerImpl implements FSMCaller {
             this.lastAppliedTerm = lastTerm;
             this.logManager.setAppliedId(lastAppliedId);
             notifyLastAppliedIndexUpdated(lastIndex);
-        } finally {
+        }
+        finally {
             this.nodeMetrics.recordLatency("fsm-commit", Utils.monotonicMs() - startMs);
         }
     }
@@ -529,7 +527,8 @@ public class FSMCallerImpl implements FSMCaller {
         final long startIndex = iter.getIndex();
         try {
             this.fsm.onApply(iter);
-        } finally {
+        }
+        finally {
             this.nodeMetrics.recordLatency("fsm-apply-tasks", Utils.monotonicMs() - startApplyMs);
             this.nodeMetrics.recordSize("fsm-apply-tasks-count", iter.getIndex() - startIndex);
         }

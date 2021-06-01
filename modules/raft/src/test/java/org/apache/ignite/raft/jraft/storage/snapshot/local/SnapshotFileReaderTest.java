@@ -31,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 public class SnapshotFileReaderTest extends BaseStorageTest {
-    private SnapshotFileReader     reader;
+    private SnapshotFileReader reader;
     private LocalSnapshotMetaTable metaTable;
 
     @Override
@@ -69,7 +69,8 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
         try {
             this.reader.readFile(bufRef, "unfound", 0, 1024);
             fail();
-        } catch (final FileNotFoundException e) {
+        }
+        catch (final FileNotFoundException e) {
 
         }
 

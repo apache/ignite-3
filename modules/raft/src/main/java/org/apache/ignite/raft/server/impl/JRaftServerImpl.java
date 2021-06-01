@@ -40,7 +40,9 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
 import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 
-/** */
+/**
+ *
+ */
 public class JRaftServerImpl implements RaftServer {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftServerImpl.class);
@@ -124,7 +126,8 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
+        @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId))
             return false;
 
@@ -204,7 +207,9 @@ public class JRaftServerImpl implements RaftServer {
         rpcServer.shutdown();
     }
 
-    /** */
+    /**
+     *
+     */
     public static class DelegatingStateMachine extends StateMachineAdapter {
         private final RaftGroupListener listener;
 

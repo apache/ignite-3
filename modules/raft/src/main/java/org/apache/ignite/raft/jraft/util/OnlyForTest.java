@@ -23,11 +23,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The type/method/field etc. to which this annotation is applied is only for unit test.
- * It means that user should not use them in business code except test code.
+ * The type/method/field etc. to which this annotation is applied is only for unit test. It means that user should not
+ * use them in business code except test code.
  */
 @Documented
-@Target({ ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.CONSTRUCTOR })
+@Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.CONSTRUCTOR})
 @Retention(RetentionPolicy.CLASS)
 public @interface OnlyForTest {
 }

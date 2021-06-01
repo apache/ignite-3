@@ -132,18 +132,27 @@ class EntryMetaImpl implements RaftOutter.EntryMeta, RaftOutter.EntryMeta.Builde
     }
 
     @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
 
         EntryMetaImpl entryMeta = (EntryMetaImpl) o;
 
-        if (term != entryMeta.term) return false;
-        if (dataLen != entryMeta.dataLen) return false;
-        if (checksum != entryMeta.checksum) return false;
-        if (type != entryMeta.type) return false;
-        if (!peersList.equals(entryMeta.peersList)) return false;
-        if (!oldPeersList.equals(entryMeta.oldPeersList)) return false;
-        if (!learnersList.equals(entryMeta.learnersList)) return false;
+        if (term != entryMeta.term)
+            return false;
+        if (dataLen != entryMeta.dataLen)
+            return false;
+        if (checksum != entryMeta.checksum)
+            return false;
+        if (type != entryMeta.type)
+            return false;
+        if (!peersList.equals(entryMeta.peersList))
+            return false;
+        if (!oldPeersList.equals(entryMeta.oldPeersList))
+            return false;
+        if (!learnersList.equals(entryMeta.learnersList))
+            return false;
         return oldLearnersList.equals(entryMeta.oldLearnersList);
     }
 

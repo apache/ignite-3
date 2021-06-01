@@ -145,7 +145,8 @@ public class FileServiceTest {
                 System.arraycopy(respData, offset, respArray, 0, length);
                 try {
                     assertArrayEquals("Offset: " + fileOffset, sourceArray, respArray);
-                } catch (ArrayComparisonFailure arrayComparisonFailure) {
+                }
+                catch (ArrayComparisonFailure arrayComparisonFailure) {
                     arrayComparisonFailure.printStackTrace();
                 }
                 offset += length;

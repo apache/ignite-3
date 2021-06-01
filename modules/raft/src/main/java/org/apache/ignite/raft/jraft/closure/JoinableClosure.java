@@ -24,7 +24,8 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
-*/
+ *
+ */
 public class JoinableClosure implements Closure {
 
     private final CountDownLatch latch = new CountDownLatch(1);

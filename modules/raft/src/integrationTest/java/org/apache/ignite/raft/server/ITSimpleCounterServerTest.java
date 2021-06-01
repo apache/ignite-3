@@ -34,20 +34,33 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
-    /** */
+/**
+ * Single node raft server.
+ */
+class ITSimpleCounterServerTest extends RaftServerAbstractTest {
+    /**
+     * The server implementation.
+     */
     protected RaftServer server;
 
-    /** */
+    /**
+     * Counter raft group 0.
+     */
     protected static final String COUNTER_GROUP_ID_0 = "counter0";
 
-    /** */
+    /**
+     * Counter raft group 1.
+     */
     protected static final String COUNTER_GROUP_ID_1 = "counter1";
 
-    /** */
+    /**
+     * The client 1.
+     */
     protected RaftGroupService client1;
 
-    /** */
+    /**
+     * The client 2.
+     */
     protected RaftGroupService client2;
 
     /**
@@ -92,6 +105,7 @@ class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
     }
 
     /**
+     *
      */
     @Test
     public void testRefreshLeader() throws Exception {

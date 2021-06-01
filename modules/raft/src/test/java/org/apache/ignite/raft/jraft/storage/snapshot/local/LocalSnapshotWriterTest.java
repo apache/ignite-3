@@ -35,7 +35,7 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class LocalSnapshotWriterTest extends BaseStorageTest {
-    private LocalSnapshotWriter  writer;
+    private LocalSnapshotWriter writer;
     @Mock
     private LocalSnapshotStorage snapshotStorage;
 

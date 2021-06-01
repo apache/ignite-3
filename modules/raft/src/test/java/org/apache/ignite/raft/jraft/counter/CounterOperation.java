@@ -20,19 +20,18 @@ import java.io.Serializable;
 
 /**
  * The counter operation
- *
-*/
+ */
 public class CounterOperation implements Serializable {
 
     private static final long serialVersionUID = -6597003954824547294L;
 
     /** Get value */
-    public static final byte  GET              = 0x01;
+    public static final byte GET = 0x01;
     /** Increment and get value */
-    public static final byte  INCREMENT        = 0x02;
+    public static final byte INCREMENT = 0x02;
 
-    private byte              op;
-    private long              delta;
+    private byte op;
+    private long delta;
 
     public static CounterOperation createGet() {
         return new CounterOperation(GET);

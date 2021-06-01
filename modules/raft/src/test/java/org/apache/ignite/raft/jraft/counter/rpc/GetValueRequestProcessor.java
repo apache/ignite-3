@@ -24,8 +24,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 
 /**
  * GetValueRequest processor.
- *
-*
  */
 public class GetValueRequestProcessor implements RpcProcessor<GetValueRequest> {
 

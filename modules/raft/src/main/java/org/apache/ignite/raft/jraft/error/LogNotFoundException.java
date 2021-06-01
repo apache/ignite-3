@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.error;
 
 /**
  * Log not found exception, the log may be deleted.
-*
  */
 public class LogNotFoundException extends IllegalStateException {
 

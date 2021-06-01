@@ -21,8 +21,7 @@ import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
 /**
- *  Old V1 log entry codec implementation.
-*
+ * Old V1 log entry codec implementation.
  */
 @Deprecated
 public class LogEntryV1CodecFactory implements LogEntryCodecFactory {
@@ -37,6 +36,7 @@ public class LogEntryV1CodecFactory implements LogEntryCodecFactory {
 
     /**
      * Returns a singleton instance of DefaultLogEntryCodecFactory.
+     *
      * @return a singleton instance
      */
     public static LogEntryV1CodecFactory getInstance() {

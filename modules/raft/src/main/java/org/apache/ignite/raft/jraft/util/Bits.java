@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.util;
 /**
  * Bits util.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class Bits {
 

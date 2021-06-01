@@ -43,29 +43,23 @@ public interface ClosureQueue {
     void appendPendingClosure(final Closure closure);
 
     /**
-     * Pop closure from queue until index(inclusion), returns the first
-     * popped out index, returns -1 when out of range, returns index+1
-     * when not found.
+     * Pop closure from queue until index(inclusion), returns the first popped out index, returns -1 when out of range,
+     * returns index+1 when not found.
      *
-     * @param endIndex     the index of queue
-     * @param closures     closure list
-     * @return returns the first popped out index, returns -1 when out
-     * of range, returns index+1
-     * when not found.
+     * @param endIndex the index of queue
+     * @param closures closure list
+     * @return returns the first popped out index, returns -1 when out of range, returns index+1 when not found.
      */
     long popClosureUntil(final long endIndex, final List<Closure> closures);
 
     /**
-     * Pop closure from queue until index(inclusion), returns the first
-     * popped out index, returns -1 when out of range, returns index+1
-     * when not found.
+     * Pop closure from queue until index(inclusion), returns the first popped out index, returns -1 when out of range,
+     * returns index+1 when not found.
      *
-     * @param endIndex     the index of queue
-     * @param closures     closure list
+     * @param endIndex the index of queue
+     * @param closures closure list
      * @param taskClosures task closure list
-     * @return returns the first popped out index, returns -1 when out
-     * of range, returns index+1
-     * when not found.
+     * @return returns the first popped out index, returns -1 when out of range, returns index+1 when not found.
      */
     long popClosureUntil(final long endIndex, final List<Closure> closures, final List<TaskClosure> taskClosures);
 }

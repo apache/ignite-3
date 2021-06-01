@@ -21,7 +21,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.ConnectionClosedEventListener;
 
 /**
  *
-*/
+ */
 public interface RpcServer<T> extends Lifecycle<T> {
 
     /**
@@ -39,7 +39,6 @@ public interface RpcServer<T> extends Lifecycle<T> {
     void registerProcessor(final RpcProcessor<?> processor);
 
     /**
-     *
      * @return bound port
      */
     int boundPort();

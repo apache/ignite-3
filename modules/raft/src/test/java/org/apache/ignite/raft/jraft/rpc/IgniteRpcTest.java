@@ -34,12 +34,18 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
-/** */
+/**
+ *
+ */
 public class IgniteRpcTest extends AbstractRpcTest {
-    /** */
+    /**
+     *
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcTest.class);
 
-    /** */
+    /**
+     *
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
         .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
@@ -85,7 +91,6 @@ public class IgniteRpcTest extends AbstractRpcTest {
         return waitForTopology(service, expected, timeout);
     }
 
-
     /**
      * @param service The service.
      * @param expected Expected count.
@@ -95,7 +100,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
     protected boolean waitForTopology(ClusterService service, int expected, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
-        while(System.currentTimeMillis() < stop) {
+        while (System.currentTimeMillis() < stop) {
             if (service.topologyService().allMembers().size() == expected)
                 return true;
 

@@ -20,15 +20,13 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**
  * Value response.
- *
-*
  */
 public class ValueResponse implements Message {
 
     private static final long serialVersionUID = -4220017686727146773L;
 
-    private long              value;
-    private boolean           success;
+    private long value;
+    private boolean success;
 
     /**
      * redirect peer id
@@ -84,7 +82,7 @@ public class ValueResponse implements Message {
     @Override
     public String toString() {
         return "ValueResponse [value=" + this.value + ", success=" + this.success + ", redirect=" + this.redirect
-               + ", errorMsg=" + this.errorMsg + "]";
+            + ", errorMsg=" + this.errorMsg + "]";
     }
 
 }

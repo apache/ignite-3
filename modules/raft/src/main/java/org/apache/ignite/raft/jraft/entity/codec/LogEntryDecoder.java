@@ -21,12 +21,12 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 /**
  * Log entry decoder
  *
-* @since 1.2.6
+ * @since 1.2.6
  */
 public interface LogEntryDecoder {
     /**
-     * Decode a log entry from byte array,
-     * return null when fail to decode.
+     * Decode a log entry from byte array, return null when fail to decode.
+     *
      * @param bs
      * @return
      */

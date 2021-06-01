@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 /**
  * TODO asch rename.
-*/
+ */
 public interface ConnectionClosedEventListener {
     void onClosed(final String local, final String remote);
 }

@@ -18,13 +18,11 @@ package org.apache.ignite.raft.jraft.storage;
 
 /**
  * Snapshot throttling during heavy disk reading/writing
- *
-*/
+ */
 public interface SnapshotThrottle {
 
     /**
-     * Get available throughput in bytes after throttled
-     * Must be thread-safe
+     * Get available throughput in bytes after throttled Must be thread-safe
      *
      * @param bytes expect size
      * @return available size

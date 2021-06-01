@@ -21,8 +21,6 @@ import org.apache.ignite.raft.jraft.closure.ClosureQueue;
 
 /**
  * Ballot box options.
- *
-*
  */
 public class BallotBoxOptions {
 

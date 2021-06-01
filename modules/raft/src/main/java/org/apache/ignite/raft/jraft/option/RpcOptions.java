@@ -21,36 +21,33 @@ import org.apache.ignite.raft.jraft.rpc.RpcClient;
 
 public class RpcOptions {
     /**
-     * Rpc handshake timeout in milliseconds
-     * Default: 2000(1s)
+     * Rpc handshake timeout in milliseconds Default: 2000(1s)
      */
     private int rpcConnectTimeoutMs = 2000; // TODO asch rename to handshake timeout.
 
     /**
-     * RPC request default timeout in milliseconds
-     * Default: 5000(5s)
+     * RPC request default timeout in milliseconds Default: 5000(5s)
      */
     private int rpcDefaultTimeout = 5000;
 
     /**
-     * Install snapshot RPC request default timeout in milliseconds
-     * Default: 5 * 60 * 1000(5min)
+     * Install snapshot RPC request default timeout in milliseconds Default: 5 * 60 * 1000(5min)
      */
     private int rpcInstallSnapshotTimeout = 5 * 60 * 1000;
 
     /**
-     * RPC process thread pool size
-     * Default: 80
+     * RPC process thread pool size Default: 80
      */
     private int rpcProcessorThreadPoolSize = 80;
 
     /**
-     * Whether to enable checksum for RPC.
-     * Default: false
+     * Whether to enable checksum for RPC. Default: false
      */
     private boolean enableRpcChecksum = false;
 
-    /** */
+    /**
+     *
+     */
     private RpcClient rpcClient;
 
     /**

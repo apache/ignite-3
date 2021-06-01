@@ -24,7 +24,7 @@ import static org.junit.Assert.assertSame;
 
 /**
  *
-*/
+ */
 public class ByteBufferCollectorTest {
 
     @Test

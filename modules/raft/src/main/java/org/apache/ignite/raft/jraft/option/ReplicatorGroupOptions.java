@@ -25,13 +25,11 @@ import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 
 /**
  * Replicator group options.
- *
-*
  */
 public class ReplicatorGroupOptions {
 
-    private int               heartbeatTimeoutMs;
-    private int               electionTimeoutMs;
+    private int heartbeatTimeoutMs;
+    private int electionTimeoutMs;
     private LogManager logManager;
     private BallotBox ballotBox;
     private NodeImpl node;
@@ -115,8 +113,8 @@ public class ReplicatorGroupOptions {
     @Override
     public String toString() {
         return "ReplicatorGroupOptions{" + "heartbeatTimeoutMs=" + heartbeatTimeoutMs + ", electionTimeoutMs="
-               + electionTimeoutMs + ", logManager=" + logManager + ", ballotBox=" + ballotBox + ", node=" + node
-               + ", snapshotStorage=" + snapshotStorage + ", raftRpcClientService=" + raftRpcClientService
-               + ", raftOptions=" + raftOptions + ", timerManager=" + timerManager + '}';
+            + electionTimeoutMs + ", logManager=" + logManager + ", ballotBox=" + ballotBox + ", node=" + node
+            + ", snapshotStorage=" + snapshotStorage + ", raftRpcClientService=" + raftRpcClientService
+            + ", raftOptions=" + raftOptions + ", timerManager=" + timerManager + '}';
     }
 }

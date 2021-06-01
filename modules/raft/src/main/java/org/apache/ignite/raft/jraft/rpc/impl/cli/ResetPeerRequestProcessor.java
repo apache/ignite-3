@@ -30,7 +30,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 /**
  * Reset peer request processor.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeerRequest> {
 
@@ -50,13 +50,14 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ResetPeerRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final Configuration newConf = new Configuration();
         for (final String peerIdStr : request.getNewPeersList()) {
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {
                 newConf.addPeer(peer);
-            } else {
+            }
+            else {
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }

@@ -27,7 +27,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 /**
-*/
+ *
+ */
 public class MpscSingleThreadExecutorTest {
 
     private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true);
@@ -53,7 +54,8 @@ public class MpscSingleThreadExecutorTest {
                     Thread.sleep(100);
                     ret.incrementAndGet();
                     latch.countDown();
-                } catch (final InterruptedException e) {
+                }
+                catch (final InterruptedException e) {
                     e.printStackTrace();
                 }
             });
@@ -98,7 +100,8 @@ public class MpscSingleThreadExecutorTest {
                     Thread.sleep(100);
                     ret.incrementAndGet();
                     latch.countDown();
-                } catch (final InterruptedException e) {
+                }
+                catch (final InterruptedException e) {
                     e.printStackTrace();
                 }
             });
@@ -122,7 +125,8 @@ public class MpscSingleThreadExecutorTest {
         executor.execute(() -> {
             try {
                 latch1.await();
-            } catch (final InterruptedException e) {
+            }
+            catch (final InterruptedException e) {
                 e.printStackTrace();
             }
             latch2.countDown();
@@ -133,7 +137,8 @@ public class MpscSingleThreadExecutorTest {
 
         // fill the task queue
         for (int i = 0; i < minMaxPendingTasks; i++) {
-            executor.execute(() -> {});
+            executor.execute(() -> {
+            });
         }
 
         executeShouldFail(executor);
@@ -151,7 +156,8 @@ public class MpscSingleThreadExecutorTest {
                 // Noop.
             });
             Assert.fail();
-        } catch (final RejectedExecutionException expected) {
+        }
+        catch (final RejectedExecutionException expected) {
             // expected
         }
     }

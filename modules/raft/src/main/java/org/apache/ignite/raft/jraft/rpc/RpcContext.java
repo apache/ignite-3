@@ -19,7 +19,8 @@ package org.apache.ignite.raft.jraft.rpc;
 import org.apache.ignite.raft.jraft.NodeManager;
 
 /**
-*/
+ *
+ */
 public interface RpcContext {
     /**
      * @return Node manager.
@@ -42,6 +43,7 @@ public interface RpcContext {
 
     /**
      * Get the local address of the server.
+     *
      * @return Local address.
      */
     String getLocalAddress();

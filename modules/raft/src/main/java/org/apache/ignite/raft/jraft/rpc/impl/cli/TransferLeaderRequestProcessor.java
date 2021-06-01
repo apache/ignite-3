@@ -29,7 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 /**
  * Snapshot request processor.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class TransferLeaderRequestProcessor extends BaseCliRequestProcessor<TransferLeaderRequest> {
 
@@ -49,7 +49,7 @@ public class TransferLeaderRequestProcessor extends BaseCliRequestProcessor<Tran
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final TransferLeaderRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final PeerId peer = new PeerId();
         if (request.hasPeerId() && !peer.parse(request.getPeerId())) {
             return RaftRpcFactory.DEFAULT //

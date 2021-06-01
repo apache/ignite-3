@@ -42,7 +42,8 @@ public final class EnumOutter {
         /**
          * <code>ENTRY_TYPE_CONFIGURATION = 3;</code>
          */
-        ENTRY_TYPE_CONFIGURATION(3), ;
+        ENTRY_TYPE_CONFIGURATION(3),
+        ;
 
         public final int getNumber() {
             return value;

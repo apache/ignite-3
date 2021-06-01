@@ -57,10 +57,10 @@ public class ReadOnlyServiceTest {
     private ReadOnlyServiceImpl readOnlyServiceImpl;
 
     @Mock
-    private NodeImpl            node;
+    private NodeImpl node;
 
     @Mock
-    private FSMCaller           fsmCaller;
+    private FSMCaller fsmCaller;
 
     @Before
     public void setup() {
@@ -101,8 +101,8 @@ public class ReadOnlyServiceTest {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                           && req.getEntriesCount() == 1
-                           && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                        && req.getEntriesCount() == 1
+                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }
                 return false;
             }
@@ -133,8 +133,8 @@ public class ReadOnlyServiceTest {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                           && req.getEntriesCount() == 1
-                           && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                        && req.getEntriesCount() == 1
+                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }
                 return false;
             }
@@ -178,8 +178,8 @@ public class ReadOnlyServiceTest {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                           && req.getEntriesCount() == 1
-                           && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                        && req.getEntriesCount() == 1
+                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }
                 return false;
             }
@@ -221,8 +221,8 @@ public class ReadOnlyServiceTest {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.getGroupId()) && "localhost:8081:0".equals(req.getServerId())
-                           && req.getEntriesCount() == 1
-                           && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
+                        && req.getEntriesCount() == 1
+                        && Arrays.equals(requestContext, req.getEntries(0).toByteArray());
                 }
                 return false;
             }

@@ -41,8 +41,6 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
  * Test helper
- *
-*
  */
 public class TestUtils {
 
@@ -60,7 +58,8 @@ public class TestUtils {
             for (ThreadInfo info : infos) {
                 System.out.println(info);
             }
-        } catch (Throwable t) {
+        }
+        catch (Throwable t) {
             t.printStackTrace(); // NOPMD
         }
     }
@@ -113,7 +112,8 @@ public class TestUtils {
                 }
             }
             return ip;
-        } catch (SocketException e) {
+        }
+        catch (SocketException e) {
             return "localhost";
         }
     }

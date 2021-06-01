@@ -66,30 +66,30 @@ import static org.mockito.Matchers.eq;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class SnapshotExecutorTest extends BaseStorageTest {
-    private SnapshotExecutorImpl   executor;
+    private SnapshotExecutorImpl executor;
     @Mock
-    private NodeImpl               node;
+    private NodeImpl node;
     @Mock
-    private FSMCaller              fSMCaller;
+    private FSMCaller fSMCaller;
     @Mock
-    private LogManager             logManager;
-    private Endpoint               addr;
+    private LogManager logManager;
+    private Endpoint addr;
     @Mock
-    private RpcContext             asyncCtx;
+    private RpcContext asyncCtx;
 
     @Mock
-    private RaftClientService      raftClientService;
-    private String                 uri;
-    private final String           hostPort = "localhost:8081";
-    private final int              readerId = 99;
-    private CopyOptions            copyOpts;
+    private RaftClientService raftClientService;
+    private String uri;
+    private final String hostPort = "localhost:8081";
+    private final int readerId = 99;
+    private CopyOptions copyOpts;
     private LocalSnapshotMetaTable table;
-    private LocalSnapshotWriter    writer;
-    private LocalSnapshotReader    reader;
-    private RaftOptions            raftOptions;
+    private LocalSnapshotWriter writer;
+    private LocalSnapshotReader reader;
+    private RaftOptions raftOptions;
     @Mock
-    private LocalSnapshotStorage   snapshotStorage;
-    private TimerManager           timerManager;
+    private LocalSnapshotStorage snapshotStorage;
+    private TimerManager timerManager;
 
     @Override
     @Before

@@ -67,7 +67,7 @@ public class CounterClient {
     }
 
     private static void incrementAndGet(final CliClientServiceImpl cliClientService, final PeerId leader,
-                                        final long delta, CountDownLatch latch) throws RemotingException,
+        final long delta, CountDownLatch latch) throws RemotingException,
         InterruptedException {
         final IncrementAndGetRequest request = new IncrementAndGetRequest();
         request.setDelta(delta);
@@ -78,7 +78,8 @@ public class CounterClient {
                 if (err == null) {
                     latch.countDown();
                     System.out.println("incrementAndGet result:" + result);
-                } else {
+                }
+                else {
                     err.printStackTrace();
                     latch.countDown();
                 }

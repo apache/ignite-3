@@ -19,9 +19,9 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 /*
  * TODO asch remove this
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
- * 
+ *
  * Copyright 2007-2008 Sun Microsystems, Inc. All rights reserved.
- * 
+ *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
  * and Distribution License("CDDL") (collectively, the "License").  You
@@ -29,7 +29,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
  * a copy of the License at https://glassfish.dev.java.net/public/CDDL+GPL.html
  * or glassfish/bootstrap/legal/LICENSE.txt.  See the License for the specific
  * language governing permissions and limitations under the License.
- * 
+ *
  * When distributing the software, include this License Header Notice in each
  * file and include the License file at glassfish/bootstrap/legal/LICENSE.txt.
  * Sun designates this particular file as subject to the "Classpath" exception
@@ -38,9 +38,9 @@ package org.apache.ignite.raft.jraft.rpc.impl;
  * Header, with the fields enclosed by brackets [] replaced by your own
  * identifying information: "Portions Copyrighted [year]
  * [name of copyright owner]"
- * 
+ *
  * Contributor(s):
- * 
+ *
  * If you wish your version of this file to be governed by only the CDDL or
  * only the GPL Version 2, indicate your decision by adding "[Contributor]
  * elects to include this software in this distribution under the [CDDL or GPL
@@ -63,25 +63,23 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Simple {@link Future} implementation, which uses {@link ReentrantLock} to
- * synchronize during the lifecycle.
- * 
+ * Simple {@link Future} implementation, which uses {@link ReentrantLock} to synchronize during the lifecycle.
+ *
  * @see Future
  * @see ReentrantLock
- * 
-*/
+ */
 public class FutureImpl<R> implements Future<R> {
 
     protected final ReentrantLock lock;
 
-    protected boolean             isDone;
+    protected boolean isDone;
 
-    protected CountDownLatch      latch;
+    protected CountDownLatch latch;
 
-    protected boolean             isCancelled;
-    protected Throwable           failure;
+    protected boolean isCancelled;
+    protected Throwable failure;
 
-    protected R                   result;
+    protected R result;
 
     public FutureImpl() {
         this(new ReentrantLock());
@@ -94,14 +92,15 @@ public class FutureImpl<R> implements Future<R> {
 
     /**
      * Get current result value without any blocking.
-     * 
+     *
      * @return current result value without any blocking.
      */
     public R getResult() {
         this.lock.lock();
         try {
             return this.result;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -110,23 +109,24 @@ public class FutureImpl<R> implements Future<R> {
         this.lock.lock();
         try {
             return this.failure;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
 
     /**
      * Set the result value and notify about operation completion.
-     * 
-     * @param result
-     *            the result value
+     *
+     * @param result the result value
      */
     public void setResult(R result) {
         this.lock.lock();
         try {
             this.result = result;
             notifyHaveResult();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -141,7 +141,8 @@ public class FutureImpl<R> implements Future<R> {
             this.isCancelled = true;
             notifyHaveResult();
             return true;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -154,7 +155,8 @@ public class FutureImpl<R> implements Future<R> {
         try {
             this.lock.lock();
             return this.isCancelled;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -167,7 +169,8 @@ public class FutureImpl<R> implements Future<R> {
         this.lock.lock();
         try {
             return this.isDone;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -182,12 +185,14 @@ public class FutureImpl<R> implements Future<R> {
         try {
             if (this.isCancelled) {
                 throw new CancellationException();
-            } else if (this.failure != null) {
+            }
+            else if (this.failure != null) {
                 throw new ExecutionException(this.failure);
             }
 
             return this.result;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -197,36 +202,39 @@ public class FutureImpl<R> implements Future<R> {
      */
     @Override
     public R get(final long timeout, final TimeUnit unit) throws InterruptedException, ExecutionException,
-                                                         TimeoutException {
+        TimeoutException {
         final boolean isTimeOut = !latch.await(timeout, unit);
         this.lock.lock();
         try {
             if (!isTimeOut) {
                 if (this.isCancelled) {
                     throw new CancellationException();
-                } else if (this.failure != null) {
+                }
+                else if (this.failure != null) {
                     throw new ExecutionException(this.failure);
                 }
 
                 return this.result;
-            } else {
+            }
+            else {
                 throw new TimeoutException();
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
 
     /**
-     * Notify about the failure, occured during asynchronous operation
-     * execution.
+     * Notify about the failure, occured during asynchronous operation execution.
      */
     public void failure(final Throwable failure) {
         this.lock.lock();
         try {
             this.failure = failure;
             notifyHaveResult();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }

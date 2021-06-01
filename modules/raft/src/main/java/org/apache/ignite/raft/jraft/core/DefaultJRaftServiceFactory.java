@@ -32,8 +32,7 @@ import org.apache.ignite.raft.jraft.util.timer.DefaultRaftTimerFactory;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
- * The default factory for JRaft services.
- * TODO asch can pass ClusterService here
+ * The default factory for JRaft services. TODO asch can pass ClusterService here
  */
 public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
     @Override public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {

@@ -22,8 +22,7 @@ import org.apache.ignite.raft.jraft.Status;
 
 /**
  * A catchup closure for peer to catch up.
- *
-* */
+ */
 public abstract class CatchUpClosure implements Closure {
 
     private long maxMargin;

@@ -21,8 +21,6 @@ import org.apache.ignite.raft.jraft.Status;
 
 /**
  * Copy snapshot from the give resources.
- *
-*
  */
 public abstract class SnapshotCopier extends Status implements Closeable {
 
@@ -33,8 +31,8 @@ public abstract class SnapshotCopier extends Status implements Closeable {
 
     /**
      * Block the thread until this copy job finishes, or some error occurs.
-     * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     *
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     public abstract void join() throws InterruptedException;
 

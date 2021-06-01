@@ -21,8 +21,9 @@ import org.apache.ignite.raft.jraft.Closure;
 /**
  * RPC response closure.
  *
-*
- * 2018-Apr-08 5:55:01 PM 
+ *
+ * 2018-Apr-08 5:55:01 PM
+ *
  * @param <T>
  */
 public interface RpcResponseClosure<T extends Message> extends Closure {

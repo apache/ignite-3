@@ -42,7 +42,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public abstract class BaseLogStorageTest extends BaseStorageTest {
-    protected LogStorage         logStorage;
+    protected LogStorage logStorage;
     private ConfigurationManager confManager;
     private LogEntryCodecFactory logEntryCodecFactory;
 
@@ -171,7 +171,8 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         for (int i = 0; i < 10; i++) {
             if (i < 5) {
                 assertNull(this.logStorage.getEntry(i));
-            } else {
+            }
+            else {
                 Assert.assertEquals(entries.get(i), this.logStorage.getEntry(i));
             }
         }
@@ -229,7 +230,8 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         for (int i = 0; i < 10; i++) {
             if (i <= 5) {
                 Assert.assertEquals(entries.get(i), this.logStorage.getEntry(i));
-            } else {
+            }
+            else {
                 assertNull(this.logStorage.getEntry(i));
             }
         }

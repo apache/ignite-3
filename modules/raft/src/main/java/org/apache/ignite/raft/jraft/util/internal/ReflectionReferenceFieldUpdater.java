@@ -20,7 +20,7 @@ import java.lang.reflect.Field;
 
 /**
  *
-*/
+ */
 @SuppressWarnings("unchecked")
 final class ReflectionReferenceFieldUpdater<U, W> implements ReferenceFieldUpdater<U, W> {
 
@@ -35,7 +35,8 @@ final class ReflectionReferenceFieldUpdater<U, W> implements ReferenceFieldUpdat
     public void set(final U obj, final W newValue) {
         try {
             this.field.set(obj, newValue);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
@@ -44,7 +45,8 @@ final class ReflectionReferenceFieldUpdater<U, W> implements ReferenceFieldUpdat
     public W get(final U obj) {
         try {
             return (W) this.field.get(obj);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }

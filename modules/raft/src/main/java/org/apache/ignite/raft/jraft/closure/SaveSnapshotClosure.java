@@ -22,8 +22,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
 /**
  * Save snapshot closure
- *
-*
  */
 public interface SaveSnapshotClosure extends Closure {
 

@@ -20,16 +20,14 @@ import java.io.Serializable;
 
 /**
  * A IP address with port.
- *
-*
  */
 public class Endpoint implements Copiable<Endpoint>, Serializable {
 
     private static final long serialVersionUID = -7329681263115546100L;
 
-    private String            ip               = Utils.IP_ANY;
-    private int               port;
-    private String            str;
+    private String ip = Utils.IP_ANY;
+    private int port;
+    private String str;
 
     public Endpoint() {
         super();
@@ -87,7 +85,8 @@ public class Endpoint implements Copiable<Endpoint>, Serializable {
             if (other.ip != null) {
                 return false;
             }
-        } else if (!this.ip.equals(other.ip)) {
+        }
+        else if (!this.ip.equals(other.ip)) {
             return false;
         }
         return this.port == other.port;

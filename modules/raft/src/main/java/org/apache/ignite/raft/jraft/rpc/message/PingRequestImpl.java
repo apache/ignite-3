@@ -2,7 +2,7 @@ package org.apache.ignite.raft.jraft.rpc.message;
 
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
-class PingRequestImpl implements RpcRequests.PingRequest , RpcRequests.PingRequest .Builder {
+class PingRequestImpl implements RpcRequests.PingRequest, RpcRequests.PingRequest.Builder {
     private long sendTimestamp;
 
     @Override public long getSendTimestamp() {

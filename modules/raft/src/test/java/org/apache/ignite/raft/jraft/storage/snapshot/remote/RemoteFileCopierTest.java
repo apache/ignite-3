@@ -36,10 +36,10 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class RemoteFileCopierTest {
-    private RemoteFileCopier  copier;
+    private RemoteFileCopier copier;
     @Mock
     private RaftClientService rpcService;
-    private TimerManager      timerManager;
+    private TimerManager timerManager;
 
     @Before
     public void setup() {

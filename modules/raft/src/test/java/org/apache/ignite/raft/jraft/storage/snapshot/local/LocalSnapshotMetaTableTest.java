@@ -87,7 +87,8 @@ public class LocalSnapshotMetaTableTest {
             Assert.assertEquals(meta1, newTable.getFileMeta("data1"));
             Assert.assertEquals(meta2, newTable.getFileMeta("data2"));
             Assert.assertEquals(meta, newTable.getMeta());
-        } finally {
+        }
+        finally {
             Utils.delete(new File(path));
         }
     }

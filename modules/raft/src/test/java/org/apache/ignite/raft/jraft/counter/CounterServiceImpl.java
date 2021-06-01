@@ -30,7 +30,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
-*/
+ *
+ */
 public class CounterServiceImpl implements CounterService {
     private static final Logger LOG = LoggerFactory.getLogger(CounterServiceImpl.class);
 
@@ -48,7 +49,7 @@ public class CounterServiceImpl implements CounterService {
 
     @Override
     public void get(final boolean readOnlySafe, final CounterClosure closure) {
-        if(!readOnlySafe){
+        if (!readOnlySafe) {
             closure.success(getValue());
             closure.run(Status.OK());
             return;
@@ -57,16 +58,17 @@ public class CounterServiceImpl implements CounterService {
         this.counterServer.getNode().readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
             @Override
             public void run(Status status, long index, byte[] reqCtx) {
-                if(status.isOk()){
+                if (status.isOk()) {
                     closure.success(getValue());
                     closure.run(Status.OK());
                     return;
                 }
                 CounterServiceImpl.this.readIndexExecutor.execute(() -> {
-                    if(isLeader()){
+                    if (isLeader()) {
                         LOG.debug("Fail to get value with 'ReadIndex': {}, try to applying to the state machine.", status);
                         applyOperation(CounterOperation.createGet(), closure);
-                    }else {
+                    }
+                    else {
                         handlerNotLeaderError(closure);
                     }
                 });
@@ -103,7 +105,8 @@ public class CounterServiceImpl implements CounterService {
             task.setData(ByteBuffer.wrap(Marshaller.DEFAULT.marshall(op)));
             task.setDone(closure);
             this.counterServer.getNode().apply(task);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             String errorMsg = "Fail to encode CounterOperation";
             LOG.error(errorMsg, e);
             closure.failure(errorMsg, StringUtils.EMPTY);

@@ -67,16 +67,16 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         if (request.command() instanceof WriteCommand) {
             node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
                 new CommandClosureImpl<>(request.command()) {
-                @Override public void result(Serializable res) {
-                    rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                }
+                    @Override public void result(Serializable res) {
+                        rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                    }
 
-                @Override public void run(Status status) {
-                    assert !status.isOk() : status;
+                    @Override public void run(Status status) {
+                        assert !status.isOk() : status;
 
-                    sendError(rpcCtx, status, node);
-                }
-            }));
+                        sendError(rpcCtx, status, node);
+                    }
+                }));
         }
         else {
             if (request.readOnlySafe()) {
@@ -183,9 +183,13 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         ctx.sendResponse(((RaftErrorResponse.Builder) resp).build());
     }
 
-    /** */
+    /**
+     *
+     */
     private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
-        /** */
+        /**
+         *
+         */
         private final T command;
 
         /**

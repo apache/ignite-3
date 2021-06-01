@@ -33,8 +33,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Base template to handle cli requests.
-*
- * 2018-Apr-09 11:51:42 AM 
+ *
+ * 2018-Apr-09 11:51:42 AM
+ *
  * @param <T>
  */
 public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequestProcessor<T> {
@@ -62,7 +63,6 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
 
     /**
      * Cli request context
-    *
      */
     public static class CliRequestContext {
 
@@ -108,7 +108,8 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
         if (!st.isOk()) {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(defaultResp(), st.getCode(), st.getErrorMsg());
-        } else {
+        }
+        else {
             return processRequest0(new CliRequestContext(node, groupId, peerId), request, done);
         }
     }
@@ -121,14 +122,17 @@ public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequ
             if (node == null) {
                 st.setError(RaftError.ENOENT, "Fail to find node %s in group %s", peerId, groupId);
             }
-        } else {
+        }
+        else {
             List<Node> nodes = nodeManager.getNodesByGroupId(groupId);
             if (nodes == null || nodes.isEmpty()) {
                 st.setError(RaftError.ENOENT, "Empty nodes in group %s", groupId);
-            } else if (nodes.size() > 1) {
+            }
+            else if (nodes.size() > 1) {
                 st.setError(RaftError.EINVAL, "Peer must be specified since there're %d nodes in group %s",
                     nodes.size(), groupId);
-            } else {
+            }
+            else {
                 node = nodes.get(0);
             }
 

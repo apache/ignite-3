@@ -25,14 +25,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A configuration entry with current peers and old peers.
-*
  */
 public class ConfigurationEntry {
 
-    private static final Logger LOG     = LoggerFactory.getLogger(ConfigurationEntry.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ConfigurationEntry.class);
 
-    private LogId id      = new LogId(0, 0);
-    private Configuration conf    = new Configuration();
+    private LogId id = new LogId(0, 0);
+    private Configuration conf = new Configuration();
     private Configuration oldConf = new Configuration();
 
     public LogId getId() {

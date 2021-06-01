@@ -36,19 +36,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Raft meta storage,it's not thread-safe.
- *
-*
  */
 public class LocalRaftMetaStorage implements RaftMetaStorage {
 
-    private static final Logger LOG       = LoggerFactory.getLogger(LocalRaftMetaStorage.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LocalRaftMetaStorage.class);
     private static final String RAFT_META = "raft_meta";
 
-    private boolean             isInited;
-    private final String        path;
-    private long                term;
-    /** blank votedFor information*/
-    private PeerId votedFor  = PeerId.emptyPeer();
+    private boolean isInited;
+    private final String path;
+    private long term;
+    /** blank votedFor information */
+    private PeerId votedFor = PeerId.emptyPeer();
     private final RaftOptions raftOptions;
     private NodeMetrics nodeMetrics;
     private NodeImpl node;
@@ -77,7 +75,8 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         if (load()) {
             this.isInited = true;
             return true;
-        } else {
+        }
+        else {
             return false;
         }
     }
@@ -91,9 +90,11 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
                 return this.votedFor.parse(meta.getVotedfor());
             }
             return true;
-        } catch (final FileNotFoundException e) {
+        }
+        catch (final FileNotFoundException e) {
             return true;
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to load raft meta storage", e);
             return false;
         }
@@ -116,11 +117,13 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
                 return false;
             }
             return true;
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             LOG.error("Fail to save raft meta", e);
             reportIOError();
             return false;
-        } finally {
+        }
+        finally {
             final long cost = Utils.monotonicMs() - start;
             if (this.nodeMetrics != null) {
                 this.nodeMetrics.recordLatency("save-raft-meta", cost);

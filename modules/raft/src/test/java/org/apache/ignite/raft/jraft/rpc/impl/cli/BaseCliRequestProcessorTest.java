@@ -45,8 +45,8 @@ import static org.junit.Assert.assertSame;
 public class BaseCliRequestProcessorTest {
     private static class MockCliRequestProcessor extends BaseCliRequestProcessor<PingRequest> {
 
-        private String            peerId;
-        private String            groupId;
+        private String peerId;
+        private String groupId;
         private RpcRequestClosure done;
         private CliRequestContext ctx;
 
@@ -81,7 +81,7 @@ public class BaseCliRequestProcessorTest {
     }
 
     private MockCliRequestProcessor processor;
-    private PeerId                  peer;
+    private PeerId peer;
     private MockAsyncContext asyncContext;
 
     @Before

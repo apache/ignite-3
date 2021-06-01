@@ -86,12 +86,14 @@ public final class NodeId implements Serializable {
             if (other.groupId != null) {
                 return false;
             }
-        } else if (!this.groupId.equals(other.groupId)) {
+        }
+        else if (!this.groupId.equals(other.groupId)) {
             return false;
         }
         if (this.peerId == null) {
             return other.peerId == null;
-        } else {
+        }
+        else {
             return this.peerId.equals(other.peerId);
         }
     }

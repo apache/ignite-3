@@ -41,8 +41,6 @@ import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 
 /**
  * Counter server that keeps a counter value in a raft group.
- *
-*
  */
 public class CounterServer {
     private static Set<CounterServer> servers = Collections.newSetFromMap(new ConcurrentHashMap<>());
@@ -52,7 +50,7 @@ public class CounterServer {
     private CounterStateMachine fsm;
 
     public CounterServer(final String dataPath, final String groupId, final PeerId serverId,
-                         final NodeOptions nodeOptions) throws IOException {
+        final NodeOptions nodeOptions) throws IOException {
         new File(dataPath).mkdirs();
 
         NodeManager nodeManager = new NodeManager();
@@ -120,7 +118,8 @@ public class CounterServer {
         return response;
     }
 
-    public static CounterServer start(String dataPath, String groupId, PeerId serverId, Configuration initConf) throws IOException {
+    public static CounterServer start(String dataPath, String groupId, PeerId serverId,
+        Configuration initConf) throws IOException {
         final NodeOptions nodeOptions = new NodeOptions();
 
         nodeOptions.setCommonExecutor(createExecutor("JRaft-Common-Executor-" + serverId.getEndpoint().toString(),
@@ -142,7 +141,7 @@ public class CounterServer {
 
         final CounterServer counterServer = new CounterServer(serverData.getPath(), groupId, serverId, nodeOptions);
         System.out.println("Started counter server at port:"
-                           + counterServer.getNode().getNodeId().getPeerId().getPort());
+            + counterServer.getNode().getNodeId().getPeerId().getPort());
 
         servers.add(counterServer);
 

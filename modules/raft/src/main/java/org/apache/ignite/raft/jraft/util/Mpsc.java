@@ -27,11 +27,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 //import org.apache.ignite.raft.jraft.util.internal.UnsafeUtil;
 
 /**
-* TODO asch fixme.
+ * TODO asch fixme.
  */
 public final class Mpsc {
 
-    private static final int MPSC_CHUNK_SIZE       = 1024;
+    private static final int MPSC_CHUNK_SIZE = 1024;
     private static final int MIN_MAX_MPSC_CAPACITY = MPSC_CHUNK_SIZE << 1;
 
     public static Queue<Runnable> newMpscQueue() {

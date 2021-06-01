@@ -25,8 +25,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 
 /**
  * Handle PreVote and RequestVote requests.
- *
-*
  */
 public class RequestVoteRequestProcessor extends NodeRequestProcessor<RequestVoteRequest> {
 
@@ -46,10 +44,11 @@ public class RequestVoteRequestProcessor extends NodeRequestProcessor<RequestVot
 
     @Override
     public Message processRequest0(final RaftServerService service, final RequestVoteRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         if (request.getPreVote()) {
             return service.handlePreVoteRequest(request);
-        } else {
+        }
+        else {
             return service.handleRequestVoteRequest(request);
         }
     }

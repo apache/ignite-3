@@ -20,7 +20,8 @@ import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.counter.rpc.ValueResponse;
 
 /**
-*/
+ *
+ */
 public abstract class CounterClosure implements Closure {
 
     private ValueResponse valueResponse;

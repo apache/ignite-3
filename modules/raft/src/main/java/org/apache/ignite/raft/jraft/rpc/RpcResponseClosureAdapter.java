@@ -19,8 +19,9 @@ package org.apache.ignite.raft.jraft.rpc;
 /**
  * RpcResponseClosure adapter holds the response.
  *
-*
- * 2018-Mar-29 2:30:35 PM 
+ *
+ * 2018-Mar-29 2:30:35 PM
+ *
  * @param <T>
  */
 public abstract class RpcResponseClosureAdapter<T extends Message> implements RpcResponseClosure<T> {

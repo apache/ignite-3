@@ -32,18 +32,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A configuration with a set of peers.
-*
  */
 public class Configuration implements Iterable<PeerId>, Copiable<Configuration> {
 
-    private static final Logger   LOG             = LoggerFactory.getLogger(Configuration.class);
+    private static final Logger LOG = LoggerFactory.getLogger(Configuration.class);
 
-    private static final String   LEARNER_POSTFIX = "/learner";
+    private static final String LEARNER_POSTFIX = "/learner";
 
-    private List<PeerId>          peers           = new ArrayList<>();
+    private List<PeerId> peers = new ArrayList<>();
 
     // use LinkedHashSet to keep insertion order.
-    private LinkedHashSet<PeerId> learners        = new LinkedHashSet<>();
+    private LinkedHashSet<PeerId> learners = new LinkedHashSet<>();
 
     public Configuration() {
         super();
@@ -70,7 +69,7 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
     /**
      * Construct a Configuration instance with peers and learners.
      *
-     * @param conf     peers configuration
+     * @param conf peers configuration
      * @param learners learners
      * @since 1.3.0
      */
@@ -241,12 +240,14 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
             if (other.learners != null) {
                 return false;
             }
-        } else if (!this.learners.equals(other.learners)) {
+        }
+        else if (!this.learners.equals(other.learners)) {
             return false;
         }
         if (this.peers == null) {
             return other.peers == null;
-        } else {
+        }
+        else {
             return this.peers.equals(other.peers);
         }
     }
@@ -296,10 +297,12 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
             if (peer.parse(peerStr)) {
                 if (isLearner) {
                     addLearner(peer);
-                } else {
+                }
+                else {
                     addPeer(peer);
                 }
-            } else {
+            }
+            else {
                 LOG.error("Fail to parse peer {} in {}, ignore it.", peerStr, conf);
             }
         }
@@ -307,9 +310,8 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
     }
 
     /**
-     *  Get the difference between |*this| and |rhs|
-     *  |included| would be assigned to |*this| - |rhs|
-     *  |excluded| would be assigned to |rhs| - |*this|
+     * Get the difference between |*this| and |rhs| |included| would be assigned to |*this| - |rhs| |excluded| would be
+     * assigned to |rhs| - |*this|
      */
     public void diff(final Configuration rhs, final Configuration included, final Configuration excluded) {
         included.peers = new ArrayList<>(this.peers);

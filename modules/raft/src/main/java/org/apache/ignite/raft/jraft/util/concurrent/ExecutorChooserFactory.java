@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.util.concurrent;
 
 /**
  * Factory that creates new {@link ExecutorChooser}s.
- *
-*/
+ */
 public interface ExecutorChooserFactory {
 
     /**

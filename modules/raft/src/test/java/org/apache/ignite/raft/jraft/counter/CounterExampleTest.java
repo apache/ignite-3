@@ -101,13 +101,14 @@ public class CounterExampleTest {
             }
             latch.await();
             LOG.info(n + " ops, cost : " + (System.currentTimeMillis() - start) + " ms.");
-        } finally {
+        }
+        finally {
             CounterServer.stopAll();
         }
     }
 
     private static void incrementAndGet(final CliClientServiceImpl cliClientService, final PeerId leader,
-                                        final long delta, CountDownLatch latch) throws RemotingException, InterruptedException {
+        final long delta, CountDownLatch latch) throws RemotingException, InterruptedException {
         final IncrementAndGetRequest request = new IncrementAndGetRequest();
         request.setDelta(delta);
 
@@ -117,7 +118,8 @@ public class CounterExampleTest {
                 if (err == null) {
                     latch.countDown();
                     LOG.info("incrementAndGet result:" + result);
-                } else {
+                }
+                else {
                     LOG.error("Failed to comnplete operation", err);
                     latch.countDown();
                 }

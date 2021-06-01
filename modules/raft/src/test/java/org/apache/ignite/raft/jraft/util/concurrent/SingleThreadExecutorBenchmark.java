@@ -45,16 +45,16 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
  *
-*/
+ */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class SingleThreadExecutorBenchmark {
 
-    private static final int TIMES   = 1000000;
+    private static final int TIMES = 1000000;
     private static final int THREADS = 32;
 
-    private ExecutorService  producers;
+    private ExecutorService producers;
 
     /*
      * Benchmark                                                                         Mode  Cnt  Score   Error  Units

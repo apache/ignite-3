@@ -34,7 +34,8 @@ final class ReflectionIntegerFieldUpdater<U> implements IntegerFieldUpdater<U> {
     public void set(final U obj, final int newValue) {
         try {
             this.field.set(obj, newValue);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
@@ -43,7 +44,8 @@ final class ReflectionIntegerFieldUpdater<U> implements IntegerFieldUpdater<U> {
     public int get(final U obj) {
         try {
             return (Integer) this.field.get(obj);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }

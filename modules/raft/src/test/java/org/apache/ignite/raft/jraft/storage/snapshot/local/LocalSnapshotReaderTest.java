@@ -38,11 +38,11 @@ import static org.junit.Assert.assertTrue;
 @RunWith(value = MockitoJUnitRunner.class)
 public class LocalSnapshotReaderTest extends BaseStorageTest {
 
-    private LocalSnapshotReader    reader;
+    private LocalSnapshotReader reader;
     @Mock
-    private LocalSnapshotStorage   snapshotStorage;
+    private LocalSnapshotStorage snapshotStorage;
     private LocalSnapshotMetaTable table;
-    private final int              snapshotIndex = 99;
+    private final int snapshotIndex = 99;
 
     @Override
     @Before

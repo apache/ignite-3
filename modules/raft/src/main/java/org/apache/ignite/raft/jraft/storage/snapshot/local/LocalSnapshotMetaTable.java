@@ -32,16 +32,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Table to keep local snapshot metadata infos.
- *
-*
  */
 public class LocalSnapshotMetaTable {
 
-    private static final Logger              LOG = LoggerFactory.getLogger(LocalSnapshotMetaTable.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotMetaTable.class);
 
     private final Map<String, LocalFileMeta> fileMap;
     private final RaftOptions raftOptions;
-    private SnapshotMeta                     meta;
+    private SnapshotMeta meta;
 
     public LocalSnapshotMetaTable(RaftOptions raftOptions) {
         super();
@@ -81,7 +79,8 @@ public class LocalSnapshotMetaTable {
                 return false;
             }
             return loadFromPbMeta(pbMeta);
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             LOG.error("Fail to parse LocalSnapshotPbMeta from byte buffer", e);
             return false;
         }
@@ -168,7 +167,8 @@ public class LocalSnapshotMetaTable {
     private boolean loadFromPbMeta(final LocalSnapshotPbMeta pbMeta) {
         if (pbMeta.hasMeta()) {
             this.meta = pbMeta.getMeta();
-        } else {
+        }
+        else {
             this.meta = null;
         }
         this.fileMap.clear();

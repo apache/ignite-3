@@ -21,8 +21,6 @@ import org.apache.ignite.raft.jraft.Status;
 
 /**
  * A copy session.
- *
-*
  */
 public interface Session extends Closeable {
 
@@ -34,8 +32,7 @@ public interface Session extends Closeable {
     /**
      * Block the thread to wait the copy job finishes or canceled.
      *
-     * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     void join() throws InterruptedException;
 

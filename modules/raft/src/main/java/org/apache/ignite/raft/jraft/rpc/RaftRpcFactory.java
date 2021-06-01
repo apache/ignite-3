@@ -18,8 +18,8 @@ package org.apache.ignite.raft.jraft.rpc;
 
 /**
  * Raft RPC service factory.
- *
-*/
+ */
 public interface RaftRpcFactory {
-    RpcResponseFactory DEFAULT = new RpcResponseFactory() {};
+    RpcResponseFactory DEFAULT = new RpcResponseFactory() {
+    };
 }

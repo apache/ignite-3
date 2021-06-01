@@ -21,7 +21,7 @@ import org.apache.ignite.raft.jraft.util.Ints;
 
 /**
  *
-*/
+ */
 public final class DefaultExecutorChooserFactory implements ExecutorChooserFactory {
 
     public static final DefaultExecutorChooserFactory INSTANCE = new DefaultExecutorChooserFactory();
@@ -30,7 +30,8 @@ public final class DefaultExecutorChooserFactory implements ExecutorChooserFacto
     public ExecutorChooser newChooser(final SingleThreadExecutor[] executors) {
         if (Ints.isPowerOfTwo(executors.length)) {
             return new PowerOfTwoExecutorChooser(executors);
-        } else {
+        }
+        else {
             return new GenericExecutorChooser(executors);
         }
     }
@@ -64,7 +65,7 @@ public final class DefaultExecutorChooserFactory implements ExecutorChooserFacto
 
     private static abstract class AbstractExecutorChooser implements ExecutorChooser {
 
-        protected final AtomicInteger          idx = new AtomicInteger();
+        protected final AtomicInteger idx = new AtomicInteger();
         protected final SingleThreadExecutor[] executors;
 
         protected AbstractExecutorChooser(SingleThreadExecutor[] executors) {

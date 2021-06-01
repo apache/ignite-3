@@ -15,16 +15,14 @@
 package org.apache.ignite.raft.jraft.util.timer;
 
 /**
- * A task which is executed after the delay specified with
- * Timer#newTimeout(TimerTask, long, TimeUnit).
+ * A task which is executed after the delay specified with Timer#newTimeout(TimerTask, long, TimeUnit).
  *
  * Forked from <a href="https://github.com/netty/netty">Netty</a>.
  */
 public interface TimerTask {
 
     /**
-     * Executed after the delay specified with
-     * Timer#newTimeout(TimerTask, long, TimeUnit).
+     * Executed after the delay specified with Timer#newTimeout(TimerTask, long, TimeUnit).
      *
      * @param timeout a handle which is associated with this task
      */

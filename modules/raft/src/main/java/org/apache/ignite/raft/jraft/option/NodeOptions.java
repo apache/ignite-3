@@ -145,8 +145,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private boolean enableMetrics = false;
 
     /**
-     * If non-null, we will pass this SnapshotThrottle to SnapshotExecutor
-     * Default: NULL
+     * If non-null, we will pass this SnapshotThrottle to SnapshotExecutor Default: NULL
      */
     private SnapshotThrottle snapshotThrottle;
 
@@ -175,7 +174,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private JRaftServiceFactory serviceFactory = new DefaultJRaftServiceFactory();
 
-    /** */
+    /**
+     *
+     */
     private List<Replicator.ReplicatorStateListener> replicationStateListeners;
 
     /** The common executor for short running tasks. */

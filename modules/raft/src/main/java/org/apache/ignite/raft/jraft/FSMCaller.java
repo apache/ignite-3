@@ -25,15 +25,12 @@ import org.apache.ignite.raft.jraft.util.Describer;
 
 /**
  * Finite state machine caller.
- *
-*
  */
 public interface FSMCaller extends Lifecycle<FSMCallerOptions>, Describer {
 
     /**
      * Listen on lastAppliedLogIndex update events.
-     *
-    */
+     */
     interface LastAppliedLogIndexListener {
 
         /**
@@ -113,8 +110,7 @@ public interface FSMCaller extends Lifecycle<FSMCallerOptions>, Describer {
     /**
      * Called after shutdown to wait it terminates.
      *
-     * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     void join() throws InterruptedException;
 }

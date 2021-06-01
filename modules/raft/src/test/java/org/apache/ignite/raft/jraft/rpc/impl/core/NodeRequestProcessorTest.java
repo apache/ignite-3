@@ -62,7 +62,8 @@ public class NodeRequestProcessorTest {
         }
 
         @Override
-        protected Message processRequest0(RaftServerService serviceService, PingRequest request, RpcRequestClosure done) {
+        protected Message processRequest0(RaftServerService serviceService, PingRequest request,
+            RpcRequestClosure done) {
             return RaftRpcFactory.DEFAULT.newResponse(null, Status.OK());
         }
 

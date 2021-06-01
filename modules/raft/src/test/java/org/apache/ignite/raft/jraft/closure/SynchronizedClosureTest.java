@@ -45,7 +45,8 @@ public class SynchronizedClosureTest {
                     long start = System.currentTimeMillis();
                     done.await();
                     cost.set(System.currentTimeMillis() - start);
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     e.printStackTrace();
                 }
                 latch.countDown();

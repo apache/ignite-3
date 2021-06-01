@@ -29,8 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * ResetLearners request processor.
- *
-*
  */
 public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<ResetLearnersRequest> {
 
@@ -50,7 +48,7 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ResetLearnersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> newLearners = new ArrayList<>(request.getLearnersCount());
 
@@ -68,7 +66,8 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
         ctx.node.resetLearners(newLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            } else {
+            }
+            else {
                 final LearnersOpResponse.Builder rb = LearnersOpResponse.newBuilder();
 
                 for (final PeerId peer : oldLearners) {

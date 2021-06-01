@@ -24,8 +24,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**
  * Snapshot writer.
- *
-*
  */
 public abstract class SnapshotWriter extends Snapshot implements Closeable, Lifecycle<Void> {
 

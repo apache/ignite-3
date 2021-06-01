@@ -29,8 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * State machine adapter that implements all methods with default behavior
- * except {@link #onApply(Iterator)}.
+ * State machine adapter that implements all methods with default behavior except {@link #onApply(Iterator)}.
  */
 public abstract class StateMachineAdapter implements StateMachine {
     /** The logger */

@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.core;
 
 /**
  * Replicator role
-*
  */
 public enum ReplicatorType {
     Follower, Learner;

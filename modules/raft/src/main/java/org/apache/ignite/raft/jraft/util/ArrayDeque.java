@@ -21,8 +21,9 @@ import java.util.List;
 /**
  * Extend array list to add peek/poll first/last element.
  *
-*
- * 2018-Apr-11 11:14:38 AM 
+ *
+ * 2018-Apr-11 11:14:38 AM
+ *
  * @param <E>
  */
 public class ArrayDeque<E> extends java.util.ArrayList<E> {
@@ -86,21 +87,14 @@ public class ArrayDeque<E> extends java.util.ArrayList<E> {
     }
 
     /**
-     * Expose this methods so we not need to create a new subList just to
-     * remove a range of elements.
+     * Expose this methods so we not need to create a new subList just to remove a range of elements.
      *
-     * Removes from this deque all of the elements whose index is between
-     * {@code fromIndex}, inclusive, and {@code toIndex}, exclusive.
-     * Shifts any succeeding elements to the left (reduces their index).
-     * This call shortens the deque by {@code (toIndex - fromIndex)} elements.
-     * (If {@code toIndex==fromIndex}, this operation has no effect.)
+     * Removes from this deque all of the elements whose index is between {@code fromIndex}, inclusive, and {@code
+     * toIndex}, exclusive. Shifts any succeeding elements to the left (reduces their index). This call shortens the
+     * deque by {@code (toIndex - fromIndex)} elements. (If {@code toIndex==fromIndex}, this operation has no effect.)
      *
-     * @throws IndexOutOfBoundsException if {@code fromIndex} or
-     *         {@code toIndex} is out of range
-     *         ({@code fromIndex < 0 ||
-     *          fromIndex >= size() ||
-     *          toIndex > size() ||
-     *          toIndex < fromIndex})
+     * @throws IndexOutOfBoundsException if {@code fromIndex} or {@code toIndex} is out of range ({@code fromIndex < 0
+     * || fromIndex >= size() || toIndex > size() || toIndex < fromIndex})
      */
     @Override
     public void removeRange(int fromIndex, int toIndex) {

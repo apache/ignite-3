@@ -20,8 +20,7 @@ import java.nio.ByteBuffer;
 
 /**
  * CRC utilities to compute CRC64 checksum.
- *
-*/
+ */
 public final class CrcUtil {
 
     private static final ThreadLocal<CRC64> CRC_64_THREAD_LOCAL = ThreadLocal.withInitial(CRC64::new);
@@ -42,7 +41,7 @@ public final class CrcUtil {
     /**
      * Compute CRC64 checksum for byte[].
      *
-     * @param array  source array
+     * @param array source array
      * @param offset starting position in the source array
      * @param length the number of array elements to be computed
      * @return checksum value

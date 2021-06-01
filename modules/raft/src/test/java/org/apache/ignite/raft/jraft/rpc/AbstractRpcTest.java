@@ -167,7 +167,8 @@ public abstract class AbstractRpcTest {
             client1.invokeSync(endpoint, request, 500);
 
             fail();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             // Expected.
         }
 
@@ -222,7 +223,8 @@ public abstract class AbstractRpcTest {
             fut.get(); // Should throw timeout exception.
 
             fail();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             // Expected.
         }
 
@@ -300,7 +302,8 @@ public abstract class AbstractRpcTest {
             if (request.val == 10_000)
                 try {
                     Thread.sleep(1000);
-                } catch (InterruptedException ignored) {
+                }
+                catch (InterruptedException ignored) {
                     // No-op.
                 }
 

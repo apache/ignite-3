@@ -24,8 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Concurrent hash set.
  *
  * Fork from bolt
- * 
-*/
+ */
 public class ConcurrentHashSet<E> extends AbstractSet<E> {
     private ConcurrentHashMap<E, Boolean> map;
 
@@ -39,6 +38,7 @@ public class ConcurrentHashSet<E> extends AbstractSet<E> {
 
     /**
      * return the size of the map
+     *
      * @see java.util.AbstractCollection#size()
      */
     @Override
@@ -47,7 +47,6 @@ public class ConcurrentHashSet<E> extends AbstractSet<E> {
     }
 
     /**
-     * 
      * @see java.util.AbstractCollection#contains(Object)
      */
     @SuppressWarnings("SuspiciousMethodCalls")
@@ -57,7 +56,6 @@ public class ConcurrentHashSet<E> extends AbstractSet<E> {
     }
 
     /**
-     *
      * @see java.util.AbstractCollection#iterator()
      */
     @Override
@@ -67,6 +65,7 @@ public class ConcurrentHashSet<E> extends AbstractSet<E> {
 
     /**
      * add an obj to set, if exist, return false, else return true
+     *
      * @see java.util.AbstractCollection#add(Object)
      */
     @Override
@@ -75,7 +74,6 @@ public class ConcurrentHashSet<E> extends AbstractSet<E> {
     }
 
     /**
-     *
      * @see java.util.AbstractCollection#remove(Object)
      */
     @Override
@@ -85,6 +83,7 @@ public class ConcurrentHashSet<E> extends AbstractSet<E> {
 
     /**
      * clear the set
+     *
      * @see java.util.AbstractCollection#clear()
      */
     @Override

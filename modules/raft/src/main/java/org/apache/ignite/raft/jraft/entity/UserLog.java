@@ -20,14 +20,12 @@ import java.nio.ByteBuffer;
 
 /**
  * User log entry.
- *
-*
  */
 public class UserLog {
 
-    /** log index*/
-    private long       index;
-    /** log data*/
+    /** log index */
+    private long index;
+    /** log data */
     private ByteBuffer data;
 
     public UserLog(long index, ByteBuffer data) {

@@ -41,8 +41,7 @@ import static org.apache.ignite.raft.jraft.counter.CounterOperation.INCREMENT;
 
 /**
  * Counter state machine.
- *
-* */
+ */
 public class CounterStateMachine extends StateMachineAdapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(CounterStateMachine.class);
@@ -81,13 +80,15 @@ public class CounterStateMachine extends StateMachineAdapter {
                 // This task is applied by this node, get value from closure to avoid additional parsing.
                 closure = (CounterClosure) iter.done();
                 counterOperation = closure.getCounterOperation();
-            } else {
+            }
+            else {
                 // Have to parse FetchAddRequest from this user log.
                 final ByteBuffer data = iter.getData();
 
                 try {
                     counterOperation = Marshaller.DEFAULT.unmarshall(data.array());
-                } catch (final Exception e) {
+                }
+                catch (final Exception e) {
                     LOG.error("Fail to decode IncrementAndGetRequest", e);
                 }
             }

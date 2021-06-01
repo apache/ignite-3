@@ -60,67 +60,67 @@ public class CliClientServiceImpl extends AbstractClientService implements CliCl
 
     @Override
     public Future<Message> addPeer(final Endpoint endpoint, final AddPeerRequest request,
-                                   final RpcResponseClosure<AddPeerResponse> done) {
+        final RpcResponseClosure<AddPeerResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> removePeer(final Endpoint endpoint, final RemovePeerRequest request,
-                                      final RpcResponseClosure<RemovePeerResponse> done) {
+        final RpcResponseClosure<RemovePeerResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> resetPeer(final Endpoint endpoint, final ResetPeerRequest request,
-                                     final RpcResponseClosure<ErrorResponse> done) {
+        final RpcResponseClosure<ErrorResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> snapshot(final Endpoint endpoint, final SnapshotRequest request,
-                                    final RpcResponseClosure<ErrorResponse> done) {
+        final RpcResponseClosure<ErrorResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> changePeers(final Endpoint endpoint, final ChangePeersRequest request,
-                                       final RpcResponseClosure<ChangePeersResponse> done) {
+        final RpcResponseClosure<ChangePeersResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> addLearners(final Endpoint endpoint, final AddLearnersRequest request,
-                                       final RpcResponseClosure<LearnersOpResponse> done) {
+        final RpcResponseClosure<LearnersOpResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> removeLearners(final Endpoint endpoint, final RemoveLearnersRequest request,
-                                          final RpcResponseClosure<LearnersOpResponse> done) {
+        final RpcResponseClosure<LearnersOpResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> resetLearners(final Endpoint endpoint, final ResetLearnersRequest request,
-                                         final RpcResponseClosure<LearnersOpResponse> done) {
+        final RpcResponseClosure<LearnersOpResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> getLeader(final Endpoint endpoint, final GetLeaderRequest request,
-                                     final RpcResponseClosure<GetLeaderResponse> done) {
+        final RpcResponseClosure<GetLeaderResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> transferLeader(final Endpoint endpoint, final TransferLeaderRequest request,
-                                          final RpcResponseClosure<ErrorResponse> done) {
+        final RpcResponseClosure<ErrorResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 
     @Override
     public Future<Message> getPeers(final Endpoint endpoint, final CliRequests.GetPeersRequest request,
-                                    final RpcResponseClosure<CliRequests.GetPeersResponse> done) {
+        final RpcResponseClosure<CliRequests.GetPeersResponse> done) {
         return invokeWithDone(endpoint, request, done, this.cliOptions.getTimeoutMs());
     }
 }

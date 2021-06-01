@@ -100,7 +100,8 @@ public class CopySessionTest {
                     //test join, should return
                     session.join();
                     latch.countDown();
-                } catch (final InterruptedException e) {
+                }
+                catch (final InterruptedException e) {
 
                 }
             }

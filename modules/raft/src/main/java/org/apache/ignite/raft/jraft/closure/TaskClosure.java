@@ -20,13 +20,12 @@ import org.apache.ignite.raft.jraft.Closure;
 
 /**
  * Closure for task applying.
-*/
+ */
 public interface TaskClosure extends Closure {
 
     /**
-     * Called when task is committed to majority peers of the
-     * RAFT group but before it is applied to state machine.
-     * 
+     * Called when task is committed to majority peers of the RAFT group but before it is applied to state machine.
+     *
      * <strong>Note: user implementation should not block
      * this method and throw any exceptions.</strong>
      */

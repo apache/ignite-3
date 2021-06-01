@@ -130,11 +130,13 @@ public class CliServiceImpl implements CliService {
 
                 LOG.info("Configuration of replication group {} changed from {} to {}.", groupId, oldConf, newConf);
                 return Status.OK();
-            } else {
+            }
+            else {
                 return statusFromResponse(result);
             }
 
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -185,11 +187,13 @@ public class CliServiceImpl implements CliService {
 
                 LOG.info("Configuration of replication group {} changed from {} to {}", groupId, oldConf, newConf);
                 return Status.OK();
-            } else {
+            }
+            else {
                 return statusFromResponse(result);
 
             }
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -237,11 +241,13 @@ public class CliServiceImpl implements CliService {
 
                 LOG.info("Configuration of replication group {} changed from {} to {}", groupId, oldConf, newConf);
                 return Status.OK();
-            } else {
+            }
+            else {
                 return statusFromResponse(result);
 
             }
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -266,7 +272,8 @@ public class CliServiceImpl implements CliService {
         try {
             final Message result = this.cliClientService.resetPeer(peerId.getEndpoint(), rb.build(), null).get();
             return statusFromResponse(result);
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -301,7 +308,8 @@ public class CliServiceImpl implements CliService {
             final Message result = this.cliClientService.addLearners(leaderId.getEndpoint(), rb.build(), null).get();
             return processLearnersOpResponse(groupId, result, "adding learners: %s", learners);
 
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -314,7 +322,7 @@ public class CliServiceImpl implements CliService {
     }
 
     private Status processLearnersOpResponse(final String groupId, final Message result, final String fmt,
-                                             final Object... formatArgs) {
+        final Object... formatArgs) {
         if (result instanceof LearnersOpResponse) {
             final LearnersOpResponse resp = (LearnersOpResponse) result;
             final Configuration oldConf = new Configuration();
@@ -333,7 +341,8 @@ public class CliServiceImpl implements CliService {
             LOG.info("Learners of replication group {} changed from {} to {} after {}.", groupId, oldConf, newConf,
                 String.format(fmt, formatArgs));
             return Status.OK();
-        } else {
+        }
+        else {
             return statusFromResponse(result);
         }
     }
@@ -362,7 +371,8 @@ public class CliServiceImpl implements CliService {
             final Message result = this.cliClientService.removeLearners(leaderId.getEndpoint(), rb.build(), null).get();
             return processLearnersOpResponse(groupId, result, "removing learners: %s", learners);
 
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -391,7 +401,8 @@ public class CliServiceImpl implements CliService {
             final Message result = this.cliClientService.resetLearners(leaderId.getEndpoint(), rb.build(), null).get();
             return processLearnersOpResponse(groupId, result, "resetting learners: %s", learners);
 
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -422,7 +433,8 @@ public class CliServiceImpl implements CliService {
         try {
             final Message result = this.cliClientService.transferLeader(leaderId.getEndpoint(), rb.build(), null).get();
             return statusFromResponse(result);
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -443,7 +455,8 @@ public class CliServiceImpl implements CliService {
         try {
             final Message result = this.cliClientService.snapshot(peer.getEndpoint(), rb.build(), null).get();
             return statusFromResponse(result);
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
     }
@@ -477,20 +490,24 @@ public class CliServiceImpl implements CliService {
                 if (msg instanceof ErrorResponse) {
                     if (st.isOk()) {
                         st.setError(-1, ((ErrorResponse) msg).getErrorMsg());
-                    } else {
+                    }
+                    else {
                         final String savedMsg = st.getErrorMsg();
                         st.setError(-1, "%s, %s", savedMsg, ((ErrorResponse) msg).getErrorMsg());
                     }
-                } else {
+                }
+                else {
                     final GetLeaderResponse response = (GetLeaderResponse) msg;
                     if (leaderId.parse(response.getLeaderId())) {
                         break;
                     }
                 }
-            } catch (final Exception e) {
+            }
+            catch (final Exception e) {
                 if (st.isOk()) {
                     st.setError(-1, e.getMessage());
-                } else {
+                }
+                else {
                     final String savedMsg = st.getErrorMsg();
 
                     st.setError(-1, "%s, %s", savedMsg, e.getMessage());
@@ -526,7 +543,7 @@ public class CliServiceImpl implements CliService {
 
     @Override
     public Status rebalance(final Set<String> balanceGroupIds, final Configuration conf,
-                            final Map<String, PeerId> rebalancedLeaderIds) {
+        final Map<String, PeerId> rebalancedLeaderIds) {
         Requires.requireNonNull(balanceGroupIds, "Null balance group ids");
         Requires.requireTrue(!balanceGroupIds.isEmpty(), "Empty balance group ids");
         Requires.requireNonNull(conf, "Null configuration");
@@ -539,7 +556,7 @@ public class CliServiceImpl implements CliService {
         Status failedStatus = null;
         final Queue<String> groupDeque = new ArrayDeque<>(balanceGroupIds);
         final LeaderCounter leaderCounter = new LeaderCounter(balanceGroupIds.size(), conf.size());
-        for (;;) {
+        for (; ; ) {
             final String groupId = groupDeque.poll();
             if (groupId == null) { // well done
                 break;
@@ -592,7 +609,7 @@ public class CliServiceImpl implements CliService {
     }
 
     private PeerId findTargetPeer(final PeerId self, final String groupId, final Configuration conf,
-                                  final LeaderCounter leaderCounter) {
+        final LeaderCounter leaderCounter) {
         for (final PeerId peerId : getAlivePeers(groupId, conf)) {
             if (peerId.equals(self)) {
                 continue;
@@ -606,7 +623,7 @@ public class CliServiceImpl implements CliService {
     }
 
     private List<PeerId> getPeers(final String groupId, final Configuration conf, final boolean returnLearners,
-                                  final boolean onlyGetAlive) {
+        final boolean onlyGetAlive) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null conf");
 
@@ -639,13 +656,16 @@ public class CliServiceImpl implements CliService {
                     peerIdList.add(newPeer);
                 }
                 return peerIdList;
-            } else {
+            }
+            else {
                 final ErrorResponse resp = (ErrorResponse) result;
                 throw new JRaftException(resp.getErrorMsg());
             }
-        } catch (final JRaftException e) {
+        }
+        catch (final JRaftException e) {
             throw e;
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             throw new JRaftException(e);
         }
     }
@@ -658,7 +678,7 @@ public class CliServiceImpl implements CliService {
 
         private final Map<PeerId, Integer> counter = new HashMap<>();
         // The expected average leader number on every peerId
-        private final int                  expectedAverage;
+        private final int expectedAverage;
 
         public LeaderCounter(final int groupCount, final int peerCount) {
             this.expectedAverage = (int) Math.ceil((double) groupCount / peerCount);

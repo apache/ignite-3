@@ -64,12 +64,15 @@ public class LocalFileMetaImpl implements LocalFileMetaOutter.LocalFileMeta, Loc
     }
 
     @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
 
         LocalFileMetaImpl that = (LocalFileMetaImpl) o;
 
-        if (fileSource != that.fileSource) return false;
+        if (fileSource != that.fileSource)
+            return false;
         return checksum.equals(that.checksum);
     }
 

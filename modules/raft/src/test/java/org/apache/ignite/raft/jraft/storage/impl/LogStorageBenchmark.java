@@ -33,13 +33,14 @@ public class LogStorageBenchmark {
 
     private final LogStorage logStorage;
 
-    private final int        logSize;
+    private final int logSize;
 
-    private final int        totalLogs;
+    private final int totalLogs;
 
-    private final int        batchSize;
+    private final int batchSize;
 
-    public LogStorageBenchmark(final LogStorage logStorage, final int logSize, final int totalLogs, final int batchSize) {
+    public LogStorageBenchmark(final LogStorage logStorage, final int logSize, final int totalLogs,
+        final int batchSize) {
         super();
         this.logStorage = logStorage;
         this.logSize = logSize;

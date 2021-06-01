@@ -22,14 +22,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
-*/
+ */
 public class Platform {
 
-    private static final Logger  LOG        = LoggerFactory.getLogger(Platform.class);
+    private static final Logger LOG = LoggerFactory.getLogger(Platform.class);
 
     private static final boolean IS_WINDOWS = isWindows0();
 
-    private static final boolean IS_MAC     = isMac0();
+    private static final boolean IS_MAC = isMac0();
 
     /**
      * Return {@code true} if the JVM is running on Windows

@@ -21,8 +21,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 
 /**
  * Load snapshot closure
- *
-*
  */
 public interface LoadSnapshotClosure extends Closure {
 

@@ -48,14 +48,15 @@ import static org.mockito.Matchers.eq;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class AbstractClientServiceTest {
-    static class MockClientService extends AbstractClientService {}
+    static class MockClientService extends AbstractClientService {
+    }
 
-    private RpcOptions         rpcOptions;
-    private MockClientService  clientService;
+    private RpcOptions rpcOptions;
+    private MockClientService clientService;
     @Mock
-    private RpcClient          rpcClient;
+    private RpcClient rpcClient;
     private RpcResponseFactory rpcResponseFactory = RaftRpcFactory.DEFAULT;
-    private final Endpoint     endpoint           = new Endpoint("localhost", 8081);
+    private final Endpoint endpoint = new Endpoint("localhost", 8081);
 
     @Before
     public void setup() {
@@ -69,7 +70,7 @@ public class AbstractClientServiceTest {
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        Status         status;
+        Status status;
 
         @Override
         public void run(final Status status) {
@@ -160,7 +161,8 @@ public class AbstractClientServiceTest {
         try {
             future.get();
             fail();
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             assertTrue(e.getCause() instanceof RemotingException);
         }
 
@@ -193,7 +195,8 @@ public class AbstractClientServiceTest {
         try {
             future.get();
             fail();
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             assertTrue(e.getCause() instanceof InvokeTimeoutException);
         }
 

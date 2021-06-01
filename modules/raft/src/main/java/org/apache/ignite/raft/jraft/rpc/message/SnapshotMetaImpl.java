@@ -109,16 +109,23 @@ class SnapshotMetaImpl implements RaftOutter.SnapshotMeta, RaftOutter.SnapshotMe
     }
 
     @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
 
         SnapshotMetaImpl that = (SnapshotMetaImpl) o;
 
-        if (lastIncludedIndex != that.lastIncludedIndex) return false;
-        if (lastIncludedTerm != that.lastIncludedTerm) return false;
-        if (!peersList.equals(that.peersList)) return false;
-        if (!oldPeersList.equals(that.oldPeersList)) return false;
-        if (!learnersList.equals(that.learnersList)) return false;
+        if (lastIncludedIndex != that.lastIncludedIndex)
+            return false;
+        if (lastIncludedTerm != that.lastIncludedTerm)
+            return false;
+        if (!peersList.equals(that.peersList))
+            return false;
+        if (!oldPeersList.equals(that.oldPeersList))
+            return false;
+        if (!learnersList.equals(that.learnersList))
+            return false;
         return oldLearnersList.equals(that.oldLearnersList);
     }
 

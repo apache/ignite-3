@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.util;
 
 /**
  * Recycle tool for {@link Recyclable}.
- *
-*/
+ */
 public final class RecycleUtil {
 
     /**

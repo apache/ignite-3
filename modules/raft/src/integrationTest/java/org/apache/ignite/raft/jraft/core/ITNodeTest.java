@@ -129,7 +129,8 @@ public class ITNodeTest {
                     Thread.sleep(DUMP_TIMEOUT_MS);
                     LOG.info("Test hang too long, dump threads");
                     TestUtils.dumpThreads();
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     // reset request, continue
                     continue;
                 }
@@ -247,14 +248,14 @@ public class ITNodeTest {
         try {
             Task.joinAll(tasks, TimeUnit.SECONDS.toMillis(30));
             assertEquals(10, c.get());
-        } finally {
+        }
+        finally {
             service.shutdown();
         }
     }
 
     /**
-     * Test rollback stateMachine with readIndex for issue 317:
-     * https://github.com/sofastack/sofa-jraft/issues/317
+     * Test rollback stateMachine with readIndex for issue 317: https://github.com/sofastack/sofa-jraft/issues/317
      */
     @Test
     public void testRollbackStateMachineWithReadIndex_Issue317() throws Exception {
@@ -276,7 +277,8 @@ public class ITNodeTest {
                 // Wait for submitting a read-index request
                 try {
                     applyLatch.await();
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     fail();
                 }
                 int i = 0;
@@ -333,12 +335,14 @@ public class ITNodeTest {
                     try {
                         if (status.isOk()) {
                             readIndexSuccesses.incrementAndGet();
-                        } else {
+                        }
+                        else {
                             assertTrue("Unexpected status: " + status,
                                 status.getErrorMsg().contains(errorMsg) || status.getRaftError() == RaftError.ETIMEDOUT
                                     || status.getErrorMsg().contains("Invalid state for readIndex: STATE_ERROR"));
                         }
-                    } finally {
+                    }
+                    finally {
                         latch.countDown();
                     }
                 }
@@ -434,7 +438,8 @@ public class ITNodeTest {
         this.sendTestTaskAndWait(node, 0, 10, err);
     }
 
-    private void sendTestTaskAndWait(final Node node, final int start, int amount, final RaftError err) throws InterruptedException {
+    private void sendTestTaskAndWait(final Node node, final int start, int amount,
+        final RaftError err) throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(amount);
         for (int i = start; i < start + amount; i++) {
             final ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
@@ -444,7 +449,8 @@ public class ITNodeTest {
         waitLatch(latch);
     }
 
-    private void sendTestTaskAndWait(final Node node, final int start, final RaftError err) throws InterruptedException {
+    private void sendTestTaskAndWait(final Node node, final int start,
+        final RaftError err) throws InterruptedException {
         sendTestTaskAndWait(node, start, 10, err);
     }
 
@@ -454,7 +460,8 @@ public class ITNodeTest {
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(final String prefix, final Node node, int amount, final int code) throws InterruptedException {
+    private void sendTestTaskAndWait(final String prefix, final Node node, int amount,
+        final int code) throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(10);
         for (int i = 0; i < amount; i++) {
             final ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes());
@@ -1123,7 +1130,8 @@ public class ITNodeTest {
         if (leaderPriority == 10) {
             // we just compare the two peers' log size value;
             assertTrue(peer2LogSize > peer1LogSize);
-        } else {
+        }
+        else {
             assertEquals(60, leader.getNodeId().getPeerId().getPriority());
             assertEquals(100, leader.getNodeTargetPriority());
         }
@@ -1361,7 +1369,8 @@ public class ITNodeTest {
                 assertNull(reqCtx);
                 if (status.isOk()) {
                     System.err.println("Read-index so fast: " + (System.currentTimeMillis() - start) + "ms");
-                } else {
+                }
+                else {
                     assertEquals(status, new Status(RaftError.ETIMEDOUT, "read-index request timeout"));
                     assertEquals(index, -1);
                 }
@@ -1440,12 +1449,14 @@ public class ITNodeTest {
                         for (int i = 0; i < 100; i++) {
                             try {
                                 sendTestTaskAndWait(leader);
-                            } catch (final InterruptedException e) {
+                            }
+                            catch (final InterruptedException e) {
                                 Thread.currentThread().interrupt();
                             }
                             readIndexRandom(cluster);
                         }
-                    } finally {
+                    }
+                    finally {
                         latch.countDown();
                     }
                 }
@@ -1468,7 +1479,8 @@ public class ITNodeTest {
                         });
                     try {
                         readLatch.await();
-                    } catch (final InterruptedException e) {
+                    }
+                    catch (final InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
                 }
@@ -1499,7 +1511,8 @@ public class ITNodeTest {
                     assertEquals(index, theIndex);
                     assertArrayEquals(requestContext, reqCtx);
                     success.set(true);
-                } else {
+                }
+                else {
                     assertTrue(status.getErrorMsg(), status.getErrorMsg().contains("RPC exception:Check connection["));
                     assertTrue(status.getErrorMsg(), status.getErrorMsg().contains("] fail and try to create new one"));
                 }
@@ -1705,7 +1718,8 @@ public class ITNodeTest {
         try {
             leader.addPeer(peer2, new ExpectClosure(latch));
             fail();
-        } catch (final IllegalArgumentException e) {
+        }
+        catch (final IllegalArgumentException e) {
             assertEquals("Peer already exists in current configuration", e.getMessage());
         }
 
@@ -2660,9 +2674,11 @@ public class ITNodeTest {
                 service.start(true);
 
                 fail();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 // Expected.
-            } finally {
+            }
+            finally {
                 service.shutdown();
             }
 
@@ -2671,6 +2687,7 @@ public class ITNodeTest {
 
     /**
      * 4.2.2 Removing the current leader
+     *
      * @throws Exception If failed.
      */
     @Test
@@ -2938,7 +2955,8 @@ public class ITNodeTest {
         try {
             assertNull(leader.readCommittedUserLog(15));
             fail();
-        } catch (final LogIndexOutOfBoundsException e) {
+        }
+        catch (final LogIndexOutOfBoundsException e) {
             assertEquals(e.getMessage(), "Request index 15 is greater than lastAppliedIndex: 11");
         }
 
@@ -2946,7 +2964,8 @@ public class ITNodeTest {
         try {
             assertNull(leader.readCommittedUserLog(0));
             fail();
-        } catch (final LogIndexOutOfBoundsException e) {
+        }
+        catch (final LogIndexOutOfBoundsException e) {
             assertEquals(e.getMessage(), "Request index is invalid: 0");
         }
         LOG.info("Trigger leader snapshot");
@@ -2978,7 +2997,8 @@ public class ITNodeTest {
         try {
             leader.readCommittedUserLog(5);
             fail();
-        } catch (final LogNotFoundException e) {
+        }
+        catch (final LogNotFoundException e) {
             assertEquals("User log is deleted at index: 5", e.getMessage());
         }
 
@@ -3012,7 +3032,7 @@ public class ITNodeTest {
         final MockStateMachine fsm = new MockStateMachine(addr);
 
         for (char ch = 'a'; ch <= 'z'; ch++) {
-            fsm.getLogs().add(ByteBuffer.wrap(new byte[]{(byte) ch}));
+            fsm.getLogs().add(ByteBuffer.wrap(new byte[] {(byte) ch}));
         }
 
         final BootstrapOptions opts = new BootstrapOptions();
@@ -3231,7 +3251,7 @@ public class ITNodeTest {
         boolean dontRemoveFirstPeer;
 
         ChangeArg(final TestCluster c, final List<PeerId> peers, final boolean stop,
-                  final boolean dontRemoveFirstPeer) {
+            final boolean dontRemoveFirstPeer) {
             super();
             this.c = c;
             this.peers = peers;
@@ -3278,7 +3298,8 @@ public class ITNodeTest {
                     assertTrue(done.getStatus().toString(),
                         done.getStatus().isOk() || expectedErrors.contains(done.getStatus().getRaftError()));
                 }
-            } catch (final InterruptedException e) {
+            }
+            catch (final InterruptedException e) {
                 LOG.error("ChangePeersThread is interrupted", e);
             }
         });
@@ -3315,7 +3336,8 @@ public class ITNodeTest {
                 if (++i % 100 == 0) {
                     System.out.println("Progress:" + i);
                 }
-            } else {
+            }
+            else {
                 assertEquals(RaftError.EPERM, status.getRaftError());
             }
         }
@@ -3367,7 +3389,8 @@ public class ITNodeTest {
                 if (++i % 100 == 0) {
                     System.out.println("Progress:" + i);
                 }
-            } else {
+            }
+            else {
                 assertEquals(RaftError.EPERM, status.getRaftError());
             }
         }
@@ -3429,13 +3452,16 @@ public class ITNodeTest {
                             if (++i % 100 == 0) {
                                 System.out.println("Progress:" + i);
                             }
-                        } else {
+                        }
+                        else {
                             assertEquals(RaftError.EPERM, status.getRaftError());
                         }
                     }
-                } catch (final Exception e) {
+                }
+                catch (final Exception e) {
                     LOG.error("Failed to run tasks", e);
-                } finally {
+                }
+                finally {
                     latch.countDown();
                 }
             });
@@ -3462,7 +3488,8 @@ public class ITNodeTest {
                 assertTrue("logSize= " + logSize, logSize >= 5000 * threads);
                 assertTrue("logSize= " + logSize, logSize - 5000 * threads < 100);
             }
-        } finally {
+        }
+        finally {
             cluster.stopAll();
         }
     }
@@ -3560,7 +3587,8 @@ public class ITNodeTest {
 
             try {
                 Thread.sleep(50);
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 return false;
             }
         }
@@ -3580,7 +3608,8 @@ public class ITNodeTest {
 
             try {
                 Thread.sleep(50);
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 return false;
             }
         }
@@ -3589,8 +3618,8 @@ public class ITNodeTest {
     }
 
     /**
-     * @param groupId     Group id.
-     * @param peerId      Peer id.
+     * @param groupId Group id.
+     * @param peerId Peer id.
      * @param nodeOptions Node options.
      * @return Raft group service.
      */

@@ -28,7 +28,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 /**
  * Handle read index request.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class ReadIndexRequestProcessor extends NodeRequestProcessor<ReadIndexRequest> {
 
@@ -48,14 +48,15 @@ public class ReadIndexRequestProcessor extends NodeRequestProcessor<ReadIndexReq
 
     @Override
     public Message processRequest0(final RaftServerService service, final ReadIndexRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         service.handleReadIndexRequest(request, new RpcResponseClosureAdapter<RpcRequests.ReadIndexResponse>() {
 
             @Override
             public void run(final Status status) {
                 if (getResponse() != null) {
                     done.sendResponse(getResponse());
-                } else {
+                }
+                else {
                     done.run(status);
                 }
             }

@@ -20,8 +20,7 @@ import org.apache.ignite.raft.jraft.util.Copiable;
 
 /**
  * Raft options.
- *
-* */
+ */
 public class RaftOptions implements Copiable<RaftOptions> {
     /**
      * Maximum of block size per RPC
@@ -80,27 +79,25 @@ public class RaftOptions implements Copiable<RaftOptions> {
      */
     private int disruptorBufferSize = 16384;
     /**
-     * The maximum timeout in seconds to wait when publishing events into disruptor, default is 10 seconds.
-     * If the timeout happens, it may halt the node.
+     * The maximum timeout in seconds to wait when publishing events into disruptor, default is 10 seconds. If the
+     * timeout happens, it may halt the node.
      */
     private int disruptorPublishEventWaitTimeoutSecs = 10;
     /**
-     * When true, validate log entry checksum when transferring the log entry from disk or network, default is false.
-     * If true, it would hurt the performance of JRAft but gain the data safety.
+     * When true, validate log entry checksum when transferring the log entry from disk or network, default is false. If
+     * true, it would hurt the performance of JRAft but gain the data safety.
      *
      * @since 1.2.6
      */
     private boolean enableLogEntryChecksum = false; // TODO asch fixme.
 
     /**
-     * ReadOnlyOption specifies how the read only request is processed.
-     *     * {@link ReadOnlyOption#ReadOnlySafe} guarantees the linearizability of the read only request by
-     * communicating with the quorum. It is the default and suggested option.
-     *     * {@link ReadOnlyOption#ReadOnlyLeaseBased} ensures linearizability of the read only request by
-     * relying on the leader lease. It can be affected by clock drift.
-     * If the clock drift is unbounded, leader might keep the lease longer than it
-     * should (clock can move backward/pause without any bound). ReadIndex is not safe
-     * in that case.
+     * ReadOnlyOption specifies how the read only request is processed. * {@link ReadOnlyOption#ReadOnlySafe} guarantees
+     * the linearizability of the read only request by communicating with the quorum. It is the default and suggested
+     * option. * {@link ReadOnlyOption#ReadOnlyLeaseBased} ensures linearizability of the read only request by relying
+     * on the leader lease. It can be affected by clock drift. If the clock drift is unbounded, leader might keep the
+     * lease longer than it should (clock can move backward/pause without any bound). ReadIndex is not safe in that
+     * case.
      */
     private ReadOnlyOption readOnlyOptions = ReadOnlyOption.ReadOnlySafe;
     /**

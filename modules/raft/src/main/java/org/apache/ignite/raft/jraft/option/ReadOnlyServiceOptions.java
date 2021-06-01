@@ -21,8 +21,7 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 
 /**
  * Read-Only service options.
- *
-*/
+ */
 public class ReadOnlyServiceOptions {
 
     private RaftOptions raftOptions;

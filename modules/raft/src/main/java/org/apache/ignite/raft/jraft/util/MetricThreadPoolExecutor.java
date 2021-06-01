@@ -23,30 +23,29 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A {@link java.util.concurrent.ExecutorService} that with a timer metric
- * which aggregates timing durations and provides duration statistics.
- *
-*/
+ * A {@link java.util.concurrent.ExecutorService} that with a timer metric which aggregates timing durations and
+ * provides duration statistics.
+ */
 public class MetricThreadPoolExecutor extends LogThreadPoolExecutor {
 
     public MetricThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue, String name) {
+        BlockingQueue<Runnable> workQueue, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, name);
     }
 
     public MetricThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, String name) {
+        BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, name);
     }
 
     public MetricThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler, String name) {
+        BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler, name);
     }
 
     public MetricThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,
-                                    RejectedExecutionHandler handler, String name) {
+        BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,
+        RejectedExecutionHandler handler, String name) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, name);
     }
 
@@ -56,7 +55,8 @@ public class MetricThreadPoolExecutor extends LogThreadPoolExecutor {
         try {
             ThreadPoolMetricRegistry.timerThreadLocal() //
                 .set(ThreadPoolMetricRegistry.metricRegistry().timer("threadPool." + getName()).time());
-        } catch (final Throwable ignored) {
+        }
+        catch (final Throwable ignored) {
             // ignored
         }
     }
@@ -71,7 +71,8 @@ public class MetricThreadPoolExecutor extends LogThreadPoolExecutor {
                 ctx.stop();
                 tl.remove();
             }
-        } catch (final Throwable ignored) {
+        }
+        catch (final Throwable ignored) {
             // ignored
         }
     }

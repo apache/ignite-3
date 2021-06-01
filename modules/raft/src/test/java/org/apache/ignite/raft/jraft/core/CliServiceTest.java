@@ -69,16 +69,22 @@ import static org.junit.Assert.fail;
 
 // TODO asch move to integration
 public class CliServiceTest {
-    /** */
+    /**
+     *
+     */
     static final Logger LOG = LoggerFactory.getLogger(CliServiceTest.class);
 
-    /** */
+    /**
+     *
+     */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
         .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
         .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
-    /** */
+    /**
+     *
+     */
     private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
 
     private String dataPath;
@@ -228,7 +234,8 @@ public class CliServiceTest {
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             if (!oldLearners.contains(new PeerId(fsm.getAddress(), 0))) {
                 assertEquals(40, fsm.getLogs().size());
-            } else {
+            }
+            else {
                 assertEquals(30, fsm.getLogs().size());
             }
         }
@@ -269,7 +276,8 @@ public class CliServiceTest {
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             if (fsm.getAddress().equals(peer3.getEndpoint())) {
                 assertEquals(20, fsm.getLogs().size());
-            } else {
+            }
+            else {
                 assertEquals(30, fsm.getLogs().size());
             }
         }
@@ -337,7 +345,8 @@ public class CliServiceTest {
         try {
             this.cliService.getPeers(this.groupId, this.conf);
             fail();
-        } catch (final IllegalStateException e) {
+        }
+        catch (final IllegalStateException e) {
             assertTrue(e.getMessage(), e.getMessage().startsWith("Fail to get leader of group " + this.groupId));
         }
     }
@@ -368,7 +377,8 @@ public class CliServiceTest {
         try {
             this.cliService.getAlivePeers(this.groupId, this.conf);
             fail();
-        } catch (final IllegalStateException e) {
+        }
+        catch (final IllegalStateException e) {
             assertTrue(e.getMessage(), e.getMessage().startsWith("Fail to get leader of group " + this.groupId));
         }
     }
@@ -475,7 +485,8 @@ public class CliServiceTest {
             final PeerId ret = this.rebalancedLeaderIds.get(groupId);
             if (ret != null) {
                 leaderId.parse(ret.toString());
-            } else {
+            }
+            else {
                 leaderId.parse(this.initialLeaderId.toString());
             }
             return Status.OK();

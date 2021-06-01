@@ -60,7 +60,7 @@ public class TestCluster {
     static class Clusters {
 
         public final IdentityHashMap<TestCluster, Object> needCloses = new IdentityHashMap<>();
-        private final Object                              EXIST      = new Object();
+        private final Object EXIST = new Object();
 
         public synchronized void add(final TestCluster cluster) {
             this.needCloses.put(cluster, EXIST);
@@ -82,21 +82,21 @@ public class TestCluster {
     }
 
     // TODO asch remove ?
-    public static final Clusters                          CLUSTERS           = new Clusters();
+    public static final Clusters CLUSTERS = new Clusters();
 
-    private final String                                  dataPath;
-    private final String                                  name;                                              // groupId
-    private final List<PeerId>                            peers;
-    private final List<NodeImpl>                          nodes;
+    private final String dataPath;
+    private final String name;                                              // groupId
+    private final List<PeerId> peers;
+    private final List<NodeImpl> nodes;
     private final LinkedHashMap<PeerId, MockStateMachine> fsms;
-    private final ConcurrentMap<String, RaftGroupService> serverMap          = new ConcurrentHashMap<>();
-    private final int                                     electionTimeoutMs;
-    private final Lock                                    lock               = new ReentrantLock();
+    private final ConcurrentMap<String, RaftGroupService> serverMap = new ConcurrentHashMap<>();
+    private final int electionTimeoutMs;
+    private final Lock lock = new ReentrantLock();
     private final Consumer<NodeOptions> optsClo;
 
-    private JRaftServiceFactory                           raftServiceFactory = new TestJRaftServiceFactory();
+    private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
 
-    private LinkedHashSet<PeerId>                         learners;
+    private LinkedHashSet<PeerId> learners;
 
     public JRaftServiceFactory getRaftServiceFactory() {
         return this.raftServiceFactory;
@@ -122,17 +122,18 @@ public class TestCluster {
         this(name, dataPath, peers, 300);
     }
 
-    public TestCluster(final String name, final String dataPath, final List<PeerId> peers, final int electionTimeoutMs) {
+    public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
+        final int electionTimeoutMs) {
         this(name, dataPath, peers, new LinkedHashSet<>(), 300, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
-                       final LinkedHashSet<PeerId> learners, final int electionTimeoutMs) {
+        final LinkedHashSet<PeerId> learners, final int electionTimeoutMs) {
         this(name, dataPath, peers, learners, 300, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
-                       final LinkedHashSet<PeerId> learners, final int electionTimeoutMs, @Nullable Consumer<NodeOptions> optsClo) {
+        final LinkedHashSet<PeerId> learners, final int electionTimeoutMs, @Nullable Consumer<NodeOptions> optsClo) {
         super();
         this.name = name;
         this.dataPath = dataPath;
@@ -159,31 +160,31 @@ public class TestCluster {
     }
 
     public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs)
-                                                                                                             throws IOException {
+        throws IOException {
         return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, false);
     }
 
     public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
-                         final boolean enableMetrics) throws IOException {
+        final boolean enableMetrics) throws IOException {
         return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, null, null);
     }
 
     public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
-                         final boolean enableMetrics, final SnapshotThrottle snapshotThrottle) throws IOException {
+        final boolean enableMetrics, final SnapshotThrottle snapshotThrottle) throws IOException {
         return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, null);
     }
 
     public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
-                         final boolean enableMetrics, final SnapshotThrottle snapshotThrottle,
-                         final RaftOptions raftOptions) throws IOException {
+        final boolean enableMetrics, final SnapshotThrottle snapshotThrottle,
+        final RaftOptions raftOptions) throws IOException {
 
         return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, raftOptions,
             ElectionPriority.Disabled);
     }
 
     public boolean start(final Endpoint listenAddr, final boolean emptyPeers, final int snapshotIntervalSecs,
-                         final boolean enableMetrics, final SnapshotThrottle snapshotThrottle,
-                         final RaftOptions raftOptions, final int priority) throws IOException {
+        final boolean enableMetrics, final SnapshotThrottle snapshotThrottle,
+        final RaftOptions raftOptions, final int priority) throws IOException {
 
         if (this.serverMap.get(listenAddr.toString()) != null) {
             return true;
@@ -194,7 +195,7 @@ public class TestCluster {
         nodeOptions.setCommonExecutor(createExecutor("JRaft-Common-Executor-" + listenAddr.toString(),
             nodeOptions.getCommonThreadPollSize()));
         nodeOptions.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor-" + listenAddr.toString(),
-                Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
+            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
 
         nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);
         nodeOptions.setEnableMetrics(enableMetrics);
@@ -240,7 +241,8 @@ public class TestCluster {
                 this.nodes.add((NodeImpl) node);
                 return true;
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
         return false;
@@ -253,7 +255,8 @@ public class TestCluster {
                 if (node.getServerId().getEndpoint().equals(endpoint))
                     return node;
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
 
@@ -268,7 +271,8 @@ public class TestCluster {
         this.lock.lock();
         try {
             return this.fsms.get(peer);
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -277,7 +281,8 @@ public class TestCluster {
         this.lock.lock();
         try {
             return new ArrayList<>(this.fsms.values());
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -326,7 +331,8 @@ public class TestCluster {
                 }
             }
             return null;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -344,7 +350,8 @@ public class TestCluster {
             final Node node = getLeader();
             if (node != null) {
                 return;
-            } else {
+            }
+            else {
                 Thread.sleep(10);
             }
         }
@@ -359,7 +366,8 @@ public class TestCluster {
                     ret.add(node);
                 }
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
         return ret;
@@ -367,6 +375,7 @@ public class TestCluster {
 
     /**
      * Ensure all peers leader is expectAddr
+     *
      * @param expectAddr expected address
      * @throws InterruptedException if interrupted
      */
@@ -391,7 +400,8 @@ public class TestCluster {
         this.lock.lock();
         try {
             return new ArrayList<>(this.nodes);
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -401,7 +411,8 @@ public class TestCluster {
         try {
             return this.nodes.stream().map(node -> node.getNodeId().getPeerId().getEndpoint())
                 .collect(Collectors.toList());
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -417,7 +428,8 @@ public class TestCluster {
                     break;
                 }
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
         return ret;
@@ -428,8 +440,8 @@ public class TestCluster {
     }
 
     /**
-     * TODO asch rewrite, remove wait times, instead use timeout.
-     * Ensure all logs is the same in all nodes.
+     * TODO asch rewrite, remove wait times, instead use timeout. Ensure all logs is the same in all nodes.
+     *
      * @param waitTimes
      * @return
      * @throws InterruptedException
@@ -445,7 +457,8 @@ public class TestCluster {
         try {
             int nround = 0;
             final MockStateMachine first = fsmList.get(0);
-            CHECK: while (true) {
+            CHECK:
+            while (true) {
                 first.lock();
                 if (first.getLogs().isEmpty()) {
                     first.unlock();
@@ -491,7 +504,8 @@ public class TestCluster {
                 break;
             }
             return true;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
             LOG.info("End ensureSame, waitTimes={0}", waitTimes);
         }

@@ -22,8 +22,6 @@ import org.apache.ignite.raft.jraft.option.RaftMetaStorageOptions;
 
 /**
  * Raft metadata storage service.
- *
-*
  */
 public interface RaftMetaStorage extends Lifecycle<RaftMetaStorageOptions>, Storage {
 

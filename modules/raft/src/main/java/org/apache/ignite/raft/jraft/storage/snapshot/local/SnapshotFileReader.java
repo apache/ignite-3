@@ -29,8 +29,6 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 
 /**
  * Snapshot file reader
- *
-*
  */
 public class SnapshotFileReader extends LocalDirReader {
 
@@ -57,7 +55,7 @@ public class SnapshotFileReader extends LocalDirReader {
 
     @Override
     public int readFile(final ByteBufferCollector metaBufferCollector, final String fileName, final long offset,
-                        final long maxCount) throws IOException, RetryAgainException {
+        final long maxCount) throws IOException, RetryAgainException {
         // read the whole meta file.
         if (fileName.equals(Snapshot.JRAFT_SNAPSHOT_META_FILE)) {
             final ByteBuffer metaBuf = this.metaTable.saveToByteBufferAsRemote();

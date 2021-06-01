@@ -20,14 +20,12 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**
  * Get the latest value request.
- *
-*
  */
 public class GetValueRequest implements Message {
 
     private static final long serialVersionUID = 9218253805003988802L;
 
-    private boolean           readOnlySafe     = true;
+    private boolean readOnlySafe = true;
 
     public boolean isReadOnlySafe() {
         return readOnlySafe;

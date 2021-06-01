@@ -31,23 +31,22 @@ import org.rocksdb.util.SizeUnit;
 
 /**
  *
-*/
+ */
 public final class StorageOptionsFactory {
 
     static {
         RocksDB.loadLibrary();
     }
 
-    private static final Map<String, DBOptions> rocksDBOptionsTable      = new ConcurrentHashMap<>();
+    private static final Map<String, DBOptions> rocksDBOptionsTable = new ConcurrentHashMap<>();
     private static final Map<String, ColumnFamilyOptions> columnFamilyOptionsTable = new ConcurrentHashMap<>();
-    private static final Map<String, BlockBasedTableConfig> tableFormatConfigTable   = new ConcurrentHashMap<>();
+    private static final Map<String, BlockBasedTableConfig> tableFormatConfigTable = new ConcurrentHashMap<>();
 
     /**
-     * Releases all storage options from the responsibility of freeing the
-     * underlying native C++ object.
+     * Releases all storage options from the responsibility of freeing the underlying native C++ object.
      *
-     * Note, that once an instance of options has been released, calling any
-     * of its functions will lead to undefined behavior.
+     * Note, that once an instance of options has been released, calling any of its functions will lead to undefined
+     * behavior.
      */
     public static void releaseAllOptions() {
         for (final DBOptions opts : rocksDBOptionsTable.values()) {
@@ -63,12 +62,10 @@ public final class StorageOptionsFactory {
     }
 
     /**
-     * Users can register a custom rocksdb dboptions, then the related
-     * classes will get their options by the key of their own class
-     * name.  If the user does not register an options, a default options
-     * will be provided.
+     * Users can register a custom rocksdb dboptions, then the related classes will get their options by the key of
+     * their own class name.  If the user does not register an options, a default options will be provided.
      *
-     * @param cls  the key of DBOptions
+     * @param cls the key of DBOptions
      * @param opts the DBOptions
      */
     public static void registerRocksDBOptions(final Class<?> cls, final DBOptions opts) {
@@ -76,13 +73,13 @@ public final class StorageOptionsFactory {
         Requires.requireNonNull(opts, "opts");
         if (rocksDBOptionsTable.putIfAbsent(cls.getName(), opts) != null) {
             throw new IllegalStateException("DBOptions with class key [" + cls.getName()
-                                            + "] has already been registered");
+                + "] has already been registered");
         }
     }
 
     /**
-     * Get a new default DBOptions or a copy of the exist DBOptions.
-     * Users should call DBOptions#close() to release resources themselves.
+     * Get a new default DBOptions or a copy of the exist DBOptions. Users should call DBOptions#close() to release
+     * resources themselves.
      *
      * @param cls the key of DBOptions
      * @return new default DBOptions or a copy of the exist DBOptions
@@ -95,7 +92,8 @@ public final class StorageOptionsFactory {
             opts = rocksDBOptionsTable.putIfAbsent(cls.getName(), newOpts);
             if (opts == null) {
                 opts = newOpts;
-            } else {
+            }
+            else {
                 newOpts.close();
             }
         }
@@ -133,12 +131,10 @@ public final class StorageOptionsFactory {
     }
 
     /**
-     * Users can register a custom rocksdb ColumnFamilyOptions, then the
-     * related classes will get their options by the key of their own class
-     * name.  If the user does not register an options, a default options
-     * will be provided.
+     * Users can register a custom rocksdb ColumnFamilyOptions, then the related classes will get their options by the
+     * key of their own class name.  If the user does not register an options, a default options will be provided.
      *
-     * @param cls  the key of ColumnFamilyOptions
+     * @param cls the key of ColumnFamilyOptions
      * @param opts the ColumnFamilyOptions
      */
     public static void registerRocksDBColumnFamilyOptions(final Class<?> cls, final ColumnFamilyOptions opts) {
@@ -146,18 +142,16 @@ public final class StorageOptionsFactory {
         Requires.requireNonNull(opts, "opts");
         if (columnFamilyOptionsTable.putIfAbsent(cls.getName(), opts) != null) {
             throw new IllegalStateException("ColumnFamilyOptions with class key [" + cls.getName()
-                                            + "] has already been registered");
+                + "] has already been registered");
         }
     }
 
     /**
-     * Get a new default ColumnFamilyOptions or a copy of the exist
-     * ColumnFamilyOptions.  Users should call ColumnFamilyOptions#close()
-     * to release resources themselves.
+     * Get a new default ColumnFamilyOptions or a copy of the exist ColumnFamilyOptions.  Users should call
+     * ColumnFamilyOptions#close() to release resources themselves.
      *
      * @param cls the key of ColumnFamilyOptions
-     * @return new default ColumnFamilyOptions or a copy of the exist
-     * ColumnFamilyOptions
+     * @return new default ColumnFamilyOptions or a copy of the exist ColumnFamilyOptions
      */
     public static ColumnFamilyOptions getRocksDBColumnFamilyOptions(final Class<?> cls) {
         Requires.requireNonNull(cls, "cls");
@@ -167,7 +161,8 @@ public final class StorageOptionsFactory {
             opts = columnFamilyOptionsTable.putIfAbsent(cls.getName(), newOpts);
             if (opts == null) {
                 opts = newOpts;
-            } else {
+            }
+            else {
                 newOpts.close();
             }
         }
@@ -258,9 +253,8 @@ public final class StorageOptionsFactory {
     }
 
     /**
-     * Users can register a custom rocksdb BlockBasedTableConfig, then the related
-     * classes will get their options by the key of their own class name.  If
-     * the user does not register a config, a default config will be provided.
+     * Users can register a custom rocksdb BlockBasedTableConfig, then the related classes will get their options by the
+     * key of their own class name.  If the user does not register a config, a default config will be provided.
      *
      * @param cls the key of BlockBasedTableConfig
      * @param cfg the BlockBasedTableConfig
@@ -338,7 +332,7 @@ public final class StorageOptionsFactory {
         if (!opts.isOwningHandle()) {
             throw new IllegalStateException(
                 "the instance of options [" + opts
-                        + "] has been released, calling any of its functions will lead to undefined behavior.");
+                    + "] has been released, calling any of its functions will lead to undefined behavior.");
         }
         return opts;
     }

@@ -24,8 +24,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 
 /**
  * IncrementAndGetRequest processor.
- *
-*
  */
 public class IncrementAndGetRequestProcessor implements RpcProcessor<IncrementAndGetRequest> {
 

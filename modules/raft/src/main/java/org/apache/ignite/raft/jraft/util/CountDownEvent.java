@@ -22,13 +22,11 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * CountDown event.
- *
-*
  */
 public class CountDownEvent {
 
-    private int             state    = 0;
-    private final Lock      lock     = new ReentrantLock();
+    private int state = 0;
+    private final Lock lock = new ReentrantLock();
     private final Condition busyCond = this.lock.newCondition();
     private volatile Object attachment;
 
@@ -44,7 +42,8 @@ public class CountDownEvent {
         this.lock.lock();
         try {
             return ++this.state;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -55,7 +54,8 @@ public class CountDownEvent {
             if (--this.state == 0) {
                 this.busyCond.signalAll();
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -66,7 +66,8 @@ public class CountDownEvent {
             while (this.state > 0) {
                 this.busyCond.await();
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }

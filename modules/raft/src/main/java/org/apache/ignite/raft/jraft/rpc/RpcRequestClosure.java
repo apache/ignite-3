@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 /**
  * RPC request Closure encapsulates the RPC contexts.
  *
-* @author jiachun.fjc
+ * @author jiachun.fjc
  */
 public class RpcRequestClosure implements Closure {
     private static final Logger LOG = LoggerFactory.getLogger(RpcRequestClosure.class);

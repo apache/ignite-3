@@ -25,8 +25,6 @@ import org.apache.ignite.raft.jraft.storage.LogManager;
 
 /**
  * FSM caller options.
- *
-*
  */
 public class FSMCallerOptions {
     private LogManager logManager;
@@ -38,7 +36,7 @@ public class FSMCallerOptions {
     /**
      * disruptor buffer size.
      */
-    private int          disruptorBufferSize = 1024;
+    private int disruptorBufferSize = 1024;
 
     public int getDisruptorBufferSize() {
         return this.disruptorBufferSize;

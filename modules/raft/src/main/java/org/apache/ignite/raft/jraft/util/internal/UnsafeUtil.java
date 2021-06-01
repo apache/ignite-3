@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.util.internal;
 
 /**
  * For the {@link sun.misc.Unsafe} access.
- *
-*/
+ */
 //@SuppressWarnings("ConstantConditions")
 //public final class UnsafeUtil {
 //

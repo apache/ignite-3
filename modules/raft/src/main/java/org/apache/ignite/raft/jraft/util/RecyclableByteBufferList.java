@@ -23,16 +23,16 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * A simple {@link ByteBuffer} list which is recyclable.
- * This implementation does not allow {@code null} elements to be added.
+ * A simple {@link ByteBuffer} list which is recyclable. This implementation does not allow {@code null} elements to be
+ * added.
  */
 public final class RecyclableByteBufferList extends ArrayList<ByteBuffer> implements Recyclable {
 
-    private static final long serialVersionUID         = -8605125654176467947L;
+    private static final long serialVersionUID = -8605125654176467947L;
 
-    private static final int  DEFAULT_INITIAL_CAPACITY = 8;
+    private static final int DEFAULT_INITIAL_CAPACITY = 8;
 
-    private int               capacity                 = 0;
+    private int capacity = 0;
 
     /**
      * Create a new empty {@link RecyclableByteBufferList} instance
@@ -136,14 +136,14 @@ public final class RecyclableByteBufferList extends ArrayList<ByteBuffer> implem
         this.handle = handle;
     }
 
-    private transient final Recyclers.Handle                 handle;
+    private transient final Recyclers.Handle handle;
 
     private static final Recyclers<RecyclableByteBufferList> recyclers = new Recyclers<RecyclableByteBufferList>(512) {
 
-                                                                           @Override
-                                                                           protected RecyclableByteBufferList newObject(final Handle handle) {
-                                                                               return new RecyclableByteBufferList(
-                                                                                   handle);
-                                                                           }
-                                                                       };
+        @Override
+        protected RecyclableByteBufferList newObject(final Handle handle) {
+            return new RecyclableByteBufferList(
+                handle);
+        }
+    };
 }

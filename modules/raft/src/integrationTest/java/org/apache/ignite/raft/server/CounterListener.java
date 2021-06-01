@@ -36,13 +36,19 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * TODO asch support for batch updates.
  */
 public class CounterListener implements RaftGroupListener {
-    /** */
+    /**
+     * The logger.
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(CounterListener.class);
 
-    /** */
+    /**
+     * The counter.
+     */
     private AtomicLong counter = new AtomicLong();
 
-    /** */
+    /**
+     * Snapshot execitor.
+     */
     private Executor executor = Executors.newSingleThreadExecutor();
 
     /** {@inheritDoc} */

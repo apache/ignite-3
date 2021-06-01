@@ -47,8 +47,8 @@ public class IteratorImpl {
     private RaftException error;
 
     public IteratorImpl(final StateMachine fsm, final LogManager logManager, final List<Closure> closures,
-                        final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
-                        final AtomicLong applyingIndex, NodeOptions options) {
+        final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
+        final AtomicLong applyingIndex, NodeOptions options) {
         super();
         this.fsm = fsm;
         this.logManager = logManager;
@@ -102,7 +102,8 @@ public class IteratorImpl {
                             "Fail to get entry at index=%d while committed_index=%d", this.currentIndex,
                             this.committedIndex);
                     }
-                } catch (final LogEntryCorruptedException e) {
+                }
+                catch (final LogEntryCorruptedException e) {
                     getOrCreateError().setType(EnumOutter.ErrorType.ERROR_TYPE_LOG);
                     getOrCreateError().getStatus().setError(RaftError.EINVAL, e.getMessage());
                 }
@@ -138,7 +139,8 @@ public class IteratorImpl {
         Requires.requireTrue(ntail > 0, "Invalid ntail=" + ntail);
         if (this.currEntry == null || this.currEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
             this.currentIndex -= ntail;
-        } else {
+        }
+        else {
             this.currentIndex -= ntail - 1;
         }
         this.currEntry = null;

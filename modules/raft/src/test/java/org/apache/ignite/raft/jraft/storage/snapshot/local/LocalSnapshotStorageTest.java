@@ -32,9 +32,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class LocalSnapshotStorageTest extends BaseStorageTest {
-    private LocalSnapshotStorage   snapshotStorage;
+    private LocalSnapshotStorage snapshotStorage;
     private LocalSnapshotMetaTable table;
-    private int                    lastSnapshotIndex = 99;
+    private int lastSnapshotIndex = 99;
 
     @Override
     @Before

@@ -18,8 +18,7 @@ package org.apache.ignite.raft.jraft.counter;
 
 /**
  * The counter service supporting query and count function.
- *
-*/
+ */
 public interface CounterService {
 
     /**

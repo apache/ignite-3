@@ -26,8 +26,6 @@ import org.apache.ignite.raft.jraft.storage.FileService;
 
 /**
  * Get file request processor.
- *
-*
  */
 public class GetFileRequestProcessor extends RpcRequestProcessor<GetFileRequest> {
 

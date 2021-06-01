@@ -40,16 +40,16 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 
 public class MockStateMachine extends StateMachineAdapter {
 
-    private final Lock             lock                  = new ReentrantLock();
-    private volatile int           onStartFollowingTimes = 0;
-    private volatile int           onStopFollowingTimes  = 0;
-    private volatile long          leaderTerm            = -1;
-    private volatile long          appliedIndex          = -1;
-    private volatile long          snapshotIndex         = -1L;
-    private final List<ByteBuffer> logs                  = new ArrayList<>();
-    private final Endpoint         address;
-    private volatile int           saveSnapshotTimes;
-    private volatile int           loadSnapshotTimes;
+    private final Lock lock = new ReentrantLock();
+    private volatile int onStartFollowingTimes = 0;
+    private volatile int onStopFollowingTimes = 0;
+    private volatile long leaderTerm = -1;
+    private volatile long appliedIndex = -1;
+    private volatile long snapshotIndex = -1L;
+    private final List<ByteBuffer> logs = new ArrayList<>();
+    private final Endpoint address;
+    private volatile int saveSnapshotTimes;
+    private volatile int loadSnapshotTimes;
 
     public Endpoint getAddress() {
         return this.address;
@@ -100,7 +100,8 @@ public class MockStateMachine extends StateMachineAdapter {
         this.lock.lock();
         try {
             return this.logs;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -121,7 +122,8 @@ public class MockStateMachine extends StateMachineAdapter {
                 if (iter.done() != null) {
                     iter.done().run(Status.OK());
                 }
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             this.appliedIndex = iter.getIndex();
@@ -139,7 +141,7 @@ public class MockStateMachine extends StateMachineAdapter {
         final String path = writer.getPath() + File.separator + "data";
         final File file = new File(path);
         try (FileOutputStream fout = new FileOutputStream(file);
-                BufferedOutputStream out = new BufferedOutputStream(fout)) {
+             BufferedOutputStream out = new BufferedOutputStream(fout)) {
             this.lock.lock();
             try {
                 for (final ByteBuffer buf : this.logs) {
@@ -149,13 +151,15 @@ public class MockStateMachine extends StateMachineAdapter {
                     out.write(buf.array());
                 }
                 this.snapshotIndex = this.appliedIndex;
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             System.out.println("Node<" + this.address + "> saved snapshot into " + file);
             writer.addFile("data");
             done.run(Status.OK());
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             e.printStackTrace();
             done.run(new Status(RaftError.EIO, "Fail to save snapshot"));
         }
@@ -183,16 +187,19 @@ public class MockStateMachine extends StateMachineAdapter {
                             break;
                         }
                         this.logs.add(ByteBuffer.wrap(buf));
-                    } else {
+                    }
+                    else {
                         break;
                     }
                 }
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             System.out.println("Node<" + this.address + "> loaded snapshot from " + path);
             return true;
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             e.printStackTrace();
             return false;
         }

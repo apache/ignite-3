@@ -18,13 +18,11 @@ package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.RejectedExecutionException;
 
-
 /**
  * Expose helper methods which create different {@link RejectedExecutionHandler}s.
  *
  * Reference from netty project.
- *
-*/
+ */
 public final class RejectedExecutionHandlers {
 
     private static final RejectedExecutionHandler REJECT = (task, executor) -> {
@@ -32,8 +30,7 @@ public final class RejectedExecutionHandlers {
     };
 
     /**
-     * Returns a {@link RejectedExecutionHandler} that will always just throw
-     * a {@link RejectedExecutionException}.
+     * Returns a {@link RejectedExecutionHandler} that will always just throw a {@link RejectedExecutionException}.
      */
     public static RejectedExecutionHandler reject() {
         return REJECT;

@@ -133,8 +133,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
     /**
      * ReadIndexResponse process closure
-     *
-    */
+     */
     class ReadIndexResponseClosure extends RpcResponseClosureAdapter<ReadIndexResponse> {
 
         final List<ReadIndexState> states;
@@ -176,13 +175,15 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                     ReadOnlyServiceImpl.this.lock.unlock();
                     doUnlock = false;
                     notifySuccess(readIndexStatus);
-                } else {
+                }
+                else {
                     // Not applied, add it to pending-notify cache.
                     ReadOnlyServiceImpl.this.pendingNotifyStatus
                         .computeIfAbsent(readIndexStatus.getIndex(), k -> new ArrayList<>(10)) //
                         .add(readIndexStatus);
                 }
-            } finally {
+            }
+            finally {
                 if (doUnlock) {
                     ReadOnlyServiceImpl.this.lock.unlock();
                 }
@@ -231,7 +232,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                 }
             }
             this.pendingNotifyStatus.clear();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -316,7 +318,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
             while (true) {
                 if (this.readIndexQueue.tryPublishEvent(translator)) {
                     break;
-                } else {
+                }
+                else {
                     retryTimes++;
                     if (retryTimes > MAX_ADD_REQUEST_RETRY_TIMES) {
                         Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), closure,
@@ -328,7 +331,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                     ThreadHelper.onSpinWait();
                 }
             }
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), closure, new Status(RaftError.EPERM, "Node is down."));
         }
     }
@@ -371,7 +375,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
             if (this.error != null) {
                 resetPendingStatusError(this.error.getStatus());
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
             if (pendingStatuses != null && !pendingStatuses.isEmpty()) {
                 for (final ReadIndexStatus status : pendingStatuses) {

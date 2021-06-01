@@ -27,7 +27,7 @@ import static org.junit.Assert.assertTrue;
 
 /**
  *
-*/
+ */
 public class RecyclersTest {
 
     private static Recyclers<RecyclableObject> newRecyclers(final int max) {
@@ -71,7 +71,8 @@ public class RecyclersTest {
         final Thread thread2 = new Thread(() -> {
             try {
                 recyclers.recycle(object, object.handle);
-            } catch (IllegalStateException e) {
+            }
+            catch (IllegalStateException e) {
                 exceptionStore.set(e);
             }
         });
@@ -125,7 +126,7 @@ public class RecyclersTest {
         }
 
         assertTrue("The threadLocalCapacity (" + recyclers.threadLocalCapacity() + ") must be <= maxCapacity ("
-                   + maxCapacity + ") as we not pool all new handles internally",
+                + maxCapacity + ") as we not pool all new handles internally",
             maxCapacity >= recyclers.threadLocalCapacity());
     }
 

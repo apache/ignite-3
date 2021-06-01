@@ -39,17 +39,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  * File reader service.
- *
-*
  */
 public final class FileService {
 
-    private static final Logger                   LOG           = LoggerFactory.getLogger(FileService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(FileService.class);
 
-    private static final FileService INSTANCE      = new FileService(); // TODO asch fixme.
+    private static final FileService INSTANCE = new FileService(); // TODO asch fixme.
 
     private final ConcurrentMap<Long, FileReader> fileReaderMap = new ConcurrentHashMap<>();
-    private final AtomicLong                      nextId        = new AtomicLong();
+    private final AtomicLong nextId = new AtomicLong();
 
     /**
      * Retrieve the singleton instance of FileService.
@@ -110,17 +108,20 @@ public final class FileService {
             if (!buf.hasRemaining()) {
                 // skip empty data
                 responseBuilder.setData(ByteString.EMPTY);
-            } else {
+            }
+            else {
                 // TODO check hole
                 responseBuilder.setData(new ByteString(buf));
             }
             return responseBuilder.build();
-        } catch (final RetryAgainException e) {
+        }
+        catch (final RetryAgainException e) {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EAGAIN,
                     "Fail to read from path=%s filename=%s with error: %s", reader.getPath(), request.getFilename(),
                     e.getMessage());
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to read file path={} filename={}", reader.getPath(), request.getFilename(), e);
             return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EIO,
@@ -135,7 +136,8 @@ public final class FileService {
         final long readerId = this.nextId.getAndIncrement();
         if (this.fileReaderMap.putIfAbsent(readerId, reader) == null) {
             return readerId;
-        } else {
+        }
+        else {
             return -1L;
         }
     }

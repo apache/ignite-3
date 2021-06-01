@@ -20,7 +20,6 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 
 /**
  * Raft meta storage options
-*
  */
 public class RaftMetaStorageOptions {
     private NodeImpl node;

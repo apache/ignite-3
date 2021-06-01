@@ -156,9 +156,11 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
                     return true;
                 }
-            } catch (final InterruptedException e) {
+            }
+            catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
-            } catch (final RemotingException e) {
+            }
+            catch (final RemotingException e) {
                 LOG.error("Fail to connect {}, remoting exception: {}.", endpoint, e.getMessage());
             }
         }
@@ -168,26 +170,26 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
     @Override
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-                                                              final RpcResponseClosure<T> done, final int timeoutMs) {
+        final RpcResponseClosure<T> done, final int timeoutMs) {
         return invokeWithDone(endpoint, request, done, timeoutMs, this.rpcExecutor);
     }
 
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-                                                              final RpcResponseClosure<T> done, final int timeoutMs,
-                                                              final Executor rpcExecutor) {
+        final RpcResponseClosure<T> done, final int timeoutMs,
+        final Executor rpcExecutor) {
         return invokeWithDone(endpoint, request, null, done, timeoutMs, rpcExecutor);
     }
 
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-                                                              final InvokeContext ctx,
-                                                              final RpcResponseClosure<T> done, final int timeoutMs) {
+        final InvokeContext ctx,
+        final RpcResponseClosure<T> done, final int timeoutMs) {
         return invokeWithDone(endpoint, request, ctx, done, timeoutMs, this.rpcExecutor);
     }
 
     public <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-                                                              final InvokeContext ctx,
-                                                              final RpcResponseClosure<T> done, final int timeoutMs,
-                                                              final Executor rpcExecutor) {
+        final InvokeContext ctx,
+        final RpcResponseClosure<T> done, final int timeoutMs,
+        final Executor rpcExecutor) {
         final RpcClient rc = this.rpcClient;
         final FutureImpl<Message> future = new FutureImpl<>();
         final Executor currExecutor = rpcExecutor != null ? rpcExecutor : this.rpcExecutor;
@@ -215,15 +217,18 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         if (result instanceof ErrorResponse) {
                             status = handleErrorResponse((ErrorResponse) result);
                             msg = (Message) result;
-                        } else if (result instanceof HasErrorResponse) { // TODO asch we don't need this.
+                        }
+                        else if (result instanceof HasErrorResponse) { // TODO asch we don't need this.
                             final ErrorResponse eResp = ((HasErrorResponse) result).getErrorResponse();
                             if (eResp != null) {
                                 status = handleErrorResponse(eResp);
                                 msg = eResp;
-                            } else {
+                            }
+                            else {
                                 msg = (T) result;
                             }
-                        } else {
+                        }
+                        else {
                             msg = (T) result;
                         }
                         if (done != null) {
@@ -232,19 +237,22 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                                     done.setResponse((T) msg);
                                 }
                                 done.run(status);
-                            } catch (final Throwable t) {
+                            }
+                            catch (final Throwable t) {
                                 LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
                             }
                         }
                         if (!future.isDone()) {
                             future.setResult(msg);
                         }
-                    } else {
+                    }
+                    else {
                         if (done != null) {
                             try {
                                 done.run(new Status(err instanceof InvokeTimeoutException ? RaftError.ETIMEDOUT
                                     : RaftError.EINTERNAL, "RPC exception:" + err.getMessage()));
-                            } catch (final Throwable t) {
+                            }
+                            catch (final Throwable t) {
                                 LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
                             }
                         }
@@ -259,13 +267,15 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                     return currExecutor;
                 }
             }, timeoutMs <= 0 ? this.rpcOptions.getRpcDefaultTimeout() : timeoutMs);
-        } catch (final InterruptedException e) {
+        }
+        catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             future.failure(e);
             // should be in another thread to avoid dead locking.
             Utils.runClosureInExecutor(currExecutor, done,
                 new Status(RaftError.EINTR, "Sending rpc was interrupted"));
-        } catch (final RemotingException e) {
+        }
+        catch (final RemotingException e) {
             future.failure(e);
             // should be in another thread to avoid dead locking.
             Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
@@ -287,7 +297,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         if (done != null) {
             try {
                 done.run(new Status(RaftError.ECANCELED, "RPC request was canceled by future."));
-            } catch (final Throwable t) {
+            }
+            catch (final Throwable t) {
                 LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
             }
         }

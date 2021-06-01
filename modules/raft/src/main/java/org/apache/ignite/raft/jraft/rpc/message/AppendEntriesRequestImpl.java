@@ -129,19 +129,29 @@ class AppendEntriesRequestImpl implements RpcRequests.AppendEntriesRequest, RpcR
     }
 
     @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
 
         AppendEntriesRequestImpl that = (AppendEntriesRequestImpl) o;
 
-        if (term != that.term) return false;
-        if (prevLogTerm != that.prevLogTerm) return false;
-        if (prevLogIndex != that.prevLogIndex) return false;
-        if (committedIndex != that.committedIndex) return false;
-        if (!groupId.equals(that.groupId)) return false;
-        if (!serverId.equals(that.serverId)) return false;
-        if (!peerId.equals(that.peerId)) return false;
-        if (!entiesList.equals(that.entiesList)) return false;
+        if (term != that.term)
+            return false;
+        if (prevLogTerm != that.prevLogTerm)
+            return false;
+        if (prevLogIndex != that.prevLogIndex)
+            return false;
+        if (committedIndex != that.committedIndex)
+            return false;
+        if (!groupId.equals(that.groupId))
+            return false;
+        if (!serverId.equals(that.serverId))
+            return false;
+        if (!peerId.equals(that.peerId))
+            return false;
+        if (!entiesList.equals(that.entiesList))
+            return false;
         return data != null ? data.equals(that.data) : that.data == null;
     }
 

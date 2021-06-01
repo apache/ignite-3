@@ -76,16 +76,23 @@ public class InstallSnapshotRequestImpl implements RpcRequests.InstallSnapshotRe
     }
 
     @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
 
         InstallSnapshotRequestImpl that = (InstallSnapshotRequestImpl) o;
 
-        if (term != that.term) return false;
-        if (!groupId.equals(that.groupId)) return false;
-        if (!serverId.equals(that.serverId)) return false;
-        if (!peerId.equals(that.peerId)) return false;
-        if (!meta.equals(that.meta)) return false;
+        if (term != that.term)
+            return false;
+        if (!groupId.equals(that.groupId))
+            return false;
+        if (!serverId.equals(that.serverId))
+            return false;
+        if (!peerId.equals(that.peerId))
+            return false;
+        if (!meta.equals(that.meta))
+            return false;
         return uri.equals(that.uri);
     }
 

@@ -20,23 +20,23 @@ import java.util.concurrent.ExecutorService;
 
 /**
  *
-*/
+ */
 public interface FixedThreadsExecutorGroupFactory {
 
     FixedThreadsExecutorGroup newExecutorGroup(final int nThreads, final String poolName,
-                                               final int maxPendingTasksPerThread);
+        final int maxPendingTasksPerThread);
 
     FixedThreadsExecutorGroup newExecutorGroup(final int nThreads, final String poolName,
-                                               final int maxPendingTasksPerThread, final boolean useMpscQueue);
+        final int maxPendingTasksPerThread, final boolean useMpscQueue);
 
     FixedThreadsExecutorGroup newExecutorGroup(final SingleThreadExecutor[] children);
 
     FixedThreadsExecutorGroup newExecutorGroup(final SingleThreadExecutor[] children,
-                                               final ExecutorChooserFactory.ExecutorChooser chooser);
+        final ExecutorChooserFactory.ExecutorChooser chooser);
 
     FixedThreadsExecutorGroup newExecutorGroup(final ExecutorService[] children);
 
     FixedThreadsExecutorGroup newExecutorGroup(final ExecutorService[] children,
-                                               final ExecutorChooserFactory.ExecutorChooser chooser);
+        final ExecutorChooserFactory.ExecutorChooser chooser);
 
 }

@@ -22,8 +22,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 
 /**
  * Bootstrap options
- *
-* */
+ */
 public class BootstrapOptions {
     // Containing the initial member of this raft group
     // Default: empty conf

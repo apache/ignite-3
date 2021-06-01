@@ -18,8 +18,6 @@ package org.apache.ignite.raft.jraft;
 
 /**
  * Service life cycle mark interface.
- *
-*
  */
 public interface Lifecycle<T> {
 
