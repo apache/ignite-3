@@ -26,7 +26,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * Add learners.
  */
-@AutoMessage(value = RaftClientMessageTypes.ADD_LEARNERS_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.ADD_LEARNERS_REQUEST, autoSerializable = false)
 public interface AddLearnersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

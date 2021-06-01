@@ -26,7 +26,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * Remove learners.
  */
-@AutoMessage(value = RaftClientMessageTypes.REMOVE_LEARNERS_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.REMOVE_LEARNERS_REQUEST, autoSerializable = false)
 public interface RemoveLearnersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

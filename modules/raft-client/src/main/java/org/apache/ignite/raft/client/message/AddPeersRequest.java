@@ -26,7 +26,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * Add peers.
  */
-@AutoMessage(value = RaftClientMessageTypes.ADD_PEERS_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.ADD_PEERS_REQUEST, autoSerializable = false)
 public interface AddPeersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

@@ -26,7 +26,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * Remove peers.
  */
-@AutoMessage(value = RaftClientMessageTypes.REMOVE_PEERS_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.REMOVE_PEERS_REQUEST, autoSerializable = false)
 public interface RemovePeersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

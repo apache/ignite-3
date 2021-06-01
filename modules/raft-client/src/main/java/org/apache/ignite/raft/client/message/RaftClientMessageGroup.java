@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
  * Message types for the raft-client module.
  */
 @MessageGroup(groupType = 2, groupName = "RaftClientMessages")
-public class RaftClientMessageTypes {
+public class RaftClientMessageGroup {
     /**
      * Message type for {@link ActionRequest}.
      */

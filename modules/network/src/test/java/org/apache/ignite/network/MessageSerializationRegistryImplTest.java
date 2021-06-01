@@ -38,7 +38,7 @@ public class MessageSerializationRegistryImplTest {
     public void testRegisterFactory() {
         var registry = new MessageSerializationRegistryImpl();
 
-        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(Msg.GROUP_TYPE, Msg.TYPE, new MsgSerializationFactory());
     }
 
     /**
@@ -49,11 +49,11 @@ public class MessageSerializationRegistryImplTest {
     public void testRegisterFactoryWithSameType() {
         var registry = new MessageSerializationRegistryImpl();
 
-        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(Msg.GROUP_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
         assertThrows(
             NetworkConfigurationException.class,
-            () -> registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory())
+            () -> registry.registerFactory(Msg.GROUP_TYPE, Msg.TYPE, new MsgSerializationFactory())
         );
     }
 
@@ -65,15 +65,15 @@ public class MessageSerializationRegistryImplTest {
     public void testRegisterFactoryWithSameTypeDifferentModule() {
         var registry = new MessageSerializationRegistryImpl();
 
-        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(Msg.GROUP_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
-        short nextModuleType = Msg.MODULE_TYPE + 1;
+        short nextGroupType = Msg.GROUP_TYPE + 1;
 
-        registry.registerFactory(nextModuleType, Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(nextGroupType, Msg.TYPE, new MsgSerializationFactory());
 
         assertNotSame(
-            registry.createDeserializer(Msg.MODULE_TYPE, Msg.TYPE),
-            registry.createDeserializer(nextModuleType, Msg.TYPE)
+            registry.createDeserializer(Msg.GROUP_TYPE, Msg.TYPE),
+            registry.createDeserializer(nextGroupType, Msg.TYPE)
         );
     }
 
@@ -85,10 +85,10 @@ public class MessageSerializationRegistryImplTest {
     public void testCreateSerializers() {
         var registry = new MessageSerializationRegistryImpl();
 
-        registry.registerFactory(Msg.MODULE_TYPE, Msg.TYPE, new MsgSerializationFactory());
+        registry.registerFactory(Msg.GROUP_TYPE, Msg.TYPE, new MsgSerializationFactory());
 
-        assertNotNull(registry.createSerializer(Msg.MODULE_TYPE, Msg.TYPE));
-        assertNotNull(registry.createDeserializer(Msg.MODULE_TYPE, Msg.TYPE));
+        assertNotNull(registry.createSerializer(Msg.GROUP_TYPE, Msg.TYPE));
+        assertNotNull(registry.createDeserializer(Msg.GROUP_TYPE, Msg.TYPE));
     }
 
     /**
@@ -99,14 +99,14 @@ public class MessageSerializationRegistryImplTest {
     public void testCreateSerializersIfNotRegistered() {
         var registry = new MessageSerializationRegistryImpl();
 
-        assertThrows(AssertionError.class, () -> registry.createSerializer(Msg.MODULE_TYPE, Msg.TYPE));
-        assertThrows(AssertionError.class, () -> registry.createDeserializer(Msg.MODULE_TYPE, Msg.TYPE));
+        assertThrows(AssertionError.class, () -> registry.createSerializer(Msg.GROUP_TYPE, Msg.TYPE));
+        assertThrows(AssertionError.class, () -> registry.createDeserializer(Msg.GROUP_TYPE, Msg.TYPE));
     }
 
     /** */
     private static class Msg implements NetworkMessage {
         /** */
-        static final short MODULE_TYPE = 0;
+        static final short GROUP_TYPE = 0;
 
         /** */
         static final short TYPE = 0;
@@ -118,7 +118,7 @@ public class MessageSerializationRegistryImplTest {
 
         /** {@inheritDoc} */
         @Override public short groupType() {
-            return MODULE_TYPE;
+            return GROUP_TYPE;
         }
     }
 

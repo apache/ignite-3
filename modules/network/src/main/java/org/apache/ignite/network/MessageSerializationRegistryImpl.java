@@ -34,14 +34,14 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
     /** {@inheritDoc} */
     @Override
     public MessageSerializationRegistry registerFactory(
-        short moduleType, short messageType, MessageSerializationFactory<?> factory
+        short groupType, short messageType, MessageSerializationFactory<?> factory
     ) {
-        Integer index = asInt(moduleType, messageType);
+        Integer index = asInt(groupType, messageType);
 
         if (factories.containsKey(index))
             throw new NetworkConfigurationException(String.format(
                 "Message serialization factory for message type %d in module %d is already defined",
-                messageType, moduleType
+                messageType, groupType
             ));
 
         factories.put(index, factory);
@@ -53,14 +53,14 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
      * Gets a {@link MessageSerializationFactory} for the given message type.
      *
      * @param <T> Type of a message.
-     * @param moduleType Module type of a message.
+     * @param groupType Message group type.
      * @param messageType Message type.
      * @return Message's serialization factory.
      */
     private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(
-        short moduleType, short messageType
+        short groupType, short messageType
     ) {
-        var provider = factories.get(asInt(moduleType, messageType));
+        var provider = factories.get(asInt(groupType, messageType));
 
         assert provider != null : "No serializer provider defined for type " + messageType;
 
@@ -69,15 +69,15 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
 
     /** {@inheritDoc} */
     @Override
-    public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short moduleType, short messageType) {
-        MessageSerializationFactory<T> factory = getFactory(moduleType, messageType);
+    public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short groupType, short messageType) {
+        MessageSerializationFactory<T> factory = getFactory(groupType, messageType);
         return factory.createSerializer();
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short moduleType, short messageType) {
-        MessageSerializationFactory<T> factory = getFactory(moduleType, messageType);
+    public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short groupType, short messageType) {
+        MessageSerializationFactory<T> factory = getFactory(groupType, messageType);
         return factory.createDeserializer();
     }
 

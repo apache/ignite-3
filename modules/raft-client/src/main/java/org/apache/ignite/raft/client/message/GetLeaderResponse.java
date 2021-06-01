@@ -25,7 +25,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * A current leader.
  */
-@AutoMessage(value = RaftClientMessageTypes.GET_LEADER_RESPONSE, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.GET_LEADER_RESPONSE, autoSerializable = false)
 public interface GetLeaderResponse extends NetworkMessage, Serializable {
     /**
      * @return The leader.

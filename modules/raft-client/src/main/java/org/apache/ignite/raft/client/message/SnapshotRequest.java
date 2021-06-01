@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.AutoMessage;
 /**
  * Take a local snapshot on the peer.
  */
-@AutoMessage(value = RaftClientMessageTypes.SNAPSHOT_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.SNAPSHOT_REQUEST, autoSerializable = false)
 public interface SnapshotRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

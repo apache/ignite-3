@@ -22,7 +22,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.AutoMessage;
 
 /** Get peers. */
-@AutoMessage(value = RaftClientMessageTypes.GET_PEERS_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.GET_PEERS_REQUEST, autoSerializable = false)
 public interface GetPeersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

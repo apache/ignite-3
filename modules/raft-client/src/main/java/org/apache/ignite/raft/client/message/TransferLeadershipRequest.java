@@ -25,7 +25,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * Transfer a leadership to receiving peer.
  */
-@AutoMessage(value = RaftClientMessageTypes.TRANSFER_LEADERSHIP_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.TRANSFER_LEADERSHIP_REQUEST, autoSerializable = false)
 public interface TransferLeadershipRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

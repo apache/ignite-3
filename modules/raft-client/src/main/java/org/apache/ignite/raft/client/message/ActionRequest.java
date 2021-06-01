@@ -25,7 +25,7 @@ import org.apache.ignite.raft.client.Command;
 /**
  * Submit an action to a replication group.
  */
-@AutoMessage(value = RaftClientMessageTypes.ACTION_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.ACTION_REQUEST, autoSerializable = false)
 public interface ActionRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

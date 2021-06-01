@@ -1038,15 +1038,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 return null;
             }
 
-            short moduleType = readShort();
+            short messageGroupType = readShort();
 
-            if (moduleType == Short.MIN_VALUE) {
+            if (messageGroupType == Short.MIN_VALUE) {
                 msgDeserializer = null;
             }
             else {
                 short messageType = readShort();
 
-                msgDeserializer = serializationRegistry.createDeserializer(moduleType, messageType);
+                msgDeserializer = serializationRegistry.createDeserializer(messageGroupType, messageType);
             }
 
             msgTypeDone = true;

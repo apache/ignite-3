@@ -26,7 +26,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  * Change peers result.
  */
-@AutoMessage(value = RaftClientMessageTypes.CHANGE_PEERS_RESPONSE, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.CHANGE_PEERS_RESPONSE, autoSerializable = false)
 public interface ChangePeersResponse extends NetworkMessage, Serializable {
     /**
      * @return Old peers.

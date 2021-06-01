@@ -26,7 +26,7 @@ import org.apache.ignite.raft.client.Peer;
 /**
  *
  */
-@AutoMessage(value = RaftClientMessageTypes.GET_PEERS_RESPONSE, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.GET_PEERS_RESPONSE, autoSerializable = false)
 public interface GetPeersResponse extends NetworkMessage, Serializable {
     /**
      * @return Current peers.

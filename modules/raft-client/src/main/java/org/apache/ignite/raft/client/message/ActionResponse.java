@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.AutoMessage;
 /**
  * The result of an action.
  */
-@AutoMessage(value = RaftClientMessageTypes.ACTION_RESPONSE, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.ACTION_RESPONSE, autoSerializable = false)
 public interface ActionResponse extends NetworkMessage, Serializable {
     /**
      * @return A result for this request, can be of any type.

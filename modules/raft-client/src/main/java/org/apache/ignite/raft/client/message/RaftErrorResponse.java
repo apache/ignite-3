@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Raft error response.
  */
-@AutoMessage(value = RaftClientMessageTypes.RAFT_ERROR_RESPONSE, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.RAFT_ERROR_RESPONSE, autoSerializable = false)
 public interface RaftErrorResponse extends NetworkMessage, Serializable {
     /**
      * @return Error code.

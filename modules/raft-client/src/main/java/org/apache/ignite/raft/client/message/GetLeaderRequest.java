@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.AutoMessage;
 /**
  * Get leader.
  */
-@AutoMessage(value = RaftClientMessageTypes.GET_LEADER_REQUEST, autoSerializable = false)
+@AutoMessage(value = RaftClientMessageGroup.GET_LEADER_REQUEST, autoSerializable = false)
 public interface GetLeaderRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.
