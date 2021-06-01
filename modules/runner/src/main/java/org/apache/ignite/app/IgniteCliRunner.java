@@ -106,7 +106,7 @@ public class IgniteCliRunner {
              *
              * @param msg Message.
              */
-            public ParseException(String msg) {
+            private ParseException(String msg) {
                 super(msg);
             }
         }
