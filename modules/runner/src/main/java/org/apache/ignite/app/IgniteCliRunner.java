@@ -23,14 +23,14 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.app.IgnitionImpl;
 
 /**
- * Sample application integrating new configuration module and providing standard REST API to access and modify it.
+ * The main entry point for run new Ignite node from CLI toolchain.
  */
 public class IgniteCliRunner {
     /**
-     * Main entry point for run Ignite node.
+     * Main method for run new Ignite node.
      *
      * @param args CLI args to start new node.
-     * @throws IOException
+     * @throws IOException if any issues with reading config file.
      */
     public static void main(String[] args) throws IOException {
         Args parsedArgs = null;
@@ -53,19 +53,25 @@ public class IgniteCliRunner {
     }
 
     /**
-     * Simple value object with needed CLI args of ignite runner.
+     * Simple value object with parsed CLI args of ignite runner.
      */
     private static class Args {
         /** CLI usage message. */
         private static String usage = "IgniteCliRunner [--config conf] nodeName";
 
         /** Name of the node. */
-        public final String nodeName;
+        private final String nodeName;
 
         /** Path to config file. */
-        public final Path config;
+        private final Path config;
 
-        public Args(String nodeName, Path config) {
+        /**
+         * Creates new instance with parsed arguments.
+         *
+         * @param nodeName Name of the node.
+         * @param config Path to config file.
+         */
+        private Args(String nodeName, Path config) {
             this.nodeName = nodeName;
             this.config = config;
         }
@@ -95,8 +101,13 @@ public class IgniteCliRunner {
          */
         private static class ParseException extends Exception {
 
-            public ParseException(String message) {
-                super(message);
+            /**
+             * Creates new exception of parsing.
+             *
+             * @param msg Message.
+             */
+            public ParseException(String msg) {
+                super(msg);
             }
         }
     }

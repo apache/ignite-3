@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.schemas.runner;
 
-import java.util.UUID;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.storage.ConfigurationType;

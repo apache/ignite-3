@@ -64,9 +64,7 @@ public class NodeCommandSpec extends CategorySpec {
         public String nodeName;
 
         /** Path to node config. */
-        @CommandLine.Option(
-            names = "--config",
-            description = "Configuration file to start the node with")
+        @CommandLine.Option(names = "--config", description = "Configuration file to start the node with")
         private Path configPath;
 
         /** {@inheritDoc} */

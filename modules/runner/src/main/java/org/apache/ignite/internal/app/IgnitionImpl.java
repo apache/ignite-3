@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import io.netty.util.internal.StringUtil;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -83,6 +81,8 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override public synchronized Ignite start(String nodeName, String jsonStrBootstrapCfg) {
+        assert !StringUtil.isNullOrEmpty(nodeName) : "Node local name is empty";
+
         ackBanner();
 
         // Vault Component startup.

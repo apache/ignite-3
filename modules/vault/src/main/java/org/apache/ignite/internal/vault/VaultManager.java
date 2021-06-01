@@ -175,10 +175,20 @@ public class VaultManager {
         }
     }
 
-    @NotNull public CompletableFuture<Void> putName(String name) {
+    /**
+     * Persist node name to the vault.
+     *
+     * @param name Node name to persist.
+     * @return Future representing pending completion of the operation. Couldn't be {@code null}.
+     */
+    @NotNull public CompletableFuture<Void> putName(@NotNull String name) {
         return put(NODE_NAME, name.getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * @return Node name, if was stored earlier.
+     * @throws IgniteInternalCheckedException If couldn't get node name from the vault.
+     */
     public String name() throws IgniteInternalCheckedException {
         synchronized (mux) {
             try {

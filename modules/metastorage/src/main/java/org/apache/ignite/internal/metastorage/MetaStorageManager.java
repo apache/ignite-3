@@ -66,7 +66,6 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 @SuppressWarnings("unused")
 public class MetaStorageManager {
-
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
@@ -501,7 +500,7 @@ public class MetaStorageManager {
      * @param configurationMgr Configuration manager.
      * @return {@code true} if the node has meta storage, {@code false} otherwise.
      */
-    public boolean hasMetastorageLocally( ConfigurationManager configurationMgr) {
+    public boolean hasMetastorageLocally(ConfigurationManager configurationMgr) {
         String[] metastorageMembers = configurationMgr
             .configurationRegistry()
             .getConfiguration(NodeConfiguration.KEY)

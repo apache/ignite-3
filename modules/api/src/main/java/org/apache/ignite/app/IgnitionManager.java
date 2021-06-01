@@ -29,6 +29,7 @@ public class IgnitionManager {
 
     /**
      * Starts Ignite node with optional bootstrap configuration in json format.
+     *
      * @param nodeName Name of the node.
      * @param jsonStrBootstrapCfg Node configuration in json format.
      * @return Started Ignite node.

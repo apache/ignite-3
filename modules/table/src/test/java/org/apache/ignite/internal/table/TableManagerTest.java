@@ -44,7 +44,6 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Operation;
@@ -168,7 +167,7 @@ public class TableManagerTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
     @Test
-    public void testStaticTableConfigured() throws IgniteInternalCheckedException {
+    public void testStaticTableConfigured() {
         MetaStorageManager mm = mock(MetaStorageManager.class);
         SchemaManager sm = mock(SchemaManager.class);
         AffinityManager am = mock(AffinityManager.class);
@@ -186,7 +185,7 @@ public class TableManagerTest {
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() throws IgniteInternalCheckedException {
+    public void testCreateTable() {
         MetaStorageManager mm = mock(MetaStorageManager.class);
         SchemaManager sm = mock(SchemaManager.class);
         AffinityManager am = mock(AffinityManager.class);
@@ -206,7 +205,7 @@ public class TableManagerTest {
      * Tests drop a table  through public API.
      */
     @Test
-    public void testDropTable() throws IgniteInternalCheckedException {
+    public void testDropTable() {
         MetaStorageManager mm = mock(MetaStorageManager.class);
         SchemaManager sm = mock(SchemaManager.class);
         AffinityManager am = mock(AffinityManager.class);
