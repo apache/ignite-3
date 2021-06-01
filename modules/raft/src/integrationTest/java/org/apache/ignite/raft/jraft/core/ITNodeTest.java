@@ -2433,7 +2433,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testRecoverFollower() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2448,10 +2448,11 @@ public class ITNodeTest {
         final Node leader = cluster.getLeader();
         assertNotNull(leader);
 
-        Thread.sleep(100);
-
         final List<Node> followers = cluster.getFollowers();
         assertEquals(2, followers.size());
+
+        // Ensure the quorum before stopping a follower, otherwise leader can step down.
+        assertTrue(waitForCondition(() -> followers.get(1).getLeaderId() != null, 5_000));
 
         final Endpoint followerAddr = followers.get(0).getNodeId().getPeerId().getEndpoint().copy();
         assertTrue(cluster.stop(followerAddr));
@@ -2467,7 +2468,7 @@ public class ITNodeTest {
         Thread.sleep(5000);
         // restart follower
         assertTrue(cluster.start(followerAddr));
-        assertTrue(cluster.ensureSame(30));
+        assertTrue(cluster.ensureSame(-1));
         assertEquals(3, cluster.getFsms().size());
         for (final MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(30, fsm.getLogs().size());
@@ -2507,7 +2508,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testLeaderTransferBeforeLogIsCompleted() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2527,22 +2528,28 @@ public class ITNodeTest {
         final List<Node> followers = cluster.getFollowers();
         assertEquals(2, followers.size());
 
+        // Ensure the quorum before stopping a follower, otherwise leader can step down.
+        assertTrue(waitForCondition(() -> followers.get(1).getLeaderId() != null, 5_000));
+
         final PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
         assertTrue(cluster.stop(targetPeer.getEndpoint()));
+
         this.sendTestTaskAndWait(leader);
         LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
+
         final CountDownLatch latch = new CountDownLatch(1);
         final Task task = new Task(ByteBuffer.wrap("aaaaa".getBytes()), new ExpectClosure(RaftError.EBUSY, latch));
         leader.apply(task);
         waitLatch(latch);
 
         assertTrue(cluster.start(targetPeer.getEndpoint()));
-        Thread.sleep(5000);
         cluster.waitLeader();
+
         leader = cluster.getLeader();
-        Assert.assertEquals(targetPeer, leader.getNodeId().getPeerId());
-        assertTrue(cluster.ensureSame(5));
+
+        Assert.assertNotEquals(targetPeer, leader.getNodeId().getPeerId());
+        assertTrue(cluster.ensureSame());
 
         cluster.stopAll();
     }
@@ -2697,7 +2704,7 @@ public class ITNodeTest {
         cluster.stopAll();
     }
 
-    @Test // TODO asch flaky
+    @Test
     public void testRemovingLeaderTriggerTimeoutNow() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2709,6 +2716,11 @@ public class ITNodeTest {
 
         cluster.waitLeader();
 
+        // Ensure the quorum before removing a leader, otherwise removePeer can be rejected.
+        for (Node follower : cluster.getFollowers()) {
+            assertTrue(waitForCondition(() -> follower.getLeaderId() != null, 5_000));
+        }
+
         Node leader = cluster.getLeader();
         assertNotNull(leader);
         final Node oldLeader = leader;
@@ -2717,7 +2729,7 @@ public class ITNodeTest {
         oldLeader.removePeer(oldLeader.getNodeId().getPeerId(), new ExpectClosure(latch));
         waitLatch(latch);
 
-        Thread.sleep(100);
+        cluster.waitLeader();
         leader = cluster.getLeader();
         assertNotNull(leader);
         assertNotSame(leader, oldLeader);

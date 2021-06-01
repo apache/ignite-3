@@ -432,7 +432,7 @@ public class TestCluster {
     }
 
     /**
-     * TODO asch rewrite.
+     * TODO asch rewrite, remove wait times, instead use timeout.
      * Ensure all logs is the same in all nodes.
      * @param waitTimes
      * @return

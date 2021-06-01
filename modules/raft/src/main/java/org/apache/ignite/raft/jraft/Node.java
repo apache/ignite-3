@@ -33,13 +33,8 @@ import org.apache.ignite.raft.jraft.util.Describer;
 
 /**
  * A raft replica node.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 4:06:55 PM
  */
 public interface Node extends Lifecycle<NodeOptions>, Describer {
-
     /**
      * Get the leader peer id for redirect, null if absent.
      */
