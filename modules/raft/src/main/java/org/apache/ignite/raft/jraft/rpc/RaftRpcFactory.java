@@ -16,9 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.util.Endpoint;
-
 /**
  * Raft RPC service factory.
  *

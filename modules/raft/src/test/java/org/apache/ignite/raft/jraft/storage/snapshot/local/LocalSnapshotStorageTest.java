@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
+import java.io.File;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import java.io.File;
-import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

@@ -16,8 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.closure;
 
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
 /**

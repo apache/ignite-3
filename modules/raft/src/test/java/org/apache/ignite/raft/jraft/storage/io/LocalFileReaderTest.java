@@ -16,12 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.storage.io;
 
-import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.junit.Before;
 import org.junit.Test;
 

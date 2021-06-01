@@ -16,8 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.FileSource;
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,6 +26,8 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.FileSource;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;

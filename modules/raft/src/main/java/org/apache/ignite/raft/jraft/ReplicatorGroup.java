@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
 import java.util.List;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -24,6 +23,7 @@ import org.apache.ignite.raft.jraft.core.ReplicatorType;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.ReplicatorGroupOptions;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.ThreadId;

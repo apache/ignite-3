@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.storage;
 
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Lifecycle;
@@ -24,6 +23,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.LogManagerOptions;
 import org.apache.ignite.raft.jraft.util.Describer;
 

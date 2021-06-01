@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
-import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -26,8 +25,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
-import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

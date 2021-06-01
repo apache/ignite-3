@@ -16,10 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import java.util.concurrent.CountDownLatch;
 
 import static org.junit.Assert.assertEquals;
 

@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.Lifecycle;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 

@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import java.util.Arrays;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
-import java.util.Arrays;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 

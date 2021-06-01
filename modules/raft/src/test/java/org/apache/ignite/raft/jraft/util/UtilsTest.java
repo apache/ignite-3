@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import java.nio.ByteBuffer;
-import java.util.concurrent.CountDownLatch;
 import org.junit.Assert;
 import org.junit.Test;
 

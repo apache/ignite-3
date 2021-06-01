@@ -16,9 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.entity;
 
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -17,9 +17,6 @@
 package org.apache.ignite.raft.jraft.util.concurrent;
 
 import io.netty.util.concurrent.DefaultEventExecutor;
-import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
-import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -28,6 +25,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
+import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;

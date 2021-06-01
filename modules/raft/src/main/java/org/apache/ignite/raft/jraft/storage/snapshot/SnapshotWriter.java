@@ -16,10 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot;
 
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import java.io.Closeable;
 import java.io.IOException;
 import org.apache.ignite.raft.jraft.Lifecycle;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**

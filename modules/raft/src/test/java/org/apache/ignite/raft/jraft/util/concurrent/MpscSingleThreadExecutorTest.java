@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.util.concurrent;
 
-import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.junit.Assert;
 import org.junit.Test;
 

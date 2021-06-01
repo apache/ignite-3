@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -16,14 +16,14 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
-import org.apache.ignite.raft.jraft.entity.RaftOutter;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.util.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
+import org.apache.ignite.raft.jraft.entity.RaftOutter;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;

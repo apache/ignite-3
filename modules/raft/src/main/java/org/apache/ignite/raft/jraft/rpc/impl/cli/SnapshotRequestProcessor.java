@@ -16,8 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import java.util.concurrent.Executor;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;

@@ -16,12 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Predicate;
-import org.apache.ignite.raft.jraft.util.internal.ReferenceFieldUpdater;
-import org.apache.ignite.raft.jraft.util.internal.Updaters;
 
 /**
  * A list implementation based on segments.Only supports removing elements from start or end.

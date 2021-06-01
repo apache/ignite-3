@@ -16,9 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.storage.io;
 
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
 import java.io.File;
-import org.junit.Assert;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

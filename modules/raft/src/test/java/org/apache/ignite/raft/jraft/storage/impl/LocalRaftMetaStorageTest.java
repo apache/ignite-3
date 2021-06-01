@@ -16,17 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import java.io.File;
+import java.io.IOException;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.RaftMetaStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.util.Utils;
-import java.io.File;
-import java.io.IOException;
-import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
-import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.StablePBMeta;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
+import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
+import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.StablePBMeta;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;

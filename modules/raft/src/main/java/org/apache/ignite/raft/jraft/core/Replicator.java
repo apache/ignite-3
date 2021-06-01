@@ -16,13 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import java.util.concurrent.ExecutorService;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotResponse;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowResponse;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricFilter;
@@ -34,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +44,12 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;

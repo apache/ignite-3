@@ -16,8 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.entity;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import java.util.List;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 
 /**
  * ReadIndex requests statuses.

@@ -17,10 +17,10 @@
 package org.apache.ignite.raft.jraft.counter.rpc;
 
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.rpc.RpcContext;
-import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.counter.CounterClosure;
 import org.apache.ignite.raft.jraft.counter.CounterService;
+import org.apache.ignite.raft.jraft.rpc.RpcContext;
+import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 
 /**
  * GetValueRequest processor.

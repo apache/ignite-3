@@ -16,16 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.counter;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RouteTable;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.counter.rpc.IncrementAndGetRequest;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.CliOptions;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.CliClientServiceImpl;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.counter.rpc.IncrementAndGetRequest;
 
 public class CounterClient {
 

@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
-import java.util.concurrent.Executor;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.TimerManager;
@@ -32,7 +32,6 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
-import java.util.concurrent.CountDownLatch;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
