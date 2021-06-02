@@ -1040,6 +1040,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             short messageGroupType = readShort();
 
+            // message type will be equal to Short.MIN_VALUE if a nested message is null
             if (messageGroupType == Short.MIN_VALUE)
                 msgDeserializer = null;
             else {
