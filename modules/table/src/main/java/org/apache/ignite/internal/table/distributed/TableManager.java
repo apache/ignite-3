@@ -481,16 +481,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return True if table configured, false otherwise.
      */
     private boolean isTableConfigured(String name) {
-        IgniteBiTuple<ByteArray, ByteArray> range = toRange(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + ".name"));
-
-        try (Cursor<Entry> cursor = metaStorageMgr.range(range.get1(), range.get2())) {
-            return cursor.hasNext();
-        }
-        catch (Exception e) {
-            LOG.error("Can't get a table [name=" + name + ']', e);
-        }
-
-        return false;
+        return metaStorageMgr.get(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(name) + ".name")).join() != null;
     }
 
     /**

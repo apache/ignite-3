@@ -216,22 +216,6 @@ public class TableManagerTest {
 
         Table table = mockManagersAndCreateTable(scmTbl, mm, sm, am, rm, vm, node, tblManagerFut);
 
-        when(mm.range(any(), any())).thenAnswer(invokation -> {
-            ByteArray from = invokation.getArgument(0);
-
-            assertTrue(new String(from.bytes()).contains(scmTbl.name()));
-
-            ByteArray to = invokation.getArgument(1);
-
-            assertTrue(new String(to.bytes()).contains(scmTbl.name()));
-
-            Cursor<Entry> cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(true);
-
-            return cursor;
-        });
-
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
@@ -260,22 +244,6 @@ public class TableManagerTest {
         Table table = mockManagersAndCreateTable(scmTbl, mm, sm, am, rm, vm, node, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
-
-        when(mm.range(any(), any())).thenAnswer(invokation -> {
-            ByteArray from = invokation.getArgument(0);
-
-            assertTrue(new String(from.bytes()).contains(scmTbl.name()));
-
-            ByteArray to = invokation.getArgument(1);
-
-            assertTrue(new String(to.bytes()).contains(scmTbl.name()));
-
-            Cursor<Entry> cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(false);
-
-            return cursor;
-        });
 
         when(sm.unregisterSchemas(any())).thenReturn(CompletableFuture.completedFuture(true));
 
@@ -335,22 +303,6 @@ public class TableManagerTest {
         ).withPrimaryKey("key").build();
 
         Phaser phaser = new Phaser(2);
-
-        when(mm.range(eq(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(scmTbl.canonicalName()) + '.')), any())).thenAnswer(invokation -> {
-            ByteArray from = invokation.getArgument(0);
-
-            assertTrue(new String(from.bytes()).contains(scmTbl.name()));
-
-            ByteArray to = invokation.getArgument(1);
-
-            assertTrue(new String(to.bytes()).contains(scmTbl.name()));
-
-            Cursor<Entry> cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(true);
-
-            return cursor;
-        });
 
         CompletableFuture<Table> createFut = CompletableFuture.supplyAsync(() ->
             mockManagersAndCreateTableWithDelay(scmTbl, mm, sm, am, rm, vm, node, tblManagerFut, phaser)
@@ -465,12 +417,7 @@ public class TableManagerTest {
             return null;
         }).when(sm).listen(same(SchemaEvent.INITIALIZED), any());
 
-        when(am.calculateAssignments(any(), eq(schemaTable.canonicalName()))).thenAnswer(invocation -> {
-            if (phaser != null)
-                phaser.arriveAndAwaitAdvance();
-
-            return CompletableFuture.completedFuture(true);
-        });
+        when(am.calculateAssignments(any(), eq(schemaTable.canonicalName()))).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invokation -> {
             BiPredicate<AffinityEventParameters, Exception> affinityClaculatedDelegate = (BiPredicate)invokation.getArgument(1);
@@ -494,6 +441,9 @@ public class TableManagerTest {
 
         tblManagerFut.complete(tableManager);
 
+        when(mm.get(eq(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(schemaTable.canonicalName()) + ".name"))))
+            .thenReturn(CompletableFuture.completedFuture(null));
+
         when(mm.range(eq(new ByteArray(PUBLIC_PREFIX)), any())).thenAnswer(invokation -> {
             Cursor<Entry> cursor = mock(Cursor.class);
 
@@ -505,8 +455,20 @@ public class TableManagerTest {
         int tablesBeforeCreation = tableManager.tables().size();
 
         cfrMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+            boolean createTbl = ctx.newValue().get(schemaTable.canonicalName()) != null &&
+                ctx.oldValue().get(schemaTable.canonicalName()) == null;
+
+            boolean dropTbl = ctx.oldValue().get(schemaTable.canonicalName()) != null &&
+                ctx.newValue().get(schemaTable.canonicalName()) == null;
+
+            if (!createTbl && !dropTbl)
+                return CompletableFuture.completedFuture(null);
+
+            when(mm.get(eq(new ByteArray(PUBLIC_PREFIX + ConfigurationUtil.escape(schemaTable.canonicalName()) + ".name"))))
+                .thenAnswer(invokation -> CompletableFuture.completedFuture(createTbl ? mock(Entry.class) : null));
+
             when(mm.range(eq(new ByteArray(PUBLIC_PREFIX)), any())).thenAnswer(invokation -> {
-                AtomicBoolean firstRecord = new AtomicBoolean(true);
+                AtomicBoolean firstRecord = new AtomicBoolean(createTbl);
 
                 Cursor<Entry> cursor = mock(Cursor.class);
 
@@ -516,32 +478,17 @@ public class TableManagerTest {
                 Entry mockEntry = mock(Entry.class);
 
                 when(mockEntry.key()).thenReturn(new ByteArray(PUBLIC_PREFIX +
-                    ConfigurationUtil.escape(schemaTable.canonicalName()) + ".replicas"));
+                    ConfigurationUtil.escape(schemaTable.canonicalName()) + ".name"));
 
                 when(cursor.next()).thenReturn(mockEntry);
 
                 return cursor;
             });
 
+            if (phaser != null)
+                phaser.arriveAndAwaitAdvance();
+
             return CompletableFuture.completedFuture(null);
-        });
-
-        when(mm.range(eq(new ByteArray(PUBLIC_PREFIX)), any())).thenAnswer(invokation -> {
-            AtomicBoolean firstRecord = new AtomicBoolean(true);
-
-            Cursor<Entry> cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenAnswer(hasNextInvokation ->
-                firstRecord.compareAndSet(true, false));
-
-            Entry mockEntry = mock(Entry.class);
-
-            when(mockEntry.key()).thenReturn(new ByteArray(PUBLIC_PREFIX +
-                ConfigurationUtil.escape(schemaTable.canonicalName()) + ".replicas"));
-
-            when(cursor.next()).thenReturn(mockEntry);
-
-            return cursor;
         });
 
         Table tbl2 = tableManager.createTable(schemaTable.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(schemaTable, tblCh)
