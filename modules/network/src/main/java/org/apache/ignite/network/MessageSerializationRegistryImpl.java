@@ -17,8 +17,6 @@
 
 package org.apache.ignite.network;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -28,11 +26,15 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  * Default implementation of a {@link MessageSerializationRegistry}.
  */
 public class MessageSerializationRegistryImpl implements MessageSerializationRegistry {
+    /** Maximum allowed number of message groups. */
+    private static final int EXPECTED_NUMBER_OF_MESSAGE_GROUPS = 100;
+
     /** message type -> MessageSerializerProvider instance */
-    private final Map<Integer, MessageSerializationFactory<?>> factories = new HashMap<>();
+    private final MessageSerializationFactory<?>[][] factories =
+        new MessageSerializationFactory<?>[EXPECTED_NUMBER_OF_MESSAGE_GROUPS][Short.MAX_VALUE + 1];
 
     /**
-     * Default constructor.
+     * Default constructor that also registers standard message types from the network module.
      */
     public MessageSerializationRegistryImpl() {
         NetworkMessagesSerializationRegistryInitializer.registerFactories(this);
@@ -43,15 +45,18 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
     public MessageSerializationRegistry registerFactory(
         short groupType, short messageType, MessageSerializationFactory<?> factory
     ) {
-        Integer index = asInt(groupType, messageType);
+        assert groupType >= 0 : "group type must not be negative";
+        assert messageType >= 0 : "message type must not be negative";
+        assert groupType < EXPECTED_NUMBER_OF_MESSAGE_GROUPS :
+            String.format("Group type %d is larger than max allowed %d", groupType, EXPECTED_NUMBER_OF_MESSAGE_GROUPS);
 
-        if (factories.containsKey(index))
+        if (factories[groupType][messageType] != null)
             throw new NetworkConfigurationException(String.format(
                 "Message serialization factory for message type %d in module %d is already defined",
                 messageType, groupType
             ));
 
-        factories.put(index, factory);
+        factories[groupType][messageType] = factory;
 
         return this;
     }
@@ -60,16 +65,19 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
      * Gets a {@link MessageSerializationFactory} for the given message type.
      *
      * @param <T> Type of a message.
-     * @param groupType Message group type.
+     * @param groupType Group type of a message.
      * @param messageType Message type.
      * @return Message's serialization factory.
      */
-    private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(
-        short groupType, short messageType
-    ) {
-        var provider = factories.get(asInt(groupType, messageType));
+    private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(short groupType, short messageType) {
+        assert groupType >= 0 : "group type must not be negative";
+        assert messageType >= 0 : "message type must not be negative";
 
-        assert provider != null : "No serializer provider defined for type " + messageType;
+        var provider = factories[groupType][messageType];
+
+        assert provider != null :
+            String.format("No serializer provider defined for group type %d and message type %d",
+                groupType, messageType);
 
         return (MessageSerializationFactory<T>) provider;
     }
@@ -86,15 +94,5 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
     public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short groupType, short messageType) {
         MessageSerializationFactory<T> factory = getFactory(groupType, messageType);
         return factory.createDeserializer();
-    }
-
-    /**
-     * Concatenates two given {@code short}s into an {@code int}.
-     *
-     * @param higher Higher bytes.
-     * @param lower Lower bytes.
-     */
-    private static int asInt(short higher, short lower) {
-        return (higher << Short.SIZE) | lower;
     }
 }

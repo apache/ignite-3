@@ -37,6 +37,9 @@ public class MessageClass {
     /** Class name of the {@code element}. */
     private final ClassName className;
 
+    /** Annotation present on the {@code element}. */
+    private final AutoMessage annotation;
+
     /**
      * Getter methods declared in the annotated interface.
      *
@@ -50,11 +53,15 @@ public class MessageClass {
     MessageClass(TypeElement messageElement) {
         element = messageElement;
         className = ClassName.get(messageElement);
+        annotation = element.getAnnotation(AutoMessage.class);
         getters = element.getEnclosedElements().stream()
             .filter(element -> element.getKind() == ElementKind.METHOD)
             .sorted(Comparator.comparing(element -> element.getSimpleName().toString()))
             .map(ExecutableElement.class::cast)
             .collect(Collectors.toUnmodifiableList());
+
+        if (annotation.value() < 0)
+            throw new ProcessingException("Message type must not be negative", null, element);
     }
 
     /**
@@ -117,14 +124,14 @@ public class MessageClass {
      * Returns {@link AutoMessage#value()}.
      */
     public short messageType() {
-        return element.getAnnotation(AutoMessage.class).value();
+        return annotation.value();
     }
 
     /**
      * Returns {@link AutoMessage#autoSerializable()}.
      */
     public boolean isAutoSerializable() {
-        return element.getAnnotation(AutoMessage.class).autoSerializable();
+        return annotation.autoSerializable();
     }
 
     /**

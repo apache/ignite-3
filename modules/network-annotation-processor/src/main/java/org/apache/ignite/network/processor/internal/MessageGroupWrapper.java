@@ -41,6 +41,9 @@ public class MessageGroupWrapper {
         element = messageGroup;
         className = ClassName.get(messageGroup);
         annotation = messageGroup.getAnnotation(MessageGroup.class);
+
+        if (annotation.groupType() < 0)
+            throw new ProcessingException("Group type must not be negative", null, element);
     }
 
     public TypeElement element() {

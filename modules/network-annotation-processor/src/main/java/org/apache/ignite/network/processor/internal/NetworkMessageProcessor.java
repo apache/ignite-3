@@ -71,9 +71,8 @@ public class NetworkMessageProcessor extends AbstractProcessor {
             .map(MessageClass::new)
             .collect(Collectors.toList());
 
-        if (messages.isEmpty()) {
+        if (messages.isEmpty())
             return true;
-        }
 
         try {
             validateMessages(messages);
@@ -144,9 +143,8 @@ public class NetworkMessageProcessor extends AbstractProcessor {
             .filter(MessageClass::isAutoSerializable)
             .collect(Collectors.toList());
 
-        if (serializableMessages.isEmpty()) {
+        if (serializableMessages.isEmpty())
             return;
-        }
 
         var factories = new HashMap<MessageClass, TypeSpec>();
 
