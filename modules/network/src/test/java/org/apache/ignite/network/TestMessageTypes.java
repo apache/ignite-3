@@ -19,7 +19,7 @@ package org.apache.ignite.network;
 
 import org.apache.ignite.network.annotations.MessageGroup;
 
-@MessageGroup(groupName = "TestMessages", groupType = 123)
+@MessageGroup(groupName = "TestMessages", groupType = 2)
 public class TestMessageTypes {
     public static final short ALL_TYPES = 1000;
 
