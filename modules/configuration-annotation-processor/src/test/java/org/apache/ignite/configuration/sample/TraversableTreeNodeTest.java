@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.tree.NamedListNode;
 import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.configuration.validation.Immutable;
+import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -211,6 +212,8 @@ public class TraversableTreeNodeTest {
         assertEquals("val", elementNode.strCfg());
 
         ((NamedListChange<?>)elementsNode).delete("keyPut");
+
+        assertThat(elementsNode.namedListKeys(), CoreMatchers.hasItem("keyPut"));
 
         assertNull(elementsNode.get("keyPut"));
 

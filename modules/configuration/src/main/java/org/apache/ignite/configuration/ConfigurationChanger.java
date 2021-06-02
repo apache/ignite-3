@@ -285,7 +285,7 @@ public abstract class ConfigurationChanger {
             }
 
             @Override public ConstructableTreeNode copy() {
-                return null;
+                throw new UnsupportedOperationException("copy");
             }
         };
 
