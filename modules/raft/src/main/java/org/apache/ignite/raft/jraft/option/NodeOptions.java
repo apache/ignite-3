@@ -24,6 +24,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.core.Replicator;
+import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -179,11 +180,25 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private List<Replicator.ReplicatorStateListener> replicationStateListeners;
 
-    /** The common executor for short running tasks. */
+    /**
+     * The common executor for short running tasks.
+     */
     private ExecutorService commonExecutor;
 
-    /** Striped executor. Used for processing AppendEntries request/reponse */
+    /**
+     * Striped executor for processing AppendEntries request/reponse.
+     */
     private FixedThreadsExecutorGroup stripedExecutor;
+
+    /**
+     * The scheduler to execute delayed jobs.
+     */
+    private Scheduler scheduler;
+
+    /**
+     * The client executor is used by RPC client.
+     */
+    private ExecutorService clientExecutor;
 
     /** Server name. */
     private String serverName;
@@ -448,6 +463,22 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.stripedExecutor = stripedExecutor;
     }
 
+    public Scheduler getScheduler() {
+        return scheduler;
+    }
+
+    public void setScheduler(Scheduler scheduler) {
+        this.scheduler = scheduler;
+    }
+
+    public ExecutorService getClientExecutor() {
+        return clientExecutor;
+    }
+
+    public void setClientExecutor(ExecutorService clientExecutor) {
+        this.clientExecutor = clientExecutor;
+    }
+
     public String getServerName() {
         return serverName;
     }
@@ -482,6 +513,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setCommonExecutor(this.getCommonExecutor());
         nodeOptions.setStripedExecutor(this.getStripedExecutor());
         nodeOptions.setServerName(this.getServerName());
+        nodeOptions.setScheduler(this.getScheduler());
+        nodeOptions.setClientExecutor(this.getClientExecutor());
 
         return nodeOptions;
     }

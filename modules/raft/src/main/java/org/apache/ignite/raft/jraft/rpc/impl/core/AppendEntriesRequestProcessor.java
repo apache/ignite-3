@@ -285,7 +285,10 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             // the context was destroyed, so the response can be ignored.
             return;
         }
-        final PriorityQueue<SequenceMessage> respQueue = ctx.responseQueue; // TODO asch queue not needed if handled by single thread. Replicator should send message from the same thread per pair.
+
+        // TODO asch queue is not needed if handled by single thread. Replicator should send message from the same
+        //  thread per pair.
+        final PriorityQueue<SequenceMessage> respQueue = ctx.responseQueue;
         assert (respQueue != null);
 
         synchronized (Utils.withLockObject(respQueue)) {

@@ -16,12 +16,15 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.core.Scheduler;
+import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -87,7 +90,7 @@ public final class JRaftUtils {
      */
     public static FixedThreadsExecutorGroup createAppendEntriesExecutor(NodeOptions opts) {
         return createStripedExecutor("JRaft-AppendEntries-Processor-" + opts.getServerName() + "-",
-            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD);
+            Utils.APPEND_ENTRIES_THREADS_POOL_SIZE, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD);
     }
 
     /**
@@ -97,6 +100,31 @@ public final class JRaftUtils {
     public static ExecutorService createRequestExecutor(NodeOptions opts) {
         return createExecutor("JRaft-Request-Processor-" + opts.getServerName() + "-",
             opts.getRaftRpcThreadPoolSize());
+    }
+
+    /**
+     * @param opts Options.
+     * @return The service.
+     */
+    public static ExecutorService createClientExecutor(NodeOptions opts) {
+        String prefix = "JRaft-Response-Processor-" + opts.getServerName() + "-";
+        return ThreadPoolUtil.newBuilder()
+            .poolName(prefix) //
+            .enableMetric(true) //
+            .coreThreads(opts.getRpcProcessorThreadPoolSize() / 3) //
+            .maximumThreads(opts.getRpcProcessorThreadPoolSize()) //
+            .keepAliveSeconds(60L) //
+            .workQueue(new ArrayBlockingQueue<>(10000)) //
+            .threadFactory(new NamedThreadFactory(prefix, true)) //
+            .build();
+    }
+
+    /**
+     * @param opts Options.
+     * @return The scheduler.
+     */
+    public static Scheduler createScheduler(NodeOptions opts) {
+        return new TimerManager(opts.getTimerPoolSize(), "JRaft-Node-Scheduler-" + opts.getServerName() + "-");
     }
 
     /**

@@ -29,8 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -82,8 +80,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
     private FSMCaller fsmCaller;
 
     private volatile CountDownLatch shutdownLatch;
-
-    private ScheduledExecutorService scheduledExecutorService;
 
     private NodeMetrics nodeMetrics;
 
@@ -245,10 +241,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         this.fsmCaller = opts.getFsmCaller();
         this.raftOptions = opts.getRaftOptions();
 
-        // TODO asch use common timer pool.
-        this.scheduledExecutorService = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory("ReadOnlyService-PendingNotify-Scanner" +
-                node.getNodeId().toString(), true));
         this.readIndexDisruptor = DisruptorBuilder.<ReadIndexEvent>newInstance() //
             .setEventFactory(new ReadIndexEventFactory()) //
             .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
@@ -268,8 +260,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         // listen on lastAppliedLogIndex change events.
         this.fsmCaller.addLastAppliedLogIndexListener(this);
 
-        // start scanner TODO asch investigate, why it's needed ?
-        this.scheduledExecutorService.scheduleAtFixedRate(() -> onApplied(this.fsmCaller.getLastAppliedIndex()),
+        // start scanner.
+        this.node.getTimerManager().scheduleAtFixedRate(() -> onApplied(this.fsmCaller.getLastAppliedIndex()),
             this.raftOptions.getMaxElectionDelayMs(), this.raftOptions.getMaxElectionDelayMs(), TimeUnit.MILLISECONDS);
         return true;
     }
@@ -289,7 +281,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         this.shutdownLatch = new CountDownLatch(1);
         Utils.runInThread(this.node.getOptions().getCommonExecutor(),
             () -> this.readIndexQueue.publishEvent((event, sequence) -> event.shutdownLatch = this.shutdownLatch));
-        this.scheduledExecutorService.shutdown();
     }
 
     @Override
@@ -299,7 +290,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         }
         this.readIndexDisruptor.shutdown();
         resetPendingStatusError(new Status(RaftError.ESTOP, "Node is quit."));
-        this.scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
     }
 
     @Override

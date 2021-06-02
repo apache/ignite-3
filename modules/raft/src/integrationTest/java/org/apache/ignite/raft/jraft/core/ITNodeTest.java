@@ -88,8 +88,6 @@ import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
-import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -3485,9 +3483,8 @@ public class ITNodeTest {
     private NodeOptions createNodeOptions() {
         final NodeOptions options = new NodeOptions();
 
-        options.setCommonExecutor(createExecutor("JRaft-Common-Executor", options.getCommonThreadPollSize()));
-        options.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor",
-            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
+        options.setCommonExecutor(JRaftUtils.createCommonExecutor(options));
+        options.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(options));
 
         return options;
     }

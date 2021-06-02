@@ -892,10 +892,10 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         // Init timers
-        final String suffix = getOptions().getServerName() + "-" + getNodeId().toString();
+        final String suffix = getOptions().getServerName() + "-";
 
-        timerManager = this.timerFactory.createScheduler(this.options.getTimerPoolSize(),
-            "JRaft-Node-ScheduleThreadPool-" + suffix);
+        timerManager = getOptions().getScheduler() == null ? timerFactory.createScheduler(this.options.getTimerPoolSize(),
+            "JRaft-Node-ScheduleThreadPool-" + suffix) : getOptions().getScheduler();
 
         String name = "JRaft-VoteTimer-" + suffix;
         this.voteTimer = new RepeatedTimer(name, options.getElectionTimeoutMs(), timerFactory.getVoteTimer(name)) {

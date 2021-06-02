@@ -17,16 +17,16 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.ClientService;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
@@ -37,9 +37,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
-import org.apache.ignite.raft.jraft.util.ThreadPoolMetricSet;
-import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.slf4j.Logger;
@@ -52,7 +49,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractClientService.class);
 
     protected volatile RpcClient rpcClient;
-    protected ThreadPoolExecutor rpcExecutor;
+    protected ExecutorService rpcExecutor;
     protected RpcOptions rpcOptions;
 
     /**
@@ -94,21 +91,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         // TODO asch should the client be created lazily. A client doesn't make sence without a server.
         this.rpcClient.init(null);
 
-        // TODO asch remove this pool ? ( shared with rpc pool, deadlocking ?)
-        this.rpcExecutor = ThreadPoolUtil.newBuilder()
-            .poolName("JRaft-Response-Processor") //
-            .enableMetric(true) //
-            .coreThreads(rpcProcessorThreadPoolSize / 3) //
-            .maximumThreads(rpcProcessorThreadPoolSize) //
-            .keepAliveSeconds(60L) //
-            .workQueue(new ArrayBlockingQueue<>(10000)) //
-            .threadFactory(new NamedThreadFactory("JRaft-Response-Processor-", true)) //
-            .build();
-
-        if (this.rpcOptions.getMetricRegistry() != null) {
-            this.rpcOptions.getMetricRegistry().register("raft-rpc-client-thread-pool",
-                new ThreadPoolMetricSet(this.rpcExecutor));
-        }
+        this.rpcExecutor = ((NodeOptions)rpcOptions).getClientExecutor();
 
         return true;
     }
@@ -118,7 +101,6 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         if (this.rpcClient != null) {
             this.rpcClient.shutdown();
             this.rpcClient = null;
-            this.rpcExecutor.shutdown();
         }
     }
 

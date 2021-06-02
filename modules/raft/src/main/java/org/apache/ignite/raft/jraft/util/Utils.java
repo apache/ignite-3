@@ -77,7 +77,7 @@ public final class Utils {
     /**
      * Default jraft append-entries executor(send) pool size.
      */
-    public static final int APPEND_ENTRIES_THREADS_SEND = SystemPropertyUtil.getInt(
+    public static final int APPEND_ENTRIES_THREADS_POOL_SIZE = SystemPropertyUtil.getInt(
         "jraft.append.entries.threads.send", Math.max(16, Ints.findNextPositivePowerOfTwo(cpus() * 2)));
 
     /**

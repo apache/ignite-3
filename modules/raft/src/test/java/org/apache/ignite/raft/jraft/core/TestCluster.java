@@ -63,6 +63,7 @@ public class TestCluster {
     private final int electionTimeoutMs;
     private final Lock lock = new ReentrantLock();
     private final Consumer<NodeOptions> optsClo;
+    private final NodeOptions nodeOptions;
 
     private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
 
@@ -113,6 +114,7 @@ public class TestCluster {
         this.electionTimeoutMs = electionTimeoutMs;
         this.learners = learners;
         this.optsClo = optsClo;
+        this.nodeOptions = new NodeOptions();
     }
 
     public boolean start(final Endpoint addr) throws Exception {
@@ -165,6 +167,8 @@ public class TestCluster {
 
         nodeOptions.setCommonExecutor(JRaftUtils.createCommonExecutor(nodeOptions));
         nodeOptions.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(nodeOptions));
+        nodeOptions.setClientExecutor(JRaftUtils.createClientExecutor(nodeOptions));
+        nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
 
         nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);
         nodeOptions.setEnableMetrics(enableMetrics);

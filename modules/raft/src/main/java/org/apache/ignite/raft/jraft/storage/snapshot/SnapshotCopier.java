@@ -23,7 +23,6 @@ import org.apache.ignite.raft.jraft.Status;
  * Copy snapshot from the give resources.
  */
 public abstract class SnapshotCopier extends Status implements Closeable {
-
     /**
      * Cancel the copy job.
      */

@@ -62,13 +62,14 @@ public class RaftGroupService {
      * The raft group id
      */
     private String groupId;
+
     /**
      * The raft node.
      */
     private Node node;
 
     /**
-     *
+     * The node manager.
      */
     private NodeManager nodeManager;
 
@@ -185,8 +186,8 @@ public class RaftGroupService {
                     this.rpcServer.shutdown();
                 }
             }
-            catch (final Exception ignored) {
-                // ignore TODO asch not good to ignore ?
+            catch (Exception e) {
+                LOG.error("Failed to shutdown the server", e);
             }
             this.rpcServer = null;
         }

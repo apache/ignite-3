@@ -106,12 +106,21 @@ public class JRaftServerImpl implements RaftServer {
 
         assert !reuse || service.topologyService().localMember() != null;
 
+        // Use consistent id as server name.
         if (opts.getServerName() == null)
             opts.setServerName(service.localConfiguration().getName());
 
-        // Create shared executors.
-        opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
-        opts.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(opts));
+        if (opts.getCommonExecutor() == null)
+            opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
+
+        if (opts.getStripedExecutor() == null)
+            opts.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(opts));
+
+        if (opts.getScheduler() == null)
+            opts.setScheduler(JRaftUtils.createScheduler(opts));
+
+        if (opts.getClientExecutor() == null)
+            opts.setClientExecutor(JRaftUtils.createClientExecutor(opts));
 
         rpcServer = new IgniteRpcServer(service, reuse, nodeManager, JRaftUtils.createRequestExecutor(opts));
 
@@ -141,6 +150,7 @@ public class JRaftServerImpl implements RaftServer {
         if (groups.containsKey(groupId))
             return false;
 
+        // Thread pools are shared by all raft groups.
         final NodeOptions nodeOptions = opts.copy();
 
         ClusterNode clusterNode = service.topologyService().localMember();
@@ -167,8 +177,8 @@ public class JRaftServerImpl implements RaftServer {
 
         nodeOptions.setRpcClient(client);
 
-        final RaftGroupService server = new RaftGroupService(groupId, new PeerId(endpoint, 0, ElectionPriority.DISABLED),
-            nodeOptions, rpcServer, nodeManager, true);
+        final RaftGroupService server = new RaftGroupService(groupId, new PeerId(endpoint, 0,
+            ElectionPriority.DISABLED), nodeOptions, rpcServer, nodeManager, true);
 
         server.start(false);
 
