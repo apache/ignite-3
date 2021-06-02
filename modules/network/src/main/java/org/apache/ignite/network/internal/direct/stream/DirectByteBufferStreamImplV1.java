@@ -564,7 +564,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
         else
             writeShort(Short.MIN_VALUE);
-
     }
 
     /** {@inheritDoc} */
