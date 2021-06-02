@@ -100,7 +100,6 @@ public class Task implements Serializable {
      *
      * @return done closure
      * @throws InterruptedException if the current thread is interrupted while waiting
-     * @since 1.3.1
      */
     public Closure join() throws InterruptedException {
         final JoinableClosure joinable = castToJoinalbe(this.done);
@@ -116,7 +115,6 @@ public class Task implements Serializable {
      * @return done closure
      * @throws InterruptedException if the current thread is interrupted while waiting
      * @throws TimeoutException if timeout
-     * @since 1.3.1
      */
     public Closure join(final long timeoutMillis) throws InterruptedException, TimeoutException {
         final JoinableClosure joinable = castToJoinalbe(this.done);
@@ -130,7 +128,6 @@ public class Task implements Serializable {
      * @param tasks task list
      * @return the closure list in tasks
      * @throws InterruptedException if the current thread is interrupted while waiting
-     * @since 1.3.1
      */
     public static List<Closure> joinAll(final List<Task> tasks) throws InterruptedException {
         final List<Closure> closures = new ArrayList<>(tasks.size());
@@ -148,7 +145,6 @@ public class Task implements Serializable {
      * @return the closure list in the tasks
      * @throws InterruptedException if the current thread is interrupted while waiting
      * @throws TimeoutException if timeout
-     * @since 1.3.1
      */
     public static List<Closure> joinAll(final List<Task> tasks, long timeoutMillis) throws InterruptedException,
         TimeoutException {

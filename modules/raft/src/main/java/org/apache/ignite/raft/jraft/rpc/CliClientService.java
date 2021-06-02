@@ -86,7 +86,6 @@ public interface CliClientService extends ClientService {
      * @param request request data
      * @param done callback
      * @return a future with result
-     * @since 1.3.0
      */
     Future<Message> addLearners(Endpoint endpoint, CliRequests.AddLearnersRequest request,
         RpcResponseClosure<CliRequests.LearnersOpResponse> done);
@@ -98,7 +97,6 @@ public interface CliClientService extends ClientService {
      * @param request request data
      * @param done callback
      * @return a future with result
-     * @since 1.3.0
      */
     Future<Message> removeLearners(Endpoint endpoint, CliRequests.RemoveLearnersRequest request,
         RpcResponseClosure<CliRequests.LearnersOpResponse> done);
@@ -110,7 +108,6 @@ public interface CliClientService extends ClientService {
      * @param request request data
      * @param done callback
      * @return a future with result
-     * @since 1.3.0
      */
     Future<Message> resetLearners(Endpoint endpoint, CliRequests.ResetLearnersRequest request,
         RpcResponseClosure<CliRequests.LearnersOpResponse> done);

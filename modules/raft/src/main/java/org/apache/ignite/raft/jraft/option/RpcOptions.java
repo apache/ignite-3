@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.option;
 
 import com.codahale.metrics.MetricRegistry;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.rpc.RpcClient;
 
 public class RpcOptions {
@@ -46,9 +47,14 @@ public class RpcOptions {
     private boolean enableRpcChecksum = false;
 
     /**
-     *
+     * Client instance.
      */
     private RpcClient rpcClient;
+
+    /**
+     * The client executor is used by RPC client.
+     */
+    private ExecutorService clientExecutor;
 
     /**
      * Metric registry for RPC services, user should not use this field.
@@ -110,6 +116,15 @@ public class RpcOptions {
     public void setRpcClient(RpcClient rpcClient) {
         this.rpcClient = rpcClient;
     }
+
+    public ExecutorService getClientExecutor() {
+        return clientExecutor;
+    }
+
+    public void setClientExecutor(ExecutorService clientExecutor) {
+        this.clientExecutor = clientExecutor;
+    }
+
 
     @Override
     public String toString() {

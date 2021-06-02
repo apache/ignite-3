@@ -26,50 +26,62 @@ public class RaftOptions implements Copiable<RaftOptions> {
      * Maximum of block size per RPC
      */
     private int maxByteCountPerRpc = 128 * 1024;
+
     /**
      * File service check hole switch, default disable
      */
     private boolean fileCheckHole = false;
+
     /**
      * The maximum number of entries in AppendEntriesRequest
      */
     private int maxEntriesSize = 1024;
+
     /**
      * The maximum byte size of AppendEntriesRequest
      */
     private int maxBodySize = 512 * 1024;
+
     /**
      * Flush buffer to LogStorage if the buffer size reaches the limit
      */
     private int maxAppendBufferSize = 256 * 1024;
+
     /**
      * Maximum election delay time allowed by user
      */
     private int maxElectionDelayMs = 1000;
+
     /**
      * Raft election:heartbeat timeout factor
      */
     private int electionHeartbeatFactor = 10;
+
     /**
      * Maximum number of tasks that can be applied in a batch
      */
     private int applyBatch = 32;
+
     /**
      * Call fsync when need
      */
     private boolean sync = true;
+
     /**
      * Sync log meta, snapshot meta and raft meta
      */
     private boolean syncMeta = false;
+
     /**
      * Statistics to analyze the performance of db
      */
     private boolean openStatistics = true;
+
     /**
      * Whether to enable replicator pipeline.
      */
     private boolean replicatorPipeline = true;
+
     /**
      * The maximum replicator pipeline in-flight requests/responses, only valid when enable replicator pipeline.
      */
@@ -78,16 +90,17 @@ public class RaftOptions implements Copiable<RaftOptions> {
      * Internal disruptor buffers size for Node/FSMCaller/LogManager etc.
      */
     private int disruptorBufferSize = 16384;
+
     /**
      * The maximum timeout in seconds to wait when publishing events into disruptor, default is 10 seconds. If the
      * timeout happens, it may halt the node.
      */
     private int disruptorPublishEventWaitTimeoutSecs = 10;
+
     /**
      * When true, validate log entry checksum when transferring the log entry from disk or network, default is false. If
      * true, it would hurt the performance of JRAft but gain the data safety.
      *
-     * @since 1.2.6
      */
     private boolean enableLogEntryChecksum = false; // TODO asch fixme.
 
@@ -100,10 +113,9 @@ public class RaftOptions implements Copiable<RaftOptions> {
      * case.
      */
     private ReadOnlyOption readOnlyOptions = ReadOnlyOption.ReadOnlySafe;
+
     /**
      * Candidate steps down when election reaching timeout, default is true(enabled).
-     *
-     * @since 1.3.0
      */
     private boolean stepDownWhenVoteTimedout = true;
 

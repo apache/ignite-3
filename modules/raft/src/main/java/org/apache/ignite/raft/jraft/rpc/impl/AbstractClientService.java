@@ -91,7 +91,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         // TODO asch should the client be created lazily. A client doesn't make sence without a server.
         this.rpcClient.init(null);
 
-        this.rpcExecutor = ((NodeOptions)rpcOptions).getClientExecutor();
+        this.rpcExecutor = ((RpcOptions)rpcOptions).getClientExecutor();
 
         return true;
     }

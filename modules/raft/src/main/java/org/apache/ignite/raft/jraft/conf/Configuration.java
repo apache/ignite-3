@@ -71,7 +71,6 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
      *
      * @param conf peers configuration
      * @param learners learners
-     * @since 1.3.0
      */
     public Configuration(final Iterable<PeerId> conf, final Iterable<PeerId> learners) {
         Requires.requireNonNull(conf, "conf");

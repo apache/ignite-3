@@ -18,8 +18,6 @@ package org.apache.ignite.raft.jraft.entity;
 
 /**
  * Checksum for entity.
- *
- * @since 1.2.6
  */
 public interface Checksum {
 

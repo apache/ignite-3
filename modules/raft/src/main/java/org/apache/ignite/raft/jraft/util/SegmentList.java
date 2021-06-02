@@ -27,7 +27,6 @@ import java.util.function.Predicate;
  * [segment, segment, segment ...] /                 |                    \ segment             segment
  * segment [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
  *
- * @since 1.3.1
  */
 public class SegmentList<T> {
     private static final int SEGMENT_SHIFT = 7;

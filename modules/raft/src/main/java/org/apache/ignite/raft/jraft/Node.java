@@ -114,7 +114,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      *
      * @param requestContext the context of request
      * @param done callback
-     * @since 0.0.3
      */
     void readIndex(final byte[] requestContext, final ReadIndexClosure done);
 
@@ -136,7 +135,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * follower will cause it to temporarily not exist in this list.</strong>
      *
      * @return the alive peer list
-     * @since 1.2.6
      */
     List<PeerId> listAlivePeers();
 
@@ -149,7 +147,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * immediately modify configuration in memory</strong>
      *
      * @return the learners set
-     * @since 1.3.0
      */
     List<PeerId> listLearners();
 
@@ -162,7 +159,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * immediately modify configuration in memory</strong>
      *
      * @return the  alive learners set
-     * @since 1.3.0
      */
     List<PeerId> listAliveLearners();
 
@@ -209,7 +205,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      *
      * @param learners learners to add
      * @param done callback
-     * @since 1.3.0
      */
     void addLearners(final List<PeerId> learners, final Closure done);
 
@@ -219,7 +214,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      *
      * @param learners learners to remove
      * @param done callback
-     * @since 1.3.0
      */
     void removeLearners(final List<PeerId> learners, final Closure done);
 
@@ -229,7 +223,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      *
      * @param learners learners to set
      * @param done callback
-     * @since 1.3.0
      */
     void resetLearners(final List<PeerId> learners, final Closure done);
 
@@ -303,7 +296,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Get the node's target election priority value.
      *
      * @return node's target election priority value.
-     * @since 1.3.0
      */
     int getNodeTargetPriority();
 }

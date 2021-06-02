@@ -167,7 +167,7 @@ public class TestCluster {
 
         nodeOptions.setCommonExecutor(JRaftUtils.createCommonExecutor(nodeOptions));
         nodeOptions.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(nodeOptions));
-        nodeOptions.setClientExecutor(JRaftUtils.createClientExecutor(nodeOptions));
+        nodeOptions.setClientExecutor(JRaftUtils.createClientExecutor(nodeOptions, nodeOptions.getServerName()));
         nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
 
         nodeOptions.setElectionTimeoutMs(this.electionTimeoutMs);

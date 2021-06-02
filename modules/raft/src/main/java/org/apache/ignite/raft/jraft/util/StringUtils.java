@@ -156,7 +156,6 @@ public class StringUtils {
      * <code>null</code> splits on whitespace
      * @param max the maximum number of elements to include in the array. A zero or negative value implies no limit
      * @return an array of parsed Strings, <code>null</code> if null String input
-     * @since 2.1
      */
     public static String[] splitPreserveAllTokens(String str, String separatorChars, int max) {
         return splitWorker(str, separatorChars, max, true);
@@ -320,7 +319,6 @@ public class StringUtils {
      *
      * @param str the String to parse, may be <code>null</code>
      * @return an array of parsed Strings, <code>null</code> if null String input
-     * @since 2.1
      */
     public static String[] splitPreserveAllTokens(String str) {
         return splitWorker(str, null, -1, true);
@@ -356,7 +354,6 @@ public class StringUtils {
      * @param separatorChar the character used as the delimiter,
      * <code>null</code> splits on whitespace
      * @return an array of parsed Strings, <code>null</code> if null String input
-     * @since 2.1
      */
     public static String[] splitPreserveAllTokens(String str, char separatorChar) {
         return splitWorker(str, separatorChar, true);

@@ -679,7 +679,7 @@ public class CliServiceImpl implements CliService {
         // The expected average leader number on every peerId
         private final int expectedAverage;
 
-        public LeaderCounter(final int groupCount, final int peerCount) {
+        LeaderCounter(final int groupCount, final int peerCount) {
             this.expectedAverage = (int) Math.ceil((double) groupCount / peerCount);
         }
 

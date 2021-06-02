@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -42,6 +43,7 @@ import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.CliService;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -59,6 +61,7 @@ import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static java.lang.Thread.sleep;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
@@ -66,7 +69,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-/** Jraft cli tests */
+/**
+ * Jraft cli tests.
+ */
 public class CliServiceTest {
     /**
      * The logger.
@@ -124,9 +129,21 @@ public class CliServiceTest {
 
         this.cluster.waitLeader();
 
+        for (Node follower : cluster.getFollowers()) {
+            assertTrue(waitForCondition(() -> follower.getLeaderId() != null, 3_000));
+        }
+
+        for (PeerId learner : cluster.getLearners()) {
+            Node node = cluster.getNode(learner.getEndpoint());
+
+            assertTrue(waitForCondition(() -> node.getLeaderId() != null, 3_000));
+        }
+
         this.cliService = new CliServiceImpl();
         this.conf = new Configuration(peers, learners);
+
         CliOptions opts = new CliOptions();
+        opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, "client"));
 
         ClusterService clientSvc = factory.createClusterService(new ClusterLocalConfiguration("client",
             TestUtils.INIT_PORT - 1, peers.stream().map(p -> p.getEndpoint().toString()).collect(Collectors.toList()),
@@ -311,10 +328,11 @@ public class CliServiceTest {
         for (final PeerId peer : this.conf) {
             assertTrue(this.cliService.snapshot(this.groupId, peer).isOk());
         }
+
         for (final PeerId peer : this.conf.getLearners()) {
             assertTrue(this.cliService.snapshot(this.groupId, peer).isOk());
         }
-        Thread.sleep(1000);
+
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             assertEquals(1, fsm.getSaveSnapshotTimes());
         }
@@ -523,5 +541,28 @@ public class CliServiceTest {
         public Status transferLeader(final String groupId, final Configuration conf, final PeerId peer) {
             return new Status(-1, "Fail to transfer leader");
         }
+    }
+
+    /**
+     * @param cond The condition.
+     * @param timeout The timeout.
+     * @return {@code True} if condition has happened within the timeout.
+     */
+    @SuppressWarnings("BusyWait") protected boolean waitForCondition(BooleanSupplier cond, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while (System.currentTimeMillis() < stop) {
+            if (cond.getAsBoolean())
+                return true;
+
+            try {
+                sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }

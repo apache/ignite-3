@@ -105,7 +105,6 @@ public class LogEntry implements Checksum {
      * Returns whether the log entry has a checksum.
      *
      * @return true when the log entry has checksum, otherwise returns false.
-     * @since 1.2.26
      */
     public boolean hasChecksum() {
         return this.hasChecksum;
@@ -115,7 +114,6 @@ public class LogEntry implements Checksum {
      * Returns true when the log entry is corrupted, it means that the checksum is mismatch.
      *
      * @return true when the log entry is corrupted, otherwise returns false
-     * @since 1.2.6
      */
     public boolean isCorrupted() {
         return this.hasChecksum && this.checksum != checksum();

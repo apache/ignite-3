@@ -74,7 +74,6 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param conf current configuration
      * @param learners learner peers to add
      * @return operation status
-     * @since 1.3.0
      */
     Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
 
@@ -85,7 +84,6 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param conf current configuration
      * @param learners learner peers to remove
      * @return operation status
-     * @since 1.3.0
      */
     Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
 
@@ -96,7 +94,6 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param conf current configuration
      * @param learners learner peers to set
      * @return operation status
-     * @since 1.3.0
      */
     Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
 
@@ -153,7 +150,6 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param groupId the raft group id
      * @param conf target peers configuration
      * @return all learners of the replication group
-     * @since 1.3.0
      */
     List<PeerId> getLearners(final String groupId, final Configuration conf);
 

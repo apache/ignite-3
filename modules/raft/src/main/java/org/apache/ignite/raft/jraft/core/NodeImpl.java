@@ -1411,7 +1411,6 @@ public class NodeImpl implements Node, RaftServerService {
      * Returns the JRaft service factory for current node.
      *
      * @return the service factory
-     * @since 1.2.6
      */
     public JRaftServiceFactory getServiceFactory() {
         return this.serviceFactory;
@@ -2923,7 +2922,6 @@ public class NodeImpl implements Node, RaftServerService {
      * should use {@link #listPeers()} instead.
      *
      * @return current configuration.
-     * @since 1.0.3
      */
     public Configuration getCurrentConf() {
         this.readLock.lock();

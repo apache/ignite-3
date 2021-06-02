@@ -28,6 +28,7 @@ import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -104,10 +105,11 @@ public final class JRaftUtils {
 
     /**
      * @param opts Options.
+     * @param name The name.
      * @return The service.
      */
-    public static ExecutorService createClientExecutor(NodeOptions opts) {
-        String prefix = "JRaft-Response-Processor-" + opts.getServerName() + "-";
+    public static ExecutorService createClientExecutor(RpcOptions opts, String name) {
+        String prefix = "JRaft-Response-Processor-" + name + "-";
         return ThreadPoolUtil.newBuilder()
             .poolName(prefix) //
             .enableMetric(true) //
@@ -150,7 +152,6 @@ public final class JRaftUtils {
      *
      * @param prefixName the prefix name of thread
      * @return a new {@link ThreadFactory} instance
-     * @since 0.0.3
      */
     public static ThreadFactory createThreadFactory(final String prefixName) {
         return new NamedThreadFactory(prefixName, true);

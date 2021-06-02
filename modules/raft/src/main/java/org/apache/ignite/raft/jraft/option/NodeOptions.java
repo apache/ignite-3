@@ -195,11 +195,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private Scheduler scheduler;
 
-    /**
-     * The client executor is used by RPC client.
-     */
-    private ExecutorService clientExecutor;
-
     /** Server name. */
     private String serverName;
 
@@ -469,14 +464,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setScheduler(Scheduler scheduler) {
         this.scheduler = scheduler;
-    }
-
-    public ExecutorService getClientExecutor() {
-        return clientExecutor;
-    }
-
-    public void setClientExecutor(ExecutorService clientExecutor) {
-        this.clientExecutor = clientExecutor;
     }
 
     public String getServerName() {
