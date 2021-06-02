@@ -26,12 +26,9 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  * Default implementation of a {@link MessageSerializationRegistry}.
  */
 public class MessageSerializationRegistryImpl implements MessageSerializationRegistry {
-    /** Maximum allowed number of message groups. */
-    private static final int EXPECTED_NUMBER_OF_MESSAGE_GROUPS = 100;
-
-    /** message type -> MessageSerializerProvider instance */
+    /** group type -> message type -> MessageSerializerProvider instance */
     private final MessageSerializationFactory<?>[][] factories =
-        new MessageSerializationFactory<?>[EXPECTED_NUMBER_OF_MESSAGE_GROUPS][Short.MAX_VALUE + 1];
+        new MessageSerializationFactory<?>[Short.MAX_VALUE + 1][];
 
     /**
      * Default constructor that also registers standard message types from the network module.
@@ -47,16 +44,20 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
     ) {
         assert groupType >= 0 : "group type must not be negative";
         assert messageType >= 0 : "message type must not be negative";
-        assert groupType < EXPECTED_NUMBER_OF_MESSAGE_GROUPS :
-            String.format("Group type %d is larger than max allowed %d", groupType, EXPECTED_NUMBER_OF_MESSAGE_GROUPS);
 
-        if (factories[groupType][messageType] != null)
+        MessageSerializationFactory<?>[] groupFactories = factories[groupType];
+
+        if (groupFactories == null) {
+            groupFactories = new MessageSerializationFactory<?>[Short.MAX_VALUE + 1];
+            factories[groupType] = groupFactories;
+        }
+        else if (groupFactories[messageType] != null)
             throw new NetworkConfigurationException(String.format(
                 "Message serialization factory for message type %d in module %d is already defined",
                 messageType, groupType
             ));
 
-        factories[groupType][messageType] = factory;
+        groupFactories[messageType] = factory;
 
         return this;
     }
@@ -73,7 +74,9 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
         assert groupType >= 0 : "group type must not be negative";
         assert messageType >= 0 : "message type must not be negative";
 
-        var provider = factories[groupType][messageType];
+        MessageSerializationFactory<?>[] groupFactories = factories[groupType];
+
+        MessageSerializationFactory<?> provider = groupFactories == null ? null : groupFactories[messageType];
 
         assert provider != null :
             String.format("No serializer provider defined for group type %d and message type %d",
