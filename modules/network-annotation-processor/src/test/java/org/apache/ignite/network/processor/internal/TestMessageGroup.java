@@ -19,7 +19,11 @@ package org.apache.ignite.network.processor.internal;
 
 import org.apache.ignite.network.annotations.MessageGroup;
 
-@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
+/**
+ * Message group for tests.
+ */
+@MessageGroup(groupType = 1, groupName = "TestMessages")
 public class TestMessageGroup {
-    public static final short ALL_TYPES = 1;
+    /** Type of {@link SerializationOrderMessage} */
+    public static final short SERIALIZATION_ORDER_MESSAGE = 1;
 }

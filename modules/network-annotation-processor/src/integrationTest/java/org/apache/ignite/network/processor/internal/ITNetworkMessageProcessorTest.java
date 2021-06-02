@@ -96,7 +96,7 @@ public class ITNetworkMessageProcessorTest {
     @Test
     void testCompileMultipleMessage() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "TransitiveMessage", "TestMessageGroup")
+            sources("AllTypesMessage", "TransitiveMessage", "ITTestMessageGroup")
         );
 
         assertThat(compilation).succeededWithoutWarnings();
@@ -182,7 +182,7 @@ public class ITNetworkMessageProcessorTest {
     @Test
     void testMultipleMessageGroups() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "TestMessageGroup", "SecondGroup")
+            sources("AllTypesMessage", "ITTestMessageGroup", "SecondGroup")
         );
 
         assertThat(compilation).hadErrorContaining(
@@ -218,7 +218,7 @@ public class ITNetworkMessageProcessorTest {
     @Test
     void testConflictingMessageTypes() {
         Compilation compilation = compiler.compile(
-            sources("AllTypesMessage", "ConflictingTypeMessage", "TestMessageGroup")
+            sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup")
         );
 
         assertThat(compilation).hadErrorContaining("message with type 1 already exists");
@@ -228,7 +228,7 @@ public class ITNetworkMessageProcessorTest {
      * Compiles the given network message.
      */
     private Compilation compile(String messageSource) {
-        return compiler.compile(sources(messageSource, "TestMessageGroup"));
+        return compiler.compile(sources(messageSource, "ITTestMessageGroup"));
     }
 
     /**

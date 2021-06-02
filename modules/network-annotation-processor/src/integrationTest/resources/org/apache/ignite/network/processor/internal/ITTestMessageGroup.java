@@ -17,8 +17,8 @@
 
 package org.apache.ignite.network.processor.internal;
 
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-@AutoMessage(1)
-public interface InvalidAnnotatedTypeMessage {
+@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
+public class ITTestMessageGroup {
 }

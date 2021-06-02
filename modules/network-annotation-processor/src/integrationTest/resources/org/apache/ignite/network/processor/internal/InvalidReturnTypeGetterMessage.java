@@ -20,7 +20,7 @@ package org.apache.ignite.network.processor.internal;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.AutoMessage;
 
-@AutoMessage(TestMessageGroup.ALL_TYPES)
+@AutoMessage(1)
 public interface InvalidReturnTypeGetterMessage extends NetworkMessage {
     void a();
 }

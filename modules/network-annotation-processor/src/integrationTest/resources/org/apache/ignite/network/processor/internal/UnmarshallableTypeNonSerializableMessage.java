@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.AutoMessage;
 
-@AutoMessage(value = TestMessageGroup.ALL_TYPES, autoSerializable = false)
+@AutoMessage(value = 1, autoSerializable = false)
 public interface UnmarshallableTypeNonSerializableMessage extends NetworkMessage {
     ArrayList<Integer> a();
 }

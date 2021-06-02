@@ -17,8 +17,23 @@
 
 package org.apache.ignite.network.processor.internal;
 
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.AutoMessage;
 
-@AutoMessage(1)
-public interface InvalidAnnotatedTypeMessage {
+/**
+ * Test message used in {@link SerializationOrderTest}.
+ */
+@AutoMessage(TestMessageGroup.SERIALIZATION_ORDER_MESSAGE)
+public interface SerializationOrderMessage extends NetworkMessage {
+    /** */
+    String b();
+
+    /** */
+    String d();
+
+    /** */
+    int c();
+
+    /** */
+    int a();
 }

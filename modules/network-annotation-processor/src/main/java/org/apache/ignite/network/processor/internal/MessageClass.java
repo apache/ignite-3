@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.processor.internal;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -51,6 +52,7 @@ public class MessageClass {
         className = ClassName.get(messageElement);
         getters = element.getEnclosedElements().stream()
             .filter(element -> element.getKind() == ElementKind.METHOD)
+            .sorted(Comparator.comparing(element -> element.getSimpleName().toString()))
             .map(ExecutableElement.class::cast)
             .collect(Collectors.toUnmodifiableList());
     }
