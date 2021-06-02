@@ -187,9 +187,8 @@ public class ITNodeTest {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         final NodeOptions nodeOptions = new NodeOptions();
 
-        nodeOptions.setCommonExecutor(createExecutor("JRaft-Common-Executor", nodeOptions.getCommonThreadPollSize()));
-        nodeOptions.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor",
-            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
+        nodeOptions.setCommonExecutor(JRaftUtils.createCommonExecutor(nodeOptions));
+        nodeOptions.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(nodeOptions));
 
         nodeOptions.setFsm(new MockStateMachine(addr));
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");

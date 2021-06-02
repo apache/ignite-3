@@ -28,13 +28,9 @@ import org.apache.ignite.raft.jraft.util.AsciiStringUtil;
 import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
- * V1 log entry decoder
- *
- * TODO checksum
+ * V1 log entry decoder.
  */
-@Deprecated
 public final class V1Decoder implements LogEntryDecoder {
-
     private V1Decoder() {
     }
 

@@ -20,11 +20,8 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 /**
  * Log entry encoder
- *
- * @since 1.2.6
  */
 public interface LogEntryEncoder {
-
     /**
      * Encode a log entry into a byte array.
      *

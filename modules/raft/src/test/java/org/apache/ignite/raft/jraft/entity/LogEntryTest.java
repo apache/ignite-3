@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.entity;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.junit.Assert;
 import org.junit.Test;
@@ -30,8 +31,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class LogEntryTest {
-
-    @SuppressWarnings("deprecation")
     @Test
     public void testEncodeDecodeWithoutData() {
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
@@ -40,14 +39,15 @@ public class LogEntryTest {
         assertNull(entry.getData());
         assertNull(entry.getOldPeers());
 
-        byte[] content = entry.encode();
+        DefaultLogEntryCodecFactory factory = DefaultLogEntryCodecFactory.getInstance();
+
+        byte[] content = factory.encoder().encode(entry);
 
         assertNotNull(content);
         assertTrue(content.length > 0);
         assertEquals(LogEntryV1CodecFactory.MAGIC, content[0]);
 
-        LogEntry nentry = new LogEntry();
-        assertTrue(nentry.decode(content));
+        LogEntry nentry = factory.decoder().decode(content);
 
         assertEquals(100, nentry.getId().getIndex());
         assertEquals(3, nentry.getId().getTerm());
@@ -59,7 +59,6 @@ public class LogEntryTest {
         assertNull(nentry.getOldPeers());
     }
 
-    @SuppressWarnings("deprecation")
     @Test
     public void testEncodeDecodeWithData() {
         ByteBuffer buf = ByteBuffer.wrap("hello".getBytes());
@@ -69,14 +68,15 @@ public class LogEntryTest {
         entry.setPeers(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
         assertEquals(buf, entry.getData());
 
-        byte[] content = entry.encode();
+        DefaultLogEntryCodecFactory factory = DefaultLogEntryCodecFactory.getInstance();
+
+        byte[] content = factory.encoder().encode(entry);
 
         assertNotNull(content);
         assertTrue(content.length > 0);
         assertEquals(LogEntryV1CodecFactory.MAGIC, content[0]);
 
-        LogEntry nentry = new LogEntry();
-        assertTrue(nentry.decode(content));
+        LogEntry nentry = factory.decoder().decode(content);
 
         assertEquals(100, nentry.getId().getIndex());
         assertEquals(3, nentry.getId().getTerm());

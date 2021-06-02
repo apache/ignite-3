@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
  *
  */
 public interface Scheduler {
-
     /**
      * Creates and executes a one-shot action that becomes enabled after the given delay.
      *

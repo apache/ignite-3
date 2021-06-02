@@ -18,8 +18,6 @@ package org.apache.ignite.raft.jraft.entity.codec;
 
 /**
  * Log entry codec factory to create encoder/decoder for LogEntry.
- *
- * @since 1.2.6
  */
 public interface LogEntryCodecFactory {
     /**

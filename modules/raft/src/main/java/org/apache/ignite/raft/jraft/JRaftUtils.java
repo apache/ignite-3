@@ -24,10 +24,12 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 
@@ -69,6 +71,32 @@ public final class JRaftUtils {
             .workQueue(new LinkedBlockingQueue<>()) //
             .threadFactory(createThreadFactory(prefix)) //
             .build();
+    }
+
+    /**
+     * @param opts Node options.
+     * @return The executor.
+     */
+    public static ExecutorService createCommonExecutor(NodeOptions opts) {
+        return createExecutor("JRaft-Common-Executor-" + opts.getServerName() + "-", opts.getCommonThreadPollSize());
+    }
+
+    /**
+     * @param opts Node options.
+     * @return The executor.
+     */
+    public static FixedThreadsExecutorGroup createAppendEntriesExecutor(NodeOptions opts) {
+        return createStripedExecutor("JRaft-AppendEntries-Processor-" + opts.getServerName() + "-",
+            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD);
+    }
+
+    /**
+     * @param opts Node options.
+     * @return The executor.
+     */
+    public static ExecutorService createRequestExecutor(NodeOptions opts) {
+        return createExecutor("JRaft-Request-Processor-" + opts.getServerName() + "-",
+            opts.getRaftRpcThreadPoolSize());
     }
 
     /**

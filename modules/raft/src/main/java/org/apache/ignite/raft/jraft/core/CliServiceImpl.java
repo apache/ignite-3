@@ -64,7 +64,6 @@ import org.slf4j.LoggerFactory;
  * Cli service implementation.
  */
 public class CliServiceImpl implements CliService {
-
     private static final Logger LOG = LoggerFactory.getLogger(CliServiceImpl.class);
 
     private CliOptions cliOptions;

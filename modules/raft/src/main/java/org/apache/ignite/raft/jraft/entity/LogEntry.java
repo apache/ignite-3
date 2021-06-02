@@ -102,38 +102,6 @@ public class LogEntry implements Checksum {
     }
 
     /**
-     * Please use {@link LogEntryEncoder} instead.
-     *
-     * @return encoded byte array
-     * @deprecated
-     */
-    @SuppressWarnings("DeprecatedIsStillUsed")
-    @Deprecated
-    public byte[] encode() {
-        return V1Encoder.INSTANCE.encode(this);
-    }
-
-    /**
-     * Please use {@link LogEntryDecoder} instead.
-     *
-     * @return whether success to decode
-     * @deprecated
-     */
-    @SuppressWarnings("DeprecatedIsStillUsed")
-    @Deprecated
-    public boolean decode(final byte[] content) {
-        if (content == null || content.length == 0) {
-            return false;
-        }
-        if (content[0] != LogEntryV1CodecFactory.MAGIC) {
-            // Corrupted log
-            return false;
-        }
-        V1Decoder.INSTANCE.decode(this, content);
-        return true;
-    }
-
-    /**
      * Returns whether the log entry has a checksum.
      *
      * @return true when the log entry has checksum, otherwise returns false.

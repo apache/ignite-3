@@ -35,6 +35,7 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -49,12 +50,8 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
-
-import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
-import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
 
 /**
  *
@@ -112,14 +109,11 @@ public class JRaftServerImpl implements RaftServer {
         if (opts.getServerName() == null)
             opts.setServerName(service.localConfiguration().getName());
 
-        String suffix = opts.getServerName() + "-";
+        // Create shared executors.
+        opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
+        opts.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(opts));
 
-        opts.setCommonExecutor(createExecutor("JRaft-Common-Executor-" + suffix, opts.getCommonThreadPollSize()));
-        opts.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor-" + suffix,
-            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
-
-        rpcServer = new IgniteRpcServer(service, reuse, nodeManager,
-            createExecutor("JRaft-Request-Processor-" + suffix, opts.getRaftRpcThreadPoolSize()));
+        rpcServer = new IgniteRpcServer(service, reuse, nodeManager, JRaftUtils.createRequestExecutor(opts));
 
         rpcServer.init(null);
     }

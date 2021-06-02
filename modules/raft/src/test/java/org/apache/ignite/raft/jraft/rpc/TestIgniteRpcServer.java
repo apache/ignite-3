@@ -30,16 +30,16 @@ import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerialization
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
- *
+ * RPC server configured for integration tests.
  */
 public class TestIgniteRpcServer extends IgniteRpcServer {
     /**
-     *
+     * The registry.
      */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
         .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
@@ -47,7 +47,7 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
         .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
     /**
-     *
+     * The factory.
      */
     private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
 
@@ -76,6 +76,6 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
      */
     public TestIgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
         super(factory.createClusterService(new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY)),
-            false, nodeManager, JRaftUtils.createExecutor("test-rcp-executor", Utils.cpus()));
+            false, nodeManager, JRaftUtils.createRequestExecutor(new NodeOptions()));
     }
 }
