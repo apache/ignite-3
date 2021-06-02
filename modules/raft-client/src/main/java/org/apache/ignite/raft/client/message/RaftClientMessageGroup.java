@@ -27,70 +27,70 @@ public class RaftClientMessageGroup {
     /**
      * Message type for {@link ActionRequest}.
      */
-    public static final short ACTION_REQUEST = 1;
+    public static final short ACTION_REQUEST = 0;
 
     /**
      * Message type for {@link ActionResponse}.
      */
-    public static final short ACTION_RESPONSE = 2;
+    public static final short ACTION_RESPONSE = 1;
 
     /**
      * Message type for {@link AddLearnersRequest}.
      */
-    public static final short ADD_LEARNERS_REQUEST = 3;
+    public static final short ADD_LEARNERS_REQUEST = 2;
 
     /**
      * Message type for {@link AddPeersRequest}.
      */
-    public static final short ADD_PEERS_REQUEST = 4;
+    public static final short ADD_PEERS_REQUEST = 3;
 
     /**
      * Message type for {@link ChangePeersResponse}.
      */
-    public static final short CHANGE_PEERS_RESPONSE = 5;
+    public static final short CHANGE_PEERS_RESPONSE = 4;
 
     /**
      * Message type for {@link GetLeaderRequest}.
      */
-    public static final short GET_LEADER_REQUEST = 6;
+    public static final short GET_LEADER_REQUEST = 5;
 
     /**
      * Message type for {@link GetLeaderResponse}.
      */
-    public static final short GET_LEADER_RESPONSE = 7;
+    public static final short GET_LEADER_RESPONSE = 6;
 
     /**
      * Message type for {@link GetPeersRequest}.
      */
-    public static final short GET_PEERS_REQUEST = 8;
+    public static final short GET_PEERS_REQUEST = 7;
 
     /**
      * Message type for {@link GetPeersResponse}.
      */
-    public static final short GET_PEERS_RESPONSE = 9;
+    public static final short GET_PEERS_RESPONSE = 8;
 
     /**
      * Message type for {@link RaftErrorResponse}.
      */
-    public static final short RAFT_ERROR_RESPONSE = 10;
+    public static final short RAFT_ERROR_RESPONSE = 9;
 
     /**
      * Message type for {@link RemoveLearnersRequest}.
      */
-    public static final short REMOVE_LEARNERS_REQUEST = 11;
+    public static final short REMOVE_LEARNERS_REQUEST = 10;
 
     /**
      * Message type for {@link RemovePeersRequest}.
      */
-    public static final short REMOVE_PEERS_REQUEST = 12;
+    public static final short REMOVE_PEERS_REQUEST = 11;
 
     /**
      * Message type for {@link SnapshotRequest}.
      */
-    public static final short SNAPSHOT_REQUEST = 13;
+    public static final short SNAPSHOT_REQUEST = 12;
 
     /**
      * Message type for {@link TransferLeadershipRequest}.
      */
-    public static final short TRANSFER_LEADERSHIP_REQUEST = 14;
+    public static final short TRANSFER_LEADERSHIP_REQUEST = 13;
 }

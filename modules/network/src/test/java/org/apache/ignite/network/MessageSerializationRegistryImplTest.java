@@ -23,7 +23,6 @@ import org.apache.ignite.network.serialization.MessageSerializer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
@@ -71,10 +70,8 @@ public class MessageSerializationRegistryImplTest {
 
         registry.registerFactory(nextGroupType, Msg.TYPE, new MsgSerializationFactory());
 
-        assertNotSame(
-            registry.createDeserializer(Msg.GROUP_TYPE, Msg.TYPE),
-            registry.createDeserializer(nextGroupType, Msg.TYPE)
-        );
+        assertNotNull(registry.createDeserializer(Msg.GROUP_TYPE, Msg.TYPE));
+        assertNotNull(registry.createDeserializer(nextGroupType, Msg.TYPE));
     }
 
     /**
