@@ -87,30 +87,22 @@ public class AllTypesMessageGenerator {
     private static Object randomValue(Random random, Field field, boolean nestedMsg) {
         Class<?> type = field.getType();
 
-        if (type == byte.class) {
+        if (type == byte.class)
             return (byte) random.nextInt();
-        }
-        else if (type == short.class) {
+        else if (type == short.class)
             return (short) random.nextInt();
-        }
-        else if (type == int.class) {
+        else if (type == int.class)
             return random.nextInt();
-        }
-        else if (type == long.class) {
+        else if (type == long.class)
             return random.nextLong();
-        }
-        else if (type == float.class) {
+        else if (type == float.class)
             return random.nextFloat();
-        }
-        else if (type == double.class) {
+        else if (type == double.class)
             return random.nextDouble();
-        }
-        else if (type == char.class) {
+        else if (type == char.class)
             return (char) random.nextInt();
-        }
-        else if (type == boolean.class) {
+        else if (type == boolean.class)
             return random.nextBoolean();
-        }
 
         else if (type == byte[].class) {
             int byteArrLen = random.nextInt(1024);
@@ -121,57 +113,50 @@ public class AllTypesMessageGenerator {
         else if (type == short[].class) {
             int shortArrLen = random.nextInt(1024);
             short[] shorts = new short[1024];
-            for (int i = 0; i < shortArrLen; i++) {
+            for (int i = 0; i < shortArrLen; i++)
                 shorts[i] = (short) random.nextInt();
-            }
             return shorts;
         }
         else if (type == int[].class) {
             int intArrLen = random.nextInt(1024);
             int[] ints = new int[1024];
-            for (int i = 0; i < intArrLen; i++) {
+            for (int i = 0; i < intArrLen; i++)
                 ints[i] = random.nextInt();
-            }
             return ints;
         }
         else if (type == long[].class) {
             int longArrLen = random.nextInt(1024);
             long[] longs = new long[1024];
-            for (int i = 0; i < longArrLen; i++) {
+            for (int i = 0; i < longArrLen; i++)
                 longs[i] = random.nextLong();
-            }
             return longs;
         }
         else if (type == float[].class) {
             int floatArrLen = random.nextInt(1024);
             float[] floats = new float[1024];
-            for (int i = 0; i < floatArrLen; i++) {
+            for (int i = 0; i < floatArrLen; i++)
                 floats[i] = random.nextFloat();
-            }
             return floats;
         }
         else if (type == double[].class) {
             int doubleArrLen = random.nextInt(1024);
             double[] doubles = new double[1024];
-            for (int i = 0; i < doubleArrLen; i++) {
+            for (int i = 0; i < doubleArrLen; i++)
                 doubles[i] = random.nextDouble();
-            }
             return doubles;
         }
         else if (type == char[].class) {
             int charArrLen = random.nextInt(1024);
             char[] chars = new char[1024];
-            for (int i = 0; i < charArrLen; i++) {
+            for (int i = 0; i < charArrLen; i++)
                 chars[i] = (char) random.nextInt();
-            }
             return chars;
         }
         else if (type == boolean[].class) {
             int booleanArrLen = random.nextInt(1024);
             boolean[] booleans = new boolean[1024];
-            for (int i = 0; i < booleanArrLen; i++) {
+            for (int i = 0; i < booleanArrLen; i++)
                 booleans[i] = random.nextBoolean();
-            }
             return booleans;
         }
 
@@ -189,9 +174,8 @@ public class AllTypesMessageGenerator {
             BitSet set = new BitSet();
             int setLen = random.nextInt(10);
             for (int i = 0; i < setLen; i++) {
-                if (random.nextBoolean()) {
+                if (random.nextBoolean())
                     set.set(i);
-                }
             }
             return set;
         }
@@ -207,14 +191,12 @@ public class AllTypesMessageGenerator {
             return generator.randomUuid();
         }
         else if (NetworkMessage.class.isAssignableFrom(type)) {
-            if (nestedMsg) {
+            if (nestedMsg)
                 return generate(random.nextLong(), false);
-            }
             return null;
         }
 
-        else {
+        else
             return null;
-        }
     }
 }
