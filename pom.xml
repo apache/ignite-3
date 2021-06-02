@@ -42,12 +42,15 @@
         <module>modules/cli-common</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
+        <module>modules/configuration-api</module>
         <module>modules/core</module>
         <module>modules/metastorage</module>
         <module>modules/metastorage-client</module>
         <module>modules/metastorage-common</module>
         <module>modules/metastorage-server</module>
         <module>modules/network</module>
+        <module>modules/network-annotation-processor</module>
+        <module>modules/network-api</module>
         <module>modules/raft</module>
         <module>modules/raft-client</module>
         <module>modules/rest</module>

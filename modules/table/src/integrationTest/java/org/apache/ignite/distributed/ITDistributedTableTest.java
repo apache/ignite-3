@@ -18,7 +18,9 @@
 package org.apache.ignite.distributed;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,22 +34,26 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
-import org.apache.ignite.internal.table.distributed.command.response.KVGetResponse;
-import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
+import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
@@ -55,6 +61,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.server.RaftServer;
 import org.apache.ignite.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
@@ -91,7 +98,9 @@ public class ITDistributedTableTest {
 
     /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
-        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
+        .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
+        .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
     /** Client. */
     private ClusterService client;
@@ -106,6 +115,9 @@ public class ITDistributedTableTest {
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
+    /**
+     * Start all cluster nodes before each test.
+     */
     @BeforeEach
     public void beforeTest() {
         for (int i = 0; i < NODES; i++) {
@@ -132,6 +144,11 @@ public class ITDistributedTableTest {
         LOG.info("Client started.");
     }
 
+    /**
+     * Shutdowns all cluster nodes after each test.
+     *
+     * @throws Exception If failed.
+     */
     @AfterEach
     public void afterTest() throws Exception {
         for (ClusterService node : cluster) {
@@ -141,6 +158,11 @@ public class ITDistributedTableTest {
         client.shutdown();
     }
 
+    /**
+     * Tests partition listener.
+     *
+     * @throws Exception If failed.
+     */
     @Test
     public void partitionListener() throws Exception {
         String grpId = "part";
@@ -148,12 +170,14 @@ public class ITDistributedTableTest {
         RaftServer partSrv = new RaftServerImpl(
             cluster.get(0),
             FACTORY,
-            1000,
-            Map.of(grpId, new PartitionCommandListener())
+            true
         );
 
-        RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000,
-            List.of(new Peer(cluster.get(0).topologyService().localMember())), true, 200);
+        List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
+
+        partSrv.startRaftGroup(grpId, new PartitionListener(), conf);
+
+        RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true);
 
         Row testRow = getTestRow();
 
@@ -164,15 +188,20 @@ public class ITDistributedTableTest {
 //        Row keyChunk = new Row(SCHEMA, new ByteBufferRow(testRow.keySlice()));
         Row keyChunk = getTestKey();
 
-        CompletableFuture<KVGetResponse> getFur = partRaftGrp.run(new GetCommand(keyChunk));
+        CompletableFuture<SingleRowResponse> getFut = partRaftGrp.run(new GetCommand(keyChunk));
 
-        assertNotNull(getFur.get().getValue());
+        assertNotNull(getFut.get().getValue());
 
-        assertEquals(testRow.longValue(1), new Row(SCHEMA, getFur.get().getValue()).longValue(1));
+        assertEquals(testRow.longValue(1), new Row(SCHEMA, getFut.get().getValue()).longValue(1));
 
         partSrv.shutdown();
     }
 
+    /**
+     * Prepares a test row which contains one field.
+     *
+     * @return Row.
+     */
     @NotNull private Row getTestKey() {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
 
@@ -181,6 +210,11 @@ public class ITDistributedTableTest {
         return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
     }
 
+    /**
+     * Prepares a test row which contains two fields.
+     *
+     * @return Row.
+     */
     @NotNull private Row getTestRow() {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
 
@@ -190,6 +224,9 @@ public class ITDistributedTableTest {
         return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
     }
 
+    /**
+     * The test prepares a distributed table and checks operation over various views.
+     */
     @Test
     public void partitionedTable() {
         HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
@@ -198,8 +235,7 @@ public class ITDistributedTableTest {
             raftServers.put(cluster.get(i).topologyService().localMember(), new RaftServerImpl(
                 cluster.get(i),
                 FACTORY,
-                1000,
-                Map.of()
+                true
             ));
         }
 
@@ -220,10 +256,11 @@ public class ITDistributedTableTest {
 
             String grpId = "part-" + p;
 
-            rs.setListener(grpId, new PartitionCommandListener());
+            List<Peer> conf = List.of(new Peer(partNodes.get(0).address()));
 
-            partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000,
-                List.of(new Peer(partNodes.get(0))), true, 200));
+            rs.startRaftGroup(grpId, new PartitionListener(), conf);
+
+            partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true));
 
             p++;
         }
@@ -242,71 +279,232 @@ public class ITDistributedTableTest {
             }
         });
 
-        for (int i = 0; i < PARTS * 10; i++) {
-            tbl.kvView().putIfAbsent(
-                tbl.kvView().tupleBuilder()
-                    .set("key", Long.valueOf(i))
-                    .build(),
-                tbl.kvView().tupleBuilder()
-                    .set("value", Long.valueOf(i + 2))
-                    .build());
+        partitionedTableView(tbl, PARTS * 10);
+
+        partitionedTableKVBinaryView(tbl.kvView(), PARTS * 10);
+    }
+
+    /**
+     * Checks operation over row table view.
+     *
+     * @param view Table view.
+     * @param keysCnt Count of keys.
+     */
+    public void partitionedTableView(Table view, int keysCnt) {
+        LOG.info("Test for Table view [keys=" + keysCnt + ']');
+
+        for (int i = 0; i < keysCnt; i++) {
+            view.insert(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .set("value", Long.valueOf(i + 2))
+                .build()
+            );
         }
 
-        for (int i = 0; i < PARTS * 10; i++) {
-            Tuple entry = tbl.kvView().get(
-                tbl.kvView().tupleBuilder()
-                    .set("key", Long.valueOf(i))
-                    .build());
-
-            LOG.info("The result is [key=" + i + ", tuple=" + entry + ']');
+        for (int i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
 
             assertEquals(Long.valueOf(i + 2), entry.longValue("value"));
         }
 
-        for (int i = 0; i < PARTS * 10; i++) {
-            tbl.kvView().put(
-                tbl.kvView().tupleBuilder()
+        for (int i = 0; i < keysCnt; i++) {
+            view.upsert(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .set("value", Long.valueOf(i + 5))
+                .build()
+            );
+
+            Tuple entry = view.get(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
+
+            assertEquals(Long.valueOf(i + 5), entry.longValue("value"));
+        }
+
+        HashSet<Tuple> keys = new HashSet<>();
+
+        for (int i = 0; i < keysCnt; i++) {
+            keys.add(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
+        }
+
+        Collection<Tuple> entries = view.getAll(keys);
+
+        assertEquals(keysCnt, entries.size());
+
+        for (int i = 0; i < keysCnt; i++) {
+            boolean res = view.replace(
+                view.tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .set("value", Long.valueOf(i + 5))
+                    .build(),
+                view.tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .set("value", Long.valueOf(i + 2))
+                    .build());
+
+            assertTrue(res);
+        }
+
+        for (int i = 0; i < keysCnt; i++) {
+            boolean res = view.delete(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
+
+            assertTrue(res);
+
+            Tuple entry = view.get(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
+
+            assertNull(entry);
+        }
+
+        ArrayList<Tuple> batch = new ArrayList<>(keysCnt);
+
+        for (int i = 0; i < keysCnt; i++) {
+            batch.add(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .set("value", Long.valueOf(i + 2))
+                .build());
+        }
+
+        view.upsertAll(batch);
+
+        for (int i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
+
+            assertEquals(Long.valueOf(i + 2), entry.longValue("value"));
+        }
+
+        view.deleteAll(keys);
+
+        for (Tuple key : keys) {
+            Tuple entry = view.get(key);
+
+            assertNull(entry);
+        }
+    }
+
+    /**
+     * Checks operation over key-value binary table view.
+     *
+     * @param view Table view.
+     * @param keysCnt Count of keys.
+     */
+    public void partitionedTableKVBinaryView(KeyValueBinaryView view, int keysCnt) {
+        LOG.info("Tes for Key-Value binary view [keys=" + keysCnt + ']');
+
+        for (int i = 0; i < keysCnt; i++) {
+            view.putIfAbsent(
+                view.tupleBuilder()
                     .set("key", Long.valueOf(i))
                     .build(),
-                tbl.kvView().tupleBuilder()
+                view.tupleBuilder()
+                    .set("value", Long.valueOf(i + 2))
+                    .build());
+        }
+
+        for (int i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(
+                view.tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build());
+
+            assertEquals(Long.valueOf(i + 2), entry.longValue("value"));
+        }
+
+        for (int i = 0; i < keysCnt; i++) {
+            view.put(
+                view.tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build(),
+                view.tupleBuilder()
                     .set("value", Long.valueOf(i + 5))
                     .build());
 
-            Tuple entry = tbl.kvView().get(
-                tbl.kvView().tupleBuilder()
+            Tuple entry = view.get(
+                view.tupleBuilder()
                     .set("key", Long.valueOf(i))
                     .build());
 
             assertEquals(Long.valueOf(i + 5), entry.longValue("value"));
         }
 
-        for (int i = 0; i < PARTS * 10; i++) {
-            boolean res = tbl.kvView().replace(
-                tbl.kvView().tupleBuilder()
+        HashSet<Tuple> keys = new HashSet<>();
+
+        for (int i = 0; i < keysCnt; i++) {
+            keys.add(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
+        }
+
+        Map<Tuple, Tuple> entries = view.getAll(keys);
+
+        assertEquals(keysCnt, entries.size());
+
+        for (int i = 0; i < keysCnt; i++) {
+            boolean res = view.replace(
+                view.tupleBuilder()
                     .set("key", Long.valueOf(i))
                     .build(),
-                tbl.kvView().tupleBuilder()
+                view.tupleBuilder()
                     .set("value", Long.valueOf(i + 5))
                     .build(),
-                tbl.kvView().tupleBuilder()
+                view.tupleBuilder()
                     .set("value", Long.valueOf(i + 2))
                     .build());
 
             assertTrue(res);
         }
 
-        for (int i = 0; i < PARTS * 10; i++) {
-            boolean res = tbl.kvView().remove(
-                tbl.kvView().tupleBuilder()
+        for (int i = 0; i < keysCnt; i++) {
+            boolean res = view.remove(
+                view.tupleBuilder()
                     .set("key", Long.valueOf(i))
                     .build());
 
             assertTrue(res);
 
-            Tuple entry = tbl.kvView().get(
-                tbl.kvView().tupleBuilder()
+            Tuple entry = view.get(
+                view.tupleBuilder()
                     .set("key", Long.valueOf(i))
                     .build());
+
+            assertNull(entry);
+        }
+
+        HashMap<Tuple, Tuple> batch = new HashMap<>(keysCnt);
+
+        for (int i = 0; i < keysCnt; i++) {
+            batch.put(
+                view.tupleBuilder()
+                    .set("key", Long.valueOf(i))
+                    .build(),
+                view.tupleBuilder()
+                    .set("value", Long.valueOf(i + 2))
+                    .build());
+        }
+
+        view.putAll(batch);
+
+        for (int i = 0; i < keysCnt; i++) {
+            Tuple entry = view.get(view.tupleBuilder()
+                .set("key", Long.valueOf(i))
+                .build());
+
+            assertEquals(Long.valueOf(i + 2), entry.longValue("value"));
+        }
+
+        view.removeAll(keys);
+
+        for (Tuple key : keys) {
+            Tuple entry = view.get(key);
 
             assertNull(entry);
         }

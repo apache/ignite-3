@@ -17,9 +17,16 @@
 
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.ClusterConfig;
+import java.lang.management.ManagementFactory;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
@@ -31,7 +38,9 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
@@ -40,15 +49,25 @@ import org.apache.ignite.network.message.MessageSerializationRegistry;
 public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
     @Override public ClusterService createClusterService(ClusterLocalConfiguration context) {
+        String consistentId = context.getName();
+
         var topologyService = new ScaleCubeTopologyService();
 
         var messagingService = new ScaleCubeMessagingService(topologyService);
 
         MessageSerializationRegistry registry = context.getSerializationRegistry();
 
-        var connectionManager = new ConnectionManager(context.getPort(), registry);
+        UUID launchId = UUID.randomUUID();
 
-        ScaleCubeDirectMarshallerTransport transport = new ScaleCubeDirectMarshallerTransport(connectionManager);
+        var connectionManager = new ConnectionManager(
+            context.getPort(),
+            registry,
+            consistentId,
+            () -> new RecoveryServerHandshakeManager(launchId, consistentId),
+            () -> new RecoveryClientHandshakeManager(launchId, consistentId)
+        );
+
+        ScaleCubeDirectMarshallerTransport transport = new ScaleCubeDirectMarshallerTransport(connectionManager, topologyService);
 
         var cluster = new ClusterImpl(defaultConfig())
             .handler(cl -> new ClusterMessageHandler() {
@@ -62,7 +81,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                     topologyService.onMembershipEvent(event);
                 }
             })
-            .config(opts -> opts.memberAlias(context.getName()))
+            .config(opts -> opts.memberAlias(consistentId))
             .transport(opts -> opts.transportFactory(new DelegatingTransportFactory(messagingService, config -> transport)))
             .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())));
 
@@ -81,9 +100,28 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override public void shutdown() {
+                stopJmxMonitor();
+
                 cluster.shutdown();
                 cluster.onShutdown().block();
                 connectionManager.stop();
+            }
+
+            /**
+             * Removes the JMX MBean registered by the "io.scalecube.cluster.ClusterImpl#startJmxMonitor()" method.
+             * Current ScaleCube implementation does not do that which leads to memory leaks.
+             */
+            private void stopJmxMonitor() {
+                MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+
+                try {
+                    var pattern = new ObjectName("io.scalecube.cluster", "name", cluster.member().id() + "@*");
+
+                    for (ObjectName name : server.queryNames(pattern, null))
+                        server.unregisterMBean(name);
+                }
+                catch (MalformedObjectNameException | InstanceNotFoundException | MBeanRegistrationException ignore) {
+                }
             }
         };
     }
