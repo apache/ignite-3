@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.internal;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TestMessageTypes;
+import org.apache.ignite.network.annotations.Transferable;
 
-@MessageGroup(groupName = "TestMessages", groupType = 2)
-public class TestMessageTypes {
-    public static final short ALL_TYPES = 1;
-
-    public static final short TEST = 2;
-
-    public static final short NESTED_MESSAGE = 3;
+@Transferable(TestMessageTypes.NESTED_MESSAGE)
+public interface NestedMessageMessage extends NetworkMessage {
+    NetworkMessage nestedMessage();
 }

@@ -88,8 +88,20 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** */
     private int tmpArrBytes;
 
-    /** */
-    private boolean msgTypeDone;
+    /**
+     * When {@code true}, this flag indicates that {@link #msgGroupType} contains a valid part of the currently read
+     * message header. {@code false} means that {@link #msgGroupType} might contain some leftover data from previous
+     * reads and can be discarded.
+     */
+    private boolean msgGroupTypeRead;
+
+    /**
+     * Group type of the message that is currently being received.
+     * <p>
+     * This field saves the partial message header, because it is not received in one piece, but rather in two:
+     * message group type and message type.
+     */
+    private short msgGroupType;
 
     /** */
     @Nullable
@@ -552,6 +564,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
         else
             writeShort(Short.MIN_VALUE);
+
     }
 
     /** {@inheritDoc} */
@@ -1030,28 +1043,41 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /** {@inheritDoc} */
-    @Override public <T extends NetworkMessage> T readMessage(MessageReader reader) {
-        if (!msgTypeDone) {
-            if (buf.remaining() < NetworkMessage.MSG_TYPE_SIZE_BYTES) {
-                lastFinished = false;
+    @Override
+    @Nullable
+    public <T extends NetworkMessage> T readMessage(MessageReader reader) {
+        // if the deserialzer is null then we haven't finished reading the message header
+        if (msgDeserializer == null) {
+            // read the message group type
+            if (!msgGroupTypeRead) {
+                msgGroupType = readShort();
+
+                if (!lastFinished)
+                    return null;
+
+                // save current progress, because we can read the header in two chunks
+                msgGroupTypeRead = true;
+            }
+
+            // message group type will be equal to Short.MIN_VALUE if a nested message is null
+            if (msgGroupType == Short.MIN_VALUE) {
+                lastFinished = true;
+                msgGroupTypeRead = false;
 
                 return null;
             }
 
-            short messageGroupType = readShort();
+            // read the message type
+            short msgType = readShort();
 
-            // message type will be equal to Short.MIN_VALUE if a nested message is null
-            if (messageGroupType == Short.MIN_VALUE)
-                msgDeserializer = null;
-            else {
-                short messageType = readShort();
+            if (!lastFinished)
+                return null;
 
-                msgDeserializer = serializationRegistry.createDeserializer(messageGroupType, messageType);
-            }
-
-            msgTypeDone = true;
+            msgDeserializer = serializationRegistry.createDeserializer(msgGroupType, msgType);
         }
 
+        // if the deserializer is not null then we have definitely finished parsing the header and can read the message
+        // body
         if (msgDeserializer != null) {
             try {
                 reader.beforeInnerMessageRead();
@@ -1065,16 +1091,14 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 reader.afterInnerMessageRead(lastFinished);
             }
         }
-        else
-            lastFinished = true;
 
         if (lastFinished) {
-            NetworkMessage msg0 = msgDeserializer != null ? msgDeserializer.getMessage() : null;
+            T result = (T) msgDeserializer.getMessage();
 
-            msgTypeDone = false;
+            msgGroupTypeRead = false;
             msgDeserializer = null;
 
-            return (T)msg0;
+            return result;
         }
         else
             return null;

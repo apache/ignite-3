@@ -36,6 +36,7 @@ import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.internal.AllTypesMessage;
 import org.apache.ignite.network.internal.AllTypesMessageGenerator;
+import org.apache.ignite.network.internal.NestedMessageMessage;
 import org.apache.ignite.network.internal.direct.DirectMessageWriter;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
@@ -45,6 +46,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -68,6 +70,30 @@ public class InboundDecoderTest {
     public void testAllTypes(long seed) {
         AllTypesMessage msg = AllTypesMessageGenerator.generate(seed, true);
 
+        AllTypesMessage received = sendAndReceive(msg);
+
+        assertTrue(equals(msg, received));
+    }
+
+    /**
+     * Tests that the {@link InboundDecoder} is able to transfer a message with a nested {@code null} message
+     * (happy case is tested by {@link #testAllTypes}).
+     */
+    @Test
+    public void testNullNestedMessage() {
+        NestedMessageMessage msg = new TestMessagesFactory().nestedMessageMessage()
+            .nestedMessage(null)
+            .build();
+
+        NestedMessageMessage received = sendAndReceive(msg);
+
+        assertNull(received.nestedMessage());
+    }
+
+    /**
+     * Serializes and then deserializes the given message.
+     */
+    private <T extends NetworkMessage> T sendAndReceive(T msg) {
         var channel = new EmbeddedChannel(new InboundDecoder(registry));
 
         var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
@@ -76,7 +102,7 @@ public class InboundDecoderTest {
 
         ByteBuffer buf = ByteBuffer.allocate(10_000);
 
-        AllTypesMessage output;
+        T received;
 
         do {
             buf.clear();
@@ -92,9 +118,9 @@ public class InboundDecoderTest {
             buffer.writeBytes(buf);
 
             channel.writeInbound(buffer);
-        } while ((output = channel.readInbound()) == null);
+        } while ((received = channel.readInbound()) == null);
 
-        assertTrue(equals(msg, output));
+        return received;
     }
 
     /**
@@ -206,9 +232,8 @@ public class InboundDecoderTest {
      * Returns {@code true} if the content of the given messages is equal.
      */
     private static boolean equals(AllTypesMessage o1, AllTypesMessage o2) {
-        if (o1 == o2) {
+        if (o1 == o2)
             return true;
-        }
 
         boolean fieldEquals = o1.a() == o2.a()
             && o1.b() == o2.b()
@@ -234,18 +259,18 @@ public class InboundDecoderTest {
 
         boolean arrayEquals;
 
-        if (o1.v() == null && o2.v() == null) {
+        if (o1.v() == null && o2.v() == null)
             arrayEquals = true;
-        } else {
+        else {
             arrayEquals = IntStream.range(0, o1.v().length)
                 .allMatch(i -> equals((AllTypesMessage)o1.v()[i], (AllTypesMessage)o2.v()[i]));
         }
 
         boolean collectionEquals;
 
-        if (o1.w() == null && o2.w() == null) {
+        if (o1.w() == null && o2.w() == null)
             collectionEquals = true;
-        } else {
+        else {
             var iterator1 = o1.w().iterator();
 
             collectionEquals = o2.w().stream()
@@ -254,9 +279,9 @@ public class InboundDecoderTest {
 
         boolean mapEquals;
 
-        if (o1.x() == null && o2.x() == null) {
+        if (o1.x() == null && o2.x() == null)
             mapEquals = true;
-        } else {
+        else {
             mapEquals = o2.x().entrySet().stream()
                 .allMatch(e -> equals((AllTypesMessage)e.getValue(), (AllTypesMessage)o1.x().get(e.getKey())));
         }
