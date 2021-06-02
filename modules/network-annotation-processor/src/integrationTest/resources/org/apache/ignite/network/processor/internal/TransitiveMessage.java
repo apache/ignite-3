@@ -19,7 +19,7 @@ package org.apache.ignite.network.processor.internal;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 interface NetworkMessage1 extends NetworkMessage {
 
@@ -33,7 +33,7 @@ interface NetworkMessage2 extends NetworkMessage1, Serializable, FakeInterface {
 
 }
 
-@AutoMessage(2)
+@Transferable(2)
 public interface TransitiveMessage extends NetworkMessage2 {
     int x();
 }

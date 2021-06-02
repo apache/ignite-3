@@ -19,13 +19,13 @@ package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * Transfer a leadership to receiving peer.
  */
-@AutoMessage(value = RaftClientMessageGroup.TRANSFER_LEADERSHIP_REQUEST, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.TRANSFER_LEADERSHIP_REQUEST, autoSerializable = false)
 public interface TransferLeadershipRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

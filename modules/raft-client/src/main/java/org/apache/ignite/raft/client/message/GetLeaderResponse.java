@@ -19,13 +19,13 @@ package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * A current leader.
  */
-@AutoMessage(value = RaftClientMessageGroup.GET_LEADER_RESPONSE, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.GET_LEADER_RESPONSE, autoSerializable = false)
 public interface GetLeaderResponse extends NetworkMessage, Serializable {
     /**
      * @return The leader.

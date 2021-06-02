@@ -19,7 +19,7 @@ package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Raft error response.
  */
-@AutoMessage(value = RaftClientMessageGroup.RAFT_ERROR_RESPONSE, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.RAFT_ERROR_RESPONSE, autoSerializable = false)
 public interface RaftErrorResponse extends NetworkMessage, Serializable {
     /**
      * @return Error code.

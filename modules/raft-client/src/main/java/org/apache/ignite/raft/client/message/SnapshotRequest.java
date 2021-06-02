@@ -19,12 +19,12 @@ package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Take a local snapshot on the peer.
  */
-@AutoMessage(value = RaftClientMessageGroup.SNAPSHOT_REQUEST, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.SNAPSHOT_REQUEST, autoSerializable = false)
 public interface SnapshotRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

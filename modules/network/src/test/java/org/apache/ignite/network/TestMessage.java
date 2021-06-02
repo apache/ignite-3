@@ -19,9 +19,9 @@ package org.apache.ignite.network;
 
 import java.io.Serializable;
 import java.util.Map;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-@AutoMessage(TestMessageTypes.TEST)
+@Transferable(TestMessageTypes.TEST)
 public interface TestMessage extends NetworkMessage, Serializable {
     String msg();
 

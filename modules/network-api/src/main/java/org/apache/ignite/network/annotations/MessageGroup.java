@@ -37,7 +37,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
  * The content of these classes is not specified and can be left empty, though the convention is to use them as
  * namespaces for declaring types of all Network Messages in the module.
  *
- * @see AutoMessage
+ * @see Transferable
  */
 @Target(ElementType.TYPE)
 // using the RUNTIME retention policy in order to avoid problems with incremental compilation in an IDE.

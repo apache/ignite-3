@@ -20,13 +20,13 @@ package org.apache.ignite.raft.client.message;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * Remove learners.
  */
-@AutoMessage(value = RaftClientMessageGroup.REMOVE_LEARNERS_REQUEST, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.REMOVE_LEARNERS_REQUEST, autoSerializable = false)
 public interface RemoveLearnersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

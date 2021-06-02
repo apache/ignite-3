@@ -24,9 +24,9 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessageTypes;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-@AutoMessage(TestMessageTypes.ALL_TYPES)
+@Transferable(TestMessageTypes.ALL_TYPES)
 public interface AllTypesMessage extends NetworkMessage {
     byte a();
 

@@ -20,13 +20,13 @@ package org.apache.ignite.raft.client.message;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  * Add learners.
  */
-@AutoMessage(value = RaftClientMessageGroup.ADD_LEARNERS_REQUEST, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.ADD_LEARNERS_REQUEST, autoSerializable = false)
 public interface AddLearnersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

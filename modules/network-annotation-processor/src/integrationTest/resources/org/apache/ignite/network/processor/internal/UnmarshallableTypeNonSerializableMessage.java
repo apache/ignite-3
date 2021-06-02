@@ -19,9 +19,9 @@ package org.apache.ignite.network.processor.internal;
 
 import java.util.ArrayList;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-@AutoMessage(value = 1, autoSerializable = false)
+@Transferable(value = 1, autoSerializable = false)
 public interface UnmarshallableTypeNonSerializableMessage extends NetworkMessage {
     ArrayList<Integer> a();
 }

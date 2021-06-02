@@ -30,12 +30,13 @@ import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializer;
 
 /**
- * Annotation for interfaces intended to be used as <i>Network Messages</i>. A Network Message is an interface that
- * must satisfy the following requirements:
+ * Annotation for interfaces intended to be used as <i>Transferable Object</i>. Such objects are intended to be
+ * serialized and sent over the network. The interfaces must obey the following contract:
  *
  * <ol>
- *     <li>It must extend the {@link NetworkMessage} interface either directly or transitively;</li>
- *     <li>It must only contain Ignite-style getter methods that represent the message's properties.</li>
+ *     <li>They must only contain Ignite-style getter methods that represent the objects' properties.</li>
+ *     <li>They must extend the {@link NetworkMessage} interface either directly or transitively. This
+ *     requirement is subject to change in the future when nested Transferable Objects will be supported.</li>
  * </ol>
  *
  * When such interface is marked by this annotation, it can be used by the annotation processor to generate
@@ -43,8 +44,8 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *
  * <ol>
  *     <li>Builder interface with setters for all declared properties;</li>
- *     <li>An immutable implementation of the message and a nested implementation of the generated builder
- *     for creating new message instances;</li>
+ *     <li>An immutable implementation of the interface and a nested implementation of the generated builder
+ *     for creating new instances;</li>
  * </ol>
  *
  * If the {@link #autoSerializable} property is set to {@code true}, the annotation processor will additionally generate
@@ -56,7 +57,7 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@link MessageSerializationFactory}.</li>
  * </ol>
  *
- * Properties of messages that can be auto-serialized can only be of <i>directly marshallable type</i>,
+ * Properties of Transferable Objects that can be auto-serialized can only be of <i>directly marshallable type</i>,
  * which is one of the following:
  *
  * <ol>
@@ -71,15 +72,17 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  *     <li>{@code Map} where both keys and values can be of a directly marshallable type.</li>
  * </ol>
  *
- * After all messages in a module have been processed, the processor will use the <i>message group descriptor</i>
- * (class annotated with {@link MessageGroup}) to expose the builders via a Message Factory.
+ * After all marked interfaces in a module have been processed, the processor will use the
+ * <i>message group descriptor</i> (class annotated with {@link MessageGroup}) to expose the builders via a
+ * Message Factory.
  *
  * @see MessageGroup
  */
 @Target(ElementType.TYPE)
 // using the RUNTIME retention policy in order to avoid problems with incremental compilation in an IDE.
 @Retention(RetentionPolicy.RUNTIME)
-public @interface AutoMessage {
+// TODO: Update this annotation according to https://issues.apache.org/jira/browse/IGNITE-14817
+public @interface Transferable {
     /**
      * This message's type as described in {@link NetworkMessage#messageType}.
      */

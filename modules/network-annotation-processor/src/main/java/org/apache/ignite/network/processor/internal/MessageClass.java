@@ -25,7 +25,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import com.squareup.javapoet.ClassName;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * A wrapper around a {@link TypeElement} and the corresponding {@link ClassName} of an annotated Network Message.
@@ -38,22 +38,22 @@ public class MessageClass {
     private final ClassName className;
 
     /** Annotation present on the {@code element}. */
-    private final AutoMessage annotation;
+    private final Transferable annotation;
 
     /**
      * Getter methods declared in the annotated interface.
      *
-     * @see AutoMessage
+     * @see Transferable
      */
     private final List<ExecutableElement> getters;
 
     /**
-     * @param messageElement element marked with the {@link AutoMessage} annotation.
+     * @param messageElement element marked with the {@link Transferable} annotation.
      */
     MessageClass(TypeElement messageElement) {
         element = messageElement;
         className = ClassName.get(messageElement);
-        annotation = element.getAnnotation(AutoMessage.class);
+        annotation = element.getAnnotation(Transferable.class);
         getters = element.getEnclosedElements().stream()
             .filter(element -> element.getKind() == ElementKind.METHOD)
             .sorted(Comparator.comparing(element -> element.getSimpleName().toString()))
@@ -121,14 +121,14 @@ public class MessageClass {
     }
 
     /**
-     * Returns {@link AutoMessage#value()}.
+     * Returns {@link Transferable#value()}.
      */
     public short messageType() {
         return annotation.value();
     }
 
     /**
-     * Returns {@link AutoMessage#autoSerializable()}.
+     * Returns {@link Transferable#autoSerializable()}.
      */
     public boolean isAutoSerializable() {
         return annotation.autoSerializable();

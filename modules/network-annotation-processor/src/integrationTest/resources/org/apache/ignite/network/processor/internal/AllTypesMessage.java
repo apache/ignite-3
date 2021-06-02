@@ -23,9 +23,9 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-@AutoMessage(1)
+@Transferable(1)
 public interface AllTypesMessage extends NetworkMessage {
     byte a();
 

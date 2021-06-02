@@ -34,7 +34,7 @@ import javax.tools.Diagnostic;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.processor.internal.messages.MessageBuilderGenerator;
 import org.apache.ignite.network.processor.internal.messages.MessageFactoryGenerator;
@@ -49,12 +49,12 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 
 /**
- * Annotation processor for working with the {@link AutoMessage} annotation.
+ * Annotation processor for working with the {@link Transferable} annotation.
  */
-public class NetworkMessageProcessor extends AbstractProcessor {
+public class TransferableObjectProcessor extends AbstractProcessor {
     /** {@inheritDoc} */
     @Override public Set<String> getSupportedAnnotationTypes() {
-        return Set.of(AutoMessage.class.getName());
+        return Set.of(Transferable.class.getName());
     }
 
     /** {@inheritDoc} */
@@ -186,7 +186,7 @@ public class NetworkMessageProcessor extends AbstractProcessor {
      * Validates the annotated messages:
      *
      * <ol>
-     *     <li>{@link AutoMessage} annotation is present on a valid element;</li>
+     *     <li>{@link Transferable} annotation is present on a valid element;</li>
      *     <li>No messages with the same message type exist.</li>
      * </ol>
      */
@@ -204,7 +204,7 @@ public class NetworkMessageProcessor extends AbstractProcessor {
             if (!isValid) {
                 var errorMsg = String.format(
                     "%s annotation must only be present on interfaces that extend %s",
-                    AutoMessage.class, NetworkMessage.class
+                    Transferable.class, NetworkMessage.class
                 );
 
                 throw new ProcessingException(errorMsg, null, element);

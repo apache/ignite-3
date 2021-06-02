@@ -19,13 +19,13 @@ package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Command;
 
 /**
  * Submit an action to a replication group.
  */
-@AutoMessage(value = RaftClientMessageGroup.ACTION_REQUEST, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.ACTION_REQUEST, autoSerializable = false)
 public interface ActionRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

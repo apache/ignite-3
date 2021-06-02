@@ -20,13 +20,13 @@ package org.apache.ignite.raft.client.message;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 
 /**
  *
  */
-@AutoMessage(value = RaftClientMessageGroup.GET_PEERS_RESPONSE, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.GET_PEERS_RESPONSE, autoSerializable = false)
 public interface GetPeersResponse extends NetworkMessage, Serializable {
     /**
      * @return Current peers.

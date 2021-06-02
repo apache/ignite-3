@@ -21,13 +21,13 @@ import java.util.Map;
 import io.scalecube.cluster.transport.api.Message;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageTypes;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Wrapper for ScaleCube's {@link Message}.
  * {@link Message#data} is stored in {@link #array} and {@link Message#headers} are stored in {@link #headers}.
  */
-@AutoMessage(NetworkMessageTypes.SCALE_CUBE_MESSAGE)
+@Transferable(NetworkMessageTypes.SCALE_CUBE_MESSAGE)
 public interface ScaleCubeMessage extends NetworkMessage {
     byte[] array();
 

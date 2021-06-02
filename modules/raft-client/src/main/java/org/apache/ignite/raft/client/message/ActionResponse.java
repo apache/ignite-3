@@ -19,12 +19,12 @@ package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * The result of an action.
  */
-@AutoMessage(value = RaftClientMessageGroup.ACTION_RESPONSE, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.ACTION_RESPONSE, autoSerializable = false)
 public interface ActionResponse extends NetworkMessage, Serializable {
     /**
      * @return A result for this request, can be of any type.

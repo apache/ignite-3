@@ -20,12 +20,12 @@ package org.apache.ignite.network.internal.recovery.message;
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessageTypes;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Handshake start response message.
  */
-@AutoMessage(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
+@Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
 public interface HandshakeStartResponseMessage extends NetworkMessage {
     /** Launch id. */
     UUID launchId();

@@ -19,10 +19,10 @@ package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /** Get peers. */
-@AutoMessage(value = RaftClientMessageGroup.GET_PEERS_REQUEST, autoSerializable = false)
+@Transferable(value = RaftClientMessageGroup.GET_PEERS_REQUEST, autoSerializable = false)
 public interface GetPeersRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.

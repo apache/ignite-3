@@ -25,7 +25,7 @@ import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.AutoMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.junit.jupiter.api.Test;
 
@@ -33,9 +33,9 @@ import static com.google.testing.compile.CompilationSubject.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Integration tests for the {@link NetworkMessageProcessor}.
+ * Integration tests for the {@link TransferableObjectProcessor}.
  */
-public class ITNetworkMessageProcessorTest {
+public class ITTransferableObjectProcessorTest {
     /**
      * Package name of the test sources.
      */
@@ -44,7 +44,7 @@ public class ITNetworkMessageProcessorTest {
     /**
      * Compiler instance configured with the annotation processor being tested.
      */
-    private final Compiler compiler = Compiler.javac().withProcessors(new NetworkMessageProcessor());
+    private final Compiler compiler = Compiler.javac().withProcessors(new TransferableObjectProcessor());
 
     /**
      * Compiles the network message with all supported directly marshallable types and checks that the compilation
@@ -191,7 +191,7 @@ public class ITNetworkMessageProcessorTest {
     }
 
     /**
-     * Tests that setting the {@link AutoMessage#autoSerializable()} to {@code false} does not produce any
+     * Tests that setting the {@link Transferable#autoSerializable()} to {@code false} does not produce any
      * serialization-related classes and errors.
      */
     @Test
