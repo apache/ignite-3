@@ -31,6 +31,13 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
     /** message type -> MessageSerializerProvider instance */
     private final Map<Integer, MessageSerializationFactory<?>> factories = new HashMap<>();
 
+    /**
+     * Default constructor.
+     */
+    public MessageSerializationRegistryImpl() {
+        NetworkMessagesSerializationRegistryInitializer.registerFactories(this);
+    }
+
     /** {@inheritDoc} */
     @Override
     public MessageSerializationRegistry registerFactory(
