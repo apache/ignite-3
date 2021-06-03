@@ -38,7 +38,7 @@ public class ExceptPlannerTest extends AbstractPlannerTest {
     /** Public schema. */
     private IgniteSchema publicSchema;
 
-    /** {@inheritDoc} */
+    /** */
     @BeforeAll
     public void setup() {
         publicSchema = new IgniteSchema("PUBLIC");

@@ -40,7 +40,7 @@ public class TableFunctionTest extends AbstractPlannerTest {
     private IgniteSchema publicSchema;
 
 
-    /** {@inheritDoc} */
+    /** */
     @BeforeAll
     public void setup() {
         publicSchema = new IgniteSchema("PUBLIC");

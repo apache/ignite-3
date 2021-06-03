@@ -21,7 +21,7 @@ data: {
   # FMPP will use the declaration from default_config.fmpp.
   parser: {
     # Generated parser implementation class package and name
-    package: "org.apache.ignite.internal.processors.query.calcite.sql",
+    package: "org.apache.ignite.internal.generated.query.calcite.sql",
     class: "IgniteSqlParserImpl",
 
     # List of additional classes and packages to import.
