@@ -28,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiPredicate;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
@@ -39,6 +38,7 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
+import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -248,11 +248,11 @@ public class TableManagerTest {
         when(sm.unregisterSchemas(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invokation -> {
-            BiPredicate<SchemaEventParameters, Exception> schemaInitialized = invokation.getArgument(1);
+            EventListener<SchemaEventParameters> schemaInitialized = invokation.getArgument(1);
 
             SchemaRegistry schemaRegistry = mock(SchemaRegistry.class);
 
-            CompletableFuture.supplyAsync(() -> schemaInitialized.test(
+            CompletableFuture.supplyAsync(() -> schemaInitialized.notify(
                 new SchemaEventParameters(table.tableId(), schemaRegistry),
                 null));
 
@@ -262,7 +262,7 @@ public class TableManagerTest {
         when(am.removeAssignment(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invokation -> {
-            BiPredicate<AffinityEventParameters, Exception> affinityRemovedDelegate = (BiPredicate)invokation.getArgument(1);
+            EventListener<AffinityEventParameters> affinityRemovedDelegate = invokation.getArgument(1);
 
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
@@ -270,7 +270,7 @@ public class TableManagerTest {
                 assignment.add(new ArrayList<ClusterNode>(Collections.singleton(node)));
             }
 
-            CompletableFuture.supplyAsync(() -> affinityRemovedDelegate.test(
+            CompletableFuture.supplyAsync(() -> affinityRemovedDelegate.notify(
                 new AffinityEventParameters(table.tableId(), assignment),
                 null));
 
@@ -404,13 +404,13 @@ public class TableManagerTest {
         when(sm.initSchemaForTable(any(), eq(schemaTable.canonicalName()))).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invokation -> {
-            BiPredicate<SchemaEventParameters, Exception> schemaInitialized = invokation.getArgument(1);
+            EventListener<SchemaEventParameters> schemaInitialized = invokation.getArgument(1);
 
             assertTrue(tblIdFut.isDone());
 
             SchemaRegistry schemaRegistry = mock(SchemaRegistry.class);
 
-            CompletableFuture.supplyAsync(() -> schemaInitialized.test(
+            CompletableFuture.supplyAsync(() -> schemaInitialized.notify(
                 new SchemaEventParameters(tblIdFut.join(), schemaRegistry),
                 null));
 
@@ -420,7 +420,7 @@ public class TableManagerTest {
         when(am.calculateAssignments(any(), eq(schemaTable.canonicalName()))).thenReturn(CompletableFuture.completedFuture(true));
 
         doAnswer(invokation -> {
-            BiPredicate<AffinityEventParameters, Exception> affinityClaculatedDelegate = (BiPredicate)invokation.getArgument(1);
+            EventListener<AffinityEventParameters> affinityClaculatedDelegate = invokation.getArgument(1);
 
             ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
@@ -430,7 +430,7 @@ public class TableManagerTest {
 
             assertTrue(tblIdFut.isDone());
 
-            CompletableFuture.supplyAsync(() -> affinityClaculatedDelegate.test(
+            CompletableFuture.supplyAsync(() -> affinityClaculatedDelegate.notify(
                 new AffinityEventParameters(tblIdFut.join(), assignment),
                 null));
 

@@ -30,7 +30,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
@@ -40,6 +39,8 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
+import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.manager.ListenerRemovedException;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
@@ -65,6 +66,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table manager.
@@ -240,28 +242,41 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         schemaReadyFut.join().schemaRegistry()
                     ));
 
-                affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
+                affMgr.listen(AffinityEvent.CALCULATED, new EventListener<AffinityEventParameters>() {
+                    @Override
+                    public boolean notify(@NotNull AffinityEventParameters parameters, @Nullable Throwable e) {
+                        if (!tblId.equals(parameters.tableId()))
+                            return false;
 
-                    if (e == null)
-                        affinityReadyFut.complete(parameters);
-                    else
+                        if (e == null)
+                            affinityReadyFut.complete(parameters);
+                        else
+                            affinityReadyFut.completeExceptionally(e);
+
+                        return true;
+                    }
+
+                    @Override public void remove(@NotNull Throwable e) {
                         affinityReadyFut.completeExceptionally(e);
-
-                    return true;
+                    }
                 });
 
-                schemaMgr.listen(SchemaEvent.INITIALIZED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
+                schemaMgr.listen(SchemaEvent.INITIALIZED, new EventListener<SchemaEventParameters>() {
+                    @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable e) {
+                        if (!tblId.equals(parameters.tableId()))
+                            return false;
 
-                    if (e == null)
-                        schemaReadyFut.complete(parameters);
-                    else
+                        if (e == null)
+                            schemaReadyFut.complete(parameters);
+                        else
+                            schemaReadyFut.completeExceptionally(e);
+
+                        return true;
+                    }
+
+                    @Override public void remove(@NotNull Throwable e) {
                         schemaReadyFut.completeExceptionally(e);
-
-                    return true;
+                    }
                 });
             }
 
@@ -286,19 +301,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 Operations.noop())));
                 }
 
-                affMgr.listen(AffinityEvent.REMOVED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
+                affMgr.listen(AffinityEvent.REMOVED, new EventListener<AffinityEventParameters>() {
+                    @Override
+                    public boolean notify(@NotNull AffinityEventParameters parameters, @Nullable Throwable e) {
+                        if (!tblId.equals(parameters.tableId()))
+                            return false;
 
-                    if (e == null)
-                        dropTableLocally(tblName, tblId, parameters.assignment());
-                    else {
-                        LOG.error("Failed to drop a table [name=" + tblName + ", id=" + tblId + ']', e);
+                        if (e == null)
+                            dropTableLocally(tblName, tblId, parameters.assignment());
+                        else
+                            onEvent(TableEvent.DROP, new TableEventParameters(tblId, tblName), e);
 
-                        onEvent(TableEvent.DROP, new TableEventParameters(tblId, tblName), e);
+                        return true;
                     }
 
-                    return true;
+                    @Override public void remove(@NotNull Throwable e) {
+                        onEvent(TableEvent.DROP, new TableEventParameters(tblId, tblName), e);
+                    }
                 });
             }
 
@@ -310,18 +329,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        listen(TableEvent.CREATE, (params, e) -> {
-            String tableName = params.tableName();
+        listen(TableEvent.CREATE, new EventListener<TableEventParameters>() {
+            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                String tableName = parameters.tableName();
 
-            if (!name.equals(tableName))
-                return false;
+                if (!name.equals(tableName))
+                    return false;
 
-            if (e == null)
-                tblFut.complete(params.table());
-            else
+                if (e == null)
+                    tblFut.complete(parameters.table());
+                else
+                    tblFut.completeExceptionally(e);
+
+                return true;
+            }
+
+            @Override public void remove(@NotNull Throwable e) {
                 tblFut.completeExceptionally(e);
-
-            return true;
+            }
         });
 
         try {
@@ -342,9 +367,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public void dropTable(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        listen(TableEvent.DROP, new BiPredicate<>() {
-            @Override public boolean test(TableEventParameters params, Throwable e) {
-                String tableName = params.tableName();
+        listen(TableEvent.DROP, new EventListener<TableEventParameters>() {
+            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                String tableName = parameters.tableName();
 
                 if (!name.equals(tableName))
                     return false;
@@ -360,6 +385,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     dropTblFut.completeExceptionally(e);
 
                 return true;
+            }
+
+            @Override public void remove(@NotNull Throwable e) {
+                dropTblFut.completeExceptionally(e);
             }
         });
 
@@ -449,18 +478,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<Table> getTblFut = new CompletableFuture<>();
 
-        BiPredicate<TableEventParameters, Throwable> clo = (params, e) -> {
-            String tableName = params.tableName();
+        EventListener<TableEventParameters> clo = new EventListener<TableEventParameters>() {
+            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                if (e instanceof ListenerRemovedException) {
+                    getTblFut.completeExceptionally(e);
 
-            if (!name.equals(tableName))
-                return false;
+                    return true;
+                }
 
-            if (e == null)
-                getTblFut.complete(params.table());
-            else
+                String tableName = parameters.tableName();
+
+                if (!name.equals(tableName))
+                    return false;
+
+                if (e == null)
+                    getTblFut.complete(parameters.table());
+                else
+                    getTblFut.completeExceptionally(e);
+
+                return true;
+            }
+
+            @Override public void remove(@NotNull Throwable e) {
                 getTblFut.completeExceptionally(e);
-
-            return true;
+            }
         };
 
         listen(TableEvent.CREATE, clo);
