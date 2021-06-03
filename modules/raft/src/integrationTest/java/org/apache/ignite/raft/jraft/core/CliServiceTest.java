@@ -113,7 +113,8 @@ public class CliServiceTest {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
         final LinkedHashSet<PeerId> learners = new LinkedHashSet<>();
-        //2 learners
+
+        // 2 learners
         for (int i = 0; i < 2; i++) {
             learners.add(new PeerId(TestUtils.getMyIp(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + i));
         }

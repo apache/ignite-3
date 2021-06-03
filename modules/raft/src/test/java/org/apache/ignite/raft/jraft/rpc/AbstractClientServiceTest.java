@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -48,9 +49,6 @@ import static org.mockito.Matchers.eq;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class AbstractClientServiceTest {
-    static class MockClientService extends AbstractClientService {
-    }
-
     private RpcOptions rpcOptions;
     private MockClientService clientService;
     @Mock
@@ -61,6 +59,7 @@ public class AbstractClientServiceTest {
     @Before
     public void setup() {
         this.rpcOptions = new RpcOptions();
+        this.rpcOptions.setClientExecutor(JRaftUtils.createClientExecutor(this.rpcOptions, "unittest"));
         this.clientService = new MockClientService();
         this.rpcOptions.setRpcClient(this.rpcClient);
         assertTrue(this.clientService.init(this.rpcOptions));
@@ -77,7 +76,6 @@ public class AbstractClientServiceTest {
             this.status = status;
             this.latch.countDown();
         }
-
     }
 
     @Test
@@ -140,7 +138,6 @@ public class AbstractClientServiceTest {
     @Test
     public void testInvokeWithDoneException() throws Exception {
         InvokeContext invokeCtx = new InvokeContext();
-        invokeCtx.put(InvokeContext.CRC_SWITCH, false);
         ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         PingRequest request = TestUtils.createPingRequest();
 
@@ -174,7 +171,6 @@ public class AbstractClientServiceTest {
     @Test
     public void testInvokeWithDoneOnException() throws Exception {
         InvokeContext invokeCtx = new InvokeContext();
-        invokeCtx.put(InvokeContext.CRC_SWITCH, false);
         ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         PingRequest request = TestUtils.createPingRequest();
 
@@ -208,7 +204,6 @@ public class AbstractClientServiceTest {
     @Test
     public void testInvokeWithDOneOnErrorResponse() throws Exception {
         final InvokeContext invokeCtx = new InvokeContext();
-        invokeCtx.put(InvokeContext.CRC_SWITCH, false);
         final ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         final CliRequests.GetPeersRequest request = CliRequests.GetPeersRequest.newBuilder() //
             .setGroupId("id") //
@@ -240,5 +235,8 @@ public class AbstractClientServiceTest {
         assertNotNull(done.status);
         assertTrue(!done.status.isOk());
         assertEquals(done.status.getErrorMsg(), "failed");
+    }
+
+    static class MockClientService extends AbstractClientService {
     }
 }

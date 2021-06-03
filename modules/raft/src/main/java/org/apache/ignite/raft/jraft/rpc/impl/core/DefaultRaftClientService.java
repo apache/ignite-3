@@ -116,7 +116,6 @@ public class DefaultRaftClientService extends AbstractClientService implements R
         final RpcResponseClosure<GetFileResponse> done) {
         // open checksum
         final InvokeContext ctx = new InvokeContext();
-        ctx.put(InvokeContext.CRC_SWITCH, true);
         return invokeWithDone(endpoint, request, ctx, done, timeoutMs);
     }
 

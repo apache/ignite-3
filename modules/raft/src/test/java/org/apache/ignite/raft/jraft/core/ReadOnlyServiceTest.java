@@ -69,10 +69,13 @@ public class ReadOnlyServiceTest {
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this.node);
         opts.setRaftOptions(new RaftOptions());
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
-        Mockito.when(this.node.getGroupId()).thenReturn("test");
         NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
+        nodeOptions.setClientExecutor(JRaftUtils.createClientExecutor(nodeOptions, "unittest"));
+        nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
+        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
+        Mockito.when(this.node.getGroupId()).thenReturn("test");
+        Mockito.when(this.node.getTimerManager()).thenReturn(nodeOptions.getScheduler());
         Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost:8081", 0)));
         Mockito.when(this.node.getServerId()).thenReturn(new PeerId("localhost:8081", 0));

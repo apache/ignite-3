@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
 public class LocalLogStorage implements LogStorage, Describer {
     private static final Logger LOG = LoggerFactory.getLogger(LocalLogStorage.class);
 
-    private final String path;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = this.readWriteLock.readLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
@@ -58,7 +57,6 @@ public class LocalLogStorage implements LogStorage, Describer {
 
     public LocalLogStorage(final String path, final RaftOptions raftOptions) {
         super();
-        this.path = path;
     }
 
     @Override
@@ -91,7 +89,6 @@ public class LocalLogStorage implements LogStorage, Describer {
 
             this.initialized = false;
             this.log.clear();
-            LOG.info("DB destroyed, the db path is: {}.", this.path);
         }
         finally {
             this.writeLock.unlock();
@@ -238,7 +235,6 @@ public class LocalLogStorage implements LogStorage, Describer {
         finally {
             this.readLock.unlock();
         }
-
     }
 
     @Override

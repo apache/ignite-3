@@ -119,13 +119,13 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
     @BeforeEach
     void before(TestInfo testInfo) {
-        LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
+        LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getTestMethod().orElseThrow().getName());
 
         this.dataPath = TestUtils.mkTempDir();
     }
 
     @AfterEach
-    void after() throws Exception {
+    void after(TestInfo testInfo) throws Exception {
         LOG.info("Start client shutdown");
 
         for (RaftGroupService client : clients) {
@@ -138,6 +138,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
             server.shutdown();
 
         assertTrue("Failed to delete " + this.dataPath, Utils.delete(new File(this.dataPath)));
+
+        LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getTestMethod().orElseThrow().getName());
     }
 
     /**
