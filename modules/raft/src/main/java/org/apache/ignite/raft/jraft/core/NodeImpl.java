@@ -130,9 +130,6 @@ public class NodeImpl implements Node, RaftServerService {
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
 
-    // TODO asch remove.
-    // public static final AtomicInteger GLOBAL_NUM_NODES = new AtomicInteger(0);
-
     /**
      * Internal states
      */
@@ -291,8 +288,6 @@ public class NodeImpl implements Node, RaftServerService {
                     executeApplyingTasks(this.tasks);
                     this.tasks.clear();
                 }
-//                final int num = GLOBAL_NUM_NODES.decrementAndGet(); // TODO asch
-//                LOG.info("The number of active nodes decrement to {}.", num);
                 event.shutdownLatch.countDown();
                 return;
             }
@@ -533,8 +528,6 @@ public class NodeImpl implements Node, RaftServerService {
         updateLastLeaderTimestamp(Utils.monotonicMs());
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
-//        final int num = GLOBAL_NUM_NODES.incrementAndGet(); // TODO asch
-//        LOG.info("The number of active nodes increment to {}.", num);
     }
 
     private boolean initSnapshotStorage() {
@@ -1075,11 +1068,6 @@ public class NodeImpl implements Node, RaftServerService {
         if (!this.conf.isEmpty()) {
             stepDown(this.currTerm, false, new Status());
         }
-
-//        if (!NodeManager.getInstance().add(this)) { // TODO asch fixme
-//            LOG.error("NodeManager add {} failed.", getNodeId());
-//            return false;
-//        }
 
         // Now the raft node is started , have to acquire the writeLock to avoid race
         // conditions
@@ -2759,7 +2747,6 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             LOG.info("Node {} shutdown, currTerm={} state={}.", getNodeId(), this.currTerm, this.state);
             if (this.state.compareTo(State.STATE_SHUTTING) < 0) {
-                //NodeManager.getInstance().remove(this); // TODO asch fixme
                 // If it is leader, set the wakeup_a_candidate with true;
                 // If it is follower, call on_stop_following in step_down
                 if (this.state.compareTo(State.STATE_FOLLOWER) <= 0) {
@@ -2797,10 +2784,6 @@ public class NodeImpl implements Node, RaftServerService {
                     Utils.runInThread(this.getOptions().getCommonExecutor(),
                         () -> this.applyQueue.publishEvent((event, sequence) -> event.shutdownLatch = latch));
                 }
-//                else { // TODO asch
-//                    final int num = GLOBAL_NUM_NODES.decrementAndGet();
-//                    LOG.info("The number of active nodes decrement to {}.", num);
-//                }
                 if (this.timerManager != null) {
                     this.timerManager.shutdown();
                 }

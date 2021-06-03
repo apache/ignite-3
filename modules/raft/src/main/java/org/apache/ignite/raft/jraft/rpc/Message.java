@@ -18,13 +18,13 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 
 /**
- * Base message. Temporary extends Serializable for compatibility with JDK serialization.
- * TODO asch remove.
+ * Base raft message. Temporary extends Serializable for compatibility with JDK serialization.
  */
 public interface Message extends NetworkMessage, Serializable {
     default @Override short directType() {
-        return 1;
+        return ScaleCubeMessage.TYPE;
     }
 }
