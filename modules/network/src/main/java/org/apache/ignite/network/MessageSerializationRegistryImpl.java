@@ -78,9 +78,10 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
 
         MessageSerializationFactory<?> provider = groupFactories == null ? null : groupFactories[messageType];
 
-        assert provider != null :
-            String.format("No serializer provider defined for group type %d and message type %d",
-                groupType, messageType);
+        if (provider == null)
+            throw new NetworkConfigurationException(String.format(
+                "No serializer provider defined for group type %d and message type %d", groupType, messageType
+            ));
 
         return (MessageSerializationFactory<T>) provider;
     }

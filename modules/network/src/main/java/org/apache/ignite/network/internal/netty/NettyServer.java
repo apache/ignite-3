@@ -168,10 +168,7 @@ public class NettyServer {
                             new OutboundEncoder(serializationRegistry)
                         );
 
-                        handshakeManager.handshakeFuture().whenComplete((sender, throwable) -> {
-                            if (sender != null)
-                                newConnectionListener.accept(sender);
-                        });
+                        handshakeManager.handshakeFuture().thenAccept(newConnectionListener);
                     }
                 })
                 /*
