@@ -38,7 +38,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /**
  *
  */
-@SuppressWarnings({"FieldCanBeLocal"})
 public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     /** */
     @Test

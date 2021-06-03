@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Table spool test.
  */
-@SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
 public class TableSpoolPlannerTest extends AbstractPlannerTest {
     /**
      * @throws Exception If failed.

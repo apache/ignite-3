@@ -184,14 +184,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** {@inheritDoc} */
     @Override protected void validateNamespace(SqlValidatorNamespace namespace, RelDataType targetRowType) {
-        SqlValidatorTable table = namespace.getTable();
-
-        if (table != null) {
-            IgniteTable igniteTable = table.unwrap(IgniteTable.class);
-
+//        SqlValidatorTable table = namespace.getTable();
+//
+//        if (table != null) {
+//            IgniteTable igniteTable = table.unwrap(IgniteTable.class);
+//
 //            if (igniteTable != null)
 //                igniteTable.ensureCacheStarted();
-        }
+//        }
 
         super.validateNamespace(namespace, targetRowType);
     }
@@ -376,7 +376,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** */
     private boolean isSystemFieldName(String alias) {
-        return boolFoo()/*QueryUtils.KEY_FIELD_NAME.equalsIgnoreCase(alias)
+        return boolFoo(alias)/*QueryUtils.KEY_FIELD_NAME.equalsIgnoreCase(alias)
             || QueryUtils.VAL_FIELD_NAME.equalsIgnoreCase(alias)*/;
     }
 }

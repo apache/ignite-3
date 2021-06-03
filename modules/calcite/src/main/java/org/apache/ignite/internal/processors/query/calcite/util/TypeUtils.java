@@ -19,14 +19,12 @@ package org.apache.ignite.internal.processors.query.calcite.util;
 
 import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
@@ -47,21 +45,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 /** */
 public class TypeUtils {
-    /** */
-    private static final EnumSet<SqlTypeName> CONVERTABLE_SQL_TYPES = EnumSet.of(
-        SqlTypeName.DATE,
-        SqlTypeName.TIME,
-        SqlTypeName.TIMESTAMP
-    );
-
-    /** */
-    private static final Set<Type> CONVERTABLE_TYPES = ImmutableSet.of(
-        java.util.Date.class,
-        java.sql.Date.class,
-        java.sql.Time.class,
-        java.sql.Timestamp.class
-    );
-
     /** */
     public static RelDataType combinedRowType(IgniteTypeFactory typeFactory, RelDataType... types) {
 

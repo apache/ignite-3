@@ -20,16 +20,16 @@ package org.apache.ignite.internal.processors.query.calcite;
 public class Stubs {
     /** */
     public static int intFoo(Object... args) {
-        return 0;
+        return args == null ? 0 : args.length;
     }
 
     /** */
     public static boolean boolFoo(Object... args) {
-        return false;
+        return args == null;
     }
 
     /** */
     public static String stringFoo(Object... args) {
-        return "";
+        return args == null ? "null" : "not null";
     }
 }

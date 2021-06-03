@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Table spool test.
  */
-@SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
 public class TableDmlPlannerTest extends AbstractPlannerTest {
     /**
      * @throws Exception If failed.
@@ -76,7 +75,7 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     public void insertCachesIndexScan() throws Exception {
         TestTable tbl = createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class);
 
-        tbl.addIndex(new IgniteIndex(RelCollations.of(0), "IDX", null, tbl));
+        tbl.addIndex(new IgniteIndex(RelCollations.of(0), "IDX", tbl));
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -127,7 +126,7 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     public void updateNotCachesNonDependentIndexScan() throws Exception {
         TestTable tbl = createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class, "IDX_VAL", Integer.class);
 
-        tbl.addIndex(new IgniteIndex(RelCollations.of(1), "IDX", null, tbl));
+        tbl.addIndex(new IgniteIndex(RelCollations.of(1), "IDX", tbl));
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -150,7 +149,7 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     public void updateCachesDependentIndexScan() throws Exception {
         TestTable tbl = createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class);
 
-        tbl.addIndex(new IgniteIndex(RelCollations.of(0), "IDX", null, tbl));
+        tbl.addIndex(new IgniteIndex(RelCollations.of(0), "IDX", tbl));
 
         IgniteSchema schema = createSchema(tbl);
 

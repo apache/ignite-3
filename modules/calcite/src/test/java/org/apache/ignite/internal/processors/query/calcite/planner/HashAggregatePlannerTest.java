@@ -41,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  *
  */
-@SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
 public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
     /**
      * @throws Exception If failed.

@@ -36,7 +36,6 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.RuleSet;
-import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.jetbrains.annotations.NotNull;
 
@@ -68,8 +67,8 @@ public final class PlanningContext implements Context {
     /** */
     private final Object[] parameters;
 
-    /** */
-    private final CancelFlag cancelFlag = null; // TODO: set valid cancel flag
+//    /** */
+//    private final CancelFlag cancelFlag = null; // TODO: set valid cancel flag
 
     /** */
     private final IgniteTypeFactory typeFactory;

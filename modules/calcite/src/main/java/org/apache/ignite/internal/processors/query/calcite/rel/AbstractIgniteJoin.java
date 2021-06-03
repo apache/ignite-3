@@ -278,6 +278,8 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                         ImmutableList.of(left.replace(outDistr), right.replace(hash(joinInfo.rightKeys, function))));
                 }
 
+                break;
+
             default:
                 // NO-OP
         }

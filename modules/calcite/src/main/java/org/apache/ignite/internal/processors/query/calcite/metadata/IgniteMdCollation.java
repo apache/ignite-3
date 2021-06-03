@@ -309,19 +309,26 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
             }
         }
         final List<RelFieldCollation> fieldCollations = new ArrayList<>();
-        loop:
         for (RelCollation ic : inputCollations) {
-            if (ic.getFieldCollations().isEmpty()) {
+            if (ic.getFieldCollations().isEmpty())
                 continue;
-            }
+
             fieldCollations.clear();
+            boolean skip = false;
             for (RelFieldCollation ifc : ic.getFieldCollations()) {
                 final Collection<Integer> integers = targets.get(ifc.getFieldIndex());
                 if (integers.isEmpty()) {
-                    continue loop; // cannot do this collation
+                    skip = true; // cannot do this collation
+
+                    break;
                 }
+
                 fieldCollations.add(ifc.withFieldIndex(integers.iterator().next()));
             }
+
+            if (skip)
+                continue;
+
             assert !fieldCollations.isEmpty();
             collations.add(RelCollations.of(fieldCollations));
         }
@@ -399,29 +406,33 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         final int n = rowType.getFieldCount();
         final List<Pair<RelFieldCollation, Ordering<List<RexLiteral>>>> pairs =
             new ArrayList<>();
-        outer:
+        boolean skip = false;
         for (int i = 0; i < n; i++) {
             pairs.clear();
             for (int j = i; j < n; j++) {
                 final RelFieldCollation fieldCollation = new RelFieldCollation(j);
                 Ordering<List<RexLiteral>> comparator = comparator(fieldCollation);
                 Ordering<List<RexLiteral>> ordering;
-                if (pairs.isEmpty()) {
+                if (pairs.isEmpty())
                     ordering = comparator;
-                } else {
+                else
                     ordering = Util.last(pairs).right.compound(comparator);
-                }
+
                 pairs.add(Pair.of(fieldCollation, ordering));
                 if (!ordering.isOrdered(tuples)) {
                     if (j == i) {
-                        continue outer;
+                        skip = true;
+
+                        break;
                     }
                     pairs.remove(pairs.size() - 1);
                 }
             }
-            if (!pairs.isEmpty()) {
+            if (skip)
+                continue;
+
+            if (!pairs.isEmpty())
                 list.add(RelCollations.of(Pair.left(pairs)));
-            }
         }
         return list;
     }
@@ -433,7 +444,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         switch (fieldCollation.direction) {
             case ASCENDING:
                 return new Ordering<List<RexLiteral>>() {
-                    public int compare(List<RexLiteral> o1, List<RexLiteral> o2) {
+                    @Override public int compare(List<RexLiteral> o1, List<RexLiteral> o2) {
                         final Comparable c1 = o1.get(x).getValueAs(Comparable.class);
                         final Comparable c2 = o2.get(x).getValueAs(Comparable.class);
                         return RelFieldCollation.compare(c1, c2, nullComparison);
@@ -441,7 +452,7 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
                 };
             default:
                 return new Ordering<List<RexLiteral>>() {
-                    public int compare(List<RexLiteral> o1, List<RexLiteral> o2) {
+                    @Override public int compare(List<RexLiteral> o1, List<RexLiteral> o2) {
                         final Comparable c1 = o1.get(x).getValueAs(Comparable.class);
                         final Comparable c2 = o2.get(x).getValueAs(Comparable.class);
                         return RelFieldCollation.compare(c2, c1, -nullComparison);

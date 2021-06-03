@@ -42,7 +42,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  *
  */
-@SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
 public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
     /**
      * Check equi-join. CorrelatedNestedLoopJoinTest is applicable for it.

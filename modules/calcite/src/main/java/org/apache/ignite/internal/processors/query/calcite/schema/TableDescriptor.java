@@ -29,7 +29,6 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 /**
  *
  */
-@SuppressWarnings("rawtypes")
 public interface TableDescriptor extends RelProtoDataType, InitializerExpressionFactory {
     /**
      * @return Distribution.

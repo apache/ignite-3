@@ -27,7 +27,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  *
  */
-@SuppressWarnings({"TypeMayBeWeakened"})
 public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     /**
      * @return REPLICATED test table (ID, VAL0, VAL1, GRP0, GRP1)

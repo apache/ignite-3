@@ -556,7 +556,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** */
         public TestTable addIndex(RelCollation collation, String name) {
-            indexes.put(name, new IgniteIndex(collation, name, null, this));
+            indexes.put(name, new IgniteIndex(collation, name, this));
 
             return this;
         }

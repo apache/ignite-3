@@ -30,16 +30,14 @@ public class IgniteIndex {
 
     /** */
 //    private final GridIndex<H2Row> idx;
-    private final Object idx;
 
     /** */
     private final IgniteTable tbl;
 
     /** */
-    public IgniteIndex(RelCollation collation, String name, Object idx, IgniteTable tbl) {
+    public IgniteIndex(RelCollation collation, String name, IgniteTable tbl) {
         this.collation = collation;
         idxName = name;
-        this.idx = idx;
         this.tbl = tbl;
     }
 
