@@ -67,9 +67,6 @@ public final class PlanningContext implements Context {
     /** */
     private final Object[] parameters;
 
-//    /** */
-//    private final CancelFlag cancelFlag = null; // TODO: set valid cancel flag
-
     /** */
     private final IgniteTypeFactory typeFactory;
 
