@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * The listener handles events from a producer.
- * @see Producer#listen(Event, BiPredicate)
+ * @see Producer#listen(Event, EventListener)
  */
 public interface EventListener<P extends EventParameters> {
 
