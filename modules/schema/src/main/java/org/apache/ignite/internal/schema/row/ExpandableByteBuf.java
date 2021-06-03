@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.row;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -24,6 +24,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.util.Arrays;
+import org.apache.ignite.internal.util.Constants;
 
 /**
  * A simple byte array wrapper to allow dynamic byte array expansion during the row construction. Grows exponentially
@@ -46,16 +47,13 @@ import java.util.Arrays;
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class ExpandableByteBuf {
-    /** */
-    private static final int MB = 1024 * 1024;
-
-    /** */
+    /** Buffer array. */
     private byte[] arr;
 
-    /** */
+    /** Wrapped array. */
     private ByteBuffer buf;
 
-    /** */
+    /** Written bytes. */
     private int len;
 
     /**
@@ -189,7 +187,7 @@ public class ExpandableByteBuf {
                     break;
 
                 if (cr.isOverflow()) {
-                    expand(len + 1);
+                    expand(len + (int)encoder.maxBytesPerChar());
 
                     continue;
                 }
@@ -205,7 +203,7 @@ public class ExpandableByteBuf {
                 len = buf.position();
 
                 if (cr.isOverflow()) {
-                    expand(len + 1);
+                    expand(len + (int)encoder.maxBytesPerChar());
 
                     continue;
                 }
@@ -264,13 +262,13 @@ public class ExpandableByteBuf {
         int l = arr.length;
 
         while (l < cap) {
-            if (l < MB)
+            if (l < Constants.MiB)
                 l *= 2;
             else
-                l += MB;
+                l += Constants.MiB;
         }
 
-        byte[] tmp = new byte[cap];
+        byte[] tmp = new byte[l];
 
         System.arraycopy(arr, 0, tmp, 0, arr.length);
 
@@ -279,5 +277,14 @@ public class ExpandableByteBuf {
         buf = ByteBuffer.wrap(arr);
         buf.position(oldPos);
         buf.order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    /**
+     * Unwrap to ByteBuffer.
+     *
+     * @return Byte buffer.
+     */
+    ByteBuffer unwrap() {
+        return buf;
     }
 }

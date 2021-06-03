@@ -15,33 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
-
-import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
+package org.apache.ignite.internal.util;
 
 /**
- * Record serializer interface.
+ * Utility class with magic constants.
  */
-public interface RecordSerializer<R> {
-    /**
-     * @param red Record to serialize.
-     * @return Table row with columns set from given object.
-     */
-    Row serialize(@NotNull R red);
+public final class Constants {
+    /** Bytes in kilo-byte  (IEC 80000-13).. */
+    public static final int KiB =  1024;
 
-    /**
-     * @param row Table row.
-     * @return Deserialized record object.
-     */
-    R deserialize(@NotNull Row row);
+    /** Bytes in mega-byte (IEC 80000-13). */
+    public static final int MiB =  1024 * KiB;
 
-    /**
-     * Deserializes row and fills given record object fields.
-     *
-     * @param row Table row.
-     * @param rec Record object to fill.
-     * @return Given record with filled fields from the given row.
-     */
-    R deserialize(@NotNull Row row, @NotNull R rec);
+    /** Bytes in giga-byte (IEC 80000-13). */
+    public static final int GiB =  1024 * MiB;
+
+    /** Stub. */
+    private Constants() {
+        //Noop.
+    }
 }

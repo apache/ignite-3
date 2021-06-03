@@ -28,9 +28,9 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -677,7 +677,7 @@ public class PartitionCommandListenerTest {
      * @return Row.
      */
     @NotNull private Row getTestKey(int key) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);
 
@@ -690,7 +690,7 @@ public class PartitionCommandListenerTest {
      * @return Row.
      */
     @NotNull private Row getTestRow(int key, int val) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 4096, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
 
         rowBuilder.appendInt(key);
         rowBuilder.appendInt(val);

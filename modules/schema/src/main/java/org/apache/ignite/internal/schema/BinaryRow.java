@@ -157,13 +157,11 @@ public interface BinaryRow {
         /** Flag indicates value chunk omits varlen table. */
         public static final int OMIT_VAL_VARTBL_FLAG = 1 << 4;
 
+        /** Flag indicates key chunk is written in Tiny format. */
         public static final int KEY_TYNY_FORMAT = 1 << 5;
 
-        public static final int KEY_LARGE_ROW_FORMAT = 1 << 6;
-
-        public static final int VAL_TYNY_FORMAT = 1 << 7;
-
-        public static final int VAL_LARGE_FORMAT = 1 << 8;
+        /** Flag indicates value chunk is written in Tiny format. */
+        public static final int VAL_TYNY_FORMAT = 1 << 6;
 
         /** Stub. */
         private RowFlags() {

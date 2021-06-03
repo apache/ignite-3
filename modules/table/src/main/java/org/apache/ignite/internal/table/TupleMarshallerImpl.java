@@ -19,19 +19,16 @@ package org.apache.ignite.internal.table;
 
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -65,54 +62,57 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         validate(keyTuple, schema.keyColumns());
 
-        ChunkData keyChunk = chunkData(schema.keyColumns(), keyTuple);
-        ChunkData valChunk = chunkData(schema.valueColumns(), valTuple);
+        TupleStatistics keyChunk = tupleStatistics(schema.keyColumns(), keyTuple);
+        TupleStatistics valChunk = tupleStatistics(schema.valueColumns(), valTuple);
 
         final RowAssembler rowBuilder = createAssembler(schema, keyChunk, valChunk);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
             final Column col = schema.keyColumns().column(i);
 
-            writeColumn(rowBuilder, col, keyChunk.data.get(i));
+            writeColumn(rowBuilder, col, keyTuple.value(col.name()));
         }
 
-        if (valChunk.data != null) {
+        if (valTuple != null) {
             validate(valTuple, schema.valueColumns());
 
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);
 
-                writeColumn(rowBuilder, col, valChunk.data.get(i));
+                writeColumn(rowBuilder, col, valTuple.value(col.name()));
             }
         }
 
         return new Row(schema, new ByteBufferRow(rowBuilder.build()));
     }
 
-    private ChunkData chunkData(Columns cols, Tuple tuple) {
-        if (tuple == null)
-            return new ChunkData();
+    /**
+     * Analyze given tuple and gather statistics.
+     *
+     * @param cols Columns which statistics is calculated for.
+     * @param tup Tuple to analyze.
+     * @return Tuple statistics.
+     */
+    private TupleStatistics tupleStatistics(Columns cols, Tuple tup) {
+        if (tup == null)
+            return new TupleStatistics();
 
-        ChunkData chunk = new ChunkData();
-
-        chunk.data = new HashMap<>();
+        TupleStatistics chunk = new TupleStatistics();
 
         for (int i = 0; i < cols.length(); i++) {
             Column col = cols.column(i);
 
-            Object val = (tuple.contains(col.name())) ? tuple.value(col.name()) : col.defaultValue();
+            Object val = (tup.contains(col.name())) ? tup.value(col.name()) : col.defaultValue();
 
             if (val == null)
                 chunk.hasNulls = true;
             else {
-                chunk.data.put(i, val);
-
                 if (col.type().spec().fixedLength())
-                    chunk.dataSize += col.type().sizeInBytes();
+                    chunk.payloadLen += col.type().sizeInBytes();
                 else {
                     chunk.nonNullVarlen++;
 
-                    chunk.dataSize += getValueSize(val, col.type());
+                    chunk.payloadLen += getValueSize(val, col.type());
                 }
             }
         }
@@ -120,16 +120,12 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         return chunk;
     }
 
-    class ChunkData {
-        public boolean hasNulls;
-        public int dataSize;
-        public int nonNullVarlen;
-        Map<Integer, Object> data;
-
-    }
-
     /**
+     * Validates columns values.
      *
+     * @param tuple Tuple to validate.
+     * @param columns Columns to validate against.
+     * @throws SchemaMismatchException If validation failed.
      */
     private void validate(Tuple tuple, Columns columns) {
         if (tuple instanceof TupleBuilderImpl) {
@@ -148,23 +144,19 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     /**
      * Creates {@link RowAssembler} for key-value tuples.
      *
-     * @param keyTuple Key tuple.
-     * @param valTuple Value tuple.
+     * @param keyStat Key tuple statistics.
+     * @param valStat Value tuple statistics.
      * @return Row assembler.
      */
-    private RowAssembler createAssembler(SchemaDescriptor schema, ChunkData keyChunk, ChunkData valChunk) {
-        final int keyOffSize = RowAssembler.vartableOffSize(keyChunk.nonNullVarlen, keyChunk.dataSize);
-        final int valOffSize = RowAssembler.vartableOffSize(valChunk.nonNullVarlen, valChunk.dataSize);
-
-        int size = BinaryRow.HEADER_SIZE +
-            (keyChunk.hasNulls ? schema.keyColumns().nullMapSize() : 0) +
-            RowAssembler.vartableSize(valChunk.nonNullVarlen, valOffSize) +
-            keyChunk.dataSize +
-            (valChunk.hasNulls ? schema.valueColumns().nullMapSize() : 0) +
-            RowAssembler.vartableSize(valChunk.nonNullVarlen, valOffSize) +
-            valChunk.dataSize;
-
-        return new RowAssembler(schema, size, keyOffSize, keyChunk.nonNullVarlen, valOffSize, valChunk.nonNullVarlen);
+    private RowAssembler createAssembler(SchemaDescriptor schema, TupleStatistics keyStat, TupleStatistics valStat) {
+        return new RowAssembler(
+            schema,
+            keyStat.payloadLen,
+            keyStat.hasNulls,
+            keyStat.nonNullVarlen,
+            valStat.payloadLen,
+            valStat.hasNulls,
+            valStat.nonNullVarlen);
     }
 
     /**
@@ -233,5 +225,19 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
         }
+    }
+
+    /**
+     * Tuple statistics record.
+     */
+    private static class TupleStatistics {
+        /** Tuple has nulls. */
+        boolean hasNulls;
+
+        /** Payload length in bytes. */
+        int payloadLen;
+
+        /** Number of non-null varlen columns. */
+        int nonNullVarlen;
     }
 }

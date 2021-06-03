@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
@@ -50,7 +51,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendInt(33);
             asm.appendInt(-71);
@@ -59,7 +60,7 @@ public class RowAssemblerTest {
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendInt(-33);
             asm.appendNull();
@@ -68,7 +69,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendInt(-33);
 
@@ -87,7 +88,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         { // With value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)33);
             asm.appendShort((short)71L);
@@ -96,7 +97,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)-33);
 
@@ -115,7 +116,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendShort((short)-33);
             asm.appendString("val");
@@ -124,7 +125,7 @@ public class RowAssemblerTest {
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)33);
             asm.appendNull();
@@ -133,7 +134,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)33);
 
@@ -152,7 +153,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendShort((short)-33);
             asm.appendString("val");
@@ -161,7 +162,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)33);
 
@@ -180,7 +181,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)-33);
             asm.appendByte((byte)71);
@@ -189,7 +190,7 @@ public class RowAssemblerTest {
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendByte((byte)-71);
@@ -198,7 +199,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)33);
 
@@ -217,7 +218,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)-1133);
             asm.appendShort((short)-1071);
@@ -226,7 +227,7 @@ public class RowAssemblerTest {
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendShort((short)1171);
@@ -235,7 +236,7 @@ public class RowAssemblerTest {
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)1133);
             asm.appendNull();
@@ -244,7 +245,7 @@ public class RowAssemblerTest {
         }
 
         { // Null both.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendNull();
@@ -253,7 +254,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendShort((short)1133);
 
@@ -272,7 +273,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendInt(-33);
             asm.appendString("val");
@@ -281,7 +282,7 @@ public class RowAssemblerTest {
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendNull();
             asm.appendString("val");
@@ -290,7 +291,7 @@ public class RowAssemblerTest {
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendInt(33);
             asm.appendNull();
@@ -299,7 +300,7 @@ public class RowAssemblerTest {
         }
 
         { // Null both.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendNull();
@@ -308,7 +309,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendInt(33);
 
@@ -327,7 +328,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendByte((byte)-33);
             asm.appendString("val");
@@ -336,7 +337,7 @@ public class RowAssemblerTest {
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendNull();
             asm.appendString("val");
@@ -345,7 +346,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendByte((byte)33);
 
@@ -364,7 +365,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendUuid(uuidVal);
@@ -375,7 +376,7 @@ public class RowAssemblerTest {
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendNull();
@@ -384,7 +385,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
@@ -403,7 +404,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendUuid(uuidVal);
@@ -414,7 +415,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
@@ -433,29 +434,29 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 1);
 
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
 
-            assertRowBytesEquals(new byte[] {42, 0, 2, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 13, 0, 0, 0, 0, 1, 0, 9, 0, -1, 1, 0, 120}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 98, 0, -32, 58, -39, -77, 6, 1, 0, 107, 101, 121, 8, 0, 1, 0, -1, 1, 0, 120}, asm.build());
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 18, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 106, 0, -32, 58, -39, -77, 6, 1, 0, 107, 101, 121, 2, 1}, asm.build());
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 19, 0, 95, -98, 1, 0, 11, 0, 0, 0, 1, 0, 8, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 107, 0, -32, 58, -39, -77, 6, 1, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -470,7 +471,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 1);
 
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
@@ -479,7 +480,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
@@ -498,47 +499,47 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendShort((short)-71);
 
-            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 7, 0, 0, 0, 0, -71, -1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 104, 0, -32, 58, -39, -77, 7, 0, 1, 0, 107, 101, 121, 4, 0, -71, -1}, asm.build());
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendShort((short)71);
 
-            assertRowBytesEquals(new byte[] {42, 0, 24, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 7, 0, 0, 0, 0, 71, 0}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 104, 0, 5, 93, -52, 2, 2, 1, 4, 0, 71, 0}, asm.build());
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 16, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 104, 0, -32, 58, -39, -77, 7, 0, 1, 0, 107, 101, 121, 2, 1}, asm.build());
         }
 
         { // Null both.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendNull();
 
-            assertRowBytesEquals(new byte[] {42, 0, 24, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 5, 0, 0, 0, 1}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 104, 0, 5, 93, -52, 2, 2, 1, 2, 1}, asm.build());
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
-            assertRowBytesEquals(new byte[] {42, 0, 17, 0, 95, -98, 1, 0, 12, 0, 0, 0, 0, 1, 0, 9, 0, 107, 101, 121}, asm.build());
+            assertRowBytesEquals(new byte[] {42, 0, 105, 0, -32, 58, -39, -77, 7, 0, 1, 0, 107, 101, 121}, asm.build());
         }
     }
 
@@ -553,7 +554,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendShort((short)-71L);
@@ -562,7 +563,7 @@ public class RowAssemblerTest {
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendShort((short)71);
@@ -571,7 +572,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
@@ -590,7 +591,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 1);
 
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
@@ -599,7 +600,7 @@ public class RowAssemblerTest {
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendNull();
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
@@ -608,7 +609,7 @@ public class RowAssemblerTest {
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
             asm.appendNull();
@@ -617,7 +618,7 @@ public class RowAssemblerTest {
         }
 
         { // Null both.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 0);
 
             asm.appendNull();
             asm.appendNull();
@@ -626,7 +627,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
@@ -645,7 +646,7 @@ public class RowAssemblerTest {
         SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 1);
 
             asm.appendString("key");
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
@@ -654,7 +655,7 @@ public class RowAssemblerTest {
         }
 
         { // Null key.
-            RowAssembler asm = new RowAssembler(schema, 0, 0, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 0, 128, 1);
 
             asm.appendNull();
             asm.appendBytes(new byte[] {-1, 1, 0, 120});
@@ -663,7 +664,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendString("key");
 
@@ -685,10 +686,10 @@ public class RowAssemblerTest {
             new Column("valStrCol", STRING, true)
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(tableId,42, keyCols, valCols);
+        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42, keyCols, valCols);
 
         {
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 1);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 1);
 
             asm.appendShort((short)33);
             asm.appendString("keystr");
@@ -702,7 +703,7 @@ public class RowAssemblerTest {
         }
 
         { // Null value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendShort((short)33);
             asm.appendString("keystr2");
@@ -716,7 +717,7 @@ public class RowAssemblerTest {
         }
 
         { // No value.
-            RowAssembler asm = new RowAssembler(schema, 0, 1, 0);
+            RowAssembler asm = new RowAssembler(schema, 128, 1, 128, 0);
 
             asm.appendShort((short)33);
             asm.appendString("keystr");

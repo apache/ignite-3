@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.row;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -23,6 +23,13 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.InvalidTypeException;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Schema-aware row.
@@ -38,6 +45,12 @@ public class Row implements BinaryRow {
     /** Binary row. */
     private final BinaryRow row;
 
+    /** Key reader. */
+    private final AbstractChunkReader keyReader;
+
+    /** Value reader. */
+    private final AbstractChunkReader valReader;
+
     /**
      * Constructor.
      *
@@ -49,14 +62,36 @@ public class Row implements BinaryRow {
 
         this.row = row;
         this.schema = schema;
+
+        final short flags = readShort(FLAGS_FIELD_OFFSET);
+
+        keyReader = createReader(KEY_CHUNK_OFFSET,
+            (flags & RowFlags.KEY_TYNY_FORMAT) != 0,
+            (flags & RowFlags.OMIT_KEY_NULL_MAP_FLAG) == 0 ? schema.keyColumns().nullMapSize() : 0,
+            (flags & RowFlags.OMIT_KEY_VARTBL_FLAG) == 0);
+
+        valReader = ((flags & RowFlags.NO_VALUE_FLAG) == 0) ?
+            createReader(
+                KEY_CHUNK_OFFSET + keyReader.chunkLength(),
+                (flags & RowFlags.VAL_TYNY_FORMAT) != 0,
+                (flags & RowFlags.OMIT_VAL_NULL_MAP_FLAG) == 0 ? schema.valueColumns().nullMapSize() : 0,
+                (flags & RowFlags.OMIT_VAL_VARTBL_FLAG) == 0) :
+            null;
     }
 
     /**
-     * @param itemIdx Varlen table item index.
-     * @return Varlen item offset.
+     * Chunk reader factory method.
+     *
+     * @param baseOff Chunk base offset.
+     * @param isSmallChunk Small chunk format flag.
+     * @param nullMapLen Null-map length.
+     * @param hasVarTable Vartable presense flag.
+     * @return Chunk reader.
      */
-    private int varlenItemOffset(int itemIdx, int itemSize) {
-        return itemSize + itemIdx * itemSize;
+    @NotNull private AbstractChunkReader createReader(int baseOff, boolean isSmallChunk, int nullMapLen, boolean hasVarTable) {
+        return isSmallChunk ?
+            new TinyChunkReader(baseOff, nullMapLen, hasVarTable) :
+            new LargeChunkReader(baseOff, nullMapLen, hasVarTable);
     }
 
     /**
@@ -343,43 +378,29 @@ public class Row implements BinaryRow {
      */
     protected long findColumn(int colIdx, NativeTypeSpec type) throws InvalidTypeException {
         // Get base offset (key start or value start) for the given column.
-        boolean keyCol = schema.isKeyColumn(colIdx);
+        boolean isKeyCol = schema.isKeyColumn(colIdx);
 
-        final short flags = readShort(FLAGS_FIELD_OFFSET);
-
-        int size = keyCol ?
-            ((flags & RowFlags.KEY_TYNY_FORMAT) != 0) ? 1 : (flags & RowFlags.KEY_LARGE_ROW_FORMAT) != 0 ? 4 : 2 :
-            (flags & RowFlags.VAL_TYNY_FORMAT) != 0 ? 1 : (flags & RowFlags.VAL_LARGE_FORMAT) != 0 ? 4 : 2;
-
-        int off = KEY_CHUNK_OFFSET;
-
-        if (!keyCol) {
-            assert (flags & RowFlags.NO_VALUE_FLAG) == 0;
-
-            // Jump to the next chunk, the size of the first chunk is written at the chunk start.
-            off += readAdaptiveSizedItem(off, size);
-
-            // Adjust the column index according to the number of key columns.
+        // Adjust the column index according to the number of key columns.
+        if (!isKeyCol)
             colIdx -= schema.keyColumns().length();
-        }
 
-        Columns cols = keyCol ? schema.keyColumns() : schema.valueColumns();
+        AbstractChunkReader reader = isKeyCol ? keyReader : valReader;
+        Columns cols = isKeyCol ? schema.keyColumns() : schema.valueColumns();
 
         if (cols.column(colIdx).type().spec() != type)
             throw new InvalidTypeException("Invalid column type requested [requested=" + type +
                 ", column=" + cols.column(colIdx) + ']');
 
-        boolean hasVarTable = ((keyCol ? RowFlags.OMIT_KEY_VARTBL_FLAG : RowFlags.OMIT_VAL_VARTBL_FLAG) & flags) == 0;
-        boolean hasNullMap = ((keyCol ? RowFlags.OMIT_KEY_NULL_MAP_FLAG : RowFlags.OMIT_VAL_NULL_MAP_FLAG) & flags) == 0;
+        assert reader != null;
 
-        if (hasNullMap && isNull(off + size, colIdx))
+        if (reader.isNull(colIdx))
             return -1;
 
-        assert hasVarTable || type.fixedLength();
+        assert reader.hasVartable() || type.fixedLength();
 
         return type.fixedLength() ?
-            fixlenColumnOffset(cols, off, colIdx, hasVarTable, hasNullMap, size) :
-            varlenColumnOffsetAndLength(cols, off, colIdx, hasNullMap, size);
+            reader.fixlenColumnOffset(cols, colIdx) :
+            reader.varlenColumnOffsetAndLength(cols, colIdx);
     }
 
     /**
@@ -390,22 +411,6 @@ public class Row implements BinaryRow {
         Column col = schema.column(colIdx);
 
         return col.type().sizeInBytes();
-    }
-
-    /**
-     * Checks the row's null map for the given column index in the chunk.
-     *
-     * @param nullMapOff Null map offset
-     * @param idx Offset of the column in the chunk.
-     * @return {@code true} if the column value is {@code null}.
-     */
-    private boolean isNull(int nullMapOff, int idx) {
-        int nullByte = idx / 8;
-        int posInByte = idx % 8;
-
-        int map = readByte(nullMapOff + nullByte);
-
-        return (map & (1 << posInByte)) != 0;
     }
 
     /**
@@ -428,131 +433,6 @@ public class Row implements BinaryRow {
      */
     private static int length(long offLen) {
         return (int)(offLen >>> 32);
-    }
-
-    /**
-     * Calculates the offset and length of varlen column. First, it calculates the number of non-null columns
-     * preceding the requested column by folding the null map bits. This number is used to adjust the column index
-     * and find the corresponding entry in the varlen table. The length of the column is calculated either by
-     * subtracting two adjacent varlen table offsets, or by subtracting the last varlen table offset from the chunk
-     * length.
-     *
-     * @param cols Columns chunk.
-     * @param baseOff Chunk base offset.
-     * @param idx Column index in the chunk.
-     * @param hasNullMap Has null map flag.
-     * @param adaptiveItemSize
-     * @return Encoded offset (from the row start) and length of the column with the given index.
-     */
-    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasNullMap,
-        int adaptiveItemSize) {
-        int vartableOff = baseOff + adaptiveItemSize /* Chunk len field size. */;
-
-        int numNullsBefore = 0;
-
-        if (hasNullMap) {
-            vartableOff += cols.nullMapSize();
-
-            int nullMapOff = baseOff + adaptiveItemSize;
-
-            int nullStartByte = cols.firstVarlengthColumn() / 8;
-            int startBitInByte = cols.firstVarlengthColumn() % 8;
-
-            int nullEndByte = idx / 8;
-            int endBitInByte = idx % 8;
-
-            for (int i = nullStartByte; i <= nullEndByte; i++) {
-                byte nullmapByte = readByte(nullMapOff + i);
-
-                if (i == nullStartByte)
-                    // We need to clear startBitInByte least significant bits
-                    nullmapByte &= (0xFF << startBitInByte);
-
-                if (i == nullEndByte)
-                    // We need to clear 8-endBitInByte most significant bits
-                    nullmapByte &= (0xFF >> (8 - endBitInByte));
-
-                numNullsBefore += Columns.numberOfNullColumns(nullmapByte);
-            }
-        }
-
-        idx -= cols.numberOfFixsizeColumns() + numNullsBefore;
-        int vartableSize = readAdaptiveSizedItem(vartableOff, adaptiveItemSize);
-
-        // Offset of idx-th column is from base offset.
-        int resOff = readAdaptiveSizedItem(vartableOff + varlenItemOffset(idx, adaptiveItemSize), adaptiveItemSize);
-
-        long len = (idx == vartableSize - 1) ?
-            // totalLength - columnStartOffset
-            readAdaptiveSizedItem(baseOff, adaptiveItemSize) - resOff :
-            // nextColumnStartOffset - columnStartOffset
-            readAdaptiveSizedItem(vartableOff + varlenItemOffset(idx + 1, adaptiveItemSize), adaptiveItemSize) - resOff;
-
-        return (len << 32) | (resOff + baseOff);
-    }
-
-    /**
-     * Calculates the offset of the fixlen column with the given index in the row. It essentially folds the null map
-     * with the column lengths to calculate the size of non-null columns preceding the requested column.
-     *
-     * @param cols Columns chunk.
-     * @param baseOff Chunk base offset.
-     * @param idx Column index in the chunk.
-     * @param hasVarTbl Has varlen table flag.
-     * @param hasNullMap Has null map flag.
-     * @param adaptiveItemSize
-     * @return Encoded offset (from the row start) of the requested fixlen column.
-     */
-    int fixlenColumnOffset(Columns cols, int baseOff, int idx, boolean hasVarTbl, boolean hasNullMap,
-        int adaptiveItemSize) {
-        int colOff = 0;
-
-        int payloadOff = baseOff + adaptiveItemSize /* Chunk len field size. */;
-
-        // Calculate fixlen column offset.
-        {
-            int colByteIdx = idx / 8;
-
-            // Set bits starting from posInByte, inclusive, up to either the end of the byte or the last column index, inclusive
-            int startBit = idx % 8;
-            int endBit = colByteIdx == (cols.length() + 7) / 8 - 1 ? ((cols.numberOfFixsizeColumns() - 1) % 8) : 7;
-            int mask = (0xFF >> (7 - endBit)) & (0xFF << startBit);
-
-            if (hasNullMap) {
-                payloadOff += cols.nullMapSize();
-
-                // Fold offset based on the whole map bytes in the schema
-                for (int i = 0; i < colByteIdx; i++)
-                    colOff += cols.foldFixedLength(i, readByte(baseOff + adaptiveItemSize + i));
-
-                colOff += cols.foldFixedLength(colByteIdx, readByte(baseOff + adaptiveItemSize + colByteIdx) | mask);
-            }
-            else {
-                for (int i = 0; i < colByteIdx; i++)
-                    colOff += cols.foldFixedLength(i, 0);
-
-                colOff += cols.foldFixedLength(colByteIdx, mask);
-            }
-        }
-
-        if (hasVarTbl) {
-            int verlenItems = readAdaptiveSizedItem(payloadOff, adaptiveItemSize);
-
-            payloadOff += varlenItemOffset(verlenItems, adaptiveItemSize);
-        }
-
-        return payloadOff + colOff;
-    }
-
-    public int readAdaptiveSizedItem(int off, int size) {
-        switch (size) {
-            case Byte.BYTES:
-                return row.readByte(off);
-            case Short.BYTES:
-                return row.readShort(off);
-            default:
-                return row.readInteger(off);
-        }
     }
 
     /** {@inheritDoc} */
@@ -618,5 +498,236 @@ public class Row implements BinaryRow {
     /** {@inheritDoc} */
     @Override public byte[] readBytes(int off, int len) {
         return row.readBytes(off, len);
+    }
+
+    /**
+     * Abstract chunk reader.
+     */
+    abstract class AbstractChunkReader {
+        /** Base offset. */
+        protected final int baseOff;
+
+        /** Null-map offset. */
+        protected int nullMapOff;
+
+        /** Vartable offset. */
+        protected int varTableOff;
+
+        /** Payload offset. */
+        protected int dataOff;
+
+        /**
+         * @param baseOff Chunk base offset.
+         */
+        AbstractChunkReader(int baseOff) {
+            this.baseOff = baseOff;
+        }
+
+        /**
+         * @return Chunk length in bytes
+         */
+        abstract int chunkLength();
+
+        /**
+         * @return Number of items in vartable.
+         */
+        abstract int vartableItems();
+
+        /**
+         * Checks the row's null map for the given column index in the chunk.
+         *
+         * @param idx Offset of the column in the chunk.
+         * @return {@code true} if the column value is {@code null}.
+         */
+        /** {@inheritDoc} */
+        protected boolean isNull(int idx) {
+            if (!hasNullmap())
+                return false;
+
+            int nullByte = idx / 8;
+            int posInByte = idx % 8;
+
+            int map = readByte(nullMapOff + nullByte);
+
+            return (map & (1 << posInByte)) != 0;
+        }
+
+        /**
+         * @return {@code True} if chunk has vartable.
+         */
+        protected boolean hasVartable() {
+            return dataOff > varTableOff;
+        }
+
+        /**
+         * @return {@code True} if chunk has nullmap.
+         */
+        protected boolean hasNullmap() {
+            return varTableOff > nullMapOff;
+        }
+
+        /**
+         * @param itemIdx Varlen table item index.
+         * @return Varlen item offset.
+         */
+        protected abstract int varlenItemOffset(int itemIdx);
+
+        /**
+         * Calculates the offset of the fixlen column with the given index in the row. It essentially folds the null map
+         * with the column lengths to calculate the size of non-null columns preceding the requested column.
+         *
+         * @param cols Columns chunk.
+         * @param idx Column index in the chunk.
+         * @return Encoded offset (from the row start) of the requested fixlen column.
+         */
+        int fixlenColumnOffset(Columns cols, int idx) {
+            int colOff = 0;
+
+            // Calculate fixlen column offset.
+            {
+                int colByteIdx = idx / 8;
+
+                // Set bits starting from posInByte, inclusive, up to either the end of the byte or the last column index, inclusive
+                int startBit = idx % 8;
+                int endBit = colByteIdx == (cols.length() + 7) / 8 - 1 ? ((cols.numberOfFixsizeColumns() - 1) % 8) : 7;
+                int mask = (0xFF >> (7 - endBit)) & (0xFF << startBit);
+
+                if (hasNullmap()) {
+                    // Fold offset based on the whole map bytes in the schema
+                    for (int i = 0; i < colByteIdx; i++)
+                        colOff += cols.foldFixedLength(i, readByte(nullMapOff + i));
+
+                    colOff += cols.foldFixedLength(colByteIdx, readByte(nullMapOff + colByteIdx) | mask);
+                }
+                else {
+                    for (int i = 0; i < colByteIdx; i++)
+                        colOff += cols.foldFixedLength(i, 0);
+
+                    colOff += cols.foldFixedLength(colByteIdx, mask);
+                }
+            }
+
+            return dataOff + colOff;
+        }
+
+        /**
+         * Calculates the offset and length of varlen column. First, it calculates the number of non-null columns
+         * preceding the requested column by folding the null map bits. This number is used to adjust the column index
+         * and find the corresponding entry in the varlen table. The length of the column is calculated either by
+         * subtracting two adjacent varlen table offsets, or by subtracting the last varlen table offset from the chunk
+         * length.
+         *
+         * @param cols Columns chunk.
+         * @param idx Column index in the chunk.
+         * @return Encoded offset (from the row start) and length of the column with the given index.
+         */
+        long varlenColumnOffsetAndLength(Columns cols, int idx) {
+            assert hasVartable() : "Chunk has no vartable: colId=" + idx;
+
+            if (hasNullmap()) {
+                int nullStartByte = cols.firstVarlengthColumn() / 8;
+                int startBitInByte = cols.firstVarlengthColumn() % 8;
+
+                int nullEndByte = idx / 8;
+                int endBitInByte = idx % 8;
+
+                int numNullsBefore = 0;
+
+                for (int i = nullStartByte; i <= nullEndByte; i++) {
+                    byte nullmapByte = readByte(nullMapOff + i);
+
+                    if (i == nullStartByte)
+                        // We need to clear startBitInByte least significant bits
+                        nullmapByte &= (0xFF << startBitInByte);
+
+                    if (i == nullEndByte)
+                        // We need to clear 8-endBitInByte most significant bits
+                        nullmapByte &= (0xFF >> (8 - endBitInByte));
+
+                    numNullsBefore += Columns.numberOfNullColumns(nullmapByte);
+                }
+
+                idx -= numNullsBefore;
+            }
+
+            idx -= cols.numberOfFixsizeColumns();
+
+            // Offset of idx-th column is from base offset.
+            int resOff = varlenItemOffset(idx);
+
+            long len = (idx == vartableItems() - 1) ?
+                // totalLength - columnStartOffset
+                (baseOff + chunkLength()) - resOff :
+                // nextColumnStartOffset - columnStartOffset
+                varlenItemOffset(idx + 1) - resOff;
+
+            return (len << 32) | resOff;
+        }
+    }
+
+    /**
+     * Tiny chunk format reader.
+     */
+    class TinyChunkReader extends AbstractChunkReader {
+        /**
+         * @param baseOff Base offset.
+         * @param nullMapLen Null-map length in bytes.
+         * @param hasVarTable Vartable presence flag.
+         */
+        TinyChunkReader(int baseOff, int nullMapLen, boolean hasVarTable) {
+            super(baseOff);
+
+            nullMapOff = baseOff + Byte.BYTES;
+            varTableOff = nullMapOff + nullMapLen;
+            dataOff = varTableOff + (hasVarTable ? Byte.BYTES + (readByte(varTableOff) & 0xFF) * Byte.BYTES : 0);
+        }
+
+        /** {@inheritDoc} */
+        @Override int chunkLength() {
+            return readByte(baseOff) & 0xFF;
+        }
+
+        /** {@inheritDoc} */
+        @Override int vartableItems() {
+            return hasVartable() ? (readByte(varTableOff) & 0xFF) : 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected int varlenItemOffset(int itemIdx) {
+            return dataOff + (readByte(varTableOff + Byte.BYTES + itemIdx * Byte.BYTES) & 0xFF);
+        }
+    }
+
+    /**
+     * Large chunk format reader.
+     */
+    class LargeChunkReader extends AbstractChunkReader {
+        /**
+         * @param baseOff Base offset.
+         * @param nullMapLen Null-map length in bytes.
+         * @param hasVarTable Vartable presence flag.
+         */
+        LargeChunkReader(int baseOff, int nullMapLen, boolean hasVarTable) {
+            super(baseOff);
+
+            nullMapOff = baseOff + Integer.BYTES;
+            varTableOff = baseOff + Integer.BYTES + nullMapLen;
+            dataOff = varTableOff + (hasVarTable ? Integer.BYTES + readInteger(varTableOff) * Integer.BYTES : 0);
+        }
+
+        /** {@inheritDoc} */
+        @Override public int chunkLength() {
+            return readInteger(baseOff);
+        }
+
+        /** {@inheritDoc} */
+        @Override int vartableItems() {
+            return hasVartable() ? readInteger(varTableOff) : 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected int varlenItemOffset(int itemIdx) {
+            return dataOff + readInteger(varTableOff + Integer.BYTES + itemIdx * Integer.BYTES);
+        }
     }
 }

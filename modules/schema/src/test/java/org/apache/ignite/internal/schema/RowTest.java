@@ -21,18 +21,20 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.Random;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
+import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
 import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
 import static org.apache.ignite.internal.schema.NativeTypes.LONG;
 import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -261,44 +263,29 @@ public class RowTest {
 
         int nonNullVarLenKeyCols = 0;
         int nonNullVarLenValCols = 0;
-        int nonNullVarLenKeySize = 0;
-        int nonNullVarLenValSize = 0;
 
         for (int i = 0; i < vals.length; i++) {
             NativeTypeSpec type = schema.column(i).type().spec();
 
             if (vals[i] != null && !type.fixedLength()) {
                 if (type == NativeTypeSpec.BYTES) {
-                    byte[] val = (byte[])vals[i];
-                    if (schema.isKeyColumn(i)) {
+                    if (schema.isKeyColumn(i))
                         nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += val.length;
-                    }
-                    else {
+                    else
                         nonNullVarLenValCols++;
-                        nonNullVarLenValSize += val.length;
-                    }
                 }
                 else if (type == NativeTypeSpec.STRING) {
-                    if (schema.isKeyColumn(i)) {
+                    if (schema.isKeyColumn(i))
                         nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.utf8EncodedLength((CharSequence)vals[i]);
-                    }
-                    else {
+                    else
                         nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.utf8EncodedLength((CharSequence)vals[i]);
-                    }
                 }
                 else
                     throw new IllegalStateException("Unsupported variable-length type: " + type);
             }
         }
 
-        int size = RowAssembler.rowSize(
-            schema.keyColumns(), nonNullVarLenKeyCols, nonNullVarLenKeySize,
-            schema.valueColumns(), nonNullVarLenValCols, nonNullVarLenValSize);
-
-        RowAssembler asm = new RowAssembler(schema, size, nonNullVarLenKeyCols, nonNullVarLenValCols);
+        RowAssembler asm = new RowAssembler(schema, nonNullVarLenKeyCols, nonNullVarLenValCols);
 
         for (int i = 0; i < vals.length; i++) {
             if (vals[i] == null)
@@ -355,7 +342,7 @@ public class RowTest {
 
         byte[] data = asm.build();
 
-        Row tup = new Row(schema, new ByteBufferRow(data));
+        Row row = new Row(schema, new ByteBufferRow(data));
 
         for (int i = 0; i < vals.length; i++) {
             Column col = schema.column(i);
@@ -363,10 +350,10 @@ public class RowTest {
             NativeTypeSpec type = col.type().spec();
 
             if (type == NativeTypeSpec.BYTES)
-                assertArrayEquals((byte[])vals[i], (byte[])NativeTypeSpec.BYTES.objectValue(tup, i),
+                assertArrayEquals((byte[])vals[i], (byte[])NativeTypeSpec.BYTES.objectValue(row, i),
                     "Failed for column: " + col);
             else
-                assertEquals(vals[i], type.objectValue(tup, i), "Failed for column: " + col);
+                assertEquals(vals[i], type.objectValue(row, i), "Failed for column: " + col);
         }
     }
 

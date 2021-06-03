@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.RowAssembler;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.AbstractSerializer;
 import org.apache.ignite.internal.schema.marshaller.SerializationException;
@@ -85,11 +85,7 @@ public class JavaSerializer extends AbstractSerializer {
         ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 
-        int size = RowAssembler.rowSize(
-            schema.keyColumns(), keyStat.nonNullCols, keyStat.nonNullColsSize,
-            schema.valueColumns(), valStat.nonNullCols, valStat.nonNullColsSize);
-
-        return new RowAssembler(schema, size, 2, keyStat.nonNullCols, 2, valStat.nonNullCols);
+        return new RowAssembler(schema, keyStat.nonNullCols, valStat.nonNullCols);
     }
 
     /**
