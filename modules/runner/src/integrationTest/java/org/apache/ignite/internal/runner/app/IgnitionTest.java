@@ -85,7 +85,6 @@ class IgnitionTest {
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14709")
     void testNodeStartWithoutBootstrapConfiguration() {
         Ignite ignite = IgnitionManager.start(null);
 

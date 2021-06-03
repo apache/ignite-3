@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.common.Entry;
-import org.apache.ignite.internal.vault.common.VaultWatch;
 import org.apache.ignite.internal.vault.service.VaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -35,9 +34,6 @@ import org.jetbrains.annotations.NotNull;
  * and providing interface for managing local keys.
  */
 public class VaultManager {
-    /** Special key for vault where applied revision for {@code putAll} operation is stored. */
-    private static ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
-
     /** Mutex. */
     private final Object mux = new Object();
 
@@ -128,12 +124,12 @@ public class VaultManager {
      * @throws IgniteInternalCheckedException If revision is inconsistent with applied revision from vault or if
      * couldn't get applied revision from vault.
      */
-    public CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals, long revision) throws IgniteInternalCheckedException {
+    public CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals, ByteArray appliedRevKey, long revision) throws IgniteInternalCheckedException {
         synchronized (mux) {
             byte[] appliedRevBytes;
 
             try {
-                appliedRevBytes = vaultService.get(APPLIED_REV).get().value();
+                appliedRevBytes = vaultService.get(appliedRevKey).get().value();
             }
             catch (InterruptedException | ExecutionException e) {
                throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
@@ -146,48 +142,9 @@ public class VaultManager {
 
             HashMap<ByteArray, byte[]> mergedMap = new HashMap<>(vals);
 
-            mergedMap.put(APPLIED_REV, ByteUtils.longToBytes(revision));
+            mergedMap.put(appliedRevKey, ByteUtils.longToBytes(revision));
 
             return vaultService.putAll(mergedMap);
         }
-    }
-
-    /**
-     * @return Applied revision for {@link VaultManager#putAll(Map, long)} operation.
-     * @throws IgniteInternalCheckedException If couldn't get applied revision from vault.
-     */
-    @NotNull public Long appliedRevision() throws IgniteInternalCheckedException {
-        byte[] appliedRevision;
-
-        synchronized (mux) {
-            try {
-                appliedRevision = vaultService.get(APPLIED_REV).get().value();
-            }
-            catch (InterruptedException | ExecutionException e) {
-                throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
-            }
-
-            return appliedRevision == null ? 0L : ByteUtils.bytesToLong(appliedRevision, 0);
-        }
-    }
-
-    /**
-     * See {@link VaultService#watch(VaultWatch)}
-     *
-     * @param vaultWatch Watch which will notify for each update.
-     * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
-     */
-    @NotNull public CompletableFuture<Long> watch(@NotNull VaultWatch vaultWatch) {
-        return vaultService.watch(vaultWatch);
-    }
-
-    /**
-     * See {@link VaultService#stopWatch(Long)}
-     *
-     * @param id Subscription identifier.
-     * @return Completed future in case of operation success. Couldn't be {@code null}.
-     */
-    @NotNull public CompletableFuture<Void> stopWatch(@NotNull Long id) {
-        return vaultService.stopWatch(id);
     }
 }

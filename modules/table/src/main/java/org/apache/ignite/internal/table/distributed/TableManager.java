@@ -40,6 +40,8 @@ import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Conditions;
+import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -53,8 +55,6 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
@@ -183,7 +183,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Compounds a RAFT group unique name.
      *
      * @param tableId Table identifier.
-     * @param partition Muber of table partition.
+     * @param partition Number of table partitions.
      * @return A RAFT group name.
      */
     @NotNull private String raftGroupName(UUID tableId, int partition) {

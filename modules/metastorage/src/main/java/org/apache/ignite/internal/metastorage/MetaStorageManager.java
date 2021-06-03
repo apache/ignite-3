@@ -29,13 +29,21 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.internal.metastorage.client.CompactedException;
+import org.apache.ignite.internal.metastorage.client.Condition;
+import org.apache.ignite.internal.metastorage.client.Entry;
+import org.apache.ignite.internal.metastorage.client.MetaStorageService;
 import org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl;
+import org.apache.ignite.internal.metastorage.client.Operation;
+import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
+import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -43,13 +51,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.internal.metastorage.client.CompactedException;
-import org.apache.ignite.internal.metastorage.client.Condition;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.MetaStorageService;
-import org.apache.ignite.internal.metastorage.client.Operation;
-import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
@@ -68,6 +69,15 @@ import org.jetbrains.annotations.Nullable;
 public class MetaStorageManager {
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
+
+    /** Prefix that we add to configuration keys to distinguish them in meta storage. Must end with dot. */
+    public static final String DISTRIBUTED_PREFIX = "dst-cfg.";
+
+    /**
+     * Special key for vault where applied revision for {@link MetaStorageManager#storeEntries(Collection, long)}
+     * operation is stored. This mechanism is needed for committing processed watches to {@link VaultManager}.
+     */
+    public static final ByteArray APPLIED_REV = ByteArray.fromString(DISTRIBUTED_PREFIX + "applied_revision");
 
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
@@ -164,14 +174,14 @@ public class MetaStorageManager {
     public synchronized void deployWatches() {
         try {
             var watch = watchAggregator.watch(
-                vaultMgr.appliedRevision() + 1,
+                appliedRevision() + 1,
                 this::storeEntries
             );
 
             if (watch.isEmpty())
                 deployFut.complete(Optional.empty());
             else
-                dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id))).join();
+                dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id)));
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during deploy watches", e);
@@ -391,7 +401,7 @@ public class MetaStorageManager {
             metaStorageSvcFut,
             metaStorageSvcFut.thenApply(svc -> {
                 try {
-                    return svc.range(keyFrom, keyTo, vaultMgr.appliedRevision());
+                    return svc.range(keyFrom, keyTo, appliedRevision());
                 }
                 catch (IgniteInternalCheckedException e) {
                     throw new IgniteInternalException(e);
@@ -418,6 +428,23 @@ public class MetaStorageManager {
     }
 
     /**
+     * @return Applied revision for {@link VaultManager#putAll(Map, ByteArray, long)} operation.
+     * @throws IgniteInternalCheckedException If couldn't get applied revision from vault.
+     */
+    @NotNull private Long appliedRevision() throws IgniteInternalCheckedException {
+        byte[] appliedRevision;
+
+        try {
+            appliedRevision = vaultMgr.get(APPLIED_REV).get().value();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
+        }
+
+        return appliedRevision == null ? 0L : ByteUtils.bytesToLong(appliedRevision, 0);
+    }
+
+    /**
      * Stop current batch of consolidated watches and register new one from current {@link WatchAggregator}.
      *
      * @return Ignite UUID of new consolidated watch.
@@ -425,7 +452,7 @@ public class MetaStorageManager {
     private CompletableFuture<Optional<IgniteUuid>> updateWatches() {
         Long revision;
         try {
-            revision = vaultMgr.appliedRevision() + 1;
+            revision = appliedRevision() + 1;
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during watch redeploy", e);
@@ -458,7 +485,7 @@ public class MetaStorageManager {
     private CompletableFuture<Void> storeEntries(Collection<IgniteBiTuple<ByteArray, byte[]>> entries, long revision) {
         try {
             return vaultMgr.putAll(entries.stream().collect(
-                Collectors.toMap(e -> e.getKey(), IgniteBiTuple::getValue)), revision);
+                Collectors.toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue)), APPLIED_REV, revision);
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't put entries with considered revision.", e);
