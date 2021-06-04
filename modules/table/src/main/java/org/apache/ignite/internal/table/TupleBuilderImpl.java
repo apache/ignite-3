@@ -40,7 +40,9 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
     private final SchemaDescriptor schemaDesc;
 
     /**
-     * Constructor.
+     * Creates tuple builder.
+     *
+     * @param schemaDesc Schema descriptor.
      */
     public TupleBuilderImpl(SchemaDescriptor schemaDesc) {
         Objects.requireNonNull(schemaDesc);

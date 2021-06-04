@@ -30,6 +30,7 @@ public interface Tuple {
     /**
      * Returns {@code true} if this tuple contains a column with the specified name.
      *
+     * @param colName Column name.
      * @return {@code true} if this tuple contains a column with the specified name. Otherwise returns {@code false}.
      */
     boolean contains(String colName);
