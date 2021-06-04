@@ -192,7 +192,7 @@ public class VaultManager {
     public String name() throws IgniteInternalCheckedException {
         synchronized (mux) {
             try {
-                return new String(vaultService.get(NODE_NAME).get().value());
+                return new String(vaultService.get(NODE_NAME).get().value(), StandardCharsets.UTF_8);
             }
             catch (InterruptedException | ExecutionException e) {
                 throw new IgniteInternalCheckedException("Error occurred when getting node name", e);

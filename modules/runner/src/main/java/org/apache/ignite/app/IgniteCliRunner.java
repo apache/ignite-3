@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.app.IgnitionImpl;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * The main entry point for run new Ignite node from CLI toolchain.
@@ -28,6 +29,8 @@ import org.apache.ignite.internal.app.IgnitionImpl;
 public class IgniteCliRunner {
     /**
      * Main method for run new Ignite node.
+     *
+     * For CLI args info see {@link Args#usage}
      *
      * @param args CLI args to start new node.
      * @throws IOException if any issues with reading config file.
@@ -40,10 +43,12 @@ public class IgniteCliRunner {
         }
         catch (Args.ParseException e) {
             System.out.println(e.getMessage());
+
             System.exit(1);
         }
 
         String jsonCfgStr = null;
+
         if (parsedArgs.config != null)
             jsonCfgStr = Files.readString(parsedArgs.config);
 
@@ -99,7 +104,7 @@ public class IgniteCliRunner {
         /**
          * Exception for indicate any problems with parsing CLI args.
          */
-        private static class ParseException extends Exception {
+        private static class ParseException extends IgniteInternalCheckedException {
 
             /**
              * Creates new exception of parsing.

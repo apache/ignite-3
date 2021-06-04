@@ -17,6 +17,7 @@
 
 package org.apache.ignite.app;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,10 +28,10 @@ public interface Ignition {
     /**
      * Starts Ignite node with optional bootstrap configuration in json format.
      *
-     * @param name Name of the node.
-     * @param jsonStrBootstrapCfg Node configuration in json format.
+     * @param name Name of the node. Couldn't be {@code null}.
+     * @param jsonStrBootstrapCfg Node configuration in json format. Could be {@code null}.
      * @return Started Ignite node.
      */
     // TODO: IGNITE-14599 Add generic way to bootstrap configuration.
-    public Ignite start(String name, @Nullable String jsonStrBootstrapCfg);
+    public Ignite start(@NotNull String name, @Nullable String jsonStrBootstrapCfg);
 }
