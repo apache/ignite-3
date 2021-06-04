@@ -29,6 +29,7 @@ import org.apache.ignite.network.internal.handshake.HandshakeManager;
  * Netty handler of the handshake operation.
  */
 public class HandshakeHandler extends ChannelInboundHandlerAdapter {
+    /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(HandshakeHandler.class);
 
     /** Handshake manager. */
@@ -54,11 +55,10 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     @Override public void channelActive(ChannelHandlerContext ctx) {
         HandshakeAction handshakeAction = manager.onConnectionOpen(ctx.channel());
 
-        manager.handshakeFuture().whenComplete((unused, throwable) -> {
-            if (throwable != null) {
-                LOG.error("Error when performing handshake", throwable);
-                ctx.close();
-            }
+        manager.handshakeFuture().exceptionally((throwable) -> {
+            LOG.error("Error when performing handshake", throwable);
+            
+            ctx.close();            
         });
 
         handleHandshakeAction(handshakeAction, ctx);
