@@ -115,7 +115,6 @@ public class BallotBoxTest {
         assertTrue(this.box.appendPendingTask(
             JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
             JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
-
                 @Override
                 public void run(Status status) {
 
@@ -127,7 +126,7 @@ public class BallotBoxTest {
             fail();
         }
         catch (ArrayIndexOutOfBoundsException e) {
-
+            // No-op.
         }
         assertTrue(this.box.commitAt(1, 1, new PeerId("localhost", 8081)));
         assertEquals(0, this.box.getLastCommittedIndex());

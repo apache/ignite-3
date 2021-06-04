@@ -20,7 +20,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 public class LocalLogStorageTest extends BaseLogStorageTest {
-
     @Override
     protected LogStorage newLogStorage() {
         return new LocalLogStorage(this.path, new RaftOptions());

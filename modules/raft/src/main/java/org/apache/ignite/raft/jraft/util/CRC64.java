@@ -108,7 +108,7 @@ public class CRC64 implements Checksum {
         }
     }
 
-    public void update(final byte[] buffer) {
+    @Override public void update(final byte[] buffer) {
         for (int i = 0; i < buffer.length; i++) {
             update(buffer[i]);
         }

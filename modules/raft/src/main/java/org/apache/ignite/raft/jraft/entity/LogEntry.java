@@ -19,11 +19,6 @@ package org.apache.ignite.raft.jraft.entity;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.v1.V1Decoder;
-import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.util.CrcUtil;
 
 /**

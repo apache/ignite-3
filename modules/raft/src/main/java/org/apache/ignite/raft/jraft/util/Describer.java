@@ -23,7 +23,6 @@ import java.io.PrintWriter;
  * the {@code describe} method.
  */
 public interface Describer {
-
     void describe(final Printer out);
 
     interface Printer {

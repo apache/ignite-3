@@ -689,7 +689,6 @@ public class Replicator implements ThreadId.OnError {
                 }
                 else {
                     heartbeatDone = new RpcResponseClosureAdapter<AppendEntriesResponse>() {
-
                         @Override
                         public void run(final Status status) {
                             onHeartbeatReturned(Replicator.this.id, status, request, getResponse(), monotonicSendTimeMs);

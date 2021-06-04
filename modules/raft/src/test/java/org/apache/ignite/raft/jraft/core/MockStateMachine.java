@@ -37,8 +37,11 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MockStateMachine extends StateMachineAdapter {
+    private static final Logger LOG = LoggerFactory.getLogger(MockStateMachine.class);
 
     private final Lock lock = new ReentrantLock();
     private volatile int onStartFollowingTimes = 0;
@@ -160,7 +163,7 @@ public class MockStateMachine extends StateMachineAdapter {
             done.run(Status.OK());
         }
         catch (final IOException e) {
-            e.printStackTrace();
+            LOG.error("Failed to save the snapshot", e);
             done.run(new Status(RaftError.EIO, "Fail to save snapshot"));
         }
     }
@@ -200,7 +203,7 @@ public class MockStateMachine extends StateMachineAdapter {
             return true;
         }
         catch (final IOException e) {
-            e.printStackTrace();
+            LOG.error("Failed to load the snapshot", e);
             return false;
         }
     }

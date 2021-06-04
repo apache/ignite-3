@@ -25,11 +25,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  */
 public class MpscSingleThreadExecutorTest {
+    private static final Logger LOG = LoggerFactory.getLogger(MpscSingleThreadExecutorTest.class);
 
     private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true);
 
@@ -56,7 +59,7 @@ public class MpscSingleThreadExecutorTest {
                     latch.countDown();
                 }
                 catch (final InterruptedException e) {
-                    e.printStackTrace();
+                    LOG.info("Thread was interrupted", e);
                 }
             });
         }
@@ -102,7 +105,7 @@ public class MpscSingleThreadExecutorTest {
                     latch.countDown();
                 }
                 catch (final InterruptedException e) {
-                    e.printStackTrace();
+                    LOG.info("Thread was interrupted", e);
                 }
             });
         }
@@ -127,7 +130,7 @@ public class MpscSingleThreadExecutorTest {
                 latch1.await();
             }
             catch (final InterruptedException e) {
-                e.printStackTrace();
+                LOG.info("Thread was interrupted", e);
             }
             latch2.countDown();
         });

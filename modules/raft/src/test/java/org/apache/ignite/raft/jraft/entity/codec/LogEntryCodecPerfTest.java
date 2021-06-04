@@ -31,14 +31,15 @@ import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-//import org.apache.ignite.raft.jraft.entity.codec.v2.V2Encoder;
-
 public class LogEntryCodecPerfTest {
+    private static final Logger LOG = LoggerFactory.getLogger(LogEntryCodecPerfTest.class);
 
     static byte[] DATA = new byte[512];
 
@@ -95,14 +96,6 @@ public class LogEntryCodecPerfTest {
         concurrentTest("V1", encoder, decoder);
     }
 
-//    @Test
-//    public void testV2Codec() throws Exception {
-//        LogEntryEncoder encoder = V2Encoder.INSTANCE;
-//        LogEntryDecoder decoder = AutoDetectDecoder.INSTANCE;
-//        testEncodeDecode(encoder, decoder, null);
-//        concurrentTest("V2", encoder, decoder);
-//    }
-
     private void concurrentTest(final String version, final LogEntryEncoder encoder, final LogEntryDecoder decoder)
         throws InterruptedException,
         BrokenBarrierException {
@@ -113,7 +106,7 @@ public class LogEntryCodecPerfTest {
                     testEncodeDecode(encoder, decoder, barrier);
                 }
                 catch (Exception e) {
-                    e.printStackTrace(); // NOPMD
+                    LOG.error("Failed to run test", e); // NOPMD
                     fail();
                 }
             }).start();
@@ -121,7 +114,7 @@ public class LogEntryCodecPerfTest {
         long start = Utils.monotonicMs();
         barrier.await();
         barrier.await();
-        System.out.println(version + " codec cost:" + (Utils.monotonicMs() - start) + " ms.");
-        System.out.println("Total log size:" + this.logSize.get() + " bytes.");
+        LOG.info(version + " codec cost:" + (Utils.monotonicMs() - start) + " ms.");
+        LOG.info("Total log size:" + this.logSize.get() + " bytes.");
     }
 }

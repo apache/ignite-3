@@ -21,12 +21,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.Status;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class SynchronizedClosureTest {
+    private static final Logger LOG = LoggerFactory.getLogger(SynchronizedClosureTest.class);
+
     private SynchronizedClosure done;
 
     @Before
@@ -47,7 +51,7 @@ public class SynchronizedClosureTest {
                     cost.set(System.currentTimeMillis() - start);
                 }
                 catch (InterruptedException e) {
-                    e.printStackTrace();
+                    LOG.error("Thread was interrupted", e);
                 }
                 latch.countDown();
             }

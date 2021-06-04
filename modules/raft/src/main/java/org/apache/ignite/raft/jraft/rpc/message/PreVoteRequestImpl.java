@@ -87,7 +87,7 @@ class PreVoteRequestImpl implements RpcRequests.RequestVoteRequest, RpcRequests.
         return this;
     }
 
-    public boolean getPreVote() {
+    @Override public boolean getPreVote() {
         return preVote;
     }
 

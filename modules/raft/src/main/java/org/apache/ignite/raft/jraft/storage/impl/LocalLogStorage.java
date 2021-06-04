@@ -289,7 +289,8 @@ public class LocalLogStorage implements LogStorage, Describer {
     public void describe(final Printer out) {
         this.readLock.lock();
         try {
-            // TODO
+            out.println("firstLogIndex=" + firstLogIndex);
+            out.println("lastLogIndex=" + lastLogIndex);
         }
         catch (final Exception e) {
             out.println(e);

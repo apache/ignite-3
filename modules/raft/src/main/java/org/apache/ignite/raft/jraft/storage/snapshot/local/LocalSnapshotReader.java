@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
  * Snapshot reader on local file system.
  */
 public class LocalSnapshotReader extends SnapshotReader {
-
     private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotReader.class);
 
     /** Generated reader id */
@@ -74,7 +73,7 @@ public class LocalSnapshotReader extends SnapshotReader {
     public boolean init(final Void v) {
         final File dir = new File(this.path);
         if (!dir.exists()) {
-            LOG.error("No such path %s for snapshot reader.", this.path);
+            LOG.error("No such path {} for snapshot reader.", this.path);
             setError(RaftError.ENOENT, "No such path %s for snapshot reader", this.path);
             return false;
         }

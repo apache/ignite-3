@@ -71,7 +71,7 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
             fail();
         }
         catch (final FileNotFoundException e) {
-
+            // No-op.
         }
 
         final String data = writeData();

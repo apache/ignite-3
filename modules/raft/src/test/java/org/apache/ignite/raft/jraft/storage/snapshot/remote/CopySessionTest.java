@@ -102,7 +102,7 @@ public class CopySessionTest {
                     latch.countDown();
                 }
                 catch (final InterruptedException e) {
-
+                    // No-op.
                 }
             }
         }.start();

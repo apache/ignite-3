@@ -357,14 +357,7 @@ public class SegmentList<T> {
     }
 
     private Object[] coll2Array(final Collection<T> coll) {
-        Object[] src;
-//        if (coll instanceof ArrayList && UnsafeUtil.hasUnsafe()) {
-//            src = LIST_ARRAY_GETTER.get((ArrayList<T>) coll);
-//        } else {
-//            src = coll.toArray();
-//        }
-
-        src = coll.toArray();
+        Object[] src = coll.toArray();
 
         return src;
     }
