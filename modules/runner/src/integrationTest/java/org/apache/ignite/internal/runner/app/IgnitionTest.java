@@ -85,7 +85,7 @@ class IgnitionTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14709")
     void testNodeStartWithoutBootstrapConfiguration() {
-        Ignite ignite = IgnitionManager.start(null, null);
+        Ignite ignite = IgnitionManager.start("node0", null);
 
         Assertions.assertNotNull(ignite);
     }
