@@ -89,11 +89,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
-/**
- *
- */
-//@WithSystemProperty(key = "calcite.debug", value = "true")
-@SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
+/** */
 public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     /** */
     protected static final IgniteTypeFactory TYPE_FACTORY = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
@@ -586,7 +582,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         private final RelDataType rowType;
 
         /** */
-        public TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
+        TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
             this.distributionSupp = distribution;
             this.rowType = rowType;
         }
@@ -648,7 +644,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         private final String name;
 
         /** */
-        public TestColumnDescriptor(int idx, String name) {
+        TestColumnDescriptor(int idx, String name) {
             this.idx = idx;
             this.name = name;
         }

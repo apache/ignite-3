@@ -192,7 +192,7 @@ public abstract class DistributionFunction {
          * @param cacheId Cache ID.
          * @param identity Affinity identity key.
          */
-        public AffinityDistribution(int cacheId, Object identity) {
+        private AffinityDistribution(int cacheId, Object identity) {
             this.cacheId = cacheId;
             this.identity = identity;
         }

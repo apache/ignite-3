@@ -112,7 +112,7 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
             return null;
         }
 
-        if (rel.getInputs().size() == 0) {
+        if (rel.getInputs().isEmpty()) {
             // Assume no filtering happening at leaf.
             return 1.0;
         }

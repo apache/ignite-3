@@ -71,6 +71,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
+import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.sql.validate.SqlMonotonicity;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -299,9 +300,9 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
         final Map<Integer, SqlMonotonicity> targetsWithMonotonicity =
             new HashMap<>();
         for (Ord<RexNode> project : Ord.<RexNode>zip(projects)) {
-            if (project.e instanceof RexInputRef) {
-                targets.put(((RexInputRef) project.e).getIndex(), project.i);
-            } else if (project.e instanceof RexCall) {
+            if (project.e instanceof RexInputRef)
+                targets.put(((RexSlot) project.e).getIndex(), project.i);
+            else if (project.e instanceof RexCall) {
                 final RexCall call = (RexCall) project.e;
                 final RexCallBinding binding =
                     RexCallBinding.create(Commons.typeFactory(input), call, inputCollations);

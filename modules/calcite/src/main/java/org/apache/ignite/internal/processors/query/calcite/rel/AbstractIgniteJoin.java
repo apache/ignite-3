@@ -82,8 +82,6 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
         RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
 
-        RelTraitSet outTraits, leftTraits, rightTraits;
-
         RelCollation collation = TraitUtils.collation(left);
 
         // If nulls are possible at left we has to check whether NullDirection.LAST flag is set on sorted fields.
@@ -97,9 +95,9 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
             }
         }
 
-        outTraits = nodeTraits.replace(collation);
-        leftTraits = left.replace(collation);
-        rightTraits = right.replace(RelCollations.EMPTY);
+        RelTraitSet outTraits = nodeTraits.replace(collation);
+        RelTraitSet leftTraits = left.replace(collation);
+        RelTraitSet rightTraits = right.replace(RelCollations.EMPTY);
 
         return ImmutableList.of(Pair.of(outTraits, ImmutableList.of(leftTraits, rightTraits)));
     }

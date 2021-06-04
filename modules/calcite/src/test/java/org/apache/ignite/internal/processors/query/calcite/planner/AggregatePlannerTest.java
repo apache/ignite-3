@@ -248,14 +248,14 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         assertTrue(
             findNodes(phys, byClass(algo.map)).stream()
-                .allMatch(n -> ((IgniteMapAggregateBase)n).getAggCallList().isEmpty()),
+                .allMatch(n -> ((Aggregate)n).getAggCallList().isEmpty()),
             "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
         );
 
         // Check the second aggrgation step contains accumulators.
         assertTrue(
             findNodes(phys, byClass(algo.single)).stream()
-                .noneMatch(n -> ((IgniteSingleAggregateBase)n).getAggCallList().isEmpty()),
+                .noneMatch(n -> ((Aggregate)n).getAggCallList().isEmpty()),
             "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
         );
     }

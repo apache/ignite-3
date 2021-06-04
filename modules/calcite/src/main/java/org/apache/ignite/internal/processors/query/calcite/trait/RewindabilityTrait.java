@@ -59,7 +59,7 @@ public class RewindabilityTrait implements RelMultipleTrait {
     @Override public boolean equals(Object o) {
         if (!(o instanceof RewindabilityTrait))
             return false;
-        return compareTo((RewindabilityTrait)o) == 0;
+        return compareTo((RelMultipleTrait)o) == 0;
     }
 
     /** {@inheritDoc} */

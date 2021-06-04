@@ -48,6 +48,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
@@ -473,7 +474,7 @@ public class TraitUtils {
 
         for (Ord<RexNode> exp : Ord.<RexNode>zip(projects)) {
             if (exp.e instanceof RexInputRef)
-                src2target.putIfAbsent(((RexInputRef) exp.e).getIndex(), exp.i);
+                src2target.putIfAbsent(((RexSlot) exp.e).getIndex(), exp.i);
         }
 
         return Mappings.target(src -> src2target.getOrDefault(src, -1), inputFieldCount, projects.size());

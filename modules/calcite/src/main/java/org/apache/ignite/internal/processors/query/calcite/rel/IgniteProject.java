@@ -40,6 +40,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mappings;
@@ -138,7 +139,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         Map<Integer, Integer> targets = new HashMap<>();
         for (Ord<RexNode> project : Ord.zip(getProjects())) {
             if (project.e instanceof RexInputRef)
-                targets.putIfAbsent(project.i, ((RexInputRef)project.e).getIndex());
+                targets.putIfAbsent(project.i, ((RexSlot)project.e).getIndex());
         }
 
         List<RelFieldCollation> inFieldCollations = new ArrayList<>();
