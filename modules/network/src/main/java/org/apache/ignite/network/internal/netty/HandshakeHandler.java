@@ -55,10 +55,12 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     @Override public void channelActive(ChannelHandlerContext ctx) {
         HandshakeAction handshakeAction = manager.onConnectionOpen(ctx.channel());
 
-        manager.handshakeFuture().exceptionally((throwable) -> {
-            LOG.error("Error when performing handshake", throwable);
-            
-            ctx.close();            
+        manager.handshakeFuture().whenComplete((unused, throwable) -> {
+            if (throwable != null) {
+                LOG.error("Error when performing handshake", throwable);
+
+                ctx.close();
+            }
         });
 
         handleHandshakeAction(handshakeAction, ctx);
