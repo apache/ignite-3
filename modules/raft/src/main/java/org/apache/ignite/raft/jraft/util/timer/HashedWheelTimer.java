@@ -43,18 +43,14 @@ import org.slf4j.LoggerFactory;
  * * Forked from <a href="https://github.com/netty/netty">Netty</a>.
  */
 public class HashedWheelTimer implements Timer {
-
-    private static final Logger LOG = LoggerFactory
-        .getLogger(HashedWheelTimer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(HashedWheelTimer.class);
 
     private static final int INSTANCE_COUNT_LIMIT = 256;
     private static final AtomicInteger instanceCounter = new AtomicInteger();
     private static final AtomicBoolean warnedTooManyInstances = new AtomicBoolean();
 
     private static final AtomicIntegerFieldUpdater<HashedWheelTimer> workerStateUpdater = AtomicIntegerFieldUpdater
-        .newUpdater(
-            HashedWheelTimer.class,
-            "workerState");
+        .newUpdater(HashedWheelTimer.class,"workerState");
 
     private final Worker worker = new Worker();
     private final Thread workerThread;
@@ -62,7 +58,7 @@ public class HashedWheelTimer implements Timer {
     public static final int WORKER_STATE_INIT = 0;
     public static final int WORKER_STATE_STARTED = 1;
     public static final int WORKER_STATE_SHUTDOWN = 2;
-    @SuppressWarnings({"unused", "FieldMayBeFinal"})
+
     private volatile int workerState;                                                  // 0 - init, 1 - started, 2 - shut down
 
     private final long tickDuration;
@@ -521,7 +517,6 @@ public class HashedWheelTimer implements Timer {
         private final TimerTask task;
         private final long deadline;
 
-        @SuppressWarnings({"unused", "FieldMayBeFinal", "RedundantFieldInitialization"})
         private volatile int state = ST_INIT;
 
         // remainingRounds will be calculated and set by Worker.transferTimeoutsToBuckets() before the

@@ -118,7 +118,6 @@ public class LogManagerImpl implements LogManager {
     }
 
     private static class StableClosureEventFactory implements EventFactory<StableClosureEvent> {
-
         @Override
         public StableClosureEvent newInstance() {
             return new StableClosureEvent();
@@ -133,16 +132,18 @@ public class LogManagerImpl implements LogManager {
          * callback when new log come in
          */
         NewLogCallback onNewLog;
+
         /**
          * callback error code
          */
         int errorCode;
+
         /**
          * the waiter pass-in argument
          */
         Object arg;
 
-        public WaitMeta(final NewLogCallback onNewLog, final Object arg, final int errorCode) {
+        WaitMeta(final NewLogCallback onNewLog, final Object arg, final int errorCode) {
             super();
             this.onNewLog = onNewLog;
             this.arg = arg;
@@ -263,8 +264,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     private static class LastLogIdClosure extends StableClosure {
-
-        public LastLogIdClosure() {
+        LastLogIdClosure() {
             super(null);
         }
 
@@ -381,9 +381,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     private void notifyLastLogIndexListeners() {
-        // TODO asch fixme potential OOB.
-        for (int i = 0; i < this.lastLogIndexListeners.size(); i++) {
-            final LastLogIndexListener listener = this.lastLogIndexListeners.get(i);
+        for (LastLogIndexListener listener : lastLogIndexListeners) {
             if (listener != null) {
                 try {
                     listener.onLastLogIndexChanged(this.lastLogIndex);
@@ -453,7 +451,7 @@ public class LogManagerImpl implements LogManager {
         List<LogEntry> toAppend;
         LogId lastId;
 
-        public AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
+        AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
             final LogId lastId) {
             super();
             this.storage = storage;
@@ -917,7 +915,7 @@ public class LogManagerImpl implements LogManager {
     private static class TruncatePrefixClosure extends StableClosure {
         long firstIndexKept;
 
-        public TruncatePrefixClosure(final long firstIndexKept) {
+        TruncatePrefixClosure(final long firstIndexKept) {
             super(null);
             this.firstIndexKept = firstIndexKept;
         }
@@ -933,7 +931,7 @@ public class LogManagerImpl implements LogManager {
         long lastIndexKept;
         long lastTermKept;
 
-        public TruncateSuffixClosure(final long lastIndexKept, final long lastTermKept) {
+        TruncateSuffixClosure(final long lastIndexKept, final long lastTermKept) {
             super(null);
             this.lastIndexKept = lastIndexKept;
             this.lastTermKept = lastTermKept;
@@ -949,7 +947,7 @@ public class LogManagerImpl implements LogManager {
     private static class ResetClosure extends StableClosure {
         long nextLogIndex;
 
-        public ResetClosure(final long nextLogIndex) {
+        ResetClosure(final long nextLogIndex) {
             super(null);
             this.nextLogIndex = nextLogIndex;
         }

@@ -65,13 +65,9 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
         final Collection<Thread> queuedThreads, final long blockedNanos);
 
     static class RwLock extends ReentrantReadWriteLock {
-
         private static final long serialVersionUID = -1783358548846940445L;
 
-        public RwLock() {
-        }
-
-        public RwLock(boolean fair) {
+        RwLock(boolean fair) {
             super(fair);
         }
 

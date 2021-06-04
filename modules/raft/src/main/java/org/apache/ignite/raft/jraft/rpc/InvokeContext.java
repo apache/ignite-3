@@ -31,12 +31,10 @@ public class InvokeContext {
         return this.ctx.put(key, value);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T get(final String key) {
         return (T) this.ctx.get(key);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T getOrDefault(final String key, final T defaultValue) {
         return (T) this.ctx.getOrDefault(key, defaultValue);
     }

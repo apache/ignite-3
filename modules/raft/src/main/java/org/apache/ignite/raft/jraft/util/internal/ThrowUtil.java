@@ -42,7 +42,6 @@ public final class ThrowUtil {
      * ACC_PRIVATE, ACC_STATIC Code: stack=1, locals=1, args_size=1 0: aload_0 1: athrow ... Exceptions: throws
      * java.lang.Throwable
      */
-    @SuppressWarnings("unchecked")
     private static <E extends Throwable> void throwException0(final Throwable t) throws E {
         throw (E) t;
     }

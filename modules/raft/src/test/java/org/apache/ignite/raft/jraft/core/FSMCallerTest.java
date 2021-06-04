@@ -201,7 +201,6 @@ public class FSMCallerTest {
 
             @Override
             public SnapshotWriter start(final SnapshotMeta meta) {
-                // TODO Auto-generated method stub
                 return null;
             }
         });

@@ -228,7 +228,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         private final Node node;
 
-        public NodeReadWriteLock(final Node node) {
+        NodeReadWriteLock(final Node node) {
             super(MAX_BLOCKING_MS_TO_REPORT, TimeUnit.MILLISECONDS);
             this.node = node;
         }
@@ -325,7 +325,7 @@ public class NodeImpl implements Node, RaftServerService {
         List<PeerId> oldLearners = new ArrayList<>();
         Closure done;
 
-        public ConfigurationCtx(final NodeImpl node) {
+        ConfigurationCtx(final NodeImpl node) {
             super();
             this.node = node;
             this.stage = Stage.STAGE_NONE;
@@ -749,7 +749,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         private final SynchronizedClosure done = new SynchronizedClosure();
 
-        public BootstrapStableClosure() {
+        BootstrapStableClosure() {
             super(null);
         }
 
@@ -1314,8 +1314,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     class LeaderStableClosure extends LogManager.StableClosure {
-
-        public LeaderStableClosure(final List<LogEntry> entries) {
+        LeaderStableClosure(final List<LogEntry> entries) {
             super(entries);
         }
 
@@ -1417,7 +1416,7 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * ReadIndex response closure
      */
-    private class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
+    private static class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
         final ReadIndexResponse.Builder respBuilder;
         final RpcResponseClosure<ReadIndexResponse> closure;
         final int quorum;
@@ -1426,7 +1425,7 @@ public class NodeImpl implements Node, RaftServerService {
         int ackFailures;
         boolean isDone;
 
-        public ReadIndexHeartbeatResponseClosure(final RpcResponseClosure<ReadIndexResponse> closure,
+        ReadIndexHeartbeatResponseClosure(final RpcResponseClosure<ReadIndexResponse> closure,
             final ReadIndexResponse.Builder rb, final int quorum,
             final int peersCount) {
             super();
@@ -1801,14 +1800,13 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private static class FollowerStableClosure extends LogManager.StableClosure {
-
         final long committedIndex;
         final AppendEntriesResponse.Builder responseBuilder;
         final NodeImpl node;
         final RpcRequestClosure done;
         final long term;
 
-        public FollowerStableClosure(final AppendEntriesRequest request,
+        FollowerStableClosure(final AppendEntriesRequest request,
             final AppendEntriesResponse.Builder responseBuilder, final NodeImpl node,
             final RpcRequestClosure done, final long term) {
             super(null);
@@ -1825,7 +1823,6 @@ public class NodeImpl implements Node, RaftServerService {
 
         @Override
         public void run(final Status status) {
-
             if (!status.isOk()) {
                 this.done.run(status);
                 return;
@@ -2102,7 +2099,7 @@ public class NodeImpl implements Node, RaftServerService {
         private final PeerId peer;
         private final long version;
 
-        public OnCaughtUp(final NodeImpl node, final long term, final PeerId peer, final long version) {
+        OnCaughtUp(final NodeImpl node, final long term, final PeerId peer, final long version) {
             super();
             this.node = node;
             this.term = term;
@@ -2288,7 +2285,7 @@ public class NodeImpl implements Node, RaftServerService {
         private final long term;
         private final boolean leaderStart;
 
-        public ConfigurationChangeDone(final long term, final boolean leaderStart) {
+        ConfigurationChangeDone(final long term, final boolean leaderStart) {
             super();
             this.term = term;
             this.leaderStart = leaderStart;
@@ -2548,7 +2545,7 @@ public class NodeImpl implements Node, RaftServerService {
         final NodeImpl node;
         RequestVoteRequest request;
 
-        public OnRequestVoteRpcDone(final PeerId peer, final long term, final NodeImpl node) {
+        OnRequestVoteRpcDone(final PeerId peer, final long term, final NodeImpl node) {
             super();
             this.startMs = Utils.monotonicMs();
             this.peer = peer;
@@ -2614,7 +2611,7 @@ public class NodeImpl implements Node, RaftServerService {
         final long term;
         RequestVoteRequest request;
 
-        public OnPreVoteRpcDone(final PeerId peer, final long term) {
+        OnPreVoteRpcDone(final PeerId peer, final long term) {
             super();
             this.startMs = Utils.monotonicMs();
             this.peer = peer;
@@ -2870,7 +2867,7 @@ public class NodeImpl implements Node, RaftServerService {
         final long term;
         final PeerId peer;
 
-        public StopTransferArg(final NodeImpl node, final long term, final PeerId peer) {
+        StopTransferArg(final NodeImpl node, final long term, final PeerId peer) {
             super();
             this.node = node;
             this.term = term;

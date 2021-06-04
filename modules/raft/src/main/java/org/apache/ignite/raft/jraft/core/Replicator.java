@@ -701,7 +701,7 @@ public class Replicator implements ThreadId.OnError {
             }
             else {
                 // No entries and has empty data means a probe request.
-                // TODO(boyan) refactor, adds a new flag field?
+                // TODO refactor, adds a new flag field?
                 rb.setData(ByteString.EMPTY);
                 request = rb.build();
                 // Sending a probe request.

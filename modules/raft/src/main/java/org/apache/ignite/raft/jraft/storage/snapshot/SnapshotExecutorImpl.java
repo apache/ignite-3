@@ -81,7 +81,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         InstallSnapshotResponse.Builder responseBuilder;
         RpcRequestClosure done;
 
-        public DownloadingSnapshot(final InstallSnapshotRequest request,
+        DownloadingSnapshot(final InstallSnapshotRequest request,
             final InstallSnapshotResponse.Builder responseBuilder, final RpcRequestClosure done) {
             super();
             this.request = request;
@@ -116,7 +116,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         SnapshotMeta meta;
         Executor executor;
 
-        public SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta,
+        SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta,
             Executor executor) {
             super();
             this.writer = writer;
@@ -154,7 +154,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         SnapshotReader reader;
 
-        public InstallSnapshotDone(final SnapshotReader reader) {
+        InstallSnapshotDone(final SnapshotReader reader) {
             super();
             this.reader = reader;
         }
@@ -179,7 +179,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         CountDownLatch eventLatch;
         Status status;
 
-        public FirstSnapshotLoadDone(final SnapshotReader reader) {
+        FirstSnapshotLoadDone(final SnapshotReader reader) {
             super();
             this.reader = reader;
             this.eventLatch = new CountDownLatch(1);

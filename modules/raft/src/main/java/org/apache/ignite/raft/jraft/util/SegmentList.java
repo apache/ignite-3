@@ -26,7 +26,6 @@ import java.util.function.Predicate;
  *
  * [segment, segment, segment ...] /                 |                    \ segment             segment
  * segment [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
- *
  */
 public class SegmentList<T> {
     private static final int SEGMENT_SHIFT = 7;
@@ -86,7 +85,7 @@ public class SegmentList<T> {
             this(Recyclers.NOOP_HANDLE);
         }
 
-        @SuppressWarnings("unchecked") Segment(final Recyclers.Handle handle) {
+        Segment(final Recyclers.Handle handle) {
             this.elements = (T[]) new Object[SEGMENT_SIZE];
             this.pos = this.offset = 0;
             this.handle = handle;
@@ -222,7 +221,6 @@ public class SegmentList<T> {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     public void add(final T e) {
         Segment<T> lastSeg = getLast();
         if (lastSeg == null || lastSeg.isReachEnd()) {
@@ -338,7 +336,6 @@ public class SegmentList<T> {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public void addAll(final Collection<T> coll) {
         Object[] src = coll2Array(coll);
 

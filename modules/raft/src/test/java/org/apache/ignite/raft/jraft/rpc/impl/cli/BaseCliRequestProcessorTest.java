@@ -44,13 +44,12 @@ import static org.junit.Assert.assertSame;
 @RunWith(MockitoJUnitRunner.class)
 public class BaseCliRequestProcessorTest {
     private static class MockCliRequestProcessor extends BaseCliRequestProcessor<PingRequest> {
-
         private String peerId;
         private String groupId;
         private RpcRequestClosure done;
         private CliRequestContext ctx;
 
-        public MockCliRequestProcessor(String peerId, String groupId) {
+        MockCliRequestProcessor(String peerId, String groupId) {
             super(null, null);
             this.peerId = peerId;
             this.groupId = groupId;
@@ -155,7 +154,6 @@ public class BaseCliRequestProcessorTest {
         Node node1 = Mockito.mock(Node.class);
         Mockito.when(node1.getGroupId()).thenReturn("test");
         Mockito.when(node1.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8081)));
-        NodeOptions opts = new NodeOptions();
         this.asyncContext.getNodeManager().add(node1);
 
         Node node2 = Mockito.mock(Node.class);

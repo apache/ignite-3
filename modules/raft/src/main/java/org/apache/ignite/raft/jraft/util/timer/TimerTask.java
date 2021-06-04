@@ -20,7 +20,6 @@ package org.apache.ignite.raft.jraft.util.timer;
  * Forked from <a href="https://github.com/netty/netty">Netty</a>.
  */
 public interface TimerTask {
-
     /**
      * Executed after the delay specified with Timer#newTimeout(TimerTask, long, TimeUnit).
      *

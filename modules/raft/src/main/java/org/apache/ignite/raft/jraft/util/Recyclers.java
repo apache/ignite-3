@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
  * @param <T> the type of the pooled object
  */
 public abstract class Recyclers<T> {
-
     private static final Logger LOG = LoggerFactory.getLogger(Recyclers.class);
 
     private static final AtomicInteger idGenerator = new AtomicInteger(Integer.MIN_VALUE);
@@ -73,7 +72,6 @@ public abstract class Recyclers<T> {
         this.maxCapacityPerThread = Math.min(MAX_CAPACITY_PER_THREAD, Math.max(0, maxCapacityPerThread));
     }
 
-    @SuppressWarnings("unchecked")
     public final T get() {
         if (maxCapacityPerThread == 0) {
             return newObject(NOOP_HANDLE);
@@ -214,9 +212,7 @@ public abstract class Recyclers<T> {
         }
 
         // transfer as many items as we can from this queue to the stack, returning true if any were transferred
-        @SuppressWarnings("rawtypes")
         boolean transfer(Stack<?> dst) {
-
             Link head = this.head;
             if (head == null) {
                 return false;

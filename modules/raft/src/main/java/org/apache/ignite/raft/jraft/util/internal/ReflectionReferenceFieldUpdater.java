@@ -21,9 +21,7 @@ import java.lang.reflect.Field;
 /**
  *
  */
-@SuppressWarnings("unchecked")
 final class ReflectionReferenceFieldUpdater<U, W> implements ReferenceFieldUpdater<U, W> {
-
     private final Field field;
 
     ReflectionReferenceFieldUpdater(Class<? super U> tClass, String fieldName) throws NoSuchFieldException {

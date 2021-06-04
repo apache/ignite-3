@@ -325,7 +325,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         }
     }
 
-    @SuppressWarnings("unchecked")
     PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair,
         NodeManager nodeManager) {
         ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);

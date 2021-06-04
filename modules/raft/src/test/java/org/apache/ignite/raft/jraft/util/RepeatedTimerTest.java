@@ -29,7 +29,7 @@ public class RepeatedTimerTest {
         final AtomicInteger destroyed = new AtomicInteger(0);
         volatile int nextTimeout = -1;
 
-        public TestTimer(String name, int timeoutMs) {
+        TestTimer(String name, int timeoutMs) {
             super(name, timeoutMs);
         }
 

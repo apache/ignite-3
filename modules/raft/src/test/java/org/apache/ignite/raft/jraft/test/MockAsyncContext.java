@@ -31,7 +31,6 @@ public class MockAsyncContext implements RpcContext {
         return this.responseObject;
     }
 
-    @SuppressWarnings("unchecked")
     public <T extends Message> T as(Class<T> t) {
         return (T) this.responseObject;
     }

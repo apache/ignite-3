@@ -26,7 +26,6 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.ClientService;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
@@ -184,7 +183,6 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             }
 
             rc.invokeAsync(endpoint, request, ctx, new InvokeCallback() {
-                @SuppressWarnings({"unchecked", "ConstantConditions"})
                 @Override
                 public void complete(final Object result, final Throwable err) {
                     if (future.isCancelled()) {
@@ -200,7 +198,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                             msg = (Message) result;
                         }
                         else {
-                            msg = (T) result;
+                            msg = (Message) result;
                         }
                         if (done != null) {
                             try {

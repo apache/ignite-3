@@ -31,7 +31,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class FutureTest {
-
     private static final Logger log = LoggerFactory.getLogger(FutureImpl.class);
 
     private static final class NotifyFutureRunner implements Runnable {
@@ -39,7 +38,7 @@ public class FutureTest {
         long sleepTime;
         Throwable throwable;
 
-        public NotifyFutureRunner(FutureImpl<Boolean> future, long sleepTime, Throwable throwable) {
+        NotifyFutureRunner(FutureImpl<Boolean> future, long sleepTime, Throwable throwable) {
             super();
             this.future = future;
             this.sleepTime = sleepTime;
