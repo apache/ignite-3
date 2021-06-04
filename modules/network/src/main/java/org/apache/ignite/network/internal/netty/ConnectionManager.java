@@ -117,6 +117,8 @@ public class ConnectionManager {
      */
     public void start() throws IgniteInternalException {
         try {
+            //TODO: timeout value should be extracted into common configuration
+            // https://issues.apache.org/jira/browse/IGNITE-14538
             server.start().get(3, TimeUnit.SECONDS);
         }
         catch (ExecutionException e) {
