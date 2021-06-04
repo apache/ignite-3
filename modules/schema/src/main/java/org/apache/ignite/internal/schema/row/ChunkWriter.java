@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 /**
  * Abstract row chunk writer.
  */
-abstract class AbstractChunkWriter {
+abstract class ChunkWriter {
     /** Chunk buffer. */
     protected final ExpandableByteBuf buf;
 
@@ -55,7 +55,7 @@ abstract class AbstractChunkWriter {
      * @param nullMapOff Null-map offset.
      * @param varTblOff Vartable offset.
      */
-    protected AbstractChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapOff, int varTblOff, int dataOff) {
+    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapOff, int varTblOff, int dataOff) {
         this.buf = buf;
         this.baseOff = baseOff;
         this.nullMapOff = nullMapOff;

@@ -23,7 +23,7 @@ package org.apache.ignite.internal.schema.row;
  * Uses {@code byte} values for coding sizes/offsets,
  * supports chunks with payload less upt to 255 bytes.
  */
-class TinyChunkWriter extends AbstractChunkWriter {
+class TinyChunkWriter extends ChunkWriter {
     /**
      * Calculates vartable length (in bytes).
      *
@@ -32,6 +32,30 @@ class TinyChunkWriter extends AbstractChunkWriter {
      */
     static int vartableLength(int items) {
         return items == 0 ? 0 : Byte.BYTES /* Table size */ + items * Byte.BYTES;
+    }
+
+    /**
+     * Calculates chunk size.
+     *
+     * @param payloadLen Payload size in bytes.
+     * @param nullMapLen Null-map size in bytes.
+     * @param vartblSize Amount of vartable items.
+     * @return Bytes required to write a chunk or {@code -1} if a chunk is too long.
+     */
+    static int chunkSize(int payloadLen, int nullMapLen, int vartblSize) {
+        return Byte.BYTES /* Chunk len. */ + nullMapLen + vartableLength(vartblSize) + payloadLen;
+    }
+
+    /**
+     * Check if chunk fits to max size.
+     *
+     * @param payloadLen Payload size in bytes.
+     * @param nullMapLen Null-map size in bytes.
+     * @param vartblSize Amount of vartable items.
+     * @return {@code true} if a chunk is tiny, {@code false} otherwise.
+     */
+    static boolean isTinyChunk(int payloadLen, int nullMapLen, int vartblSize) {
+        return chunkSize(payloadLen, nullMapLen, vartblSize) < 256;
     }
 
     /**

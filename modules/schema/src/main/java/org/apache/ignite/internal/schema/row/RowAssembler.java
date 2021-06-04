@@ -50,13 +50,13 @@ public class RowAssembler {
     private final SchemaDescriptor schema;
 
     /** The number of non-null varlen columns in values chunk. */
-    private final int nonNullVarlenValCols;
+    private final int valVarlenCols;
 
     /** Target byte buffer to write to. */
     private final ExpandableByteBuf buf;
 
     /** Val write mode flag. */
-    private final boolean isSmallVal;
+    private final boolean tinyVal;
 
     /** Current columns chunk. */
     private Columns curCols;
@@ -71,7 +71,7 @@ public class RowAssembler {
     private CharsetEncoder strEncoder;
 
     /** Current chunk writer. */
-    private AbstractChunkWriter chunkWriter;
+    private ChunkWriter chunkWriter;
 
     /**
      * Calculates encoded string length.
@@ -160,53 +160,54 @@ public class RowAssembler {
      * @param schema Row schema.
      * @param keyDataSize Key payload size. Estimated upper-bound or zero if unknown.
      * @param keyHasNulls Null flag. {@code True} if key has nulls values, {@code false} otherwise.
-     * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
+     * @param keyVarlenCols Number of non-null varlen columns in key chunk.
      * @param valDataSize Value data size. Estimated upper-bound or zero if unknown.
      * @param valHasNulls Null flag. {@code True} if value has nulls values, {@code false} otherwise.
-     * @param nonNullVarlenValCols Number of non-null varlen columns in value chunk.
+     * @param valVarlenCols Number of non-null varlen columns in value chunk.
      */
     public RowAssembler(
         SchemaDescriptor schema,
         int keyDataSize,
         boolean keyHasNulls,
-        int nonNullVarlenKeyCols,
+        int keyVarlenCols,
         int valDataSize,
         boolean valHasNulls,
-        int nonNullVarlenValCols
+        int valVarlenCols
     ) {
         this.schema = schema;
-        this.nonNullVarlenValCols = nonNullVarlenValCols;
+        this.valVarlenCols = valVarlenCols;
 
         curCols = schema.keyColumns();
         curCol = 0;
         flags = 0;
         strEncoder = null;
 
-        boolean isSmallKey = isTinyChunk(keyDataSize);
-        isSmallVal = isTinyChunk(valDataSize);
+        final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
+        final int valNullMapSize = valHasNulls ? schema.valueColumns().nullMapSize() : 0;
+
+        boolean tinyKey = TinyChunkWriter.isTinyChunk(keyDataSize, keyNullMapSize, keyVarlenCols);
+        tinyVal = TinyChunkWriter.isTinyChunk(valDataSize, keyNullMapSize, valVarlenCols);
 
         // Key flags.
         if (schema.keyColumns().nullMapSize() == 0)
             flags |= RowFlags.OMIT_KEY_NULL_MAP_FLAG;
-        if (nonNullVarlenKeyCols == 0)
+        if (keyVarlenCols == 0)
             flags |= OMIT_KEY_VARTBL_FLAG;
-        if (isSmallKey)
+        if (tinyKey)
             flags |= RowFlags.KEY_TYNY_FORMAT;
 
-        final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
-
-        int size = BinaryRow.HEADER_SIZE + keyDataSize + valDataSize +
-            keyNullMapSize +
-            (valHasNulls ? schema.valueColumns().nullMapSize() : 0) +
-            (isSmallKey ? TinyChunkWriter.vartableLength(nonNullVarlenKeyCols) :
-                LongChunkWriter.vartableLength(nonNullVarlenKeyCols)) +
-            (isSmallVal ? TinyChunkWriter.vartableLength(nonNullVarlenValCols) :
-                LongChunkWriter.vartableLength(nonNullVarlenValCols));
+        int size = BinaryRow.HEADER_SIZE +
+            (tinyKey ?
+                TinyChunkWriter.chunkSize(keyDataSize, keyNullMapSize, keyVarlenCols) :
+                LongChunkWriter.chunkSize(keyDataSize, keyNullMapSize, keyVarlenCols)) +
+            (tinyVal ?
+                TinyChunkWriter.chunkSize(valDataSize, valNullMapSize, valVarlenCols) :
+                LongChunkWriter.chunkSize(valDataSize, valNullMapSize, valVarlenCols));
 
         buf = new ExpandableByteBuf(size);
         buf.putShort(0, (short)schema.version());
 
-        chunkWriter = createChunkWriter(KEY_CHUNK_OFFSET, keyNullMapSize, nonNullVarlenKeyCols, isSmallKey);
+        chunkWriter = createChunkWriter(KEY_CHUNK_OFFSET, keyNullMapSize, keyVarlenCols, tinyKey);
     }
 
     private boolean isTinyChunk(int dataSize) {
@@ -222,7 +223,7 @@ public class RowAssembler {
      * @param tiny Tiny format flag.
      * @return Chunk writer.
      */
-    private AbstractChunkWriter createChunkWriter(int baseOff, int nullMapLen, int vartblSize, boolean tiny) {
+    private ChunkWriter createChunkWriter(int baseOff, int nullMapLen, int vartblSize, boolean tiny) {
         return tiny ?
             new TinyChunkWriter(
                 buf,
@@ -467,19 +468,19 @@ public class RowAssembler {
             curCol = 0;
 
             // Write value flags.
-            if (nonNullVarlenValCols == 0)
+            if (valVarlenCols == 0)
                 flags |= OMIT_VAL_VARTBL_FLAG;
             if (schema.valueColumns().nullMapSize() == 0)
                 flags |= RowFlags.OMIT_VAL_NULL_MAP_FLAG;
-            if (isSmallVal)
+            if (tinyVal)
                 flags |= RowFlags.VAL_TYNY_FORMAT;
 
             // Create value chunk writer.
             chunkWriter = createChunkWriter(
                 BinaryRow.HEADER_SIZE + chunkWriter.chunkLength() /* Key chunk size */,
                 schema.valueColumns().nullMapSize(),
-                nonNullVarlenValCols,
-                isSmallVal);
+                valVarlenCols,
+                tinyVal);
         }
     }
 }

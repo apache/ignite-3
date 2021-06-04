@@ -23,7 +23,7 @@ package org.apache.ignite.internal.schema.row;
  * Uses {@code int} values for coding sizes/offsets,
  * supports chunks with payload up to 2 GiB.
  */
-class LongChunkWriter extends AbstractChunkWriter {
+class LongChunkWriter extends ChunkWriter {
     /**
      * Calculates vartable length (in bytes).
      *
@@ -32,6 +32,18 @@ class LongChunkWriter extends AbstractChunkWriter {
      */
     static int vartableLength(int items) {
         return items == 0 ? 0 : Integer.BYTES /* Table size */ + items * Integer.BYTES;
+    }
+
+    /**
+     * Calculates chunk size.
+     *
+     * @param payloadLen Payload size in bytes.
+     * @param nullMapLen Null-map size in bytes.
+     * @param vartblSize Amount of vartable items.
+     * @return Bytes required to write a chunk or {@code -1} if a chunk is too long.
+     */
+    static int chunkSize(int payloadLen, int nullMapLen, int vartblSize) {
+        return Integer.BYTES /* Chunk len. */ + nullMapLen + vartableLength(vartblSize) + payloadLen;
     }
 
     /**
