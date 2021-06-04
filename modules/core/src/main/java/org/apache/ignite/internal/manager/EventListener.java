@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.manager;
 
-import java.util.function.BiPredicate;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
