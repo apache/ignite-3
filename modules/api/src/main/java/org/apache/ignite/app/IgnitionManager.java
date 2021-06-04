@@ -18,6 +18,7 @@
 package org.apache.ignite.app;
 
 import java.util.ServiceLoader;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,7 +36,7 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(String nodeName, @Nullable String jsonStrBootstrapCfg) {
+    public static synchronized Ignite start(@NotNull String nodeName, @Nullable String jsonStrBootstrapCfg) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
             ignition = ldr.iterator().next();
@@ -54,7 +55,7 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(String nodeName, @Nullable String jsonStrBootstrapCfg, @Nullable ClassLoader clsLdr) {
+    public static synchronized Ignite start(@NotNull String nodeName, @Nullable String jsonStrBootstrapCfg, @Nullable ClassLoader clsLdr) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
             ignition = ldr.iterator().next();
