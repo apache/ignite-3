@@ -26,8 +26,8 @@ import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.message.ActionRequest;
-import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
-import org.apache.ignite.raft.client.message.RaftErrorResponse;
+import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
+import org.apache.ignite.raft.client.message.RaftErrorResponseBuilder;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
@@ -47,9 +47,9 @@ import org.apache.ignite.raft.server.impl.JRaftServerImpl;
  */
 public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private final Executor executor;
-    private final RaftClientMessageFactory factory;
+    private final RaftClientMessagesFactory factory;
 
-    public ActionRequestProcessor(Executor executor, RaftClientMessageFactory factory) {
+    public ActionRequestProcessor(Executor executor, RaftClientMessagesFactory factory) {
         this.executor = executor;
         this.factory = factory;
     }
@@ -146,9 +146,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param newLeader New leader.
      */
     private void sendError(RpcContext ctx, RaftErrorCode errorCode, String msg) {
-        RaftErrorResponse.Builder resp = factory.raftErrorResponse().errorCode(errorCode).errorMessage(msg);
+        RaftErrorResponseBuilder resp = factory.raftErrorResponse().errorCode(errorCode).errorMessage(msg);
 
-        ctx.sendResponse(((RaftErrorResponse.Builder) resp).build());
+        ctx.sendResponse(((RaftErrorResponseBuilder) resp).build());
     }
 
     /**
@@ -173,14 +173,14 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         else if (status.getRaftError() == RaftError.ESTATEMACHINE)
             raftErrorCode = RaftErrorCode.STATE_MACHINE;
 
-        RaftErrorResponse.Builder resp =
+        RaftErrorResponseBuilder resp =
             factory.raftErrorResponse().errorCode(raftErrorCode).errorMessage(status.getErrorMsg());
 
         if (newLeader != null) {
             resp.newLeader(new Peer(newLeader.getEndpoint().toString()));
         }
 
-        ctx.sendResponse(((RaftErrorResponse.Builder) resp).build());
+        ctx.sendResponse(((RaftErrorResponseBuilder) resp).build());
     }
 
     /**

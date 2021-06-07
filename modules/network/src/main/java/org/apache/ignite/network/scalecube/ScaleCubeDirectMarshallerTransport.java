@@ -32,11 +32,11 @@ import io.scalecube.cluster.transport.api.Transport;
 import io.scalecube.net.Address;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NetworkMessagesFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
-import org.apache.ignite.network.scalecube.message.ScaleCubeMessageFactory;
 import org.jetbrains.annotations.Nullable;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
@@ -68,6 +68,9 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Connection manager. */
     private final ConnectionManager connectionManager;
 
+    /** Message factory. */
+    private final NetworkMessagesFactory messageFactory;
+
     /** */
     private final ScaleCubeTopologyService topologyService;
 
@@ -75,14 +78,18 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
     private Address address;
 
     /**
-     * Constructor.
-     *
-     * @param connectionManager Connection manager.
-     * @param topologyService Topology service.
+     * @param connectionManager connection manager
+     * @param topologyService topology service
+     * @param messageFactory message factory
      */
-    public ScaleCubeDirectMarshallerTransport(ConnectionManager connectionManager, ScaleCubeTopologyService topologyService) {
+    public ScaleCubeDirectMarshallerTransport(
+        ConnectionManager connectionManager,
+        ScaleCubeTopologyService topologyService,
+        NetworkMessagesFactory messageFactory
+    ) {
         this.connectionManager = connectionManager;
         this.topologyService = topologyService;
+        this.messageFactory = messageFactory;
 
         this.connectionManager.addListener(this::onMessage);
         // Setup cleanup
@@ -196,7 +203,7 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
             throw new IgniteInternalException(e);
         }
 
-        return ScaleCubeMessageFactory.scaleCubeMessage()
+        return messageFactory.scaleCubeMessage()
             .array(stream.toByteArray())
             .headers(message.headers())
             .build();

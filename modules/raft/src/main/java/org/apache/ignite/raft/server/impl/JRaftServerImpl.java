@@ -29,7 +29,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
+import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
@@ -74,7 +74,7 @@ public class JRaftServerImpl implements RaftServer {
      * @param factory The factory.
      * @param reuse {@code True} to reuse cluster service (do not manage lifecyle)
      */
-    public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessageFactory factory, boolean reuse) {
+    public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessagesFactory factory, boolean reuse) {
         this(service, dataPath, factory, reuse, new NodeOptions());
     }
 
@@ -88,7 +88,7 @@ public class JRaftServerImpl implements RaftServer {
     public JRaftServerImpl(
         ClusterService service,
         String dataPath,
-        RaftClientMessageFactory factory,
+        RaftClientMessagesFactory factory,
         boolean reuse,
         NodeOptions opts
     ) {

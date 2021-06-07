@@ -20,7 +20,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.apache.ignite.raft.client.message.GetLeaderRequest;
-import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
+import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -31,9 +31,9 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
  */
 public class GetLeaderRequestProcessor implements RpcProcessor<GetLeaderRequest> {
     private final Executor executor;
-    private final RaftClientMessageFactory factory;
+    private final RaftClientMessagesFactory factory;
 
-    public GetLeaderRequestProcessor(Executor executor, RaftClientMessageFactory factory) {
+    public GetLeaderRequestProcessor(Executor executor, RaftClientMessagesFactory factory) {
         this.executor = executor;
         this.factory = factory;
     }
