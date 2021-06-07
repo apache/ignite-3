@@ -183,10 +183,7 @@ public class ITNodeTest {
     @Test
     public void testInitShutdown() throws Exception {
         final Endpoint addr = new Endpoint(TestUtils.getMyIp(), TestUtils.INIT_PORT);
-        final NodeOptions nodeOptions = new NodeOptions();
-
-        nodeOptions.setCommonExecutor(JRaftUtils.createCommonExecutor(nodeOptions));
-        nodeOptions.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(nodeOptions));
+        final NodeOptions nodeOptions = createNodeOptions();
 
         nodeOptions.setFsm(new MockStateMachine(addr));
         nodeOptions.setLogUri(this.dataPath + File.separator + "log");
@@ -3549,7 +3546,6 @@ public class ITNodeTest {
      * @return Raft group service.
      */
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
-        // TODO asch improve service creation.
         NodeManager nodeManager = new NodeManager();
 
         List<String> servers = new ArrayList<>();

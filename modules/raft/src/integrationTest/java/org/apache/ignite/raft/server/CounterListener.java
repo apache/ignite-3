@@ -32,7 +32,7 @@ import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
- * TODO asch support for batch updates.
+ * The counter listener implementation.
  */
 public class CounterListener implements RaftGroupListener {
     /**

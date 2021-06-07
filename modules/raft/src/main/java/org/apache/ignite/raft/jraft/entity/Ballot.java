@@ -24,7 +24,6 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
  * A ballot to vote.
  */
 public class Ballot {
-
     public static final class PosHint {
         int pos0 = -1; // position in current peers
         int pos1 = -1; // position in old peers
@@ -53,9 +52,8 @@ public class Ballot {
      *
      * @param conf current configuration
      * @param oldConf old configuration
-     * @return true if init success // TODO asch init cannot return false
      */
-    public boolean init(final Configuration conf, final Configuration oldConf) {
+    public void init(final Configuration conf, final Configuration oldConf) {
         this.peers.clear();
         this.oldPeers.clear();
         this.quorum = this.oldQuorum = 0;
@@ -68,7 +66,7 @@ public class Ballot {
 
         this.quorum = this.peers.size() / 2 + 1;
         if (oldConf == null) {
-            return true;
+            return;
         }
         index = 0;
         for (final PeerId peer : oldConf) {
@@ -76,7 +74,6 @@ public class Ballot {
         }
 
         this.oldQuorum = this.oldPeers.size() / 2 + 1;
-        return true;
     }
 
     private UnfoundPeerId findPeer(final PeerId peerId, final List<UnfoundPeerId> peers, final int posHint) {

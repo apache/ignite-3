@@ -193,10 +193,8 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
      */
     public boolean appendPendingTask(final Configuration conf, final Configuration oldConf, final Closure done) {
         final Ballot bl = new Ballot();
-        if (!bl.init(conf, oldConf)) {
-            LOG.error("Fail to init ballot.");
-            return false;
-        }
+        bl.init(conf, oldConf);
+
         final long stamp = this.stampedLock.writeLock();
         try {
             if (this.pendingIndex <= 0) {

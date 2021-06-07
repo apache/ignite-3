@@ -164,19 +164,8 @@ public class RaftGroupService {
         return this.node;
     }
 
-    /**
-     * Block thread to wait the server shutdown.
-     *
-     * @throws InterruptedException if the current thread is interrupted while waiting
-     */
-//    public synchronized void join() throws InterruptedException {
-//        if (this.node != null) {
-//            this.node.join();
-//            this.node = null;
-//        }
-//    }
     public synchronized void shutdown() {
-        // TODO asch remove handlers before shutting down raft node.
+        // TODO asch remove handlers before shutting down raft node https://issues.apache.org/jira/browse/IGNITE-14519
         if (!this.started) {
             return;
         }

@@ -25,7 +25,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
- * Abstract factory to create services for SOFAJRaft. TODO asch kill this.
+ * Abstract factory to create services.
  */
 public interface JRaftServiceFactory {
 
