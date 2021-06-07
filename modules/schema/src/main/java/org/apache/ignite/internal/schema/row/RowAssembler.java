@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.row;
 
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.AssemblyException;
@@ -63,6 +64,9 @@ public class RowAssembler {
 
     /** Current field index (the field is unset). */
     private int curCol;
+
+    /** Hash. */
+    private int hash;
 
     /** Flags. */
     private short flags;
@@ -247,6 +251,9 @@ public class RowAssembler {
             throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): " +
                 col);
 
+        if (isKeyColumn())
+            hash = 31 * hash;
+
         chunkWriter.setNull(curCol);
 
         shiftColumn();
@@ -259,6 +266,9 @@ public class RowAssembler {
      */
     public void appendByte(byte val) {
         checkType(NativeTypes.BYTE);
+
+        if (isKeyColumn())
+            hash = 31 * hash + Byte.hashCode(val);
 
         chunkWriter.appendByte(val);
 
@@ -273,6 +283,9 @@ public class RowAssembler {
     public void appendShort(short val) {
         checkType(NativeTypes.SHORT);
 
+        if (isKeyColumn())
+            hash = 31 * hash + Short.hashCode(val);
+
         chunkWriter.appendShort(val);
 
         shiftColumn();
@@ -285,6 +298,9 @@ public class RowAssembler {
      */
     public void appendInt(int val) {
         checkType(NativeTypes.INTEGER);
+
+        if (isKeyColumn())
+            hash = 31 * hash + Integer.hashCode(val);
 
         chunkWriter.appendInt(val);
 
@@ -299,6 +315,9 @@ public class RowAssembler {
     public void appendLong(long val) {
         checkType(NativeTypes.LONG);
 
+        if (isKeyColumn())
+            hash = 31 * hash + Long.hashCode(val);
+
         chunkWriter.appendLong(val);
 
         shiftColumn();
@@ -311,6 +330,9 @@ public class RowAssembler {
      */
     public void appendFloat(float val) {
         checkType(NativeTypes.FLOAT);
+
+        if (isKeyColumn())
+            hash = 31 * hash + Float.hashCode(val);
 
         chunkWriter.appendFloat(val);
 
@@ -325,6 +347,9 @@ public class RowAssembler {
     public void appendDouble(double val) {
         checkType(NativeTypes.DOUBLE);
 
+        if (isKeyColumn())
+            hash = 31 * hash + Double.hashCode(val);
+
         chunkWriter.appendDouble(val);
 
         shiftColumn();
@@ -337,6 +362,9 @@ public class RowAssembler {
      */
     public void appendUuid(UUID uuid) {
         checkType(NativeTypes.UUID);
+
+        if (isKeyColumn())
+            hash = 31 * hash + uuid.hashCode();
 
         chunkWriter.appendUuid(uuid);
 
@@ -354,6 +382,9 @@ public class RowAssembler {
         assert (flags & (schema.keyColumns() == curCols ? OMIT_KEY_VARTBL_FLAG : OMIT_VAL_VARTBL_FLAG)) == 0 :
             "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
+        if (isKeyColumn())
+            hash = 31 * hash + val.hashCode();
+
         chunkWriter.appendString(val, encoder());
 
         shiftColumn();
@@ -369,6 +400,9 @@ public class RowAssembler {
 
         assert (flags & (schema.keyColumns() == curCols ? OMIT_KEY_VARTBL_FLAG : OMIT_VAL_VARTBL_FLAG)) == 0 :
             "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
+
+        if (isKeyColumn())
+            hash = 31 * hash + Arrays.hashCode(val);
 
         chunkWriter.appendBytes(val);
 
@@ -391,6 +425,9 @@ public class RowAssembler {
             throw new IllegalArgumentException("Failed to set bitmask for column '" + col.name() + "' " +
                 "(mask size exceeds allocated size) [mask=" + bitSet + ", maxSize=" + maskType.bits() + "]");
 
+        if (isKeyColumn())
+            hash = 31 * hash + bitSet.hashCode();
+
         chunkWriter.appendBitmask(bitSet, maskType.sizeInBytes());
 
         shiftColumn();
@@ -410,8 +447,13 @@ public class RowAssembler {
         }
 
         buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
+        buf.putInt(KEY_HASH_FIELD_OFFSET, hash);
 
         return buf.toArray();
+    }
+
+    private boolean isKeyColumn () {
+        return curCols == schema.keyColumns();
     }
 
     /**
@@ -459,9 +501,6 @@ public class RowAssembler {
 
             if (schema.valueColumns() == curCols)
                 return; // No more columns.
-
-            // Write key hash.
-            buf.putInt(KEY_HASH_FIELD_OFFSET, XXHash32.hash(buf.unwrap(), chunkWriter.dataOff, chunkWriter.curOff - chunkWriter.dataOff));
 
             // Switch key->value columns.
             curCols = schema.valueColumns();
