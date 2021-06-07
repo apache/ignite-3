@@ -17,8 +17,9 @@
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import java.util.List;
+import java.util.NavigableMap;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -45,7 +46,8 @@ public class LocalLogStorage implements LogStorage, Describer {
     private final Lock readLock = this.readWriteLock.readLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
 
-    private final TreeMap<Long, LogEntry> log = new TreeMap<>();
+    // TODO asch the test hangs if the implementation is changed to TreeMap, investigate why IGNITE-14832
+    private final NavigableMap<Long, LogEntry> log = new ConcurrentSkipListMap<>();
 
     private LogEntryEncoder logEntryEncoder;
     private LogEntryDecoder logEntryDecoder;
