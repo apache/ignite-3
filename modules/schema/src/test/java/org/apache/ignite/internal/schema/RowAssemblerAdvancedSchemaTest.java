@@ -64,7 +64,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 .appendNull()
                 .build());
 
-        // Fist col null.
+        // First col null.
         assertRowBytesEquals(
             new byte[] {42, 0, 24, 0, -53, 2, 0, 0, 11, 0, 0, 0, 1, 22, 0, 33, 0, 0, 0, 11, 0, 0, 0, 1, -55, -1, -66, -1, -1, -1},
             new RowAssembler(schema, 0, 0, 0)
