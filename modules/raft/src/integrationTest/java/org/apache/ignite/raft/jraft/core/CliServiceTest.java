@@ -487,8 +487,7 @@ public class CliServiceTest {
         }
     }
 
-    class MockCliService extends CliServiceImpl {
-
+    static class MockCliService extends CliServiceImpl {
         private final Map<String, PeerId> rebalancedLeaderIds;
         private final PeerId initialLeaderId;
 
@@ -520,8 +519,7 @@ public class CliServiceTest {
         }
     }
 
-    class MockLeaderFailCliService extends MockCliService {
-
+    static class MockLeaderFailCliService extends MockCliService {
         MockLeaderFailCliService() {
             super(null, null);
         }
@@ -532,8 +530,7 @@ public class CliServiceTest {
         }
     }
 
-    class MockTransferLeaderFailCliService extends MockCliService {
-
+    static class MockTransferLeaderFailCliService extends MockCliService {
         MockTransferLeaderFailCliService(final Map<String, PeerId> rebalancedLeaderIds, final PeerId initialLeaderId) {
             super(rebalancedLeaderIds, initialLeaderId);
         }

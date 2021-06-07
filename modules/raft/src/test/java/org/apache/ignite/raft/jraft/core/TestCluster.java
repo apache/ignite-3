@@ -44,6 +44,7 @@ import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
@@ -405,79 +406,61 @@ public class TestCluster {
         return ret;
     }
 
-    public boolean ensureSame() throws InterruptedException {
-        return this.ensureSame(-1);
-    }
-
     /**
-     * TODO asch rewrite, remove wait times, instead use timeout. Ensure all logs is the same in all nodes.
-     *
-     * @param waitTimes
-     * @return
+     * @return {@code True} if all FSM state are the same.
      * @throws InterruptedException
      */
-    public boolean ensureSame(final int waitTimes) throws InterruptedException {
+    public boolean ensureSame() throws InterruptedException {
         this.lock.lock();
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
         if (fsmList.size() <= 1) {
             this.lock.unlock();
             return true;
         }
-        LOG.info("Start ensureSame, waitTimes={0}", waitTimes);
+
+        LOG.info("Start ensureSame");
+
         try {
-            int nround = 0;
-            final MockStateMachine first = fsmList.get(0);
-            CHECK:
-            while (true) {
+            return TestUtils.waitForCondition(() -> {
+                MockStateMachine first = fsmList.get(0);
+
                 first.lock();
-                if (first.getLogs().isEmpty()) {
-                    first.unlock();
-                    Thread.sleep(10);
-                    nround++;
-                    if (waitTimes > 0 && nround > waitTimes) {
-                        return false;
-                    }
-                    continue CHECK;
-                }
 
-                for (int i = 1; i < fsmList.size(); i++) {
-                    final MockStateMachine fsm = fsmList.get(i);
-                    fsm.lock();
-                    if (fsm.getLogs().size() != first.getLogs().size()) {
-                        fsm.unlock();
-                        first.unlock();
-                        Thread.sleep(10);
-                        nround++;
-                        if (waitTimes > 0 && nround > waitTimes) {
-                            return false;
-                        }
-                        continue CHECK;
-                    }
+                try {
+                    for (int i = 1; i < fsmList.size(); i++) {
+                        MockStateMachine fsm = fsmList.get(i);
 
-                    for (int j = 0; j < first.getLogs().size(); j++) {
-                        final ByteBuffer firstData = first.getLogs().get(j);
-                        final ByteBuffer fsmData = fsm.getLogs().get(j);
-                        if (!firstData.equals(fsmData)) {
-                            fsm.unlock();
-                            first.unlock();
-                            Thread.sleep(10);
-                            nround++;
-                            if (waitTimes > 0 && nround > waitTimes) {
+                        fsm.lock();
+
+                        try {
+                            int size0 = first.getLogs().size();
+                            int size1 = fsm.getLogs().size();
+
+                            if (size0 == 0 || size0 != size1)
                                 return false;
+
+                            for (int j = 0; j < size0; j++) {
+                                ByteBuffer data0 = first.getLogs().get(j);
+                                ByteBuffer data1 = fsm.getLogs().get(j);
+
+                                if (!data0.equals(data1))
+                                    return false;
                             }
-                            continue CHECK;
+                        } finally {
+                            fsm.unlock();
                         }
                     }
-                    fsm.unlock();
                 }
-                first.unlock();
-                break;
-            }
-            return true;
+                finally {
+                    first.unlock();
+                }
+
+                return true;
+            }, 5_000);
         }
         finally {
             this.lock.unlock();
-            LOG.info("End ensureSame, waitTimes={0}", waitTimes);
+            LOG.info("End ensureSame");
         }
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
-import java.util.function.BooleanSupplier;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -33,8 +32,6 @@ import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerialization
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
 import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
-
-import static java.lang.Thread.sleep;
 
 /**
  * Abstract test for raft server.
@@ -81,38 +78,5 @@ abstract class RaftServerAbstractTest {
             network.start();
 
         return network;
-    }
-
-    /**
-     * @param cluster The cluster.
-     * @param expected Expected count.
-     * @param timeout The timeout in millis.
-     * @return {@code True} if topology size is equal to expected.
-     */
-    protected boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
-        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
-    }
-
-    /**
-     * @param cond The condition.
-     * @param timeout The timeout.
-     * @return {@code True} if condition has happened within the timeout.
-     */
-    @SuppressWarnings("BusyWait") protected boolean waitForCondition(BooleanSupplier cond, long timeout) {
-        long stop = System.currentTimeMillis() + timeout;
-
-        while (System.currentTimeMillis() < stop) {
-            if (cond.getAsBoolean())
-                return true;
-
-            try {
-                sleep(50);
-            }
-            catch (InterruptedException e) {
-                return false;
-            }
-        }
-
-        return false;
     }
 }

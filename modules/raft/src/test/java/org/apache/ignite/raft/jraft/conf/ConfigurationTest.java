@@ -79,7 +79,7 @@ public class ConfigurationTest {
         for (final PeerId peer : conf) {
             assertTrue(peer.toString().startsWith("localhost:80"));
 
-            if (peer.getIp().equals("localhost:8083")) {
+            if ("localhost:8083".equals(peer.getIp())) {
                 assertEquals(100, peer.getPriority());
                 assertEquals(1, peer.getIdx());
             }

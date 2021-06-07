@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BooleanSupplier;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -39,11 +41,12 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
+import static java.lang.Thread.sleep;
+
 /**
  * Test helper
  */
 public class TestUtils {
-
     public static ConfigurationEntry getConfEntry(final String confStr, final String oldConfStr) {
         ConfigurationEntry entry = new ConfigurationEntry();
         entry.setConf(JRaftUtils.getConfiguration(confStr));
@@ -155,5 +158,38 @@ public class TestUtils {
         final byte[] requestContext = new byte[ThreadLocalRandom.current().nextInt(10) + 1];
         ThreadLocalRandom.current().nextBytes(requestContext);
         return requestContext;
+    }
+
+    /**
+     * @param cluster The cluster.
+     * @param expected Expected count.
+     * @param timeout The timeout in millis.
+     * @return {@code True} if topology size is equal to expected.
+     */
+    public static boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
+    }
+
+    /**
+     * @param cond The condition.
+     * @param timeout The timeout.
+     * @return {@code True} if condition has happened within the timeout.
+     */
+    @SuppressWarnings("BusyWait") public static boolean waitForCondition(BooleanSupplier cond, long timeout) {
+        long stop = System.currentTimeMillis() + timeout;
+
+        while (System.currentTimeMillis() < stop) {
+            if (cond.getAsBoolean())
+                return true;
+
+            try {
+                sleep(50);
+            }
+            catch (InterruptedException e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }

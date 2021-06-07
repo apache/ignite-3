@@ -146,7 +146,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
         }
         final String filePath = this.writer.getPath() + File.separator + fileName;
         final Path subPath = Paths.get(filePath);
-        if (!subPath.equals(subPath.getParent()) && !subPath.getParent().getFileName().toString().equals(".")) {
+        if (!subPath.equals(subPath.getParent()) && !".".equals(subPath.getParent().getFileName().toString())) {
             final File parentDir = subPath.getParent().toFile();
             if (!parentDir.exists() && !parentDir.mkdirs()) {
                 LOG.error("Fail to create directory for {}", filePath);

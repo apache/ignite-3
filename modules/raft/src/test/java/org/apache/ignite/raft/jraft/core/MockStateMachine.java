@@ -117,7 +117,7 @@ public class MockStateMachine extends StateMachineAdapter {
             this.lock.lock();
             try {
                 if (iter.getIndex() <= this.lastAppliedIndex.get()) {
-                    //prevent duplication
+                    // prevent duplication
                     continue;
                 }
                 this.lastAppliedIndex.set(iter.getIndex());
