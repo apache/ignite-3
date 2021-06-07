@@ -52,15 +52,10 @@ public class TestUtils {
     }
 
     public static void dumpThreads() {
-        try {
-            ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-            ThreadInfo[] infos = bean.dumpAllThreads(true, true);
-            for (ThreadInfo info : infos) {
-                System.out.println(info);
-            }
-        }
-        catch (Throwable t) {
-            t.printStackTrace(); // NOPMD
+        ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+        ThreadInfo[] infos = bean.dumpAllThreads(true, true);
+        for (ThreadInfo info : infos) {
+            System.out.println(info);
         }
     }
 

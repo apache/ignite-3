@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A framework to implement a raft group service.
  *
- * TODO asch rename
+ * TODO asch remove
  */
 public class RaftGroupService {
     private static final Logger LOG = LoggerFactory.getLogger(RaftGroupService.class);
