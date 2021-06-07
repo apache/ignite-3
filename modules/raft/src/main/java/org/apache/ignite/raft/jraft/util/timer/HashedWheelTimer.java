@@ -50,7 +50,7 @@ public class HashedWheelTimer implements Timer {
     private static final AtomicBoolean warnedTooManyInstances = new AtomicBoolean();
 
     private static final AtomicIntegerFieldUpdater<HashedWheelTimer> workerStateUpdater = AtomicIntegerFieldUpdater
-        .newUpdater(HashedWheelTimer.class,"workerState");
+        .newUpdater(HashedWheelTimer.class, "workerState");
 
     private final Worker worker = new Worker();
     private final Thread workerThread;
@@ -59,7 +59,7 @@ public class HashedWheelTimer implements Timer {
     public static final int WORKER_STATE_STARTED = 1;
     public static final int WORKER_STATE_SHUTDOWN = 2;
 
-    private volatile int workerState;                                                  // 0 - init, 1 - started, 2 - shut down
+    private volatile int workerState; // 0 - init, 1 - started, 2 - shut down NOPMD
 
     private final long tickDuration;
     private final HashedWheelBucket[] wheel;

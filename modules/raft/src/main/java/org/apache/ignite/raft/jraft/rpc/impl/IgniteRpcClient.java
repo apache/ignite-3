@@ -37,12 +37,8 @@ import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class IgniteRpcClient implements RpcClientEx {
-    private static final Logger LOG = LoggerFactory.getLogger(IgniteRpcClient.class);
-
     private volatile BiPredicate<Object, String> recordPred;
     private BiPredicate<Object, String> blockPred;
 

@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.ElectionPriority;
@@ -57,13 +56,9 @@ import org.jetbrains.annotations.Nullable;
  *
  */
 public class JRaftServerImpl implements RaftServer {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftServerImpl.class);
-
     private final ClusterService service;
-    private final boolean reuse;
+
     private final String dataPath;
-    private final RaftClientMessageFactory clientMsgFactory;
 
     private IgniteRpcServer rpcServer;
 
@@ -98,9 +93,7 @@ public class JRaftServerImpl implements RaftServer {
         NodeOptions opts
     ) {
         this.service = service;
-        this.reuse = reuse;
         this.dataPath = dataPath;
-        this.clientMsgFactory = factory;
         this.nodeManager = new NodeManager();
         this.opts = opts;
 

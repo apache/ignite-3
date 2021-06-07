@@ -34,7 +34,6 @@ public abstract class ReadIndexClosure implements Closure {
 
     private static final int PENDING = 0;
     private static final int COMPLETE = 1;
-    private static final int TIMEOUT = 2;
 
     /**
      * Invalid log index -1.
@@ -44,7 +43,7 @@ public abstract class ReadIndexClosure implements Closure {
     private long index = INVALID_LOG_INDEX;
     private byte[] requestContext;
 
-    private volatile int state = PENDING;
+    private volatile int state = PENDING; // NOPMD
 
     /**
      * Called when ReadIndex can be executed.

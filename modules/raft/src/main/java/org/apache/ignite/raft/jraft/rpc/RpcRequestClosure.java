@@ -31,9 +31,7 @@ public class RpcRequestClosure implements Closure {
     private static final Logger LOG = LoggerFactory.getLogger(RpcRequestClosure.class);
 
     private static final AtomicIntegerFieldUpdater<RpcRequestClosure> STATE_UPDATER = AtomicIntegerFieldUpdater
-        .newUpdater(
-            RpcRequestClosure.class,
-            "state");
+        .newUpdater(RpcRequestClosure.class, "state");
 
     private static final int PENDING = 0;
     private static final int RESPOND = 1;
@@ -41,7 +39,7 @@ public class RpcRequestClosure implements Closure {
     private final RpcContext rpcCtx;
     private final Message defaultResp;
 
-    private volatile int state = PENDING;
+    private volatile int state = PENDING; // NOPMD
 
     public RpcRequestClosure(RpcContext rpcCtx) {
         this(rpcCtx, null);
