@@ -456,7 +456,7 @@ public class TestCluster {
                 }
 
                 return true;
-            }, 5_000);
+            }, 20_000);
         }
         finally {
             this.lock.unlock();
