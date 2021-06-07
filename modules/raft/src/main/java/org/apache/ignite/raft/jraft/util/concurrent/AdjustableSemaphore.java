@@ -24,7 +24,6 @@ import org.apache.ignite.raft.jraft.util.Requires;
  * An implementation of adjustable semaphore.
  *
  * Written by Marshall Pierce and released to the public domain See: http://blog.teamlazerbeez.com/2009/04/20/javas-semaphore-resizing/
- * TODO asch not used
  */
 public final class AdjustableSemaphore implements Serializable {
     private static final long serialVersionUID = -266635933115069924L;
@@ -115,7 +114,7 @@ public final class AdjustableSemaphore implements Serializable {
 
         private static final long serialVersionUID = 1204115455517785966L;
 
-        public ResizeableSemaphore(int permits) {
+        ResizeableSemaphore(int permits) {
             super(permits);
         }
 

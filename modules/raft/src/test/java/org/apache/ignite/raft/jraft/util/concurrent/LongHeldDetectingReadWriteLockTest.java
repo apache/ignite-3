@@ -22,11 +22,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  */
 public class LongHeldDetectingReadWriteLockTest {
+    private static final Logger LOG = LoggerFactory.getLogger(LongHeldDetectingReadWriteLockTest.class);
 
     @Test
     public void testLongHeldWriteLock() throws InterruptedException {
@@ -56,7 +59,7 @@ public class LongHeldDetectingReadWriteLockTest {
                 Thread.sleep(2000);
             }
             catch (final InterruptedException e) {
-                e.printStackTrace();
+                LOG.error("Thread was interrupted", e);
             }
             finally {
                 readWriteLock.writeLock().unlock();
@@ -110,7 +113,7 @@ public class LongHeldDetectingReadWriteLockTest {
                 Thread.sleep(2000);
             }
             catch (final InterruptedException e) {
-                e.printStackTrace();
+                LOG.error("Thread was interrupted", e);
             }
             finally {
                 readWriteLock.readLock().unlock();

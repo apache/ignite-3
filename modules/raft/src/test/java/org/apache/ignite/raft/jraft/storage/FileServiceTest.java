@@ -34,12 +34,16 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.internal.ArrayComparisonFailure;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class FileServiceTest {
+    private static final Logger LOG = LoggerFactory.getLogger(FileServiceTest.class);
+
     private String path;
     private LocalDirReader fileReader;
 
@@ -146,8 +150,8 @@ public class FileServiceTest {
                 try {
                     assertArrayEquals("Offset: " + fileOffset, sourceArray, respArray);
                 }
-                catch (ArrayComparisonFailure arrayComparisonFailure) {
-                    arrayComparisonFailure.printStackTrace();
+                catch (ArrayComparisonFailure e) {
+                    LOG.error("arrayComparisonFailure", e);
                 }
                 offset += length;
             }
