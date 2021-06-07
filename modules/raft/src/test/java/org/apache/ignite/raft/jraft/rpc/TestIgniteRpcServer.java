@@ -23,6 +23,7 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -40,9 +41,14 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /**
-     * The factory.
+     * Service factory.
      */
-    private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
+    private final static ScaleCubeClusterServiceFactory SERVICE_FACTORY = new TestScaleCubeClusterServiceFactory();
+
+    /**
+     * Message factory.
+     */
+    private static final RaftClientMessagesFactory MSG_FACTORY = new RaftClientMessagesFactory();
 
     /**
      * @param endpoint The endpoint.
@@ -68,7 +74,7 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
      * @param nodeManager The node manager.
      */
     public TestIgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
-        super(factory.createClusterService(new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY)),
-            false, nodeManager, JRaftUtils.createRequestExecutor(new NodeOptions()));
+        super(SERVICE_FACTORY.createClusterService(new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY)),
+            false, nodeManager, MSG_FACTORY, JRaftUtils.createRequestExecutor(new NodeOptions()));
     }
 }

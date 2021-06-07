@@ -122,7 +122,7 @@ public class ITNodeTest {
         private static long DUMP_TIMEOUT_MS = 5 * 60 * 1000;
         private volatile boolean stopped = false;
 
-        @Override
+        @SuppressWarnings("BusyWait") @Override
         public void run() {
             while (!this.stopped) {
                 try {
@@ -1501,7 +1501,6 @@ public class ITNodeTest {
     }
 
     @Test
-    @Ignore
     public void testNodeMetrics() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 

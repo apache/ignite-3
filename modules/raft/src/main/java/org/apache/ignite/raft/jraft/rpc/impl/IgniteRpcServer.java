@@ -72,12 +72,14 @@ public class IgniteRpcServer implements RpcServer<Void> {
      * @param service The cluster service.
      * @param reuse {@code True} to reuse service (do no manage lifecycle).
      * @param nodeManager The node manager.
+     * @param factory Message factory.
      * @param rpcExecutor The executor for RPC requests.
      */
     public IgniteRpcServer(
         ClusterService service,
         boolean reuse,
         NodeManager nodeManager,
+        RaftClientMessagesFactory factory,
         @Nullable Executor rpcExecutor
     ) {
         this.reuse = reuse;

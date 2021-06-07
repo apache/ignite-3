@@ -43,6 +43,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
      */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
+    /** The counter. */
     private AtomicInteger cntr = new AtomicInteger();
 
     @Override public RpcServer createServer(Endpoint endpoint) {
