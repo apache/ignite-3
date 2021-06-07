@@ -136,7 +136,7 @@ public final class ByteBufferCollector implements Recyclable {
 
     private transient final Recyclers.Handle handle;
 
-    // TODO asch fixme is it safe to have static recyclers ?
+    // TODO asch fixme is it safe to have static recyclers ? IGNITE-14832
     private static final Recyclers<ByteBufferCollector> recyclers = new Recyclers<ByteBufferCollector>(
         Utils.MAX_COLLECTOR_SIZE_PER_THREAD) {
 

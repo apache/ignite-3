@@ -25,21 +25,19 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-// TODO asch rename
-public class ProtobufFileTest {
-
+public class MessageFileTest {
     @Test
     public void testSaveLoad() throws Exception {
-        File tempFile = File.createTempFile("test", "pfile");
+        File tempFile = File.createTempFile("test", "msgfile");
         String path = tempFile.getAbsolutePath();
         tempFile.delete();
-        ProtoBufFile file = new ProtoBufFile(path);
+        MessageFile file = new MessageFile(path);
         assertNull(file.load());
         LocalFileMetaOutter.LocalFileMeta msg = LocalFileMetaOutter.LocalFileMeta.newBuilder().setChecksum("test")
             .setSource(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE).build();
         assertTrue(file.save(msg, true));
 
-        ProtoBufFile newFile = new ProtoBufFile(path);
+        MessageFile newFile = new MessageFile(path);
         LocalFileMetaOutter.LocalFileMeta loadedMsg = newFile.load();
         assertNotNull(loadedMsg);
         assertEquals("test", loadedMsg.getChecksum());

@@ -21,8 +21,8 @@ import org.apache.ignite.raft.jraft.entity.LocalStorageOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.rpc.message.DefaultMessageBuilderFactory;
 
-// TODO asch use JRaftServiceLoader ?
 public interface MessageBuilderFactory {
+    // TODO asch https://issues.apache.org/jira/browse/IGNITE-14838
     public static MessageBuilderFactory DEFAULT = new DefaultMessageBuilderFactory();
 
     LocalFileMetaOutter.LocalFileMeta.Builder createLocalFileMeta();

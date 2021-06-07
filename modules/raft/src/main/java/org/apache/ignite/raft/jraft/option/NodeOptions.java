@@ -78,7 +78,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // |catchup_margin|
     //
     // Default: 1000
-    private int catchupMargin = 1000; // TODO asch why do we need this ?
+    private int catchupMargin = 1000;
 
     // If node is starting from a empty environment (both LogStorage and
     // SnapshotStorage are empty), it would use |initial_conf| as the
@@ -151,12 +151,12 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private SnapshotThrottle snapshotThrottle;
 
     /**
-     * Whether use global election timer TODO asch need this ?
+     * Whether use global election timer TODO asch need this ? https://issues.apache.org/jira/browse/IGNITE-14832
      */
     private boolean sharedElectionTimer = false;
 
     /**
-     * Whether use global vote timer TODO asch need this ?
+     * Whether use global vote timer TODO asch need this ? https://issues.apache.org/jira/browse/IGNITE-14832
      */
     private boolean sharedVoteTimer = false;
 

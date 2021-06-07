@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 
-// TODO asch readResolve for empty string. Get rid ?
+// TODO asch readResolve for empty string. Get rid and use utility class class ByteArray ? IGNITE-14832
 public class ByteString implements Externalizable {
     public static final ByteString EMPTY = new ByteString(ByteBuffer.wrap(new byte[0]));
 

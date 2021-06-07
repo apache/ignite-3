@@ -68,13 +68,10 @@ public final class LocalFileMetaOutter {
         }
     }
 
-    // TODO asch usermeta support ?
     public interface LocalFileMeta extends Message {
         static Builder newBuilder() {
             return MessageBuilderFactory.DEFAULT.createLocalFileMeta();
         }
-
-        //ByteString getUserMeta();
 
         FileSource getSource();
 
@@ -86,8 +83,6 @@ public final class LocalFileMetaOutter {
 
         interface Builder {
             LocalFileMeta build();
-
-            //Builder setUserMeta(ByteString data);
 
             void mergeFrom(Message fileMeta);
 

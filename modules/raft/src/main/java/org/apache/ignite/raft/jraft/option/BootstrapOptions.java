@@ -54,6 +54,11 @@ public class BootstrapOptions {
      */
     private JRaftServiceFactory serviceFactory;
 
+    /**
+     * Node options.
+     */
+    private NodeOptions nodeOptions;
+
     public JRaftServiceFactory getServiceFactory() {
         return serviceFactory;
     }
@@ -116,5 +121,13 @@ public class BootstrapOptions {
 
     public void setSnapshotUri(String snapshotUri) {
         this.snapshotUri = snapshotUri;
+    }
+
+    public NodeOptions getNodeOptions() {
+        return nodeOptions;
+    }
+
+    public void setNodeOptions(NodeOptions nodeOptions) {
+        this.nodeOptions = nodeOptions;
     }
 }

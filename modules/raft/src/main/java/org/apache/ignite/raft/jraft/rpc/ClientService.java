@@ -25,9 +25,8 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
  * RPC client service
  */
 public interface ClientService extends Lifecycle<RpcOptions> {
-
     /**
-     * Connect to endpoint, returns true when success. TODO asch rename.
+     * Connect to endpoint, returns true when success. TODO asch rename to isAlive IGNITE-14832.
      *
      * @param endpoint server address
      * @return true on connect success

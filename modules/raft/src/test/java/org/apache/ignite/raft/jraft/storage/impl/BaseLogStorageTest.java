@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -36,6 +37,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import static junit.framework.TestCase.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -120,19 +122,20 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         assertEquals(1, this.logStorage.appendEntries(Arrays.asList(confEntry2)));
 
         // reload log storage.
-        // TODO asch fixme
-//        this.logStorage.shutdown();
-//        this.logStorage = newLogStorage();
-//        this.logStorage.init(newLogStorageOptions());
-//
-//        ConfigurationEntry conf = this.confManager.getLastConfiguration();
-//        assertNotNull(conf);
-//        assertFalse(conf.isEmpty());
-//        assertEquals("localhost:8081,localhost:8082,localhost:8083", conf.getConf().toString());
-//        conf = this.confManager.get(99);
-//        assertNotNull(conf);
-//        assertFalse(conf.isEmpty());
-//        assertEquals("localhost:8081,localhost:8082", conf.getConf().toString());
+        if (this.logStorage instanceof RocksDBLogStorage) {
+            this.logStorage.shutdown();
+            this.logStorage = newLogStorage();
+            this.logStorage.init(newLogStorageOptions());
+
+            ConfigurationEntry conf = this.confManager.getLastConfiguration();
+            assertNotNull(conf);
+            assertFalse(conf.isEmpty());
+            assertEquals("localhost:8081,localhost:8082,localhost:8083", conf.getConf().toString());
+            conf = this.confManager.get(99);
+            assertNotNull(conf);
+            assertFalse(conf.isEmpty());
+            assertEquals("localhost:8081,localhost:8082", conf.getConf().toString());
+        }
     }
 
     @Test

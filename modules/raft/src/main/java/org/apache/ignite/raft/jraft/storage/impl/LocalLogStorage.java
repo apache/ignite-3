@@ -17,8 +17,8 @@
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import java.util.List;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -36,7 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stores log in heap. * TODO asch can use SegmentList.
+ * Stores log in heap.
  */
 public class LocalLogStorage implements LogStorage, Describer {
     private static final Logger LOG = LoggerFactory.getLogger(LocalLogStorage.class);
@@ -45,7 +45,7 @@ public class LocalLogStorage implements LogStorage, Describer {
     private final Lock readLock = this.readWriteLock.readLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
 
-    private final ConcurrentSkipListMap<Long, LogEntry> log = new ConcurrentSkipListMap<>();
+    private final TreeMap<Long, LogEntry> log = new TreeMap<>();
 
     private LogEntryEncoder logEntryEncoder;
     private LogEntryDecoder logEntryDecoder;
@@ -95,34 +95,13 @@ public class LocalLogStorage implements LogStorage, Describer {
         }
     }
 
-//    private void closeDB() {
-//        this.confHandle.close();
-//        this.defaultHandle.close();
-//        this.db.close();
-//    }
-
     @Override
     public long getFirstLogIndex() {
         this.readLock.lock();
         try {
-//            if (this.hasLoadFirstLogIndex) {
-//                return this.firstLogIndex;
-//            }
-//            checkState();
-//            it = this.db.newIterator(this.defaultHandle, this.totalOrderReadOptions);
-//            it.seekToFirst();
-//            if (it.isValid()) {
-//                final long ret = Bits.getLong(it.key(), 0);
-//                saveFirstLogIndex(ret);
-//                setFirstLogIndex(ret);
-//                return ret;
-//            }
             return this.firstLogIndex;
         }
         finally {
-//            if (it != null) {
-//                it.close();
-//            }
             this.readLock.unlock();
         }
     }
@@ -130,12 +109,7 @@ public class LocalLogStorage implements LogStorage, Describer {
     @Override
     public long getLastLogIndex() {
         this.readLock.lock();
-        //checkState();
         try {
-//            it.seekToLast();
-//            if (it.isValid()) {
-//                return Bits.getLong(it.key(), 0);
-//            }
 
             return this.lastLogIndex;
         }
@@ -224,7 +198,7 @@ public class LocalLogStorage implements LogStorage, Describer {
     public boolean truncatePrefix(final long firstIndexKept) {
         this.readLock.lock();
         try {
-            ConcurrentNavigableMap<Long, LogEntry> map = log.headMap(firstIndexKept);
+            SortedMap<Long, LogEntry> map = log.headMap(firstIndexKept);
 
             map.clear();
 
@@ -241,7 +215,7 @@ public class LocalLogStorage implements LogStorage, Describer {
     public boolean truncateSuffix(final long lastIndexKept) {
         this.readLock.lock();
         try {
-            ConcurrentNavigableMap<Long, LogEntry> suffix = log.tailMap(lastIndexKept, false);
+            SortedMap<Long, LogEntry> suffix = log.tailMap(lastIndexKept, false);
 
             suffix.clear();
 

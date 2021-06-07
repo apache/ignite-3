@@ -700,7 +700,7 @@ public class Replicator implements ThreadId.OnError {
             }
             else {
                 // No entries and has empty data means a probe request.
-                // TODO refactor, adds a new flag field?
+                // TODO refactor, adds a new flag field? https://issues.apache.org/jira/browse/IGNITE-14832
                 rb.setData(ByteString.EMPTY);
                 request = rb.build();
                 // Sending a probe request.
@@ -919,11 +919,12 @@ public class Replicator implements ThreadId.OnError {
     }
 
     void block(final long startTimeMs, @SuppressWarnings("unused") final int errorCode) {
-        // TODO: Currently we don't care about error_code which indicates why the
+        // TODO https://issues.apache.org/jira/browse/IGNITE-14832
+        // Currently we don't care about error_code which indicates why the
         // very RPC fails. To make it better there should be different timeout for
         // each individual error (e.g. we don't need check every
         // heartbeat_timeout_ms whether a dead follower has come back), but it's just
-        // fine now. // TODO asch blocking can be implemented using FD.
+        // fine now.
         if (this.blockTimer != null) {
             // already in blocking state,return immediately.
             this.id.unlock();
@@ -1113,7 +1114,7 @@ public class Replicator implements ThreadId.OnError {
                     LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
                         r.consecutiveErrorTimes, status);
                 }
-                r.startHeartbeatTimer(startTimeMs); // TODO asch use discovery instead of constant probing.
+                r.startHeartbeatTimer(startTimeMs); // TODO asch use discovery instead of constant probing IGNITE-14843
                 return;
             }
             r.consecutiveErrorTimes = 0;
@@ -1592,10 +1593,9 @@ public class Replicator implements ThreadId.OnError {
         try {
             rpcFuture = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(), request, -1,
                 new RpcResponseClosureAdapter<AppendEntriesResponse>() {
-
                     @Override
                     public void run(final Status status) {
-                        RecycleUtil.recycle(recyclable); // TODO: recycle on send success, not response received.
+                        RecycleUtil.recycle(recyclable); // TODO: recycle on send success, not response received IGNITE-14832.
                         onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request, getResponse(),
                             seq, v, monotonicSendTimeMs);
                     }

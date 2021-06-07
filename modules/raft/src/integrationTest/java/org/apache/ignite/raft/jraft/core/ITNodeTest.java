@@ -497,7 +497,8 @@ public class ITNodeTest {
         assertEquals(1, cluster.getFollowers().get(1).getReplicatorStateListeners().size());
     }
 
-    @Test // TODO FIXME asch broken together with volatile state. A follower with empty log can become a leader.
+    // TODO asch Broken then using volatile log. A follower with empty log can become a leader IGNITE-14832.
+    @Test
     @Ignore
     public void testVoteTimedoutStepDown() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
@@ -1163,7 +1164,7 @@ public class ITNodeTest {
     }
 
     @Test
-    @Ignore // TODO asch is this test correct ?
+    @Ignore // TODO asch https://issues.apache.org/jira/browse/IGNITE-14833
     public void testChecksum() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1308,7 +1309,7 @@ public class ITNodeTest {
         latch.await();
     }
 
-    @Test // TODO asch do we need read index timeout ?
+    @Test // TODO asch do we need read index timeout ? https://issues.apache.org/jira/browse/IGNITE-14832
     public void testReadIndexTimeout() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1534,7 +1535,7 @@ public class ITNodeTest {
             reporter.close();
             System.out.println();
         }
-        // TODO check http status
+        // TODO check http status https://issues.apache.org/jira/browse/IGNITE-14832
         assertEquals(2, cluster.getFollowers().size());
     }
 
@@ -2015,7 +2016,6 @@ public class ITNodeTest {
         // stop leader
         final Endpoint leaderAddr = leader.getNodeId().getPeerId().getEndpoint().copy();
         assertTrue(cluster.stop(leaderAddr));
-        Thread.sleep(2000); // TODO asch while sleep is needed ?
 
         // restart leader
         cluster.waitLeader();
@@ -2054,7 +2054,6 @@ public class ITNodeTest {
         // stop leader
         final Endpoint leaderAddr = leader.getNodeId().getPeerId().getEndpoint().copy();
         assertTrue(cluster.stop(leaderAddr));
-        Thread.sleep(2000); // TODO asch while sleep is needed ?
 
         // restart leader
         cluster.waitLeader();
@@ -2146,7 +2145,7 @@ public class ITNodeTest {
         }
     }
 
-    @Test // TODO add test for timeout on snapshot install
+    @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", this.dataPath, peers.subList(0, 3));
@@ -2963,7 +2962,6 @@ public class ITNodeTest {
     }
 
     @Test
-    @Ignore // TODO asch
     public void testBootStrapWithSnapshot() throws Exception {
         final Endpoint addr = JRaftUtils.getEndPoint("127.0.0.1:5006");
         final MockStateMachine fsm = new MockStateMachine(addr);
@@ -2973,6 +2971,7 @@ public class ITNodeTest {
         }
 
         final BootstrapOptions opts = new BootstrapOptions();
+        opts.setServiceFactory(new DefaultJRaftServiceFactory());
         opts.setLastLogIndex(fsm.getLogs().size());
         opts.setRaftMetaUri(this.dataPath + File.separator + "meta");
         opts.setLogUri(this.dataPath + File.separator + "log");
@@ -2980,64 +2979,72 @@ public class ITNodeTest {
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
 
+        final NodeOptions nodeOpts = createNodeOptions();
+        opts.setNodeOptions(nodeOpts);
+
         assertTrue(JRaftUtils.bootstrap(opts));
 
-        final NodeOptions nodeOpts = createNodeOptions();
         nodeOpts.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOpts.setLogUri(this.dataPath + File.separator + "log");
         nodeOpts.setSnapshotUri(this.dataPath + File.separator + "snapshot");
         nodeOpts.setFsm(fsm);
 
-        final NodeImpl node = new NodeImpl("test", new PeerId(addr, 0));
-        assertTrue(node.init(nodeOpts));
-        assertEquals(26, fsm.getLogs().size());
+        RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
+        try {
+            Node node = service.start(true);
+            assertEquals(26, fsm.getLogs().size());
 
-        for (int i = 0; i < 26; i++) {
-            assertEquals('a' + i, fsm.getLogs().get(i).get());
-        }
+            for (int i = 0; i < 26; i++) {
+                assertEquals('a' + i, fsm.getLogs().get(i).get());
+            }
 
-        // Group configuration will be restored from snapshot meta.
-        while (!node.isLeader()) {
-            Thread.sleep(20);
+            // Group configuration will be restored from snapshot meta.
+            while (!node.isLeader()) {
+                Thread.sleep(20);
+            }
+            this.sendTestTaskAndWait(node);
+            assertEquals(36, fsm.getLogs().size());
         }
-        this.sendTestTaskAndWait(node);
-        assertEquals(36, fsm.getLogs().size());
-        node.shutdown();
-        node.join();
+        finally {
+            service.shutdown();
+        }
     }
 
     @Test
-    @Ignore
-    // TODO asch the test doesn't work with volatile log. Initial configuration is not set and group is empty on start.
     public void testBootStrapWithoutSnapshot() throws Exception {
         final Endpoint addr = JRaftUtils.getEndPoint("127.0.0.1:5006");
         final MockStateMachine fsm = new MockStateMachine(addr);
 
         final BootstrapOptions opts = new BootstrapOptions();
+        opts.setServiceFactory(new DefaultJRaftServiceFactory());
         opts.setLastLogIndex(0);
         opts.setRaftMetaUri(this.dataPath + File.separator + "meta");
         opts.setLogUri(this.dataPath + File.separator + "log");
         opts.setSnapshotUri(this.dataPath + File.separator + "snapshot");
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
+        final NodeOptions nodeOpts = createNodeOptions();
+        opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
 
-        final NodeOptions nodeOpts = createNodeOptions();
         nodeOpts.setRaftMetaUri(this.dataPath + File.separator + "meta");
         nodeOpts.setLogUri(this.dataPath + File.separator + "log");
         nodeOpts.setSnapshotUri(this.dataPath + File.separator + "snapshot");
         nodeOpts.setFsm(fsm);
 
-        final NodeImpl node = new NodeImpl("test", new PeerId(addr, 0));
-        assertTrue(node.init(nodeOpts));
-        while (!node.isLeader()) {
-            Thread.sleep(20);
+        RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
+        try {
+            Node node = service.start(true);
+            while (!node.isLeader()) {
+                Thread.sleep(20);
+            }
+            this.sendTestTaskAndWait(node);
+            assertEquals(10, fsm.getLogs().size());
         }
-        this.sendTestTaskAndWait(node);
-        assertEquals(10, fsm.getLogs().size());
-        node.shutdown();
-        node.join();
+        finally {
+            service.shutdown();
+        }
     }
 
     @Test

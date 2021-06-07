@@ -26,7 +26,7 @@ import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMet
 import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta.File;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.io.ProtoBufFile;
+import org.apache.ignite.raft.jraft.storage.io.MessageFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,7 +112,7 @@ public class LocalSnapshotMetaTable {
             File f = File.newBuilder().setName(entry.getKey()).setMeta(entry.getValue()).build();
             pbMeta.addFiles(f);
         }
-        ProtoBufFile pbFile = new ProtoBufFile(path);
+        MessageFile pbFile = new MessageFile(path);
         return pbFile.save(pbMeta.build(), this.raftOptions.isSyncMeta());
     }
 
@@ -155,7 +155,7 @@ public class LocalSnapshotMetaTable {
      * Load metadata infos from a file by path.
      */
     public boolean loadFromFile(String path) throws IOException {
-        ProtoBufFile pbFile = new ProtoBufFile(path);
+        MessageFile pbFile = new MessageFile(path);
         LocalSnapshotPbMeta pbMeta = pbFile.load();
         if (pbMeta == null) {
             LOG.error("Fail to load meta from {}.", path);

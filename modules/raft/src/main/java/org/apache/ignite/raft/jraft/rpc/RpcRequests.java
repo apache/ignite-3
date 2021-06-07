@@ -106,7 +106,7 @@ public final class RpcRequests {
     }
 
     public interface InstallSnapshotResponse extends Message {
-        static Message getDefaultInstance() { // TODO asch remove.
+        static Message getDefaultInstance() { // TODO asch remove https://issues.apache.org/jira/browse/IGNITE-14838
             return null;
         }
 
@@ -247,7 +247,7 @@ public final class RpcRequests {
         }
     }
 
-    // TODO asch not needed
+    // TODO asch not needed https://issues.apache.org/jira/browse/IGNITE-14838
     public interface AppendEntriesRequestHeader extends Message {
         /**
          * <code>required string group_id = 1;</code>

@@ -335,7 +335,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
      */
     @Override
     public void onApplied(final long appliedIndex) {
-        // TODO reuse pendingStatuses list?
+        // TODO reuse pendingStatuses list? https://issues.apache.org/jira/browse/IGNITE-14832
         List<ReadIndexStatus> pendingStatuses = null;
         this.lock.lock();
         try {

@@ -282,7 +282,7 @@ public class TestCluster {
             this.serverMap.remove(addr.toString()).shutdown();
         }
         for (final Node node : nodes) {
-            node.join(); // TODO asch fixme
+            node.join();
         }
     }
 

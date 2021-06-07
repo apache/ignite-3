@@ -29,7 +29,7 @@ import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.RaftMetaStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
-import org.apache.ignite.raft.jraft.storage.io.ProtoBufFile;
+import org.apache.ignite.raft.jraft.storage.io.MessageFile;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +82,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
     }
 
     private boolean load() {
-        final ProtoBufFile pbFile = newPbFile();
+        final MessageFile pbFile = newPbFile();
         try {
             final StablePBMeta meta = pbFile.load();
             if (meta != null) {
@@ -100,8 +100,8 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         }
     }
 
-    private ProtoBufFile newPbFile() {
-        return new ProtoBufFile(this.path + File.separator + RAFT_META);
+    private MessageFile newPbFile() {
+        return new MessageFile(this.path + File.separator + RAFT_META);
     }
 
     private boolean save() {
@@ -110,7 +110,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             .setTerm(this.term) //
             .setVotedfor(this.votedFor.toString()) //
             .build();
-        final ProtoBufFile pbFile = newPbFile();
+        final MessageFile pbFile = newPbFile();
         try {
             if (!pbFile.save(meta, this.raftOptions.isSyncMeta())) {
                 reportIOError();

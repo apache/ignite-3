@@ -51,7 +51,7 @@ public final class RecyclableByteBufferList extends ArrayList<ByteBuffer> implem
     }
 
     /**
-     * TODO asch slow concatenation by copying, should use RopeByteBuffer.
+     * TODO asch slow concatenation by copying, should use RopeByteBuffer IGNITE-14832
      *
      * @param buffers Buffers.
      */

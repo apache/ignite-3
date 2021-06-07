@@ -19,20 +19,10 @@ package org.apache.ignite.raft.jraft.core;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
-//import org.apache.ignite.raft.jraft.storage.log.RocksDBSegmentLogStorage;
 
 public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
-
     @Override
     public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
-//        return RocksDBSegmentLogStorage.builder(uri, raftOptions) //
-//            .setPreAllocateSegmentCount(1) //
-//            .setKeepInMemorySegmentCount(2) //
-//            .setMaxSegmentFileSize(512 * 1024) //
-//            .setValueSizeThreshold(0) //
-//            .build();
-
-        // TODO asch
         return new LocalLogStorage(null, raftOptions);
     }
 

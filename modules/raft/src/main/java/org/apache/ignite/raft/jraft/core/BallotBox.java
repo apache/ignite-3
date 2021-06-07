@@ -84,10 +84,10 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
 
     /**
      * Called by leader, otherwise the behavior is undefined Set logs in [first_log_index, last_log_index] are stable at
-     * |peer|. // TODO asch returned val is not used in raft impl
+     * |peer|.
      */
     public boolean commitAt(final long firstLogIndex, final long lastLogIndex, final PeerId peer) {
-        // TODO  use lock-free algorithm here?
+        // TODO use lock-free algorithm here? https://issues.apache.org/jira/browse/IGNITE-14832
         final long stamp = this.stampedLock.writeLock();
         long lastCommittedIndex = 0;
         try {
@@ -118,7 +118,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                 return true;
             }
 
-            // TODO asch investigate.
+            // TODO asch investigate https://issues.apache.org/jira/browse/IGNITE-14832.
             // When removing a peer off the raft group which contains even number of
             // peers, the quorum would decrease by 1, e.g. 3 of 4 changes to 2 of 3. In
             // this case, the log after removal may be committed before some previous

@@ -29,9 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A framework to implement a raft group service.
- *
- * TODO asch remove
+ * A raft group service.
  */
 public class RaftGroupService {
     private static final Logger LOG = LoggerFactory.getLogger(RaftGroupService.class);
@@ -138,7 +136,7 @@ public class RaftGroupService {
 
         if (!this.node.init(this.nodeOptions)) {
             LOG.warn("Stopping partially started node [groupId={}, serverId={}]", groupId, serverId);
-            this.node.shutdown(); // Try to shutdown partially started node.
+            this.node.shutdown();
 
             try {
                 this.node.join();
@@ -147,8 +145,7 @@ public class RaftGroupService {
                 throw new IgniteInternalException(e);
             }
 
-            // TODO asch Ignite exception.
-            throw new IllegalStateException("Fail to init node, please see the logs to find the reason.");
+            throw new IgniteInternalException("Fail to init node, please see the logs to find the reason.");
         }
 
         if (startRpcServer) {
@@ -160,7 +157,7 @@ public class RaftGroupService {
 
         this.nodeManager.add(this.node);
         this.started = true;
-        LOG.info("Start the RaftGroupService successfully.");
+        LOG.info("Start the RaftGroupService successfully {}", this.node.getNodeId());
         return this.node;
     }
 

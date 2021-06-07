@@ -70,7 +70,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     }
 
     @Override public void onAppeared(ClusterNode member) {
-        // No-op. TODO asch checkReplicator ? Can remove checkDeadNodes logic ?
+        // No-op. TODO asch https://issues.apache.org/jira/browse/IGNITE-14843
     }
 
     @Override public void onDisappeared(ClusterNode member) {
@@ -81,13 +81,12 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         rpcClient.registerConnectEventListener(this);
     }
 
-    // TODO asch init can be moved to constructor.
     protected boolean initRpcClient(final int rpcProcessorThreadPoolSize) {
         this.rpcClient = rpcOptions.getRpcClient();
 
         configRpcClient(this.rpcClient);
 
-        // TODO asch should the client be created lazily. A client doesn't make sence without a server.
+        // TODO asch should the client be created lazily? A client doesn't make sence without a server IGNITE-14832
         this.rpcClient.init(null);
 
         this.rpcExecutor = ((RpcOptions)rpcOptions).getClientExecutor();

@@ -24,7 +24,7 @@ public class RpcOptions {
     /**
      * Rpc handshake timeout in milliseconds Default: 2000(1s)
      */
-    private int rpcConnectTimeoutMs = 2000; // TODO asch rename to handshake timeout.
+    private int rpcConnectTimeoutMs = 2000; // TODO asch rename to handshake timeout IGNITE-14832.
 
     /**
      * RPC request default timeout in milliseconds Default: 5000(5s)

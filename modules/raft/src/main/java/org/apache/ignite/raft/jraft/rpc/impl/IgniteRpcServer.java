@@ -116,7 +116,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 Class<? extends NetworkMessage> cls = msg.getClass();
                 RpcProcessor prc = processors.get(cls.getName());
 
-                // TODO asch cache it.
+                // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
                 if (prc == null) {
                     for (Class<?> iface : cls.getInterfaces()) {
                         prc = processors.get(iface.getName());
@@ -126,8 +126,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
                     }
                 }
 
-                if (prc == null) //  TODO asch invoke responses should be ignored.
-                    return; // TODO asch use single message handler.
+                if (prc == null)
+                    return;
 
                 RpcProcessor.ExecutorSelector selector = prc.executorSelector();
 
@@ -169,7 +169,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
             @Override public void onAppeared(ClusterNode member) {
-                // TODO asch optimize start replicator ?
+                // TODO asch optimize start replicator https://issues.apache.org/jira/browse/IGNITE-14843
             }
 
             @Override public void onDisappeared(ClusterNode member) {

@@ -102,7 +102,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
      * true, it would hurt the performance of JRAft but gain the data safety.
      *
      */
-    private boolean enableLogEntryChecksum = false; // TODO asch fixme.
+    private boolean enableLogEntryChecksum = false; // TODO asch https://issues.apache.org/jira/browse/IGNITE-14833.
 
     /**
      * ReadOnlyOption specifies how the read only request is processed. * {@link ReadOnlyOption#ReadOnlySafe} guarantees
@@ -185,7 +185,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
 
     public boolean isFileCheckHole() {
         return this.fileCheckHole;
-    } // TODO asch review properties
+    } // TODO asch review properties https://issues.apache.org/jira/browse/IGNITE-14832
 
     public void setFileCheckHole(final boolean fileCheckHole) {
         this.fileCheckHole = fileCheckHole;

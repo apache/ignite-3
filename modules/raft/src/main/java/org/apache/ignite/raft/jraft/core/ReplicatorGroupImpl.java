@@ -104,7 +104,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         return this.replicatorMap.get(peer);
     }
 
-    @Override // TODO asch sync flag is not used.
+    @Override // TODO asch sync flag is not used https://issues.apache.org/jira/browse/IGNITE-14832
     public boolean addReplicator(final PeerId peer, final ReplicatorType replicatorType, final boolean sync) {
         Requires.requireTrue(this.commonOptions.getTerm() != 0);
         this.failureReplicators.remove(peer);
@@ -124,8 +124,6 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
             this.failureReplicators.put(peer, replicatorType);
             return false;
         }
-
-        // TODO asch replicator check must be done on node alive event.
 
 //        if (!sync) {
 //            final RaftClientService client = opts.getRaftRpcService();

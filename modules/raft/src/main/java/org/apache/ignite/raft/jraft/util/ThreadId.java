@@ -64,7 +64,7 @@ public class ThreadId {
         return this.destroyed;
     }
 
-    // TODO asch why Object here ?
+    // TODO asch why Object here ? IGNITE-14832
     public Object getData() {
         return this.data;
     }

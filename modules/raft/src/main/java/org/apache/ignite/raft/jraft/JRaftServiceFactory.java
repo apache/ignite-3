@@ -28,7 +28,6 @@ import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
  * Abstract factory to create services.
  */
 public interface JRaftServiceFactory {
-
     /**
      * Creates a raft log storage.
      *

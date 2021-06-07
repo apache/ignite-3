@@ -41,10 +41,9 @@ import org.slf4j.LoggerFactory;
  * File reader service.
  */
 public final class FileService {
-
     private static final Logger LOG = LoggerFactory.getLogger(FileService.class);
 
-    private static final FileService INSTANCE = new FileService(); // TODO asch fixme.
+    private static final FileService INSTANCE = new FileService(); // TODO asch fixme IGNITE-14832
 
     private final ConcurrentMap<Long, FileReader> fileReaderMap = new ConcurrentHashMap<>();
     private final AtomicLong nextId = new AtomicLong();
@@ -110,7 +109,7 @@ public final class FileService {
                 responseBuilder.setData(ByteString.EMPTY);
             }
             else {
-                // TODO check hole
+                // TODO check hole https://issues.apache.org/jira/browse/IGNITE-14832
                 responseBuilder.setData(new ByteString(buf));
             }
             return responseBuilder.build();

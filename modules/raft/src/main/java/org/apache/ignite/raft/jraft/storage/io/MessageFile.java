@@ -29,24 +29,13 @@ import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
- * TODO asch fixme A file to store protobuf message. Format:
- * <ul>
- * <li>class name length(4 bytes)</li>
- * <li>class name</li>
- * <li> msg length(4 bytes)</li>
- * <li>msg data</li>
- * </ul>
+ * TODO A file to store a message.
  */
-public class ProtoBufFile {
-
-//    static {
-//        ProtobufMsgFactory.load();
-//    }
-
+public class MessageFile {
     /** file path */
     private final String path;
 
-    public ProtoBufFile(final String path) {
+    public MessageFile(final String path) {
         this.path = path;
     }
 
@@ -70,12 +59,6 @@ public class ProtoBufFile {
             }
             final byte[] nameBytes = new byte[len];
             readBytes(nameBytes, input);
-//            final String name = new String(nameBytes);
-//            readBytes(lenBytes, input);
-//            final int msgLen = Bits.getInt(lenBytes, 0);
-//            final byte[] msgBytes = new byte[msgLen];
-//            readBytes(msgBytes, input);
-//            return ProtobufMsgFactory.newMessageByProtoClassName(name, msgBytes);
             return Marshaller.DEFAULT.unmarshall(nameBytes);
         }
     }
@@ -88,7 +71,7 @@ public class ProtoBufFile {
     }
 
     /**
-     * Save a protobuf message to file.
+     * Save a message to file.
      *
      * @param msg protobuf message
      * @param sync if sync flush data to disk

@@ -778,7 +778,7 @@ public class NodeImpl implements Node, RaftServerService {
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
-        this.options = new NodeOptions();
+        this.options = opts.getNodeOptions() == null ? new NodeOptions() : opts.getNodeOptions();
         this.raftOptions = this.options.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
         this.options.setFsm(opts.getFsm());
@@ -1846,7 +1846,8 @@ public class NodeImpl implements Node, RaftServerService {
                     //    committed entries would never be truncated.
                     // So we have to respond failure to the old leader and set the new
                     // term to make it stepped down if it didn't.
-                    this.responseBuilder.setSuccess(false).setTerm(this.node.currTerm); // TODO asch important, make scenario.
+                    // TODO asch make test scenario https://issues.apache.org/jira/browse/IGNITE-14832
+                    this.responseBuilder.setSuccess(false).setTerm(this.node.currTerm);
                     this.done.sendResponse(this.responseBuilder.build());
                     return;
                 }
@@ -2034,7 +2035,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private void fillLogEntryPeers(final RaftOutter.EntryMeta entry, final LogEntry logEntry) {
-        // TODO refactor
+        // TODO refactor https://issues.apache.org/jira/browse/IGNITE-14832
         if (entry.getPeersCount() > 0) {
             final List<PeerId> peers = new ArrayList<>(entry.getPeersCount());
             for (final String peerStr : entry.getPeersList()) {
@@ -2113,7 +2114,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    // TODO asch TBD how follower notifies about catchup.
     private void onCaughtUp(final PeerId peer, final long term, final long version, final Status st) {
         this.writeLock.lock();
         try {
@@ -2177,9 +2177,8 @@ public class NodeImpl implements Node, RaftServerService {
         return false;
     }
 
-    // TODO asch can use discovery to test aliveness.
-
     /**
+     * TODO asch https://issues.apache.org/jira/browse/IGNITE-14843
      * @param peers Peers list.
      * @param monotonicNowMs The timestamp.
      * @param checkReplicator {@code True} to check replicator.

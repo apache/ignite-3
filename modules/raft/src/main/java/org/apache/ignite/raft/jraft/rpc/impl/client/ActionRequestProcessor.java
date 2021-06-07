@@ -107,7 +107,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 });
             }
             else {
-                // TODO asch remove copy paste, batching.
+                // TODO asch remove copy paste, batching https://issues.apache.org/jira/browse/IGNITE-14832
                 JRaftServerImpl.DelegatingStateMachine fsm =
                     (JRaftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 

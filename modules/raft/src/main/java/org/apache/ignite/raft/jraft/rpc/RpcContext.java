@@ -25,7 +25,7 @@ public interface RpcContext {
     /**
      * @return Node manager.
      */
-    NodeManager getNodeManager(); // TODO asch refactor
+    NodeManager getNodeManager();
 
     /**
      * Send a response back.

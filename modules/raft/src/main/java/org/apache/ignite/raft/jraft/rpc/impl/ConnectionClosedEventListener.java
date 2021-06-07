@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 /**
- * TODO asch rename.
+ * TODO asch rename to nodeleftlistener https://issues.apache.org/jira/browse/IGNITE-14832.
  */
 public interface ConnectionClosedEventListener {
     void onClosed(final String local, final String remote);

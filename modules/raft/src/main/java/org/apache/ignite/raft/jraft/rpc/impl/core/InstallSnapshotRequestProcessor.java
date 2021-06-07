@@ -27,10 +27,9 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
  * Handle install snapshot request.
  *
  *
- * TODO asch use dedicated executor for potentially long jobs ?
+ * TODO asch use dedicated executor for potentially long jobs ? https://issues.apache.org/jira/browse/IGNITE-14832
  */
 public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<InstallSnapshotRequest> {
-
     public InstallSnapshotRequestProcessor(Executor executor) {
         super(executor, RpcRequests.InstallSnapshotResponse.getDefaultInstance());
     }

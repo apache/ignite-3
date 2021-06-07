@@ -122,7 +122,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             }
         }
 
-        // TODO: add snapshot watcher
+        // TODO: add snapshot watcher https://issues.apache.org/jira/browse/IGNITE-14832
 
         // get last_snapshot_index
         if (!snapshots.isEmpty()) {
@@ -266,7 +266,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         do {
             final String snapshotPath = this.path + File.separator + TEMP_PATH;
             // delete temp
-            // TODO: Notify watcher before deleting
+            // TODO: Notify watcher before deleting https://issues.apache.org/jira/browse/IGNITE-14832
             if (new File(snapshotPath).exists() && fromEmpty) {
                 if (!destroySnapshot(snapshotPath)) {
                     break;

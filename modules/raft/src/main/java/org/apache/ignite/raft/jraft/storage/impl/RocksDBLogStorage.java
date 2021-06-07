@@ -449,7 +449,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
                 }
                 else {
                     LOG.error("Bad log entry format for index={}, the log data is: {}.", index, BytesUtil.toHex(bs));
-                    // invalid data remove? TODO
+                    // invalid data remove? TODO https://issues.apache.org/jira/browse/IGNITE-14832
                     return null;
                 }
             }

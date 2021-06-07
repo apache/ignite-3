@@ -287,7 +287,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         }
 
         // TODO asch queue is not needed if handled by single thread. Replicator should send message from the same
-        //  thread per pair.
+        //  thread per pair https://issues.apache.org/jira/browse/IGNITE-14832.
         final PriorityQueue<SequenceMessage> respQueue = ctx.responseQueue;
         assert (respQueue != null);
 
@@ -403,7 +403,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     private boolean isHeartbeatRequest(final AppendEntriesRequest request) {
         // No entries and no data means a true heartbeat request.
-        // TODO(boyan) refactor, adds a new flag field?
+        // TODO refactor, adds a new flag field? https://issues.apache.org/jira/browse/IGNITE-14832
         return request.getEntriesCount() == 0 && !request.hasData();
     }
 
@@ -454,7 +454,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         return this.executorSelector;
     }
 
-    // TODO called when shutdown service.
+    // TODO called when shutdown service https://issues.apache.org/jira/browse/IGNITE-14832
     public void destroy() {
         this.peerRequestContexts.clear();
     }
