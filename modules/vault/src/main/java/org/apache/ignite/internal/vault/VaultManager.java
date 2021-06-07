@@ -178,7 +178,7 @@ public class VaultManager {
     /**
      * Persist node name to the vault.
      *
-     * @param name Node name to persist.
+     * @param name Node name to persist. Couldn't be null.
      * @return Future representing pending completion of the operation. Couldn't be {@code null}.
      */
     @NotNull public CompletableFuture<Void> putName(@NotNull String name) {
