@@ -89,6 +89,7 @@ public class IgnitionImpl implements Ignition {
 
         // Vault Component startup.
         VaultManager vaultMgr = new VaultManager(new VaultServiceImpl());
+
         vaultMgr.putName(nodeName).join();
 
         boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();

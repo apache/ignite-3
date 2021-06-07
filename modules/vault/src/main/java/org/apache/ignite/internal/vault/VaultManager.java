@@ -30,6 +30,7 @@ import org.apache.ignite.internal.vault.service.VaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * VaultManager is responsible for handling {@link VaultService} lifecycle
@@ -186,13 +187,17 @@ public class VaultManager {
     }
 
     /**
-     * @return Node name, if was stored earlier.
+     * @return Node name, if was stored earlier. Could be {@code null}.
      * @throws IgniteInternalCheckedException If couldn't get node name from the vault.
      */
-    public String name() throws IgniteInternalCheckedException {
+    @Nullable public String name() throws IgniteInternalCheckedException {
         synchronized (mux) {
             try {
-                return new String(vaultService.get(NODE_NAME).get().value(), StandardCharsets.UTF_8);
+                byte[] nodeName = vaultService.get(NODE_NAME).get().value();
+                if (nodeName != null)
+                    return new String(nodeName, StandardCharsets.UTF_8);
+                else
+                    return null;
             }
             catch (InterruptedException | ExecutionException e) {
                 throw new IgniteInternalCheckedException("Error occurred when getting node name", e);
