@@ -51,6 +51,8 @@ import org.apache.ignite.network.scalecube.message.MessageSerializationRegistryI
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of an entry point for handling grid lifecycle.
@@ -80,11 +82,15 @@ public class IgnitionImpl implements Ignition {
     private static final String VER_KEY = "version";
 
     /** {@inheritDoc} */
-    @Override public synchronized Ignite start(String jsonStrBootstrapCfg) {
+    @Override public synchronized Ignite start(@NotNull String nodeName, @Nullable String jsonStrBootstrapCfg) {
+        assert !StringUtil.isNullOrEmpty(nodeName) : "Node local name is empty";
+
         ackBanner();
 
         // Vault Component startup.
         VaultManager vaultMgr = new VaultManager(new VaultServiceImpl());
+
+        vaultMgr.putName(nodeName).join();
 
         boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
 
@@ -120,15 +126,10 @@ public class IgnitionImpl implements Ignition {
 
         MessageSerializationRegistryInitializer.initialize(serializationRegistry);
 
-        String localNodeName = locConfigurationMgr.configurationRegistry().getConfiguration(NodeConfiguration.KEY)
-            .name().value();
-
-        assert !StringUtil.isNullOrEmpty(localNodeName) : "Node local name is empty";
-
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
             new ClusterLocalConfiguration(
-                localNodeName,
+                nodeName,
                 netConfigurationView.port(),
                 Arrays.asList(netConfigurationView.netClusterNodes()),
                 serializationRegistry
