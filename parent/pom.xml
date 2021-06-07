@@ -765,9 +765,7 @@
                     <configLocation>${project.basedir}/check-rules/checkstyle-rules.xml</configLocation>
                     <suppressionsLocation>${project.basedir}/check-rules/checkstyle-suppressions.xml</suppressionsLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                    <excludes>**/generated/**/*</excludes>
-                    <excludes>**/org/apache/ignite/raft/jraft/**/*</excludes> <!-- JRaft. -->
-                    <excludes>**/com/facebook/presto/bytecode/**/*</excludes> <!-- Forked prestodb-bytecode code. -->
+                    <excludes>generated/**/*,com/facebook/presto/bytecode/**/*,org/apache/ignite/raft/jraft/**/*</excludes>
                 </configuration>
                 <dependencies>
                     <dependency>
