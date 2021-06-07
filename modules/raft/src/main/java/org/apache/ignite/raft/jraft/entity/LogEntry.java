@@ -19,19 +19,10 @@ package org.apache.ignite.raft.jraft.entity;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.v1.V1Decoder;
-import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.util.CrcUtil;
 
 /**
  * A replica log entry.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:13:02 PM
  */
 public class LogEntry implements Checksum {
     /** entry type */
@@ -39,19 +30,19 @@ public class LogEntry implements Checksum {
     /** log id with index/term */
     private LogId id = new LogId(0, 0);
     /** log entry current peers */
-    private List<PeerId>         peers;
+    private List<PeerId> peers;
     /** log entry old peers */
-    private List<PeerId>         oldPeers;
+    private List<PeerId> oldPeers;
     /** log entry current learners */
-    private List<PeerId>         learners;
+    private List<PeerId> learners;
     /** log entry old learners */
-    private List<PeerId>         oldLearners;
+    private List<PeerId> oldLearners;
     /** entry data */
-    private ByteBuffer           data;
-    /** checksum for log entry*/
-    private long                 checksum;
+    private ByteBuffer data;
+    /** checksum for log entry */
+    private long checksum;
     /** true when the log has checksum **/
-    private boolean              hasChecksum;
+    private boolean hasChecksum;
 
     public List<PeerId> getLearners() {
         return this.learners;
@@ -80,7 +71,7 @@ public class LogEntry implements Checksum {
 
     public boolean hasLearners() {
         return (this.learners != null && !this.learners.isEmpty())
-               || (this.oldLearners != null && !this.oldLearners.isEmpty());
+            || (this.oldLearners != null && !this.oldLearners.isEmpty());
     }
 
     @Override
@@ -106,41 +97,9 @@ public class LogEntry implements Checksum {
     }
 
     /**
-     * Please use {@link LogEntryEncoder} instead.
-     *
-     * @deprecated
-     * @return encoded byte array
-     */
-    @SuppressWarnings("DeprecatedIsStillUsed")
-    @Deprecated
-    public byte[] encode() {
-        return V1Encoder.INSTANCE.encode(this);
-    }
-
-    /**
-     * Please use {@link LogEntryDecoder} instead.
-     *
-     * @deprecated
-     * @return whether success to decode
-     */
-    @SuppressWarnings("DeprecatedIsStillUsed")
-    @Deprecated
-    public boolean decode(final byte[] content) {
-        if (content == null || content.length == 0) {
-            return false;
-        }
-        if (content[0] != LogEntryV1CodecFactory.MAGIC) {
-            // Corrupted log
-            return false;
-        }
-        V1Decoder.INSTANCE.decode(this, content);
-        return true;
-    }
-
-    /**
      * Returns whether the log entry has a checksum.
+     *
      * @return true when the log entry has checksum, otherwise returns false.
-     * @since 1.2.26
      */
     public boolean hasChecksum() {
         return this.hasChecksum;
@@ -148,7 +107,7 @@ public class LogEntry implements Checksum {
 
     /**
      * Returns true when the log entry is corrupted, it means that the checksum is mismatch.
-     * @since 1.2.6
+     *
      * @return true when the log entry is corrupted, otherwise returns false
      */
     public boolean isCorrupted() {
@@ -156,8 +115,8 @@ public class LogEntry implements Checksum {
     }
 
     /**
-     * Returns the checksum of the log entry. You should use {@link #hasChecksum} to check if
-     * it has checksum.
+     * Returns the checksum of the log entry. You should use {@link #hasChecksum} to check if it has checksum.
+     *
      * @return checksum value
      */
     public long getChecksum() {
@@ -212,8 +171,8 @@ public class LogEntry implements Checksum {
     @Override
     public String toString() {
         return "LogEntry [type=" + this.type + ", id=" + this.id + ", peers=" + this.peers + ", oldPeers="
-               + this.oldPeers + ", learners=" + this.learners + ", oldLearners=" + this.oldLearners + ", data="
-               + (this.data != null ? this.data.remaining() : 0) + "]";
+            + this.oldPeers + ", learners=" + this.learners + ", oldLearners=" + this.oldLearners + ", data="
+            + (this.data != null ? this.data.remaining() : 0) + "]";
     }
 
     @Override
@@ -246,42 +205,48 @@ public class LogEntry implements Checksum {
             if (other.data != null) {
                 return false;
             }
-        } else if (!this.data.equals(other.data)) {
+        }
+        else if (!this.data.equals(other.data)) {
             return false;
         }
         if (this.id == null) {
             if (other.id != null) {
                 return false;
             }
-        } else if (!this.id.equals(other.id)) {
+        }
+        else if (!this.id.equals(other.id)) {
             return false;
         }
         if (this.learners == null) {
             if (other.learners != null) {
                 return false;
             }
-        } else if (!this.learners.equals(other.learners)) {
+        }
+        else if (!this.learners.equals(other.learners)) {
             return false;
         }
         if (this.oldLearners == null) {
             if (other.oldLearners != null) {
                 return false;
             }
-        } else if (!this.oldLearners.equals(other.oldLearners)) {
+        }
+        else if (!this.oldLearners.equals(other.oldLearners)) {
             return false;
         }
         if (this.oldPeers == null) {
             if (other.oldPeers != null) {
                 return false;
             }
-        } else if (!this.oldPeers.equals(other.oldPeers)) {
+        }
+        else if (!this.oldPeers.equals(other.oldPeers)) {
             return false;
         }
         if (this.peers == null) {
             if (other.peers != null) {
                 return false;
             }
-        } else if (!this.peers.equals(other.peers)) {
+        }
+        else if (!this.peers.equals(other.peers)) {
             return false;
         }
         return this.type == other.type;

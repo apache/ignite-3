@@ -22,10 +22,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Disruptor exception handler.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-05 9:31:28 PM
  */
 public final class LogExceptionHandler<T> implements ExceptionHandler<T> {
 
@@ -36,7 +32,7 @@ public final class LogExceptionHandler<T> implements ExceptionHandler<T> {
         void onException(T event, Throwable ex);
     }
 
-    private final String              name;
+    private final String name;
     private final OnEventException<T> onEventException;
 
     public LogExceptionHandler(String name) {

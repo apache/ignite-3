@@ -23,7 +23,6 @@ import static org.junit.Assert.assertEquals;
 
 /**
  *
- * @author jiachun.fjc
  */
 public class AdaptiveBufAllocatorTest {
 
@@ -68,7 +67,8 @@ public class AdaptiveBufAllocatorTest {
         allocRead(handle, expectedSize, expectedSize);
     }
 
-    private static void allocRead(final AdaptiveBufAllocator.Handle handle, final int expectedSize, final int lastRead) {
+    private static void allocRead(final AdaptiveBufAllocator.Handle handle, final int expectedSize,
+        final int lastRead) {
         assertEquals(expectedSize, handle.allocate().capacity());
         handle.record(lastRead);
     }

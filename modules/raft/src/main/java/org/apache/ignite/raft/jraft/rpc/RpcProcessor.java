@@ -21,22 +21,19 @@ import org.apache.ignite.raft.jraft.NodeManager;
 
 /**
  * Defined functions for process user defined request.
- *
- * @author jiachun.fjc
  */
 public interface RpcProcessor<T> {
 
     /**
      * Async to handle request with {@link RpcContext}.
      *
-     * @param rpcCtx  the rpc context
+     * @param rpcCtx the rpc context
      * @param request the request
      */
     void handleRequest(final RpcContext rpcCtx, final T request);
 
     /**
-     * The class name of user request.
-     * Use String type to avoid loading class.
+     * The class name of user request. Use String type to avoid loading class.
      *
      * @return interested request's class name
      */
@@ -52,7 +49,6 @@ public interface RpcProcessor<T> {
     }
 
     /**
-     *
      * @return the executor selector
      */
     default ExecutorSelector executorSelector() {
@@ -66,7 +62,7 @@ public interface RpcProcessor<T> {
         /**
          * Select a executor.
          *
-         * @param reqClass  request class name
+         * @param reqClass request class name
          * @param req request
          * @param nodeManager
          * @return a executor

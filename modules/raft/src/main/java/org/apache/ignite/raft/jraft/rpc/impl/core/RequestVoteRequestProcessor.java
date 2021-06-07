@@ -16,19 +16,15 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.RequestVoteRequest;
 
 /**
  * Handle PreVote and RequestVote requests.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 6:11:09 PM
  */
 public class RequestVoteRequestProcessor extends NodeRequestProcessor<RequestVoteRequest> {
 
@@ -48,10 +44,11 @@ public class RequestVoteRequestProcessor extends NodeRequestProcessor<RequestVot
 
     @Override
     public Message processRequest0(final RaftServerService service, final RequestVoteRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         if (request.getPreVote()) {
             return service.handlePreVoteRequest(request);
-        } else {
+        }
+        else {
             return service.handleRequestVoteRequest(request);
         }
     }

@@ -23,9 +23,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 
 /**
  * Describe the Snapshot on another machine.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-07 10:21:55 AM
  */
 public class LocalSnapshot extends Snapshot {
 

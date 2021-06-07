@@ -16,22 +16,19 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.RemoveLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * RemoveLearners request processor.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
  */
 public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<RemoveLearnersRequest> {
 
@@ -51,7 +48,7 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final RemoveLearnersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> removeingLearners = new ArrayList<>(request.getLearnersCount());
 
@@ -69,7 +66,8 @@ public class RemoveLearnersRequestProcessor extends BaseCliRequestProcessor<Remo
         ctx.node.removeLearners(removeingLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            } else {
+            }
+            else {
                 final LearnersOpResponse.Builder rb = LearnersOpResponse.newBuilder();
 
                 for (final PeerId peer : oldLearners) {

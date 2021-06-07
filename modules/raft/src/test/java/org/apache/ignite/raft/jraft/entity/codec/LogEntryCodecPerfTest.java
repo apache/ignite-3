@@ -16,6 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -23,32 +29,27 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.codec.v1.V1Decoder;
 import org.apache.ignite.raft.jraft.entity.codec.v1.V1Encoder;
 import org.apache.ignite.raft.jraft.util.Utils;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-//import org.apache.ignite.raft.jraft.entity.codec.v2.V2Encoder;
-
 public class LogEntryCodecPerfTest {
+    private static final Logger LOG = LoggerFactory.getLogger(LogEntryCodecPerfTest.class);
 
-    static byte[]            DATA    = new byte[512];
+    static byte[] DATA = new byte[512];
 
     static {
         ThreadLocalRandom.current().nextBytes(DATA);
     }
 
-    static final int         TIMES   = 100000;
+    static final int TIMES = 100000;
 
-    static final int         THREADS = 20;
+    static final int THREADS = 20;
 
     private final AtomicLong logSize = new AtomicLong(0);
 
@@ -59,7 +60,7 @@ public class LogEntryCodecPerfTest {
     }
 
     private void testEncodeDecode(final LogEntryEncoder encoder, final LogEntryDecoder decoder,
-                                  final CyclicBarrier barrier) throws Exception {
+        final CyclicBarrier barrier) throws Exception {
         ByteBuffer buf = ByteBuffer.wrap(DATA);
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setData(buf);
@@ -95,24 +96,17 @@ public class LogEntryCodecPerfTest {
         concurrentTest("V1", encoder, decoder);
     }
 
-//    @Test
-//    public void testV2Codec() throws Exception {
-//        LogEntryEncoder encoder = V2Encoder.INSTANCE;
-//        LogEntryDecoder decoder = AutoDetectDecoder.INSTANCE;
-//        testEncodeDecode(encoder, decoder, null);
-//        concurrentTest("V2", encoder, decoder);
-//    }
-
     private void concurrentTest(final String version, final LogEntryEncoder encoder, final LogEntryDecoder decoder)
-                                                                                                                   throws InterruptedException,
-                                                                                                                   BrokenBarrierException {
+        throws InterruptedException,
+        BrokenBarrierException {
         final CyclicBarrier barrier = new CyclicBarrier(THREADS + 1);
         for (int i = 0; i < THREADS; i++) {
             new Thread(() -> {
                 try {
                     testEncodeDecode(encoder, decoder, barrier);
-                } catch (Exception e) {
-                    e.printStackTrace(); // NOPMD
+                }
+                catch (Exception e) {
+                    LOG.error("Failed to run test", e); // NOPMD
                     fail();
                 }
             }).start();
@@ -120,7 +114,7 @@ public class LogEntryCodecPerfTest {
         long start = Utils.monotonicMs();
         barrier.await();
         barrier.await();
-        System.out.println(version + " codec cost:" + (Utils.monotonicMs() - start) + " ms.");
-        System.out.println("Total log size:" + this.logSize.get() + " bytes.");
+        LOG.info(version + " codec cost:" + (Utils.monotonicMs() - start) + " ms.");
+        LOG.info("Total log size:" + this.logSize.get() + " bytes.");
     }
 }

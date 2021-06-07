@@ -37,6 +37,7 @@ public final class DisruptorMetricSet implements MetricSet {
 
     /**
      * Return disruptor metrics
+     *
      * @return disruptor metrics map
      */
     @Override

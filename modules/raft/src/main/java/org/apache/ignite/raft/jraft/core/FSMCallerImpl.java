@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
@@ -40,6 +39,7 @@ import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
+import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -63,10 +63,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The finite state machine caller implementation.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 11:12:14 AM
  */
 public class FSMCallerImpl implements FSMCaller {
 
@@ -74,9 +70,6 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Task type
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-03 11:12:25 AM
      */
     private enum TaskType {
         IDLE, //
@@ -103,20 +96,16 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Apply task for disruptor.
-     *
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-03 11:12:35 AM
      */
     private static class ApplyTask {
-        TaskType            type;
+        TaskType type;
         // union fields
-        long                committedIndex;
-        long                term;
+        long committedIndex;
+        long term;
         Status status;
         LeaderChangeContext leaderChangeCtx;
         Closure done;
-        CountDownLatch      shutdownLatch;
+        CountDownLatch shutdownLatch;
 
         public void reset() {
             this.type = null;
@@ -150,16 +139,16 @@ public class FSMCallerImpl implements FSMCaller {
     private LogManager logManager;
     private StateMachine fsm;
     private ClosureQueue closureQueue;
-    private final AtomicLong                                        lastAppliedIndex;
-    private long                                                    lastAppliedTerm;
+    private final AtomicLong lastAppliedIndex;
+    private long lastAppliedTerm;
     private Closure afterShutdown;
     private NodeImpl node;
-    private volatile TaskType                                       currTask;
-    private final AtomicLong                                        applyingIndex;
+    private volatile TaskType currTask;
+    private final AtomicLong applyingIndex;
     private volatile RaftException error;
-    private Disruptor<ApplyTask>                                    disruptor;
-    private RingBuffer<ApplyTask>                                   taskQueue;
-    private volatile CountDownLatch                                 shutdownLatch;
+    private Disruptor<ApplyTask> disruptor;
+    private RingBuffer<ApplyTask> taskQueue;
+    private volatile CountDownLatch shutdownLatch;
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
 
@@ -181,7 +170,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.lastAppliedIndex.set(opts.getBootstrapId().getIndex());
         notifyLastAppliedIndexUpdated(this.lastAppliedIndex.get());
         this.lastAppliedTerm = opts.getBootstrapId().getTerm();
-        this.disruptor = DisruptorBuilder.<ApplyTask> newInstance() //
+        this.disruptor = DisruptorBuilder.<ApplyTask>newInstance() //
             .setEventFactory(new ApplyTaskFactory()) //
             .setRingBufferSize(opts.getDisruptorBufferSize()) //
             .setThreadFactory(new NamedThreadFactory("JRaft-FSMCaller-Disruptor-" +
@@ -310,9 +299,6 @@ public class FSMCallerImpl implements FSMCaller {
 
     /**
      * Closure runs with an error.
-     * @author boyan (boyan@alibaba-inc.com)
-     *
-     * 2018-Apr-04 2:20:31 PM
      */
     public class OnErrorClosure implements Closure {
         private RaftException error;
@@ -373,7 +359,8 @@ public class FSMCallerImpl implements FSMCaller {
             if (task.committedIndex > maxCommittedIndex) {
                 maxCommittedIndex = task.committedIndex;
             }
-        } else {
+        }
+        else {
             if (maxCommittedIndex >= 0) {
                 this.currTask = TaskType.COMMITTED;
                 doCommitted(maxCommittedIndex);
@@ -429,7 +416,8 @@ public class FSMCallerImpl implements FSMCaller {
                         shutdown = task.shutdownLatch;
                         break;
                 }
-            } finally {
+            }
+            finally {
                 this.nodeMetrics.recordLatency(task.type.metricName(), Utils.monotonicMs() - startMs);
             }
         }
@@ -441,7 +429,8 @@ public class FSMCallerImpl implements FSMCaller {
             }
             this.currTask = TaskType.IDLE;
             return maxCommittedIndex;
-        } finally {
+        }
+        finally {
             if (shutdown != null) {
                 shutdown.countDown();
             }
@@ -519,7 +508,8 @@ public class FSMCallerImpl implements FSMCaller {
             this.lastAppliedTerm = lastTerm;
             this.logManager.setAppliedId(lastAppliedId);
             notifyLastAppliedIndexUpdated(lastIndex);
-        } finally {
+        }
+        finally {
             this.nodeMetrics.recordLatency("fsm-commit", Utils.monotonicMs() - startMs);
         }
     }
@@ -537,7 +527,8 @@ public class FSMCallerImpl implements FSMCaller {
         final long startIndex = iter.getIndex();
         try {
             this.fsm.onApply(iter);
-        } finally {
+        }
+        finally {
             this.nodeMetrics.recordLatency("fsm-apply-tasks", Utils.monotonicMs() - startApplyMs);
             this.nodeMetrics.recordSize("fsm-apply-tasks-count", iter.getIndex() - startIndex);
         }

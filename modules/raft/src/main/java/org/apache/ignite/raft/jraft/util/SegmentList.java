@@ -16,41 +16,33 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Predicate;
-import org.apache.ignite.raft.jraft.util.internal.ReferenceFieldUpdater;
-import org.apache.ignite.raft.jraft.util.internal.Updaters;
 
 /**
- * A list implementation based on segments.Only supports removing elements from start or end.
- * The list keep the elements in a segment list, every segment contains at most 128 elements.
+ * A list implementation based on segments.Only supports removing elements from start or end. The list keep the elements
+ * in a segment list, every segment contains at most 128 elements.
  *
- *                [segment, segment, segment ...]
- *             /                 |                    \
- *         segment             segment              segment
- *      [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
- *
- * @author boyan(boyan@antfin.com)
- * @since 1.3.1
- *
+ * [segment, segment, segment ...] /                 |                    \ segment             segment
+ * segment [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
  */
 public class SegmentList<T> {
-    private static final int             SEGMENT_SHIFT = 7;
-    public static final int              SEGMENT_SIZE  = 2 << (SEGMENT_SHIFT - 1);
+    private static final int SEGMENT_SHIFT = 7;
+    public static final int SEGMENT_SIZE = 2 << (SEGMENT_SHIFT - 1);
 
     private final ArrayDeque<Segment<T>> segments;
 
-    private int                          size;
+    private int size;
 
     // Cached offset in first segment.
-    private int                          firstOffset;
+    private int firstOffset;
 
-    private final boolean                recycleSegment;
+    private final boolean recycleSegment;
 
     /**
      * Create a new SegmentList
+     *
      * @param recycleSegment true to enable recycling segment, only effective in same thread.
      */
     public SegmentList(final boolean recycleSegment) {
@@ -62,38 +54,37 @@ public class SegmentList<T> {
 
     /**
      * A recyclable segment.
-     * @author boyan(boyan@antfin.com)
      *
      * @param <T>
      */
     private final static class Segment<T> implements Recyclable {
         private static final Recyclers<Segment<?>> recyclers = new Recyclers<Segment<?>>(16_382 / SEGMENT_SIZE) {
 
-                                                                 @Override
-                                                                 protected SegmentList.Segment<?> newObject(final Handle handle) {
-                                                                     return new SegmentList.Segment<>(handle);
-                                                                 }
-                                                             };
+            @Override
+            protected SegmentList.Segment<?> newObject(final Handle handle) {
+                return new SegmentList.Segment<>(handle);
+            }
+        };
 
         public static Segment<?> newInstance(final boolean recycleSegment) {
             if (recycleSegment) {
                 return recyclers.get();
-            } else {
+            }
+            else {
                 return new Segment<>();
             }
         }
 
         private transient Recyclers.Handle handle;
 
-        final T[]                          elements;
-        int                                pos;     // end offset(exclusive)
-        int                                offset;  // start offset(inclusive)
+        final T[] elements;
+        int pos;     // end offset(exclusive)
+        int offset;  // start offset(inclusive)
 
         Segment() {
             this(Recyclers.NOOP_HANDLE);
         }
 
-        @SuppressWarnings("unchecked")
         Segment(final Recyclers.Handle handle) {
             this.elements = (T[]) new Object[SEGMENT_SIZE];
             this.pos = this.offset = 0;
@@ -159,7 +150,8 @@ public class SegmentList<T> {
                 if (predicate.test(e)) {
                     this.elements[i] = null;
                     removed++;
-                } else {
+                }
+                else {
                     break;
                 }
             }
@@ -174,7 +166,8 @@ public class SegmentList<T> {
                 if (predicate.test(e)) {
                     this.elements[i] = null;
                     removed++;
-                } else {
+                }
+                else {
                     break;
                 }
             }
@@ -228,7 +221,6 @@ public class SegmentList<T> {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     public void add(final T e) {
         Segment<T> lastSeg = getLast();
         if (lastSeg == null || lastSeg.isReachEnd()) {
@@ -316,9 +308,7 @@ public class SegmentList<T> {
     }
 
     /**
-     *
-     * Removes from this list all of the elements whose index is between
-     * 0, inclusive, and {@code toIndex}, exclusive.
+     * Removes from this list all of the elements whose index is between 0, inclusive, and {@code toIndex}, exclusive.
      * Shifts any succeeding elements to the left (reduces their index).
      */
     public void removeFromFirst(final int toIndex) {
@@ -340,12 +330,12 @@ public class SegmentList<T> {
                 RecycleUtil.recycle(this.segments.pollFirst());
                 this.firstOffset = 0;
             }
-        } else {
+        }
+        else {
             this.firstOffset = this.size = 0;
         }
     }
 
-    @SuppressWarnings("unchecked")
     public void addAll(final Collection<T> coll) {
         Object[] src = coll2Array(coll);
 
@@ -367,14 +357,7 @@ public class SegmentList<T> {
     }
 
     private Object[] coll2Array(final Collection<T> coll) {
-        Object[] src;
-//        if (coll instanceof ArrayList && UnsafeUtil.hasUnsafe()) {
-//            src = LIST_ARRAY_GETTER.get((ArrayList<T>) coll);
-//        } else {
-//            src = coll.toArray();
-//        }
-
-        src = coll.toArray();
+        Object[] src = coll.toArray();
 
         return src;
     }
@@ -382,7 +365,7 @@ public class SegmentList<T> {
     @Override
     public String toString() {
         return "SegmentList [segments=" + this.segments + ", size=" + this.size + ", firstOffset=" + this.firstOffset
-               + "]";
+            + "]";
     }
 
 }

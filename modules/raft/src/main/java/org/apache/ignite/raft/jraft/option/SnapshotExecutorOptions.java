@@ -24,21 +24,17 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
  * Snapshot executor options.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 2:59:37 PM
  */
 public class SnapshotExecutorOptions {
 
     // URI of SnapshotStorage
-    private String           uri;
+    private String uri;
     private FSMCaller fsmCaller;
     private NodeImpl node;
     private LogManager logManager;
-    private long             initTerm;
+    private long initTerm;
     private Endpoint addr;
-    private boolean          filterBeforeCopyRemote;
+    private boolean filterBeforeCopyRemote;
     private SnapshotThrottle snapshotThrottle;
 
     public SnapshotThrottle getSnapshotThrottle() {

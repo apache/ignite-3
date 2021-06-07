@@ -22,19 +22,15 @@ import org.apache.ignite.raft.jraft.Status;
 
 /**
  * A special Closure which provides synchronization primitives.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-16 2:45:34 PM
  */
 public class SynchronizedClosure implements Closure {
 
-    private CountDownLatch  latch;
+    private CountDownLatch latch;
     private volatile Status status;
     /**
      * Latch count to reset
      */
-    private int             count;
+    private int count;
 
     public SynchronizedClosure() {
         this(1);
@@ -64,8 +60,7 @@ public class SynchronizedClosure implements Closure {
      * Wait for closure run
      *
      * @return status
-     * @throws InterruptedException if the current thread is interrupted
-     *                              while waiting
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     public Status await() throws InterruptedException {
         this.latch.await();

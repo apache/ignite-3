@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
-import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
+import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 public class SnapshotFileReaderTest extends BaseStorageTest {
-    private SnapshotFileReader     reader;
+    private SnapshotFileReader reader;
     private LocalSnapshotMetaTable metaTable;
 
     @Override
@@ -69,8 +69,9 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
         try {
             this.reader.readFile(bufRef, "unfound", 0, 1024);
             fail();
-        } catch (final FileNotFoundException e) {
-
+        }
+        catch (final FileNotFoundException e) {
+            // No-op.
         }
 
         final String data = writeData();

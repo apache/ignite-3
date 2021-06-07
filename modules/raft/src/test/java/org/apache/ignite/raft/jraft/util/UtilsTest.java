@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import java.nio.ByteBuffer;
-import java.util.concurrent.CountDownLatch;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -32,10 +32,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
- * 
- * @author boyan (boyan@alibaba-inc.com)
  *
- * 2018-Apr-10 5:51:20 PM
  */
 public class UtilsTest {
     private Executor executor = Executors.newSingleThreadExecutor();
@@ -146,37 +143,37 @@ public class UtilsTest {
     public void testParsePeerId() {
         String pid = "192.168.1.88:5566";
         String[] result = Utils.parsePeerId(pid);
-        String[] expecteds = { "192.168.1.88", "5566" };
+        String[] expecteds = {"192.168.1.88", "5566"};
         Assert.assertTrue(result.length == 2);
         Assert.assertArrayEquals(expecteds, result);
 
         pid = "[fe80:0:0:0:6450:aa3c:cd98:ed0f]:8847";
         result = Utils.parsePeerId(pid);
-        expecteds = new String[] { "[fe80:0:0:0:6450:aa3c:cd98:ed0f]", "8847" };
+        expecteds = new String[] {"[fe80:0:0:0:6450:aa3c:cd98:ed0f]", "8847"};
         Assert.assertTrue(result.length == 2);
         Assert.assertArrayEquals(expecteds, result);
 
         pid = "192.168.1.88:5566:9";
         result = Utils.parsePeerId(pid);
-        expecteds = new String[] { "192.168.1.88", "5566", "9" };
+        expecteds = new String[] {"192.168.1.88", "5566", "9"};
         Assert.assertTrue(result.length == 3);
         Assert.assertArrayEquals(expecteds, result);
 
         pid = "[fe80:0:0:0:6450:aa3c:cd98:ed0f]:8847:9";
         result = Utils.parsePeerId(pid);
-        expecteds = new String[] { "[fe80:0:0:0:6450:aa3c:cd98:ed0f]", "8847", "9" };
+        expecteds = new String[] {"[fe80:0:0:0:6450:aa3c:cd98:ed0f]", "8847", "9"};
         Assert.assertTrue(result.length == 3);
         Assert.assertArrayEquals(expecteds, result);
 
         pid = "192.168.1.88:5566:0:6";
         result = Utils.parsePeerId(pid);
-        expecteds = new String[] { "192.168.1.88", "5566", "0", "6" };
+        expecteds = new String[] {"192.168.1.88", "5566", "0", "6"};
         Assert.assertTrue(result.length == 4);
         Assert.assertArrayEquals(expecteds, result);
 
         pid = "[fe80:0:0:0:6450:aa3c:cd98:ed0f]:8847:0:6";
         result = Utils.parsePeerId(pid);
-        expecteds = new String[] { "[fe80:0:0:0:6450:aa3c:cd98:ed0f]", "8847", "0", "6" };
+        expecteds = new String[] {"[fe80:0:0:0:6450:aa3c:cd98:ed0f]", "8847", "0", "6"};
         Assert.assertTrue(result.length == 4);
         Assert.assertArrayEquals(expecteds, result);
 
@@ -184,7 +181,8 @@ public class UtilsTest {
         try {
             pid = "[192.168.1].88:eee:x:b:j";
             Utils.parsePeerId(pid);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             ex1 = true;
         }
         Assert.assertTrue(ex1);
@@ -193,7 +191,8 @@ public class UtilsTest {
         try {
             pid = "[dsfsadf]:eee:x:b:j";
             Utils.parsePeerId(pid);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             ex2 = true;
         }
         Assert.assertTrue(ex2);

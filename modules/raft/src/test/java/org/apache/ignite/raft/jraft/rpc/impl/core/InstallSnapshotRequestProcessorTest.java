@@ -46,7 +46,7 @@ public class InstallSnapshotRequestProcessorTest extends BaseNodeRequestProcesso
 
     @Override
     public void verify(String interest, RaftServerService service,
-                       NodeRequestProcessor<InstallSnapshotRequest> processor) {
+        NodeRequestProcessor<InstallSnapshotRequest> processor) {
         assertEquals(interest, InstallSnapshotRequest.class.getName());
         Mockito.verify(service).handleInstallSnapshot(eq(request), Mockito.any());
     }

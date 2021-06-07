@@ -19,51 +19,53 @@ package org.apache.ignite.raft.jraft;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
- * Abstract factory to create services for SOFAJRaft. TODO kill this.
- * @author boyan(boyan@antfin.com)
- * @since  1.2.6
+ * Abstract factory to create services for SOFAJRaft. TODO asch kill this.
  */
 public interface JRaftServiceFactory {
 
     /**
      * Creates a raft log storage.
-     * @param uri  The log storage uri from {@link NodeOptions#getSnapshotUri()}
-     * @param raftOptions  the raft options.
+     *
+     * @param uri The log storage uri from {@link NodeOptions#getSnapshotUri()}
+     * @param raftOptions the raft options.
      * @return storage to store raft log entires.
      */
     LogStorage createLogStorage(final String uri, final RaftOptions raftOptions);
 
     /**
      * Creates a raft snapshot storage
-     * @param uri  The snapshot storage uri from {@link NodeOptions#getSnapshotUri()}
-     * @param raftOptions  the raft options.
+     *
+     * @param uri The snapshot storage uri from {@link NodeOptions#getSnapshotUri()}
+     * @param raftOptions the raft options.
      * @return storage to store state machine snapshot.
      */
     SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions);
 
     /**
      * Creates a raft meta storage.
-     * @param uri  The meta storage uri from {@link NodeOptions#getRaftMetaUri()}
-     * @param raftOptions  the raft options.
+     *
+     * @param uri The meta storage uri from {@link NodeOptions#getRaftMetaUri()}
+     * @param raftOptions the raft options.
      * @return meta storage to store raft meta info.
      */
     RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions);
 
     /**
      * Creates a log entry codec factory.
+     *
      * @return a codec factory to create encoder/decoder for raft log entry.
      */
     LogEntryCodecFactory createLogEntryCodecFactory();
 
     /**
      * Creates raft timer factory.
+     *
      * @return The factory.
      */
     RaftTimerFactory createRaftTimerFactory();

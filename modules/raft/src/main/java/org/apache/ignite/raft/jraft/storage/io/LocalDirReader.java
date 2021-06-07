@@ -28,16 +28,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Read a file data form local dir by fileName.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-06 9:25:12 PM
  */
 public class LocalDirReader implements FileReader {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalDirReader.class);
 
-    private final String        path;
+    private final String path;
 
     public LocalDirReader(String path) {
         super();
@@ -51,14 +47,14 @@ public class LocalDirReader implements FileReader {
 
     @Override
     public int readFile(final ByteBufferCollector buf, final String fileName, final long offset, final long maxCount)
-                                                                                                                     throws IOException,
+        throws IOException,
         RetryAgainException {
         return readFileWithMeta(buf, fileName, null, offset, maxCount);
     }
 
     @SuppressWarnings("unused")
     protected int readFileWithMeta(final ByteBufferCollector buf, final String fileName, final Message fileMeta,
-                                   long offset, final long maxCount) throws IOException, RetryAgainException {
+        long offset, final long maxCount) throws IOException, RetryAgainException {
         buf.expandIfNecessary();
         final String filePath = this.path + File.separator + fileName;
         final File file = new File(filePath);
@@ -73,11 +69,13 @@ public class LocalDirReader implements FileReader {
                 if (totalRead < maxCount) {
                     if (buf.hasRemaining()) {
                         return EOF;
-                    } else {
+                    }
+                    else {
                         buf.expandAtMost((int) (maxCount - totalRead));
                         offset += nread;
                     }
-                } else {
+                }
+                else {
                     final long fsize = file.length();
                     if (fsize < 0) {
                         LOG.warn("Invalid file length {}", filePath);
@@ -85,7 +83,8 @@ public class LocalDirReader implements FileReader {
                     }
                     if (fsize == offset + nread) {
                         return EOF;
-                    } else {
+                    }
+                    else {
                         return totalRead;
                     }
                 }

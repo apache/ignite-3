@@ -31,12 +31,12 @@ import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.internal.MessageReader;
-import org.apache.ignite.network.internal.MessageWriter;
-import org.apache.ignite.network.message.MessageDeserializer;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.message.MessageSerializer;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BOOLEAN_ARRAY;
@@ -1321,6 +1321,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /**
+     * @param <T> Type of an array.
      * @param creator Array creator.
      * @param lenShift Array length shift size.
      * @param off Base offset.
@@ -1383,6 +1384,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /**
+     * @param <T> Type of an array.
      * @param creator Array creator.
      * @param typeSize Primitive type size in bytes.
      * @param lenShift Array length shift size.

@@ -23,25 +23,18 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * RPC invoke context.
- *
- * @author jiachun.fjc
  */
 public class InvokeContext {
-
-    public final static String                  CRC_SWITCH = "invoke.crc.switch";
-
-    private final ConcurrentMap<String, Object> ctx        = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Object> ctx = new ConcurrentHashMap<>();
 
     public Object put(final String key, final Object value) {
         return this.ctx.put(key, value);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T get(final String key) {
         return (T) this.ctx.get(key);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T getOrDefault(final String key, final T defaultValue) {
         return (T) this.ctx.getOrDefault(key, defaultValue);
     }

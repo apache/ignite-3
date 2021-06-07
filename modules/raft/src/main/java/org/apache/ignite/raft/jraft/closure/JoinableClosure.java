@@ -24,7 +24,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public class JoinableClosure implements Closure {
 

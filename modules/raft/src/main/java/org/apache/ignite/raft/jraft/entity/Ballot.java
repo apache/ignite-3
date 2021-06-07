@@ -22,10 +22,6 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 
 /**
  * A ballot to vote.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-15 2:29:11 PM
  */
 public class Ballot {
 
@@ -37,7 +33,7 @@ public class Ballot {
     public static class UnfoundPeerId {
         PeerId peerId;
         boolean found;
-        int     index;
+        int index;
 
         public UnfoundPeerId(PeerId peerId, int index, boolean found) {
             super();
@@ -47,15 +43,15 @@ public class Ballot {
         }
     }
 
-    private final List<UnfoundPeerId> peers    = new ArrayList<>();
-    private int                       quorum;
+    private final List<UnfoundPeerId> peers = new ArrayList<>();
+    private int quorum;
     private final List<UnfoundPeerId> oldPeers = new ArrayList<>();
-    private int                       oldQuorum;
+    private int oldQuorum;
 
     /**
      * Init the ballot with current conf and old conf.
      *
-     * @param conf    current configuration
+     * @param conf current configuration
      * @param oldConf old configuration
      * @return true if init success // TODO asch init cannot return false
      */
@@ -104,7 +100,8 @@ public class Ballot {
                 this.quorum--;
             }
             hint.pos0 = peer.index;
-        } else {
+        }
+        else {
             hint.pos0 = -1;
         }
         if (this.oldPeers.isEmpty()) {
@@ -118,7 +115,8 @@ public class Ballot {
                 this.oldQuorum--;
             }
             hint.pos1 = peer.index;
-        } else {
+        }
+        else {
             hint.pos1 = -1;
         }
 

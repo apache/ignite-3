@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
-import java.util.concurrent.Executor;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.TimerManager;
@@ -32,14 +32,13 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
-import java.util.concurrent.CountDownLatch;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -101,8 +100,9 @@ public class CopySessionTest {
                     //test join, should return
                     session.join();
                     latch.countDown();
-                } catch (final InterruptedException e) {
-
+                }
+                catch (final InterruptedException e) {
+                    // No-op.
                 }
             }
         }.start();

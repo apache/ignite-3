@@ -16,10 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import java.io.File;
 import java.io.IOException;
 import java.util.Set;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -34,21 +34,16 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Snapshot reader on local file system.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 11:10:34 AM
  */
 public class LocalSnapshotReader extends SnapshotReader {
+    private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotReader.class);
 
-    private static final Logger          LOG = LoggerFactory.getLogger(LocalSnapshotReader.class);
-
-    /** Generated reader id*/
-    private long                         readerId;
+    /** Generated reader id */
+    private long readerId;
     /** remote peer addr */
     private final Endpoint addr;
     private final LocalSnapshotMetaTable metaTable;
-    private final String                 path;
+    private final String path;
     private final LocalSnapshotStorage snapshotStorage;
     private final SnapshotThrottle snapshotThrottle;
 
@@ -59,7 +54,7 @@ public class LocalSnapshotReader extends SnapshotReader {
     }
 
     public LocalSnapshotReader(LocalSnapshotStorage snapshotStorage, SnapshotThrottle snapshotThrottle, Endpoint addr,
-                               RaftOptions raftOptions, String path) {
+        RaftOptions raftOptions, String path) {
         super();
         this.snapshotStorage = snapshotStorage;
         this.snapshotThrottle = snapshotThrottle;
@@ -78,14 +73,15 @@ public class LocalSnapshotReader extends SnapshotReader {
     public boolean init(final Void v) {
         final File dir = new File(this.path);
         if (!dir.exists()) {
-            LOG.error("No such path %s for snapshot reader.", this.path);
+            LOG.error("No such path {} for snapshot reader.", this.path);
             setError(RaftError.ENOENT, "No such path %s for snapshot reader", this.path);
             return false;
         }
         final String metaPath = this.path + File.separator + JRAFT_SNAPSHOT_META_FILE;
         try {
             return this.metaTable.loadFromFile(metaPath);
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to load snapshot meta {}.", metaPath);
             setError(RaftError.EIO, "Fail to load snapshot meta from path %s", metaPath);
             return false;
@@ -141,7 +137,8 @@ public class LocalSnapshotReader extends SnapshotReader {
         if (this.readerId > 0) {
             FileService.getInstance().removeReader(this.readerId);
             this.readerId = 0;
-        } else {
+        }
+        else {
             if (this.readerId != 0) {
                 LOG.warn("Ignore destroy invalid readerId: {}", this.readerId);
             }

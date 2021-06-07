@@ -25,8 +25,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * A {@link ReadWriteLock} that can report some info when the lock is held by a thread very long time.
- *
- * @author jiachun.fjc
  */
 public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
     public enum AcquireMode {
@@ -46,7 +44,8 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
         if (maxBlockingNanos > 0) {
             this.rLock = new LongHeldDetectingLock(AcquireMode.Read, rwLock, maxBlockingNanos);
             this.wLock = new LongHeldDetectingLock(AcquireMode.Write, rwLock, maxBlockingNanos);
-        } else {
+        }
+        else {
             this.rLock = rwLock.readLock();
             this.wLock = rwLock.writeLock();
         }
@@ -63,16 +62,12 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
     }
 
     public abstract void report(final AcquireMode acquireMode, final Thread heldThread,
-                                final Collection<Thread> queuedThreads, final long blockedNanos);
+        final Collection<Thread> queuedThreads, final long blockedNanos);
 
     static class RwLock extends ReentrantReadWriteLock {
-
         private static final long serialVersionUID = -1783358548846940445L;
 
-        public RwLock() {
-        }
-
-        public RwLock(boolean fair) {
+        RwLock(boolean fair) {
             super(fair);
         }
 
@@ -90,9 +85,9 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
     class LongHeldDetectingLock implements Lock {
 
         private final AcquireMode mode;
-        private final RwLock      parent;
-        private final Lock        delegate;
-        private final long        maxBlockingNanos;
+        private final RwLock parent;
+        private final Lock delegate;
+        private final long maxBlockingNanos;
 
         LongHeldDetectingLock(AcquireMode mode, RwLock parent, long maxBlockingNanos) {
             this.mode = mode;
@@ -107,7 +102,8 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
             final Thread owner = this.parent.getOwner();
             try {
                 this.delegate.lock();
-            } finally {
+            }
+            finally {
                 final long elapsed = System.nanoTime() - start;
                 if (elapsed > this.maxBlockingNanos) {
                     report(this.mode, owner, this.parent.getQueuedThreads(), elapsed);
@@ -121,7 +117,8 @@ public abstract class LongHeldDetectingReadWriteLock implements ReadWriteLock {
             final Thread owner = this.parent.getOwner();
             try {
                 this.delegate.lockInterruptibly();
-            } finally {
+            }
+            finally {
                 final long elapsed = System.nanoTime() - start;
                 if (elapsed > this.maxBlockingNanos) {
                     report(this.mode, owner, this.parent.getQueuedThreads(), elapsed);

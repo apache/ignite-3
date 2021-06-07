@@ -18,14 +18,12 @@ package org.apache.ignite.raft.jraft.entity;
 
 /**
  * Checksum for entity.
- *
- * @author boyan(boyan@antfin.com)
- * @since 1.2.6
  */
 public interface Checksum {
 
     /**
      * Calculate a checksum value for this entity.
+     *
      * @return checksum value
      */
     long checksum();

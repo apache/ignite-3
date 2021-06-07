@@ -21,13 +21,8 @@ import org.apache.ignite.raft.jraft.Status;
 
 /**
  * Copy snapshot from the give resources.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 4:55:26 PM
  */
 public abstract class SnapshotCopier extends Status implements Closeable {
-
     /**
      * Cancel the copy job.
      */
@@ -35,8 +30,8 @@ public abstract class SnapshotCopier extends Status implements Closeable {
 
     /**
      * Block the thread until this copy job finishes, or some error occurs.
-     * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     *
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     public abstract void join() throws InterruptedException;
 

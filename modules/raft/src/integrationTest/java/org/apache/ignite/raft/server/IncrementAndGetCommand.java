@@ -19,22 +19,26 @@ package org.apache.ignite.raft.server;
 
 import org.apache.ignite.raft.client.WriteCommand;
 
-/** */
+/**
+ * Increment and get command.
+ */
 public class IncrementAndGetCommand implements WriteCommand {
-    /** */
-    private final int delta;
+    /**
+     * The delta.
+     */
+    private final long delta;
 
     /**
      * @param delta The delta.
      */
-    public IncrementAndGetCommand(int delta) {
+    public IncrementAndGetCommand(long delta) {
         this.delta = delta;
     }
 
     /**
      * @return The delta.
      */
-    public int delta() {
+    public long delta() {
         return delta;
     }
 }

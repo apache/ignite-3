@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 /**
  * RPC request Closure encapsulates the RPC contexts.
  *
- * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public class RpcRequestClosure implements Closure {

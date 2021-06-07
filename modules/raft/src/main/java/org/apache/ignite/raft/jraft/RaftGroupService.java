@@ -62,12 +62,15 @@ public class RaftGroupService {
      * The raft group id
      */
     private String groupId;
+
     /**
      * The raft node.
      */
     private Node node;
 
-    /** */
+    /**
+     * The node manager.
+     */
     private NodeManager nodeManager;
 
     /**
@@ -78,7 +81,7 @@ public class RaftGroupService {
      * @param nodeManager Node manager.
      */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-                            final RpcServer rpcServer, final NodeManager nodeManager) {
+        final RpcServer rpcServer, final NodeManager nodeManager) {
         this(groupId, serverId, nodeOptions, rpcServer, nodeManager, false);
     }
 
@@ -91,7 +94,7 @@ public class RaftGroupService {
      * @param sharedRpcServer {@code True} if a shared server.
      */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-                            final RpcServer rpcServer, final NodeManager nodeManager, final boolean sharedRpcServer) {
+        final RpcServer rpcServer, final NodeManager nodeManager, final boolean sharedRpcServer) {
         super();
         this.groupId = groupId;
         this.serverId = serverId;
@@ -150,7 +153,8 @@ public class RaftGroupService {
 
         if (startRpcServer) {
             this.rpcServer.init(null);
-        } else {
+        }
+        else {
             LOG.warn("RPC server is not started in RaftGroupService.");
         }
 
@@ -163,8 +167,7 @@ public class RaftGroupService {
     /**
      * Block thread to wait the server shutdown.
      *
-     * @throws InterruptedException if the current thread is interrupted
-     *                              while waiting
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
 //    public synchronized void join() throws InterruptedException {
 //        if (this.node != null) {
@@ -172,7 +175,6 @@ public class RaftGroupService {
 //            this.node = null;
 //        }
 //    }
-
     public synchronized void shutdown() {
         // TODO asch remove handlers before shutting down raft node.
         if (!this.started) {
@@ -184,8 +186,8 @@ public class RaftGroupService {
                     this.rpcServer.shutdown();
                 }
             }
-            catch (final Exception ignored) {
-                // ignore TODO asch not good to ignore ?
+            catch (Exception e) {
+                LOG.error("Failed to shutdown the server", e);
             }
             this.rpcServer = null;
         }

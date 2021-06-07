@@ -24,12 +24,9 @@ import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The RAFT protocol based replication server.
- * <p>
- * Supports multiple RAFT groups.
- * <p>
- * The server listens for client commands, submits them to a replicated log and calls {@link RaftGroupListener}
- * {@code onRead} and {@code onWrite} methods then after the command was committed to the log.
+ * The RAFT protocol based replication server. * Supports multiple RAFT groups. * The server listens for client
+ * commands, submits them to a replicated log and calls {@link RaftGroupListener} {@code onRead} and {@code onWrite}
+ * methods then after the command was committed to the log.
  */
 public interface RaftServer {
     /**
@@ -38,18 +35,18 @@ public interface RaftServer {
     ClusterService clusterService();
 
     /**
-     * Starts a raft group on this cluster node.
+     * Starts a raft group bound to this cluster node.
+     *
      * @param groupId Group id.
      * @param lsnr The listener.
      * @param initialConf Inititial group configuration.
-     *
      * @return {@code True} if a group was successfully started.
-     * @throws IgniteInternalException If a group can't be started.
      */
     boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf);
 
     /**
      * Synchronously stops a raft group.
+     *
      * @param groupId Group id.
      * @return {@code True} if a group was successfully stopped.
      */
@@ -57,15 +54,16 @@ public interface RaftServer {
 
     /**
      * Returns a local peer.
-     * @param Group id.
-     * @return Local peer, if presents.
+     *
+     * @param groupId Group id.
+     * @return Local peer or null if the group is not started.
      */
     @Nullable Peer localPeer(String groupId);
 
     /**
      * Shutdown a server.
      *
-     * @throws Exception
+     * @throws Exception If failed.
      */
     void shutdown() throws Exception;
 }

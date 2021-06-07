@@ -15,8 +15,7 @@
 package org.apache.ignite.raft.jraft.util.timer;
 
 /**
- * A handle associated with a {@link TimerTask} that is returned by a
- * {@link Timer}.
+ * A handle associated with a {@link TimerTask} that is returned by a {@link Timer}.
  *
  * Forked from <a href="https://github.com/netty/netty">Netty</a>.
  */
@@ -33,21 +32,18 @@ public interface Timeout {
     TimerTask task();
 
     /**
-     * Returns {@code true} if and only if the {@link TimerTask} associated
-     * with this handle has been expired.
+     * Returns {@code true} if and only if the {@link TimerTask} associated with this handle has been expired.
      */
     boolean isExpired();
 
     /**
-     * Returns {@code true} if and only if the {@link TimerTask} associated
-     * with this handle has been cancelled.
+     * Returns {@code true} if and only if the {@link TimerTask} associated with this handle has been cancelled.
      */
     boolean isCancelled();
 
     /**
-     * Attempts to cancel the {@link TimerTask} associated with this handle.
-     * If the task has been executed or cancelled already, it will return with
-     * no side effect.
+     * Attempts to cancel the {@link TimerTask} associated with this handle. If the task has been executed or cancelled
+     * already, it will return with no side effect.
      *
      * @return True if the cancellation completed successfully, otherwise false
      */

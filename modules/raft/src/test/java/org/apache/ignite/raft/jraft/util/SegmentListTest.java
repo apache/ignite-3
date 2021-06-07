@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -28,9 +30,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-//import io.netty.util.internal.ThreadLocalRandom;
-
 public class SegmentListTest {
+    private static final Logger LOG = LoggerFactory.getLogger(SegmentListTest.class);
 
     private SegmentList<Integer> list;
 
@@ -83,7 +84,8 @@ public class SegmentListTest {
         for (int i = 0; i < 1900; i++) {
             if (i < 900) {
                 assertEquals(i + 100, (int) this.list.get(i));
-            } else {
+            }
+            else {
                 assertEquals(i - 900, (int) this.list.get(i));
             }
         }
@@ -156,8 +158,9 @@ public class SegmentListTest {
         try {
             this.list.get(151);
             fail();
-        } catch (IndexOutOfBoundsException e) {
-
+        }
+        catch (IndexOutOfBoundsException e) {
+            // No-op.
         }
         assertEquals(150 / SegmentList.SEGMENT_SIZE + 1, this.list.segmentSize());
 
@@ -171,8 +174,9 @@ public class SegmentListTest {
         try {
             this.list.get(32);
             fail();
-        } catch (IndexOutOfBoundsException e) {
-
+        }
+        catch (IndexOutOfBoundsException e) {
+            // No-op.
         }
         assertEquals(1, this.list.segmentSize());
 
@@ -182,7 +186,8 @@ public class SegmentListTest {
         for (int i = 0; i < 1032; i++) {
             if (i < 32) {
                 assertEquals(i, (int) this.list.get(i));
-            } else {
+            }
+            else {
                 assertEquals(i - 32, (int) this.list.get(i));
             }
         }
@@ -202,8 +207,8 @@ public class SegmentListTest {
         int warmupRepeats = 10_0000;
         int repeats = 100_0000;
 
-        double arrayDequeOps = 0;
-        double segListOps = 0;
+        double arrayDequeOps;
+        double segListOps;
         // test ArrayDequeue
         {
             ArrayDeque<Integer> deque = new ArrayDeque<>();
@@ -216,7 +221,7 @@ public class SegmentListTest {
             benchArrayDequeue(repeats, deque);
             long costMs = (System.nanoTime() - startNs) / repeats;
             arrayDequeOps = repeats * 3.0 / costMs * 1000;
-            System.out.println("ArrayDeque, cost:" + costMs + ", ops: " + arrayDequeOps);
+            LOG.info("ArrayDeque, cost:" + costMs + ", ops: " + arrayDequeOps);
         }
         // test SegmentList
         {

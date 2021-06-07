@@ -35,7 +35,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -44,13 +44,12 @@ import static org.junit.Assert.assertSame;
 @RunWith(MockitoJUnitRunner.class)
 public class BaseCliRequestProcessorTest {
     private static class MockCliRequestProcessor extends BaseCliRequestProcessor<PingRequest> {
-
-        private String            peerId;
-        private String            groupId;
+        private String peerId;
+        private String groupId;
         private RpcRequestClosure done;
         private CliRequestContext ctx;
 
-        public MockCliRequestProcessor(String peerId, String groupId) {
+        MockCliRequestProcessor(String peerId, String groupId) {
             super(null, null);
             this.peerId = peerId;
             this.groupId = groupId;
@@ -81,7 +80,7 @@ public class BaseCliRequestProcessorTest {
     }
 
     private MockCliRequestProcessor processor;
-    private PeerId                  peer;
+    private PeerId peer;
     private MockAsyncContext asyncContext;
 
     @Before
@@ -155,7 +154,6 @@ public class BaseCliRequestProcessorTest {
         Node node1 = Mockito.mock(Node.class);
         Mockito.when(node1.getGroupId()).thenReturn("test");
         Mockito.when(node1.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8081)));
-        NodeOptions opts = new NodeOptions();
         this.asyncContext.getNodeManager().add(node1);
 
         Node node2 = Mockito.mock(Node.class);

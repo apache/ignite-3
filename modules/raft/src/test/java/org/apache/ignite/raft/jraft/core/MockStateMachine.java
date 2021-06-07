@@ -16,15 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.raft.jraft.Closure;
-import org.apache.ignite.raft.jraft.Iterator;
-import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
-import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import org.apache.ignite.raft.jraft.util.Bits;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -37,19 +28,31 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
+import org.apache.ignite.raft.jraft.util.Bits;
+import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MockStateMachine extends StateMachineAdapter {
+    private static final Logger LOG = LoggerFactory.getLogger(MockStateMachine.class);
 
-    private final Lock             lock                  = new ReentrantLock();
-    private volatile int           onStartFollowingTimes = 0;
-    private volatile int           onStopFollowingTimes  = 0;
-    private volatile long          leaderTerm            = -1;
-    private volatile long          appliedIndex          = -1;
-    private volatile long          snapshotIndex         = -1L;
-    private final List<ByteBuffer> logs                  = new ArrayList<>();
-    private final Endpoint         address;
-    private volatile int           saveSnapshotTimes;
-    private volatile int           loadSnapshotTimes;
+    private final Lock lock = new ReentrantLock();
+    private volatile int onStartFollowingTimes = 0;
+    private volatile int onStopFollowingTimes = 0;
+    private volatile long leaderTerm = -1;
+    private volatile long appliedIndex = -1;
+    private volatile long snapshotIndex = -1L;
+    private final List<ByteBuffer> logs = new ArrayList<>();
+    private final Endpoint address;
+    private volatile int saveSnapshotTimes;
+    private volatile int loadSnapshotTimes;
 
     public Endpoint getAddress() {
         return this.address;
@@ -100,7 +103,8 @@ public class MockStateMachine extends StateMachineAdapter {
         this.lock.lock();
         try {
             return this.logs;
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -121,7 +125,8 @@ public class MockStateMachine extends StateMachineAdapter {
                 if (iter.done() != null) {
                     iter.done().run(Status.OK());
                 }
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             this.appliedIndex = iter.getIndex();
@@ -139,7 +144,7 @@ public class MockStateMachine extends StateMachineAdapter {
         final String path = writer.getPath() + File.separator + "data";
         final File file = new File(path);
         try (FileOutputStream fout = new FileOutputStream(file);
-                BufferedOutputStream out = new BufferedOutputStream(fout)) {
+             BufferedOutputStream out = new BufferedOutputStream(fout)) {
             this.lock.lock();
             try {
                 for (final ByteBuffer buf : this.logs) {
@@ -149,14 +154,16 @@ public class MockStateMachine extends StateMachineAdapter {
                     out.write(buf.array());
                 }
                 this.snapshotIndex = this.appliedIndex;
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             System.out.println("Node<" + this.address + "> saved snapshot into " + file);
             writer.addFile("data");
             done.run(Status.OK());
-        } catch (final IOException e) {
-            e.printStackTrace();
+        }
+        catch (final IOException e) {
+            LOG.error("Failed to save the snapshot", e);
             done.run(new Status(RaftError.EIO, "Fail to save snapshot"));
         }
     }
@@ -183,17 +190,20 @@ public class MockStateMachine extends StateMachineAdapter {
                             break;
                         }
                         this.logs.add(ByteBuffer.wrap(buf));
-                    } else {
+                    }
+                    else {
                         break;
                     }
                 }
-            } finally {
+            }
+            finally {
                 this.lock.unlock();
             }
             System.out.println("Node<" + this.address + "> loaded snapshot from " + path);
             return true;
-        } catch (final IOException e) {
-            e.printStackTrace();
+        }
+        catch (final IOException e) {
+            LOG.error("Failed to load the snapshot", e);
             return false;
         }
     }

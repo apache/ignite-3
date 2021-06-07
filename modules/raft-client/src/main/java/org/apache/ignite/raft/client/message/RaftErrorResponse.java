@@ -18,13 +18,13 @@
 package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft error response. Also used as a default response when errorCode == {@link RaftErrorCode#SUCCESS}
+ * Raft error response.
  */
 public interface RaftErrorResponse extends NetworkMessage, Serializable {
     /**

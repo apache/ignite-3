@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -24,13 +27,10 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
-import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.util.Utils;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -42,7 +42,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public abstract class BaseLogStorageTest extends BaseStorageTest {
-    protected LogStorage         logStorage;
+    protected LogStorage logStorage;
     private ConfigurationManager confManager;
     private LogEntryCodecFactory logEntryCodecFactory;
 
@@ -171,7 +171,8 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         for (int i = 0; i < 10; i++) {
             if (i < 5) {
                 assertNull(this.logStorage.getEntry(i));
-            } else {
+            }
+            else {
                 Assert.assertEquals(entries.get(i), this.logStorage.getEntry(i));
             }
         }
@@ -229,7 +230,8 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         for (int i = 0; i < 10; i++) {
             if (i <= 5) {
                 Assert.assertEquals(entries.get(i), this.logStorage.getEntry(i));
-            } else {
+            }
+            else {
                 assertNull(this.logStorage.getEntry(i));
             }
         }

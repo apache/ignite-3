@@ -16,10 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
-import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -29,13 +29,8 @@ import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  * V1 log entry encoder
- * @author boyan(boyan@antfin.com)
- * TODO checksum
- *
  */
-@Deprecated
 public final class V1Encoder implements LogEntryEncoder {
-
     private V1Encoder() {
     }
 

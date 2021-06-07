@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -24,8 +26,6 @@ import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
 import org.junit.After;
 import org.junit.Before;
@@ -34,14 +34,14 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public abstract class AbstractCliRequestProcessorTest<T extends Message> {
     @Mock
-    private Node               node;
-    private final String       groupId   = "test";
-    private final String       peerIdStr = "localhost:8081";
+    private Node node;
+    private final String groupId = "test";
+    private final String peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;
     protected NodeManager nodeManager = new NodeManager();
 

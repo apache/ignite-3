@@ -34,21 +34,34 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
-    /** */
-    protected RaftServer server;
+/**
+ * Single node raft server.
+ */
+class ITSimpleCounterServerTest extends RaftServerAbstractTest {
+    /**
+     * The server implementation.
+     */
+    private RaftServer server;
 
-    /** */
-    protected static final String COUNTER_GROUP_ID_0 = "counter0";
+    /**
+     * Counter raft group 0.
+     */
+    private static final String COUNTER_GROUP_ID_0 = "counter0";
 
-    /** */
-    protected static final String COUNTER_GROUP_ID_1 = "counter1";
+    /**
+     * Counter raft group 1.
+     */
+    private static final String COUNTER_GROUP_ID_1 = "counter1";
 
-    /** */
-    protected RaftGroupService client1;
+    /**
+     * The client 1.
+     */
+    private RaftGroupService client1;
 
-    /** */
-    protected RaftGroupService client2;
+    /**
+     * The client 2.
+     */
+    private RaftGroupService client2;
 
     /**
      * @param testInfo Test info.
@@ -70,11 +83,13 @@ class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
 
         ClusterService clientNode1 = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(id), false);
 
-        client1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000, List.of(new Peer(serverNode.address())), false, 200, false);
+        client1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
+            List.of(new Peer(serverNode.address())), false, 200, false);
 
         ClusterService clientNode2 = clusterService("localhost:" + (PORT + 2), PORT + 2, List.of(id), false);
 
-        client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000, List.of(new Peer(serverNode.address())), false, 200, false);
+        client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
+            List.of(new Peer(serverNode.address())), false, 200, false);
 
         assertTrue(waitForTopology(service, 2, 1000));
         assertTrue(waitForTopology(clientNode1, 2, 1000));
@@ -92,6 +107,7 @@ class ITSimpleCounterServerTest extends RaftCounterServerAbstractTest {
     }
 
     /**
+     *
      */
     @Test
     public void testRefreshLeader() throws Exception {

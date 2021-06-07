@@ -16,14 +16,14 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import java.nio.ByteBuffer;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.raft.jraft.util.AdaptiveBufAllocator;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.RecyclableByteBufferList;
 import org.apache.ignite.raft.jraft.util.RecycleUtil;
-import java.nio.ByteBuffer;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -41,76 +41,61 @@ import static org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 
 /**
  *
- * @author jiachun.fjc
  */
 @State(Scope.Benchmark)
 public class AppendEntriesBenchmark {
 
     /**
-     * entryCount=256, sizeOfEntry=2048
-     * ---------------------------------------------------------------------------
-     * Benchmark                                  Mode  Cnt  Score   Error   Units
-     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  4.139 ± 2.662  ops/ms
-     * AppendEntriesBenchmark.copy               thrpt    3  0.148 ± 0.027  ops/ms
-     * AppendEntriesBenchmark.pooled             thrpt    3  3.730 ± 0.355  ops/ms
-     * AppendEntriesBenchmark.zeroCopy           thrpt    3  3.069 ± 3.563  ops/ms
+     * entryCount=256, sizeOfEntry=2048 ---------------------------------------------------------------------------
+     * Benchmark                                  Mode  Cnt  Score   Error   Units AppendEntriesBenchmark.adaptiveAndPooled
+     *  thrpt    3  4.139 ± 2.662  ops/ms AppendEntriesBenchmark.copy               thrpt    3  0.148 ± 0.027  ops/ms
+     * AppendEntriesBenchmark.pooled             thrpt    3  3.730 ± 0.355  ops/ms AppendEntriesBenchmark.zeroCopy
+     * thrpt    3  3.069 ± 3.563  ops/ms
      *
      *
-     * entryCount=256, sizeOfEntry=1024
-     * ---------------------------------------------------------------------------
-     * Benchmark                                  Mode  Cnt  Score   Error   Units
-     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  8.290 ± 5.438  ops/ms
-     * AppendEntriesBenchmark.copy               thrpt    3  0.326 ± 0.137  ops/ms
-     * AppendEntriesBenchmark.pooled             thrpt    3  7.559 ± 1.245  ops/ms
-     * AppendEntriesBenchmark.zeroCopy           thrpt    3  6.602 ± 0.859  ops/ms
+     * entryCount=256, sizeOfEntry=1024 ---------------------------------------------------------------------------
+     * Benchmark                                  Mode  Cnt  Score   Error   Units AppendEntriesBenchmark.adaptiveAndPooled
+     *  thrpt    3  8.290 ± 5.438  ops/ms AppendEntriesBenchmark.copy               thrpt    3  0.326 ± 0.137  ops/ms
+     * AppendEntriesBenchmark.pooled             thrpt    3  7.559 ± 1.245  ops/ms AppendEntriesBenchmark.zeroCopy
+     * thrpt    3  6.602 ± 0.859  ops/ms
      *
-     * entryCount=256, sizeOfEntry=512
-     * ---------------------------------------------------------------------------
+     * entryCount=256, sizeOfEntry=512 ---------------------------------------------------------------------------
      *
      * Benchmark                                  Mode  Cnt   Score   Error   Units
-     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  14.358 ± 8.622  ops/ms
-     * AppendEntriesBenchmark.copy               thrpt    3   1.625 ± 0.058  ops/ms
-     * AppendEntriesBenchmark.pooled             thrpt    3  15.332 ± 1.531  ops/ms
-     * AppendEntriesBenchmark.zeroCopy           thrpt    3  12.614 ± 5.904  ops/ms
+     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  14.358 ± 8.622  ops/ms AppendEntriesBenchmark.copy
+     *      thrpt    3   1.625 ± 0.058  ops/ms AppendEntriesBenchmark.pooled             thrpt    3  15.332 ± 1.531
+     * ops/ms AppendEntriesBenchmark.zeroCopy           thrpt    3  12.614 ± 5.904  ops/ms
      *
-     * entryCount=256, sizeOfEntry=256
-     * ---------------------------------------------------------------------------
+     * entryCount=256, sizeOfEntry=256 ---------------------------------------------------------------------------
      * Benchmark                                  Mode  Cnt   Score    Error   Units
-     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  32.506 ± 21.961  ops/ms
-     * AppendEntriesBenchmark.copy               thrpt    3   6.595 ±  5.772  ops/ms
-     * AppendEntriesBenchmark.pooled             thrpt    3  27.847 ± 14.010  ops/ms
-     * AppendEntriesBenchmark.zeroCopy           thrpt    3  26.427 ±  5.187  ops/ms
+     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  32.506 ± 21.961  ops/ms AppendEntriesBenchmark.copy
+     *       thrpt    3   6.595 ±  5.772  ops/ms AppendEntriesBenchmark.pooled             thrpt    3  27.847 ± 14.010
+     * ops/ms AppendEntriesBenchmark.zeroCopy           thrpt    3  26.427 ±  5.187  ops/ms
      *
-     * entryCount=256, sizeOfEntry=128
-     * ---------------------------------------------------------------------------
+     * entryCount=256, sizeOfEntry=128 ---------------------------------------------------------------------------
      * Benchmark                                  Mode  Cnt   Score    Error   Units
-     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  60.014 ± 47.206  ops/ms
-     * AppendEntriesBenchmark.copy               thrpt    3  22.884 ±  3.286  ops/ms
-     * AppendEntriesBenchmark.pooled             thrpt    3  57.373 ±  8.201  ops/ms
-     * AppendEntriesBenchmark.zeroCopy           thrpt    3  43.923 ±  7.133  ops/ms
+     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  60.014 ± 47.206  ops/ms AppendEntriesBenchmark.copy
+     *       thrpt    3  22.884 ±  3.286  ops/ms AppendEntriesBenchmark.pooled             thrpt    3  57.373 ±  8.201
+     * ops/ms AppendEntriesBenchmark.zeroCopy           thrpt    3  43.923 ±  7.133  ops/ms
      *
-     * entryCount=256, sizeOfEntry=64
-     * ---------------------------------------------------------------------------
+     * entryCount=256, sizeOfEntry=64 ---------------------------------------------------------------------------
      * Benchmark                                  Mode  Cnt    Score    Error   Units
-     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  114.016 ± 84.874  ops/ms
-     * AppendEntriesBenchmark.copy               thrpt    3   71.699 ± 19.016  ops/ms
-     * AppendEntriesBenchmark.pooled             thrpt    3  107.714 ±  7.944  ops/ms
-     * AppendEntriesBenchmark.zeroCopy           thrpt    3   71.767 ± 14.510  ops/ms
+     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  114.016 ± 84.874  ops/ms AppendEntriesBenchmark.copy
+     *        thrpt    3   71.699 ± 19.016  ops/ms AppendEntriesBenchmark.pooled             thrpt    3  107.714 ±
+     * 7.944  ops/ms AppendEntriesBenchmark.zeroCopy           thrpt    3   71.767 ± 14.510  ops/ms
      *
-     * entryCount=256, sizeOfEntry=16
-     * ---------------------------------------------------------------------------
+     * entryCount=256, sizeOfEntry=16 ---------------------------------------------------------------------------
      * Benchmark                                  Mode  Cnt    Score     Error   Units
-     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  285.386 ± 114.361  ops/ms
-     * AppendEntriesBenchmark.copy               thrpt    3  243.805 ±  31.725  ops/ms
-     * AppendEntriesBenchmark.pooled             thrpt    3  293.779 ±  76.557  ops/ms
-     * AppendEntriesBenchmark.zeroCopy           thrpt    3  124.669 ±  32.460  ops/ms
+     * AppendEntriesBenchmark.adaptiveAndPooled  thrpt    3  285.386 ± 114.361  ops/ms AppendEntriesBenchmark.copy
+     *         thrpt    3  243.805 ±  31.725  ops/ms AppendEntriesBenchmark.pooled             thrpt    3  293.779 ±
+     * 76.557  ops/ms AppendEntriesBenchmark.zeroCopy           thrpt    3  124.669 ±  32.460  ops/ms
      */
 
     private static final ThreadLocal<AdaptiveBufAllocator.Handle> handleThreadLocal = ThreadLocal
-                                                                                        .withInitial(AdaptiveBufAllocator.DEFAULT::newHandle);
+        .withInitial(AdaptiveBufAllocator.DEFAULT::newHandle);
 
-    private int                                                   entryCount;
-    private int                                                   sizeOfEntry;
+    private int entryCount;
+    private int sizeOfEntry;
 
     @Setup
     public void setup() {
@@ -197,13 +182,14 @@ public class AppendEntriesBenchmark {
             buf.flip();
             rb.setData(new ByteString(buf));
             return rb.build().toByteArray();
-        } finally {
+        }
+        finally {
             RecycleUtil.recycle(dataBuffer);
         }
     }
 
     private static byte[] sendEntries3(final int entryCount, final int sizeOfEntry,
-                                       AdaptiveBufAllocator.Handle allocator) {
+        AdaptiveBufAllocator.Handle allocator) {
         final AppendEntriesRequest.Builder rb = AppendEntriesRequest.newBuilder();
         fillCommonFields(rb);
         final ByteBufferCollector dataBuffer = allocator.allocateByRecyclers();
@@ -220,7 +206,8 @@ public class AppendEntriesBenchmark {
             allocator.record(remaining);
             rb.setData(new ByteString(buf));
             return rb.build().toByteArray();
-        } finally {
+        }
+        finally {
             RecycleUtil.recycle(dataBuffer);
         }
     }
@@ -239,7 +226,8 @@ public class AppendEntriesBenchmark {
             }
             rb.setData(RecyclableByteBufferList.concatenate(dataBuffer));
             return rb.build().toByteArray();
-        } finally {
+        }
+        finally {
             RecycleUtil.recycle(dataBuffer);
         }
     }

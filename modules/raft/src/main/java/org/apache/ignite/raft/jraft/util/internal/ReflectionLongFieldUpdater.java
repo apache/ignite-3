@@ -20,7 +20,6 @@ import java.lang.reflect.Field;
 
 /**
  *
- * @author jiachun.fjc
  */
 final class ReflectionLongFieldUpdater<U> implements LongFieldUpdater<U> {
 
@@ -35,7 +34,8 @@ final class ReflectionLongFieldUpdater<U> implements LongFieldUpdater<U> {
     public void set(final U obj, final long newValue) {
         try {
             this.field.set(obj, newValue);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
@@ -44,7 +44,8 @@ final class ReflectionLongFieldUpdater<U> implements LongFieldUpdater<U> {
     public long get(final U obj) {
         try {
             return (Long) this.field.get(obj);
-        } catch (final IllegalAccessException e) {
+        }
+        catch (final IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }

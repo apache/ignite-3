@@ -16,17 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 
 /**
  * TimeoutNow request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public class TimeoutNowRequestProcessor extends NodeRequestProcessor<TimeoutNowRequest> {
@@ -47,7 +46,7 @@ public class TimeoutNowRequestProcessor extends NodeRequestProcessor<TimeoutNowR
 
     @Override
     public Message processRequest0(final RaftServerService service, final TimeoutNowRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         return service.handleTimeoutNowRequest(request, done);
     }
 

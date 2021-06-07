@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server.impl;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -44,37 +45,55 @@ import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A single node server implementation.
+ * A single node service implementation.
  */
 public class RaftServerImpl implements RaftServer {
-    /** */
+    /**
+     *
+     */
     private static final int QUEUE_SIZE = 1000;
 
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
 
-    /** */
+    /**
+     *
+     */
     private final RaftClientMessageFactory clientMsgFactory;
 
-    /** */
+    /**
+     *
+     */
     private final ClusterService service;
 
-    /** */
+    /**
+     *
+     */
     private final ConcurrentMap<String, RaftGroupListener> listeners = new ConcurrentHashMap<>();
 
-    /** */
+    /**
+     *
+     */
     private final BlockingQueue<CommandClosureEx<ReadCommand>> readQueue;
 
-    /** */
+    /**
+     *
+     */
     private final BlockingQueue<CommandClosureEx<WriteCommand>> writeQueue;
 
-    /** */
+    /**
+     *
+     */
     private final Thread readWorker;
 
-    /** */
+    /**
+     *
+     */
     private final Thread writeWorker;
 
-    /** */
+    /**
+     *
+     */
     private final boolean reuse;
 
     /**
@@ -104,7 +123,7 @@ public class RaftServerImpl implements RaftServer {
                 service.messagingService().send(sender, resp, correlationId);
             }
             else if (message instanceof ActionRequest) {
-                ActionRequest<?> req0 = (ActionRequest<?>)message;
+                ActionRequest<?> req0 = (ActionRequest<?>) message;
 
                 RaftGroupListener lsnr = RaftServerImpl.this.listeners.get(req0.groupId());
 
@@ -119,6 +138,7 @@ public class RaftServerImpl implements RaftServer {
                 else
                     handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
             }
+            // TODO https://issues.apache.org/jira/browse/IGNITE-14775
         });
 
         if (!reuse)
@@ -141,7 +161,8 @@ public class RaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
+        List<Peer> initialConf) {
         if (listeners.containsKey(groupId))
             return false;
 
@@ -195,10 +216,10 @@ public class RaftServerImpl implements RaftServer {
             }
 
             @Override public T command() {
-                return (T)req.command();
+                return (T) req.command();
             }
 
-            @Override public void result(Object res) {
+            @Override public void result(Serializable res) {
                 var msg = clientMsgFactory.actionResponse().result(res).build();
                 service.messagingService().send(sender, msg, corellationId);
             }
@@ -225,8 +246,11 @@ public class RaftServerImpl implements RaftServer {
 
                 clo.accept(lsnr, List.<CommandClosure<T>>of(cmdClo).iterator());
             }
-            catch (InterruptedException e) {
+            catch (InterruptedException e0) {
                 return;
+            }
+            catch (Exception e) {
+                LOG.error("Failed to process the command", e);
             }
         }
     }
@@ -237,7 +261,9 @@ public class RaftServerImpl implements RaftServer {
         service.messagingService().send(sender, resp, corellationId);
     }
 
-    /** */
+    /**
+     *
+     */
     private interface CommandClosureEx<T extends Command> extends CommandClosure<T> {
         /**
          * @return The listener.

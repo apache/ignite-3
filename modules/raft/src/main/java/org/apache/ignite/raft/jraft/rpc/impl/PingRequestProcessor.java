@@ -18,15 +18,14 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 
 /**
  * Ping request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public class PingRequestProcessor implements RpcProcessor<PingRequest> {

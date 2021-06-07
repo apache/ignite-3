@@ -16,12 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetPeerRequest;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetPeerRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
@@ -30,7 +30,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 /**
  * Reset peer request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeerRequest> {
@@ -51,13 +50,14 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ResetPeerRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final Configuration newConf = new Configuration();
         for (final String peerIdStr : request.getNewPeersList()) {
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {
                 newConf.addPeer(peer);
-            } else {
+            }
+            else {
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }

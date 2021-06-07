@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
@@ -33,13 +34,12 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.impl.FutureImpl;
+import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
-import java.nio.ByteBuffer;
-import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -48,7 +48,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -58,20 +58,20 @@ import static org.mockito.Matchers.eq;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class LocalSnapshotCopierTest extends BaseStorageTest {
-    private LocalSnapshotCopier    copier;
+    private LocalSnapshotCopier copier;
     @Mock
-    private RaftClientService      raftClientService;
-    private String                 uri;
-    private final String           hostPort = "localhost:8081";
-    private final int              readerId = 99;
-    private CopyOptions            copyOpts;
+    private RaftClientService raftClientService;
+    private String uri;
+    private final String hostPort = "localhost:8081";
+    private final int readerId = 99;
+    private CopyOptions copyOpts;
     private LocalSnapshotMetaTable table;
-    private LocalSnapshotWriter    writer;
-    private LocalSnapshotReader    reader;
-    private RaftOptions            raftOptions;
+    private LocalSnapshotWriter writer;
+    private LocalSnapshotReader reader;
+    private RaftOptions raftOptions;
     @Mock
-    private LocalSnapshotStorage   snapshotStorage;
-    private Scheduler              timerManager;
+    private LocalSnapshotStorage snapshotStorage;
+    private Scheduler timerManager;
 
     @Override
     @Before
@@ -109,7 +109,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
     }
 
     @Test
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public void testCancelByRemote() throws Exception {
         final FutureImpl<Message> future = new FutureImpl<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
@@ -166,7 +166,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
     }
 
     @Test
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public void testStartJoinFinishOK() throws Exception {
         final FutureImpl<Message> future = new FutureImpl<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)

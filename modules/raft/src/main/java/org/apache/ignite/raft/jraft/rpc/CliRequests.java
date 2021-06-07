@@ -42,7 +42,7 @@ public final class CliRequests {
         }
     }
 
-    public interface AddPeerResponse extends HasErrorResponse {
+    public interface AddPeerResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -94,7 +94,7 @@ public final class CliRequests {
         }
     }
 
-    public interface RemovePeerResponse extends HasErrorResponse {
+    public interface RemovePeerResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -114,8 +114,6 @@ public final class CliRequests {
         int getNewPeersCount();
 
         String getNewPeers(int index);
-
-        RpcRequests.ErrorResponse getErrorResponse();
 
         public interface Builder {
             Builder addOldPeers(String oldPeerId);
@@ -152,7 +150,7 @@ public final class CliRequests {
         }
     }
 
-    public interface ChangePeersResponse extends HasErrorResponse {
+    public interface ChangePeersResponse extends Message {
 
         static Message getDefaultInstance() {
             return null;
@@ -173,8 +171,6 @@ public final class CliRequests {
         int getNewPeersCount();
 
         String getNewPeers(int index);
-
-        RpcRequests.ErrorResponse getErrorResponse();
 
         public interface Builder {
             Builder addOldPeers(String oldPeerId);
@@ -279,7 +275,7 @@ public final class CliRequests {
         }
     }
 
-    public interface GetLeaderResponse extends HasErrorResponse {
+    public interface GetLeaderResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -289,8 +285,6 @@ public final class CliRequests {
         }
 
         String getLeaderId();
-
-        RpcRequests.ErrorResponse getErrorResponse();
 
         public interface Builder {
             GetLeaderResponse build();
@@ -321,7 +315,7 @@ public final class CliRequests {
         }
     }
 
-    public interface GetPeersResponse extends HasErrorResponse {
+    public interface GetPeersResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -341,8 +335,6 @@ public final class CliRequests {
         int getLearnersCount();
 
         String getLearners(int index);
-
-        RpcRequests.ErrorResponse getErrorResponse();
 
         public interface Builder {
             Builder addPeers(String peerId);
@@ -437,7 +429,7 @@ public final class CliRequests {
         }
     }
 
-    public interface LearnersOpResponse extends HasErrorResponse {
+    public interface LearnersOpResponse extends Message {
         static Message getDefaultInstance() {
             return null;
         }
@@ -453,8 +445,6 @@ public final class CliRequests {
         int getNewLearnersCount();
 
         String getNewLearners(int index);
-
-        RpcRequests.ErrorResponse getErrorResponse();
 
         static Builder newBuilder() {
             return MessageBuilderFactory.DEFAULT.createLearnersOpResponse();

@@ -77,8 +77,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     /**
      * RpcRequestClosure that will send responses in pipeline mode.
-     *
-     * @author dennis
      */
     class SequenceRpcRequestClosure extends RpcRequestClosure {
 
@@ -88,8 +86,8 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         private final boolean isHeartbeat;
 
         SequenceRpcRequestClosure(final RpcRequestClosure parent, final Message defaultResp,
-                                         final String groupId, final PeerPair pair, final int sequence,
-                                         final boolean isHeartbeat) {
+            final String groupId, final PeerPair pair, final int sequence,
+            final boolean isHeartbeat) {
             super(parent.getRpcCtx(), defaultResp);
             this.reqSequence = sequence;
             this.groupId = groupId;
@@ -101,7 +99,8 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         public void sendResponse(final Message msg) {
             if (this.isHeartbeat) {
                 super.sendResponse(msg);
-            } else {
+            }
+            else {
                 sendSequenceResponse(this.groupId, this.pair, this.reqSequence, getRpcCtx(), msg);
             }
         }
@@ -109,8 +108,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     /**
      * Response message wrapper with a request sequence number and asyncContext.done
-     *
-     * @author dennis
      */
     static class SequenceMessage implements Comparable<SequenceMessage> {
         public final Message msg;
@@ -197,14 +194,16 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                 if (other.local != null) {
                     return false;
                 }
-            } else if (!this.local.equals(other.local)) {
+            }
+            else if (!this.local.equals(other.local)) {
                 return false;
             }
             if (this.remote == null) {
                 if (other.remote != null) {
                     return false;
                 }
-            } else if (!this.remote.equals(other.remote)) {
+            }
+            else if (!this.remote.equals(other.remote)) {
                 return false;
             }
             return true;
@@ -279,14 +278,17 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
      * Send response in pipeline mode.
      */
     void sendSequenceResponse(final String groupId, final PeerPair pair, final int seq, final RpcContext rpcCtx,
-                              final Message msg) {
+        final Message msg) {
         final PeerRequestContext ctx = getPeerRequestContext(groupId, pair);
 
         if (ctx == null) {
             // the context was destroyed, so the response can be ignored.
             return;
         }
-        final PriorityQueue<SequenceMessage> respQueue = ctx.responseQueue; // TODO asch queue not needed if handled by single thread. Replicator should send message from the same thread per pair.
+
+        // TODO asch queue is not needed if handled by single thread. Replicator should send message from the same
+        //  thread per pair.
+        final PriorityQueue<SequenceMessage> respQueue = ctx.responseQueue;
         assert (respQueue != null);
 
         synchronized (Utils.withLockObject(respQueue)) {
@@ -313,7 +315,8 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                         ctx.getAndIncrementNextRequiredSequence();
                     }
                 }
-            } else {
+            }
+            else {
                 LOG.warn("Dropping pipelined responses to peer {}/{}, because of too many pending responses, queued={}, max={}",
                     ctx.groupId, pair, respQueue.size(), ctx.maxPendingResponses);
 
@@ -322,8 +325,8 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         }
     }
 
-    @SuppressWarnings("unchecked")
-    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair, NodeManager nodeManager) {
+    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair,
+        NodeManager nodeManager) {
         ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);
         if (groupContexts == null) {
             groupContexts = new ConcurrentHashMap<>();
@@ -406,7 +409,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
     @Override
     public Message processRequest0(final RaftServerService service, final AppendEntriesRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
 
         final Node node = (Node) service;
 
@@ -429,12 +432,14 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                 // heartbeat or probe request
                 if (isHeartbeat) {
                     done.getRpcCtx().sendResponse(response);
-                } else {
+                }
+                else {
                     sendSequenceResponse(groupId, pair, reqSequence, done.getRpcCtx(), response);
                 }
             }
             return null;
-        } else {
+        }
+        else {
             return service.handleAppendEntriesRequest(request, done);
         }
     }

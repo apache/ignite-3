@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -35,7 +36,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -48,18 +49,17 @@ import static org.mockito.Matchers.eq;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class AbstractClientServiceTest {
-    static class MockClientService extends AbstractClientService {}
-
-    private RpcOptions         rpcOptions;
-    private MockClientService  clientService;
+    private RpcOptions rpcOptions;
+    private MockClientService clientService;
     @Mock
-    private RpcClient          rpcClient;
+    private RpcClient rpcClient;
     private RpcResponseFactory rpcResponseFactory = RaftRpcFactory.DEFAULT;
-    private final Endpoint     endpoint           = new Endpoint("localhost", 8081);
+    private final Endpoint endpoint = new Endpoint("localhost", 8081);
 
     @Before
     public void setup() {
         this.rpcOptions = new RpcOptions();
+        this.rpcOptions.setClientExecutor(JRaftUtils.createClientExecutor(this.rpcOptions, "unittest"));
         this.clientService = new MockClientService();
         this.rpcOptions.setRpcClient(this.rpcClient);
         assertTrue(this.clientService.init(this.rpcOptions));
@@ -69,14 +69,13 @@ public class AbstractClientServiceTest {
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        Status         status;
+        Status status;
 
         @Override
         public void run(final Status status) {
             this.status = status;
             this.latch.countDown();
         }
-
     }
 
     @Test
@@ -139,7 +138,6 @@ public class AbstractClientServiceTest {
     @Test
     public void testInvokeWithDoneException() throws Exception {
         InvokeContext invokeCtx = new InvokeContext();
-        invokeCtx.put(InvokeContext.CRC_SWITCH, false);
         ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         PingRequest request = TestUtils.createPingRequest();
 
@@ -160,7 +158,8 @@ public class AbstractClientServiceTest {
         try {
             future.get();
             fail();
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             assertTrue(e.getCause() instanceof RemotingException);
         }
 
@@ -172,7 +171,6 @@ public class AbstractClientServiceTest {
     @Test
     public void testInvokeWithDoneOnException() throws Exception {
         InvokeContext invokeCtx = new InvokeContext();
-        invokeCtx.put(InvokeContext.CRC_SWITCH, false);
         ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         PingRequest request = TestUtils.createPingRequest();
 
@@ -193,7 +191,8 @@ public class AbstractClientServiceTest {
         try {
             future.get();
             fail();
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             assertTrue(e.getCause() instanceof InvokeTimeoutException);
         }
 
@@ -205,7 +204,6 @@ public class AbstractClientServiceTest {
     @Test
     public void testInvokeWithDOneOnErrorResponse() throws Exception {
         final InvokeContext invokeCtx = new InvokeContext();
-        invokeCtx.put(InvokeContext.CRC_SWITCH, false);
         final ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         final CliRequests.GetPeersRequest request = CliRequests.GetPeersRequest.newBuilder() //
             .setGroupId("id") //
@@ -237,5 +235,8 @@ public class AbstractClientServiceTest {
         assertNotNull(done.status);
         assertTrue(!done.status.isOk());
         assertEquals(done.status.getErrorMsg(), "failed");
+    }
+
+    static class MockClientService extends AbstractClientService {
     }
 }

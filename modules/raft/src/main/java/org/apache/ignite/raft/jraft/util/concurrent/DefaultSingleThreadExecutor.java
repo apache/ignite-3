@@ -31,8 +31,7 @@ public final class DefaultSingleThreadExecutor implements SingleThreadExecutor {
     private final SingleThreadExecutor singleThreadExecutor;
 
     /**
-     * Anti-gentleman is not against villains, we believe that you are
-     * providing a single-thread executor.
+     * Anti-gentleman is not against villains, we believe that you are providing a single-thread executor.
      *
      * @param singleThreadExecutorService a {@link ExecutorService} instance
      */
@@ -62,7 +61,8 @@ public final class DefaultSingleThreadExecutor implements SingleThreadExecutor {
     private static SingleThreadExecutor wrapSingleThreadExecutor(final ExecutorService executor) {
         if (executor instanceof SingleThreadExecutor) {
             return (SingleThreadExecutor) executor;
-        } else {
+        }
+        else {
             return new SingleThreadExecutor() {
 
                 @Override

@@ -24,7 +24,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertTrue;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public class FileOutputSignalHandlerTest {
 

@@ -21,8 +21,6 @@ import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 
 /**
  * Log storage initialize options
- * @author boyan(boyan@antfin.com)
- *
  */
 public class LogStorageOptions {
 

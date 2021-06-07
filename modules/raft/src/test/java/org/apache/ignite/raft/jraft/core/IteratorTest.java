@@ -16,6 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -25,17 +29,13 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -45,15 +45,15 @@ import static org.junit.Assert.assertTrue;
 @RunWith(value = MockitoJUnitRunner.class)
 public class IteratorTest {
 
-    private IteratorImpl  iterImpl;
-    private Iterator      iter;
+    private IteratorImpl iterImpl;
+    private Iterator iter;
 
     @Mock
-    private StateMachine  fsm;
+    private StateMachine fsm;
     @Mock
-    private LogManager    logManager;
+    private LogManager logManager;
     private List<Closure> closures;
-    private AtomicLong    applyingIndex;
+    private AtomicLong applyingIndex;
 
     @Before
     public void setup() {

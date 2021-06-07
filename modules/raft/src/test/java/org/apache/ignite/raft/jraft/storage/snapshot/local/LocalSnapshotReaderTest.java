@@ -16,20 +16,20 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
+import java.io.File;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.FileService;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import java.io.File;
-import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -38,11 +38,11 @@ import static org.junit.Assert.assertTrue;
 @RunWith(value = MockitoJUnitRunner.class)
 public class LocalSnapshotReaderTest extends BaseStorageTest {
 
-    private LocalSnapshotReader    reader;
+    private LocalSnapshotReader reader;
     @Mock
-    private LocalSnapshotStorage   snapshotStorage;
+    private LocalSnapshotStorage snapshotStorage;
     private LocalSnapshotMetaTable table;
-    private final int              snapshotIndex = 99;
+    private final int snapshotIndex = 99;
 
     @Override
     @Before

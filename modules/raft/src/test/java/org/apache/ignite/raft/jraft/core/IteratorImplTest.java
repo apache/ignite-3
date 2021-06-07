@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -25,9 +28,6 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.Assert;
 import org.junit.Before;
@@ -35,7 +35,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -115,7 +115,8 @@ public class IteratorImplTest {
             final MockClosure mc = (MockClosure) closure;
             if (i < 7) {
                 assertNull(mc.s);
-            } else {
+            }
+            else {
                 final Status s = mc.s;
                 Assert.assertEquals(RaftError.ESTATEMACHINE.getNumber(), s.getCode());
                 assertEquals(

@@ -29,19 +29,25 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.jraft.counter.snapshot.CounterSnapshotFile;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * TODO asch support for batch updates.
  */
 public class CounterListener implements RaftGroupListener {
-    /** */
+    /**
+     * The logger.
+     */
     private static final IgniteLogger LOG = IgniteLogger.forClass(CounterListener.class);
 
-    /** */
+    /**
+     * The counter.
+     */
     private AtomicLong counter = new AtomicLong();
 
+    /**
+     * Snapshot executor.
+     */
     private Executor executor = Executors.newSingleThreadExecutor();
 
     /** {@inheritDoc} */

@@ -16,22 +16,19 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * ResetLearners request processor.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
  */
 public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<ResetLearnersRequest> {
 
@@ -51,7 +48,7 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ResetLearnersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> newLearners = new ArrayList<>(request.getLearnersCount());
 
@@ -69,7 +66,8 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
         ctx.node.resetLearners(newLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            } else {
+            }
+            else {
                 final LearnersOpResponse.Builder rb = LearnersOpResponse.newBuilder();
 
                 for (final PeerId peer : oldLearners) {

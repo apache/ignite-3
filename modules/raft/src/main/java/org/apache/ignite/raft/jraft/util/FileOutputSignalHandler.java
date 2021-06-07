@@ -24,7 +24,6 @@ import java.util.Date;
 
 /**
  *
- * @author jiachun.fjc
  */
 public abstract class FileOutputSignalHandler implements JRaftSignalHandler {
 
@@ -43,7 +42,8 @@ public abstract class FileOutputSignalHandler implements JRaftSignalHandler {
         final File dir = Paths.get(path).toFile().getAbsoluteFile();
         if (dir.exists()) {
             Requires.requireTrue(dir.isDirectory(), String.format("[%s] is not directory.", path));
-        } else {
+        }
+        else {
             dir.mkdirs();
         }
     }

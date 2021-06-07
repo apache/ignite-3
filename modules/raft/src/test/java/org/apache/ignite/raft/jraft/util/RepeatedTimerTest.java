@@ -25,11 +25,11 @@ import static org.junit.Assert.assertEquals;
 
 public class RepeatedTimerTest {
     private static class TestTimer extends RepeatedTimer {
-        final AtomicInteger counter     = new AtomicInteger(0);
-        final AtomicInteger destroyed   = new AtomicInteger(0);
-        volatile int        nextTimeout = -1;
+        final AtomicInteger counter = new AtomicInteger(0);
+        final AtomicInteger destroyed = new AtomicInteger(0);
+        volatile int nextTimeout = -1;
 
-        public TestTimer(String name, int timeoutMs) {
+        TestTimer(String name, int timeoutMs) {
             super(name, timeoutMs);
         }
 
@@ -37,7 +37,8 @@ public class RepeatedTimerTest {
         protected int adjustTimeout(final int timeoutMs) {
             if (nextTimeout > 0) {
                 return nextTimeout;
-            } else {
+            }
+            else {
                 return timeoutMs;
             }
         }

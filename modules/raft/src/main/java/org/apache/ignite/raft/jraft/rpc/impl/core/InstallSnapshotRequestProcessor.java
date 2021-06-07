@@ -16,19 +16,17 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 
 /**
  * Handle install snapshot request.
  *
- * @author boyan (boyan@alibaba-inc.com)
  *
- * 2018-Apr-08 6:09:34 PM
  * TODO asch use dedicated executor for potentially long jobs ?
  */
 public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<InstallSnapshotRequest> {
@@ -49,7 +47,7 @@ public class InstallSnapshotRequestProcessor extends NodeRequestProcessor<Instal
 
     @Override
     public Message processRequest0(final RaftServerService service, final InstallSnapshotRequest request,
-                                   final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         return service.handleInstallSnapshot(request, done);
     }
 

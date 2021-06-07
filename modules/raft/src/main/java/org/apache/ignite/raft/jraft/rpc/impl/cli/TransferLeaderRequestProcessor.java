@@ -16,11 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
@@ -29,7 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 /**
  * Snapshot request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public class TransferLeaderRequestProcessor extends BaseCliRequestProcessor<TransferLeaderRequest> {
@@ -50,7 +49,7 @@ public class TransferLeaderRequestProcessor extends BaseCliRequestProcessor<Tran
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final TransferLeaderRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final PeerId peer = new PeerId();
         if (request.hasPeerId() && !peer.parse(request.getPeerId())) {
             return RaftRpcFactory.DEFAULT //

@@ -31,15 +31,14 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class FutureTest {
-
     private static final Logger log = LoggerFactory.getLogger(FutureImpl.class);
 
     private static final class NotifyFutureRunner implements Runnable {
         FutureImpl<Boolean> future;
-        long                sleepTime;
-        Throwable           throwable;
+        long sleepTime;
+        Throwable throwable;
 
-        public NotifyFutureRunner(FutureImpl<Boolean> future, long sleepTime, Throwable throwable) {
+        NotifyFutureRunner(FutureImpl<Boolean> future, long sleepTime, Throwable throwable) {
             super();
             this.future = future;
             this.sleepTime = sleepTime;
@@ -52,10 +51,12 @@ public class FutureTest {
                 Thread.sleep(this.sleepTime);
                 if (this.throwable != null) {
                     this.future.failure(this.throwable);
-                } else {
+                }
+                else {
                     this.future.setResult(true);
                 }
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
@@ -88,7 +89,8 @@ public class FutureTest {
         try {
             future.get();
             fail();
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             assertEquals("hello", e.getCause().getMessage());
 
         }
@@ -106,7 +108,8 @@ public class FutureTest {
                 try {
                     Thread.sleep(3000);
                     future.cancel(true);
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     log.error(e.getMessage(), e);
                 }
             }
@@ -114,7 +117,8 @@ public class FutureTest {
         try {
             future.get();
             fail();
-        } catch (CancellationException e) {
+        }
+        catch (CancellationException e) {
             assertTrue(true);
 
         }
@@ -128,7 +132,8 @@ public class FutureTest {
         try {
             future.get(1000, TimeUnit.MILLISECONDS);
             fail();
-        } catch (TimeoutException e) {
+        }
+        catch (TimeoutException e) {
             assertTrue(true);
         }
     }

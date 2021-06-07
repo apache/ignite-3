@@ -48,13 +48,13 @@ public class TimerManager implements Scheduler {
 
     @Override
     public ScheduledFuture<?> scheduleAtFixedRate(final Runnable command, final long initialDelay, final long period,
-                                                  final TimeUnit unit) {
+        final TimeUnit unit) {
         return this.executor.scheduleAtFixedRate(command, initialDelay, period, unit);
     }
 
     @Override
     public ScheduledFuture<?> scheduleWithFixedDelay(final Runnable command, final long initialDelay, final long delay,
-                                                     final TimeUnit unit) {
+        final TimeUnit unit) {
         return this.executor.scheduleWithFixedDelay(command, initialDelay, delay, unit);
     }
 

@@ -68,22 +68,22 @@ public class MetricReporter {
     }
 
     /**
-     * A builder for {@link MetricReporter} instances. Defaults to using the default locale and
-     * time zone, writing to {@code System.out}, converting rates to events/second, converting
-     * durations to milliseconds, and not filtering metrics.
+     * A builder for {@link MetricReporter} instances. Defaults to using the default locale and time zone, writing to
+     * {@code System.out}, converting rates to events/second, converting durations to milliseconds, and not filtering
+     * metrics.
      */
     public static class Builder {
 
         private final MetricRegistry registry;
 
-        private String               prefix;
-        private PrintStream          output;
-        private Locale               locale;
-        private Clock                clock;
-        private TimeZone             timeZone;
-        private TimeUnit             rateUnit;
-        private TimeUnit             durationUnit;
-        private MetricFilter         filter;
+        private String prefix;
+        private PrintStream output;
+        private Locale locale;
+        private Clock clock;
+        private TimeZone timeZone;
+        private TimeUnit rateUnit;
+        private TimeUnit durationUnit;
+        private MetricFilter filter;
         private Set<MetricAttribute> disabledMetricAttributes;
 
         private Builder(MetricRegistry registry) {
@@ -188,8 +188,8 @@ public class MetricReporter {
         }
 
         /**
-         * Don't report the passed metric attributes for all metrics (e.g. "p999", "stddev" or "m15").
-         * See {@link MetricAttribute}.
+         * Don't report the passed metric attributes for all metrics (e.g. "p999", "stddev" or "m15"). See {@link
+         * MetricAttribute}.
          *
          * @param disabledMetricAttributes a {@link MetricFilter}
          * @return {@code this}
@@ -218,31 +218,31 @@ public class MetricReporter {
         }
     }
 
-    private static final int           CONSOLE_WIDTH = 80;
+    private static final int CONSOLE_WIDTH = 80;
 
-    private final MetricRegistry       registry;
+    private final MetricRegistry registry;
     private final Set<MetricAttribute> disabledMetricAttributes;
-    private final MetricFilter         filter;
-    private final long                 durationFactor;
-    private final String               durationUnit;
-    private final long                 rateFactor;
-    private final String               rateUnit;
-    private final String               prefix;
-    private final PrintStream          output;
-    private final Locale               locale;
-    private final Clock                clock;
-    private final DateFormat           dateFormat;
+    private final MetricFilter filter;
+    private final long durationFactor;
+    private final String durationUnit;
+    private final long rateFactor;
+    private final String rateUnit;
+    private final String prefix;
+    private final PrintStream output;
+    private final Locale locale;
+    private final Clock clock;
+    private final DateFormat dateFormat;
 
     private MetricReporter(MetricRegistry registry, //
-                           PrintStream output, //
-                           String prefix, //
-                           Locale locale, //
-                           Clock clock, //
-                           TimeZone timeZone, //
-                           TimeUnit rateUnit, //
-                           TimeUnit durationUnit, //
-                           MetricFilter filter, //
-                           Set<MetricAttribute> disabledMetricAttributes) {
+        PrintStream output, //
+        String prefix, //
+        Locale locale, //
+        Clock clock, //
+        TimeZone timeZone, //
+        TimeUnit rateUnit, //
+        TimeUnit durationUnit, //
+        MetricFilter filter, //
+        Set<MetricAttribute> disabledMetricAttributes) {
         this.registry = registry;
         this.output = output;
         this.prefix = prefix;
@@ -260,8 +260,8 @@ public class MetricReporter {
     }
 
     public void report(final SortedMap<String, Gauge> gauges, final SortedMap<String, Counter> counters,
-                       final SortedMap<String, Histogram> histograms, final SortedMap<String, Meter> meters,
-                       final SortedMap<String, Timer> timers) {
+        final SortedMap<String, Histogram> histograms, final SortedMap<String, Meter> meters,
+        final SortedMap<String, Timer> timers) {
         final String dateTime = this.dateFormat.format(new Date(this.clock.getTime()));
         printWithBanner(dateTime, '=');
         this.output.println();
@@ -409,7 +409,7 @@ public class MetricReporter {
     /**
      * Print only if the attribute is enabled
      *
-     * @param type   Metric attribute
+     * @param type Metric attribute
      * @param status Status to be logged
      */
     private void printIfEnabled(final MetricAttribute type, final String status) {

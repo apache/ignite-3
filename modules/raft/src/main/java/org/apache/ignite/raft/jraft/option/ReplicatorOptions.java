@@ -52,10 +52,10 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     }
 
     public ReplicatorOptions(final ReplicatorType replicatorType, final int dynamicHeartBeatTimeoutMs,
-                             final int electionTimeoutMs, final String groupId, final PeerId serverId,
-                             final PeerId peerId, final LogManager logManager, final BallotBox ballotBox,
-                             final NodeImpl node, final long term, final SnapshotStorage snapshotStorage,
-                             final RaftClientService raftRpcService, final TimerManager timerManager) {
+        final int electionTimeoutMs, final String groupId, final PeerId serverId,
+        final PeerId peerId, final LogManager logManager, final BallotBox ballotBox,
+        final NodeImpl node, final long term, final SnapshotStorage snapshotStorage,
+        final RaftClientService raftRpcService, final TimerManager timerManager) {
         super();
         this.replicatorType = replicatorType;
         this.dynamicHeartBeatTimeoutMs = dynamicHeartBeatTimeoutMs;
@@ -64,7 +64,8 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
         this.serverId = serverId;
         if (peerId != null) {
             this.peerId = peerId.copy();
-        } else {
+        }
+        else {
             this.peerId = null;
         }
         this.logManager = logManager;
@@ -126,7 +127,8 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     public void setPeerId(final PeerId peerId) {
         if (peerId != null) {
             this.peerId = peerId.copy();
-        } else {
+        }
+        else {
             this.peerId = null;
         }
     }

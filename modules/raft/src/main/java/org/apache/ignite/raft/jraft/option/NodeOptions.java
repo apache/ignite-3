@@ -24,6 +24,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.core.Replicator;
+import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -145,8 +146,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private boolean enableMetrics = false;
 
     /**
-     * If non-null, we will pass this SnapshotThrottle to SnapshotExecutor
-     * Default: NULL
+     * If non-null, we will pass this SnapshotThrottle to SnapshotExecutor Default: NULL
      */
     private SnapshotThrottle snapshotThrottle;
 
@@ -175,14 +175,25 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private JRaftServiceFactory serviceFactory = new DefaultJRaftServiceFactory();
 
-    /** */
+    /**
+     *
+     */
     private List<Replicator.ReplicatorStateListener> replicationStateListeners;
 
-    /** The common executor for short running tasks. */
+    /**
+     * The common executor for short running tasks.
+     */
     private ExecutorService commonExecutor;
 
-    /** Striped executor. Used for processing AppendEntries request/reponse */
+    /**
+     * Striped executor for processing AppendEntries request/reponse.
+     */
     private FixedThreadsExecutorGroup stripedExecutor;
+
+    /**
+     * The scheduler to execute delayed jobs.
+     */
+    private Scheduler scheduler;
 
     /** Server name. */
     private String serverName;
@@ -447,6 +458,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.stripedExecutor = stripedExecutor;
     }
 
+    public Scheduler getScheduler() {
+        return scheduler;
+    }
+
+    public void setScheduler(Scheduler scheduler) {
+        this.scheduler = scheduler;
+    }
+
     public String getServerName() {
         return serverName;
     }
@@ -481,6 +500,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setCommonExecutor(this.getCommonExecutor());
         nodeOptions.setStripedExecutor(this.getStripedExecutor());
         nodeOptions.setServerName(this.getServerName());
+        nodeOptions.setScheduler(this.getScheduler());
+        nodeOptions.setClientExecutor(this.getClientExecutor());
 
         return nodeOptions;
     }

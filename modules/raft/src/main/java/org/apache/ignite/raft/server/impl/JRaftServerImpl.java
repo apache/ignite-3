@@ -1,11 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.ignite.raft.server.impl;
 
 import java.io.File;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteLogger;
@@ -34,16 +50,12 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
-import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.createExecutor;
-import static org.apache.ignite.raft.jraft.JRaftUtils.createStripedExecutor;
-
-/** */
+/**
+ *
+ */
 public class JRaftServerImpl implements RaftServer {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftServerImpl.class);
@@ -94,17 +106,23 @@ public class JRaftServerImpl implements RaftServer {
 
         assert !reuse || service.topologyService().localMember() != null;
 
+        // Use consistent id as server name.
         if (opts.getServerName() == null)
             opts.setServerName(service.localConfiguration().getName());
 
-        String suffix = opts.getServerName() + "-";
+        if (opts.getCommonExecutor() == null)
+            opts.setCommonExecutor(JRaftUtils.createCommonExecutor(opts));
 
-        opts.setCommonExecutor(createExecutor("JRaft-Common-Executor-" + suffix, opts.getCommonThreadPollSize()));
-        opts.setStripedExecutor(createStripedExecutor("JRaft-AppendEntries-Processor-" + suffix,
-            Utils.APPEND_ENTRIES_THREADS_SEND, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD));
+        if (opts.getStripedExecutor() == null)
+            opts.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(opts));
 
-        rpcServer = new IgniteRpcServer(service, reuse, nodeManager,
-            createExecutor("JRaft-Request-Processor-" + suffix, opts.getRaftRpcThreadPoolSize()));
+        if (opts.getScheduler() == null)
+            opts.setScheduler(JRaftUtils.createScheduler(opts));
+
+        if (opts.getClientExecutor() == null)
+            opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
+
+        rpcServer = new IgniteRpcServer(service, reuse, nodeManager, JRaftUtils.createRequestExecutor(opts));
 
         rpcServer.init(null);
     }
@@ -127,10 +145,12 @@ public class JRaftServerImpl implements RaftServer {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
+    @Override public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
+        @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId))
             return false;
 
+        // Thread pools are shared by all raft groups.
         final NodeOptions nodeOptions = opts.copy();
 
         ClusterNode clusterNode = service.topologyService().localMember();
@@ -157,8 +177,8 @@ public class JRaftServerImpl implements RaftServer {
 
         nodeOptions.setRpcClient(client);
 
-        final RaftGroupService server = new RaftGroupService(groupId, new PeerId(endpoint, 0, ElectionPriority.DISABLED),
-            nodeOptions, rpcServer, nodeManager, true);
+        final RaftGroupService server = new RaftGroupService(groupId, new PeerId(endpoint, 0,
+            ElectionPriority.DISABLED), nodeOptions, rpcServer, nodeManager, true);
 
         server.start(false);
 
@@ -207,7 +227,9 @@ public class JRaftServerImpl implements RaftServer {
         rpcServer.shutdown();
     }
 
-    /** */
+    /**
+     *
+     */
     public static class DelegatingStateMachine extends StateMachineAdapter {
         private final RaftGroupListener listener;
 
@@ -239,7 +261,7 @@ public class JRaftServerImpl implements RaftServer {
                                 return JDKMarshaller.DEFAULT.unmarshall(data.array());
                             }
 
-                            @Override public void result(Object res) {
+                            @Override public void result(Serializable res) {
                                 if (done != null)
                                     done.result(res);
 

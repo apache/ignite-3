@@ -25,14 +25,11 @@ import org.apache.ignite.raft.jraft.Status;
  * <li>term: the leader term.</li>
  * <li>Status: context status.</li>
  * </ul>
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-13 3:23:48 PM
  */
 public class LeaderChangeContext {
 
     private PeerId leaderId;
-    private long   term;
+    private long term;
     private Status status;
 
     public LeaderChangeContext(PeerId leaderId, long term, Status status) {
@@ -92,14 +89,16 @@ public class LeaderChangeContext {
             if (other.leaderId != null) {
                 return false;
             }
-        } else if (!this.leaderId.equals(other.leaderId)) {
+        }
+        else if (!this.leaderId.equals(other.leaderId)) {
             return false;
         }
         if (this.status == null) {
             if (other.status != null) {
                 return false;
             }
-        } else if (!this.status.equals(other.status)) {
+        }
+        else if (!this.status.equals(other.status)) {
             return false;
         }
         return this.term == other.term;
@@ -108,7 +107,7 @@ public class LeaderChangeContext {
     @Override
     public String toString() {
         return "LeaderChangeContext [leaderId=" + this.leaderId + ", term=" + this.term + ", status=" + this.status
-               + "]";
+            + "]";
     }
 
 }

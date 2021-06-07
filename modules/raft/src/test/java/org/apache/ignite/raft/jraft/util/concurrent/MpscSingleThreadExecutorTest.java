@@ -16,20 +16,23 @@
  */
 package org.apache.ignite.raft.jraft.util.concurrent;
 
-import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public class MpscSingleThreadExecutorTest {
+    private static final Logger LOG = LoggerFactory.getLogger(MpscSingleThreadExecutorTest.class);
 
     private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true);
 
@@ -54,8 +57,9 @@ public class MpscSingleThreadExecutorTest {
                     Thread.sleep(100);
                     ret.incrementAndGet();
                     latch.countDown();
-                } catch (final InterruptedException e) {
-                    e.printStackTrace();
+                }
+                catch (final InterruptedException e) {
+                    LOG.info("Thread was interrupted", e);
                 }
             });
         }
@@ -99,8 +103,9 @@ public class MpscSingleThreadExecutorTest {
                     Thread.sleep(100);
                     ret.incrementAndGet();
                     latch.countDown();
-                } catch (final InterruptedException e) {
-                    e.printStackTrace();
+                }
+                catch (final InterruptedException e) {
+                    LOG.info("Thread was interrupted", e);
                 }
             });
         }
@@ -123,8 +128,9 @@ public class MpscSingleThreadExecutorTest {
         executor.execute(() -> {
             try {
                 latch1.await();
-            } catch (final InterruptedException e) {
-                e.printStackTrace();
+            }
+            catch (final InterruptedException e) {
+                LOG.info("Thread was interrupted", e);
             }
             latch2.countDown();
         });
@@ -134,7 +140,8 @@ public class MpscSingleThreadExecutorTest {
 
         // fill the task queue
         for (int i = 0; i < minMaxPendingTasks; i++) {
-            executor.execute(() -> {});
+            executor.execute(() -> {
+            });
         }
 
         executeShouldFail(executor);
@@ -152,7 +159,8 @@ public class MpscSingleThreadExecutorTest {
                 // Noop.
             });
             Assert.fail();
-        } catch (final RejectedExecutionException expected) {
+        }
+        catch (final RejectedExecutionException expected) {
             // expected
         }
     }

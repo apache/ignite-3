@@ -17,12 +17,12 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.Max;
+import org.apache.ignite.configuration.validation.Min;
 
 /**
  * Table configuartion schema class.
@@ -47,9 +47,9 @@ public class TableConfigurationSchema {
 
     /** Columns configuration. */
     @NamedConfigValue
-    ColumnConfigurationSchema columns;
+    public ColumnConfigurationSchema columns;
 
     /** Indices configuration. */
     @NamedConfigValue
-    TableIndexConfigurationSchema indices;
+    public TableIndexConfigurationSchema indices;
 }

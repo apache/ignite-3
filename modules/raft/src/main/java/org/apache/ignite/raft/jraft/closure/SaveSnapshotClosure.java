@@ -16,16 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.closure;
 
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
 /**
  * Save snapshot closure
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 2:21:30 PM
  */
 public interface SaveSnapshotClosure extends Closure {
 

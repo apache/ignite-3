@@ -16,16 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot;
 
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import java.io.Closeable;
 import org.apache.ignite.raft.jraft.Lifecycle;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 
 /**
  * Snapshot reader.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 4:53:40 PM
  */
 public abstract class SnapshotReader extends Snapshot implements Closeable, Lifecycle<Void> {
 
@@ -35,8 +31,7 @@ public abstract class SnapshotReader extends Snapshot implements Closeable, Life
     public abstract SnapshotMeta load();
 
     /**
-     * Generate uri for other peers to copy this snapshot.
-     * Return an empty string if some error has occur.
+     * Generate uri for other peers to copy this snapshot. Return an empty string if some error has occur.
      */
     public abstract String generateURIForCopy();
 }

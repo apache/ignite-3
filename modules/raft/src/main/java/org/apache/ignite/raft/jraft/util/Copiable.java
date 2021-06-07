@@ -19,9 +19,9 @@ package org.apache.ignite.raft.jraft.util;
 /**
  * Copiable mark interface.
  *
- * @author boyan (boyan@alibaba-inc.com)
  *
- * 2018-Apr-03 11:15:34 AM 
+ * 2018-Apr-03 11:15:34 AM
+ *
  * @param <T>
  */
 public interface Copiable<T> {

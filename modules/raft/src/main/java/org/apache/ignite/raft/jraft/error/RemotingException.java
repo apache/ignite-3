@@ -18,8 +18,6 @@ package org.apache.ignite.raft.jraft.error;
 
 /**
  * Exception for default remoting problems.
- *
- * @author jiachun.fjc
  */
 public class RemotingException extends Exception {
 

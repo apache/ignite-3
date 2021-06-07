@@ -39,13 +39,11 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.withSettings;
 
 public class NodeRequestProcessorTest {
-
     private static class MockRequestProcessor extends NodeRequestProcessor<PingRequest> {
-
         private String peerId;
         private String groupId;
 
-        public MockRequestProcessor(String peerId, String groupId) {
+        MockRequestProcessor(String peerId, String groupId) {
             super(null, null);
             this.peerId = peerId;
             this.groupId = groupId;
@@ -62,7 +60,8 @@ public class NodeRequestProcessorTest {
         }
 
         @Override
-        protected Message processRequest0(RaftServerService serviceService, PingRequest request, RpcRequestClosure done) {
+        protected Message processRequest0(RaftServerService serviceService, PingRequest request,
+            RpcRequestClosure done) {
             return RaftRpcFactory.DEFAULT.newResponse(null, Status.OK());
         }
 

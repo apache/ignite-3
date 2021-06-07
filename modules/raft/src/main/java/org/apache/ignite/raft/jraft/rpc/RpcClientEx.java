@@ -19,7 +19,6 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.Queue;
 import java.util.function.BiPredicate;
-import java.util.function.Consumer;
 
 public interface RpcClientEx extends RpcClient {
     void blockMessages(BiPredicate<Object, String> predicate);

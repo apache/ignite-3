@@ -29,17 +29,13 @@ import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
- * TODO asch fixme
- * A file to store protobuf message. Format:
+ * TODO asch fixme A file to store protobuf message. Format:
  * <ul>
  * <li>class name length(4 bytes)</li>
  * <li>class name</li>
  * <li> msg length(4 bytes)</li>
  * <li>msg data</li>
  * </ul>
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 8:56:23 PM
  */
 public class ProtoBufFile {
 
@@ -66,7 +62,7 @@ public class ProtoBufFile {
 
         final byte[] lenBytes = new byte[4];
         try (final FileInputStream fin = new FileInputStream(file);
-                final BufferedInputStream input = new BufferedInputStream(fin)) {
+             final BufferedInputStream input = new BufferedInputStream(fin)) {
             readBytes(lenBytes, input);
             final int len = Bits.getInt(lenBytes, 0); // TODO asch endianess ?
             if (len <= 0) {
@@ -94,7 +90,7 @@ public class ProtoBufFile {
     /**
      * Save a protobuf message to file.
      *
-     * @param msg  protobuf message
+     * @param msg protobuf message
      * @param sync if sync flush data to disk
      * @return true if save success
      */
@@ -102,7 +98,7 @@ public class ProtoBufFile {
         // Write message into temp file
         final File file = new File(this.path + ".tmp");
         try (final FileOutputStream fOut = new FileOutputStream(file);
-                final BufferedOutputStream output = new BufferedOutputStream(fOut)) {
+             final BufferedOutputStream output = new BufferedOutputStream(fOut)) {
             byte[] bytes = Marshaller.DEFAULT.marshall(msg);
 
             final byte[] lenBytes = new byte[4];

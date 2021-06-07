@@ -27,7 +27,7 @@ import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public class DefaultTimer implements Timer {
     private final ScheduledExecutorService scheduledExecutorService;
@@ -112,7 +112,8 @@ public class DefaultTimer implements Timer {
         public void run() {
             try {
                 this.task.run(this.timeout);
-            } catch (final Throwable ignored) {
+            }
+            catch (final Throwable ignored) {
                 // never get here
             }
         }

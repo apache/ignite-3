@@ -21,10 +21,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 
 /**
  * Load snapshot closure
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-04 2:20:09 PM
  */
 public interface LoadSnapshotClosure extends Closure {
 

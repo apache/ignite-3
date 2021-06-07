@@ -33,16 +33,16 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
 
 /**
- * @author jiachun.fjc
+ *
  */
 @State(Scope.Benchmark)
 public class Utf8CodecBenchmark {
     /**
-     Benchmark                                Mode  Cnt      Score       Error   Units
-     Utf8CodecBenchmark.defaultToUtf8Bytes   thrpt    3  13744.773 ±  2188.618  ops/ms
-     Utf8CodecBenchmark.defaultToUtf8String  thrpt    3  18136.042 ± 10964.592  ops/ms
-     Utf8CodecBenchmark.unsafeToUtf8Bytes    thrpt    3  21743.863 ±   228.019  ops/ms
-     Utf8CodecBenchmark.unsafeToUtf8String   thrpt    3  20670.839 ±  9921.726  ops/ms
+     * Benchmark                                Mode  Cnt      Score       Error   Units
+     * Utf8CodecBenchmark.defaultToUtf8Bytes   thrpt    3  13744.773 ±  2188.618  ops/ms
+     * Utf8CodecBenchmark.defaultToUtf8String  thrpt    3  18136.042 ± 10964.592  ops/ms
+     * Utf8CodecBenchmark.unsafeToUtf8Bytes    thrpt    3  21743.863 ±   228.019  ops/ms
+     * Utf8CodecBenchmark.unsafeToUtf8String   thrpt    3  20670.839 ±  9921.726  ops/ms
      */
 
     private String str;

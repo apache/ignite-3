@@ -67,7 +67,8 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 
 /**
- * Meta storage command listener.
+ * Meta storage listener.
+ * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
 public class MetaStorageListener implements RaftGroupListener {
     /** The logger. */
@@ -245,7 +246,8 @@ public class MetaStorageListener implements RaftGroupListener {
                     Entry e = (Entry) cursorDesc.getKey().next();
 
                     clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
-                } else if (cursorDesc.getValue() == CursorType.WATCH) {
+                }
+                else if (cursorDesc.getValue() == CursorType.WATCH) {
                     WatchEvent evt = (WatchEvent) cursorDesc.getKey().next();
 
                     List<SingleEntryResponse> resp = new ArrayList<>(evt.entryEvents().size() * 2);
@@ -308,18 +310,17 @@ public class MetaStorageListener implements RaftGroupListener {
             }
             else
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
-
         }
     }
 
     /** {@inheritDoc} */
     @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
-        // Not supported.
+        // Not implemented yet.
     }
 
     /** {@inheritDoc} */
     @Override public boolean onSnapshotLoad(String path) {
-        // Not supported.
+        // Not implemented yet.
         return false;
     }
 

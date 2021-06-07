@@ -32,7 +32,8 @@ public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
 //            .setValueSizeThreshold(0) //
 //            .build();
 
-        return new LocalLogStorage(uri, raftOptions);
+        // TODO asch
+        return new LocalLogStorage(null, raftOptions);
     }
 
 }

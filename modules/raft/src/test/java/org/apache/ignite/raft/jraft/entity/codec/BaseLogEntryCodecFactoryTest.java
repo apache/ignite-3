@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +52,8 @@ public abstract class BaseLogEntryCodecFactoryTest {
         try {
             assertNull(this.encoder.encode(null));
             fail();
-        } catch (NullPointerException e) {
+        }
+        catch (NullPointerException e) {
             assertTrue(true);
         }
         assertNull(this.decoder.decode(null));

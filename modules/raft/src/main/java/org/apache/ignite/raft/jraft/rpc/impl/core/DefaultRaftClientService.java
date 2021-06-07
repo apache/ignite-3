@@ -66,19 +66,19 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     @Override
     public Future<Message> preVote(final Endpoint endpoint, final RequestVoteRequest request,
-                                   final RpcResponseClosure<RequestVoteResponse> done) {
+        final RpcResponseClosure<RequestVoteResponse> done) {
         return invokeWithDone(endpoint, request, done, this.nodeOptions.getElectionTimeoutMs());
     }
 
     @Override
     public Future<Message> requestVote(final Endpoint endpoint, final RequestVoteRequest request,
-                                       final RpcResponseClosure<RequestVoteResponse> done) {
+        final RpcResponseClosure<RequestVoteResponse> done) {
         return invokeWithDone(endpoint, request, done, this.nodeOptions.getElectionTimeoutMs());
     }
 
     @Override
     public Future<Message> appendEntries(final Endpoint endpoint, final AppendEntriesRequest request,
-                                         final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
+        final int timeoutMs, final RpcResponseClosure<AppendEntriesResponse> done) {
         // TODO asch
 //        if (request.getEntriesCount() > 0)
 //            LOG.info("appendEntries to={}, size={}", endpoint.toString(), request.getEntriesCount());
@@ -98,7 +98,8 @@ public class DefaultRaftClientService extends AbstractClientService implements R
             if (done != null) {
                 try {
                     done.run(new Status(RaftError.EINTERNAL, "Check connection[%s] fail and try to create new one", endpoint));
-                } catch (final Throwable t) {
+                }
+                catch (final Throwable t) {
                     LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
                 }
             }
@@ -112,28 +113,27 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
     @Override
     public Future<Message> getFile(final Endpoint endpoint, final GetFileRequest request, final int timeoutMs,
-                                   final RpcResponseClosure<GetFileResponse> done) {
+        final RpcResponseClosure<GetFileResponse> done) {
         // open checksum
         final InvokeContext ctx = new InvokeContext();
-        ctx.put(InvokeContext.CRC_SWITCH, true);
         return invokeWithDone(endpoint, request, ctx, done, timeoutMs);
     }
 
     @Override
     public Future<Message> installSnapshot(final Endpoint endpoint, final InstallSnapshotRequest request,
-                                           final RpcResponseClosure<InstallSnapshotResponse> done) {
+        final RpcResponseClosure<InstallSnapshotResponse> done) {
         return invokeWithDone(endpoint, request, done, this.rpcOptions.getRpcInstallSnapshotTimeout());
     }
 
     @Override
     public Future<Message> timeoutNow(final Endpoint endpoint, final TimeoutNowRequest request, final int timeoutMs,
-                                      final RpcResponseClosure<TimeoutNowResponse> done) {
+        final RpcResponseClosure<TimeoutNowResponse> done) {
         return invokeWithDone(endpoint, request, done, timeoutMs);
     }
 
     @Override
     public Future<Message> readIndex(final Endpoint endpoint, final ReadIndexRequest request, final int timeoutMs,
-                                     final RpcResponseClosure<ReadIndexResponse> done) {
+        final RpcResponseClosure<ReadIndexResponse> done) {
         return invokeWithDone(endpoint, request, done, timeoutMs);
     }
 }

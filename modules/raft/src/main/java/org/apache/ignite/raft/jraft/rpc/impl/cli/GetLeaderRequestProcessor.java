@@ -16,8 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -25,6 +23,8 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
@@ -32,7 +32,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * Process get leader request.
  *
- * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeaderRequest> {
@@ -53,7 +52,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final GetLeaderRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         // ignore
         return null;
     }
@@ -72,11 +71,13 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
                     return RaftRpcFactory.DEFAULT //
                         .newResponse(defaultResp(), st);
                 }
-            } else {
+            }
+            else {
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(defaultResp(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
-        } else {
+        }
+        else {
             nodes = done.getRpcCtx().getNodeManager().getNodesByGroupId(groupId);
         }
         if (nodes == null || nodes.isEmpty()) {

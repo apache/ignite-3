@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import java.util.List;
@@ -20,14 +36,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stores log in heap.
- * <p>
- * TODO asch can use SegmentList.
+ * Stores log in heap. * TODO asch can use SegmentList.
  */
 public class LocalLogStorage implements LogStorage, Describer {
     private static final Logger LOG = LoggerFactory.getLogger(LocalLogStorage.class);
 
-    private final String path;
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = this.readWriteLock.readLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
@@ -44,7 +57,6 @@ public class LocalLogStorage implements LogStorage, Describer {
 
     public LocalLogStorage(final String path, final RaftOptions raftOptions) {
         super();
-        this.path = path;
     }
 
     @Override
@@ -64,7 +76,8 @@ public class LocalLogStorage implements LogStorage, Describer {
             Requires.requireNonNull(this.logEntryEncoder, "Null log entry encoder");
 
             return true;
-        } finally {
+        }
+        finally {
             this.writeLock.unlock();
         }
     }
@@ -76,8 +89,8 @@ public class LocalLogStorage implements LogStorage, Describer {
 
             this.initialized = false;
             this.log.clear();
-            LOG.info("DB destroyed, the db path is: {}.", this.path);
-        } finally {
+        }
+        finally {
             this.writeLock.unlock();
         }
     }
@@ -105,7 +118,8 @@ public class LocalLogStorage implements LogStorage, Describer {
 //                return ret;
 //            }
             return this.firstLogIndex;
-        } finally {
+        }
+        finally {
 //            if (it != null) {
 //                it.close();
 //            }
@@ -123,9 +137,9 @@ public class LocalLogStorage implements LogStorage, Describer {
 //                return Bits.getLong(it.key(), 0);
 //            }
 
-
             return this.lastLogIndex;
-        } finally {
+        }
+        finally {
             this.readLock.unlock();
         }
     }
@@ -139,7 +153,8 @@ public class LocalLogStorage implements LogStorage, Describer {
             }
 
             return log.get(index);
-        } finally {
+        }
+        finally {
             this.readLock.unlock();
         }
     }
@@ -168,7 +183,8 @@ public class LocalLogStorage implements LogStorage, Describer {
             firstLogIndex = log.firstKey();
 
             return true;
-        } finally {
+        }
+        finally {
             this.readLock.unlock();
         }
     }
@@ -194,10 +210,12 @@ public class LocalLogStorage implements LogStorage, Describer {
             firstLogIndex = log.firstKey();
 
             return entriesCount;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             LOG.error("Fail to append entry.", e);
             return 0;
-        } finally {
+        }
+        finally {
             this.readLock.unlock();
         }
     }
@@ -213,10 +231,10 @@ public class LocalLogStorage implements LogStorage, Describer {
             firstLogIndex = log.isEmpty() ? 1 : log.firstKey();
 
             return true;
-        } finally {
+        }
+        finally {
             this.readLock.unlock();
         }
-
     }
 
     @Override
@@ -230,9 +248,11 @@ public class LocalLogStorage implements LogStorage, Describer {
             lastLogIndex = log.isEmpty() ? 0 : log.lastKey();
 
             return true;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             LOG.error("Fail to truncateSuffix {}.", lastIndexKept, e);
-        } finally {
+        }
+        finally {
             this.readLock.unlock();
         }
         return false;
@@ -259,7 +279,8 @@ public class LocalLogStorage implements LogStorage, Describer {
             }
 
             return appendEntry(entry);
-        } finally {
+        }
+        finally {
             this.writeLock.unlock();
         }
     }
@@ -268,10 +289,13 @@ public class LocalLogStorage implements LogStorage, Describer {
     public void describe(final Printer out) {
         this.readLock.lock();
         try {
-            // TODO
-        } catch (final Exception e) {
+            out.println("firstLogIndex=" + firstLogIndex);
+            out.println("lastLogIndex=" + lastLogIndex);
+        }
+        catch (final Exception e) {
             out.println(e);
-        } finally {
+        }
+        finally {
             this.readLock.unlock();
         }
     }

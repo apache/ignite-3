@@ -16,12 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta.Builder;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import java.io.File;
 import java.io.IOException;
 import java.util.Set;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta.Builder;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -32,17 +32,13 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Snapshot writer to write snapshot into local file system.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 11:51:43 AM
  */
 public class LocalSnapshotWriter extends SnapshotWriter {
 
-    private static final Logger          LOG = LoggerFactory.getLogger(LocalSnapshotWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotWriter.class);
 
     private final LocalSnapshotMetaTable metaTable;
-    private final String                 path;
+    private final String path;
     private final LocalSnapshotStorage snapshotStorage;
 
     public LocalSnapshotWriter(String path, LocalSnapshotStorage snapshotStorage, RaftOptions raftOptions) {
@@ -67,7 +63,8 @@ public class LocalSnapshotWriter extends SnapshotWriter {
             if (metaFile.exists()) {
                 return metaTable.loadFromFile(metaPath);
             }
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to load snapshot meta from {}.", metaPath);
             setError(RaftError.EIO, "Fail to load snapshot meta from %s", metaPath);
             return false;

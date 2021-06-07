@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
@@ -45,7 +44,8 @@ public class CountDownEventTest {
                     long start = System.currentTimeMillis();
                     e.await();
                     cost.set(System.currentTimeMillis() - start);
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     LOG.error("Failed to wait", e);
                 }
                 latch.countDown();
@@ -72,7 +72,8 @@ public class CountDownEventTest {
                 try {
                     Thread.sleep(100);
                     thread.interrupt();
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     LOG.error("Failed to wait", e);
                 }
             }

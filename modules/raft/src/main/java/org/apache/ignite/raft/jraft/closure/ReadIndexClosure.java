@@ -25,8 +25,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Read index closure
- *
- * @author dennis
  */
 public abstract class ReadIndexClosure implements Closure {
     private static final Logger LOG = LoggerFactory.getLogger(ReadIndexClosure.class);
@@ -52,7 +50,7 @@ public abstract class ReadIndexClosure implements Closure {
      * Called when ReadIndex can be executed.
      *
      * @param status the readIndex status.
-     * @param index  the committed index when starts readIndex.
+     * @param index the committed index when starts readIndex.
      * @param reqCtx the request context passed by {@link Node#readIndex(byte[], ReadIndexClosure)}.
      * @see Node#readIndex(byte[], ReadIndexClosure)
      */
@@ -61,7 +59,7 @@ public abstract class ReadIndexClosure implements Closure {
     /**
      * Set callback result, called by jraft.
      *
-     * @param index  the committed index.
+     * @param index the committed index.
      * @param reqCtx the request context passed by {@link Node#readIndex(byte[], ReadIndexClosure)}.
      */
     public void setResult(final long index, final byte[] reqCtx) {
@@ -96,7 +94,8 @@ public abstract class ReadIndexClosure implements Closure {
 
         try {
             run(status, this.index, this.requestContext);
-        } catch (final Throwable t) {
+        }
+        catch (final Throwable t) {
             LOG.error("Fail to run ReadIndexClosure with status: {}.", status, t);
         }
     }

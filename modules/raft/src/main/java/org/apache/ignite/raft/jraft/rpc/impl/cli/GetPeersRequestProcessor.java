@@ -16,18 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * Process get all peers of the replication group request.
- *
- * @author jiachun.fjc
  */
 public class GetPeersRequestProcessor extends BaseCliRequestProcessor<GetPeersRequest> {
 
@@ -47,13 +45,14 @@ public class GetPeersRequestProcessor extends BaseCliRequestProcessor<GetPeersRe
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final GetPeersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> peers;
         final List<PeerId> learners;
         if (request.getOnlyAlive()) {
             peers = ctx.node.listAlivePeers();
             learners = ctx.node.listAliveLearners();
-        } else {
+        }
+        else {
             peers = ctx.node.listPeers();
             learners = ctx.node.listLearners();
         }

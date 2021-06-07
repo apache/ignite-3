@@ -19,24 +19,36 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.List;
 import org.apache.ignite.network.ClusterLocalConfiguration;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartMessageSerializationFactory;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.network.internal.recovery.message.HandshakeStartResponseMessageSerializationFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.Utils;
 
-/** */
+/**
+ * RPC server configured for integration tests.
+ */
 public class TestIgniteRpcServer extends IgniteRpcServer {
-    /** */
-    private final static MessageSerializationRegistry serializationRegistry = new MessageSerializationRegistry()
-        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
+    /**
+     * The registry.
+     */
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
+        .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory())
+        .registerFactory(HandshakeStartMessage.TYPE, new HandshakeStartMessageSerializationFactory())
+        .registerFactory(HandshakeStartResponseMessage.TYPE, new HandshakeStartResponseMessageSerializationFactory());
 
-    /** */
+    /**
+     * The factory.
+     */
     private final static ScaleCubeClusterServiceFactory factory = new TestScaleCubeClusterServiceFactory();
 
     /**
@@ -63,7 +75,7 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
      * @param nodeManager The node manager.
      */
     public TestIgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
-        super(factory.createClusterService(new ClusterLocalConfiguration(name, port, servers, serializationRegistry)),
-            false, nodeManager, JRaftUtils.createExecutor("test-rcp-executor", Utils.cpus()));
+        super(factory.createClusterService(new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY)),
+            false, nodeManager, JRaftUtils.createRequestExecutor(new NodeOptions()));
     }
 }

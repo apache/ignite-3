@@ -33,13 +33,8 @@ import org.apache.ignite.raft.jraft.util.Describer;
 
 /**
  * A raft replica node.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-03 4:06:55 PM
  */
 public interface Node extends Lifecycle<NodeOptions>, Describer {
-
     /**
      * Get the leader peer id for redirect, null if absent.
      */
@@ -77,6 +72,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
 
     /**
      * Returns true when the node is leader.
+     *
      * @param blocking if true, will be blocked until the node finish it's state change
      */
     boolean isLeader(final boolean blocking);
@@ -91,8 +87,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     /**
      * Block the thread until the node is successfully stopped.
      *
-     * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     void join() throws InterruptedException;
 
@@ -101,13 +96,10 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      *
      * Apply task to the replicated-state-machine
      *
-     * About the ownership:
-     * |task.data|: for the performance consideration, we will take away the
-     *               content. If you want keep the content, copy it before call
-     *               this function
-     * |task.done|: If the data is successfully committed to the raft group. We
-     *              will pass the ownership to #{@link StateMachine#onApply(Iterator)}.
-     *              Otherwise we will specify the error and call it.
+     * About the ownership: |task.data|: for the performance consideration, we will take away the content. If you want
+     * keep the content, copy it before call this function |task.done|: If the data is successfully committed to the
+     * raft group. We will pass the ownership to #{@link StateMachine#onApply(Iterator)}. Otherwise we will specify the
+     * error and call it.
      *
      * @param task task to apply
      */
@@ -116,24 +108,21 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     /**
      * [Thread-safe and wait-free]
      *
-     * Starts a linearizable read-only query request with request context(optional,
-     * such as request id etc.) and closure.  The closure will be called when the
-     * request is completed, and user can read data from state machine if the result
-     * status is OK.
+     * Starts a linearizable read-only query request with request context(optional, such as request id etc.) and
+     * closure.  The closure will be called when the request is completed, and user can read data from state machine if
+     * the result status is OK.
      *
      * @param requestContext the context of request
-     * @param done           callback
-     *
-     * @since 0.0.3
+     * @param done callback
      */
     void readIndex(final byte[] requestContext, final ReadIndexClosure done);
 
     /**
      * List peers of this raft group, only leader returns.
      *
-     * [NOTE] <strong>when list_peers concurrency with {@link #addPeer(PeerId, Closure)}/{@link #removePeer(PeerId, Closure)},
-     * maybe return peers is staled.  Because {@link #addPeer(PeerId, Closure)}/{@link #removePeer(PeerId, Closure)}
-     * immediately modify configuration in memory</strong>
+     * [NOTE] <strong>when list_peers concurrency with {@link #addPeer(PeerId, Closure)}/{@link #removePeer(PeerId,
+     * Closure)}, maybe return peers is staled.  Because {@link #addPeer(PeerId, Closure)}/{@link #removePeer(PeerId,
+     * Closure)} immediately modify configuration in memory</strong>
      *
      * @return the peer list
      */
@@ -142,42 +131,40 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     /**
      * List all alive peers of this raft group, only leader returns.</p>
      *
-     * [NOTE] <strong>list_alive_peers is just a transient data (snapshot)
-     * and a short-term loss of response by the follower will cause it to
-     * temporarily not exist in this list.</strong>
+     * [NOTE] <strong>list_alive_peers is just a transient data (snapshot) and a short-term loss of response by the
+     * follower will cause it to temporarily not exist in this list.</strong>
      *
      * @return the alive peer list
-     * @since 1.2.6
      */
     List<PeerId> listAlivePeers();
 
     /**
      * List all learners of this raft group, only leader returns.</p>
      *
-     * [NOTE] <strong>when listLearners concurrency with {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)},
-     * maybe return peers is staled.  Because {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}
+     * [NOTE] <strong>when listLearners concurrency with {@link #addLearners(List, Closure)}/{@link
+     * #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}, maybe return peers is staled.  Because
+     * {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}
      * immediately modify configuration in memory</strong>
      *
      * @return the learners set
-     * @since 1.3.0
      */
     List<PeerId> listLearners();
 
     /**
      * List all alive learners of this raft group, only leader returns.</p>
      *
-     * [NOTE] <strong>when listAliveLearners concurrency with {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)},
-     * maybe return peers is staled.  Because {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}
+     * [NOTE] <strong>when listAliveLearners concurrency with {@link #addLearners(List, Closure)}/{@link
+     * #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}, maybe return peers is staled.  Because
+     * {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}
      * immediately modify configuration in memory</strong>
      *
      * @return the  alive learners set
-     * @since 1.3.0
      */
     List<PeerId> listAliveLearners();
 
     /**
-     * Add a new peer to the raft group. done.run() would be invoked after this
-     * operation finishes, describing the detailed result.
+     * Add a new peer to the raft group. done.run() would be invoked after this operation finishes, describing the
+     * detailed result.
      *
      * @param peer peer to add
      * @param done callback
@@ -185,8 +172,8 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void addPeer(final PeerId peer, final Closure done);
 
     /**
-     * Remove the peer from the raft group. done.run() would be invoked after
-     * operation finishes, describing the detailed result.
+     * Remove the peer from the raft group. done.run() would be invoked after operation finishes, describing the
+     * detailed result.
      *
      * @param peer peer to remove
      * @param done callback
@@ -194,60 +181,54 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void removePeer(final PeerId peer, final Closure done);
 
     /**
-     * Change the configuration of the raft group to |newPeers| , done.run()
-     * would be invoked after this operation finishes, describing the detailed result.
+     * Change the configuration of the raft group to |newPeers| , done.run() would be invoked after this operation
+     * finishes, describing the detailed result.
      *
      * @param newPeers new peers to change
-     * @param done     callback
+     * @param done callback
      */
     void changePeers(final Configuration newPeers, final Closure done);
 
     /**
-     * Reset the configuration of this node individually, without any replication
-     * to other peers before this node becomes the leader. This function is
-     * supposed to be invoked when the majority of the replication group are
-     * dead and you'd like to revive the service in the consideration of
-     * availability.
-     * Notice that neither consistency nor consensus are guaranteed in this
-     * case, BE CAREFULE when dealing with this method.
+     * Reset the configuration of this node individually, without any replication to other peers before this node
+     * becomes the leader. This function is supposed to be invoked when the majority of the replication group are dead
+     * and you'd like to revive the service in the consideration of availability. Notice that neither consistency nor
+     * consensus are guaranteed in this case, BE CAREFULE when dealing with this method.
      *
      * @param newPeers new peers
      */
     Status resetPeers(final Configuration newPeers);
 
     /**
-     * Add some new learners to the raft group. done.run() will be invoked after this
-     * operation finishes, describing the detailed result.
+     * Add some new learners to the raft group. done.run() will be invoked after this operation finishes, describing the
+     * detailed result.
      *
      * @param learners learners to add
-     * @param done     callback
-     * @since 1.3.0
+     * @param done callback
      */
     void addLearners(final List<PeerId> learners, final Closure done);
 
     /**
-     * Remove some learners from the raft group. done.run() will be invoked after this
-     * operation finishes, describing the detailed result.
+     * Remove some learners from the raft group. done.run() will be invoked after this operation finishes, describing
+     * the detailed result.
      *
      * @param learners learners to remove
-     * @param done     callback
-     * @since 1.3.0
+     * @param done callback
      */
     void removeLearners(final List<PeerId> learners, final Closure done);
 
     /**
-     * Reset learners in the raft group. done.run() will be invoked after this
-     * operation finishes, describing the detailed result.
+     * Reset learners in the raft group. done.run() will be invoked after this operation finishes, describing the
+     * detailed result.
      *
      * @param learners learners to set
-     * @param done     callback
-     * @since 1.3.0
+     * @param done callback
      */
     void resetLearners(final List<PeerId> learners, final Closure done);
 
     /**
-     * Start a snapshot immediately if possible. done.run() would be invoked when
-     * the snapshot finishes, describing the detailed result.
+     * Start a snapshot immediately if possible. done.run() would be invoked when the snapshot finishes, describing the
+     * detailed result.
      *
      * @param done callback
      */
@@ -261,9 +242,8 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void resetElectionTimeoutMs(final int electionTimeoutMs);
 
     /**
-     * Try transferring leadership to |peer|. If peer is ANY_PEER, a proper follower
-     * will be chosen as the leader for the next term.
-     * Returns 0 on success, -1 otherwise.
+     * Try transferring leadership to |peer|. If peer is ANY_PEER, a proper follower will be chosen as the leader for
+     * the next term. Returns 0 on success, -1 otherwise.
      *
      * @param peer the target peer of new leader
      * @return operation status
@@ -271,26 +251,23 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     Status transferLeadershipTo(final PeerId peer);
 
     /**
-     * Read the first committed user log from the given index.
-     *   Return OK on success and user_log is assigned with the very data. Be awared
-     *   that the user_log may be not the exact log at the given index, but the
-     *   first available user log from the given index to lastCommittedIndex.
-     *   Otherwise, appropriate errors are returned:
-     *        - return ELOGDELETED when the log has been deleted;
-     *        - return ENOMOREUSERLOG when we can't get a user log even reaching lastCommittedIndex.
-     * [NOTE] in consideration of safety, we use lastAppliedIndex instead of lastCommittedIndex
-     * in code implementation.
+     * Read the first committed user log from the given index. Return OK on success and user_log is assigned with the
+     * very data. Be awared that the user_log may be not the exact log at the given index, but the first available user
+     * log from the given index to lastCommittedIndex. Otherwise, appropriate errors are returned: - return ELOGDELETED
+     * when the log has been deleted; - return ENOMOREUSERLOG when we can't get a user log even reaching
+     * lastCommittedIndex. [NOTE] in consideration of safety, we use lastAppliedIndex instead of lastCommittedIndex in
+     * code implementation.
      *
      * @param index log index
      * @return user log entry
-     * @throws LogNotFoundException  the user log is deleted at index.
-     * @throws LogIndexOutOfBoundsException  the special index is out of bounds.
+     * @throws LogNotFoundException the user log is deleted at index.
+     * @throws LogIndexOutOfBoundsException the special index is out of bounds.
      */
     UserLog readCommittedUserLog(final long index);
 
     /**
-     * SOFAJRaft users can implement the ReplicatorStateListener interface by themselves.
-     * So users can do their own logical operator in this listener when replicator created, destroyed or had some errors.
+     * SOFAJRaft users can implement the ReplicatorStateListener interface by themselves. So users can do their own
+     * logical operator in this listener when replicator created, destroyed or had some errors.
      *
      * @param replicatorStateListener added ReplicatorStateListener which is implemented by users.
      */
@@ -305,7 +282,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
 
     /**
      * Remove all the ReplicatorStateListeners which have been added by users.
-     *
      */
     void clearReplicatorStateListeners();
 
@@ -320,7 +296,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Get the node's target election priority value.
      *
      * @return node's target election priority value.
-     * @since 1.3.0
      */
     int getNodeTargetPriority();
 }

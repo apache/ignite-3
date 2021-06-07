@@ -26,7 +26,7 @@ public class BytesUtilTest {
     @Test
     public void testNullToEmpty() {
         Assert.assertArrayEquals(new byte[] {}, BytesUtil.nullToEmpty(null));
-        Assert.assertArrayEquals(new byte[] { 1, 2 }, BytesUtil.nullToEmpty(new byte[] { 1, 2 }));
+        Assert.assertArrayEquals(new byte[] {1, 2}, BytesUtil.nullToEmpty(new byte[] {1, 2}));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -34,7 +34,7 @@ public class BytesUtilTest {
     public void testIsEmpty() {
         Assert.assertTrue(BytesUtil.isEmpty(null));
 
-        Assert.assertFalse(BytesUtil.isEmpty(new byte[] { 1, 2 }));
+        Assert.assertFalse(BytesUtil.isEmpty(new byte[] {1, 2}));
     }
 
 //    @Test
@@ -53,32 +53,32 @@ public class BytesUtilTest {
 
     @Test
     public void testNextBytes() {
-        Assert.assertArrayEquals(new byte[] { 0 }, BytesUtil.nextBytes(new byte[] {}));
-        Assert.assertArrayEquals(new byte[] { 1, 2, 0 }, BytesUtil.nextBytes(new byte[] { 1, 2 }));
+        Assert.assertArrayEquals(new byte[] {0}, BytesUtil.nextBytes(new byte[] {}));
+        Assert.assertArrayEquals(new byte[] {1, 2, 0}, BytesUtil.nextBytes(new byte[] {1, 2}));
     }
 
     @Test
     public void testCompare() {
-        byte[] array = new byte[] { 1, 2 };
+        byte[] array = new byte[] {1, 2};
 
         Assert.assertEquals(0, BytesUtil.compare(array, array));
-        Assert.assertEquals(-2, BytesUtil.compare(new byte[] { 1, 2 }, new byte[] { 3, 4 }));
-        Assert.assertEquals(0, BytesUtil.compare(new byte[] { 3, 4 }, new byte[] { 3, 4 }));
+        Assert.assertEquals(-2, BytesUtil.compare(new byte[] {1, 2}, new byte[] {3, 4}));
+        Assert.assertEquals(0, BytesUtil.compare(new byte[] {3, 4}, new byte[] {3, 4}));
     }
 
     @Test
     public void testMax() {
-        byte[] array = new byte[] { 3, 4 };
+        byte[] array = new byte[] {3, 4};
 
         Assert.assertArrayEquals(array, BytesUtil.max(array, array));
-        Assert.assertArrayEquals(array, BytesUtil.max(new byte[] { 1, 2 }, array));
+        Assert.assertArrayEquals(array, BytesUtil.max(new byte[] {1, 2}, array));
     }
 
     @Test
     public void testMin() {
-        byte[] array = new byte[] { 1, 2 };
+        byte[] array = new byte[] {1, 2};
         Assert.assertArrayEquals(array, BytesUtil.min(array, array));
-        Assert.assertArrayEquals(array, BytesUtil.min(array, new byte[] { 3, 4 }));
+        Assert.assertArrayEquals(array, BytesUtil.min(array, new byte[] {3, 4}));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -86,14 +86,14 @@ public class BytesUtilTest {
     public void testToHex() {
         Assert.assertNull(BytesUtil.toHex(null));
 
-        Assert.assertEquals("0102", BytesUtil.toHex(new byte[] { 1, 2 }));
+        Assert.assertEquals("0102", BytesUtil.toHex(new byte[] {1, 2}));
     }
 
     @Test
     public void testHexStringToByteArray() {
         Assert.assertNull(BytesUtil.hexStringToByteArray(null));
 
-        Assert.assertArrayEquals(new byte[] { -17, -5 }, BytesUtil.hexStringToByteArray("foob"));
+        Assert.assertArrayEquals(new byte[] {-17, -5}, BytesUtil.hexStringToByteArray("foob"));
     }
 
 //    @Test

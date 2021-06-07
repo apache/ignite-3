@@ -16,15 +16,15 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
-import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta;
-import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta.File;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
+import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta;
+import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta.File;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.io.ProtoBufFile;
 import org.slf4j.Logger;
@@ -32,18 +32,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Table to keep local snapshot metadata infos.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 7:22:27 PM
  */
 public class LocalSnapshotMetaTable {
 
-    private static final Logger              LOG = LoggerFactory.getLogger(LocalSnapshotMetaTable.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotMetaTable.class);
 
     private final Map<String, LocalFileMeta> fileMap;
     private final RaftOptions raftOptions;
-    private SnapshotMeta                     meta;
+    private SnapshotMeta meta;
 
     public LocalSnapshotMetaTable(RaftOptions raftOptions) {
         super();
@@ -83,7 +79,8 @@ public class LocalSnapshotMetaTable {
                 return false;
             }
             return loadFromPbMeta(pbMeta);
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             LOG.error("Fail to parse LocalSnapshotPbMeta from byte buffer", e);
             return false;
         }
@@ -170,7 +167,8 @@ public class LocalSnapshotMetaTable {
     private boolean loadFromPbMeta(final LocalSnapshotPbMeta pbMeta) {
         if (pbMeta.hasMeta()) {
             this.meta = pbMeta.getMeta();
-        } else {
+        }
+        else {
             this.meta = null;
         }
         this.fileMap.clear();

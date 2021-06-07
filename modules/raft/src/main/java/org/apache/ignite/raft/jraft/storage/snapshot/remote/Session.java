@@ -21,10 +21,6 @@ import org.apache.ignite.raft.jraft.Status;
 
 /**
  * A copy session.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 12:02:12 PM
  */
 public interface Session extends Closeable {
 
@@ -36,8 +32,7 @@ public interface Session extends Closeable {
     /**
      * Block the thread to wait the copy job finishes or canceled.
      *
-     * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     * @throws InterruptedException if the current thread is interrupted while waiting
      */
     void join() throws InterruptedException;
 

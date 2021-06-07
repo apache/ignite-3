@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.Lifecycle;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
@@ -38,12 +37,12 @@ public interface ClientService extends Lifecycle<RpcOptions> {
     /**
      * Send a requests and waits for response with callback, returns the request future.
      *
-     * @param endpoint  server address
-     * @param request   request data
-     * @param done      callback
+     * @param endpoint server address
+     * @param request request data
+     * @param done callback
      * @param timeoutMs timeout millis
      * @return a future with operation result
      */
     <T extends Message> Future<Message> invokeWithDone(final Endpoint endpoint, final Message request,
-                                                       final RpcResponseClosure<T> done, final int timeoutMs);
+        final RpcResponseClosure<T> done, final int timeoutMs);
 }

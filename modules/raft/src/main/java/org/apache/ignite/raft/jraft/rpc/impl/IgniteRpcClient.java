@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.ArrayList;
@@ -11,9 +27,8 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.message.NetworkMessage;
-import org.apache.ignite.raft.jraft.ReplicatorGroup;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
@@ -62,7 +77,8 @@ public class IgniteRpcClient implements RpcClientEx {
         service.topologyService().addEventHandler(handler);
     }
 
-    @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx, long timeoutMs) throws InterruptedException, RemotingException {
+    @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx,
+        long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
             throw new RemotingException("Server is dead " + endpoint);
 
@@ -70,7 +86,7 @@ public class IgniteRpcClient implements RpcClientEx {
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, endpoint.toString()))
-            recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+            recordedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
         boolean wasBlocked;
 
@@ -78,7 +94,7 @@ public class IgniteRpcClient implements RpcClientEx {
             wasBlocked = blockPred != null && blockPred.test(request, endpoint.toString());
 
             if (wasBlocked)
-                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut, timeoutMs)});
+                blockedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut, timeoutMs)});
         }
 
         if (!wasBlocked)
@@ -89,16 +105,19 @@ public class IgniteRpcClient implements RpcClientEx {
                 assert !(res == null && err == null) : res + " " + err;
 
                 if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
             }).get(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             throw new RemotingException(e);
-        } catch (TimeoutException e) {
+        }
+        catch (TimeoutException e) {
             throw new InvokeTimeoutException();
         }
     }
 
-    @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback, long timeoutMs) throws InterruptedException, RemotingException {
+    @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback,
+        long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
             throw new RemotingException("Server is dead " + endpoint);
 
@@ -109,7 +128,7 @@ public class IgniteRpcClient implements RpcClientEx {
                 assert !(res == null && err == null) : res + " " + err;
 
                 if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[]{res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
                 if (err instanceof ExecutionException)
                     err = new RemotingException(err);
@@ -124,11 +143,12 @@ public class IgniteRpcClient implements RpcClientEx {
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, endpoint.toString()))
-            recordedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+            recordedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
         synchronized (this) {
             if (blockPred != null && blockPred.test(request, endpoint.toString())) {
-                blockedMsgs.add(new Object[]{request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
+                blockedMsgs.add(new Object[] {
+                    request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), new Runnable() {
                     @Override public void run() {
                         send(endpoint, request, fut, timeoutMs);
                     }
@@ -177,7 +197,6 @@ public class IgniteRpcClient implements RpcClientEx {
 
         synchronized (this) {
             blockedMsgs.drainTo(msgs);
-
 
             blockPred = null;
         }

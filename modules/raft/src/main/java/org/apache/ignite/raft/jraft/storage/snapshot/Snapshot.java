@@ -22,21 +22,17 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 
 /**
  * Represents a state machine snapshot.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-07 10:17:52 AM
  */
 public abstract class Snapshot extends Status {
 
     /**
      * Snapshot metadata file name.
      */
-    public static final String JRAFT_SNAPSHOT_META_FILE   = "__raft_snapshot_meta";
+    public static final String JRAFT_SNAPSHOT_META_FILE = "__raft_snapshot_meta";
     /**
      * Snapshot file prefix.
      */
-    public static final String JRAFT_SNAPSHOT_PREFIX      = "snapshot_";
+    public static final String JRAFT_SNAPSHOT_PREFIX = "snapshot_";
     /** Snapshot uri scheme for remote peer */
     public static final String REMOTE_SNAPSHOT_URI_SCHEME = "remote://";
 

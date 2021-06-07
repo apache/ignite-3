@@ -16,19 +16,17 @@
  */
 package org.apache.ignite.raft.jraft.entity;
 
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 import java.util.List;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
 
 /**
  * ReadIndex requests statuses.
- * @author dennis
- *
  */
 public class ReadIndexStatus {
 
-    private final ReadIndexRequest     request; // raw request
+    private final ReadIndexRequest request; // raw request
     private final List<ReadIndexState> states; // read index requests in batch.
-    private final long                 index;  // committed log index.
+    private final long index;  // committed log index.
 
     public ReadIndexStatus(List<ReadIndexState> states, ReadIndexRequest request, long index) {
         super();

@@ -35,7 +35,8 @@ public class JDKMarshaller implements Marshaller {
             oos.writeObject(o);
             oos.close();
             return baos.toByteArray();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new Error(e);
         }
     }
@@ -48,7 +49,8 @@ public class JDKMarshaller implements Marshaller {
             ByteArrayInputStream bais = new ByteArrayInputStream(raw);
             ObjectInputStream oos = new ObjectInputStream(bais);
             return (T) oos.readObject();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new Error(e);
         }
     }

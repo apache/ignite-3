@@ -16,13 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
@@ -30,7 +30,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 /**
  * AddLearners request processor.
  *
- * @author boyan (boyan@alibaba-inc.com)
  * @author jiachun.fjc
  */
 public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLearnersRequest> {
@@ -50,7 +49,7 @@ public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLear
 
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final AddLearnersRequest request,
-                                      final RpcRequestClosure done) {
+        final RpcRequestClosure done) {
         final List<PeerId> oldLearners = ctx.node.listLearners();
         final List<PeerId> addingLearners = new ArrayList<>(request.getLearnersCount());
 
@@ -68,7 +67,8 @@ public class AddLearnersRequestProcessor extends BaseCliRequestProcessor<AddLear
         ctx.node.addLearners(addingLearners, status -> {
             if (!status.isOk()) {
                 done.run(status);
-            } else {
+            }
+            else {
                 final LearnersOpResponse.Builder rb = LearnersOpResponse.newBuilder();
 
                 for (final PeerId peer : oldLearners) {

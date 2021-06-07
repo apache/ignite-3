@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
- * @author jiachun.fjc
  */
 public final class ExecutorServiceHelper {
 
@@ -37,10 +36,8 @@ public final class ExecutorServiceHelper {
     }
 
     /**
-     * The following method shuts down an {@code ExecutorService} in two
-     * phases, first by calling {@code shutdown} to reject incoming tasks,
-     * and then calling {@code shutdownNow}, if necessary, to cancel any
-     * lingering tasks.
+     * The following method shuts down an {@code ExecutorService} in two phases, first by calling {@code shutdown} to
+     * reject incoming tasks, and then calling {@code shutdownNow}, if necessary, to cancel any lingering tasks.
      */
     public static boolean shutdownAndAwaitTermination(final ExecutorService pool, final long timeoutMillis) {
         if (pool == null) {
@@ -61,7 +58,8 @@ public final class ExecutorServiceHelper {
                 return true;
             }
             LOG.warn("Fail to shutdown pool: {}.", pool);
-        } catch (final InterruptedException e) {
+        }
+        catch (final InterruptedException e) {
             // (Re-)cancel if current thread also interrupted
             pool.shutdownNow();
             // preserve interrupt status

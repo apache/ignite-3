@@ -27,7 +27,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 public class ThreadIdTest implements ThreadId.OnError {
-    private ThreadId     id;
+    private ThreadId id;
     private volatile int errorCode = -1;
 
     @Override

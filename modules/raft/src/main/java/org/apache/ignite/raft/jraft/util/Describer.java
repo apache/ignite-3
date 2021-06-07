@@ -19,13 +19,10 @@ package org.apache.ignite.raft.jraft.util;
 import java.io.PrintWriter;
 
 /**
- * Components that implement this interface need to be able to describe
- * their own state and output state information via the {@code describe} method.
- *
- * @author jiachun.fjc
+ * Components that implement this interface need to be able to describe their own state and output state information via
+ * the {@code describe} method.
  */
 public interface Describer {
-
     void describe(final Printer out);
 
     interface Printer {

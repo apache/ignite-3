@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
  * @param <T> the type of the pooled object
  */
 public abstract class Recyclers<T> {
-
     private static final Logger LOG = LoggerFactory.getLogger(Recyclers.class);
 
     private static final AtomicInteger idGenerator = new AtomicInteger(Integer.MIN_VALUE);
@@ -53,7 +52,8 @@ public abstract class Recyclers<T> {
         INITIAL_CAPACITY = Math.min(MAX_CAPACITY_PER_THREAD, 256);
     }
 
-    public static final Handle NOOP_HANDLE = new Handle() {};
+    public static final Handle NOOP_HANDLE = new Handle() {
+    };
 
     private final int maxCapacityPerThread;
     private final ThreadLocal<Stack<T>> threadLocal = new ThreadLocal<Stack<T>>() {
@@ -72,7 +72,6 @@ public abstract class Recyclers<T> {
         this.maxCapacityPerThread = Math.min(MAX_CAPACITY_PER_THREAD, Math.max(0, maxCapacityPerThread));
     }
 
-    @SuppressWarnings("unchecked")
     public final T get() {
         if (maxCapacityPerThread == 0) {
             return newObject(NOOP_HANDLE);
@@ -118,7 +117,8 @@ public abstract class Recyclers<T> {
         return threadLocal.get().size;
     }
 
-    public interface Handle {}
+    public interface Handle {
+    }
 
     static final class DefaultHandle implements Handle {
         private int lastRecycledId;
@@ -212,9 +212,7 @@ public abstract class Recyclers<T> {
         }
 
         // transfer as many items as we can from this queue to the stack, returning true if any were transferred
-        @SuppressWarnings("rawtypes")
         boolean transfer(Stack<?> dst) {
-
             Link head = this.head;
             if (head == null) {
                 return false;
@@ -250,7 +248,8 @@ public abstract class Recyclers<T> {
                     DefaultHandle element = srcElems[i];
                     if (element.recycleId == 0) {
                         element.recycleId = element.lastRecycledId;
-                    } else if (element.recycleId != element.lastRecycledId) {
+                    }
+                    else if (element.recycleId != element.lastRecycledId) {
                         throw new IllegalStateException("recycled already");
                     }
                     element.stack = dst;
@@ -265,7 +264,8 @@ public abstract class Recyclers<T> {
 
                 head.readIndex = srcEnd;
                 return true;
-            } else {
+            }
+            else {
                 // The destination stack is full already.
                 return false;
             }
@@ -299,7 +299,8 @@ public abstract class Recyclers<T> {
             int maxCapacity = this.maxCapacity;
             do {
                 newCapacity <<= 1;
-            } while (newCapacity < expectedCapacity && newCapacity < maxCapacity);
+            }
+            while (newCapacity < expectedCapacity && newCapacity < maxCapacity);
 
             newCapacity = Math.min(newCapacity, maxCapacity);
             if (newCapacity != elements.length) {
@@ -363,10 +364,11 @@ public abstract class Recyclers<T> {
                     // performing a volatile read to confirm there is no data left to collect.
                     // We never unlink the first queue, as we don't want to synchronize on updating the head.
                     if (cursor.hasFinalData()) {
-                        for (;;) {
+                        for (; ; ) {
                             if (cursor.transfer(this)) {
                                 success = true;
-                            } else {
+                            }
+                            else {
                                 break;
                             }
                         }
@@ -374,13 +376,15 @@ public abstract class Recyclers<T> {
                     if (prev != null) {
                         prev.next = next;
                     }
-                } else {
+                }
+                else {
                     prev = cursor;
                 }
 
                 cursor = next;
 
-            } while (cursor != null && !success);
+            }
+            while (cursor != null && !success);
 
             this.prev = prev;
             this.cursor = cursor;

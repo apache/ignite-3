@@ -23,15 +23,14 @@ import org.apache.ignite.raft.jraft.util.Requires;
 /**
  * An implementation of adjustable semaphore.
  *
- * Written by Marshall Pierce and released to the public domain
- * See: http://blog.teamlazerbeez.com/2009/04/20/javas-semaphore-resizing/
+ * Written by Marshall Pierce and released to the public domain See: http://blog.teamlazerbeez.com/2009/04/20/javas-semaphore-resizing/
+ * TODO asch not used
  */
 public final class AdjustableSemaphore implements Serializable {
+    private static final long serialVersionUID = -266635933115069924L;
 
-    private static final long         serialVersionUID = -266635933115069924L;
-
-    private final ResizeableSemaphore semaphore        = new ResizeableSemaphore(0);
-    private volatile int              maxPermits       = 0;
+    private final ResizeableSemaphore semaphore = new ResizeableSemaphore(0);
+    private volatile int maxPermits = 0;
 
     public AdjustableSemaphore() {
     }
@@ -57,9 +56,11 @@ public final class AdjustableSemaphore implements Serializable {
 
         if (delta == 0) {
             return;
-        } else if (delta > 0) {
+        }
+        else if (delta > 0) {
             this.semaphore.release(delta);
-        } else {
+        }
+        else {
             this.semaphore.reducePermits(-delta);
         }
 
@@ -74,8 +75,8 @@ public final class AdjustableSemaphore implements Serializable {
     }
 
     /**
-     * Acquires a permit from this semaphore, blocking until one is
-     * available, or the thread is {@linkplain Thread#interrupt interrupted}.
+     * Acquires a permit from this semaphore, blocking until one is available, or the thread is {@linkplain
+     * Thread#interrupt interrupted}.
      *
      * @throws InterruptedException if the current thread is interrupted
      */
@@ -84,11 +85,9 @@ public final class AdjustableSemaphore implements Serializable {
     }
 
     /**
-     * Acquires a permit from this semaphore, only if one is available at the
-     * time of invocation.
+     * Acquires a permit from this semaphore, only if one is available at the time of invocation.
      *
-     * @return {@code true} if a permit was acquired and {@code false}
-     * otherwise
+     * @return {@code true} if a permit was acquired and {@code false} otherwise
      */
     public boolean tryAcquire() {
         return this.semaphore.tryAcquire();

@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.error;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public class InvokeTimeoutException extends RemotingException {
 
@@ -38,7 +38,8 @@ public class InvokeTimeoutException extends RemotingException {
         super(cause);
     }
 
-    public InvokeTimeoutException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+    public InvokeTimeoutException(String message, Throwable cause, boolean enableSuppression,
+        boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
     }
 }

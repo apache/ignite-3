@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -38,7 +39,6 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
@@ -48,7 +48,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -56,13 +56,13 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class FSMCallerTest {
-    private FSMCallerImpl    fsmCaller;
+    private FSMCallerImpl fsmCaller;
     @Mock
-    private NodeImpl         node;
+    private NodeImpl node;
     @Mock
-    private StateMachine     fsm;
+    private StateMachine fsm;
     @Mock
-    private LogManager       logManager;
+    private LogManager logManager;
     private ClosureQueueImpl closureQueue;
 
     @Before
@@ -201,7 +201,6 @@ public class FSMCallerTest {
 
             @Override
             public SnapshotWriter start(final SnapshotMeta meta) {
-                // TODO Auto-generated method stub
                 return null;
             }
         });

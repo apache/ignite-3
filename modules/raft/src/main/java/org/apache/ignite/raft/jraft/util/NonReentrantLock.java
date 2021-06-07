@@ -26,7 +26,7 @@ public final class NonReentrantLock extends AbstractQueuedSynchronizer implement
 
     private static final long serialVersionUID = -833780837233068610L;
 
-    private Thread            owner;
+    private Thread owner;
 
     @Override
     public void lock() {

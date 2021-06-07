@@ -23,10 +23,6 @@ import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 
 /**
  * Log entry storage service.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-12 3:43:54 PM
  */
 public interface LogStorage extends Lifecycle<LogStorageOptions>, Storage {
     /**
@@ -45,7 +41,9 @@ public interface LogStorage extends Lifecycle<LogStorageOptions>, Storage {
     LogEntry getEntry(final long index);
 
     /**
-     * Get logEntry's term by index. This method is deprecated, you should use {@link #getEntry(long)} to get the log id's term.
+     * Get logEntry's term by index. This method is deprecated, you should use {@link #getEntry(long)} to get the log
+     * id's term.
+     *
      * @deprecated
      */
     @Deprecated
@@ -62,20 +60,18 @@ public interface LogStorage extends Lifecycle<LogStorageOptions>, Storage {
     int appendEntries(final List<LogEntry> entries);
 
     /**
-     * Delete logs from storage's head, [first_log_index, first_index_kept) will
-     * be discarded.
+     * Delete logs from storage's head, [first_log_index, first_index_kept) will be discarded.
      */
     boolean truncatePrefix(final long firstIndexKept);
 
     /**
-     * Delete uncommitted logs from storage's tail, (last_index_kept, last_log_index]
-     * will be discarded.
+     * Delete uncommitted logs from storage's tail, (last_index_kept, last_log_index] will be discarded.
      */
     boolean truncateSuffix(final long lastIndexKept);
 
     /**
-     * Drop all the existing logs and reset next log index to |next_log_index|.
-     * This function is called after installing snapshot from leader.
+     * Drop all the existing logs and reset next log index to |next_log_index|. This function is called after installing
+     * snapshot from leader.
      */
     boolean reset(final long nextLogIndex);
 }

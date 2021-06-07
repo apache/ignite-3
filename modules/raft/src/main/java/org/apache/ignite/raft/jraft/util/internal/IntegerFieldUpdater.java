@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.util.internal;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public interface IntegerFieldUpdater<U> {
 

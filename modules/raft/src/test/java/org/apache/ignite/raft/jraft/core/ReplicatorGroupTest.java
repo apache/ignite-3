@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -30,8 +32,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.FutureImpl;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.util.ByteString;
-import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -39,7 +39,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,26 +54,26 @@ import static org.mockito.Matchers.eq;
 @RunWith(value = MockitoJUnitRunner.class)
 public class ReplicatorGroupTest {
 
-    static final Logger         LOG            = LoggerFactory.getLogger(ReplicatorGroupTest.class);
+    static final Logger LOG = LoggerFactory.getLogger(ReplicatorGroupTest.class);
 
-    private TimerManager        timerManager;
+    private TimerManager timerManager;
     private ReplicatorGroupImpl replicatorGroup;
     @Mock
-    private BallotBox           ballotBox;
+    private BallotBox ballotBox;
     @Mock
-    private LogManager          logManager;
+    private LogManager logManager;
     @Mock
-    private NodeImpl            node;
+    private NodeImpl node;
     @Mock
-    private RaftClientService   rpcService;
+    private RaftClientService rpcService;
     @Mock
-    private SnapshotStorage     snapshotStorage;
-    private final NodeOptions   options        = new NodeOptions();
-    private final RaftOptions   raftOptions    = new RaftOptions();
-    private final PeerId        peerId1        = new PeerId("localhost", 8082);
-    private final PeerId        peerId2        = new PeerId("localhost", 8083);
-    private final PeerId        peerId3        = new PeerId("localhost", 8084);
-    private final AtomicInteger errorCounter   = new AtomicInteger(0);
+    private SnapshotStorage snapshotStorage;
+    private final NodeOptions options = new NodeOptions();
+    private final RaftOptions raftOptions = new RaftOptions();
+    private final PeerId peerId1 = new PeerId("localhost", 8082);
+    private final PeerId peerId2 = new PeerId("localhost", 8083);
+    private final PeerId peerId3 = new PeerId("localhost", 8084);
+    private final AtomicInteger errorCounter = new AtomicInteger(0);
     private final AtomicInteger stoppedCounter = new AtomicInteger(0);
     private final AtomicInteger startedCounter = new AtomicInteger(0);
 
@@ -98,8 +98,6 @@ public class ReplicatorGroupTest {
         mockSendEmptyEntries();
         assertTrue(this.replicatorGroup.init(this.node.getNodeId(), rgOpts));
     }
-
-
 
     @Test
     public void testAddReplicatorAndFailed() {

@@ -16,30 +16,31 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.SystemPropertyUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.raft.jraft.test.TestUtils;
 
 public class LogStorageBenchmark {
 
     private final LogStorage logStorage;
 
-    private final int        logSize;
+    private final int logSize;
 
-    private final int        totalLogs;
+    private final int totalLogs;
 
-    private final int        batchSize;
+    private final int batchSize;
 
-    public LogStorageBenchmark(final LogStorage logStorage, final int logSize, final int totalLogs, final int batchSize) {
+    public LogStorageBenchmark(final LogStorage logStorage, final int logSize, final int totalLogs,
+        final int batchSize) {
         super();
         this.logStorage = logStorage;
         this.logSize = logSize;

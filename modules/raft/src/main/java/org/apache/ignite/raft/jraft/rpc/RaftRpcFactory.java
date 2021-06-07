@@ -16,14 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.util.Endpoint;
-
 /**
  * Raft RPC service factory.
- *
- * @author jiachun.fjc
  */
 public interface RaftRpcFactory {
-    RpcResponseFactory DEFAULT = new RpcResponseFactory() {};
+    RpcResponseFactory DEFAULT = new RpcResponseFactory() {
+    };
 }

@@ -16,11 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.error.RetryAgainException;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.io.LocalDirReader;
@@ -29,10 +29,6 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 
 /**
  * Snapshot file reader
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-13 2:03:09 PM
  */
 public class SnapshotFileReader extends LocalDirReader {
 
@@ -59,7 +55,7 @@ public class SnapshotFileReader extends LocalDirReader {
 
     @Override
     public int readFile(final ByteBufferCollector metaBufferCollector, final String fileName, final long offset,
-                        final long maxCount) throws IOException, RetryAgainException {
+        final long maxCount) throws IOException, RetryAgainException {
         // read the whole meta file.
         if (fileName.equals(Snapshot.JRAFT_SNAPSHOT_META_FILE)) {
             final ByteBuffer metaBuf = this.metaTable.saveToByteBufferAsRemote();

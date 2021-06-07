@@ -16,8 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
-import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -25,9 +23,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
@@ -39,15 +39,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Remote file copier
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-23 2:03:14 PM
  */
 public class RemoteFileCopier {
 
     private static final Logger LOG = LoggerFactory.getLogger(RemoteFileCopier.class);
 
-    private long                readId;
+    private long readId;
     private RaftClientService rpcService;
     private Endpoint endpoint;
     private RaftOptions raftOptions;
@@ -86,7 +83,8 @@ public class RemoteFileCopier {
             this.readId = Long.parseLong(uri);
             final String[] ipAndPortStrs = ipAndPort.split(":");
             this.endpoint = new Endpoint(ipAndPortStrs[0], Integer.parseInt(ipAndPortStrs[1]));
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             LOG.error("Fail to parse readerId or endpoint.", e);
             return false;
         }
@@ -101,13 +99,13 @@ public class RemoteFileCopier {
     /**
      * Copy `source` from remote to local dest.
      *
-     * @param source   source from remote
+     * @param source source from remote
      * @param destPath local path
-     * @param opts     options of copy
+     * @param opts options of copy
      * @return true if copy success
      */
     public boolean copyToFile(final String source, final String destPath, final CopyOptions opts) throws IOException,
-                                                                                                 InterruptedException {
+        InterruptedException {
         final Session session = startCopyToFile(source, destPath, opts);
         if (session == null) {
             return false;
@@ -115,13 +113,14 @@ public class RemoteFileCopier {
         try {
             session.join();
             return session.status().isOk();
-        } finally {
+        }
+        finally {
             Utils.closeQuietly(session);
         }
     }
 
     public Session startCopyToFile(final String source, final String destPath, final CopyOptions opts)
-                                                                                                      throws IOException {
+        throws IOException {
         final File file = new File(destPath);
 
         // delete exists file.
@@ -161,13 +160,14 @@ public class RemoteFileCopier {
 
     /**
      * Copy `source` from remote to  buffer.
-     * @param source  source from remote
+     *
+     * @param source source from remote
      * @param destBuf buffer of dest
-     * @param opt     options of copy
+     * @param opt options of copy
      * @return true if copy success
      */
     public boolean copy2IoBuffer(final String source, final ByteBufferCollector destBuf, final CopyOptions opt)
-                                                                                                               throws InterruptedException {
+        throws InterruptedException {
         final Session session = startCopy2IoBuffer(source, destBuf, opt);
         if (session == null) {
             return false;
@@ -175,7 +175,8 @@ public class RemoteFileCopier {
         try {
             session.join();
             return session.status().isOk();
-        } finally {
+        }
+        finally {
             Utils.closeQuietly(session);
         }
     }

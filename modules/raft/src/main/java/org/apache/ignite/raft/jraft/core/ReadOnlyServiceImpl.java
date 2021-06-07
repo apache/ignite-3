@@ -16,9 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
@@ -32,12 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
 import org.apache.ignite.raft.jraft.ReadOnlyService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
@@ -47,6 +43,8 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyServiceOptions;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Bytes;
@@ -82,8 +80,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
     private FSMCaller fsmCaller;
 
     private volatile CountDownLatch shutdownLatch;
-
-    private ScheduledExecutorService scheduledExecutorService;
 
     private NodeMetrics nodeMetrics;
 
@@ -133,8 +129,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
     /**
      * ReadIndexResponse process closure
-     *
-     * @author dennis
      */
     class ReadIndexResponseClosure extends RpcResponseClosureAdapter<ReadIndexResponse> {
 
@@ -177,13 +171,15 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                     ReadOnlyServiceImpl.this.lock.unlock();
                     doUnlock = false;
                     notifySuccess(readIndexStatus);
-                } else {
+                }
+                else {
                     // Not applied, add it to pending-notify cache.
                     ReadOnlyServiceImpl.this.pendingNotifyStatus
                         .computeIfAbsent(readIndexStatus.getIndex(), k -> new ArrayList<>(10)) //
                         .add(readIndexStatus);
                 }
-            } finally {
+            }
+            finally {
                 if (doUnlock) {
                     ReadOnlyServiceImpl.this.lock.unlock();
                 }
@@ -232,7 +228,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                 }
             }
             this.pendingNotifyStatus.clear();
-        } finally {
+        }
+        finally {
             this.lock.unlock();
         }
     }
@@ -244,9 +241,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         this.fsmCaller = opts.getFsmCaller();
         this.raftOptions = opts.getRaftOptions();
 
-        this.scheduledExecutorService = Executors
-            .newSingleThreadScheduledExecutor(new NamedThreadFactory("ReadOnlyService-PendingNotify-Scanner" +
-                node.getNodeId().toString(), true));
         this.readIndexDisruptor = DisruptorBuilder.<ReadIndexEvent>newInstance() //
             .setEventFactory(new ReadIndexEventFactory()) //
             .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
@@ -266,8 +260,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         // listen on lastAppliedLogIndex change events.
         this.fsmCaller.addLastAppliedLogIndexListener(this);
 
-        // start scanner TODO asch investigate, why it's needed ?
-        this.scheduledExecutorService.scheduleAtFixedRate(() -> onApplied(this.fsmCaller.getLastAppliedIndex()),
+        // start scanner.
+        this.node.getTimerManager().scheduleAtFixedRate(() -> onApplied(this.fsmCaller.getLastAppliedIndex()),
             this.raftOptions.getMaxElectionDelayMs(), this.raftOptions.getMaxElectionDelayMs(), TimeUnit.MILLISECONDS);
         return true;
     }
@@ -287,7 +281,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         this.shutdownLatch = new CountDownLatch(1);
         Utils.runInThread(this.node.getOptions().getCommonExecutor(),
             () -> this.readIndexQueue.publishEvent((event, sequence) -> event.shutdownLatch = this.shutdownLatch));
-        this.scheduledExecutorService.shutdown();
     }
 
     @Override
@@ -297,7 +290,6 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         }
         this.readIndexDisruptor.shutdown();
         resetPendingStatusError(new Status(RaftError.ESTOP, "Node is quit."));
-        this.scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
     }
 
     @Override
@@ -317,7 +309,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
             while (true) {
                 if (this.readIndexQueue.tryPublishEvent(translator)) {
                     break;
-                } else {
+                }
+                else {
                     retryTimes++;
                     if (retryTimes > MAX_ADD_REQUEST_RETRY_TIMES) {
                         Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), closure,
@@ -329,7 +322,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                     ThreadHelper.onSpinWait();
                 }
             }
-        } catch (final Exception e) {
+        }
+        catch (final Exception e) {
             Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), closure, new Status(RaftError.EPERM, "Node is down."));
         }
     }
@@ -372,7 +366,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
             if (this.error != null) {
                 resetPendingStatusError(this.error.getStatus());
             }
-        } finally {
+        }
+        finally {
             this.lock.unlock();
             if (pendingStatuses != null && !pendingStatuses.isEmpty()) {
                 for (final ReadIndexStatus status : pendingStatuses) {

@@ -16,16 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import java.util.concurrent.CountDownLatch;
 
 import static org.junit.Assert.assertEquals;
 
 public class ExpectClosure implements Closure {
-    private int            expectedErrCode;
-    private String         expectErrMsg;
+    private int expectedErrCode;
+    private String expectErrMsg;
     private CountDownLatch latch;
 
     public ExpectClosure(CountDownLatch latch) {

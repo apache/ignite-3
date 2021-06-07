@@ -31,7 +31,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -40,9 +40,9 @@ import static org.junit.Assert.fail;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class BallotBoxTest {
-    private BallotBox        box;
+    private BallotBox box;
     @Mock
-    private FSMCaller        waiter;
+    private FSMCaller waiter;
     private ClosureQueueImpl closureQueue;
 
     @Before
@@ -115,7 +115,6 @@ public class BallotBoxTest {
         assertTrue(this.box.appendPendingTask(
             JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
             JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
-
                 @Override
                 public void run(Status status) {
 
@@ -125,8 +124,9 @@ public class BallotBoxTest {
         try {
             this.box.commitAt(1, 3, new PeerId("localhost", 8081));
             fail();
-        } catch (ArrayIndexOutOfBoundsException e) {
-
+        }
+        catch (ArrayIndexOutOfBoundsException e) {
+            // No-op.
         }
         assertTrue(this.box.commitAt(1, 1, new PeerId("localhost", 8081)));
         assertEquals(0, this.box.getLastCommittedIndex());

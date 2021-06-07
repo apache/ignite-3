@@ -16,16 +16,19 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import java.util.concurrent.Executor;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.core.Scheduler;
+import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -36,10 +39,6 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 
 /**
  * Some helper methods for jraft usage.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-23 3:48:45 PM
  */
 public final class JRaftUtils {
     /**
@@ -79,6 +78,58 @@ public final class JRaftUtils {
     }
 
     /**
+     * @param opts Node options.
+     * @return The executor.
+     */
+    public static ExecutorService createCommonExecutor(NodeOptions opts) {
+        return createExecutor("JRaft-Common-Executor-" + opts.getServerName() + "-", opts.getCommonThreadPollSize());
+    }
+
+    /**
+     * @param opts Node options.
+     * @return The executor.
+     */
+    public static FixedThreadsExecutorGroup createAppendEntriesExecutor(NodeOptions opts) {
+        return createStripedExecutor("JRaft-AppendEntries-Processor-" + opts.getServerName() + "-",
+            Utils.APPEND_ENTRIES_THREADS_POOL_SIZE, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD);
+    }
+
+    /**
+     * @param opts Node options.
+     * @return The executor.
+     */
+    public static ExecutorService createRequestExecutor(NodeOptions opts) {
+        return createExecutor("JRaft-Request-Processor-" + opts.getServerName() + "-",
+            opts.getRaftRpcThreadPoolSize());
+    }
+
+    /**
+     * @param opts Options.
+     * @param name The name.
+     * @return The service.
+     */
+    public static ExecutorService createClientExecutor(RpcOptions opts, String name) {
+        String prefix = "JRaft-Response-Processor-" + name + "-";
+        return ThreadPoolUtil.newBuilder()
+            .poolName(prefix) //
+            .enableMetric(true) //
+            .coreThreads(opts.getRpcProcessorThreadPoolSize() / 3) //
+            .maximumThreads(opts.getRpcProcessorThreadPoolSize()) //
+            .keepAliveSeconds(60L) //
+            .workQueue(new ArrayBlockingQueue<>(10000)) //
+            .threadFactory(new NamedThreadFactory(prefix, true)) //
+            .build();
+    }
+
+    /**
+     * @param opts Options.
+     * @return The scheduler.
+     */
+    public static Scheduler createScheduler(NodeOptions opts) {
+        return new TimerManager(opts.getTimerPoolSize(), "JRaft-Node-Scheduler-" + opts.getServerName() + "-");
+    }
+
+    /**
      * Create a striped executor.
      *
      * @param prefix Thread name prefix.
@@ -86,7 +137,8 @@ public final class JRaftUtils {
      * @param tasksPerThread Max tasks per thread.
      * @return The executor.
      */
-    public static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number, final int tasksPerThread) {
+    public static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number,
+        final int tasksPerThread) {
         return DefaultFixedThreadsExecutorGroupFactory.INSTANCE
             .newExecutorGroup(
                 number,
@@ -100,16 +152,14 @@ public final class JRaftUtils {
      *
      * @param prefixName the prefix name of thread
      * @return a new {@link ThreadFactory} instance
-     *
-     * @since 0.0.3
      */
     public static ThreadFactory createThreadFactory(final String prefixName) {
         return new NamedThreadFactory(prefixName, true);
     }
 
     /**
-     * Create a configuration from a string in the form of "host1:port1[:idx],host2:port2[:idx]......",
-     * returns a empty configuration when string is blank.
+     * Create a configuration from a string in the form of "host1:port1[:idx],host2:port2[:idx]......", returns a empty
+     * configuration when string is blank.
      */
     public static Configuration getConfiguration(final String s) {
         final Configuration conf = new Configuration();
@@ -123,8 +173,7 @@ public final class JRaftUtils {
     }
 
     /**
-     * Create a peer from a string in the form of "host:port[:idx]",
-     * returns a empty peer when string is blank.
+     * Create a peer from a string in the form of "host:port[:idx]", returns a empty peer when string is blank.
      */
     public static PeerId getPeerId(final String s) {
         final PeerId peer = new PeerId();
@@ -138,8 +187,7 @@ public final class JRaftUtils {
     }
 
     /**
-     * Create a Endpoint instance from  a string in the form of "host:port",
-     * returns null when string is blank.
+     * Create a Endpoint instance from  a string in the form of "host:port", returns null when string is blank.
      */
     public static Endpoint getEndPoint(final String s) {
         if (StringUtils.isBlank(s)) {

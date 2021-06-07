@@ -24,11 +24,7 @@ import org.apache.ignite.raft.jraft.option.CliOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 
 /**
- * Service factory to create raft services, such as Node/CliService etc.
- * TODO asch remove it, not needed.
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-May-03 11:06:02 AM
+ * Service factory to create raft services, such as Node/CliService etc. TODO asch remove it, not needed.
  */
 public final class RaftServiceFactory {
 
@@ -40,9 +36,8 @@ public final class RaftServiceFactory {
     }
 
     /**
-     * TODO asch not used.
-     * Create and initialize a raft node with node options.
-     * Throw {@link IllegalStateException} when fail to initialize.
+     * TODO asch not used. Create and initialize a raft node with node options. Throw {@link IllegalStateException} when
+     * fail to initialize.
      */
     public static Node createAndInitRaftNode(final String groupId, final PeerId serverId, final NodeOptions opts) {
         final Node ret = createRaftNode(groupId, serverId);

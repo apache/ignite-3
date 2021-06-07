@@ -22,10 +22,6 @@ import org.apache.ignite.raft.jraft.Status;
 
 /**
  * A catchup closure for peer to catch up.
- *
- * @author boyan (boyan@alibaba-inc.com)
- * <p>
- * 2018-Apr-04 2:15:05 PM
  */
 public abstract class CatchUpClosure implements Closure {
 

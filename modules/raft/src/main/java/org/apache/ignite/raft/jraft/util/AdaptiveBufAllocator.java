@@ -21,19 +21,17 @@ import java.util.List;
 
 /**
  * The code comes from https://github.com/netty/netty/blob/4.1/transport/src/main/java/io/netty/channel/AdaptiveRecvByteBufAllocator.java
- *
- * @author jiachun.fjc
  */
 public class AdaptiveBufAllocator {
 
-    private static final int                 DEFAULT_MINIMUM = 64;
-    private static final int                 DEFAULT_INITIAL = 512;
-    private static final int                 DEFAULT_MAXIMUM = 524288;
+    private static final int DEFAULT_MINIMUM = 64;
+    private static final int DEFAULT_INITIAL = 512;
+    private static final int DEFAULT_MAXIMUM = 524288;
 
-    private static final int                 INDEX_INCREMENT = 4;
-    private static final int                 INDEX_DECREMENT = 1;
+    private static final int INDEX_INCREMENT = 4;
+    private static final int INDEX_DECREMENT = 1;
 
-    private static final int[]               SIZE_TABLE;
+    private static final int[] SIZE_TABLE;
 
     static {
         final List<Integer> sizeTable = new ArrayList<>();
@@ -51,10 +49,10 @@ public class AdaptiveBufAllocator {
         }
     }
 
-    public static final AdaptiveBufAllocator DEFAULT         = new AdaptiveBufAllocator();
+    public static final AdaptiveBufAllocator DEFAULT = new AdaptiveBufAllocator();
 
     private static int getSizeTableIndex(final int size) {
-        for (int low = 0, high = SIZE_TABLE.length - 1;;) {
+        for (int low = 0, high = SIZE_TABLE.length - 1; ; ) {
             if (high < low) {
                 return low;
             }
@@ -67,11 +65,14 @@ public class AdaptiveBufAllocator {
             final int b = SIZE_TABLE[mid + 1];
             if (size > b) {
                 low = mid + 1;
-            } else if (size < a) {
+            }
+            else if (size < a) {
                 high = mid - 1;
-            } else if (size == a) {
+            }
+            else if (size == a) {
                 return mid;
-            } else {
+            }
+            else {
                 return mid + 1;
             }
         }
@@ -80,26 +81,25 @@ public class AdaptiveBufAllocator {
     public interface Handle {
 
         /**
-         * Creates a new buffer whose capacity is probably large enough to write all outbound data and small
-         * enough not to waste its space.
+         * Creates a new buffer whose capacity is probably large enough to write all outbound data and small enough not
+         * to waste its space.
          */
         ByteBufferCollector allocate();
 
         /**
-         * Gets a buffer from recyclers whose capacity is probably large enough to write all outbound data and
-         * small enough not to waste its space, recycling is needed.
+         * Gets a buffer from recyclers whose capacity is probably large enough to write all outbound data and small
+         * enough not to waste its space, recycling is needed.
          */
         ByteBufferCollector allocateByRecyclers();
 
         /**
-         * Similar to {@link #allocate()} except that it does not allocate anything but
-         * just tells the capacity.
+         * Similar to {@link #allocate()} except that it does not allocate anything but just tells the capacity.
          */
         int guess();
 
         /**
-         * Records the the actual number of wrote bytes in the previous write operation so that the allocator
-         * allocates the buffer with potentially more correct capacity.
+         * Records the the actual number of wrote bytes in the previous write operation so that the allocator allocates
+         * the buffer with potentially more correct capacity.
          *
          * @param actualWroteBytes the actual number of wrote bytes in the previous allocate operation
          */
@@ -110,9 +110,9 @@ public class AdaptiveBufAllocator {
 
         private final int minIndex;
         private final int maxIndex;
-        private int       index;
-        private int       nextAllocateBufSize;
-        private boolean   decreaseNow;
+        private int index;
+        private int nextAllocateBufSize;
+        private boolean decreaseNow;
 
         HandleImpl(int minIndex, int maxIndex, int initial) {
             this.minIndex = minIndex;
@@ -144,10 +144,12 @@ public class AdaptiveBufAllocator {
                     this.index = Math.max(this.index - INDEX_DECREMENT, this.minIndex);
                     this.nextAllocateBufSize = SIZE_TABLE[this.index];
                     this.decreaseNow = false;
-                } else {
+                }
+                else {
                     this.decreaseNow = true;
                 }
-            } else if (actualWroteBytes >= this.nextAllocateBufSize) {
+            }
+            else if (actualWroteBytes >= this.nextAllocateBufSize) {
                 this.index = Math.min(this.index + INDEX_INCREMENT, this.maxIndex);
                 this.nextAllocateBufSize = SIZE_TABLE[this.index];
                 this.decreaseNow = false;
@@ -160,9 +162,8 @@ public class AdaptiveBufAllocator {
     private final int initial;
 
     /**
-     * Creates a new predictor with the default parameters.  With the default
-     * parameters, the expected buffer size starts from {@code 512}, does not
-     * go down below {@code 64}, and does not go up above {@code 524288}.
+     * Creates a new predictor with the default parameters.  With the default parameters, the expected buffer size
+     * starts from {@code 512}, does not go down below {@code 64}, and does not go up above {@code 524288}.
      */
     private AdaptiveBufAllocator() {
         this(DEFAULT_MINIMUM, DEFAULT_INITIAL, DEFAULT_MAXIMUM);
@@ -183,14 +184,16 @@ public class AdaptiveBufAllocator {
         final int minIndex = getSizeTableIndex(minimum);
         if (SIZE_TABLE[minIndex] < minimum) {
             this.minIndex = minIndex + 1;
-        } else {
+        }
+        else {
             this.minIndex = minIndex;
         }
 
         final int maxIndex = getSizeTableIndex(maximum);
         if (SIZE_TABLE[maxIndex] > maximum) {
             this.maxIndex = maxIndex - 1;
-        } else {
+        }
+        else {
             this.maxIndex = maxIndex;
         }
 

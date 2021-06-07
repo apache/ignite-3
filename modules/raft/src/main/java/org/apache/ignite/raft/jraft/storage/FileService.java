@@ -16,9 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.storage;
 
-import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +25,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RetryAgainException;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import org.apache.ignite.raft.jraft.storage.io.FileReader;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
@@ -39,19 +39,15 @@ import org.slf4j.LoggerFactory;
 
 /**
  * File reader service.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Mar-30 10:23:13 AM
  */
 public final class FileService {
 
-    private static final Logger                   LOG           = LoggerFactory.getLogger(FileService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(FileService.class);
 
-    private static final FileService INSTANCE      = new FileService(); // TODO asch fixme.
+    private static final FileService INSTANCE = new FileService(); // TODO asch fixme.
 
     private final ConcurrentMap<Long, FileReader> fileReaderMap = new ConcurrentHashMap<>();
-    private final AtomicLong                      nextId        = new AtomicLong();
+    private final AtomicLong nextId = new AtomicLong();
 
     /**
      * Retrieve the singleton instance of FileService.
@@ -112,17 +108,20 @@ public final class FileService {
             if (!buf.hasRemaining()) {
                 // skip empty data
                 responseBuilder.setData(ByteString.EMPTY);
-            } else {
+            }
+            else {
                 // TODO check hole
                 responseBuilder.setData(new ByteString(buf));
             }
             return responseBuilder.build();
-        } catch (final RetryAgainException e) {
+        }
+        catch (final RetryAgainException e) {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EAGAIN,
                     "Fail to read from path=%s filename=%s with error: %s", reader.getPath(), request.getFilename(),
                     e.getMessage());
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             LOG.error("Fail to read file path={} filename={}", reader.getPath(), request.getFilename(), e);
             return RaftRpcFactory.DEFAULT //
                 .newResponse(GetFileResponse.getDefaultInstance(), RaftError.EIO,
@@ -137,7 +136,8 @@ public final class FileService {
         final long readerId = this.nextId.getAndIncrement();
         if (this.fileReaderMap.putIfAbsent(readerId, reader) == null) {
             return readerId;
-        } else {
+        }
+        else {
             return -1L;
         }
     }

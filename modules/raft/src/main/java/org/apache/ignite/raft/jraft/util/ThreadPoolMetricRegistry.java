@@ -20,11 +20,11 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 
 /**
- * @author jiachun.fjc
+ *
  */
 public class ThreadPoolMetricRegistry {
 
-    private static final MetricRegistry             metricRegistry   = new MetricRegistry();
+    private static final MetricRegistry metricRegistry = new MetricRegistry();
     private static final ThreadLocal<Timer.Context> timerThreadLocal = new ThreadLocal<>();
 
     /**

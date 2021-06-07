@@ -24,16 +24,10 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
 /**
  * Snapshot storage.
- *
- * @author boyan (boyan@alibaba-inc.com)
- *
- * 2018-Apr-08 3:30:05 PM
  */
 public interface SnapshotStorage extends Lifecycle<Void>, Storage {
-
     /**
-     * Set filterBeforeCopyRemote to be true.When true,
-     * it will filter the data before copy to remote.
+     * Set filterBeforeCopyRemote to be true.When true, it will filter the data before copy to remote.
      */
     boolean setFilterBeforeCopyRemote();
 
@@ -50,7 +44,7 @@ public interface SnapshotStorage extends Lifecycle<Void>, Storage {
     /**
      * Copy data from remote uri.
      *
-     * @param uri  remote uri
+     * @param uri remote uri
      * @param opts copy options
      * @return a SnapshotReader instance
      */
@@ -59,7 +53,7 @@ public interface SnapshotStorage extends Lifecycle<Void>, Storage {
     /**
      * Starts a copy job to copy data from remote uri.
      *
-     * @param uri  remote uri
+     * @param uri remote uri
      * @param opts copy options
      * @return a SnapshotCopier instance
      */

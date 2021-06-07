@@ -28,8 +28,8 @@ import java.util.concurrent.TimeUnit;
  */
 public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecutorGroup {
 
-    private final SingleThreadExecutor[]                 children;
-    private final Set<SingleThreadExecutor>              readonlyChildren;
+    private final SingleThreadExecutor[] children;
+    private final Set<SingleThreadExecutor> readonlyChildren;
     private final ExecutorChooserFactory.ExecutorChooser chooser;
 
     public DefaultFixedThreadsExecutorGroup(SingleThreadExecutor[] children) {
@@ -37,7 +37,7 @@ public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecu
     }
 
     public DefaultFixedThreadsExecutorGroup(SingleThreadExecutor[] children,
-                                            ExecutorChooserFactory.ExecutorChooser chooser) {
+        ExecutorChooserFactory.ExecutorChooser chooser) {
         this.children = children;
         this.readonlyChildren = toUnmodifiableSet(this.children);
         this.chooser = chooser;
@@ -49,7 +49,8 @@ public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecu
         this.chooser = DefaultExecutorChooserFactory.INSTANCE.newChooser(this.children);
     }
 
-    public DefaultFixedThreadsExecutorGroup(ExecutorService[] executors, ExecutorChooserFactory.ExecutorChooser chooser) {
+    public DefaultFixedThreadsExecutorGroup(ExecutorService[] executors,
+        ExecutorChooserFactory.ExecutorChooser chooser) {
         this.children = toSingleThreadExecutors(executors);
         this.readonlyChildren = toUnmodifiableSet(this.children);
         this.chooser = chooser;
@@ -104,7 +105,8 @@ public final class DefaultFixedThreadsExecutorGroup implements FixedThreadsExecu
         for (int i = 0; i < executors.length; i++) {
             if (executors[i] instanceof SingleThreadExecutor) {
                 array[i] = (SingleThreadExecutor) executors[i];
-            } else {
+            }
+            else {
                 array[i] = new DefaultSingleThreadExecutor(executors[i]);
             }
         }
