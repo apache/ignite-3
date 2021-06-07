@@ -17,28 +17,37 @@
 
 package org.apache.ignite.network.processor.internal;
 
+import java.util.ArrayDeque;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Various utilities for working with {@link TypeMirror} instances.
+ * Various shortcuts over the {@link Types} utilities.
  */
-class TypeUtils {
+public class TypeUtils {
     /** */
     private final ProcessingEnvironment processingEnvironment;
 
-    /** */
-    TypeUtils(ProcessingEnvironment processingEnvironment) {
+    /**
+     * @param processingEnvironment processing environment
+     */
+    public TypeUtils(ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
     }
 
     /**
      * Returns {@code true} if the <i>erasure</i> of the given types are actually the same type.
+     *
+     * @param type1 first type (represented by a mirror)
+     * @param type2 second type (represented by a {@code Class})
+     * @return {@code true} if the erasure of both types represent the same type, {@code false} otherwise.
      */
-    boolean isSameType(TypeMirror type1, Class<?> type2) {
+    public boolean isSameType(TypeMirror type1, Class<?> type2) {
         TypeMirror type2Mirror = typeMirrorFromClass(type2);
 
         return processingEnvironment.getTypeUtils().isSameType(erasure(type1), erasure(type2Mirror));
@@ -47,15 +56,46 @@ class TypeUtils {
     /**
      * Returns the primitive type represented by its boxed value or {@code null} if the given type is not a boxed
      * primitive type.
+     *
+     * @param type boxed wrapper of a primitive type
+     * @return corresponding primitive type
      */
     @Nullable
-    PrimitiveType unboxedType(TypeMirror type) {
+    public PrimitiveType unboxedType(TypeMirror type) {
         try {
             return processingEnvironment.getTypeUtils().unboxedType(type);
         }
         catch (IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    /**
+     * Returns {@code true} if the given type element implements the given interface (represented by its {@link Class})
+     * either directly or indirectly.
+     *
+     * @param element element which parent interfaces are to be inspected
+     * @param cls target superinterface to search for
+     * @return {@code true} if the given {@code element} is a subtype of {@code cls}
+     */
+    public boolean hasSuperInterface(TypeElement element, Class<?> cls) {
+        // perform BFS to find the given interface among all possible superinterfaces
+        var queue = new ArrayDeque<Element>();
+
+        queue.add(element);
+
+        while (!queue.isEmpty()) {
+            Element currentElement = queue.pop();
+
+            if (isSameType(currentElement.asType(), cls))
+                return true;
+
+            ((TypeElement)currentElement).getInterfaces().stream()
+                .map(processingEnvironment.getTypeUtils()::asElement)
+                .forEach(queue::add);
+        }
+
+        return false;
     }
 
     /**
