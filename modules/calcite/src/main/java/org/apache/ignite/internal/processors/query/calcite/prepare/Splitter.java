@@ -31,6 +31,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteSender;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTrimExchange;
+import org.apache.ignite.internal.processors.query.calcite.rel.SourceAwareIgniteRel;
 
 /**
  * Splits a query into a list of query fragments.
@@ -86,7 +87,7 @@ public class Splitter extends IgniteRelShuttle {
 
     /** {@inheritDoc} */
     @Override public IgniteRel visit(IgniteTrimExchange rel) {
-        return ((IgniteTrimExchange)processNode(rel)).clone(IdGenerator.nextId());
+        return ((SourceAwareIgniteRel)processNode(rel)).clone(IdGenerator.nextId());
     }
 
     /** {@inheritDoc} */
@@ -116,6 +117,7 @@ public class Splitter extends IgniteRelShuttle {
             this.root = root;
         }
 
+        /** */
         Fragment build() {
             return new Fragment(id, root, remotes.build());
         }

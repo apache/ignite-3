@@ -275,19 +275,19 @@ class RelJson {
             return toJson((CorrelationId)value);
         else if (value instanceof List) {
             List<Object> list = list();
-            for (Object o : (List)value)
+            for (Object o : (Iterable)value)
                 list.add(toJson(o));
             return list;
         }
         else if (value instanceof ImmutableBitSet) {
             List<Object> list = list();
-            for (Integer integer : (ImmutableBitSet)value)
+            for (Integer integer : (Iterable<Integer>)value)
                 list.add(toJson(integer));
             return list;
         }
         else if (value instanceof Set) {
             Set<Object> set = set();
-            for (Object o : (Set)value)
+            for (Object o : (Iterable)value)
                 set.add(toJson(o));
             return set;
         }

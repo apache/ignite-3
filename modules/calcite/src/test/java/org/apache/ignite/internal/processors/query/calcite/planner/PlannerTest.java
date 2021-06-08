@@ -85,8 +85,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  *
  */
-//@WithSystemProperty(key = "calcite.debug", value = "true")
-@SuppressWarnings({"TooBroadScope", "FieldCanBeLocal", "TypeMayBeWeakened"})
 public class PlannerTest extends AbstractPlannerTest {
     /** */
     private static List<UUID> NODES;
@@ -1826,7 +1824,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         );
 
-        String queries[] = {
+        String[] queries = {
             "select REVERSE(val) from TEST", // MYSQL
             "select TO_DATE(val, 'yyyymmdd') from TEST" // ORACLE
         };
