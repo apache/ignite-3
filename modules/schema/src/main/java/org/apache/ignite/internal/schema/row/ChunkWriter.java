@@ -218,6 +218,8 @@ abstract class ChunkWriter {
      * @param colIdx Column index.
      */
     protected void setNull(int colIdx) {
+        assert nullMapOff < varTblOff : "Null map is omitted.";
+
         int byteInMap = colIdx / 8;
         int bitInByte = colIdx % 8;
 

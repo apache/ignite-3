@@ -214,10 +214,6 @@ public class RowAssembler {
         chunkWriter = createChunkWriter(KEY_CHUNK_OFFSET, keyNullMapSize, keyVarlenCols, tinyKey);
     }
 
-    private boolean isTinyChunk(int dataSize) {
-        return dataSize > 0 && dataSize < 256;
-    }
-
     /**
      * Chunk writer factory method.
      *
