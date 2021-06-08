@@ -91,6 +91,50 @@ public class DefaultRaftClientService extends AbstractClientService implements R
             return invokeWithDone(endpoint, request, done, timeoutMs, executor);
         }
 
+        return failedFuture(executor, request, done, endpoint);
+    }
+
+    @Override
+    public Future<Message> getFile(final Endpoint endpoint, final GetFileRequest request, final int timeoutMs,
+        final RpcResponseClosure<GetFileResponse> done) {
+        // open checksum
+        final InvokeContext ctx = new InvokeContext();
+
+        return invokeWithDone(endpoint, request, ctx, done, timeoutMs);
+    }
+
+    @Override
+    public Future<Message> installSnapshot(final Endpoint endpoint, final InstallSnapshotRequest request,
+        final RpcResponseClosure<InstallSnapshotResponse> done) {
+
+        // Check connection before installing the snapshot to avoid waiting for undelivered message.
+        if (connect(endpoint)) {
+            return invokeWithDone(endpoint, request, done, this.rpcOptions.getRpcInstallSnapshotTimeout());
+        }
+
+        return failedFuture(rpcExecutor, request, done, endpoint);
+    }
+
+    @Override
+    public Future<Message> timeoutNow(final Endpoint endpoint, final TimeoutNowRequest request, final int timeoutMs,
+        final RpcResponseClosure<TimeoutNowResponse> done) {
+        return invokeWithDone(endpoint, request, done, timeoutMs);
+    }
+
+    @Override
+    public Future<Message> readIndex(final Endpoint endpoint, final ReadIndexRequest request, final int timeoutMs,
+        final RpcResponseClosure<ReadIndexResponse> done) {
+        return invokeWithDone(endpoint, request, done, timeoutMs);
+    }
+
+    /**
+     * @param executor The executor to run done closure.
+     * @param request The request.
+     * @param done The closure.
+     * @param endpoint The endpoint.
+     * @return The future.
+     */
+    private Future<Message> failedFuture(Executor executor, Message request, RpcResponseClosure<?> done, Endpoint endpoint) {
         // fail-fast when no connection
         final FutureImpl<Message> future = new FutureImpl<>();
 
@@ -108,32 +152,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
                     endpoint.toString() + "] fail and try to create new one"));
             }
         });
+
         return future;
-    }
-
-    @Override
-    public Future<Message> getFile(final Endpoint endpoint, final GetFileRequest request, final int timeoutMs,
-        final RpcResponseClosure<GetFileResponse> done) {
-        // open checksum
-        final InvokeContext ctx = new InvokeContext();
-        return invokeWithDone(endpoint, request, ctx, done, timeoutMs);
-    }
-
-    @Override
-    public Future<Message> installSnapshot(final Endpoint endpoint, final InstallSnapshotRequest request,
-        final RpcResponseClosure<InstallSnapshotResponse> done) {
-        return invokeWithDone(endpoint, request, done, this.rpcOptions.getRpcInstallSnapshotTimeout());
-    }
-
-    @Override
-    public Future<Message> timeoutNow(final Endpoint endpoint, final TimeoutNowRequest request, final int timeoutMs,
-        final RpcResponseClosure<TimeoutNowResponse> done) {
-        return invokeWithDone(endpoint, request, done, timeoutMs);
-    }
-
-    @Override
-    public Future<Message> readIndex(final Endpoint endpoint, final ReadIndexRequest request, final int timeoutMs,
-        final RpcResponseClosure<ReadIndexResponse> done) {
-        return invokeWithDone(endpoint, request, done, timeoutMs);
     }
 }

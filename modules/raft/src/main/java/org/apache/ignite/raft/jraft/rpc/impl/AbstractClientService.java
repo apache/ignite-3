@@ -117,7 +117,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         if (readyAddresses.contains(endpoint.toString()))
             return true;
 
-        // Remote node must be pinged. TODO asch this seems not necessary IGNITE-14832
+        // Remote node must be pinged to make sure listeners are set.
         synchronized (this) {
             if (readyAddresses.contains(endpoint.toString()))
                 return true;
