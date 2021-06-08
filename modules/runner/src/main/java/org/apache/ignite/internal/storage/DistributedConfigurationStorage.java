@@ -68,7 +68,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private static final ByteArray DST_KEYS_END_RANGE =
             new ByteArray(DISTRIBUTED_PREFIX.substring(0, DISTRIBUTED_PREFIX.length() - 1) + (char)('.' + 1));
 
-    /** MetaStorage manager. */
+    /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
     /** Vault manager. */
@@ -83,7 +83,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /**
      * Constructor.
      *
-     * @param metaStorageMgr MetaStorage Manager.
+     * @param metaStorageMgr Meta storage manager.
+     * @param vaultMgr Vault manager.
      */
     public DistributedConfigurationStorage(MetaStorageManager metaStorageMgr, VaultManager vaultMgr) {
         this.metaStorageMgr = metaStorageMgr;
@@ -95,7 +96,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override public synchronized Data readAll() throws StorageException {
         HashMap<String, Serializable> data = new HashMap<>();
 
-        var entries = allStoredDstCfgKeysFromVault();
+        Iterator<org.apache.ignite.internal.vault.common.Entry> entries = storedDistributedConfigKeys();
 
         long appliedRevision = 0L;
 
@@ -117,7 +118,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         if (!data.isEmpty()) {
             assert appliedRevision > 0;
 
-            assert appliedRevision >= ver.get();
+            assert appliedRevision >= ver.get() : "Applied revision cannot be less than storage version " +
+                "that is applied to configuration manager.";
 
             return new Data(data, appliedRevision);
         }
@@ -244,7 +246,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * @return Iterator built upon all distributed configuration entries stored in vault.
      */
-    private @NotNull Iterator<org.apache.ignite.internal.vault.common.Entry> allStoredDstCfgKeysFromVault() {
+    private @NotNull Iterator<org.apache.ignite.internal.vault.common.Entry> storedDistributedConfigKeys() {
         // TODO: rangeWithAppliedRevision could throw OperationTimeoutException and CompactedException and we should
         // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
         return vaultMgr.range(MASTER_KEY, DST_KEYS_END_RANGE);
