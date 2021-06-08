@@ -31,8 +31,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * Process get leader request.
- *
- * @author jiachun.fjc
  */
 public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeaderRequest> {
 

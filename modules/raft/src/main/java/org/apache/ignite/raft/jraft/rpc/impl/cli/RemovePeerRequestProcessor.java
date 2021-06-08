@@ -28,8 +28,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 
 /**
  * Remove peer request processor.
- *
- * @author jiachun.fjc
  */
 public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePeerRequest> {
 

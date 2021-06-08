@@ -61,7 +61,6 @@ public class NodeManager {
     public void clear() {
         this.groupMap.clear();
         this.nodeMap.clear();
-        //this.addrSet.clear();
     }
 
     /**

@@ -49,6 +49,8 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 
+import static org.junit.Assert.assertTrue;
+
 /**
  * Test cluster for NodeTest
  */
@@ -410,18 +412,21 @@ public class TestCluster {
      * @return {@code True} if all FSM state are the same.
      * @throws InterruptedException
      */
-    public boolean ensureSame() throws InterruptedException {
+    public void ensureSame() throws InterruptedException {
         this.lock.lock();
+
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
+
         if (fsmList.size() <= 1) {
+            LOG.warn("ensureSame is skipped because only one node in the group");
             this.lock.unlock();
-            return true;
+            return;
         }
 
         LOG.info("Start ensureSame");
 
         try {
-            return TestUtils.waitForCondition(() -> {
+            assertTrue(TestUtils.waitForCondition(() -> {
                 MockStateMachine first = fsmList.get(0);
 
                 first.lock();
@@ -446,7 +451,8 @@ public class TestCluster {
                                 if (!data0.equals(data1))
                                     return false;
                             }
-                        } finally {
+                        }
+                        finally {
                             fsm.unlock();
                         }
                     }
@@ -456,7 +462,7 @@ public class TestCluster {
                 }
 
                 return true;
-            }, 20_000);
+            }, 20_000));
         }
         finally {
             this.lock.unlock();

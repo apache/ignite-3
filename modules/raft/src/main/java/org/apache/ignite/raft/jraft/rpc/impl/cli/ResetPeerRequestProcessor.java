@@ -29,8 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 /**
  * Reset peer request processor.
- *
- * @author jiachun.fjc
  */
 public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeerRequest> {
 

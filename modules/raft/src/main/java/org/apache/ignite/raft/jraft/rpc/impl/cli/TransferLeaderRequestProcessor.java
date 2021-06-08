@@ -28,8 +28,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 /**
  * Snapshot request processor.
- *
- * @author jiachun.fjc
  */
 public class TransferLeaderRequestProcessor extends BaseCliRequestProcessor<TransferLeaderRequest> {
 

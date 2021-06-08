@@ -20,9 +20,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 
 /**
- * TODO asch refactor Helper to create error response.
- *
- * @author jiachun.fjc
+ * TODO asch refactor Helper to create error response https://issues.apache.org/jira/browse/IGNITE-14838
  */
 public interface RpcResponseFactory {
     /**

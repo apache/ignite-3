@@ -158,7 +158,7 @@ public class MockStateMachine extends StateMachineAdapter {
             finally {
                 this.lock.unlock();
             }
-            System.out.println("Node<" + this.address + "> saved snapshot into " + file);
+            LOG.info("Node<" + this.address + "> saved snapshot into " + file);
             writer.addFile("data");
             done.run(Status.OK());
         }
@@ -199,7 +199,7 @@ public class MockStateMachine extends StateMachineAdapter {
             finally {
                 this.lock.unlock();
             }
-            System.out.println("Node<" + this.address + "> loaded snapshot from " + path);
+            LOG.info("Node<" + this.address + "> loaded snapshot from " + path);
             return true;
         }
         catch (final IOException e) {

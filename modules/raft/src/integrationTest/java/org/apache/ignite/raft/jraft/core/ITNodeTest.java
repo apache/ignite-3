@@ -1625,7 +1625,7 @@ public class ITNodeTest {
         // restart old leader
         LOG.info("restart old leader {}", oldLeader);
         assertTrue(cluster.start(oldLeader.getEndpoint()));
-        assertTrue(cluster.ensureSame());
+        cluster.ensureSame();
 
         for (final MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(30, fsm.getLogs().size());
@@ -2290,27 +2290,26 @@ public class ITNodeTest {
         assertTrue(cluster.stop(followerAddr));
 
         // apply something more
-        this.sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
+        sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
 
         // trigger leader snapshot
         triggerLeaderSnapshot(cluster, leader);
         // apply something more
-        this.sendTestTaskAndWait(leader, 20, RaftError.SUCCESS);
+        sendTestTaskAndWait(leader, 20, RaftError.SUCCESS);
         triggerLeaderSnapshot(cluster, leader, 2);
 
         // wait leader to compact logs
-        Thread.sleep(50);
+        Thread.sleep(1000);
 
         //restart follower.
         cluster.clean(followerAddr);
         assertTrue(cluster.start(followerAddr, false, 300));
 
-        Thread.sleep(2000);
         cluster.ensureSame();
 
         assertEquals(3, cluster.getFsms().size());
         for (final MockStateMachine fsm : cluster.getFsms()) {
-            assertEquals(30, fsm.getLogs().size());
+            assertEquals(fsm.getAddress().toString(), 30, fsm.getLogs().size());
         }
     }
 
@@ -2430,7 +2429,7 @@ public class ITNodeTest {
         Thread.sleep(5000);
         // restart follower
         assertTrue(cluster.start(followerAddr));
-        assertTrue(cluster.ensureSame());
+        cluster.ensureSame();
         assertEquals(3, cluster.getFsms().size());
         for (final MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(30, fsm.getLogs().size());
@@ -2509,7 +2508,7 @@ public class ITNodeTest {
         leader = cluster.getLeader();
 
         Assert.assertNotEquals(targetPeer, leader.getNodeId().getPeerId());
-        assertTrue(cluster.ensureSame());
+        cluster.ensureSame();
     }
 
     @Test
@@ -2557,7 +2556,7 @@ public class ITNodeTest {
         leader.apply(task);
         waitLatch(latch);
 
-        assertTrue(cluster.ensureSame());
+        cluster.ensureSame();
     }
 
     /**
@@ -3071,7 +3070,7 @@ public class ITNodeTest {
             leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
             assertTrue(done.await().isOk());
         }
-        assertTrue(cluster.ensureSame());
+        cluster.ensureSame();
     }
 
     @Test
@@ -3110,7 +3109,7 @@ public class ITNodeTest {
         leader.changePeers(conf, done);
         assertTrue(done.await().isOk());
 
-        assertTrue(cluster.ensureSame());
+        cluster.ensureSame();
         assertEquals(3, cluster.getFsms().size());
         for (final MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(10, fsm.getLogs().size());

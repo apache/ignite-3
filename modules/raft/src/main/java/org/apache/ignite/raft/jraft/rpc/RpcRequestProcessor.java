@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
  * Abstract AsyncUserProcessor for RPC processors.
  *
  * @param <T> Message
- * @author jiachun.fjc
  */
 public abstract class RpcRequestProcessor<T extends Message> implements RpcProcessor<T> {
     /**
