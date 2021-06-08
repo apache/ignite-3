@@ -104,7 +104,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
                 }
             }
             if (!future.isDone()) {
-                future.failure(new RemotingException("Check connection[" +
+                future.completeExceptionally(new RemotingException("Check connection[" +
                     endpoint.toString() + "] fail and try to create new one"));
             }
         });

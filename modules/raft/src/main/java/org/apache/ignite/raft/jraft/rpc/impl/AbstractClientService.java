@@ -174,7 +174,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         final Executor currExecutor = rpcExecutor != null ? rpcExecutor : this.rpcExecutor;
         try {
             if (rc == null) {
-                future.failure(new IllegalStateException("Client service is uninitialized."));
+                // TODO asch replace with ignite exception, check all places IGNITE-14832
+                future.completeExceptionally(new IllegalStateException("Client service is uninitialized."));
                 // should be in another thread to avoid dead locking.
                 Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
                     "Client service is uninitialized."));
@@ -211,7 +212,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                             }
                         }
                         if (!future.isDone()) {
-                            future.setResult(msg);
+                            future.complete(msg);
                         }
                     }
                     else {
@@ -225,7 +226,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                             }
                         }
                         if (!future.isDone()) {
-                            future.failure(err);
+                            future.completeExceptionally(err);
                         }
                     }
                 }
@@ -238,13 +239,13 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         }
         catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
-            future.failure(e);
+            future.completeExceptionally(e);
             // should be in another thread to avoid dead locking.
             Utils.runClosureInExecutor(currExecutor, done,
                 new Status(RaftError.EINTR, "Sending rpc was interrupted"));
         }
         catch (final RemotingException e) {
-            future.failure(e);
+            future.completeExceptionally(e);
             // should be in another thread to avoid dead locking.
             Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
                 "Fail to send a RPC request:" + e.getMessage()));

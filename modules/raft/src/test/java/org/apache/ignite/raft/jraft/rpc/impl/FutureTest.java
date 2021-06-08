@@ -50,10 +50,10 @@ public class FutureTest {
             try {
                 Thread.sleep(this.sleepTime);
                 if (this.throwable != null) {
-                    this.future.failure(this.throwable);
+                    this.future.completeExceptionally(this.throwable);
                 }
                 else {
-                    this.future.setResult(true);
+                    this.future.complete(true);
                 }
             }
             catch (Exception e) {
@@ -75,7 +75,7 @@ public class FutureTest {
     @Test
     public void testGetImmediately() throws Exception {
         FutureImpl<Boolean> future = new FutureImpl<Boolean>();
-        future.setResult(true);
+        future.complete(true);
         boolean result = future.get();
         assertTrue(result);
         assertTrue(future.isDone());
