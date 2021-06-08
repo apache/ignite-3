@@ -262,30 +262,16 @@ public class TestCluster {
     }
 
     public boolean stop(final Endpoint listenAddr) throws InterruptedException {
-        final Node node = removeNode(listenAddr);
-        final CountDownLatch latch = new CountDownLatch(1);
-        if (node != null) {
-            node.shutdown(new ExpectClosure(latch));
-            node.join();
-            latch.await();
-        }
+        removeNode(listenAddr);
         final RaftGroupService raftGroupService = this.serverMap.remove(listenAddr.toString());
         raftGroupService.shutdown();
-        return node != null;
+        return true;
     }
 
     public void stopAll() throws InterruptedException {
         final List<Endpoint> addrs = getAllNodes();
-        final List<Node> nodes = new ArrayList<>();
-        for (final Endpoint addr : addrs) {
-            final Node node = removeNode(addr);
-            node.shutdown();
-            nodes.add(node);
-            this.serverMap.remove(addr.toString()).shutdown();
-        }
-        for (final Node node : nodes) {
-            node.join();
-        }
+        for (final Endpoint addr : addrs)
+            stop(addr);
     }
 
     public void clean(final Endpoint listenAddr) throws IOException {

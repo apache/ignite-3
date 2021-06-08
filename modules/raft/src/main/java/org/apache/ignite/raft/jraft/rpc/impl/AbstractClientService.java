@@ -110,10 +110,6 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             throw new IllegalStateException("Client service is uninitialized.");
         }
 
-        // Remote node is dead.
-        if (!rc.checkConnection(endpoint))
-            return false;
-
         // Remote node is alive and pinged, safe to continue.
         if (readyAddresses.contains(endpoint.toString()))
             return true;
