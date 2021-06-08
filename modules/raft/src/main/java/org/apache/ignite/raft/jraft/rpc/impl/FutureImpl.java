@@ -65,6 +65,8 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Simple {@link Future} implementation, which uses {@link ReentrantLock} to synchronize during the lifecycle.
  *
+ * TODO asch replace with completablefuture IGNITE-14832
+ *
  * @see Future
  * @see ReentrantLock
  */

@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class RpcRequestProcessor<T extends Message> implements RpcProcessor<T> {
     /**
-     *
+     * The logger.
      */
     protected static final Logger LOG = LoggerFactory.getLogger(RpcRequestProcessor.class);
 

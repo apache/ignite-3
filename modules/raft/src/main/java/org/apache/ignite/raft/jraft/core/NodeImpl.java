@@ -3285,6 +3285,21 @@ public class NodeImpl implements Node, RaftServerService {
                     "Parse serverId failed: %s", request.getServerId());
         }
 
+        // Check if a group is started.
+        final PeerId dstPeerId = new PeerId();
+        if (dstPeerId.parse(request.getPeerId())) {
+            final String groupId = request.getGroupId();
+            final Node node = done.getRpcCtx().getNodeManager().get(groupId, dstPeerId);
+            if (node == null) {
+                return RaftRpcFactory.DEFAULT.newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.ENOENT,
+                        "Peer id not found: %s, group: %s", request.getPeerId(), groupId);
+            }
+        }
+        else {
+            return RaftRpcFactory.DEFAULT.newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EINVAL,
+                "Fail to parse peerId: %s", request.getPeerId());
+        }
+
         this.writeLock.lock();
         try {
             if (!this.state.isActive()) {
