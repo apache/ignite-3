@@ -53,19 +53,25 @@ import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * Raft server implementation on top of forked JRaft library.
  */
 public class JRaftServerImpl implements RaftServer {
+    /** Cluster service. */
     private final ClusterService service;
 
+    /** Data path. */
     private final String dataPath;
 
+    /** Server instance. */
     private IgniteRpcServer rpcServer;
 
+    /** Started groups. */
     private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
 
+    /** Node manager. */
     private final NodeManager nodeManager;
 
+    /** Options. */
     private final NodeOptions opts;
 
     /**
@@ -99,7 +105,6 @@ public class JRaftServerImpl implements RaftServer {
 
         assert !reuse || service.topologyService().localMember() != null;
 
-        // Use consistent id as server name.
         if (opts.getServerName() == null)
             opts.setServerName(service.localConfiguration().getName());
 
