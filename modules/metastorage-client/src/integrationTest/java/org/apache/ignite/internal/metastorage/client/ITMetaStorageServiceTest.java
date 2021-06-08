@@ -30,33 +30,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageCommandListener;
-import org.apache.ignite.metastorage.client.CompactedException;
-import org.apache.ignite.metastorage.client.Condition;
-import org.apache.ignite.metastorage.client.Conditions;
-import org.apache.ignite.metastorage.client.Entry;
-import org.apache.ignite.metastorage.client.EntryEvent;
-import org.apache.ignite.metastorage.client.MetaStorageService;
-import org.apache.ignite.metastorage.client.Operation;
-import org.apache.ignite.metastorage.client.OperationTimeoutException;
-import org.apache.ignite.metastorage.client.Operations;
-import org.apache.ignite.metastorage.client.WatchEvent;
-import org.apache.ignite.metastorage.client.WatchListener;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
-import org.apache.ignite.network.message.MessageSerializationRegistry;
-import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
-import org.apache.ignite.network.scalecube.message.ScaleCubeMessageSerializationFactory;
+import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.message.RaftClientMessageFactory;
-import org.apache.ignite.raft.client.message.impl.RaftClientMessageFactoryImpl;
+import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.server.RaftServer;
@@ -66,6 +53,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -97,16 +85,13 @@ public class ITMetaStorageServiceTest {
     public static final int LATEST_REVISION = -1;
 
     /** Factory. */
-    private static final RaftClientMessageFactory FACTORY = new RaftClientMessageFactoryImpl();
+    private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
 
     /** Network factory. */
-    private static final ClusterServiceFactory NETWORK_FACTORY = new ScaleCubeClusterServiceFactory();
+    private static final ClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** */
-    // TODO: IGNITE-14088 Uncomment and use real serializer provider
-    //    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry();
-    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistry()
-            .registerFactory(ScaleCubeMessage.TYPE, new ScaleCubeMessageSerializationFactory());
+    private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
     /**  Expected server result entry. */
     private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY =
@@ -1033,28 +1018,33 @@ public class ITMetaStorageServiceTest {
     }
 
     /**
-     * Prepares meta storage by instantiating corresponding raft server with MetaStorageCommandListener and
+     * Prepares meta storage by instantiating corresponding raft server with {@link MetaStorageListener} and
      * {@link MetaStorageServiceImpl}.
      *
      * @param keyValStorageMock {@link KeyValueStorage} mock.
      * @return {@link MetaStorageService} instance.
      */
     private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) {
+        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
+
         metaStorageRaftSrv = new RaftServerImpl(
-                cluster.get(0),
-                FACTORY,
-                1000,
-                Map.of(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageCommandListener(keyValStorageMock))
+            cluster.get(0),
+            FACTORY,
+            true
         );
 
+        metaStorageRaftSrv.
+            startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
+
         RaftGroupService metaStorageRaftGrpSvc = new RaftGroupServiceImpl(
-                METASTORAGE_RAFT_GROUP_NAME,
-                cluster.get(1),
-                FACTORY,
-                10_000,
-                List.of(new Peer(cluster.get(0).topologyService().localMember())),
-                true,
-                200
+            METASTORAGE_RAFT_GROUP_NAME,
+            cluster.get(1),
+            FACTORY,
+            10_000,
+            peers,
+            true,
+            200,
+            true
         );
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc);

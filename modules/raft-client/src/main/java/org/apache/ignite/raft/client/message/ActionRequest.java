@@ -18,13 +18,15 @@
 package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Command;
 
 /**
  * Submit an action to a replication group.
  */
-public interface ActionRequest<T> extends NetworkMessage, Serializable {
+@Transferable(value = RaftClientMessageGroup.ACTION_REQUEST, autoSerializable = false)
+public interface ActionRequest extends NetworkMessage, Serializable {
     /**
      * @return Group id.
      */
@@ -35,24 +37,8 @@ public interface ActionRequest<T> extends NetworkMessage, Serializable {
      */
     Command command();
 
-    /** */
-    public interface Builder {
-        /**
-         * @param cmd Action's command.
-         * @return The builder.
-         */
-        Builder command(Command cmd);
-
-        /**
-         * @param groupId Group id.
-         * @return The builder.
-         */
-        Builder groupId(String groupId);
-
-        /**
-         * @return The complete message.
-         * @throws IllegalStateException If the message is not in valid state.
-         */
-        ActionRequest build();
-    }
+    /**
+     * @return {@code True} for linearizable reading.
+     */
+    boolean readOnlySafe();
 }

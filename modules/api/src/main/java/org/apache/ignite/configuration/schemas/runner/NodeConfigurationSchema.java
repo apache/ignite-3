@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.schemas.runner;
 
-import java.util.UUID;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.storage.ConfigurationType;
@@ -25,14 +24,9 @@ import org.apache.ignite.configuration.storage.ConfigurationType;
 /**
  * Local node configuration schema.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "node", type = ConfigurationType.LOCAL)
 public class NodeConfigurationSchema {
-    /** Uniq local node name. */
-    @Value(hasDefault = true)
-    final String name = UUID.randomUUID().toString();
-
     /** It is a copy of appropriate property from the cluster configuration. */
     @Value(hasDefault = true)
-    final String[] metastorageNodes = new String[0];
+    public final String[] metastorageNodes = new String[0];
 }

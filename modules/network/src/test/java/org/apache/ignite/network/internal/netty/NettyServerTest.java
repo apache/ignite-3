@@ -17,22 +17,42 @@
 
 package org.apache.ignite.network.internal.netty;
 
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelPromise;
-import io.netty.channel.ServerChannel;
-import io.netty.channel.embedded.EmbeddedChannel;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.ServerChannel;
+import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.internal.handshake.HandshakeAction;
+import org.apache.ignite.network.internal.handshake.HandshakeManager;
+import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageMappingException;
+import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
+import org.mockito.verification.VerificationMode;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyShort;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link NettyServer}.
@@ -148,9 +168,87 @@ public class NettyServerTest {
     }
 
     /**
+     * Tests that handshake manager is invoked upon a client connecting to a server.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testHandshakeManagerInvoked() throws Exception {
+        HandshakeManager handshakeManager = mock(HandshakeManager.class);
+
+        when(handshakeManager.handshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
+        when(handshakeManager.init(any())).thenReturn(HandshakeAction.NOOP);
+        when(handshakeManager.onConnectionOpen(any())).thenReturn(HandshakeAction.NOOP);
+        when(handshakeManager.onMessage(any(), any())).thenReturn(HandshakeAction.NOOP);
+
+        MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
+
+        when(registry.createDeserializer(anyShort(), anyShort()))
+            .thenReturn(new MessageDeserializer<>() {
+                /** {@inheritDoc} */
+                @Override public boolean readMessage(MessageReader reader) throws MessageMappingException {
+                    return true;
+                }
+
+                /** {@inheritDoc} */
+                @Override public Class<NetworkMessage> klass() {
+                    return NetworkMessage.class;
+                }
+
+                /** {@inheritDoc} */
+                @Override public NetworkMessage getMessage() {
+                    return mock(NetworkMessage.class);
+                }
+            });
+
+        server = new NettyServer(4000, handshakeManager, sender -> {}, (socketAddress, message) -> {}, registry);
+
+        server.start().get(3, TimeUnit.SECONDS);
+
+        CompletableFuture<Channel> connectFut = NettyUtils.toChannelCompletableFuture(
+            new Bootstrap()
+                .channel(NioSocketChannel.class)
+                .group(new NioEventLoopGroup())
+                .handler(new ChannelInitializer<>() {
+                    /** {@inheritDoc} */
+                    @Override protected void initChannel(Channel ch) throws Exception {
+                        // No-op.
+                    }
+                })
+                .connect(server.address())
+        );
+
+        Channel channel = connectFut.get(3, TimeUnit.SECONDS);
+
+        ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer();
+
+        // One message only.
+        for (int i = 0; i < (NetworkMessage.MSG_TYPE_SIZE_BYTES + 1); i++)
+            buffer.writeByte(1);
+
+        channel.writeAndFlush(buffer).get(3, TimeUnit.SECONDS);
+
+        channel.close().get(3, TimeUnit.SECONDS);
+
+        InOrder order = Mockito.inOrder(handshakeManager);
+
+        order.verify(handshakeManager, timeout()).init(any());
+        order.verify(handshakeManager, timeout()).handshakeFuture();
+        order.verify(handshakeManager, timeout()).onConnectionOpen(any());
+        order.verify(handshakeManager, timeout()).onMessage(any(), any());
+    }
+
+    /**
+     * @return Verification mode for a one call with a 3 second timeout.
+     */
+    private static VerificationMode timeout() {
+        return Mockito.timeout(TimeUnit.SECONDS.toMillis(3));
+    }
+
+    /**
      * Creates a server from a backing {@link ChannelFuture}.
      *
-     * @param channel Server channel.
+     * @param future Server channel future.
      * @param shouldStart {@code true} if a server should start successfully
      * @return NettyServer.
      * @throws Exception If failed.
@@ -160,7 +258,7 @@ public class NettyServerTest {
 
         Mockito.doReturn(future).when(bootstrap).bind(Mockito.anyInt());
 
-        var server = new NettyServer(bootstrap, 0, null, null, null);
+        var server = new NettyServer(bootstrap, 0, mock(HandshakeManager.class), null, null, null);
 
         try {
             server.start().get(3, TimeUnit.SECONDS);

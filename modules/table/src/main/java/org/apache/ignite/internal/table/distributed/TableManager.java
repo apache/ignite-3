@@ -46,15 +46,15 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.raft.PartitionCommandListener;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.metastorage.client.Conditions;
-import org.apache.ignite.metastorage.client.Operations;
+import org.apache.ignite.internal.metastorage.client.Conditions;
+import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
@@ -138,7 +138,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             partitionMap.put(p, raftMgr.startRaftGroup(
                 raftGroupName(tblId, p),
                 assignment.get(p),
-                new PartitionCommandListener()
+                new PartitionListener()
             ));
         }
 
@@ -205,7 +205,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
-            boolean hasMetastorageLocally = MetaStorageManager.hasMetastorageLocally(configurationMgr);
+            boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
 
             for (String tblName : tablesToStart) {
                 TableView tableView = ctx.newValue().get(tblName);

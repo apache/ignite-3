@@ -17,138 +17,62 @@
 
 package org.apache.ignite.network.internal;
 
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.message.NetworkMessage;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TestMessageTypes;
+import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * Message with all types supported by Direct Marshalling.
- */
-public class AllTypesMessage implements NetworkMessage {
-    /** */
-    @TestFieldType(MessageCollectionItemType.BYTE)
-    byte a;
+@Transferable(TestMessageTypes.ALL_TYPES)
+public interface AllTypesMessage extends NetworkMessage {
+    byte a();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.SHORT)
-    short b;
+    short b();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.INT)
-    int c;
+    int c();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.LONG)
-    long d;
+    long d();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.FLOAT)
-    float e;
+    float e();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.DOUBLE)
-    double f;
+    double f();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.CHAR)
-    char g;
+    char g();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.BOOLEAN)
-    boolean h;
+    boolean h();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.BYTE_ARR)
-    byte[] i;
+    byte[] i();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.SHORT_ARR)
-    short[] j;
+    short[] j();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.INT_ARR)
-    int[] k;
+    int[] k();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.LONG_ARR)
-    long[] l;
+    long[] l();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.FLOAT_ARR)
-    float[] m;
+    float[] m();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.DOUBLE_ARR)
-    double[] n;
+    double[] n();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.CHAR_ARR)
-    char[] o;
+    char[] o();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.BOOLEAN_ARR)
-    boolean[] p;
+    boolean[] p();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.STRING)
-    String q;
+    String q();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.BIT_SET)
-    BitSet r;
+    BitSet r();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.UUID)
-    UUID s;
+    UUID s();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.IGNITE_UUID)
-    IgniteUuid t;
+    IgniteUuid t();
 
-    /** */
-    @TestFieldType(MessageCollectionItemType.MSG)
-    NetworkMessage u;
+    NetworkMessage u();
 
-    /** */
-    Object[] v;
+    NetworkMessage[] v();
 
-    /** */
-    Collection<?> w;
+    Collection<NetworkMessage> w();
 
-    /** */
-    Map<?, ?> x;
-
-    /** {@inheritDoc} */
-    @Override public short directType() {
-        return 5555;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean equals(Object o1) {
-        if (this == o1) return true;
-        if (o1 == null || getClass() != o1.getClass()) return false;
-        AllTypesMessage message = (AllTypesMessage) o1;
-        return a == message.a && b == message.b && c == message.c && d == message.d && Float.compare(message.e, e) == 0 && Double.compare(message.f, f) == 0 && g == message.g && h == message.h && Arrays.equals(i, message.i) && Arrays.equals(j, message.j) && Arrays.equals(k, message.k) && Arrays.equals(l, message.l) && Arrays.equals(m, message.m) && Arrays.equals(n, message.n) && Arrays.equals(o, message.o) && Arrays.equals(p, message.p) && Objects.equals(q, message.q) && Objects.equals(r, message.r) && Objects.equals(s, message.s) && Objects.equals(t, message.t) && Objects.equals(u, message.u) && Arrays.equals(v, message.v) && Objects.equals(w, message.w) && Objects.equals(x, message.x);
-    }
-
-    /** {@inheritDoc} */
-    @Override public int hashCode() {
-        int result = Objects.hash(a, b, c, d, e, f, g, h, q, r, s, t, u, w, x);
-        result = 31 * result + Arrays.hashCode(i);
-        result = 31 * result + Arrays.hashCode(j);
-        result = 31 * result + Arrays.hashCode(k);
-        result = 31 * result + Arrays.hashCode(l);
-        result = 31 * result + Arrays.hashCode(m);
-        result = 31 * result + Arrays.hashCode(n);
-        result = 31 * result + Arrays.hashCode(o);
-        result = 31 * result + Arrays.hashCode(p);
-        result = 31 * result + Arrays.hashCode(v);
-        return result;
-    }
+    Map<String, NetworkMessage> x();
 }

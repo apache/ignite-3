@@ -17,9 +17,6 @@
 
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.transport.api.Message;
-import io.scalecube.cluster.transport.api.Transport;
-import io.scalecube.net.Address;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -30,10 +27,15 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Objects;
+import io.scalecube.cluster.transport.api.Message;
+import io.scalecube.cluster.transport.api.Transport;
+import io.scalecube.net.Address;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NetworkMessagesFactory;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.internal.netty.ConnectionManager;
-import org.apache.ignite.network.message.NetworkMessage;
 import org.apache.ignite.network.scalecube.message.ScaleCubeMessage;
 import org.jetbrains.annotations.Nullable;
 import reactor.core.Disposable;
@@ -66,16 +68,29 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Connection manager. */
     private final ConnectionManager connectionManager;
 
+    /** Message factory. */
+    private final NetworkMessagesFactory messageFactory;
+
+    /** */
+    private final ScaleCubeTopologyService topologyService;
+
     /** Node address. */
     private Address address;
 
     /**
-     * Constructor.
-     *
-     * @param connectionManager Connection manager.
+     * @param connectionManager connection manager
+     * @param topologyService topology service
+     * @param messageFactory message factory
      */
-    public ScaleCubeDirectMarshallerTransport(ConnectionManager connectionManager) {
+    public ScaleCubeDirectMarshallerTransport(
+        ConnectionManager connectionManager,
+        ScaleCubeTopologyService topologyService,
+        NetworkMessagesFactory messageFactory
+    ) {
         this.connectionManager = connectionManager;
+        this.topologyService = topologyService;
+        this.messageFactory = messageFactory;
+
         this.connectionManager.addListener(this::onMessage);
         // Setup cleanup
         stop.then(doStop())
@@ -149,7 +164,11 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         var addr = InetSocketAddress.createUnresolved(address.host(), address.port());
 
         return Mono.fromFuture(() -> {
-            return connectionManager.channel(addr).thenCompose(client -> client.send(fromMessage(message)));
+            ClusterNode node = topologyService.getByAddress(address.toString());
+
+            String consistentId = node != null ? node.name() : null;
+
+            return connectionManager.channel(consistentId, addr).thenCompose(client -> client.send(fromMessage(message)));
         });
     }
 
@@ -184,7 +203,10 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
             throw new IgniteInternalException(e);
         }
 
-        return new ScaleCubeMessage(stream.toByteArray(), message.headers());
+        return messageFactory.scaleCubeMessage()
+            .array(stream.toByteArray())
+            .headers(message.headers())
+            .build();
     }
 
     /**
@@ -199,11 +221,11 @@ public class ScaleCubeDirectMarshallerTransport implements Transport {
         if (networkMessage instanceof ScaleCubeMessage) {
             ScaleCubeMessage msg = (ScaleCubeMessage) networkMessage;
 
-            Map<String, String> headers = msg.getHeaders();
+            Map<String, String> headers = msg.headers();
 
             Object obj;
 
-            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(msg.getArray()))) {
+            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(msg.array()))) {
                 obj = ois.readObject();
             }
             catch (Exception e) {
