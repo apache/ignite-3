@@ -14,12 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.internal.processors.query.calcite;
 
-package org.apache.ignite.app;
+/** Stubs */
+public class Stubs {
+    /** */
+    public static int intFoo(Object... args) {
+        return args == null ? 0 : args.length;
+    }
 
-/**
- * Sample application integrating new configuration module and providing standard REST API to access and modify it.
- */
-public class IgniteRunner {
-    // TODO: IGNITE-14413 Start of Ignite node should be supported by ignite-ctl tool
+    /** */
+    public static boolean boolFoo(Object... args) {
+        return args == null;
+    }
+
+    /** */
+    public static String stringFoo(Object... args) {
+        return args == null ? "null" : "not null";
+    }
 }
