@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.Status;
@@ -27,7 +28,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.rpc.impl.FutureImpl;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Endpoint;
@@ -127,7 +127,7 @@ public class CopySessionTest {
         final ByteBufferCollector bufRef = ByteBufferCollector.allocate(0);
         this.session.setDestBuf(bufRef);
 
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename("data").setCount(Integer.MAX_VALUE).setOffset(100).setReadPartly(true);
         Mockito
@@ -151,7 +151,7 @@ public class CopySessionTest {
         final ByteBufferCollector bufRef = ByteBufferCollector.allocate(0);
         this.session.setDestBuf(bufRef);
 
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename("data").setCount(Integer.MAX_VALUE).setOffset(0).setReadPartly(true);
         Mockito
@@ -168,7 +168,7 @@ public class CopySessionTest {
 
     private void sendNextRpc(int maxCount) {
         assertNull(this.session.getRpcCall());
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename("data").setCount(maxCount).setOffset(0).setReadPartly(true);
         Mockito

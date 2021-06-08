@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
@@ -33,7 +34,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
-import org.apache.ignite.raft.jraft.rpc.impl.FutureImpl;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -111,7 +111,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
     @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void testCancelByRemote() throws Exception {
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
             .setReadPartly(true);
@@ -137,7 +137,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
 
     @Test
     public void testInterrupt() throws Exception {
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
             .setReadPartly(true);
@@ -168,7 +168,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
     @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void testStartJoinFinishOK() throws Exception {
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
             .setReadPartly(true);

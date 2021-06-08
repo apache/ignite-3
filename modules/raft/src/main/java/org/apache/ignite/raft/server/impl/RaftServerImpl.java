@@ -46,11 +46,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * A single node service implementation.
+ * @deprecated TODO asch Replace with jraft server.
  */
 public class RaftServerImpl implements RaftServer {
-    /**
-     *
-     */
+    /** */
     private static final int QUEUE_SIZE = 1000;
 
     /** The logger. */

@@ -143,7 +143,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Whether to enable metrics for node.
      */
-    private boolean enableMetrics = false;
+    private boolean enableMetrics = false; // TODO asch https://issues.apache.org/jira/browse/IGNITE-14847
 
     /**
      * If non-null, we will pass this SnapshotThrottle to SnapshotExecutor Default: NULL
@@ -151,12 +151,12 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private SnapshotThrottle snapshotThrottle;
 
     /**
-     * Whether use global election timer TODO asch need this ? https://issues.apache.org/jira/browse/IGNITE-14832
+     * Whether use global election timer TODO asch remove this https://issues.apache.org/jira/browse/IGNITE-14832
      */
     private boolean sharedElectionTimer = false;
 
     /**
-     * Whether use global vote timer TODO asch need this ? https://issues.apache.org/jira/browse/IGNITE-14832
+     * Whether use global vote timer TODO asch remove this https://issues.apache.org/jira/browse/IGNITE-14832
      */
     private boolean sharedVoteTimer = false;
 

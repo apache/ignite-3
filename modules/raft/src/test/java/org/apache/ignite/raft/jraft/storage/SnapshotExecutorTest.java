@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.storage;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -39,7 +40,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
-import org.apache.ignite.raft.jraft.rpc.impl.FutureImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -149,7 +149,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         Mockito.when(this.raftClientService.connect(new Endpoint("localhost", 8080))).thenReturn(true);
 
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
             .setReadPartly(true);
@@ -216,7 +216,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         Mockito.lenient().when(this.raftClientService.connect(new Endpoint("localhost", 8080))).thenReturn(true);
 
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
         final RpcRequests.GetFileRequest.Builder rb = RpcRequests.GetFileRequest.newBuilder().setReaderId(99)
             .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
             .setReadPartly(true);

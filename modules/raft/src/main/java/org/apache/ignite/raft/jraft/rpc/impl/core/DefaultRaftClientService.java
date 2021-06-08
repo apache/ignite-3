@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -42,7 +43,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
-import org.apache.ignite.raft.jraft.rpc.impl.FutureImpl;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
@@ -133,7 +133,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
      */
     private Future<Message> failedFuture(Executor executor, Message request, RpcResponseClosure<?> done, Endpoint endpoint) {
         // fail-fast when no connection
-        final FutureImpl<Message> future = new FutureImpl<>();
+        final CompletableFuture<Message> future = new CompletableFuture<>();
 
         executor.execute(() -> {
             if (done != null) {
@@ -144,10 +144,9 @@ public class DefaultRaftClientService extends AbstractClientService implements R
                     LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
                 }
             }
-            if (!future.isDone()) {
-                future.completeExceptionally(new RemotingException("Check connection[" +
-                    endpoint.toString() + "] fail and try to create new one"));
-            }
+
+            future.completeExceptionally(new RemotingException("Check connection[" +
+                endpoint.toString() + "] fail and try to create new one"));
         });
 
         return future;
