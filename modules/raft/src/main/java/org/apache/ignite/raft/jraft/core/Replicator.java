@@ -1164,8 +1164,6 @@ public class Replicator implements ThreadId.OnError {
     @SuppressWarnings("ContinueOrBreakFromFinallyBlock")
     static void onRpcReturned(final ThreadId id, final RequestType reqType, final Status status, final Message request,
         final Message response, final int seq, final int stateVersion, final long rpcSendTime) {
-        // TODO asch
-        //LOG.info("onRpcReturned type={} seq={}", reqType, seq);
 
         if (id == null) {
             return;

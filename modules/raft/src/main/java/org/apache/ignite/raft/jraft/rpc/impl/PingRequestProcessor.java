@@ -24,7 +24,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 
 /**
- * Ping request processor. TODO asch check group ? IGNITE-14832
+ * Ping request processor.
  */
 public class PingRequestProcessor implements RpcProcessor<PingRequest> {
     /** The executor */

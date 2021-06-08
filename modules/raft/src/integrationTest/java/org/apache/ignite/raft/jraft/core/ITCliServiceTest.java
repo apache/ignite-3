@@ -67,11 +67,11 @@ import static org.junit.Assert.fail;
 /**
  * Jraft cli tests.
  */
-public class CliServiceTest {
+public class ITCliServiceTest {
     /**
      * The logger.
      */
-    static final Logger LOG = LoggerFactory.getLogger(CliServiceTest.class);
+    static final Logger LOG = LoggerFactory.getLogger(ITCliServiceTest.class);
 
     /**
      * The registry.

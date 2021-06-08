@@ -294,9 +294,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         synchronized (Utils.withLockObject(respQueue)) {
             respQueue.add(new SequenceMessage(rpcCtx, msg, seq));
 
-            // TODO asch
-            // LOG.info("sendSequenceResponse seq={}, size={}", seq, respQueue.size());
-
             if (!ctx.hasTooManyPendingResponses()) {
                 while (!respQueue.isEmpty()) {
                     final SequenceMessage queuedPipelinedResponse = respQueue.peek();
@@ -414,10 +411,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         final Node node = (Node) service;
 
         if (node.getRaftOptions().isReplicatorPipeline()) {
-            // TODO asch
-//            LOG.info("processRequest0: term={}, prevLogIdx={}, prevTerm={}, commitIdx={}, size={}, hasData={}",
-//                request.getTerm(), request.getPrevLogIndex(), request.getPrevLogTerm(), request.getCommittedIndex(), request.getEntriesCount(), request.hasData());
-
             final String groupId = request.getGroupId();
             final PeerPair pair = pairOf(request.getPeerId(), request.getServerId());
 
