@@ -40,7 +40,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-import org.apache.ignite.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 
 /**
  * Process action request.

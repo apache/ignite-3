@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.server;
+package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
 import org.apache.ignite.network.ClusterService;
@@ -24,9 +24,9 @@ import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The RAFT protocol based replication server. * Supports multiple RAFT groups. * The server listens for client
- * commands, submits them to a replicated log and calls {@link RaftGroupListener} {@code onRead} and {@code onWrite}
- * methods then after the command was committed to the log.
+ * The RAFT protocol based replication server. Supports multiple RAFT groups.
+ * The server listens for client commands, submits them to a replicated log and calls
+ * {@link RaftGroupListener} {@code onRead} and {@code onWrite} methods after the command was committed to the log.
  */
 public interface RaftServer {
     /**

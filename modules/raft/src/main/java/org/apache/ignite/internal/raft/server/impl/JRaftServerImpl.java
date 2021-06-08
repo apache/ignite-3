@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.server.impl;
+package org.apache.ignite.internal.raft.server.impl;
 
 import java.io.File;
 import java.io.Serializable;
@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.ElectionPriority;
@@ -49,7 +50,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
 /**

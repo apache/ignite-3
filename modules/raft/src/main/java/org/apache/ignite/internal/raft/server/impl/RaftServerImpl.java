@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.server.impl;
+package org.apache.ignite.internal.raft.server.impl;
 
 import java.io.Serializable;
 import java.util.Iterator;
@@ -26,6 +26,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -41,7 +42,6 @@ import org.apache.ignite.raft.client.message.RaftErrorResponse;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.server.RaftServer;
 import org.jetbrains.annotations.Nullable;
 
 /**

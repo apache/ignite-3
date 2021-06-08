@@ -18,12 +18,13 @@
 package org.apache.ignite.raft.server;
 
 import java.util.List;
+import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
