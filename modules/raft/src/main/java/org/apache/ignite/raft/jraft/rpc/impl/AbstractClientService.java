@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import java.net.ConnectException;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -216,6 +217,9 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         }
                     }
                     else {
+                        if (err instanceof ConnectException)
+                            readyAddresses.remove(endpoint); // Force logical reconnect.
+
                         if (done != null) {
                             try {
                                 done.run(new Status(err instanceof InvokeTimeoutException ? RaftError.ETIMEDOUT
