@@ -43,14 +43,14 @@ public class VaultManager {
     private final Object mux = new Object();
 
     /** Instance of vault */
-    private VaultService vaultService;
+    private VaultService vaultSvc;
 
     /** Default constructor.
      *
-     * @param vaultService Instance of vault.
+     * @param vaultSvc Instance of vault.
      */
-    public VaultManager(VaultService vaultService) {
-        this.vaultService = vaultService;
+    public VaultManager(VaultService vaultSvc) {
+        this.vaultSvc = vaultSvc;
     }
 
     /**
@@ -71,7 +71,7 @@ public class VaultManager {
      * then {@code Entry} with value that equals to {@code null} will be returned.
      */
     @NotNull public CompletableFuture<Entry> get(@NotNull ByteArray key) {
-        return vaultService.get(key);
+        return vaultSvc.get(key);
     }
 
     /**
@@ -82,7 +82,7 @@ public class VaultManager {
      * @return Future representing pending completion of the operation. Couldn't be {@code null}.
      */
     @NotNull public CompletableFuture<Void> put(@NotNull ByteArray key, @NotNull byte[] val) {
-        return vaultService.put(key, val);
+        return vaultSvc.put(key, val);
     }
 
     /**
@@ -92,7 +92,7 @@ public class VaultManager {
      * @return Future representing pending completion of the operation. Couldn't be {@code null}.
      */
     @NotNull public CompletableFuture<Void> remove(@NotNull ByteArray key) {
-        return vaultService.remove(key);
+        return vaultSvc.remove(key);
     }
 
     /**
@@ -103,7 +103,7 @@ public class VaultManager {
      * @return Iterator built upon entries corresponding to the given range.
      */
     @NotNull public Iterator<Entry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey) {
-        return vaultService.range(fromKey, toKey);
+        return vaultSvc.range(fromKey, toKey);
     }
 
     /**
@@ -115,7 +115,7 @@ public class VaultManager {
      */
     @NotNull public CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals) {
         synchronized (mux) {
-            return vaultService.putAll(vals);
+            return vaultSvc.putAll(vals);
         }
     }
 
@@ -134,7 +134,7 @@ public class VaultManager {
             byte[] appliedRevBytes;
 
             try {
-                appliedRevBytes = vaultService.get(appliedRevKey).get().value();
+                appliedRevBytes = vaultSvc.get(appliedRevKey).get().value();
             }
             catch (InterruptedException | ExecutionException e) {
                throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
@@ -149,7 +149,7 @@ public class VaultManager {
 
             mergedMap.put(appliedRevKey, ByteUtils.longToBytes(revision));
 
-            return vaultService.putAll(mergedMap);
+            return vaultSvc.putAll(mergedMap);
         }
     }
 
@@ -170,7 +170,8 @@ public class VaultManager {
     @Nullable public String name() throws IgniteInternalCheckedException {
         synchronized (mux) {
             try {
-                byte[] nodeName = vaultService.get(NODE_NAME).get().value();
+                byte[] nodeName = vaultSvc.get(NODE_NAME).get().value();
+
                 if (nodeName != null)
                     return new String(nodeName, StandardCharsets.UTF_8);
                 else
