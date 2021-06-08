@@ -517,6 +517,8 @@ public class Replicator implements ThreadId.OnError {
     }
 
     void installSnapshot() {
+        LOG.info("DBG: Replicator {} -> {} is installing snapshot", this.options.getServerId(), this.options.getPeerId());
+
         if (this.state == State.Snapshot) {
             LOG.warn("Replicator {} is installing snapshot, ignore the new request.", this.options.getPeerId());
             this.id.unlock();
@@ -886,6 +888,8 @@ public class Replicator implements ThreadId.OnError {
     }
 
     static boolean continueSending(final ThreadId id, final int errCode) {
+        LOG.info("DBG: continueSending" + id.getData().toString() + " " + errCode);
+
         if (id == null) {
             //It was destroyed already
             return true;
@@ -915,6 +919,8 @@ public class Replicator implements ThreadId.OnError {
     }
 
     static void onBlockTimeout(final ThreadId arg, ExecutorService executor) {
+        LOG.info("DBG: onBlockTimeout" + arg.getData().toString());
+
         Utils.runInThread(executor, () -> onBlockTimeoutInNewThread(arg));
     }
 

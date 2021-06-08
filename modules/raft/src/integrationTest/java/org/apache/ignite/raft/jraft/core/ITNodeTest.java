@@ -2299,7 +2299,7 @@ public class ITNodeTest {
         triggerLeaderSnapshot(cluster, leader, 2);
 
         // wait leader to compact logs
-        Thread.sleep(1000);
+        Thread.sleep(50);
 
         //restart follower.
         cluster.clean(followerAddr);
