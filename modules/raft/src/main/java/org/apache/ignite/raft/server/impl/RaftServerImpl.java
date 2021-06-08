@@ -46,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * A single node service implementation.
- * @deprecated TODO asch Replace with jraft server.
+ * @deprecated TODO asch Replace with jraft server https://issues.apache.org/jira/browse/IGNITE-14848
  */
 public class RaftServerImpl implements RaftServer {
     /** */

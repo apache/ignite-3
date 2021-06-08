@@ -1,16 +1,18 @@
 /*
- * Copyright 2014 The Netty Project
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * The Netty Project licenses this file to you under the Apache License, version 2.0 (the
- * "License"); you may not use this file except in compliance with the License. You may obtain a
- * copy of the License at:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.apache.ignite.raft.jraft.util.timer;
 
@@ -41,6 +43,7 @@ import org.slf4j.LoggerFactory;
  * slides are located
  * <a href="http://www.cse.wustl.edu/~cdgill/courses/cs6874/TimingWheels.ppt">here</a>.
  * * Forked from <a href="https://github.com/netty/netty">Netty</a>.
+ *
  */
 public class HashedWheelTimer implements Timer {
     private static final Logger LOG = LoggerFactory.getLogger(HashedWheelTimer.class);
@@ -463,29 +466,6 @@ public class HashedWheelTimer implements Timer {
                         return currentTime;
                     }
                 }
-
-                // We decide to remove the original approach (as below) which used in netty for
-                // windows platform.
-                // See https://github.com/netty/netty/issues/356
-                //
-                // if (Platform.isWindows()) {
-                //     sleepTimeMs = sleepTimeMs / 10 * 10;
-                // }
-                //
-                // The above approach that make sleepTimes to be a multiple of 10ms will
-                // lead to severe spin in this loop for several milliseconds, which
-                // causes the high CPU usage.
-                // See https://github.com/sofastack/sofa-jraft/issues/311
-                //
-                // According to the regression testing on windows, we haven't reproduced the
-                // Thread.sleep() bug referenced in https://www.javamex.com/tutorials/threads/sleep_issues.shtml
-                // yet.
-                //
-                // The regression testing environment:
-                // - SOFAJRaft version: 1.2.6
-                // - JVM version (e.g. java -version): JDK 1.8.0_191
-                // - OS version: Windows 7 ultimate 64 bit
-                // - CPU: Intel(R) Core(TM) i7-2670QM CPU @ 2.20GHz (4 cores)
 
                 try {
                     Thread.sleep(sleepTimeMs);

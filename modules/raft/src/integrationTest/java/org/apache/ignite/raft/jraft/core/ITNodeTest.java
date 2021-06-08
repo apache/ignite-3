@@ -1964,7 +1964,8 @@ public class ITNodeTest {
         LOG.info("start follower {}", followerAddr2);
         assertTrue(cluster.start(followerAddr2, true, 300));
 
-        assertTrue(waitForTopology(cluster, leaderAddr, 3, 5_000));
+        // Make sure the leader has discovered new nodes.
+        assertTrue(waitForTopology(cluster, leaderAddr, 3, 30_000)); // Discovery may take a while sometimes.
 
         CountDownLatch latch = new CountDownLatch(1);
         LOG.info("Add old follower {}", followerAddr1);
@@ -2480,8 +2481,6 @@ public class ITNodeTest {
 
         Node leader = cluster.getLeader();
         assertNotNull(leader);
-
-        Thread.sleep(100);
 
         final List<Node> followers = cluster.getFollowers();
         assertEquals(2, followers.size());
@@ -3496,8 +3495,11 @@ public class ITNodeTest {
     private boolean waitForTopology(TestCluster cluster, Endpoint addr, int expected, long timeout) {
         RaftGroupService grp = cluster.getServer(addr);
 
-        if (grp == null)
+        if (grp == null) {
+            LOG.warn("Node has not been found {}", addr);
+
             return false;
+        }
 
         RpcServer rpcServer = grp.getRpcServer();
 
