@@ -113,6 +113,9 @@ public class MetaStorageManager {
      */
     private boolean deployed;
 
+    /** Flag indicates if meta storage nodes were set on start */
+    private boolean metaStorageNodesOnStart;
+
     /**
      * The constructor.
      *
@@ -139,6 +142,8 @@ public class MetaStorageManager {
             clusterNode -> Arrays.asList(metastorageNodes).contains(clusterNode.name());
 
         if (metastorageNodes.length > 0) {
+            metaStorageNodesOnStart = true;
+
             this.metaStorageSvcFut = CompletableFuture.completedFuture(new MetaStorageServiceImpl(
                     raftMgr.startRaftGroup(
                         METASTORAGE_RAFT_GROUP_NAME,
@@ -177,8 +182,16 @@ public class MetaStorageManager {
 
             if (watch.isEmpty())
                 deployFut.complete(Optional.empty());
-            else
-                dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id)));
+            else {
+                CompletableFuture<Void> fut =
+                    dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id)));
+
+                if (metaStorageNodesOnStart)
+                    fut.join();
+                else {
+                    // TODO: need to wait for this future in init phase https://issues.apache.org/jira/browse/IGNITE-14414
+                }
+            }
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during deploy watches", e);
