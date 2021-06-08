@@ -145,24 +145,14 @@ public interface BinaryRow {
         /** Flag indicates row has no value chunk. */
         public static final int NO_VALUE_FLAG = 1;
 
-        /** Flag indicates key chunk omits null map. */
-        public static final int OMIT_KEY_NULL_MAP_FLAG = 1 << 1;
+        /** Chunk flags mask. */
+        public static final int CHUNK_FLAGS_MASK = 0x0F;
 
-        /** Flag indicates value chunk omits null map. */
-        public static final int OMIT_VAL_NULL_MAP_FLAG = 1 << 2;
+        /** Key specific flags. */
+        public static final int KEY_FLAGS_OFFSET = 8;
 
-        /** Flag indicates key chunk omits varlen table. */
-        public static final int OMIT_KEY_VARTBL_FLAG = 1 << 3;
-
-        /** Flag indicates value chunk omits varlen table. */
-        public static final int OMIT_VAL_VARTBL_FLAG = 1 << 4;
-
-        /** Flag indicates value chunk is written in Tiny format. */
-        public static final int VAL_TYNY_FORMAT = 1 << 6;
-
-        /** Flag indicates key chunk is written in Tiny format. */
-        public static final int KEY_FORMAT_MASK = (2 ^ 4 - 1) << 8;
-        public static final int VALUE_FORMAT_MASK = (2 ^ 4 - 1) << 12;
+        /** Value specific flags. */
+        public static final int VAL_FLAGS_OFFSET = 12;
 
         /** Stub. */
         private RowFlags() {

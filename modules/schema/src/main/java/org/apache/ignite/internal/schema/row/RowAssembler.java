@@ -35,8 +35,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 import static org.apache.ignite.internal.schema.BinaryRow.KEY_CHUNK_OFFSET;
 import static org.apache.ignite.internal.schema.BinaryRow.KEY_HASH_FIELD_OFFSET;
-import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_KEY_VARTBL_FLAG;
-import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_VAL_VARTBL_FLAG;
+import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
+import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFFSET;
 
 /**
  * Utility class to build rows using column appending pattern. The external user of this class must consult
@@ -189,16 +189,8 @@ public class RowAssembler {
         final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
         final int valNullMapSize = valHasNulls ? schema.valueColumns().nullMapSize() : 0;
 
-        final ChunkFormat keyWriteMode = ChunkFormat.writeMode(keyDataSize, keyNullMapSize, keyVarlenCols);
-        valWriteMode = ChunkFormat.writeMode(valDataSize, keyNullMapSize, valVarlenCols);
-
-        // Key flags.
-        if (schema.keyColumns().nullMapSize() == 0)
-            flags |= RowFlags.OMIT_KEY_NULL_MAP_FLAG;
-        if (keyVarlenCols == 0)
-            flags |= OMIT_KEY_VARTBL_FLAG;
-
-        flags |= keyWriteMode.modeFlags() & 0x0F << 8;
+        final ChunkFormat keyWriteMode = ChunkFormat.formatter(keyDataSize);
+        valWriteMode = ChunkFormat.formatter(valDataSize);
 
         int size = BinaryRow.HEADER_SIZE +
             keyWriteMode.chunkSize(keyDataSize, keyNullMapSize, keyDataSize) +
@@ -348,9 +340,6 @@ public class RowAssembler {
     public void appendString(String val) {
         checkType(NativeTypes.STRING);
 
-        assert (flags & (schema.keyColumns() == curCols ? OMIT_KEY_VARTBL_FLAG : OMIT_VAL_VARTBL_FLAG)) == 0 :
-            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
-
         if (isKeyColumn())
             hash = 31 * hash + val.hashCode();
 
@@ -366,9 +355,6 @@ public class RowAssembler {
      */
     public void appendBytes(byte[] val) {
         checkType(NativeTypes.BYTES);
-
-        assert (flags & (schema.keyColumns() == curCols ? OMIT_KEY_VARTBL_FLAG : OMIT_VAL_VARTBL_FLAG)) == 0 :
-            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
         if (isKeyColumn())
             hash = 31 * hash + Arrays.hashCode(val);
@@ -421,7 +407,7 @@ public class RowAssembler {
         return buf.toArray();
     }
 
-    private boolean isKeyColumn () {
+    private boolean isKeyColumn() {
         return curCols == schema.keyColumns();
     }
 
@@ -468,22 +454,17 @@ public class RowAssembler {
             // Write sizes.
             chunkWriter.flush();
 
-            if (schema.valueColumns() == curCols)
+            if (schema.valueColumns() == curCols) {
+                flags |= (chunkWriter.flags() & 0x0F) << VAL_FLAGS_OFFSET;
+
                 return; // No more columns.
+            }
 
             // Switch key->value columns.
             curCols = schema.valueColumns();
             curCol = 0;
 
-            // Write value flags.
-            if (valVarlenCols == 0)
-                flags |= OMIT_VAL_VARTBL_FLAG;
-            else {
-                if (schema.valueColumns().nullMapSize() == 0)
-                    flags |= RowFlags.OMIT_VAL_NULL_MAP_FLAG;
-
-                flags |= valWriteMode.modeFlags() & 0x0F << 14;
-            }
+            flags |= (chunkWriter.flags() & 0x0F) << KEY_FLAGS_OFFSET;
 
             // Create value chunk writer.
             chunkWriter = valWriteMode.writer(buf,

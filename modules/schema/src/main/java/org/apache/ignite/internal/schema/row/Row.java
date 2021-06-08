@@ -29,7 +29,6 @@ import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Schema-aware row.
@@ -49,7 +48,7 @@ public class Row implements BinaryRow {
     private final ChunkReader keyReader;
 
     /** Value reader. */
-    private final ChunkReader valReader;
+    private ChunkReader valReader;
 
     /**
      * Constructor.
@@ -65,20 +64,12 @@ public class Row implements BinaryRow {
 
         final short flags = readShort(FLAGS_FIELD_OFFSET);
 
-        keyReader = createReader(KEY_CHUNK_OFFSET,
-            (flags & RowFlags.KEY_TYNY_FORMAT) != 0,
-            (flags & RowFlags.OMIT_KEY_NULL_MAP_FLAG) == 0 ? schema.keyColumns().nullMapSize() : 0,
-            (flags & RowFlags.OMIT_KEY_VARTBL_FLAG) == 0);
-
-        valReader = ((flags & RowFlags.NO_VALUE_FLAG) == 0) ?
-            createReader(
-                KEY_CHUNK_OFFSET + keyReader.chunkLength(),
-                (flags & RowFlags.VAL_TYNY_FORMAT) != 0,
-                (flags & RowFlags.OMIT_VAL_NULL_MAP_FLAG) == 0 ? schema.valueColumns().nullMapSize() : 0,
-                (flags & RowFlags.OMIT_VAL_VARTBL_FLAG) == 0) :
-            null;
+        keyReader = ChunkFormat.createReader(
+            this,
+            KEY_CHUNK_OFFSET,
+            schema.keyColumns().nullMapSize(),
+            (byte)((flags >>> RowFlags.KEY_FLAGS_OFFSET) & RowFlags.CHUNK_FLAGS_MASK));
     }
-
 
     /**
      * @return Row schema.
@@ -370,7 +361,7 @@ public class Row implements BinaryRow {
         if (!isKeyCol)
             colIdx -= schema.keyColumns().length();
 
-        ChunkReader reader = isKeyCol ? keyReader : valReader;
+        ChunkReader reader = isKeyCol ? keyReader : valueReader();
         Columns cols = isKeyCol ? schema.keyColumns() : schema.valueColumns();
 
         if (cols.column(colIdx).type().spec() != type)
@@ -387,6 +378,21 @@ public class Row implements BinaryRow {
         return type.fixedLength() ?
             reader.fixlenColumnOffset(cols, colIdx) :
             reader.varlenColumnOffsetAndLength(cols, colIdx);
+    }
+
+    private ChunkReader valueReader() {
+        if (valReader != null)
+            return valReader;
+
+        final short flags = readShort(FLAGS_FIELD_OFFSET);
+
+        assert (flags & RowFlags.NO_VALUE_FLAG) == 0 : "Row has no value.";
+
+        return (valReader = ChunkFormat.createReader(
+            this,
+            KEY_CHUNK_OFFSET + keyReader.chunkLength(),
+            schema.keyColumns().nullMapSize(),
+            (byte)(flags >>> RowFlags.VAL_FLAGS_OFFSET)));
     }
 
     /**

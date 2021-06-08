@@ -23,15 +23,15 @@ import org.apache.ignite.internal.schema.Columns;
 /**
  * Abstract chunk reader.
  */
-abstract class ChunkReader {
+class ChunkReader {
     /** Row. */
     protected final BinaryRow row;
 
     /** Base offset. */
     protected final int baseOff;
 
-    /** Null-map offset. */
-    protected int nullMapOff;
+    /** Chunk format. */
+    private final ChunkFormat format;
 
     /** Vartable offset. */
     protected int varTableOff;
@@ -40,22 +40,34 @@ abstract class ChunkReader {
     protected int dataOff;
 
     /**
-     * @param baseOff Chunk base offset.
+     * @param row
+     * @param baseOff
+     * @param nullMapLen
+     * @param hasVarTable
+     * @param format
      */
-    ChunkReader(BinaryRow row, int baseOff) {
+    ChunkReader(BinaryRow row, int baseOff, int nullMapLen, boolean hasVarTable, ChunkFormat format) {
         this.row = row;
         this.baseOff = baseOff;
+        this.format = format;
+        varTableOff = nullmapOff() + nullMapLen;
+        dataOff = varTableOff + (hasVarTable ? format.vartableLength(format.readVartblSize(row, varTableOff)) : 0);
     }
 
     /**
      * @return Chunk length in bytes
      */
-    abstract int chunkLength();
+    /** {@inheritDoc} */
+    int chunkLength() {
+        return row.readInteger(baseOff);
+    }
 
     /**
      * @return Number of items in vartable.
      */
-    abstract int vartableItems();
+    int vartableItems() {
+       return format.readVartblSize(row, varTableOff);
+    }
 
     /**
      * Checks the row's null map for the given column index in the chunk.
@@ -71,9 +83,13 @@ abstract class ChunkReader {
         int nullByte = idx / 8;
         int posInByte = idx % 8;
 
-        int map = row.readByte(nullMapOff + nullByte);
+        int map = row.readByte(nullmapOff() + nullByte);
 
         return (map & (1 << posInByte)) != 0;
+    }
+
+    private int nullmapOff() {
+        return baseOff + Integer.BYTES;
     }
 
     /**
@@ -87,14 +103,20 @@ abstract class ChunkReader {
      * @return {@code True} if chunk has nullmap.
      */
     protected boolean hasNullmap() {
-        return varTableOff > nullMapOff;
+        return varTableOff > nullmapOff();
     }
 
     /**
      * @param itemIdx Varlen table item index.
      * @return Varlen item offset.
      */
-    protected abstract int varlenItemOffset(int itemIdx);
+    protected int varlenItemOffset(int itemIdx) {
+        assert hasVartable() : "Vartable is ommited.";
+
+        final int off = format.vartblItemOff(itemIdx);
+
+        return format.readOffset(row, off);
+    }
 
     /**
      * Calculates the offset of the fixlen column with the given index in the row. It essentially folds the null map
@@ -119,9 +141,9 @@ abstract class ChunkReader {
             if (hasNullmap()) {
                 // Fold offset based on the whole map bytes in the schema
                 for (int i = 0; i < colByteIdx; i++)
-                    colOff += cols.foldFixedLength(i, row.readByte(nullMapOff + i));
+                    colOff += cols.foldFixedLength(i, row.readByte(nullmapOff() + i));
 
-                colOff += cols.foldFixedLength(colByteIdx, row.readByte(nullMapOff + colByteIdx) | mask);
+                colOff += cols.foldFixedLength(colByteIdx, row.readByte(nullmapOff() + colByteIdx) | mask);
             }
             else {
                 for (int i = 0; i < colByteIdx; i++)
@@ -158,7 +180,7 @@ abstract class ChunkReader {
             int numNullsBefore = 0;
 
             for (int i = nullStartByte; i <= nullEndByte; i++) {
-                byte nullmapByte = row.readByte(nullMapOff + i);
+                byte nullmapByte = row.readByte(nullmapOff() + i);
 
                 if (i == nullStartByte)
                     // We need to clear startBitInByte least significant bits

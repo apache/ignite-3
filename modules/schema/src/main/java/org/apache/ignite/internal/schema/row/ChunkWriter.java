@@ -27,15 +27,12 @@ import org.apache.ignite.internal.schema.NativeTypes;
 /**
  * Abstract row chunk writer.
  */
-abstract class ChunkWriter {
+class ChunkWriter {
     /** Chunk buffer. */
     protected final ExpandableByteBuf buf;
 
     /** Base offset of the chunk */
     protected final int baseOff;
-
-    /** Offset of the null map for the chunk. */
-    protected final int nullMapOff;
 
     /** Offset of the varlen table for the chunk. */
     protected final int varTblOff;
@@ -49,20 +46,34 @@ abstract class ChunkWriter {
     /** Current offset for the next column to be appended. */
     protected int curOff;
 
+    /** Chunk flags. */
+    private byte flags;
+
+    /** Chunk format. */
+    ChunkFormat format;
+
     /**
      * @param buf Row buffer.
      * @param baseOff Chunk base offset.
-     * @param nullMapOff Null-map offset.
-     * @param varTblOff Vartable offset.
+     * @param nullMapLen Null-map length in bytes.
+     * @param vartblItems Vartable length in bytes.
      */
-    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapOff, int varTblOff, int dataOff) {
+    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblItems, ChunkFormat format) {
         this.buf = buf;
         this.baseOff = baseOff;
-        this.nullMapOff = nullMapOff;
-        this.varTblOff = varTblOff;
-        this.dataOff = dataOff;
+        this.format = format;
+        this.flags = format.modeFlags();
+
+        varTblOff = nullmapOff() + nullMapLen;
+        dataOff = varTblOff + format.vartableLength(vartblItems);
         curOff = dataOff;
         curVartblItem = 0;
+
+        if (nullmapOff() == baseOff)
+            this.flags |= ChunkFormat.OMIT_NULL_MAP_FLAG;
+
+        if (dataOff == varTblOff)
+            this.flags |= ChunkFormat.OMIT_VARTBL_FLAG;
     }
 
     /**
@@ -149,6 +160,9 @@ abstract class ChunkWriter {
      * @param val Column value.
      */
     public void appendString(String val, CharsetEncoder encoder) {
+        assert (flags & ChunkFormat.OMIT_VARTBL_FLAG) == 0 :
+            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
+
         try {
             int written = buf.putString(curOff, val, encoder);
 
@@ -168,6 +182,9 @@ abstract class ChunkWriter {
      * @param val Column value.
      */
     public void appendBytes(byte[] val) {
+        assert (flags & ChunkFormat.OMIT_VARTBL_FLAG) == 0 :
+            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
+
         buf.putBytes(curOff, val);
 
         writeOffset(curVartblItem, curOff - dataOff);
@@ -202,15 +219,28 @@ abstract class ChunkWriter {
     /**
      * Post-write action.
      */
-    abstract void flush();
+    void flush() {
+        final int size = chunkLength();
+
+        buf.putInt(baseOff, size);
+
+        if (curVartblItem > 0)
+            format.writeVartblSize(buf, varTblOff, curVartblItem);
+    }
 
     /**
      * Writes the given offset to the varlen table entry with the given index.
      *
-     * @param tblEntryIdx Varlen table entry index.
+     * @param tblItemIdx Varlen table entry index.
      * @param off Offset to write.
      */
-    protected abstract void writeOffset(int tblEntryIdx, int off);
+    protected void writeOffset(int tblItemIdx, int off) {
+        final int itemOff = varTblOff + format.vartblItemOff(tblItemIdx);
+
+        assert itemOff < dataOff : "Vartable overflow: size=" + itemOff;
+
+        format.writeOffset(buf, itemOff, off);
+    }
 
     /**
      * Sets null flag in the null map for the given column.
@@ -218,13 +248,21 @@ abstract class ChunkWriter {
      * @param colIdx Column index.
      */
     protected void setNull(int colIdx) {
-        assert nullMapOff < varTblOff : "Null map is omitted.";
+        assert (flags & ChunkFormat.OMIT_NULL_MAP_FLAG) == 0 : "Null map is omitted.";
 
         int byteInMap = colIdx / 8;
         int bitInByte = colIdx % 8;
 
-        buf.ensureCapacity(nullMapOff + byteInMap + 1);
+        buf.ensureCapacity(nullmapOff() + byteInMap + 1);
 
-        buf.put(nullMapOff + byteInMap, (byte)(buf.get(nullMapOff + byteInMap) | (1 << bitInByte)));
+        buf.put(nullmapOff() + byteInMap, (byte)(buf.get(nullmapOff() + byteInMap) | (1 << bitInByte)));
+    }
+
+    private int nullmapOff() {
+        return baseOff + Integer.BYTES;
+    }
+
+    public short flags() {
+        return flags;
     }
 }
