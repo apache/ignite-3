@@ -175,7 +175,7 @@ class JsonPrimitiveConfigurationSource implements ConfigurationSource {
             else if (clazz == Long.class)
                 return clazz.cast(jsonPrimitive.getAsLong());
             else if (clazz == Float.class)
-                return clazz.cast(jsonPrimitive.getAsDouble());
+                return clazz.cast(jsonPrimitive.getAsFloat());
             else if (clazz == Double.class)
                 return clazz.cast(jsonPrimitive.getAsDouble());
         }
