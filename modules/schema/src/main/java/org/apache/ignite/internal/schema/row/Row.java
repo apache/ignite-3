@@ -373,13 +373,14 @@ public class Row implements BinaryRow {
         if (reader.isNull(colIdx))
             return -1;
 
-        assert reader.hasVartable() || type.fixedLength();
-
         return type.fixedLength() ?
-            reader.fixlenColumnOffset(cols, off, colIdx, hasVarTable, hasNullMap) :
+            reader.fixlenColumnOffset(cols, colIdx) :
             reader.varlenColumnOffsetAndLength(cols, colIdx);
     }
 
+    /**
+     * @return Reader for value chunk.
+     */
     private ChunkReader valueReader() {
         if (valReader != null)
             return valReader;
@@ -391,8 +392,8 @@ public class Row implements BinaryRow {
         return (valReader = ChunkFormat.createReader(
             this,
             KEY_CHUNK_OFFSET + keyReader.chunkLength(),
-            schema.keyColumns().nullMapSize(),
-            (byte)(flags >>> RowFlags.VAL_FLAGS_OFFSET)));
+            schema.valueColumns().nullMapSize(),
+            (byte)((flags >>> RowFlags.VAL_FLAGS_OFFSET)& RowFlags.CHUNK_FLAGS_MASK)));
     }
 
     /**
@@ -491,5 +492,4 @@ public class Row implements BinaryRow {
     @Override public byte[] readBytes(int off, int len) {
         return row.readBytes(off, len);
     }
-
 }

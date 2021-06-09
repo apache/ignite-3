@@ -26,29 +26,20 @@ import java.nio.ByteBuffer;
  * The class contains low-level methods to read row data.
  */
 public interface BinaryRow {
-    /** */
+    /** Row schema version field offset. */
     int SCHEMA_VERSION_OFFSET = 0;
 
-    /** */
+    /** Row flags field offset. */
     int FLAGS_FIELD_OFFSET = SCHEMA_VERSION_OFFSET + 2 /* version length */;
 
-    /** */
+    /** Key hash field offset. */
     int KEY_HASH_FIELD_OFFSET = FLAGS_FIELD_OFFSET + 2 /* flags length */;
 
-    /** */
+    /** Key chunk field offset. */
     int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4 /* hash length */;
 
-    /** */
+    /** Row header size. */
     int HEADER_SIZE = KEY_CHUNK_OFFSET;
-
-    /** */
-    int CHUNK_LEN_FIELD_SIZE = 4;
-
-    /** */
-    int VARLEN_TABLE_SIZE_FIELD_SIZE = 2;
-
-    /** */
-    int VARLEN_COLUMN_OFFSET_FIELD_SIZE = 2;
 
     /**
      * @return Row schema version.
@@ -59,9 +50,6 @@ public interface BinaryRow {
      * @return {@code True} if row has non-null value, {@code false} otherwise.
      */
     boolean hasValue();
-
-    // TODO: IGNITE-14199. Add row version.
-    //GridRowVersion version();
 
     /**
      * Row hash code is a result of hash function applied to the row affinity columns values.

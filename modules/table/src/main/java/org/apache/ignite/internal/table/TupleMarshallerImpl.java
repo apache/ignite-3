@@ -106,14 +106,12 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             if (val == null)
                 chunk.hasNulls = true;
+            else if (col.type().spec().fixedLength())
+                chunk.payloadLen += col.type().sizeInBytes();
             else {
-                if (col.type().spec().fixedLength())
-                    chunk.payloadLen += col.type().sizeInBytes();
-                else {
-                    chunk.nonNullVarlen++;
+                chunk.nonNullVarlen++;
 
-                    chunk.payloadLen += getValueSize(val, col.type());
-                }
+                chunk.payloadLen += getValueSize(val, col.type());
             }
         }
 

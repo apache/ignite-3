@@ -129,8 +129,6 @@ public class ByteBufferRow implements BinaryRow {
 
     /** {@inheritDoc} */
     @Override public ByteBuffer keySlice() {
-        final short flags = readShort(FLAGS_FIELD_OFFSET);
-
         final int off = KEY_CHUNK_OFFSET;
         final int len = readInteger(off);
 

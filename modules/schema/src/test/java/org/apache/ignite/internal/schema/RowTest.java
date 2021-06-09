@@ -263,29 +263,45 @@ public class RowTest {
 
         int nonNullVarLenKeyCols = 0;
         int nonNullVarLenValCols = 0;
+        int nonNullVarLenKeySize = 0;
+        int nonNullVarLenValSize = 0;
 
         for (int i = 0; i < vals.length; i++) {
             NativeTypeSpec type = schema.column(i).type().spec();
 
             if (vals[i] != null && !type.fixedLength()) {
                 if (type == NativeTypeSpec.BYTES) {
-                    if (schema.isKeyColumn(i))
+                    byte[] val = (byte[])vals[i];
+                    if (schema.isKeyColumn(i)) {
                         nonNullVarLenKeyCols++;
-                    else
+                        nonNullVarLenKeySize += val.length;
+                    }
+                    else {
                         nonNullVarLenValCols++;
+                        nonNullVarLenValSize += val.length;
+                    }
                 }
                 else if (type == NativeTypeSpec.STRING) {
-                    if (schema.isKeyColumn(i))
+                    if (schema.isKeyColumn(i)) {
                         nonNullVarLenKeyCols++;
-                    else
+                        nonNullVarLenKeySize += RowAssembler.utf8EncodedLength((CharSequence)vals[i]);
+                    }
+                    else {
                         nonNullVarLenValCols++;
+                        nonNullVarLenValSize += RowAssembler.utf8EncodedLength((CharSequence)vals[i]);
+                    }
                 }
                 else
                     throw new IllegalStateException("Unsupported variable-length type: " + type);
             }
         }
 
-        RowAssembler asm = new RowAssembler(schema, nonNullVarLenKeyCols, nonNullVarLenValCols);
+        RowAssembler asm = new RowAssembler(
+            schema,
+            nonNullVarLenKeySize,
+            nonNullVarLenKeyCols,
+            nonNullVarLenValSize,
+            nonNullVarLenValCols);
 
         for (int i = 0; i < vals.length; i++) {
             if (vals[i] == null)

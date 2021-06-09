@@ -85,7 +85,7 @@ public class JavaSerializer extends AbstractSerializer {
         ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 
-        return new RowAssembler(schema, keyStat.nonNullCols, valStat.nonNullCols);
+        return new RowAssembler(schema, keyStat.maxChunkDataSize, keyStat.nonNullCols, valStat.maxChunkDataSize, valStat.nonNullCols);
     }
 
     /**
@@ -101,7 +101,7 @@ public class JavaSerializer extends AbstractSerializer {
             return new ObjectStatistic(0, 0);
 
         int cnt = 0;
-        int size = 0;
+        int size = cols.fixsizeMaxLen();
 
         for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
             final Object val = marsh.value(obj, i);
@@ -142,12 +142,12 @@ public class JavaSerializer extends AbstractSerializer {
         int nonNullCols;
 
         /** Length of all non-null columns of varlen types. */
-        int nonNullColsSize;
+        int maxChunkDataSize;
 
         /** Constructor. */
-        ObjectStatistic(int nonNullCols, int nonNullColsSize) {
+        ObjectStatistic(int nonNullCols, int maxRowSize) {
             this.nonNullCols = nonNullCols;
-            this.nonNullColsSize = nonNullColsSize;
+            this.maxChunkDataSize = maxRowSize;
         }
     }
 }

@@ -188,6 +188,9 @@ public class Columns implements Serializable {
         return firstVarlenColIdx != -1;
     }
 
+    /**
+     * @return Fixsize columns size upper bound.
+     */
     public int fixsizeMaxLen() {
         return fixsizeMaxLen;
     }

@@ -20,13 +20,13 @@ package org.apache.ignite.internal.schema.row;
 import org.apache.ignite.internal.schema.BinaryRow;
 
 /**
- * Chunk writers factory.
+ * Chunk format.
  */
 abstract class ChunkFormat {
-    /** First 2 bits in chunk flags. */
+    /** First two flag bits reserved for format code. */
     public static final int FORMAT_CODE_MASK = 0x03;
 
-    /** Flag indicates key chunk omits varlen table. */
+    /** Flag indicates key chunk omits vartable. */
     public static final int OMIT_NULL_MAP_FLAG = 1 << 2;
 
     /** Flag indicates value chunk omits null map. */
@@ -34,79 +34,82 @@ abstract class ChunkFormat {
 
     /** Writer factory for tiny-sized chunks. */
     private static final ChunkFormat TINY = new ChunkFormat(Byte.BYTES, Byte.BYTES, (byte)1) {
-        @Override void writeOffset(ExpandableByteBuf buf, int itemOff, int off) {
+        /** {@inheritDoc} */
+        @Override void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off) {
             assert off < (1 << 8) && off >= 0 : "Varlen offset overflow: offset=" + off;
 
-            buf.put(itemOff, (byte)off);
+            buf.put(vartblOff + vartableEntryOffset(entryIdx), (byte)off);
         }
 
-        @Override int readOffset(BinaryRow row, int itemOff) {
-            return row.readByte(itemOff) & 0xFF;
+        /** {@inheritDoc} */
+        @Override int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
+            return row.readByte(vartblOff + vartableEntryOffset(entryIdx)) & 0xFF;
         }
 
-        @Override void writeVartblSize(ExpandableByteBuf buf, int vartblOff, int size) {
+        /** {@inheritDoc} */
+        @Override void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size) {
             assert size < (1 << 8) && size >= 0 : "Vartable size overflow: size=" + size;
 
-            buf.put(vartblOff, (byte)vartblOff);
+            buf.put(vartblOff, (byte)size);
         }
 
-        @Override int readVartblSize(BinaryRow row, int vartblOff) {
+        /** {@inheritDoc} */
+        @Override int readVartableSize(BinaryRow row, int vartblOff) {
             return row.readByte(vartblOff) & 0xFF;
         }
     };
 
     /** Writer factory for med-sized chunks. */
     private static final ChunkFormat MEDIUM = new ChunkFormat(Short.BYTES, Short.BYTES, (byte)2) {
-        @Override void writeOffset(ExpandableByteBuf buf, int itemOff, int off) {
+        /** {@inheritDoc} */
+        @Override void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off) {
             assert off < (1 << 16) && off >= 0 : "Varlen offset overflow: offset=" + off;
 
-            buf.putShort(itemOff, (short)off);
+            buf.putShort(vartblOff + vartableEntryOffset(entryIdx), (short)off);
         }
 
-        @Override int readOffset(BinaryRow row, int itemOff) {
-            return row.readShort(itemOff) & 0xFFFF;
+        /** {@inheritDoc} */
+        @Override int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
+            return row.readShort(vartblOff + vartableEntryOffset(entryIdx)) & 0xFFFF;
         }
 
-        @Override void writeVartblSize(ExpandableByteBuf buf, int vartblOff, int size) {
+        /** {@inheritDoc} */
+        @Override void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size) {
             assert size < (1 << 16) && size >= 0 : "Vartable size overflow: size=" + size;
 
-            buf.putShort(vartblOff, (short)vartblOff);
+            buf.putShort(vartblOff, (short)size);
         }
 
-        @Override int readVartblSize(BinaryRow row, int vartblOff) {
+        /** {@inheritDoc} */
+        @Override int readVartableSize(BinaryRow row, int vartblOff) {
             return row.readShort(vartblOff) & 0xFFFF;
         }
     };
 
     /** Writer factory for large-sized chunks. */
     private static final ChunkFormat LARGE = new ChunkFormat(Short.BYTES, Integer.BYTES, (byte)0) {
-        @Override void writeOffset(ExpandableByteBuf buf, int itemOff, int off) {
-            buf.putInt(itemOff, off);
+        /** {@inheritDoc} */
+        @Override void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off) {
+            buf.putInt(vartblOff + vartableEntryOffset(entryIdx), off);
         }
 
-        @Override int readOffset(BinaryRow row, int itemOff) {
-            return row.readInteger(itemOff);
+        /** {@inheritDoc} */
+        @Override int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
+            return row.readInteger(vartblOff + vartableEntryOffset(entryIdx));
         }
 
-        @Override void writeVartblSize(ExpandableByteBuf buf, int vartblOff, int size) {
+        /** {@inheritDoc} */
+        @Override void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size) {
             assert size < (1 << 16) && size >= 0 : "Vartable size overflow: size=" + size;
 
-            buf.putShort(vartblOff, (short)vartblOff);
+            buf.putShort(vartblOff, (short)size);
         }
 
-        @Override int readVartblSize(BinaryRow row, int vartblOff) {
+        /** {@inheritDoc} */
+        @Override int readVartableSize(BinaryRow row, int vartblOff) {
             return row.readShort(vartblOff) & 0xFFFF;
         }
     };
-
-    /** Chunk length field size. */
-    public static final int CHUNK_LEN_FLD_SIZE = Integer.BYTES;
-
-    private final int vartableItemSize;
-
-    private final int vartableSizeFieldLen;
-
-    private final byte modeFlags;
 
     /**
      * Return chunk formatter.
@@ -115,33 +118,35 @@ abstract class ChunkFormat {
      * @return Chunk formatter.
      */
     static ChunkFormat formatter(int payloadLen) {
-        if (payloadLen < 256)
-            return TINY;
+        if (payloadLen > 0) {
+            if (payloadLen < 256)
+                return TINY;
 
-        if (payloadLen < 64 * 1024)
-            return MEDIUM;
+            if (payloadLen < 64 * 1024)
+                return MEDIUM;
+        }
 
         return LARGE;
     }
 
     /**
+     * Creates chunk reader.
+     *
      * @param row Binary row.
-     * @param offset Offset.
-     * @param nullMapSize Default null-map size.
-     * @param chunkFlags Chunk flags.
-     * @return Reader.
+     * @param offset Chunk offset.
+     * @param nullMapSize Default chunk null-map size.
+     * @param chunkFlags Chunk flags. First 4-bits are meaningful.
+     * @return Chunk reader.
      */
     static ChunkReader createReader(BinaryRow row, int offset, int nullMapSize, byte chunkFlags) {
-        return fromFlags(chunkFlags).reader(row, offset,
-            (chunkFlags & OMIT_NULL_MAP_FLAG) == 0 ? nullMapSize : 0,
-            (chunkFlags & OMIT_VARTBL_FLAG) == 0);
+        return fromFlags(chunkFlags).reader(row, offset, nullMapSize, chunkFlags);
     }
 
     /**
-     * Chunk formatter from given flags.
+     * Chunk format factory method.
      *
-     * @param chunkFlags Chunk specific flags.
-     * @return Chunk formatter.
+     * @param chunkFlags Chunk specific flags. Only first 4-bits are meaningful.
+     * @return Chunk formatter regarding the provided flags.
      */
     private static ChunkFormat fromFlags(byte chunkFlags) {
         final int mode = chunkFlags & FORMAT_CODE_MASK;
@@ -156,65 +161,105 @@ abstract class ChunkFormat {
         }
     }
 
+    /** Size of chunk length field. */
+    public static final int CHUNK_LEN_FLD_SIZE = Integer.BYTES;
+
+    /** Size of vartable entry. */
+    private final int vartblEntrySize;
+
+    /** Size of cartable size field. */
+    private final int vartblSizeFieldSize;
+
+    /** Format flags. */
+    private final byte flags;
+
     /**
-     * @param vartableSizeFieldLen Vartalble size field length.
-     * @param vartableItemSize Vartable item size.
+     * @param vartblSizeFieldSize Size of vartalble size field (in bytes).
+     * @param vartblEntrySize Size of vartable entry (in bytes).
+     * @param flags Format specific flags.
      */
-    public ChunkFormat(int vartableSizeFieldLen, int vartableItemSize, byte modeFlags) {
-        this.vartableItemSize = vartableItemSize;
-        this.vartableSizeFieldLen = vartableSizeFieldLen;
-        this.modeFlags = modeFlags;
-    }
-
-    int vartableSizeFieldLen() {
-        return vartableSizeFieldLen;
-    }
-
-    int vartableItemSize() {
-        return vartableItemSize;
-    }
-
-    public byte modeFlags() {
-        return modeFlags;
+    ChunkFormat(int vartblSizeFieldSize, int vartblEntrySize, byte flags) {
+        this.vartblEntrySize = vartblEntrySize;
+        this.vartblSizeFieldSize = vartblSizeFieldSize;
+        this.flags = flags;
     }
 
     /**
+     * @return Format specific flags for a chunk.
+     */
+    public byte formatFlags() {
+        return flags;
+    }
+
+    /**
+     * Calculates chunk size for the format.
+     *
      * @param payloadLen Row payload length in bytes.
      * @param nullMapLen Null-map length in bytes.
-     * @param vartblItems Number of vartable items.
-     * @return Chunk size.
+     * @param vartblEntries Number of vartable entries.
+     * @return Total chunk size.
      */
-    int chunkSize(int payloadLen, int nullMapLen, int vartblItems) {
-        return CHUNK_LEN_FLD_SIZE /* Chunk len. */ + nullMapLen + vartableLength(vartblItems) + payloadLen;
+    int chunkSize(int payloadLen, int nullMapLen, int vartblEntries) {
+        return CHUNK_LEN_FLD_SIZE /* Chunk len. */ + nullMapLen + vartableLength(vartblEntries - 1) + payloadLen;
     }
 
     /**
-     * Calculates vartable length (in bytes).
+     * Calculates vartable size in bytes.
      *
-     * @param items Vartable items.
+     * @param entries Vartable entries.
      * @return Vartable size in bytes.
      */
-    protected int vartableLength(int items) {
-        return items == 0 ? 0 : vartableSizeFieldLen /* Table size */ + items * vartableItemSize;
+    int vartableLength(int entries) {
+        return entries <= 0 ? 0 : vartblSizeFieldSize /* Table size */ + entries * vartblEntrySize;
     }
 
     /**
-     * Calculates vartable item offset.
+     * Calculates vartable entry offset.
      *
-     * @param idx Vartable item idx.
-     * @return Vartable item offset.
+     * @param idx Vartable entry idx.
+     * @return Vartable entry offset.
      */
-    int vartblItemOff(int idx) {
-        return vartableSizeFieldLen /* Table size */ + idx * vartableItemSize;
+    int vartableEntryOffset(int idx) {
+        return vartblSizeFieldSize /* Table size */ + idx * vartblEntrySize;
     }
 
-    abstract void writeOffset(ExpandableByteBuf buf, int vartblItemOff, int off);
+    /**
+     * Writes varlen offset to vartable.
+     *
+     * @param buf Row buffer.
+     * @param vartblOff Vartable offset.
+     * @param entryIdx Vartable entry index.
+     * @param off Varlen offset to be written.
+     */
+    abstract void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off);
 
-    abstract int readOffset(BinaryRow row, int vartblOff);
+    /**
+     * Readss varlen offset from vartable.
+     *
+     * @param row Row.
+     * @param vartblOff Vartable offset.
+     * @param entryIdx Vartable entry index.
+     * @return Varlen offset.
+     */
+    abstract int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx);
 
-    abstract void writeVartblSize(ExpandableByteBuf buf, int vartblOff, int size);
+    /**
+     * Writes vartable size.
+     *
+     * @param buf Row buffer.
+     * @param vartblOff Vartable offset.
+     * @param size Number of entries in the vartable.
+     */
+    abstract void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size);
 
-    abstract int readVartblSize(BinaryRow row, int vartblOff);
+    /**
+     * Reads vartable size.
+     *
+     * @param row Row.
+     * @param vartblOff Vartable offset.
+     * @return Number of entries in the vartable.
+     */
+    abstract int readVartableSize(BinaryRow row, int vartblOff);
 
     /**
      * Chunk writer factory method.
@@ -222,11 +267,16 @@ abstract class ChunkFormat {
      * @param buf Row buffer.
      * @param baseOff Chunk base offset.
      * @param nullMapLen Null-map length.
-     * @param vartblItems Vartable items.
+     * @param nonNullVarlens Number of entries in vartable.
      * @return Chunk writer.
      */
-    ChunkWriter writer(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblItems) {
-        return new ChunkWriter(buf, baseOff, nullMapLen, vartblItems, this);
+    ChunkWriter writer(ExpandableByteBuf buf, int baseOff, int nullMapLen, int nonNullVarlens) {
+        return new ChunkWriter(
+            buf,
+            baseOff,
+            nullMapLen,
+            vartableLength(nonNullVarlens - 1),
+            this);
     }
 
     /**
@@ -234,11 +284,16 @@ abstract class ChunkFormat {
      *
      * @param row Row buffer.
      * @param baseOff Chunk base offset.
-     * @param nullMapLen Null-map length.
-     * @param hasVarTable Has vartable flag.
+     * @param nullMapSize Default chunk null-map size.
+     * @param chunkFlags Chunk flags.
      * @return Chunk reader.
      */
-    ChunkReader reader(BinaryRow row, int baseOff, int nullMapLen, boolean hasVarTable) {
-        return new ChunkReader(row, baseOff, nullMapLen, hasVarTable, this);
+    ChunkReader reader(BinaryRow row, int baseOff, int nullMapSize, byte chunkFlags) {
+        return new ChunkReader(
+            row,
+            baseOff,
+            (chunkFlags & OMIT_NULL_MAP_FLAG) == 0 ? nullMapSize : 0,
+            (chunkFlags & OMIT_VARTBL_FLAG) == 0,
+            this);
     }
 }

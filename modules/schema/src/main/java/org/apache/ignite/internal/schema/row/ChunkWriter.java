@@ -40,8 +40,11 @@ class ChunkWriter {
     /** Offset of data for the chunk. */
     protected final int dataOff;
 
+    /** Chunk format. */
+    private final ChunkFormat format;
+
     /** Index of the current varlen table entry. Incremented each time non-null varlen column is appended. */
-    protected int curVartblItem;
+    protected int curVartblEntry;
 
     /** Current offset for the next column to be appended. */
     protected int curOff;
@@ -49,31 +52,30 @@ class ChunkWriter {
     /** Chunk flags. */
     private byte flags;
 
-    /** Chunk format. */
-    ChunkFormat format;
 
     /**
      * @param buf Row buffer.
      * @param baseOff Chunk base offset.
      * @param nullMapLen Null-map length in bytes.
-     * @param vartblItems Vartable length in bytes.
+     * @param vartblLen Vartable length in bytes.
+     * @param format Chunk format.
      */
-    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblItems, ChunkFormat format) {
+    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblLen, ChunkFormat format) {
         this.buf = buf;
         this.baseOff = baseOff;
         this.format = format;
-        this.flags = format.modeFlags();
 
+        flags = format.formatFlags();
         varTblOff = nullmapOff() + nullMapLen;
-        dataOff = varTblOff + format.vartableLength(vartblItems);
+        dataOff = varTblOff + vartblLen;
         curOff = dataOff;
-        curVartblItem = 0;
+        curVartblEntry = 0;
 
-        if (nullmapOff() == baseOff)
-            this.flags |= ChunkFormat.OMIT_NULL_MAP_FLAG;
+        if (nullMapLen == 0)
+            flags |= ChunkFormat.OMIT_NULL_MAP_FLAG;
 
-        if (dataOff == varTblOff)
-            this.flags |= ChunkFormat.OMIT_VARTBL_FLAG;
+        if (vartblLen == 0)
+            flags |= ChunkFormat.OMIT_VARTBL_FLAG;
     }
 
     /**
@@ -160,15 +162,12 @@ class ChunkWriter {
      * @param val Column value.
      */
     public void appendString(String val, CharsetEncoder encoder) {
-        assert (flags & ChunkFormat.OMIT_VARTBL_FLAG) == 0 :
-            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
-
         try {
             int written = buf.putString(curOff, val, encoder);
 
-            writeOffset(curVartblItem, curOff - dataOff);
+            writeVarlenOffset(curVartblEntry, curOff - dataOff);
 
-            curVartblItem++;
+            curVartblEntry++;
             curOff += written;
         }
         catch (CharacterCodingException e) {
@@ -182,14 +181,11 @@ class ChunkWriter {
      * @param val Column value.
      */
     public void appendBytes(byte[] val) {
-        assert (flags & ChunkFormat.OMIT_VARTBL_FLAG) == 0 :
-            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
-
         buf.putBytes(curOff, val);
 
-        writeOffset(curVartblItem, curOff - dataOff);
+        writeVarlenOffset(curVartblEntry, curOff - dataOff);
 
-        curVartblItem++;
+        curVartblEntry++;
         curOff += val.length;
     }
 
@@ -210,6 +206,20 @@ class ChunkWriter {
     }
 
     /**
+     * @return Null-map offset.
+     */
+    private int nullmapOff() {
+        return baseOff + ChunkFormat.CHUNK_LEN_FLD_SIZE;
+    }
+
+    /**
+     * @return Chunk flags.
+     */
+    public short chunkFlags() {
+        return flags;
+    }
+
+    /**
      * @return Chunk size in bytes.
      */
     public int chunkLength() {
@@ -220,35 +230,38 @@ class ChunkWriter {
      * Post-write action.
      */
     void flush() {
-        final int size = chunkLength();
+        buf.putInt(baseOff,  chunkLength());
 
-        buf.putInt(baseOff, size);
+        if (curVartblEntry > 1) {
+            assert varTblOff + format.vartableLength(curVartblEntry - 1) == dataOff : "Vartable overlow: size=" + curVartblEntry;
 
-        if (curVartblItem > 0)
-            format.writeVartblSize(buf, varTblOff, curVartblItem);
+            format.writeVartableSize(buf, varTblOff, curVartblEntry - 1);
+        }
     }
 
     /**
      * Writes the given offset to the varlen table entry with the given index.
      *
-     * @param tblItemIdx Varlen table entry index.
+     * @param entryIdx Vartable entry index.
      * @param off Offset to write.
      */
-    protected void writeOffset(int tblItemIdx, int off) {
-        final int itemOff = varTblOff + format.vartblItemOff(tblItemIdx);
+    protected void writeVarlenOffset(int entryIdx, int off) {
+        if (entryIdx == 0)
+            return; // Omit offset for very first varlen.
 
-        assert itemOff < dataOff : "Vartable overflow: size=" + itemOff;
+        assert (flags & ChunkFormat.OMIT_VARTBL_FLAG) == 0 :
+            "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
-        format.writeOffset(buf, itemOff, off);
+        format.writeVarlenOffset(buf, varTblOff, entryIdx - 1, off);
     }
 
     /**
-     * Sets null flag in the null map for the given column.
+     * Sets null flag in the null-map for the given column.
      *
      * @param colIdx Column index.
      */
     protected void setNull(int colIdx) {
-        assert (flags & ChunkFormat.OMIT_NULL_MAP_FLAG) == 0 : "Null map is omitted.";
+        assert (flags & ChunkFormat.OMIT_NULL_MAP_FLAG) == 0 : "Null-map is omitted.";
 
         int byteInMap = colIdx / 8;
         int bitInByte = colIdx % 8;
@@ -256,13 +269,5 @@ class ChunkWriter {
         buf.ensureCapacity(nullmapOff() + byteInMap + 1);
 
         buf.put(nullmapOff() + byteInMap, (byte)(buf.get(nullmapOff() + byteInMap) | (1 << bitInByte)));
-    }
-
-    private int nullmapOff() {
-        return baseOff + Integer.BYTES;
-    }
-
-    public short flags() {
-        return flags;
     }
 }

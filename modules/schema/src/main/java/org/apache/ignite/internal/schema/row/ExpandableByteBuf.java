@@ -57,7 +57,9 @@ public class ExpandableByteBuf {
     private int len;
 
     /**
-     * @param size Start buffer size.
+     * Creates expandable row buffer.
+     *
+     * @param size Initial buffer size.
      */
     public ExpandableByteBuf(int size) {
         if (size <= 0)
@@ -282,7 +284,7 @@ public class ExpandableByteBuf {
     /**
      * Unwrap to ByteBuffer.
      *
-     * @return Byte buffer.
+     * @return internal buffer.
      */
     ByteBuffer unwrap() {
         return buf;

@@ -50,11 +50,14 @@ public class RowAssembler {
     /** Schema. */
     private final SchemaDescriptor schema;
 
+    /** Target byte buffer to write to. */
+    private final ExpandableByteBuf buf;
+
     /** The number of non-null varlen columns in values chunk. */
     private final int valVarlenCols;
 
-    /** Target byte buffer to write to. */
-    private final ExpandableByteBuf buf;
+    /** Value write mode. */
+    private final ChunkFormat valWriteMode;
 
     /** Current columns chunk. */
     private Columns curCols;
@@ -73,9 +76,6 @@ public class RowAssembler {
 
     /** Current chunk writer. */
     private ChunkWriter chunkWriter;
-
-    /** Value write mode. */
-    private ChunkFormat valWriteMode;
 
     /**
      * Calculates encoded string length.
@@ -184,6 +184,7 @@ public class RowAssembler {
         curCols = schema.keyColumns();
         curCol = 0;
         flags = 0;
+        hash = 0;
         strEncoder = null;
 
         final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
@@ -204,8 +205,10 @@ public class RowAssembler {
 
     /**
      * Appends {@code null} value for the current column to the chunk.
+     *
+     * @return {@code this} for chaining.
      */
-    public void appendNull() {
+    public RowAssembler appendNull() {
         Column col = curCols.column(curCol);
 
         if (!col.nullable())
@@ -218,14 +221,17 @@ public class RowAssembler {
         chunkWriter.setNull(curCol);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends byte value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendByte(byte val) {
+    public RowAssembler appendByte(byte val) {
         checkType(NativeTypes.BYTE);
 
         if (isKeyColumn())
@@ -234,14 +240,17 @@ public class RowAssembler {
         chunkWriter.appendByte(val);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends short value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendShort(short val) {
+    public RowAssembler appendShort(short val) {
         checkType(NativeTypes.SHORT);
 
         if (isKeyColumn())
@@ -250,14 +259,17 @@ public class RowAssembler {
         chunkWriter.appendShort(val);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends int value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendInt(int val) {
+    public RowAssembler appendInt(int val) {
         checkType(NativeTypes.INTEGER);
 
         if (isKeyColumn())
@@ -266,14 +278,17 @@ public class RowAssembler {
         chunkWriter.appendInt(val);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends long value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendLong(long val) {
+    public RowAssembler appendLong(long val) {
         checkType(NativeTypes.LONG);
 
         if (isKeyColumn())
@@ -282,14 +297,17 @@ public class RowAssembler {
         chunkWriter.appendLong(val);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends float value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendFloat(float val) {
+    public RowAssembler appendFloat(float val) {
         checkType(NativeTypes.FLOAT);
 
         if (isKeyColumn())
@@ -298,14 +316,17 @@ public class RowAssembler {
         chunkWriter.appendFloat(val);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends double value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendDouble(double val) {
+    public RowAssembler appendDouble(double val) {
         checkType(NativeTypes.DOUBLE);
 
         if (isKeyColumn())
@@ -314,14 +335,17 @@ public class RowAssembler {
         chunkWriter.appendDouble(val);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends UUID value for the current column to the chunk.
      *
      * @param uuid Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendUuid(UUID uuid) {
+    public RowAssembler appendUuid(UUID uuid) {
         checkType(NativeTypes.UUID);
 
         if (isKeyColumn())
@@ -330,14 +354,17 @@ public class RowAssembler {
         chunkWriter.appendUuid(uuid);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends String value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendString(String val) {
+    public RowAssembler appendString(String val) {
         checkType(NativeTypes.STRING);
 
         if (isKeyColumn())
@@ -346,14 +373,17 @@ public class RowAssembler {
         chunkWriter.appendString(val, encoder());
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends byte[] value for the current column to the chunk.
      *
      * @param val Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendBytes(byte[] val) {
+    public RowAssembler appendBytes(byte[] val) {
         checkType(NativeTypes.BYTES);
 
         if (isKeyColumn())
@@ -362,14 +392,17 @@ public class RowAssembler {
         chunkWriter.appendBytes(val);
 
         shiftColumn();
+
+        return this;
     }
 
     /**
      * Appends BitSet value for the current column to the chunk.
      *
      * @param bitSet Column value.
+     * @return {@code this} for chaining.
      */
-    public void appendBitmask(BitSet bitSet) {
+    public RowAssembler appendBitmask(BitSet bitSet) {
         Column col = curCols.column(curCol);
 
         checkType(NativeTypeSpec.BITMASK);
@@ -386,6 +419,8 @@ public class RowAssembler {
         chunkWriter.appendBitmask(bitSet, maskType.sizeInBytes());
 
         shiftColumn();
+
+        return this;
     }
 
     /**
@@ -455,7 +490,9 @@ public class RowAssembler {
             chunkWriter.flush();
 
             if (schema.valueColumns() == curCols) {
-                flags |= (chunkWriter.flags() & 0x0F) << VAL_FLAGS_OFFSET;
+                assert (chunkWriter.chunkFlags() & (~0x0F)) == 0 : "Value chunk flags overflow: flags=" + chunkWriter.chunkFlags();
+
+                flags |= (chunkWriter.chunkFlags() & 0x0F) << VAL_FLAGS_OFFSET;
 
                 return; // No more columns.
             }
@@ -464,7 +501,9 @@ public class RowAssembler {
             curCols = schema.valueColumns();
             curCol = 0;
 
-            flags |= (chunkWriter.flags() & 0x0F) << KEY_FLAGS_OFFSET;
+            assert (chunkWriter.chunkFlags() & (~0x0F)) == 0 : "Key chunk flags overflow: flags=" + chunkWriter.chunkFlags();
+
+            flags |= (chunkWriter.chunkFlags() & 0x0F) << KEY_FLAGS_OFFSET;
 
             // Create value chunk writer.
             chunkWriter = valWriteMode.writer(buf,
