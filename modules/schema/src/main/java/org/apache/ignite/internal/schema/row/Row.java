@@ -376,8 +376,8 @@ public class Row implements BinaryRow {
         assert reader.hasVartable() || type.fixedLength();
 
         return type.fixedLength() ?
-            reader.fixlenColumnOffset(cols, colIdx) :
-            reader.varlenColumnOffsetAndLength(cols, colIdx);
+            reader.fixlenColumnOffset(cols, off, colIdx, hasVarTable, hasNullMap) :
+            reader.varlenColumnOffsetAndLength(cols, off, colIdx, hasVarTable, hasNullMap);
     }
 
     private ChunkReader valueReader() {
