@@ -2265,7 +2265,7 @@ public class ITNodeTest {
     }
 
     @Test
-    @Ignore // TODO asch https://issues.apache.org/jira/browse/IGNITE-14853
+    @Ignore("https://issues.apache.org/jira/browse/IGNITE-14853")
     public void testInstallSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -3046,7 +3046,7 @@ public class ITNodeTest {
     }
 
     @Test
-    @Ignore // TODO asch https://issues.apache.org/jira/browse/IGNITE-14852
+    @Ignore("https://issues.apache.org/jira/browse/IGNITE-14852")
     public void testChangePeers() throws Exception {
         final PeerId peer0 = new PeerId(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", this.dataPath, Collections.singletonList(peer0));
