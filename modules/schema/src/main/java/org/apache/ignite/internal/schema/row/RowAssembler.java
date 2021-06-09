@@ -194,8 +194,8 @@ public class RowAssembler {
         valWriteMode = ChunkFormat.formatter(valDataSize);
 
         int size = BinaryRow.HEADER_SIZE +
-            keyWriteMode.chunkSize(keyDataSize, keyNullMapSize, keyDataSize) +
-            valWriteMode.chunkSize(valDataSize, valNullMapSize, valDataSize);
+            keyWriteMode.chunkSize(keyDataSize, keyNullMapSize, keyVarlenCols) +
+            valWriteMode.chunkSize(valDataSize, valNullMapSize, valVarlenCols);
 
         buf = new ExpandableByteBuf(size);
         buf.putShort(0, (short)schema.version());

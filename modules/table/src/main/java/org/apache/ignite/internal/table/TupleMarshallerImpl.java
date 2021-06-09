@@ -62,15 +62,15 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         validate(keyTuple, schema.keyColumns());
 
-        TupleStatistics keyChunk = tupleStatistics(schema.keyColumns(), keyTuple);
-        TupleStatistics valChunk = tupleStatistics(schema.valueColumns(), valTuple);
+        TupleStatistics keyStat = tupleStatistics(schema.keyColumns(), keyTuple);
+        TupleStatistics valStat = tupleStatistics(schema.valueColumns(), valTuple);
 
-        final RowAssembler rowBuilder = createAssembler(schema, keyChunk, valChunk);
+        final RowAssembler rowBuilder = createAssembler(schema, keyStat, valStat);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
             final Column col = schema.keyColumns().column(i);
 
-            writeColumn(rowBuilder, col, keyTuple.value(col.name()));
+            writeColumn(rowBuilder, col, keyTuple);
         }
 
         if (valTuple != null) {
@@ -79,7 +79,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);
 
-                writeColumn(rowBuilder, col, valTuple.value(col.name()));
+                writeColumn(rowBuilder, col, valTuple);
             }
         }
 
@@ -160,9 +160,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     /**
      * @param rowAsm Row assembler.
      * @param col Column.
-     * @param val Value.
+     * @param tup Tuple.
      */
-    private void writeColumn(RowAssembler rowAsm, Column col, Object val) {
+    private void writeColumn(RowAssembler rowAsm, Column col, Tuple tup) {
+        Object val = tup.contains(col.name()) ? tup.value(col.name()) : col.defaultValue();
+
         if (val == null) {
             rowAsm.appendNull();
 
