@@ -377,7 +377,7 @@ public class Row implements BinaryRow {
 
         return type.fixedLength() ?
             reader.fixlenColumnOffset(cols, off, colIdx, hasVarTable, hasNullMap) :
-            reader.varlenColumnOffsetAndLength(cols, off, colIdx, hasVarTable, hasNullMap);
+            reader.varlenColumnOffsetAndLength(cols, colIdx);
     }
 
     private ChunkReader valueReader() {

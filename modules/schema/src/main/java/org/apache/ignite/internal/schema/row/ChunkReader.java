@@ -198,15 +198,29 @@ class ChunkReader {
 
         idx -= cols.numberOfFixsizeColumns();
 
+        if (idx == 0) { // Very first non-null varlen column.
+            int off = cols.numberOfFixsizeColumns() == 0 ?
+                 varTableOff + varlenItemOffset(readShort(vartableOff)) : vartableOff) :
+                fixlenColumnOffset(cols, baseOff, cols.numberOfFixsizeColumns(), hasVarTbl, hasNullMap);
+
+            long len = hasVarTbl ?
+                readShort(vartableOff + varlenItemOffset(0)) - (off - baseOff) :
+                readInteger(baseOff) - (off - baseOff);
+
+            return (len << 32) | off;
+        }
+
+        int vartableSize = readShort(vartableOff);
+
         // Offset of idx-th column is from base offset.
-        int resOff = varlenItemOffset(idx);
+        int resOff = readShort(vartableOff + varlenItemOffset(idx - 1));
 
-        long len = (idx == vartableItems() - 1) ?
+        long len = (idx == vartableSize) ?
             // totalLength - columnStartOffset
-            (baseOff + chunkLength()) - resOff :
+            readInteger(baseOff) - resOff :
             // nextColumnStartOffset - columnStartOffset
-            varlenItemOffset(idx + 1) - resOff;
+            readShort(vartableOff + varlenItemOffset(idx)) - resOff;
 
-        return (len << 32) | resOff;
+        return (len << 32) | (resOff + baseOff);
     }
 }
