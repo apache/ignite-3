@@ -25,7 +25,6 @@ import com.google.gson.JsonPrimitive;
 import org.apache.ignite.configuration.TypeUtils;
 import org.apache.ignite.configuration.tree.ConfigurationSource;
 import org.apache.ignite.configuration.tree.ConstructableTreeNode;
-import org.apache.ignite.lang.IgniteLogger;
 
 import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.join;
 
@@ -33,9 +32,6 @@ import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.jo
  * {@link ConfigurationSource} created from a JSON element representing a primitive type.
  */
 class JsonPrimitiveConfigurationSource implements ConfigurationSource {
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(JsonPrimitiveConfigurationSource.class);
-
     /**
      * Current path inside the top-level JSON object.
      */
