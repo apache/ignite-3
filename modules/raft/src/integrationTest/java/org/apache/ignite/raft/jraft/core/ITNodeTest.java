@@ -2265,6 +2265,7 @@ public class ITNodeTest {
     }
 
     @Test
+    @Ignore // TODO asch https://issues.apache.org/jira/browse/IGNITE-14853
     public void testInstallSnapshot() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -3045,6 +3046,7 @@ public class ITNodeTest {
     }
 
     @Test
+    @Ignore // TODO asch https://issues.apache.org/jira/browse/IGNITE-14852
     public void testChangePeers() throws Exception {
         final PeerId peer0 = new PeerId(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", this.dataPath, Collections.singletonList(peer0));
@@ -3067,7 +3069,8 @@ public class ITNodeTest {
             peer = new PeerId(TestUtils.getMyIp(), peer0.getEndpoint().getPort() + i + 1);
             final SynchronizedClosure done = new SynchronizedClosure();
             leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
-            assertTrue(done.await().isOk());
+            Status status = done.await();
+            assertTrue(status.getRaftError().toString(), status.isOk());
         }
         cluster.ensureSame();
     }

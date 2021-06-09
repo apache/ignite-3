@@ -55,6 +55,9 @@ import static org.junit.Assert.assertTrue;
  * Test cluster for NodeTest
  */
 public class TestCluster {
+    /** Default election timeout. */
+    private static final int ELECTION_TIMEOUT = 300;
+
     private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
 
     private final String dataPath;
@@ -92,17 +95,17 @@ public class TestCluster {
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers) {
-        this(name, dataPath, peers, 300);
+        this(name, dataPath, peers, ELECTION_TIMEOUT);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
         final int electionTimeoutMs) {
-        this(name, dataPath, peers, new LinkedHashSet<>(), 300, null);
+        this(name, dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
         final LinkedHashSet<PeerId> learners, final int electionTimeoutMs) {
-        this(name, dataPath, peers, learners, 300, null);
+        this(name, dataPath, peers, learners, ELECTION_TIMEOUT, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
