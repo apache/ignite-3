@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.junit.jupiter.api.Test;
 
@@ -29,8 +28,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.INTEGER;
 import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Validate row layout for different schema configurations.
@@ -110,36 +107,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 .appendInt(33)
                 .build());
     }
-    /**
-     * Validate row layout for schema of fix-len nullable key and fix-len nullable value.
-     */
-    @Test
-    public void varlenNullableColumns2() {
-        SchemaDescriptor schema = new SchemaDescriptor(tableId, 42,
-            new Column[] {
-                new Column("keyCol2", BYTES, true),
-                new Column("keyCol3", STRING, true)
-            },
-            new Column[] {
-                new Column("valCol2", BYTES, true),
-                new Column("valCol3", STRING, true)
-            });
 
-        final byte[] data = new RowAssembler(schema, 128, 1, 128, 1)
-            .appendNull()
-            .appendString("A我愛我愛我愛我愛我愛")
-            .appendNull()
-            .appendString("A我愛我愛我愛我愛我愛")
-            .build();
-
-        final Row row = new Row(schema, new ByteBufferRow(data));
-
-        assertNull(row.bytesValue(0));
-//        assertArrayEquals(new byte[] {33, -77}, row.bytesValue(0));
-        assertEquals("A我愛我愛我愛我愛我愛", row.stringValue(1));
-//        assertArrayEquals(new byte[] {33, -77}, row.bytesValue(2));
-        assertEquals("A我愛我愛我愛我愛我愛", row.stringValue(3));
-    }
     /**
      * Validate row layout for schema of fix-len nullable key and fix-len nullable value.
      */

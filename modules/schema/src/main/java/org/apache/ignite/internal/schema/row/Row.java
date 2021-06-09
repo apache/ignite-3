@@ -393,7 +393,7 @@ public class Row implements BinaryRow {
             this,
             KEY_CHUNK_OFFSET + keyReader.chunkLength(),
             schema.valueColumns().nullMapSize(),
-            (byte)((flags >>> RowFlags.VAL_FLAGS_OFFSET)& RowFlags.CHUNK_FLAGS_MASK)));
+            (byte)((flags >>> RowFlags.VAL_FLAGS_OFFSET) & RowFlags.CHUNK_FLAGS_MASK)));
     }
 
     /**

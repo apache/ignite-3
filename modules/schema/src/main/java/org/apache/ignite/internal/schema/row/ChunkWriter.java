@@ -52,7 +52,6 @@ class ChunkWriter {
     /** Chunk flags. */
     private byte flags;
 
-
     /**
      * @param buf Row buffer.
      * @param baseOff Chunk base offset.
@@ -230,7 +229,7 @@ class ChunkWriter {
      * Post-write action.
      */
     void flush() {
-        buf.putInt(baseOff,  chunkLength());
+        buf.putInt(baseOff, chunkLength());
 
         if (curVartblEntry > 1) {
             assert varTblOff + format.vartableLength(curVartblEntry - 1) == dataOff : "Vartable overlow: size=" + curVartblEntry;
