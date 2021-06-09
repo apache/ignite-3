@@ -104,8 +104,7 @@ class JsonPrimitiveConfigurationSource implements ConfigurationSource {
     private IllegalArgumentException wrongTypeException(Class<?> clazz, int idx) {
         return new IllegalArgumentException(String.format(
             "'%s' is expected as a type for the '%s' configuration value",
-            unbox(clazz).getSimpleName(),
-            join(path) + (idx == -1 ? "" : ("[" + idx + "]"))
+            unbox(clazz).getSimpleName(), formatArrayPath(idx)
         ));
     }
 
@@ -159,36 +158,24 @@ class JsonPrimitiveConfigurationSource implements ConfigurationSource {
                 throw wrongTypeException(clazz, idx);
 
             if (clazz == Byte.class) {
-                checkBounds(jsonPrimitive, Byte.MIN_VALUE, Byte.MAX_VALUE);
+                checkBounds(jsonPrimitive, Byte.MIN_VALUE, Byte.MAX_VALUE, idx);
 
                 return clazz.cast(jsonPrimitive.getAsByte());
             }
             else if (clazz == Short.class) {
-                checkBounds(jsonPrimitive, Short.MIN_VALUE, Short.MAX_VALUE);
+                checkBounds(jsonPrimitive, Short.MIN_VALUE, Short.MAX_VALUE, idx);
 
                 return clazz.cast(jsonPrimitive.getAsShort());
             }
             else if (clazz == Integer.class) {
-                checkBounds(jsonPrimitive, Integer.MIN_VALUE, Integer.MAX_VALUE);
+                checkBounds(jsonPrimitive, Integer.MIN_VALUE, Integer.MAX_VALUE, idx);
 
                 return clazz.cast(jsonPrimitive.getAsInt());
             }
             else if (clazz == Long.class)
                 return clazz.cast(jsonPrimitive.getAsLong());
-            else if (clazz == Float.class) {
-                double doubleValue = jsonPrimitive.getAsDouble();
-
-                if ((float)doubleValue != doubleValue) {
-                    // don't throw an exception, because double to float conversion is tricky, it is sometimes
-                    // ok to lose precision here
-                    LOG.warn(
-                        "Value {0} of {1} is declared as a float but cannot be exactly converted",
-                        doubleValue, join(path)
-                    );
-                }
-
-                return clazz.cast(jsonPrimitive.getAsFloat());
-            }
+            else if (clazz == Float.class)
+                return clazz.cast(jsonPrimitive.getAsDouble());
             else if (clazz == Double.class)
                 return clazz.cast(jsonPrimitive.getAsDouble());
         }
@@ -199,14 +186,21 @@ class JsonPrimitiveConfigurationSource implements ConfigurationSource {
     /**
      * Checks that a numeric JSON primitive fits into the given bounds.
      */
-    private void checkBounds(JsonPrimitive jsonPrimitive, long lower, long upper) {
+    private void checkBounds(JsonPrimitive jsonPrimitive, long lower, long upper, int idx) {
         long longValue = jsonPrimitive.getAsLong();
 
         if (longValue < lower || longValue > upper) {
             throw new IllegalArgumentException(String.format(
                 "Value '%d' of '%s' is out of its declared bounds: [%d : %d]",
-                longValue, join(path), lower, upper
+                longValue, formatArrayPath(idx), lower, upper
             ));
         }
+    }
+
+    /**
+     * Creates a string representation of the current JSON path inside of an array.
+     */
+    private String formatArrayPath(int idx) {
+        return join(path) + (idx == -1 ? "" : ("[" + idx + "]"));
     }
 }

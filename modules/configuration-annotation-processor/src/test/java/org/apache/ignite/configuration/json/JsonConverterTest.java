@@ -460,7 +460,7 @@ public class JsonConverterTest {
 
         assertThrowsIllegalArgException(
             () -> change("{'root':{'arraysList':{'name':{'bytes' : [123, 290]}}}}"),
-            "Value '290' of 'root.arraysList.name.bytes' is out of its declared bounds"
+            "Value '290' of 'root.arraysList.name.bytes[1]' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
@@ -470,7 +470,7 @@ public class JsonConverterTest {
 
         assertThrowsIllegalArgException(
             () -> change("{'root':{'arraysList':{'name':{'shorts' : [12345678900]}}}}"),
-            "Value '12345678900' of 'root.arraysList.name.shorts' is out of its declared bounds"
+            "Value '12345678900' of 'root.arraysList.name.shorts[0]' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
@@ -480,7 +480,7 @@ public class JsonConverterTest {
 
         assertThrowsIllegalArgException(
             () -> change("{'root':{'arraysList':{'name':{'ints' : [5, 12345678900]}}}}"),
-            "Value '12345678900' of 'root.arraysList.name.ints' is out of its declared bounds"
+            "Value '12345678900' of 'root.arraysList.name.ints[1]' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
