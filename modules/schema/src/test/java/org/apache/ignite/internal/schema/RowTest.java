@@ -44,6 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Tests row assembling and reading.
  */
 public class RowTest {
+    /** */
+    private static final int MiB = 1024 * 1024;
+
     /** Random. */
     private Random rnd;
 
@@ -203,8 +206,8 @@ public class RowTest {
         SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
 
         Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES) ?
-            randomBytes(rnd, rnd.nextInt(2 << 16) + 2 << 16) :
-            randomString(rnd, rnd.nextInt(2 << 16) + 2 << 16));
+            randomBytes(rnd, rnd.nextInt(MiB) + (2 << 16)) :
+            randomString(rnd, rnd.nextInt(MiB) + (2 << 16)));
 
         checkValues(sch, checkArr);
 
@@ -279,20 +282,21 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for 1K+ varlen columns.
+     * Check row serialization for 1K+ varlen columns with total chunk length of 64k+.
      */
     @Test
     public void largeLenWithVarlenColumns() {
         Column[] keyCols = IntStream.range(0, 1000 + rnd.nextInt(20))
             .mapToObj(i -> new Column("keyCol" + i, STRING, false))
             .toArray(Column[]::new);
-        Column[] valCols = IntStream.range(0, 1000+ rnd.nextInt(20))
+
+        Column[] valCols = IntStream.range(0, 1000 + rnd.nextInt(20))
             .mapToObj(i -> new Column("valCol" + i, STRING, true))
             .toArray(Column[]::new);
 
         SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
 
-        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, rnd.nextInt(1000)));
+        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, 65 + rnd.nextInt(500)));
 
         checkValues(sch, checkArr);
     }
@@ -361,7 +365,7 @@ public class RowTest {
         for (int i = 0; i < res.length; i++) {
             NativeType type = schema.column(i).type();
 
-            res[i] = generateRandomValue(type);
+            res[i] = rnd.apply(type);
         }
 
         return res;
