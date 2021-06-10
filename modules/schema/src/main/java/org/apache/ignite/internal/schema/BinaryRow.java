@@ -39,7 +39,7 @@ public interface BinaryRow {
     /** */
     int VARLEN_TABLE_SIZE_FIELD_SIZE = 2;
     /** */
-    int VARLEN_COLUMN_OFFSET_FIELD_SIZE = 2;
+    int VARLEN_COLUMN_OFFSET_FIELD_SIZE = 4;
 
     /**
      * @return Row schema version.

@@ -65,7 +65,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 27, 0, 33, 0, 0, 0, 8, 0, 0, 0, 33, 0, 0, 0},
+            new byte[] {42, 0, 11, 0, 33, 0, 0, 0, 8, 0, 0, 0, 33, 0, 0, 0},
             new RowAssembler(schema, 16, 0, 0)
                 .appendInt(33)
                 .build());
@@ -90,7 +90,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 31, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0},
+            new byte[] {42, 0, 11, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0},
             new RowAssembler(schema, 14, 0, 0)
                 .appendShort((short)33)
                 .build());
@@ -122,7 +122,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 27, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0},
+            new byte[] {42, 0, 11, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0},
             new RowAssembler(schema, 0, 0, 0)
                 .appendShort((short)33)
                 .build());
@@ -146,7 +146,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 31, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0},
+            new byte[] {42, 0, 11, 0, 33, 0, 0, 0, 6, 0, 0, 0, 33, 0},
             new RowAssembler(schema, 0, 0, 0)
                 .appendShort((short)33)
                 .build());
@@ -178,7 +178,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 29, 0, 33, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0},
+            new byte[] {42, 0, 9, 0, 33, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0},
             new RowAssembler(schema, 0, 0, 0)
                 .appendShort((short)33)
                 .build());
@@ -219,7 +219,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 25, 0, 33, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0},
+            new byte[] {42, 0, 9, 0, 33, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0},
             new RowAssembler(schema, 0, 0, 0)
                 .appendShort((short)33)
                 .build());
@@ -268,7 +268,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 25, 0, 33, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0},
+            new byte[] {42, 0, 9, 0, 33, 0, 0, 0, 7, 0, 0, 0, 0, 33, 0},
             new RowAssembler(schema, 0, 0, 0)
                 .appendShort((short)33)
                 .build());
@@ -298,7 +298,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 29, 0, 33, 0, 0, 0, 6, 0, 0, 0, 0, 33},
+            new byte[] {42, 0, 9, 0, 33, 0, 0, 0, 6, 0, 0, 0, 0, 33},
             new RowAssembler(schema, 0, 0, 0)
                 .appendByte((byte)33)
                 .build());
@@ -333,7 +333,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 27, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 11, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -360,7 +360,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 31, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 11, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -393,7 +393,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 27, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 11, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -418,7 +418,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 31, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 11, 0, 95, -98, 1, 0, 7, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -466,7 +466,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 25, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 9, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -499,7 +499,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 29, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 9, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -547,7 +547,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 25, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 9, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -579,7 +579,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(
-            new byte[] {42, 0, 29, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
+            new byte[] {42, 0, 9, 0, 95, -98, 1, 0, 8, 0, 0, 0, 0, 107, 101, 121},
             new RowAssembler(schema, 0, 1, 0)
                 .appendString("key")
                 .build());
@@ -625,7 +625,7 @@ public class RowAssemblerSimpleSchemaTest {
 
         // No value.
         assertRowBytesEquals(new byte[] {
-                42, 0, 27, 0, -110, -109, 94, -68,
+                42, 0, 11, 0, -110, -109, 94, -68,
                 12, 0, 0, 0, 33, 0, 107, 101, 121, 115, 116, 114},
             new RowAssembler(schema, 0, 1, 0)
                 .appendShort((short)33)

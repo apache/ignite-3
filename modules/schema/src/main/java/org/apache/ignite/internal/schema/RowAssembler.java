@@ -184,8 +184,6 @@ public class RowAssembler {
         if (schema.keyColumns().nullMapSize() == 0)
             flags |= RowFlags.OMIT_KEY_NULL_MAP_FLAG;
 
-        if (schema.valueColumns().nullMapSize() == 0)
-            flags |= RowFlags.OMIT_VAL_NULL_MAP_FLAG;
 
         buf = new ExpandableByteBuf(size);
 
@@ -473,7 +471,7 @@ public class RowAssembler {
         assert (flags & (baseOff == BinaryRow.KEY_CHUNK_OFFSET ? OMIT_KEY_VARTBL_FLAG : OMIT_VAL_VARTBL_FLAG)) == 0 :
             "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
-        buf.putShort(varlenTblChunkOff + Row.varlenItemOffset(tblEntryIdx), (short)off);
+        buf.putInt(varlenTblChunkOff + Row.varlenItemOffset(tblEntryIdx), off);
     }
 
     /**
@@ -545,17 +543,21 @@ public class RowAssembler {
 
             buf.putInt(baseOff, chunkLen);
 
-            if (schema.valueColumns() == curCols)
+            if (schema.valueColumns() == curCols) {
+                if (schema.valueColumns().nullMapSize() == 0)
+                    flags |= RowFlags.OMIT_VAL_NULL_MAP_FLAG;
+
+                if (nonNullVarlenValCols > 1)
+                    buf.putShort(varlenTblChunkOff, (short)(nonNullVarlenValCols - 1));
+                else
+                    flags |= OMIT_VAL_VARTBL_FLAG;
+
                 return; // No more columns.
+            }
 
             curCols = schema.valueColumns(); // Switch key->value columns.
 
             initOffsets(baseOff + chunkLen, nonNullVarlenValCols);
-
-            if (nonNullVarlenValCols > 1)
-                buf.putShort(varlenTblChunkOff, (short)(nonNullVarlenValCols - 1));
-            else
-                flags |= OMIT_VAL_VARTBL_FLAG;
         }
     }
 

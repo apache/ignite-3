@@ -475,11 +475,11 @@ public class Row implements BinaryRow {
 
         if (idx == 0) { // Very first non-null varlen column.
             int off = cols.numberOfFixsizeColumns() == 0 ?
-                (hasVarTbl ? vartableOff + varlenItemOffset(readShort(vartableOff)) : vartableOff) :
+                (hasVarTbl ? vartableOff + varlenItemOffset(readInteger(vartableOff)) : vartableOff) :
                 fixlenColumnOffset(cols, baseOff, cols.numberOfFixsizeColumns(), hasVarTbl, hasNullMap);
 
             long len = hasVarTbl ?
-                readShort(vartableOff + varlenItemOffset(0)) - (off - baseOff) :
+                readInteger(vartableOff + varlenItemOffset(0)) - (off - baseOff) :
                 readInteger(baseOff) - (off - baseOff);
 
             return (len << 32) | off;
@@ -488,13 +488,13 @@ public class Row implements BinaryRow {
         int vartableSize = readShort(vartableOff);
 
         // Offset of idx-th column is from base offset.
-        int resOff = readShort(vartableOff + varlenItemOffset(idx - 1));
+        int resOff = readInteger(vartableOff + varlenItemOffset(idx - 1));
 
         long len = (idx == vartableSize) ?
             // totalLength - columnStartOffset
             readInteger(baseOff) - resOff :
             // nextColumnStartOffset - columnStartOffset
-            readShort(vartableOff + varlenItemOffset(idx)) - resOff;
+            readInteger(vartableOff + varlenItemOffset(idx)) - resOff;
 
         return (len << 32) | (resOff + baseOff);
     }

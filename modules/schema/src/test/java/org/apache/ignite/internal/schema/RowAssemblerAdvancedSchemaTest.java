@@ -99,7 +99,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 .build());
 
         // No value.
-        assertRowBytesEquals(new byte[] {42, 0, 25, 0, 22, 44, 0, 0, 12, 0, 0, 0, 0, 11, 22, 0, 33, 0, 0, 0},
+        assertRowBytesEquals(new byte[] {42, 0, 9, 0, 22, 44, 0, 0, 12, 0, 0, 0, 0, 11, 22, 0, 33, 0, 0, 0},
             new RowAssembler(schema, 0, 0, 0)
                 .appendByte((byte)11)
                 .appendShort((short)22)
@@ -128,8 +128,8 @@ public class RowAssemblerAdvancedSchemaTest {
         assertRowBytesEquals(
             new byte[] {
                 42, 0, 0, 0, 47, -30, -119, -81,
-                17, 0, 0, 0, 4, 1, 0, 12, 0, 33, -77, 120, 97, 115, 99, 105, 105,
-                21, 0, 0, 0, 4, 1, 0, 11, 0, 33, -77, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97},
+                19, 0, 0, 0, 4, 1, 0, 14, 0, 0, 0, 33, -77, 120, 97, 115, 99, 105, 105,
+                23, 0, 0, 0, 4, 1, 0, 13, 0, 0, 0, 33, -77, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97},
             new RowAssembler(schema, 25, 2, 2)
                 .appendBytes(new byte[] {33, -77, 120})
                 .appendString("ascii")
@@ -143,8 +143,8 @@ public class RowAssemblerAdvancedSchemaTest {
         assertRowBytesEquals(
             new byte[] {
                 42, 0, 0, 0, -116, -92, 12, 98,
-                24, 0, 0, 0, 1, 1, 0, 14, 0, 97, 115, 99, 105, 105, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                24, 0, 0, 0, 1, 1, 0, 19, 0, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
+                26, 0, 0, 0, 1, 1, 0, 16, 0, 0, 0, 97, 115, 99, 105, 105, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                26, 0, 0, 0, 1, 1, 0, 21, 0, 0, 0, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
             new RowAssembler(schema, 0, 2, 2)
                 .appendNull()
                 .appendString("ascii")
@@ -158,8 +158,8 @@ public class RowAssemblerAdvancedSchemaTest {
         assertRowBytesEquals(
             new byte[] {
                 42, 0, 0, 0, -52, 97, -9, -77,
-                22, 0, 0, 0, 2, 1, 0, 12, 0, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                16, 0, 0, 0, 2, 1, 0, 11, 0, 33, -77, 97, 115, 99, 105, 105},
+                24, 0, 0, 0, 2, 1, 0, 14, 0, 0, 0, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                18, 0, 0, 0, 2, 1, 0, 13, 0, 0, 0, 33, -77, 97, 115, 99, 105, 105},
             new RowAssembler(schema, 0, 2, 2)
                 .appendBytes(new byte[] {33, -77, 120})
                 .appendNull()
@@ -184,8 +184,8 @@ public class RowAssemblerAdvancedSchemaTest {
         // No value.
         assertRowBytesEquals(
             new byte[] {
-                42, 0, 17, 0, -47, -112, 1, 24,
-                29, 0, 0, 0, 0, 2, 0, 14, 0, 24, 0, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
+                42, 0, 1, 0, -47, -112, 1, 24,
+                33, 0, 0, 0, 0, 2, 0, 18, 0, 0, 0, 28, 0, 0, 0, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
             new RowAssembler(schema, 0, 3, 0)
                 .appendBytes(new byte[] {33, -77, 120})
                 .appendString("我愛Java")
@@ -215,10 +215,10 @@ public class RowAssemblerAdvancedSchemaTest {
         // Check null/non-null all fixlen/varlen.
         assertRowBytesEquals(
             new byte[] {
-                42, 0, 0, 0, -85, 82, 5, 0,
-                12, 0, 0, 0, 12, 1, 0, 0, 0, 11, 22, 0,
-                16, 0, 0, 0, 3, 1, 0, 11, 0, 77, -88, 97, 115, 99, 105, 105},
-            new RowAssembler(schema, 0, 2, 2)
+                42, 0, 8, 0, -85, 82, 5, 0,
+                8, 0, 0, 0, 12, 11, 22, 0,
+                18, 0, 0, 0, 3, 1, 0, 13, 0, 0, 0, 77, -88, 97, 115, 99, 105, 105},
+            new RowAssembler(schema, 0, 0, 2)
                 .appendByte((byte)11)
                 .appendShort((short)22)
                 .appendNull()
@@ -233,8 +233,8 @@ public class RowAssemblerAdvancedSchemaTest {
         assertRowBytesEquals(
             new byte[] {
                 42, 0, 0, 0, -20, 4, 120, -80,
-                23, 0, 0, 0, 1, 1, 0, 13, 0, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                17, 0, 0, 0, 2, 1, 0, 12, 0, 55, 77, -88, 97, 115, 99, 105, 105},
+                25, 0, 0, 0, 1, 1, 0, 15, 0, 0, 0, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                19, 0, 0, 0, 2, 1, 0, 14, 0, 0, 0, 55, 77, -88, 97, 115, 99, 105, 105},
             new RowAssembler(schema, 0, 2, 2)
                 .appendNull()
                 .appendShort((short)22)
@@ -283,7 +283,7 @@ public class RowAssemblerAdvancedSchemaTest {
         // Check all null/non-null.
         assertRowBytesEquals(
             new byte[] {42, 0, 16, 0, -20, 88, 125, -80,
-                24, 0, 0, 0, 0, 1, 0, 14, 0, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                26, 0, 0, 0, 0, 1, 0, 16, 0, 0, 0, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
                 5, 0, 0, 0, 15},
             new RowAssembler(schema, 0, 2, 0)
                 .appendByte((byte)11)
