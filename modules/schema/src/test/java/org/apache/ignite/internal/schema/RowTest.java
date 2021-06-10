@@ -290,7 +290,8 @@ public class RowTest {
         Column[] keyCols = IntStream.range(0, 1000 + rnd.nextInt(20))
             .mapToObj(i -> new Column("keyCol" + i, STRING, false))
             .toArray(Column[]::new);
-        Column[] valCols = IntStream.range(0, 1000+ rnd.nextInt(20))
+
+        Column[] valCols = IntStream.range(0, 1000 + rnd.nextInt(20))
             .mapToObj(i -> new Column("valCol" + i, STRING, true))
             .toArray(Column[]::new);
 
