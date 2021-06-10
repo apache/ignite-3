@@ -74,7 +74,7 @@ public class MetaStorageManager {
     public static final String DISTRIBUTED_PREFIX = "dst-cfg.";
 
     /**
-     * Special key for vault where applied revision for {@link MetaStorageManager#storeEntries(Collection, long)}
+     * Special key for the vault where the applied revision for {@link MetaStorageManager#storeEntries(Collection, long)}
      * operation is stored. This mechanism is needed for committing processed watches to {@link VaultManager}.
      */
     public static final ByteArray APPLIED_REV = ByteArray.fromString(DISTRIBUTED_PREFIX + "applied_revision");
