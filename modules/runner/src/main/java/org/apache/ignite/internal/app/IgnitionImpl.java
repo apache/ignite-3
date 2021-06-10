@@ -38,6 +38,8 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
+import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
@@ -46,8 +48,6 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
-import org.apache.ignite.storage.DistributedConfigurationStorage;
-import org.apache.ignite.storage.LocalConfigurationStorage;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
 import org.jetbrains.annotations.NotNull;
@@ -85,10 +85,6 @@ public class IgnitionImpl implements Ignition {
         assert !StringUtil.isNullOrEmpty(nodeName) : "Node local name is empty";
 
         ackBanner();
-//
-//        Path workDir = Paths.get("ignite");
-//
-//        System.out.println(workDir);
 
         // Vault Component startup.
         VaultManager vaultMgr = new VaultManager(new VaultServiceImpl());
