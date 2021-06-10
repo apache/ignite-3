@@ -25,6 +25,8 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.util.Constants;
+import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -56,7 +58,7 @@ public class RowTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        System.out.println("Using seed: " + seed + "L; //");
+        IgniteLogger.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }
@@ -205,8 +207,8 @@ public class RowTest {
         SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
 
         Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES) ?
-            randomBytes(rnd, rnd.nextInt(2 << 16) + 2 << 16) :
-            randomString(rnd, rnd.nextInt(2 << 16) + 2 << 16));
+            randomBytes(rnd, rnd.nextInt(Constants.MiB) + 2 << 16) :
+            randomString(rnd, rnd.nextInt(Constants.MiB) + 2 << 16));
 
         checkValues(sch, checkArr);
 
@@ -281,7 +283,7 @@ public class RowTest {
     }
 
     /**
-     * Check row serialization for 1K+ varlen columns.
+     * Check row serialization for 1K+ varlen columns with total chunk length of 64k+.
      */
     @Test
     public void largeLenWithVarlenColumns() {
@@ -294,7 +296,7 @@ public class RowTest {
 
         SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
 
-        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, rnd.nextInt(1000)));
+        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, 65 + rnd.nextInt(500)));
 
         checkValues(sch, checkArr);
     }
