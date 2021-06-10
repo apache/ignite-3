@@ -475,7 +475,7 @@ public class Row implements BinaryRow {
 
         if (idx == 0) { // Very first non-null varlen column.
             int off = cols.numberOfFixsizeColumns() == 0 ?
-                (hasVarTbl ? vartableOff + varlenItemOffset(readInteger(vartableOff)) : vartableOff) :
+                (hasVarTbl ? vartableOff + varlenItemOffset(readShort(vartableOff)) : vartableOff) :
                 fixlenColumnOffset(cols, baseOff, cols.numberOfFixsizeColumns(), hasVarTbl, hasNullMap);
 
             long len = hasVarTbl ?

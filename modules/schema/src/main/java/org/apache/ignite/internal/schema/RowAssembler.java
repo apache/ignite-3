@@ -184,7 +184,6 @@ public class RowAssembler {
         if (schema.keyColumns().nullMapSize() == 0)
             flags |= RowFlags.OMIT_KEY_NULL_MAP_FLAG;
 
-
         buf = new ExpandableByteBuf(size);
 
         buf.putShort(0, (short)schema.version());
