@@ -41,14 +41,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 public class VaultBaseContractsTest {
     /** Vault. */
-    private VaultManager vaultManager;
+    private VaultManager vaultMgr;
 
     /**
      * Instantiate vault.
      */
     @BeforeEach
     public void setUp() {
-        vaultManager = new VaultManager(new VaultServiceImpl());
+        vaultMgr = new VaultManager(new VaultServiceImpl());
     }
 
     /**
@@ -59,18 +59,18 @@ public class VaultBaseContractsTest {
         ByteArray key = getKey(1);
         byte[] val = getValue(key, 1);
 
-        assertNull(vaultManager.get(key).get().value());
+        assertNull(vaultMgr.get(key).get().value());
 
-        vaultManager.put(key, val);
+        vaultMgr.put(key, val);
 
-        Entry v = vaultManager.get(key).get();
+        Entry v = vaultMgr.get(key).get();
 
         assertFalse(v.empty());
         assertEquals(val, v.value());
 
-        vaultManager.put(key, val);
+        vaultMgr.put(key, val);
 
-        v = vaultManager.get(key).get();
+        v = vaultMgr.get(key).get();
 
         assertFalse(v.empty());
         assertEquals(val, v.value());
@@ -84,24 +84,24 @@ public class VaultBaseContractsTest {
         ByteArray key = getKey(1);
         byte[] val = getValue(key, 1);
 
-        assertNull(vaultManager.get(key).get().value());
+        assertNull(vaultMgr.get(key).get().value());
 
         // Remove non-existent value.
-        vaultManager.remove(key);
+        vaultMgr.remove(key);
 
-        assertNull(vaultManager.get(key).get().value());
+        assertNull(vaultMgr.get(key).get().value());
 
-        vaultManager.put(key, val);
+        vaultMgr.put(key, val);
 
-        Entry v = vaultManager.get(key).get();
+        Entry v = vaultMgr.get(key).get();
 
         assertFalse(v.empty());
         assertEquals(val, v.value());
 
         // Remove existent value.
-        vaultManager.remove(key);
+        vaultMgr.remove(key);
 
-        v = vaultManager.get(key).get();
+        v = vaultMgr.get(key).get();
 
         assertNull(v.value());
     }
@@ -120,15 +120,15 @@ public class VaultBaseContractsTest {
 
             values.put(key, getValue(key, i));
 
-            assertNull(vaultManager.get(key).get().value());
+            assertNull(vaultMgr.get(key).get().value());
         }
 
-        values.forEach((k, v) -> vaultManager.put(k, v));
+        values.forEach((k, v) -> vaultMgr.put(k, v));
 
         for (Map.Entry<ByteArray, byte[]> entry : values.entrySet())
-            assertEquals(entry.getValue(), vaultManager.get(entry.getKey()).get().value());
+            assertEquals(entry.getValue(), vaultMgr.get(entry.getKey()).get().value());
 
-        Iterator<Entry> it = vaultManager.range(getKey(3), getKey(7));
+        Iterator<Entry> it = vaultMgr.range(getKey(3), getKey(7));
 
         List<Entry> rangeRes = new ArrayList<>();
 
@@ -161,18 +161,18 @@ public class VaultBaseContractsTest {
         for (int i = 0; i < entriesNum; i++) {
             ByteArray key = getKey(i);
 
-            assertNull(vaultManager.get(key).get().value());
+            assertNull(vaultMgr.get(key).get().value());
         }
 
-        vaultManager.putAll(entries, appRevKey, 1L);
+        vaultMgr.putAll(entries, appRevKey, 1L);
 
         for (int i = 0; i < entriesNum; i++) {
             ByteArray key = getKey(i);
 
-            assertEquals(entries.get(key), vaultManager.get(key).get().value());
+            assertArrayEquals(entries.get(key), vaultMgr.get(key).get().value());
         }
 
-        assertEquals(1L, ByteUtils.bytesToLong(vaultManager.get(appRevKey).get().value()));
+        assertEquals(1L, ByteUtils.bytesToLong(vaultMgr.get(appRevKey).get().value()));
     }
 
     /**
@@ -193,15 +193,15 @@ public class VaultBaseContractsTest {
         for (int i = 0; i < entriesNum; i++) {
             ByteArray key = getKey(i);
 
-            assertNull(vaultManager.get(key).get().value());
+            assertNull(vaultMgr.get(key).get().value());
         }
 
-        vaultManager.putAll(entries);
+        vaultMgr.putAll(entries);
 
         for (int i = 0; i < entriesNum; i++) {
             ByteArray key = getKey(i);
 
-            assertEquals(entries.get(key), vaultManager.get(key).get().value());
+            assertArrayEquals(entries.get(key), vaultMgr.get(key).get().value());
         }
     }
 
