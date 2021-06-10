@@ -207,8 +207,8 @@ public class RowTest {
         SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
 
         Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES) ?
-            randomBytes(rnd, rnd.nextInt(Constants.MiB) + 2 << 16) :
-            randomString(rnd, rnd.nextInt(Constants.MiB) + 2 << 16));
+            randomBytes(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)) :
+            randomString(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)));
 
         checkValues(sch, checkArr);
 
@@ -366,7 +366,7 @@ public class RowTest {
         for (int i = 0; i < res.length; i++) {
             NativeType type = schema.column(i).type();
 
-            res[i] = generateRandomValue(type);
+            res[i] = rnd.apply(type);
         }
 
         return res;
