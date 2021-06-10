@@ -140,7 +140,7 @@ public class VaultManager {
                throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
             }
 
-            long appliedRevision = appliedRevBytes != null ? ByteUtils.bytesToLong(appliedRevBytes, 0) : 0L;
+            long appliedRevision = appliedRevBytes != null ? ByteUtils.bytesToLong(appliedRevBytes) : 0L;
 
             if (revision < appliedRevision)
                 throw new IgniteInternalCheckedException("Inconsistency between applied revision from vault and the current revision");

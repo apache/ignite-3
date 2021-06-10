@@ -441,7 +441,7 @@ public class MetaStorageManager {
      * @return Applied revision for {@link VaultManager#putAll(Map, ByteArray, long)} operation.
      * @throws IgniteInternalCheckedException If couldn't get applied revision from vault.
      */
-    @NotNull private Long appliedRevision() throws IgniteInternalCheckedException {
+    private long appliedRevision() throws IgniteInternalCheckedException {
         byte[] appliedRevision;
 
         try {
@@ -451,7 +451,7 @@ public class MetaStorageManager {
             throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
         }
 
-        return appliedRevision == null ? 0L : ByteUtils.bytesToLong(appliedRevision, 0);
+        return appliedRevision == null ? 0L : ByteUtils.bytesToLong(appliedRevision);
     }
 
     /**
@@ -460,7 +460,7 @@ public class MetaStorageManager {
      * @return Ignite UUID of new consolidated watch.
      */
     private CompletableFuture<Optional<IgniteUuid>> updateWatches() {
-        Long revision;
+        long revision;
         try {
             revision = appliedRevision() + 1;
         }

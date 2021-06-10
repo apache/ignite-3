@@ -107,7 +107,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             var entry = entries.next();
 
             if (entry.key().equals(MetaStorageManager.APPLIED_REV)) {
-                appliedRevision = ByteUtils.bytesToLong(Objects.requireNonNull(entry.value()), 0);
+                appliedRevision = ByteUtils.bytesToLong(Objects.requireNonNull(entry.value()));
 
                 continue;
             }

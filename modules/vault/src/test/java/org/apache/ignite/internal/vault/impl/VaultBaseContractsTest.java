@@ -172,7 +172,7 @@ public class VaultBaseContractsTest {
             assertEquals(entries.get(key), vaultManager.get(key).get().value());
         }
 
-        assertEquals(1L, ByteUtils.bytesToLong(vaultManager.get(appRevKey).get().value(), 0));
+        assertEquals(1L, ByteUtils.bytesToLong(vaultManager.get(appRevKey).get().value()));
     }
 
     /**
