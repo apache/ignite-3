@@ -242,7 +242,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * current applied revision as an upper bound. Applied revision is a revision of the last successful vault update.
      * <p>
      * This is possible to distinguish cfg keys from meta storage because we add special prefix {@link
-     * MetaStorageManager#DISTRIBUTED_PREFIX} to all configuration keys that we put to meta storage.
+     * MetaStorageManager#DISTRIBUTED_PREFIX} to all configuration keys that we put to the meta storage.
      *
      * @return Iterator built upon all distributed configuration entries stored in vault.
      */
