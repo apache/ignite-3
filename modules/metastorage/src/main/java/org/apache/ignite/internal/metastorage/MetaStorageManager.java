@@ -70,7 +70,7 @@ public class MetaStorageManager {
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
-    /** Prefix that we add to configuration keys to distinguish them in meta storage. Must end with dot. */
+    /** Prefix added to configuration keys to distinguish them in the meta storage. Must end with a dot. */
     public static final String DISTRIBUTED_PREFIX = "dst-cfg.";
 
     /**
