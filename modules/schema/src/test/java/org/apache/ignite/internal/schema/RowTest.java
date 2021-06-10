@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.Random;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,8 @@ import static org.apache.ignite.internal.schema.NativeTypes.LONG;
 import static org.apache.ignite.internal.schema.NativeTypes.SHORT;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
+import static org.apache.ignite.internal.schema.TestUtils.randomBytes;
+import static org.apache.ignite.internal.schema.TestUtils.randomString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -184,6 +188,118 @@ public class RowTest {
     }
 
     /**
+     * Check row serialization for schema with large varlen columns (64Kb+).
+     */
+    @Test
+    public void largeVarlenColumns() {
+        Column[] keyCols = new Column[] {
+            new Column("keyBytesCol", BYTES, false),
+            new Column("keyStringCol", STRING, false),
+        };
+
+        Column[] valCols = new Column[] {
+            new Column("valBytesCol", BYTES, true),
+            new Column("valStringCol", STRING, true),
+        };
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES) ?
+            randomBytes(rnd, rnd.nextInt(2 << 16) + 2 << 16) :
+            randomString(rnd, rnd.nextInt(2 << 16) + 2 << 16));
+
+        checkValues(sch, checkArr);
+
+        for (int idx = 0; idx < checkArr.length; idx++) {
+            if (!sch.column(idx).nullable())
+                continue;
+
+            Object prev = checkArr[idx];
+            checkArr[idx] = null;
+
+            checkValues(sch, checkArr);
+
+            checkArr[idx] = prev;
+        }
+    }
+
+    /**
+     * Check row serialization for 256+ fixsized columns.
+     */
+    @Test
+    public void mediumLenWithFixSizedColumns() {
+        Column[] keyCols = IntStream.range(0, 300)
+            .mapToObj(i -> new Column("keyCol" + i, BYTE, false))
+            .toArray(Column[]::new);
+        Column[] valCols = IntStream.range(0, 330)
+            .mapToObj(i -> new Column("valCol" + i, BYTE, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch);
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
+     * Check row serialization for 256+ varlen columns.
+     */
+    @Test
+    public void mediumLenWithVarlenColumns() {
+        Column[] keyCols = IntStream.range(0, 300)
+            .mapToObj(i -> new Column("keyCol" + i, STRING, false))
+            .toArray(Column[]::new);
+        Column[] valCols = IntStream.range(0, 300)
+            .mapToObj(i -> new Column("valCol" + i, STRING, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, rnd.nextInt(5)));
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
+     * Check row serialization for 64K+ fixlen columns.
+     */
+    @Test
+    public void largeLenWithFixSizedColumns() {
+        Column[] keyCols = IntStream.range(0, (2 << 16) + rnd.nextInt(20))
+            .mapToObj(i -> new Column("keyCol" + i, BYTE, false))
+            .toArray(Column[]::new);
+        Column[] valCols = IntStream.range(0, (2 << 16) + rnd.nextInt(20))
+            .mapToObj(i -> new Column("valCol" + i, BYTE, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch);
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
+     * Check row serialization for 1K+ varlen columns.
+     */
+    @Test
+    public void largeLenWithVarlenColumns() {
+        Column[] keyCols = IntStream.range(0, 1000 + rnd.nextInt(20))
+            .mapToObj(i -> new Column("keyCol" + i, STRING, false))
+            .toArray(Column[]::new);
+        Column[] valCols = IntStream.range(0, 1000+ rnd.nextInt(20))
+            .mapToObj(i -> new Column("valCol" + i, STRING, true))
+            .toArray(Column[]::new);
+
+        SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
+
+        Object[] checkArr = generateRowValues(sch, t -> randomString(rnd, rnd.nextInt(1000)));
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
      * Checks schema is independent from prodived column order.
      *
      * @param keyCols Key columns.
@@ -231,6 +347,17 @@ public class RowTest {
      * @return Row values.
      */
     private Object[] generateRowValues(SchemaDescriptor schema) {
+        return generateRowValues(schema, this::generateRandomValue);
+    }
+
+    /**
+     * Generate row values for given row schema.
+     *
+     * @param schema Row schema.
+     * @param rnd Function that returns random value for the type.
+     * @return Row values.
+     */
+    private Object[] generateRowValues(SchemaDescriptor schema, Function<NativeType, Object> rnd) {
         Object[] res = new Object[schema.length()];
 
         for (int i = 0; i < res.length; i++) {
