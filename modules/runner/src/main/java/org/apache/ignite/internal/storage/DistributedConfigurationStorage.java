@@ -238,7 +238,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     }
 
     /**
-     * Method that returns all distributed configuration keys from meta storage that were stored in vault filtered out by the
+     * Method that returns all distributed configuration keys from the meta storage that were stored in the vault filtered out by the
      * current applied revision as an upper bound. Applied revision is a revision of the last successful vault update.
      * <p>
      * This is possible to distinguish cfg keys from meta storage because we add special prefix {@link
