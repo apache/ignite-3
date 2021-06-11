@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.event;
 
 import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 
 /**
@@ -32,12 +33,12 @@ public class TableEventParameters implements EventParameters {
     private final String tableName;
 
     /** Table instance. */
-    private final Table table;
+    private final TableImpl table;
 
     /**
      * @param table Table instance.
      */
-    public TableEventParameters(Table table) {
+    public TableEventParameters(TableImpl table) {
         this(table.tableId(), table.tableName(), table);
     }
 
@@ -54,7 +55,7 @@ public class TableEventParameters implements EventParameters {
      * @param tableName Table name.
      * @param table Table instance.
      */
-    public TableEventParameters(UUID tableId, String tableName, Table table) {
+    public TableEventParameters(UUID tableId, String tableName, TableImpl table) {
         this.tableId = tableId;
         this.tableName = tableName;
         this.table = table;

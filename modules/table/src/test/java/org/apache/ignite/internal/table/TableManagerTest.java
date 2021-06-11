@@ -241,7 +241,7 @@ public class TableManagerTest {
             SchemaBuilders.column("val", ColumnType.INT64).asNullable().build()
         ).withPrimaryKey("key").build();
 
-        Table table = mockManagersAndCreateTable(scmTbl, mm, sm, am, rm, vm, node, tblManagerFut);
+        TableImpl table = mockManagersAndCreateTable(scmTbl, mm, sm, am, rm, vm, node, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -344,7 +344,7 @@ public class TableManagerTest {
      * @param tblManagerFut Future for table manager.
      * @return Table.
      */
-    private Table mockManagersAndCreateTable(
+    private TableImpl mockManagersAndCreateTable(
         SchemaTable schemaTable,
         MetaStorageManager mm,
         SchemaManager sm,
@@ -371,7 +371,7 @@ public class TableManagerTest {
      * @param barrier Phaser for the wait.
      * @return Table manager.
      */
-    @NotNull private Table mockManagersAndCreateTableWithDelay(
+    @NotNull private TableImpl mockManagersAndCreateTableWithDelay(
         SchemaTable schemaTable,
         MetaStorageManager mm,
         SchemaManager sm,
@@ -491,7 +491,7 @@ public class TableManagerTest {
             return CompletableFuture.completedFuture(null);
         });
 
-        Table tbl2 = tableManager.createTable(schemaTable.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(schemaTable, tblCh)
+        TableImpl tbl2 = (TableImpl)tableManager.createTable(schemaTable.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(schemaTable, tblCh)
             .changeReplicas(1)
             .changePartitions(10)
         );

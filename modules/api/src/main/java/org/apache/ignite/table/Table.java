@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table;
 
-import java.util.UUID;
 import org.apache.ignite.table.mapper.KeyMapper;
 import org.apache.ignite.table.mapper.Mappers;
 import org.apache.ignite.table.mapper.RecordMapper;
@@ -40,13 +39,6 @@ import org.jetbrains.annotations.NotNull;
  * @see KeyValueBinaryView
  */
 public interface Table extends TableView<Tuple> {
-    /**
-     * Gets a table id.
-     *
-     * @return Table id as UUID.
-     */
-    @NotNull UUID tableId();
-
     /**
      * Gets a name of the table.
      *

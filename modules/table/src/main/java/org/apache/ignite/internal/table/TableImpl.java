@@ -61,8 +61,12 @@ public class TableImpl extends AbstractTableView implements Table {
         marsh = new TupleMarshallerImpl(schemaReg);
     }
 
-    /** {@inheritDoc} */
-    @Override public @NotNull UUID tableId() {
+    /**
+     * Gets a table id.
+     *
+     * @return Table id as UUID.
+     */
+    public @NotNull UUID tableId() {
         return tbl.tableId();
     }
 
