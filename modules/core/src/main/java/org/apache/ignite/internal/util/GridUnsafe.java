@@ -119,23 +119,23 @@ public abstract class GridUnsafe {
      * New direct buffer class constructor obtained and tested using reflection. If {@code null} then both {@link
      * #JAVA_NIO_ACCESS_OBJ} and {@link #NEW_DIRECT_BUF_MH} should be not {@code null}.
      */
-    @Nullable private static final MethodHandle NEW_DIRECT_BUF_CONSTRUCTOR_MH;
+    @Nullable private static final MethodHandle NEW_DIRECT_BUF_CONSTRUCTOR;
 
     static {
         Object nioAccessObj = null;
 
-        MethodHandle newDirectBufMH = null;
+        MethodHandle newDirectBufMh = null;
         MethodHandle directBufCtorMh = null;
 
         if (majorJavaVersion(jdkVersion()) < 12) {
             // for old java prefer Java NIO & Shared Secrets obect init way
             try {
                 nioAccessObj = javaNioAccessObject();
-                newDirectBufMH = newDirectBufferMethodHandle(nioAccessObj);
+                newDirectBufMh = newDirectBufferMethodHandle(nioAccessObj);
             }
             catch (Exception e) {
                 nioAccessObj = null;
-                newDirectBufMH = null;
+                newDirectBufMh = null;
 
                 try {
                     directBufCtorMh = createAndTestNewDirectBufferCtor();
@@ -160,7 +160,7 @@ public abstract class GridUnsafe {
             catch (Exception e) {
                 try {
                     nioAccessObj = javaNioAccessObject();
-                    newDirectBufMH = newDirectBufferMethodHandle(nioAccessObj);
+                    newDirectBufMh = newDirectBufferMethodHandle(nioAccessObj);
                 }
                 catch (Exception eFallback) {
                     //noinspection CallToPrintStackTrace
@@ -171,15 +171,15 @@ public abstract class GridUnsafe {
                     throw e; // Fallback to shared secrets failed.
                 }
 
-                if (nioAccessObj == null || newDirectBufMH == null)
+                if (nioAccessObj == null || newDirectBufMh == null)
                     throw e;
             }
         }
 
         JAVA_NIO_ACCESS_OBJ = nioAccessObj;
-        NEW_DIRECT_BUF_MH = newDirectBufMH;
+        NEW_DIRECT_BUF_MH = newDirectBufMh;
 
-        NEW_DIRECT_BUF_CONSTRUCTOR_MH = directBufCtorMh;
+        NEW_DIRECT_BUF_CONSTRUCTOR = directBufCtorMh;
     }
 
     /**
@@ -199,8 +199,8 @@ public abstract class GridUnsafe {
     public static ByteBuffer wrapPointer(long ptr, int len) {
         if (NEW_DIRECT_BUF_MH != null && JAVA_NIO_ACCESS_OBJ != null)
             return wrapPointerJavaNioMh(ptr, len, NEW_DIRECT_BUF_MH, JAVA_NIO_ACCESS_OBJ);
-        else if (NEW_DIRECT_BUF_CONSTRUCTOR_MH != null)
-            return wrapPointerDirectBufferConstructor(ptr, len, NEW_DIRECT_BUF_CONSTRUCTOR_MH);
+        else if (NEW_DIRECT_BUF_CONSTRUCTOR != null)
+            return wrapPointerDirectBufferConstructor(ptr, len, NEW_DIRECT_BUF_CONSTRUCTOR);
         else
             throw new RuntimeException("All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_VER_SPECIFIC_WARN);
     }
