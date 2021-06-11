@@ -49,36 +49,36 @@ class SchemaChangeTest {
 
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-            put("node0", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3344,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+        put("node0", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3344,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
-            put("node1", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3345,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+        put("node1", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3345,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
-            put("node2", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\"]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3346,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
-        }};
+        put("node2", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\"]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3346,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
+    }};
 
     /**
      * Check dynamic table creation.
@@ -104,8 +104,8 @@ class SchemaChangeTest {
                 .changePartitions(10)
         );
 
-        Table tbl1 = waitForTable(schTbl1.canonicalName(), clusterNodes.get(1));
-        Table tbl2 = waitForTable(schTbl1.canonicalName(), clusterNodes.get(2));
+        Table tbl1 = clusterNodes.get(1).tables().table(schTbl1.canonicalName());
+        Table tbl2 = clusterNodes.get(2).tables().table(schTbl1.canonicalName());
 
         // Put data on node 1.
         KeyValueBinaryView kvView1 = tbl1.kvView();
@@ -161,25 +161,4 @@ class SchemaChangeTest {
 //        assertEquals("default", tbl2.get(keyTuple2).value("val2"));
 //        assertEquals("default", kvView2.get(keyTuple2).value("val2"));
     }
-
-    /**
-     * Waits for table, until it is initialized.
-     *
-     * @param tableName Table name
-     * @param ign Ignite.
-     * @return Table.
-     */
-    private Table waitForTable(String tableName, Ignite ign) {
-        while (ign.tables().table(tableName) == null) {
-            try {
-                Thread.sleep(100);
-            }
-            catch (InterruptedException e) {
-                LOG.warn("Waiting for table " + tableName + " is interrupted.");
-            }
-        }
-
-        return ign.tables().table(tableName);
-    }
-
 }

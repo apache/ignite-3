@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,8 +45,6 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.ListenerRemovedException;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operations;
@@ -285,7 +284,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     schemaReadyFut.join().schemaRegistry()
                 ));
 
-            affMgr.listen(AffinityEvent.CALCULATED, new EventListener<AffinityEventParameters>() {
+            affMgr.listen(AffinityEvent.CALCULATED, new EventListener<>() {
                 @Override public boolean notify(@NotNull AffinityEventParameters parameters, @Nullable Throwable e) {
                     if (!tblId.equals(parameters.tableId()))
                         return false;
@@ -303,7 +302,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
             });
 
-            schemaMgr.listen(SchemaEvent.INITIALIZED, new EventListener<SchemaEventParameters>() {
+            schemaMgr.listen(SchemaEvent.INITIALIZED, new EventListener<>() {
                 @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable e) {
                     if (!tblId.equals(parameters.tableId()) && parameters.schemaRegistry().lastSchemaVersion() >= 1)
                         return false;
@@ -352,7 +351,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             Operations.noop())));
             }
 
-            affMgr.listen(AffinityEvent.REMOVED, new EventListener<AffinityEventParameters>() {
+            affMgr.listen(AffinityEvent.REMOVED, new EventListener<>() {
                 @Override public boolean notify(@NotNull AffinityEventParameters parameters, @Nullable Throwable e) {
                     if (!tblId.equals(parameters.tableId()))
                         return false;
@@ -388,7 +387,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         for (String tblName : tbls) {
             TableImpl tbl = tables.get(tblName);
 
-            UUID tblId = tbl.internalTable().tableId();
+            UUID tblId = tbl.tableId();
 
             final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
@@ -401,35 +400,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .exceptionally(e -> {
                     LOG.error("Failed to upgrade schema for a table [name=" + tblName + ", id=" + tblId + ']', e);
 
-                    onEvent(TableEvent.ALTER, new TableEventParameters(
-                        tblId,
-                        tblName,
-                        null,
-                        null
-                    ), e);
+                    onEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
 
                     return null;
                 })
-                .thenRun(() -> onEvent(
-                    TableEvent.ALTER,
-                    new TableEventParameters(
-                        tblId,
-                        tblName,
-                        schemaReadyFut.join().schemaRegistry(),
-                        tbl.internalTable()),
-                    null
-                ));
+                .thenRun(() ->
+                    onEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), null)
+                );
 
-            schemaMgr.listen(SchemaEvent.CHANGED, (parameters, e) -> {
-                if (!tblId.equals(parameters.tableId()) && parameters.schemaRegistry().lastSchemaVersion() < ver)
-                    return false;
+            schemaMgr.listen(SchemaEvent.CHANGED, new EventListener<>() {
+                @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable e) {
+                    if (!tblId.equals(parameters.tableId()) && parameters.schemaRegistry().lastSchemaVersion() < ver)
+                        return false;
 
-                if (e == null)
-                    schemaReadyFut.complete(parameters);
-                else
+                    if (e == null)
+                        schemaReadyFut.complete(parameters);
+                    else
+                        schemaReadyFut.completeExceptionally(e);
+
+                    return true;
+                }
+
+                @Override public void remove(@NotNull Throwable e) {
                     schemaReadyFut.completeExceptionally(e);
-
-                return true;
+                }
             });
         }
 
@@ -440,7 +434,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        listen(TableEvent.CREATE, new EventListener<TableEventParameters>() {
+        listen(TableEvent.CREATE, new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 String tableName = parameters.tableName();
 
@@ -478,19 +472,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
-        listen(TableEvent.ALTER, (params, e) -> {
-            String tableName = params.tableName();
+        listen(TableEvent.ALTER, new EventListener<>() {
+            @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+                String tableName = parameters.tableName();
 
-            if (!name.equals(tableName))
-                return false;
+                if (!name.equals(tableName))
+                    return false;
 
-            if (e == null) {
-                tblFut.complete(null);
+                if (e == null) {
+                    tblFut.complete(null);
+                }
+                else
+                    tblFut.completeExceptionally(e);
+
+                return true;
             }
-            else
-                tblFut.completeExceptionally(e);
 
-            return true;
+            @Override public void remove(@NotNull Throwable e) {
+                tblFut.completeExceptionally(e);
+            }
         });
 
         try {
@@ -511,7 +511,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override public void dropTable(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        listen(TableEvent.DROP, new EventListener<TableEventParameters>() {
+        listen(TableEvent.DROP, new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 String tableName = parameters.tableName();
 
@@ -574,7 +574,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private HashSet<String> tableNamesConfigured() {
         IgniteBiTuple<ByteArray, ByteArray> range = toRange(new ByteArray(PUBLIC_PREFIX));
 
-        HashSet tableNames = new HashSet();
+        HashSet<String> tableNames = new HashSet<>();
 
         try (Cursor<Entry> cursor = metaStorageMgr.range(range.get1(), range.get2())) {
             while (cursor.hasNext()) {
@@ -584,6 +584,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 int idx = -1;
 
+                //noinspection StatementWithEmptyBody
                 while ((idx = keyTail.indexOf('.', idx + 1)) > 0 && keyTail.charAt(idx - 1) == '\\')
                     ;
 
@@ -623,7 +624,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<Table> getTblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<TableEventParameters>() {
+        EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 if (e instanceof ListenerRemovedException) {
                     getTblFut.completeExceptionally(e);
