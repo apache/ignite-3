@@ -165,7 +165,8 @@ public class NettyServer {
                              */
                             new ChunkedWriteHandler(),
                             // Converts NetworkMessage to a ChunkedNetworkMessageInput
-                            new OutboundEncoder(serializationRegistry)
+                            new OutboundEncoder(serializationRegistry),
+                            new IoExceptionSuppressingHandler()
                         );
 
                         handshakeManager.handshakeFuture().thenAccept(newConnectionListener);
