@@ -124,21 +124,21 @@ public abstract class GridUnsafe {
     static {
         Object nioAccessObj = null;
 
-        MethodHandle newDirectBufMh = null;
-        MethodHandle directBufCtorMh = null;
+        MethodHandle newDirectBufMtd = null;
+        MethodHandle directBufCtor = null;
 
         if (majorJavaVersion(jdkVersion()) < 12) {
             // for old java prefer Java NIO & Shared Secrets obect init way
             try {
                 nioAccessObj = javaNioAccessObject();
-                newDirectBufMh = newDirectBufferMethodHandle(nioAccessObj);
+                newDirectBufMtd = newDirectBufferMethodHandle(nioAccessObj);
             }
             catch (Exception e) {
                 nioAccessObj = null;
-                newDirectBufMh = null;
+                newDirectBufMtd = null;
 
                 try {
-                    directBufCtorMh = createAndTestNewDirectBufferCtor();
+                    directBufCtor = createAndTestNewDirectBufferCtor();
                 }
                 catch (Exception eFallback) {
                     //noinspection CallToPrintStackTrace
@@ -149,18 +149,18 @@ public abstract class GridUnsafe {
                     throw e; // Fallback was not successful.
                 }
 
-                if (directBufCtorMh == null)
+                if (directBufCtor == null)
                     throw e;
             }
         }
         else {
             try {
-                directBufCtorMh = createAndTestNewDirectBufferCtor();
+                directBufCtor = createAndTestNewDirectBufferCtor();
             }
             catch (Exception e) {
                 try {
                     nioAccessObj = javaNioAccessObject();
-                    newDirectBufMh = newDirectBufferMethodHandle(nioAccessObj);
+                    newDirectBufMtd = newDirectBufferMethodHandle(nioAccessObj);
                 }
                 catch (Exception eFallback) {
                     //noinspection CallToPrintStackTrace
@@ -171,15 +171,15 @@ public abstract class GridUnsafe {
                     throw e; // Fallback to shared secrets failed.
                 }
 
-                if (nioAccessObj == null || newDirectBufMh == null)
+                if (nioAccessObj == null || newDirectBufMtd == null)
                     throw e;
             }
         }
 
         JAVA_NIO_ACCESS_OBJ = nioAccessObj;
-        NEW_DIRECT_BUF_MH = newDirectBufMh;
+        NEW_DIRECT_BUF_MH = newDirectBufMtd;
 
-        NEW_DIRECT_BUF_CONSTRUCTOR = directBufCtorMh;
+        NEW_DIRECT_BUF_CONSTRUCTOR = directBufCtor;
     }
 
     /**
