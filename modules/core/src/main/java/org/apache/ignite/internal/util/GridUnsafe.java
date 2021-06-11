@@ -110,7 +110,7 @@ public abstract class GridUnsafe {
     @Nullable private static final Object JAVA_NIO_ACCESS_OBJ;
 
     /**
-     * JavaNioAccess#newDirectByteBuffer method handle. Ususally {@code null} if {@link #JAVA_NIO_ACCESS_OBJ} is
+     * JavaNioAccess#newDirectByteBuffer method handle. Usually {@code null} if {@link #JAVA_NIO_ACCESS_OBJ} is
      * {@code null}. If {@code null} then {@link #NEW_DIRECT_BUF_CONSTRUCTOR} should be available.
      */
     @Nullable private static final MethodHandle NEW_DIRECT_BUF_MH;
@@ -206,7 +206,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Wraps a pointer to unmanaged memory into direct byte buffer. Uses constructor of a direct byte buffer.
+     * Wraps a pointer to unmanaged memory into a direct byte buffer. Uses the constructor of the direct byte buffer.
      *
      * @param ptr Pointer to wrap.
      * @param len Memory location length.
@@ -226,7 +226,7 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Wraps a pointer to unmanaged memory into direct byte buffer. Uses JavaNioAccess object.
+     * Wraps a pointer to unmanaged memory into a direct byte buffer. Uses the JavaNioAccess object.
      *
      * @param ptr Pointer to wrap.
      * @param len Memory location length.
