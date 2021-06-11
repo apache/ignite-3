@@ -46,6 +46,8 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         try {
             Options options = new Options();
 
+            options.setCreateIfMissing(true);
+
             options.setComparator(new AbstractComparator(new ComparatorOptions()) {
                 @Override public String name() {
                     return null;
@@ -88,7 +90,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
     }
 
-    @Override public void write(DataRow row) throws StorageException {
+    @Override public synchronized void write(DataRow row) throws StorageException {
         try {
             db.put(getBytes(row.key()), getBytes(row.value()));
         }
@@ -97,7 +99,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
     }
 
-    @Override public void remove(SearchRow key) throws StorageException {
+    @Override public synchronized void remove(SearchRow key) throws StorageException {
         try {
             db.delete(getBytes(key.key()));
         }
@@ -106,32 +108,30 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
     }
 
-    @Override public void invoke(DataRow key, InvokeClosure clo) throws StorageException {
-        synchronized (this) {
-            try {
-                byte[] keyBytes = getBytes(key.key());
-                byte[] existingDataBytes = db.get(keyBytes);
+    @Override public synchronized void invoke(DataRow key, InvokeClosure clo) throws StorageException {
+        try {
+            byte[] keyBytes = getBytes(key.key());
+            byte[] existingDataBytes = db.get(keyBytes);
 
-                clo.call(new SimpleDataRow(key.key(), wrap(existingDataBytes)));
+            clo.call(new SimpleDataRow(key.key(), wrap(existingDataBytes)));
 
-                switch (clo.operationType()) {
-                    case PUT:
-                        db.put(keyBytes, getBytes(clo.newRow().value()));
+            switch (clo.operationType()) {
+                case PUT:
+                    db.put(keyBytes, getBytes(clo.newRow().value()));
 
-                        break;
+                    break;
 
-                    case REMOVE:
-                        db.delete(keyBytes);
+                case REMOVE:
+                    db.delete(keyBytes);
 
-                        break;
+                    break;
 
-                    case NOOP:
-                        break;
-                }
+                case NOOP:
+                    break;
             }
-            catch (RocksDBException e) {
-                throw new StorageException(e);
-            }
+        }
+        catch (RocksDBException e) {
+            throw new StorageException(e);
         }
     }
 
