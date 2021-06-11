@@ -124,18 +124,18 @@ public abstract class GridUnsafe {
     static {
         Object nioAccessObj = null;
 
-        MethodHandle newDirectBufMtd = null;
+        MethodHandle directBufMtd = null;
         MethodHandle directBufCtor = null;
 
         if (majorJavaVersion(jdkVersion()) < 12) {
             // for old java prefer Java NIO & Shared Secrets obect init way
             try {
                 nioAccessObj = javaNioAccessObject();
-                newDirectBufMtd = newDirectBufferMethodHandle(nioAccessObj);
+                directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
             }
             catch (Exception e) {
                 nioAccessObj = null;
-                newDirectBufMtd = null;
+                directBufMtd = null;
 
                 try {
                     directBufCtor = createAndTestNewDirectBufferCtor();
@@ -160,7 +160,7 @@ public abstract class GridUnsafe {
             catch (Exception e) {
                 try {
                     nioAccessObj = javaNioAccessObject();
-                    newDirectBufMtd = newDirectBufferMethodHandle(nioAccessObj);
+                    directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
                 }
                 catch (Exception eFallback) {
                     //noinspection CallToPrintStackTrace
@@ -171,13 +171,13 @@ public abstract class GridUnsafe {
                     throw e; // Fallback to shared secrets failed.
                 }
 
-                if (nioAccessObj == null || newDirectBufMtd == null)
+                if (nioAccessObj == null || directBufMtd == null)
                     throw e;
             }
         }
 
         JAVA_NIO_ACCESS_OBJ = nioAccessObj;
-        NEW_DIRECT_BUF_MH = newDirectBufMtd;
+        NEW_DIRECT_BUF_MH = directBufMtd;
 
         NEW_DIRECT_BUF_CONSTRUCTOR = directBufCtor;
     }
