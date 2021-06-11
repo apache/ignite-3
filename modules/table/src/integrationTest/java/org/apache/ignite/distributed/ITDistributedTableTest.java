@@ -265,6 +265,10 @@ public class ITDistributedTableTest {
                 return SCHEMA;
             }
 
+            @Override public int lastSchemaVersion() {
+                return SCHEMA.version();
+            }
+
             @Override public SchemaDescriptor schema(int ver) {
                 return SCHEMA;
             }

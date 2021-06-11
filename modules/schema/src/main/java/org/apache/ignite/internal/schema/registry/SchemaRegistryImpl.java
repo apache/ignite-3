@@ -60,13 +60,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         this.history = history;
     }
 
-    /**
-     * Gets schema descriptor for given version.
-     *
-     * @param ver Schema version to get descriptor for.
-     * @return Schema descriptor.
-     * @throws SchemaRegistryException If no schema found for given version.
-     */
+    /** {@inheritDoc} */
     @Override public SchemaDescriptor schema(int ver) {
         SchemaDescriptor desc = schemaCache.get(ver);
 
@@ -87,12 +81,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
     }
 
-    /**
-     * Gets schema descriptor for the latest version if initialized.
-     *
-     * @return Schema descriptor if initialized, {@code null} otherwise.
-     * @throws SchemaRegistryException If failed.
-     */
+    /** {@inheritDoc} */
     @Override public @Nullable SchemaDescriptor schema() {
         final int lastVer0 = lastVer;
 
@@ -102,10 +91,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
        return schema(lastVer0);
     }
 
-    /**
-     * @return Last known schema version.
-     */
-    public int lastSchemaVersion() {
+    /** {@inheritDoc} */
+    @Override public int lastSchemaVersion() {
         return lastVer;
     }
 

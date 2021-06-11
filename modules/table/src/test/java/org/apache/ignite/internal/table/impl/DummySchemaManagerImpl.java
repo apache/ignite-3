@@ -52,4 +52,9 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
 
         return schema;
     }
+
+    /** {@inheritDoc} */
+    @Override public int lastSchemaVersion() {
+        return schema.version();
+    }
 }

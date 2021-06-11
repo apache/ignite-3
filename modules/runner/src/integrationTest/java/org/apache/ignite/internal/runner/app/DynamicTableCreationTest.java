@@ -26,6 +26,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.table.SchemaMismatchException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -128,6 +129,11 @@ class DynamicTableCreationTest {
         assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
         assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
         assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
+
+        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("val"));
+        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("val"));
     }
 
     /**

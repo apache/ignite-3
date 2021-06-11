@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,15 +30,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.tree.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.affinity.event.AffinityEvent;
 import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Conditions;
+import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -53,8 +56,6 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
@@ -197,123 +198,233 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
         configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
             Set<String> tablesToStart = (ctx.newValue() == null || ctx.newValue().namedListKeys() == null) ?
-                Collections.emptySet() : new HashSet<>(ctx.newValue().namedListKeys());
+                Collections.emptySet() :
+                ctx.newValue().namedListKeys().stream().filter(t -> !ctx.oldValue().namedListKeys().contains(t)).collect(Collectors.toSet());
 
-            tablesToStart.removeAll(ctx.oldValue().namedListKeys());
-
-            long revision = ctx.storageRevision();
+            Set<String> tablesToStop = (ctx.oldValue() == null || ctx.oldValue().namedListKeys() == null) ?
+                Collections.emptySet() :
+                ctx.oldValue().namedListKeys().stream().filter(t -> !ctx.newValue().namedListKeys().contains(t)).collect(Collectors.toSet());
 
             List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
-            boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
+            final Set<String> schemaChanged =
+                (ctx.oldValue() != null && ctx.oldValue().namedListKeys() != null && ctx.newValue() != null && ctx.newValue().namedListKeys() != null) ?
+                    ctx.oldValue().namedListKeys().stream()
+                        .filter(tblName -> ctx.newValue().namedListKeys().contains(tblName)) // Filter changed tables.
+                        .filter(tblName -> {
+                            final TableView newTbl = ctx.newValue().get(tblName);
+                            final TableView oldTbl = ctx.oldValue().get(tblName);
 
-            for (String tblName : tablesToStart) {
-                TableView tableView = ctx.newValue().get(tblName);
+                            assert newTbl.columns().namedListKeys() != null && oldTbl.columns().namedListKeys() != null;
 
-                UUID tblId = new UUID(revision, 0L);
+                            return newTbl.columns().namedListKeys().stream().anyMatch(c -> !oldTbl.columns().namedListKeys().contains(c)) ||
+                                oldTbl.columns().namedListKeys().stream().anyMatch(c -> !newTbl.columns().namedListKeys().contains(c));
+                        }).collect(Collectors.toSet()) :
+                    Collections.emptySet();
 
-                if (hasMetastorageLocally) {
-                    var key = new ByteArray(INTERNAL_PREFIX + tblId);
-                    futs.add(metaStorageMgr.invoke(
-                        Conditions.notExists(key),
-                        Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
-                        Operations.noop())
-                        .thenCompose(res -> schemaMgr.initSchemaForTable(tblId, tableView.name()))
-                        .thenCompose(res -> affMgr.calculateAssignments(tblId, tableView.name())));
-                }
+            if (!tablesToStart.isEmpty())
+                futs.addAll(startTables(tablesToStart, ctx.storageRevision(), ctx.newValue()));
 
-                final CompletableFuture<AffinityEventParameters> affinityReadyFut = new CompletableFuture<>();
-                final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
+            if (!schemaChanged.isEmpty())
+                futs.addAll(changeSchema(schemaChanged));
 
-                CompletableFuture.allOf(affinityReadyFut, schemaReadyFut)
-                    .exceptionally(e -> {
-                        LOG.error("Failed to create a new table [name=" + tblName + ", id=" + tblId + ']', e);
-
-                        onEvent(TableEvent.CREATE, new TableEventParameters(
-                            tblId,
-                            tblName,
-                            null,
-                            null
-                        ), e);
-
-                        return null;
-                    })
-                    .thenRun(() -> createTableLocally(
-                        tblName,
-                        tblId,
-                        affinityReadyFut.join().assignment(),
-                        schemaReadyFut.join().schemaRegistry()
-                    ));
-
-                affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
-
-                    if (e == null)
-                        affinityReadyFut.complete(parameters);
-                    else
-                        affinityReadyFut.completeExceptionally(e);
-
-                    return true;
-                });
-
-                schemaMgr.listen(SchemaEvent.INITIALIZED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
-
-                    if (e == null)
-                        schemaReadyFut.complete(parameters);
-                    else
-                        schemaReadyFut.completeExceptionally(e);
-
-                    return true;
-                });
-            }
-
-            Set<String> tablesToStop = (ctx.oldValue() == null || ctx.oldValue().namedListKeys() == null) ?
-                Collections.emptySet() : new HashSet<>(ctx.oldValue().namedListKeys());
-
-            tablesToStop.removeAll(ctx.newValue().namedListKeys());
-
-            for (String tblName : tablesToStop) {
-                TableImpl t = tables.get(tblName);
-
-                UUID tblId = t.internalTable().tableId();
-
-                if (hasMetastorageLocally) {
-                    var key = new ByteArray(INTERNAL_PREFIX + tblId);
-
-                    futs.add(affMgr.removeAssignment(tblId)
-                        .thenCompose(res -> schemaMgr.unregisterSchemas(tblId))
-                        .thenCompose(res ->
-                            metaStorageMgr.invoke(Conditions.exists(key),
-                                Operations.remove(key),
-                                Operations.noop())));
-                }
-
-                affMgr.listen(AffinityEvent.REMOVED, (parameters, e) -> {
-                    if (!tblId.equals(parameters.tableId()))
-                        return false;
-
-                    if (e == null)
-                        dropTableLocally(tblName, tblId, parameters.assignment());
-                    else {
-                        LOG.error("Failed to drop a table [name=" + tblName + ", id=" + tblId + ']', e);
-
-                        onEvent(TableEvent.DROP, new TableEventParameters(
-                            tblId,
-                            tblName,
-                            null,
-                            null
-                        ), e);
-                    }
-
-                    return true;
-                });
-            }
+            if (!tablesToStop.isEmpty())
+                futs.addAll(stopTables(tablesToStop));
 
             return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
         });
+    }
+
+    /**
+     * Start tables routine.
+     *
+     * @param tbls Tables to start.
+     * @param rev Metastore revision.
+     * @param cfgs Table configurations.
+     * @return Table creation futures.
+     */
+    private List<CompletableFuture<Boolean>> startTables(Set<String> tbls, long rev, NamedListView<TableView> cfgs) {
+        boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
+
+        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
+
+        for (String tblName : tbls) {
+            TableView tableView = cfgs.get(tblName);
+
+            UUID tblId = new UUID(rev, 0L);
+
+            if (hasMetastorageLocally) {
+                var key = new ByteArray(INTERNAL_PREFIX + tblId);
+                futs.add(metaStorageMgr.invoke(
+                    Conditions.notExists(key),
+                    Operations.put(key, tableView.name().getBytes(StandardCharsets.UTF_8)),
+                    Operations.noop())
+                    .thenCompose(res -> schemaMgr.initSchemaForTable(tblId, tableView.name()))
+                    .thenCompose(res -> affMgr.calculateAssignments(tblId, tableView.name())));
+            }
+
+            final CompletableFuture<AffinityEventParameters> affinityReadyFut = new CompletableFuture<>();
+            final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
+
+            CompletableFuture.allOf(affinityReadyFut, schemaReadyFut)
+                .exceptionally(e -> {
+                    LOG.error("Failed to create a new table [name=" + tblName + ", id=" + tblId + ']', e);
+
+                    onEvent(TableEvent.CREATE, new TableEventParameters(
+                        tblId,
+                        tblName,
+                        null,
+                        null
+                    ), e);
+
+                    return null;
+                })
+                .thenRun(() -> createTableLocally(
+                    tblName,
+                    tblId,
+                    affinityReadyFut.join().assignment(),
+                    schemaReadyFut.join().schemaRegistry()
+                ));
+
+            affMgr.listen(AffinityEvent.CALCULATED, (parameters, e) -> {
+                if (!tblId.equals(parameters.tableId()))
+                    return false;
+
+                if (e == null)
+                    affinityReadyFut.complete(parameters);
+                else
+                    affinityReadyFut.completeExceptionally(e);
+
+                return true;
+            });
+
+            schemaMgr.listen(SchemaEvent.INITIALIZED, (parameters, e) -> {
+                if (!tblId.equals(parameters.tableId()) && parameters.schemaRegistry().lastSchemaVersion() >= 1)
+                    return false;
+
+                if (e == null)
+                    schemaReadyFut.complete(parameters);
+                else
+                    schemaReadyFut.completeExceptionally(e);
+
+                return true;
+            });
+        }
+
+        return futs;
+    }
+
+    /**
+     * Drop tables routine.
+     *
+     * @param tbls Tables to drop.
+     * @return Table drop futures.
+     */
+    private List<CompletableFuture<Boolean>> stopTables(Set<String> tbls) {
+        boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
+
+        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
+
+        for (String tblName : tbls) {
+            TableImpl t = tables.get(tblName);
+
+            UUID tblId = t.internalTable().tableId();
+
+            if (hasMetastorageLocally) {
+                var key = new ByteArray(INTERNAL_PREFIX + tblId);
+
+                futs.add(affMgr.removeAssignment(tblId)
+                    .thenCompose(res -> schemaMgr.unregisterSchemas(tblId))
+                    .thenCompose(res ->
+                        metaStorageMgr.invoke(Conditions.exists(key),
+                            Operations.remove(key),
+                            Operations.noop())));
+            }
+
+            affMgr.listen(AffinityEvent.REMOVED, (parameters, e) -> {
+                if (!tblId.equals(parameters.tableId()))
+                    return false;
+
+                if (e == null)
+                    dropTableLocally(tblName, tblId, parameters.assignment());
+                else {
+                    LOG.error("Failed to drop a table [name=" + tblName + ", id=" + tblId + ']', e);
+
+                    onEvent(TableEvent.DROP, new TableEventParameters(
+                        tblId,
+                        tblName,
+                        null,
+                        null
+                    ), e);
+                }
+
+                return true;
+            });
+        }
+
+        return futs;
+    }
+
+    /**
+     * Start tables routine.
+     *
+     * @param tbls Tables to start.
+     * @return Table creation futures.
+     */
+    private List<CompletableFuture<Boolean>> changeSchema(Set<String> tbls) {
+        boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
+
+        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
+
+        for (String tblName : tbls) {
+            TableImpl tbl = tables.get(tblName);
+
+            UUID tblId = tbl.internalTable().tableId();
+
+            final int ver = tbl.schemaView().lastSchemaVersion() + 1;
+
+            if (hasMetastorageLocally)
+                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName));
+
+            final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
+
+            CompletableFuture.allOf(schemaReadyFut)
+                .exceptionally(e -> {
+                    LOG.error("Failed to upgrade schema for a table [name=" + tblName + ", id=" + tblId + ']', e);
+
+                    onEvent(TableEvent.ALTER, new TableEventParameters(
+                        tblId,
+                        tblName,
+                        null,
+                        null
+                    ), e);
+
+                    return null;
+                })
+                .thenRun(() -> onEvent(
+                    TableEvent.ALTER,
+                    new TableEventParameters(
+                        tblId,
+                        tblName,
+                        schemaReadyFut.join().schemaRegistry(),
+                        tbl.internalTable()),
+                    null
+                ));
+
+            schemaMgr.listen(SchemaEvent.CHANGED, (parameters, e) -> {
+                if (!tblId.equals(parameters.tableId()) && parameters.schemaRegistry().lastSchemaVersion() < ver)
+                    return false;
+
+                if (e == null)
+                    schemaReadyFut.complete(parameters);
+                else
+                    schemaReadyFut.completeExceptionally(e);
+
+                return true;
+            });
+        }
+
+        return futs;
     }
 
     /** {@inheritDoc} */
@@ -347,6 +458,39 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return tblFut.join();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
+        CompletableFuture<Void> tblFut = new CompletableFuture<>();
+
+        listen(TableEvent.ALTER, (params, e) -> {
+            String tableName = params.tableName();
+
+            if (!name.equals(tableName))
+                return false;
+
+            if (e == null) {
+                tblFut.complete(null);
+            }
+            else
+                tblFut.completeExceptionally(e);
+
+            return true;
+        });
+
+        try {
+            configurationMgr.configurationRegistry()
+                .getConfiguration(TablesConfiguration.KEY).tables().change(change ->
+                change.update(name, tableChange)).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            LOG.error("Table wasn't created [name=" + name + ']', e);
+
+            tblFut.completeExceptionally(e);
+        }
+
+        tblFut.join();
     }
 
     /** {@inheritDoc} */
