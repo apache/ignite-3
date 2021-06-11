@@ -26,8 +26,5 @@ public enum OperationType {
     REMOVE,
 
     /** */
-    PUT,
-
-    /** */
-    IN_PLACE
+    PUT
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.storage.api;
 
-import java.nio.ByteBuffer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -42,10 +41,6 @@ public interface Storage {
      * Executes an update with custom logic implemented by storage.UpdateClosure interface.
      */
     public void invoke(DataRow key, InvokeClosure clo) throws StorageException;
-
-    public Cursor<ByteBuffer> snapshot() throws StorageException; //?
-
-    public void restoreSnapshot(Cursor<ByteBuffer> snapshot) throws StorageException; // or Cursor<ByteBuffer> ???
 
     /** */
     public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException;

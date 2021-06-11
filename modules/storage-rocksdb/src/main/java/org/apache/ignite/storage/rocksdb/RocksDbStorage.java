@@ -18,8 +18,8 @@
 package org.apache.ignite.storage.rocksdb;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
@@ -32,18 +32,31 @@ import org.apache.ignite.storage.api.SimpleDataRow;
 import org.apache.ignite.storage.api.Storage;
 import org.apache.ignite.storage.api.StorageException;
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.ReadOptions;
+import org.rocksdb.AbstractComparator;
+import org.rocksdb.ComparatorOptions;
+import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Snapshot;
 
 public class RocksDbStorage implements Storage, AutoCloseable {
     private final RocksDB db;
 
-    public RocksDbStorage(Path dbPath) throws IgniteInternalCheckedException {
+    public RocksDbStorage(Path dbPath, Comparator<ByteBuffer> comparator) throws IgniteInternalCheckedException {
         try {
-            this.db = RocksDB.open(dbPath.toAbsolutePath().toString());
+            Options options = new Options();
+
+            options.setComparator(new AbstractComparator(new ComparatorOptions()) {
+                @Override public String name() {
+                    return null;
+                }
+
+                @Override public int compare(ByteBuffer a, ByteBuffer b) {
+                    return comparator.compare(a, b);
+                }
+            });
+
+            this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString());
         }
         catch (RocksDBException e) {
             throw new IgniteInternalCheckedException("adfsaf", e);
@@ -103,7 +116,6 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
                 switch (clo.operationType()) {
                     case PUT:
-                    case IN_PLACE:
                         db.put(keyBytes, getBytes(clo.newRow().value()));
 
                         break;
@@ -125,28 +137,6 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
     @Override public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
         return new ScanCursor(db.newIterator(), filter);
-    }
-
-    @Override public Cursor<ByteBuffer> snapshot() throws StorageException {
-        return new SnapshotCursor(db);
-    }
-
-    @Override public void restoreSnapshot(Cursor<ByteBuffer> snapshot) throws StorageException {
-        while (snapshot.hasNext()) {
-            ByteBuffer buf = snapshot.next();
-
-            buf.order(ByteOrder.LITTLE_ENDIAN);
-
-            int keyLength = buf.getInt();
-
-            try {
-                // Hm...
-                db.put(buf.array(), 4, keyLength, buf.array(), 4 + keyLength, buf.capacity() - 4 - keyLength);
-            }
-            catch (RocksDBException e) {
-                throw new StorageException(e);
-            }
-        }
     }
 
     @Override public void close() throws Exception {
@@ -190,49 +180,6 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
         @Override public void close() throws Exception {
             iter.close();
-        }
-    }
-
-    private static class SnapshotCursor implements Cursor<ByteBuffer> {
-        private final RocksDB db;
-        private final Snapshot snapshot;
-        private final RocksIterator iter;
-
-        private SnapshotCursor(RocksDB db) {
-            this.db = db;
-            snapshot = db.getSnapshot();
-            iter = db.newIterator(new ReadOptions().setSnapshot(snapshot));
-
-            iter.seekToFirst();
-
-            hasNext();
-        }
-
-        @NotNull @Override public Iterator<ByteBuffer> iterator() {
-            throw new UnsupportedOperationException("iterator");
-        }
-
-        @Override public boolean hasNext() {
-            return iter.isValid();
-        }
-
-        @Override public ByteBuffer next() {
-            if (!hasNext())
-                throw new NoSuchElementException();
-
-            byte[] keyBytes = iter.key();
-            byte[] dataBytes = iter.value();
-
-            ByteBuffer buf = ByteBuffer.allocate(4 + keyBytes.length + dataBytes.length);
-            buf.order(ByteOrder.LITTLE_ENDIAN);
-
-            buf.putInt(keyBytes.length).put(keyBytes).put(dataBytes);
-
-            return buf;
-        }
-
-        @Override public void close() throws Exception {
-            db.releaseSnapshot(snapshot);
         }
     }
 }
