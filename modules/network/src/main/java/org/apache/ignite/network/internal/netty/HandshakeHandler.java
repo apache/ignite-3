@@ -57,7 +57,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
 
         manager.handshakeFuture().whenComplete((unused, throwable) -> {
             if (throwable != null) {
-                LOG.error("Error when performing handshake", throwable);
+                LOG.debug("Error when performing handshake", throwable);
 
                 ctx.close();
             }

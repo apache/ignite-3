@@ -111,13 +111,15 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     messageAttr.set(msg);
             }
             catch (Throwable e) {
-                LOG.error(
-                    String.format(
-                        "Failed to read message [msg=%s, buf=%s, reader=%s]: %s",
-                        msg, buffer, reader, e.getMessage()
-                    ),
-                    e
-                );
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(
+                        String.format(
+                            "Failed to read message [msg=%s, buf=%s, reader=%s]: %s",
+                            msg, buffer, reader, e.getMessage()
+                        ),
+                        e
+                    );
+                }
 
                 throw e;
             }

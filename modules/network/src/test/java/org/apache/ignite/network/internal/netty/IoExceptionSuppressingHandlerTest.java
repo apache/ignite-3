@@ -47,16 +47,6 @@ public class IoExceptionSuppressingHandlerTest {
     }
 
     /**
-     * Tests that other {@link IOException} exceptions are propagated.
-     */
-    @Test
-    public void testOtherIoExceptionIsPropagated() {
-        handler.exceptionCaught(context, new IOException("Other"));
-
-        verify(context).fireExceptionCaught(any());
-    }
-
-    /**
      * Tests that other exception types are porpagated.
      */
     @Test

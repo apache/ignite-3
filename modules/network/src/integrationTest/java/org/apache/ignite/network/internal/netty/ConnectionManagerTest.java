@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network.internal.netty;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
@@ -33,7 +34,6 @@ import org.apache.ignite.network.NetworkMessagesFactory;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
-import org.apache.ignite.network.internal.handshake.HandshakeException;
 import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -240,7 +240,7 @@ public class ConnectionManagerTest {
         try {
             client.channel(null, server.getLocalAddress()).get(3, TimeUnit.SECONDS);
         } catch (ExecutionException e) {
-            assertThat(e.getCause(), isA(HandshakeException.class));
+            assertThat(e.getCause(), isA(IOException.class));
         }
     }
 

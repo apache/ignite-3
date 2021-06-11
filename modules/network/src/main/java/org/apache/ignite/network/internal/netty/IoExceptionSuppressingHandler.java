@@ -23,7 +23,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * Netty handler for suppressing exceptions that can happen if a remote peer abruptly closes the connection.
+ * Netty handler for suppressing IO exceptions that can happen if a remote peer abruptly closes the connection.
  */
 class IoExceptionSuppressingHandler extends ChannelInboundHandlerAdapter {
     /** Logger. */
@@ -32,7 +32,7 @@ class IoExceptionSuppressingHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        if (cause instanceof IOException && "Broken pipe".equals(cause.getMessage()))
+        if (cause instanceof IOException)
             LOG.debug(cause.getMessage(), cause);
         else
             ctx.fireExceptionCaught(cause);
