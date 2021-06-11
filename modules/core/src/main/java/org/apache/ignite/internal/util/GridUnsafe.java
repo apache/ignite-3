@@ -198,7 +198,7 @@ public abstract class GridUnsafe {
      */
     public static ByteBuffer wrapPointer(long ptr, int len) {
         if (NEW_DIRECT_BUF_MH != null && JAVA_NIO_ACCESS_OBJ != null)
-            return wrapPointerJavaNioMh(ptr, len, NEW_DIRECT_BUF_MH, JAVA_NIO_ACCESS_OBJ);
+            return wrapPointerJavaNio(ptr, len, NEW_DIRECT_BUF_MH, JAVA_NIO_ACCESS_OBJ);
         else if (NEW_DIRECT_BUF_CONSTRUCTOR != null)
             return wrapPointerDirectBufferConstructor(ptr, len, NEW_DIRECT_BUF_CONSTRUCTOR);
         else
@@ -234,7 +234,7 @@ public abstract class GridUnsafe {
      * @param javaNioAccessObj Object to invoke method.
      * @return Byte buffer wrapping the given memory.
      */
-    @NotNull private static ByteBuffer wrapPointerJavaNioMh(
+    @NotNull private static ByteBuffer wrapPointerJavaNio(
         long ptr,
         int len,
         @NotNull MethodHandle newDirectBufMh,
