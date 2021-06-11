@@ -30,7 +30,7 @@
     </parent>
 
     <artifactId>apache-ignite</artifactId>
-    <version>3.0.0-SNAPSHOT</version>
+    <version>3.0.0-alpha2</version>
     <packaging>pom</packaging>
 
     <modules>
