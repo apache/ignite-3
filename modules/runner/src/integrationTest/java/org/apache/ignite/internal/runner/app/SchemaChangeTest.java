@@ -33,6 +33,7 @@ import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
@@ -42,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Ignition interface tests.
  */
-//@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class SchemaChangeTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
