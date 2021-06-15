@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 
 public class SimpleDataRow implements DataRow {
     private final ByteBuffer key;
+
     private final ByteBuffer value;
 
     public SimpleDataRow(ByteBuffer key, ByteBuffer value) {

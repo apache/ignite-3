@@ -19,9 +19,7 @@ package org.apache.ignite.storage.api;
 
 import org.jetbrains.annotations.Nullable;
 
-/**
- *
- */
+/** */
 public interface InvokeClosure {
     /**
      * @param row Old row or {@code null} if old row not found.
@@ -35,7 +33,7 @@ public interface InvokeClosure {
 
     /**
      * @return Operation type for this closure or {@code null} if it is unknown.
-     * After method {@link #call(Object)} has been called, operation type must
+     * After method {@link #call(DataRow)} has been called, operation type must
      * be know and this method can not return {@code null}.
      */
     OperationType operationType();

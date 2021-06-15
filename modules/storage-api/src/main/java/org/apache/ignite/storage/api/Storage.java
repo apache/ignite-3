@@ -25,17 +25,20 @@ import org.apache.ignite.internal.util.Cursor;
  */
 public interface Storage {
     /**
-     * Reads a DataRow for a given Key.
+     * Reads a DataRow for a given key.
+     * @param key Key object.
      */
     public DataRow read(SearchRow key) throws StorageException;
+
+    /**
+     * Writes DataRow to the storage.
+     */
+    public void write(DataRow row) throws StorageException;
 
     /**
      * Removes DataRow associated with a given Key.
      */
     public void remove(SearchRow key) throws StorageException;
-
-    /** */
-    public void write(DataRow row) throws StorageException;
 
     /**
      * Executes an update with custom logic implemented by storage.UpdateClosure interface.
