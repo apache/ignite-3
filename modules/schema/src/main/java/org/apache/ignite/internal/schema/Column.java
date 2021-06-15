@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import java.io.Serializable;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 
@@ -50,7 +49,7 @@ public class Column implements Comparable<Column>, Serializable {
     /**
      * Default value supplier.
      */
-    private final Supplier<Object> defValSup;
+    private final Serializable defValSup;
 
     /**
      * @param name Column name.
@@ -62,7 +61,7 @@ public class Column implements Comparable<Column>, Serializable {
         NativeType type,
         boolean nullable
     ) {
-        this(-1, name, type, nullable, (Supplier<Object> & Serializable)() -> null);
+        this(-1, name, type, nullable, null);
     }
 
     /**
@@ -75,7 +74,7 @@ public class Column implements Comparable<Column>, Serializable {
         String name,
         NativeType type,
         boolean nullable,
-        @NotNull Supplier<Object> defValSup
+        @NotNull Serializable defValSup
     ) {
         this(-1, name, type, nullable, defValSup);
     }
@@ -92,7 +91,7 @@ public class Column implements Comparable<Column>, Serializable {
         String name,
         NativeType type,
         boolean nullable,
-        @NotNull Supplier<Object> defValSup
+        @NotNull Serializable defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.name = name;
@@ -135,7 +134,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        Object val = defValSup.get();
+        Object val = defValSup;
 
         assert nullable || val != null : "Null value is not accepted for not nullable column: [col=" + this + ']';
 

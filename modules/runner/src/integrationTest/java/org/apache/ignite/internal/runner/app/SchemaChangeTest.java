@@ -151,15 +151,13 @@ class SchemaChangeTest {
         assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val1"));
         assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
 
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-14896 Add evolution converter for default values.
-//        assertEquals("default", tbl2.get(keyTuple1).value("val2"));
-//        assertEquals("default", kvView2.get(keyTuple1).value("val2"));
+        assertEquals("default", tbl2.get(keyTuple1).value("val2"));
+        assertEquals("default", kvView2.get(keyTuple1).value("val2"));
 
         assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val1"));
         assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
 
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-14896 Add evolution converter for default values.
-//        assertEquals("default", tbl2.get(keyTuple2).value("val2"));
-//        assertEquals("default", kvView2.get(keyTuple2).value("val2"));
+        assertEquals("default", tbl2.get(keyTuple2).value("val2"));
+        assertEquals("default", kvView2.get(keyTuple2).value("val2"));
     }
 }

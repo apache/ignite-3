@@ -44,4 +44,10 @@ public interface SchemaRegistry {
      * @throws SchemaRegistryException If no schema found for given version.
      */
     @NotNull SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+
+    /**
+     * @param row Binary row.
+     * @return Schema-aware row.
+     */
+    Row resolve(BinaryRow row);
 }

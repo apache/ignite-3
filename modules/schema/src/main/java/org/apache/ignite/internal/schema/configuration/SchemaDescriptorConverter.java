@@ -17,18 +17,17 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaTable;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -116,7 +115,7 @@ public class SchemaDescriptorConverter {
      * @return Internal Column.
      */
     private static Column convert(org.apache.ignite.schema.Column colCfg) {
-        return new Column(colCfg.name(), convert(colCfg.type()), colCfg.nullable());
+        return new Column(colCfg.name(), convert(colCfg.type()), colCfg.nullable(), (Serializable)colCfg.defaultValue());
     }
 
     /**

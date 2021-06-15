@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.schema.registry;
 
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.InvalidTypeException;
+import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -88,12 +94,58 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (lastVer0 == INITIAL_SCHEMA_VERSION)
             return null;
 
-       return schema(lastVer0);
+        return schema(lastVer0);
     }
 
     /** {@inheritDoc} */
     @Override public int lastSchemaVersion() {
         return lastVer;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Row resolve(BinaryRow row) {
+        final SchemaDescriptor rowSchema = schema(row.schemaVersion());
+        final SchemaDescriptor curSchema = schema();
+
+        if (curSchema.version() == rowSchema.version())
+            return new Row(rowSchema, row);
+
+        return new UpgradingRowAdapter(curSchema, row, columnMapper(curSchema, rowSchema));
+    }
+
+    /**
+     * Create column mapping for schemas.
+     *
+     * @param src Source schema of newer version.
+     * @param dst Target schema of older version.
+     * @return Column mapping.
+     */
+    private ColumnMapping columnMapper(SchemaDescriptor src, SchemaDescriptor dst) {
+        assert src.version() > dst.version();
+        assert src.version() == dst.version() + 1; // TODO: implement merged mapper for arbitraty schema versions.
+
+        final Columns srcCols = src.valueColumns();
+        final Columns dstCols = dst.valueColumns();
+
+        final ColumnMapping mapping = new ColumnMapping(src);
+
+        for (int i = 0; i < srcCols.columns().length; i++) {
+            final Column col = srcCols.column(i);
+
+            try {
+                final int idx = dstCols.columnIndex(col.name());
+
+                if (!col.equals(dstCols.column(idx)))
+                    throw new InvalidTypeException("Column of incompatible type: [colIdx=" + col.schemaIndex() + ", schemaVer=" + src.version());
+
+                mapping.add(col.schemaIndex(), dst.keyColumns().length() + idx);
+            }
+            catch (NoSuchElementException ex) {
+                mapping.add(col.schemaIndex(), -1);
+            }
+        }
+
+        return mapping;
     }
 
     /**
