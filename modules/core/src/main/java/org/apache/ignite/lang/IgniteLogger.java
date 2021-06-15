@@ -25,6 +25,7 @@ import static java.lang.System.Logger.Level.ERROR;
 import static java.lang.System.Logger.Level.INFO;
 import static java.lang.System.Logger.Level.TRACE;
 import static java.lang.System.Logger.Level.WARNING;
+import static org.apache.ignite.lang.LoggerMessageHelper.format;
 
 /**
  * Ignite logger wraps system logger for more convenient access.
@@ -55,7 +56,9 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void info(String msg, Object... params) {
-        log.log(INFO, msg, params);
+        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+
+        log.log(INFO, readyParams.get1(), readyParams.get1());
     }
 
     /**
@@ -63,7 +66,9 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void debug(String msg, Object... params) {
-        log.log(DEBUG, msg, params);
+        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+        
+        log.log(DEBUG, readyParams.get1(), readyParams.get2());
     }
 
     /**
@@ -79,7 +84,9 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void warn(String msg, Object... params) {
-        log.log(WARNING, msg, params);
+        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+
+        log.log(WARNING, readyParams.get1(), readyParams.get2());
     }
 
     /**
@@ -87,7 +94,9 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void error(String msg, Object... params) {
-        log.log(ERROR, msg, params);
+        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+
+        log.log(ERROR, readyParams.get1(), readyParams.get2());
     }
 
     /**
@@ -103,7 +112,9 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void trace(String msg, Object... params) {
-        log.log(TRACE, msg, params);
+        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+
+        log.log(TRACE, readyParams.get1(), readyParams.get2());
     }
 
     /**
