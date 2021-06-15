@@ -17,9 +17,8 @@
 
 package org.apache.ignite.lang;
 
-import java.text.MessageFormat;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Formats messages according to very simple substitution rules. Substitutions can be made 1, 2 or more arguments.
@@ -28,7 +27,7 @@ import java.util.Map;
  * For example,
  *
  * <pre>
- * MessageFormatter.format(&quot;Hi {}.&quot;, &quot;there&quot;)
+ * LoggerMessageHelper.format(&quot;Hi {}.&quot;, &quot;there&quot;).get1();
  * </pre>
  *
  * will return the string "Hi there.".
@@ -40,7 +39,7 @@ import java.util.Map;
  * character immediately follows '{'. For example,
  *
  * <pre>
- * MessageFormatter.format(&quot;Set {1,2,3} is not equal to {}.&quot;, &quot;1,2&quot;);
+ * LoggerMessageHelper.format(&quot;Set {1,2,3} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
  * </pre>
  *
  * will return the string "Set {1,2,3} is not equal to 1,2.".
@@ -51,7 +50,7 @@ import java.util.Map;
  * should be escaped. There is no need to escape the '}' character. For example,
  *
  * <pre>
- * MessageFormatter.format(&quot;Set \\{} is not equal to {}.&quot;, &quot;1,2&quot;);
+ * LoggerMessageHelper.format(&quot;Set \\{} is not equal to {}.&quot;, &quot;1,2&quot;).get1();
  * </pre>
  *
  * will return the string "Set {} is not equal to 1,2.".
@@ -60,37 +59,31 @@ import java.util.Map;
  * The escaping behavior just described can be overridden by escaping the escape character '\'. Calling
  *
  * <pre>
- * MessageFormatter.format(&quot;File name is C:\\\\{}.&quot;, &quot;file.zip&quot;);
+ * LoggerMessageHelper.format(&quot;File name is C:\\\\{}.&quot;, &quot;file.zip&quot;).get1();
  * </pre>
  *
  * will return the string "File name is C:\file.zip".
- *
- * <p>
- * The formatting conventions are different than those of {@link MessageFormat} which ships with the Java platform. This
- * is justified by the fact that SLF4J's implementation is 10 times faster than that of {@link MessageFormat}. This
- * local performance difference is both measurable and significant in the larger context of the complete logging
- * processing chain.
- *
- * <p>
- * See also {@link #format(String, Object)}, {@link #format(String, Object, Object)} and {@link #arrayFormat(String,
- * Object[])} methods for more details.
  */
 final class LoggerMessageHelper {
+    /** Left brace. */
     private static final char DELIM_START = '{';
+    /** Right brace. */
     private static final char DELIM_STOP = '}';
+    /** Formatting anchor. */
     private static final String DELIM_STR = "{}";
+    /** Excape character. */
     private static final char ESCAPE_CHAR = '\\';
 
     /**
      * Replaces all substitutions in the messagePattern and separates an exception if it is passed.
      *
-     * @param messagePattern Message with substitutions.
+     * @param messagePattern Message with formatting anchor.
      * @param params Parrameters.
      * @return A tuple contains message and exception if it was passed in the last parameter.
      */
-    public static IgniteBiTuple<String, Throwable> format(
+    public static @NotNull IgniteBiTuple<String, Throwable> format(
         final String messagePattern,
-        final Object[] params
+        final Object... params
     ) {
         Throwable th = getThrowableCandidate(params);
 
@@ -107,10 +100,11 @@ final class LoggerMessageHelper {
     }
 
     /**
-     * Assumes that params only contains arguments with no throwable as last element.
+     * Replaces all substitutions in the messagePattern. Assumes that params only contains arguments with no throwable
+     * as last element.
      *
-     * @param messagePattern
-     * @param params
+     * @param messagePattern Message with formatting anchor.
+     * @param params Parrameters.
      */
     private static String arrayFormat(final String messagePattern, final Object[] params) {
         if (messagePattern == null)
@@ -125,6 +119,7 @@ final class LoggerMessageHelper {
         StringBuilder sbuf = new StringBuilder(messagePattern.length() + 50);
 
         int L;
+
         for (L = 0; L < params.length; L++) {
 
             j = messagePattern.indexOf(DELIM_STR, i);
@@ -158,7 +153,7 @@ final class LoggerMessageHelper {
                         // we have to consume one backward slash
                         sbuf.append(messagePattern, i, j - 1);
 
-                        deeplyAppendParameter(sbuf, params[L], new HashMap<Object[], Object>());
+                        deeplyAppendParameter(sbuf, params[L], new HashSet<>());
 
                         i = j + 2;
                     }
@@ -167,7 +162,8 @@ final class LoggerMessageHelper {
                     // normal case
                     sbuf.append(messagePattern, i, j);
 
-                    deeplyAppendParameter(sbuf, params[L], new HashMap<Object[], Object>());
+                    deeplyAppendParameter(sbuf, params[L], new HashSet<>());
+
                     i = j + 2;
                 }
             }
@@ -178,12 +174,19 @@ final class LoggerMessageHelper {
         return sbuf.toString();
     }
 
-    private static boolean isEscapedDelimeter(String messagePattern, int delimeterStartIndex) {
+    /**
+     * Checks messagePattern has a delimiter at delimiterStartIndex position.
+     *
+     * @param messagePattern Message pattern.
+     * @param delimiterStartIndex Checked possition.
+     * @return True if the char is delimiter, false otherwise.
+     */
+    private static boolean isEscapedDelimeter(String messagePattern, int delimiterStartIndex) {
 
-        if (delimeterStartIndex == 0)
+        if (delimiterStartIndex == 0)
             return false;
 
-        char potentialEscape = messagePattern.charAt(delimeterStartIndex - 1);
+        char potentialEscape = messagePattern.charAt(delimiterStartIndex - 1);
 
         if (potentialEscape == ESCAPE_CHAR)
             return true;
@@ -191,15 +194,26 @@ final class LoggerMessageHelper {
             return false;
     }
 
-    private static boolean isDoubleEscaped(String messagePattern, int delimeterStartIndex) {
-        if (delimeterStartIndex >= 2 && messagePattern.charAt(delimeterStartIndex - 2) == ESCAPE_CHAR)
+    /**
+     * Checks messagePattern has a double delimiter at delimiterStartIndex position.
+     *
+     * @param messagePattern Message pattern.
+     * @param delimiterStartIndex Checked possition.
+     * @return True if a double delimiter is in this position, otherwise false.
+     */
+    private static boolean isDoubleEscaped(String messagePattern, int delimiterStartIndex) {
+        if (delimiterStartIndex >= 2 && messagePattern.charAt(delimiterStartIndex - 2) == ESCAPE_CHAR)
             return true;
         else
             return false;
     }
 
-    // special treatment of array values was suggested by 'lizongbo'
-    private static void deeplyAppendParameter(StringBuilder sbuf, Object o, Map<Object[], Object> seenMap) {
+    /**
+     * @param sbuf Builder that contains a string for append.
+     * @param o Object to append.
+     * @param seenSet Set of the objects that already appended.
+     */
+    private static void deeplyAppendParameter(StringBuilder sbuf, Object o, HashSet<Object[]> seenSet) {
         if (o == null) {
             sbuf.append("null");
 
@@ -227,10 +241,17 @@ final class LoggerMessageHelper {
             else if (o instanceof double[])
                 doubleArrayAppend(sbuf, (double[])o);
             else
-                objectArrayAppend(sbuf, (Object[])o, seenMap);
+                objectArrayAppend(sbuf, (Object[])o, seenSet);
         }
     }
 
+    /**
+     * Appends a string representation for an object, even if the object throws exception on a {@link Object#toString()}
+     * invocation.
+     *
+     * @param sbuf Builder that contains a string for append.
+     * @param o An object that will be appended.
+     */
     private static void safeObjectAppend(StringBuilder sbuf, Object o) {
         try {
             String oAsString = o.toString();
@@ -244,22 +265,29 @@ final class LoggerMessageHelper {
         }
     }
 
-    private static void objectArrayAppend(StringBuilder sbuf, Object[] a, Map<Object[], Object> seenMap) {
+    /**
+     * Appends a object array to string.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Object arrya.
+     * @param seenSet Set of the objects that already appended.
+     */
+    private static void objectArrayAppend(StringBuilder sbuf, Object[] a, HashSet<Object[]> seenSet) {
         sbuf.append('[');
 
-        if (!seenMap.containsKey(a)) {
-            seenMap.put(a, null);
+        if (!seenSet.contains(a)) {
+            seenSet.add(a);
 
             final int len = a.length;
 
             for (int i = 0; i < len; i++) {
-                deeplyAppendParameter(sbuf, a[i], seenMap);
+                deeplyAppendParameter(sbuf, a[i], seenSet);
 
                 if (i != len - 1)
                     sbuf.append(", ");
             }
             // allow repeats in siblings
-            seenMap.remove(a);
+            seenSet.remove(a);
         }
         else
             sbuf.append("...");
@@ -267,6 +295,12 @@ final class LoggerMessageHelper {
         sbuf.append(']');
     }
 
+    /**
+     * Appends an string representation of boolean array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Boolean array.
+     */
     private static void booleanArrayAppend(StringBuilder sbuf, boolean[] a) {
         sbuf.append('[');
 
@@ -278,9 +312,16 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
+    /**
+     * Appends an string representation of byte array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Byte array.
+     */
     private static void byteArrayAppend(StringBuilder sbuf, byte[] a) {
         sbuf.append('[');
 
@@ -292,9 +333,16 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
+    /**
+     * Appends an string representation of char array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Char array.
+     */
     private static void charArrayAppend(StringBuilder sbuf, char[] a) {
         sbuf.append('[');
 
@@ -306,9 +354,16 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
+    /**
+     * Appends an string representation of short array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Short array.
+     */
     private static void shortArrayAppend(StringBuilder sbuf, short[] a) {
         sbuf.append('[');
 
@@ -320,9 +375,16 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
+    /**
+     * Appends an string representation of integer array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Integer array.
+     */
     private static void intArrayAppend(StringBuilder sbuf, int[] a) {
         sbuf.append('[');
 
@@ -334,9 +396,16 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
+    /**
+     * Appends a string representation of long array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Long array.
+     */
     private static void longArrayAppend(StringBuilder sbuf, long[] a) {
         sbuf.append('[');
 
@@ -348,9 +417,16 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
+    /**
+     * Appends a string representation of float array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Float array.
+     */
     private static void floatArrayAppend(StringBuilder sbuf, float[] a) {
         sbuf.append('[');
 
@@ -362,9 +438,16 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
+    /**
+     * Appends a string representation of double array.
+     *
+     * @param sbuf The builder contains a string before.
+     * @param a Double array.
+     */
     private static void doubleArrayAppend(StringBuilder sbuf, double[] a) {
         sbuf.append('[');
 
@@ -376,6 +459,7 @@ final class LoggerMessageHelper {
             if (i != len - 1)
                 sbuf.append(", ");
         }
+
         sbuf.append(']');
     }
 
