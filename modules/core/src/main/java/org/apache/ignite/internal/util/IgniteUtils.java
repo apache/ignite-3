@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.util;
 
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
-
+import java.util.jar.JarFile;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -334,5 +338,47 @@ public class IgniteUtils {
         }
 
         return cls;
+    }
+
+    /**
+     * Deletes file or directory with all sub-directories and files.
+     *
+     * @param path File or directory to delete.
+     * @return {@code true} if and only if the file or directory is successfully deleted,
+     *      {@code false} otherwise
+     */
+    public static boolean delete(Path path) {
+        if (Files.isDirectory(path)) {
+            try {
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+                    for (Path innerPath : stream) {
+                        boolean res = delete(innerPath);
+
+                        if (!res)
+                            return false;
+                    }
+                }
+            } catch (IOException e) {
+                return false;
+            }
+        }
+
+        if (path.toFile().getName().endsWith("jar")) {
+            try {
+                // Why do we do this?
+                new JarFile(path.toString(), false).close();
+            }
+            catch (IOException ignore) {
+                // Ignore it here...
+            }
+        }
+
+        try {
+            Files.delete(path);
+
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 }

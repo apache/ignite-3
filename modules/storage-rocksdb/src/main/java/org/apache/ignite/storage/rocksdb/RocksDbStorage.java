@@ -28,9 +28,9 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.storage.api.DataRow;
 import org.apache.ignite.storage.api.InvokeClosure;
 import org.apache.ignite.storage.api.SearchRow;
-import org.apache.ignite.storage.api.SimpleDataRow;
 import org.apache.ignite.storage.api.Storage;
 import org.apache.ignite.storage.api.StorageException;
+import org.apache.ignite.storage.api.basic.SimpleDataRow;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
@@ -40,17 +40,19 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
 public class RocksDbStorage implements Storage, AutoCloseable {
+    private final Options options;
+
     private final RocksDB db;
 
     public RocksDbStorage(Path dbPath, Comparator<ByteBuffer> comparator) throws IgniteInternalCheckedException {
         try {
-            Options options = new Options();
+            options = new Options();
 
             options.setCreateIfMissing(true);
 
             options.setComparator(new AbstractComparator(new ComparatorOptions()) {
                 @Override public String name() {
-                    return null;
+                    return "name";
                 }
 
                 @Override public int compare(ByteBuffer a, ByteBuffer b) {
@@ -74,7 +76,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
     }
 
     private static ByteBuffer wrap(byte[] existingDataBytes) {
-        return ByteBuffer.wrap(existingDataBytes).asReadOnlyBuffer();
+        return existingDataBytes == null ? null : ByteBuffer.wrap(existingDataBytes);
     }
 
     @Override public DataRow read(SearchRow key) throws StorageException {
@@ -108,7 +110,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
     }
 
-    @Override public synchronized void invoke(DataRow key, InvokeClosure clo) throws StorageException {
+    @Override public synchronized void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
         try {
             byte[] keyBytes = getBytes(key.key());
             byte[] existingDataBytes = db.get(keyBytes);
@@ -140,11 +142,14 @@ public class RocksDbStorage implements Storage, AutoCloseable {
     }
 
     @Override public void close() throws Exception {
+        options.close();
+
         db.close();
     }
 
     private static class ScanCursor implements Cursor<DataRow> {
         private final RocksIterator iter;
+
         private final Predicate<SearchRow> filter;
 
         private ScanCursor(RocksIterator iter, Predicate<SearchRow> filter) {

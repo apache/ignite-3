@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.storage.api.basic;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.storage.api.DataRow;
 
 public class SimpleDataRow implements DataRow {
     private final ByteBuffer key;
@@ -25,9 +26,6 @@ public class SimpleDataRow implements DataRow {
     private final ByteBuffer value;
 
     public SimpleDataRow(ByteBuffer key, ByteBuffer value) {
-        assert key.isReadOnly();
-        assert value.isReadOnly();
-
         this.key = key;
         this.value = value;
     }

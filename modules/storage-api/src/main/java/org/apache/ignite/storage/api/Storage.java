@@ -43,7 +43,7 @@ public interface Storage {
     /**
      * Executes an update with custom logic implemented by storage.UpdateClosure interface.
      */
-    public void invoke(DataRow key, InvokeClosure clo) throws StorageException;
+    public void invoke(SearchRow key, InvokeClosure clo) throws StorageException;
 
     /** */
     public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException;
