@@ -63,4 +63,11 @@ public class IgnitionManager {
 
         return ignition.start(nodeName, jsonStrBootstrapCfg);
     }
+
+    /**
+     * Closes the encapsulated {@link Ignition} instance.
+     */
+    public static synchronized void close() throws Exception {
+        ignition.close();
+    }
 }

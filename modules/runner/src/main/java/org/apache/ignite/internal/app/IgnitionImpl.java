@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.app;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,8 +45,9 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -50,6 +55,8 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.VaultService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,6 +66,11 @@ import org.jetbrains.annotations.Nullable;
 public class IgnitionImpl implements Ignition {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
+
+    /**
+     * Path to the persistent storage used by the {@link VaultService} component.
+     */
+    private static final Path VAULT_DB_PATH = Paths.get("vault");
 
     /** */
     private static final String[] BANNER = {
@@ -86,10 +98,7 @@ public class IgnitionImpl implements Ignition {
 
         ackBanner();
 
-        // Vault Component startup.
-        VaultManager vaultMgr = new VaultManager(new VaultServiceImpl());
-
-        vaultMgr.putName(nodeName).join();
+        VaultManager vaultMgr = createVault(nodeName);
 
         boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
 
@@ -177,7 +186,38 @@ public class IgnitionImpl implements Ignition {
 
         ackSuccessStart();
 
-        return new IgniteImpl(distributedTblMgr);
+        return new IgniteImpl(distributedTblMgr) {
+            @Override public void close() throws Exception {
+                super.close();
+
+                vaultMgr.close();
+            }
+        };
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() {
+        IgniteUtils.delete(VAULT_DB_PATH);
+    }
+
+    /**
+     * Starts the Vault component.
+     */
+    private static VaultManager createVault(String nodeName) {
+        Path vaultPath = VAULT_DB_PATH.resolve(nodeName);
+
+        try {
+            Files.createDirectories(vaultPath);
+        }
+        catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        var vaultMgr = new VaultManager(new PersistentVaultService(vaultPath));
+
+        vaultMgr.putName(nodeName).join();
+
+        return vaultMgr;
     }
 
     /** */

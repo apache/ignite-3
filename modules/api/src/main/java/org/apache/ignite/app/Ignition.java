@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Entry point for handling grid lifecycle.
  */
 @SuppressWarnings("UnnecessaryInterfaceModifier")
-public interface Ignition {
+public interface Ignition extends AutoCloseable {
     /**
      * Starts Ignite node with optional bootstrap configuration in json format.
      *

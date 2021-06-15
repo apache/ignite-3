@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -63,28 +65,39 @@ class IgnitionTest {
                 "}");
         }};
 
-    /**
-     * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
-     */
-    @Test
-    void testNodesStartWithBootstrapConfiguration() {
-        List<Ignite> startedNodes = new ArrayList<>();
-
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            startedNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
-
-        Assertions.assertEquals(3, startedNodes.size());
-
-        startedNodes.forEach(Assertions::assertNotNull);
+    /** */
+    @AfterEach
+    void tearDown() throws Exception {
+        IgnitionManager.close();
     }
 
     /**
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
     @Test
-    void testNodeStartWithoutBootstrapConfiguration() {
-        Ignite ignite = IgnitionManager.start("node0", null);
+    void testNodesStartWithBootstrapConfiguration() throws Exception {
+        List<Ignite> startedNodes = new ArrayList<>();
 
-        Assertions.assertNotNull(ignite);
+        try {
+            for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
+                startedNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
+
+            Assertions.assertEquals(3, startedNodes.size());
+
+            startedNodes.forEach(Assertions::assertNotNull);
+        }
+        finally {
+            IgniteUtils.closeAll(startedNodes);
+        }
+    }
+
+    /**
+     * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
+     */
+    @Test
+    void testNodeStartWithoutBootstrapConfiguration() throws Exception {
+        try (Ignite ignite = IgnitionManager.start("node0", null)) {
+            Assertions.assertNotNull(ignite);
+        }
     }
 }

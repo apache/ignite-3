@@ -15,32 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.app;
+package org.apache.ignite.internal.vault.inmemory;
 
-import org.apache.ignite.app.Ignite;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.internal.vault.VaultService;
+import org.apache.ignite.internal.vault.VaultServiceTest;
 
 /**
- * Ignite internal implementation.
+ * Test suite for the {@link InMemoryVaultService}.
  */
-public class IgniteImpl implements Ignite {
-    /** Distributed table manager. */
-    private final IgniteTables distributedTblMgr;
-
-    /**
-     * @param TblMgr Table manager.
-     */
-    IgniteImpl(IgniteTables TblMgr) {
-        this.distributedTblMgr = TblMgr;
-    }
-
+class InMemoryVaultServiceTest extends VaultServiceTest {
     /** {@inheritDoc} */
-    @Override public IgniteTables tables() {
-        return distributedTblMgr;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        // TODO IGNITE-14581 Implement IgniteImpl close method.
+    @Override protected VaultService getVaultService() {
+        return new InMemoryVaultService();
     }
 }
