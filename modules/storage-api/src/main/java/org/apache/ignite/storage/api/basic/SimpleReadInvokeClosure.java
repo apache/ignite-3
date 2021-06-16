@@ -40,7 +40,6 @@ public class SimpleReadInvokeClosure implements InvokeClosure {
         return OperationType.NOOP;
     }
 
-    /** {@inheritDoc} */
     public DataRow row() {
         return row;
     }
