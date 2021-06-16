@@ -394,7 +394,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     }
 
     private int getAndIncrementSequence(final String groupId, final PeerPair pair, NodeManager nodeManager) {
-        // TODO asch can use getPeerContext because it must already present (created before) ???
+        // TODO asch can use getPeerContext because it must already present (created before) ??? IGNITE-14832
         return getOrCreatePeerRequestContext(groupId, pair, nodeManager).getAndIncrementSequence();
     }
 
@@ -409,6 +409,10 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         final RpcRequestClosure done) {
 
         final Node node = (Node) service;
+
+        if (node.getNodeId().getPeerId().getEndpoint().getPort() == 5006) {
+            LOG.info("DBG: received AppendEntriesRequest term={} count={} prevTerm={} prevIdx={}", request.getTerm(), request.getEntriesCount(), request.getPrevLogTerm(), request.getPrevLogIndex());
+        }
 
         if (node.getRaftOptions().isReplicatorPipeline()) {
             final String groupId = request.getGroupId();

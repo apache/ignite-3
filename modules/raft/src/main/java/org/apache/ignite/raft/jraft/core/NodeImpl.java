@@ -3273,8 +3273,6 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public Message handleInstallSnapshot(final InstallSnapshotRequest request, final RpcRequestClosure done) {
-        LOG.info("DBG: got handleInstallSnapshot from={} grp={} term={}", request.getServerId(), request.getGroupId(), request.getTerm());
-
         if (this.snapshotExecutor == null) {
             return RaftRpcFactory.DEFAULT //
                 .newResponse(InstallSnapshotResponse.getDefaultInstance(), RaftError.EINVAL, "Not supported snapshot");

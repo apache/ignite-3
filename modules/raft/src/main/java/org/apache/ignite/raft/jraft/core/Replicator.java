@@ -517,8 +517,6 @@ public class Replicator implements ThreadId.OnError {
     }
 
     void installSnapshot() {
-        LOG.info("DBG: Replicator {} is installing snapshot", this);
-
         if (this.state == State.Snapshot) {
             LOG.warn("Replicator {} is installing snapshot, ignore the new request.", this.options.getPeerId());
             this.id.unlock();
