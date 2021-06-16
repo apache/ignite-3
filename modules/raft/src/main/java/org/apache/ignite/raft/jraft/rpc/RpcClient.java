@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -43,20 +44,6 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     void registerConnectEventListener(final TopologyEventHandler handler);
 
     /**
-     * TODO asch get rid IGNITE-14382
-     * Synchronous invocation.
-     *
-     * @param endpoint target address
-     * @param request request object
-     * @param timeoutMs timeout millisecond
-     * @return invoke result
-     */
-    default Object invokeSync(final Endpoint endpoint, final Object request, final long timeoutMs)
-        throws InterruptedException, RemotingException {
-        return invokeSync(endpoint, request, null, timeoutMs);
-    }
-
-    /**
      * Synchronous invocation using a invoke context.
      *
      * @param endpoint target address
@@ -64,33 +51,22 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      * @param ctx invoke context
      * @param timeoutMs timeout millisecond
      * @return invoke result
+     * @deprecated TODO asch get rid IGNITE-14382
      */
     Object invokeSync(final Endpoint endpoint, final Object request, final InvokeContext ctx,
         final long timeoutMs) throws InterruptedException, RemotingException;
 
     /**
      * Asynchronous invocation with a callback.
-     *
-     * @param endpoint target address
-     * @param request request object
-     * @param callback invoke callback
-     * @param timeoutMs timeout millisecond
-     */
-    default void invokeAsync(final Endpoint endpoint, final Object request, final InvokeCallback callback,
-        final long timeoutMs) throws InterruptedException, RemotingException {
-        invokeAsync(endpoint, request, null, callback, timeoutMs);
-    }
-
-    /**
-     * Asynchronous invocation with a callback.
-     *
      * @param endpoint target address
      * @param request request object
      * @param ctx invoke context
      * @param callback invoke callback
      * @param timeoutMs timeout millisecond
+     *
+     * @return The future.
      */
-    void invokeAsync(final Endpoint endpoint, final Object request, final InvokeContext ctx,
-        final InvokeCallback callback,
-        final long timeoutMs) throws InterruptedException, RemotingException;
+    CompletableFuture<Message> invokeAsync(final Endpoint endpoint, final Object request, final InvokeContext ctx,
+                                           final InvokeCallback callback,
+                                           final long timeoutMs) throws InterruptedException, RemotingException;
 }

@@ -153,8 +153,8 @@ public abstract class AbstractRpcTest {
 
         assertTrue(client1.checkConnection(endpoint));
 
-        Response1 resp1 = (Response1) client1.invokeSync(endpoint, new Request1(), 500);
-        Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
+        Response1 resp1 = (Response1) client1.invokeSync(endpoint, new Request1(), null, 500);
+        Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), null, 500);
 
         assertNotNull(resp1);
         assertNotNull(resp2);
@@ -180,7 +180,7 @@ public abstract class AbstractRpcTest {
         try {
             Request1 request = new Request1();
             request.val = 10_000;
-            client1.invokeSync(endpoint, request, 500);
+            client1.invokeSync(endpoint, request, null, 500);
 
             fail();
         }
@@ -259,14 +259,14 @@ public abstract class AbstractRpcTest {
 
         assertTrue(client1.checkConnection(endpoint));
 
-        Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), 500);
+        Response2 resp2 = (Response2) client1.invokeSync(endpoint, new Request2(), null, 500);
 
         assertEquals(1, resp2.val);
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         Future<Response1> resp = Utils.runInThread(executorService,
-            () -> (Response1) client1.invokeSync(endpoint, new Request1(), 30_000));
+            () -> (Response1) client1.invokeSync(endpoint, new Request1(), null, 30_000));
 
         Thread.sleep(500);
 
@@ -292,7 +292,7 @@ public abstract class AbstractRpcTest {
 
         CompletableFuture resp = new CompletableFuture();
 
-        client1.invokeAsync(endpoint, new Request1(), new InvokeCallback() {
+        client1.invokeAsync(endpoint, new Request1(), null, new InvokeCallback() {
             @Override public void complete(Object result, Throwable err) {
                 resp.complete(result);
             }

@@ -130,13 +130,15 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
                 final ErrorResponse resp = (ErrorResponse) fut.get(); // Future will be certainly terminated by timeout.
 
-                if (resp.getErrorCode() == 0) {
+                if (resp != null && resp.getErrorCode() == 0) {
                     readyAddresses.add(endpoint.toString());
 
                     LOG.info("DBG: ping to={} status=ok", endpoint);
 
                     return true;
                 }
+                else
+                    return false;
             }
             catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -186,7 +188,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 return future;
             }
 
-            rc.invokeAsync(endpoint, request, ctx, new InvokeCallback() {
+            return rc.invokeAsync(endpoint, request, ctx, new InvokeCallback() {
                 @Override
                 public void complete(final Object result, final Throwable err) {
                     if (future.isCancelled()) {

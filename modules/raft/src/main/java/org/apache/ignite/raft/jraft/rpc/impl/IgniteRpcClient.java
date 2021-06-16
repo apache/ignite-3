@@ -34,6 +34,7 @@ import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
+import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -78,7 +79,7 @@ public class IgniteRpcClient implements RpcClientEx {
         if (!checkConnection(endpoint))
             throw new RemotingException("The server is dead " + endpoint);
 
-        CompletableFuture<Object> fut = new CompletableFuture();
+        CompletableFuture<Message> fut = new CompletableFuture();
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, endpoint.toString()))
@@ -112,12 +113,17 @@ public class IgniteRpcClient implements RpcClientEx {
         }
     }
 
-    @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback,
-        long timeoutMs) throws InterruptedException, RemotingException {
+    @Override public CompletableFuture<Message> invokeAsync(
+        Endpoint endpoint,
+        Object request,
+        InvokeContext ctx,
+        InvokeCallback callback,
+        long timeoutMs
+    ) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
             throw new RemotingException("The server is dead " + endpoint);
 
-        CompletableFuture<Object> fut = new CompletableFuture<>();
+        CompletableFuture<Message> fut = new CompletableFuture<>();
 
         fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS).
             whenComplete((res, err) -> {
@@ -150,14 +156,16 @@ public class IgniteRpcClient implements RpcClientEx {
                     }
                 }});
 
-                return;
+                return fut;
             }
         }
 
         send(endpoint, request, fut, timeoutMs);
+
+        return fut;
     }
 
-    public void send(Endpoint endpoint, Object request, CompletableFuture<Object> fut, long timeout) {
+    public void send(Endpoint endpoint, Object request, CompletableFuture<Message> fut, long timeout) {
         CompletableFuture<NetworkMessage> fut0 = service.messagingService().invoke(endpoint.toString(), (NetworkMessage) request, timeout);
 
         fut0.whenComplete(new BiConsumer<NetworkMessage, Throwable>() {
@@ -165,7 +173,7 @@ public class IgniteRpcClient implements RpcClientEx {
                 if (err != null)
                     fut.completeExceptionally(err);
                 else
-                    fut.complete(resp);
+                    fut.complete((Message) resp);
             }
         });
     }
