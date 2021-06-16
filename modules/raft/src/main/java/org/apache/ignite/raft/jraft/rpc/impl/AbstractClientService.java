@@ -40,6 +40,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
+import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,7 +134,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 if (resp != null && resp.getErrorCode() == 0) {
                     readyAddresses.add(endpoint.toString());
 
-                    LOG.info("DBG: ping to={} status=ok", endpoint);
+                    if (req instanceof RpcRequests.InstallSnapshotRequest)
+                        LOG.info("DBG: ping to={} status=ok", endpoint);
 
                     return true;
                 }
@@ -180,7 +182,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         final Executor currExecutor = rpcExecutor != null ? rpcExecutor : this.rpcExecutor;
 
         if (request instanceof RpcRequests.InstallSnapshotRequest) {
-            LOG.info("DBG: s1 to={} rc={}", endpoint, rc);
+            LOG.info("DBG: s1 to={} rc={} status={}", endpoint, rc, readyAddresses.contains(endpoint.toString()));
         }
 
         try {
@@ -231,7 +233,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         }
                     }
                     else {
-                        if (err instanceof ConnectException)
+                        if (ThrowUtil.hasCause(err, null, ConnectException.class))
                             readyAddresses.remove(endpoint.toString()); // Force logical reconnect.
 
                         if (done != null) {
