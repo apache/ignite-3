@@ -151,7 +151,7 @@ public class NettyServer {
                     @Override public void initChannel(SocketChannel ch) {
                         ch.pipeline().addLast(
                             /*
-                             * Decoder that uses org.apache.ignite.network.internal.MessageReader
+                             * Decoder that uses the MessageReader
                              * to read chunked data.
                              */
                             new InboundDecoder(serializationRegistry),
@@ -160,7 +160,7 @@ public class NettyServer {
                             // Handles decoded NetworkMessages.
                             new MessageHandler(messageListener),
                             /*
-                             * Encoder that uses org.apache.ignite.network.internal.MessageWriter
+                             * Encoder that uses the MessageWriter
                              * to write chunked data.
                              */
                             new ChunkedWriteHandler(),
