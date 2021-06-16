@@ -35,6 +35,7 @@ import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Abstract test that covers basic scenarios of the storage API.
@@ -114,7 +115,7 @@ public abstract class AbstractStorageTest {
 
     @Test
     public void scanSimple() throws Exception {
-        List<DataRow> list = toList(storage.scan(row -> true));
+        List<DataRow> list = toList(storage.scan(key -> true));
 
         assertEquals(emptyList(), list);
 
@@ -122,7 +123,7 @@ public abstract class AbstractStorageTest {
 
         storage.write(dataRow1);
 
-        list = toList(storage.scan(row -> true));
+        list = toList(storage.scan(key -> true));
 
         assertThat(list, hasSize(1));
 
@@ -132,7 +133,7 @@ public abstract class AbstractStorageTest {
 
         storage.write(dataRow2);
 
-        list = toList(storage.scan(row -> true));
+        list = toList(storage.scan(key -> true));
 
         assertThat(list, hasSize(2));
 
@@ -149,17 +150,21 @@ public abstract class AbstractStorageTest {
         storage.write(dataRow1);
         storage.write(dataRow2);
 
-        List<DataRow> list = toList(storage.scan(row -> row.keyBytes()[3] == '1'));
+        List<DataRow> list = toList(storage.scan(key -> key.keyBytes()[3] == '1'));
 
         assertThat(list, hasSize(1));
 
         assertArrayEquals(dataRow1.value().array(), list.get(0).value().array());
 
-        list = toList(storage.scan(row -> row.keyBytes()[3] == '2'));
+        list = toList(storage.scan(key -> key.keyBytes()[3] == '2'));
 
         assertThat(list, hasSize(1));
 
         assertArrayEquals(dataRow2.value().array(), list.get(0).value().array());
+
+        list = toList(storage.scan(key -> false));
+
+        assertTrue(list.isEmpty());
     }
 
     /**
