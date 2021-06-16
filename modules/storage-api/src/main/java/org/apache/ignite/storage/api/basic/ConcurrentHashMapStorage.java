@@ -31,9 +31,14 @@ import org.apache.ignite.storage.api.Storage;
 import org.apache.ignite.storage.api.StorageException;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Storage implementation based on {@link ConcurrentHashMap}.
+ */
 public class ConcurrentHashMapStorage implements Storage {
+    /** Storage content. */
     private final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
 
+    /** {@inheritDoc} */
     @Override public DataRow read(SearchRow key) throws StorageException {
         byte[] keyBytes = key.keyBytes();
 

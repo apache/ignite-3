@@ -26,26 +26,43 @@ import org.apache.ignite.internal.util.Cursor;
 public interface Storage {
     /**
      * Reads a DataRow for a given key.
-     * @param key Key object.
+     *
+     * @param key Search row.
+     * @return Data row.
      */
     public DataRow read(SearchRow key) throws StorageException;
 
     /**
      * Writes DataRow to the storage.
+     *
+     * @param row Data row.
+     * @throws StorageException If failed to read data or storage is already stopped.
      */
     public void write(DataRow row) throws StorageException;
 
     /**
      * Removes DataRow associated with a given Key.
+     *
+     * @throws StorageException If failed to read data or storage is already stopped.
      */
     public void remove(SearchRow key) throws StorageException;
 
     /**
      * Executes an update with custom logic implemented by storage.UpdateClosure interface.
+     *
+     * @param key Search key.
+     * @param clo Invoke closure.
+     * @throws StorageException If failed to read data or storage is already stopped.
      */
     public void invoke(SearchRow key, InvokeClosure clo) throws StorageException;
 
-    /** */
+    /**
+     * Creates cursor over storage data.
+     *
+     * @param filter Filter for the scan query.
+     * @return Cursor with filtered data.
+     * @throws StorageException If failed to read data or storage is already stopped.
+     */
     public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException;
 }
 
