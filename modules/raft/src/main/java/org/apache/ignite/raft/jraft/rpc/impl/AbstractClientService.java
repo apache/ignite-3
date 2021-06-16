@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.net.ConnectException;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -55,7 +56,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     /**
      * The set of pinged addresses
      */
-    private Set<String> readyAddresses = new ConcurrentHashSet<>();
+    protected Set<String> readyAddresses = new ConcurrentHashSet<>();
 
     public RpcClient getRpcClient() {
         return this.rpcClient;
@@ -124,8 +125,10 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                     .setSendTimestamp(System.currentTimeMillis()) //
                     .build();
 
-                final ErrorResponse resp = (ErrorResponse) rc.invokeSync(endpoint, req,
-                    this.rpcOptions.getRpcConnectTimeoutMs());
+                Future<Message> fut =
+                    invokeWithDone(endpoint, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor);
+
+                final ErrorResponse resp = (ErrorResponse) fut.get(); // Future will be certainly terminated by timeout.
 
                 if (resp.getErrorCode() == 0) {
                     readyAddresses.add(endpoint.toString());
@@ -138,8 +141,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            catch (final RemotingException e) {
-                LOG.error("Fail to connect {}, remoting exception: {}.", endpoint, e.getMessage());
+            catch (final ExecutionException e) {
+                LOG.error("Fail to connect {}, exception: {}.", endpoint, e.getMessage());
             }
         }
 
@@ -218,7 +221,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                     }
                     else {
                         if (err instanceof ConnectException)
-                            readyAddresses.remove(endpoint); // Force logical reconnect.
+                            readyAddresses.remove(endpoint.toString()); // Force logical reconnect.
 
                         if (done != null) {
                             try {
