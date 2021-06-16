@@ -77,46 +77,6 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     /** {@inheritDoc} */
-    @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx,
-        long timeoutMs) throws InterruptedException, RemotingException {
-        if (!checkConnection(endpoint))
-            throw new RemotingException("The server is dead " + endpoint);
-
-        CompletableFuture<Message> fut = new CompletableFuture();
-
-        // Future hashcode used as corellation id.
-        if (recordPred != null && recordPred.test(request, endpoint.toString()))
-            recordedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
-
-        boolean wasBlocked;
-
-        synchronized (this) {
-            wasBlocked = blockPred != null && blockPred.test(request, endpoint.toString());
-
-            if (wasBlocked)
-                blockedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut, timeoutMs)});
-        }
-
-        if (!wasBlocked)
-            send(endpoint, request, fut, timeoutMs);
-
-        try {
-            return fut.whenComplete((res, err) -> {
-                assert !(res == null && err == null) : res + " " + err;
-
-                if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
-            }).get(timeoutMs, TimeUnit.MILLISECONDS);
-        }
-        catch (ExecutionException e) {
-            throw new RemotingException(e);
-        }
-        catch (TimeoutException e) {
-            throw new InvokeTimeoutException();
-        }
-    }
-
-    /** {@inheritDoc} */
     @Override public CompletableFuture<Message> invokeAsync(
         Endpoint endpoint,
         Object request,
@@ -124,9 +84,6 @@ public class IgniteRpcClient implements RpcClientEx {
         InvokeCallback callback,
         long timeoutMs
     ) throws InterruptedException, RemotingException {
-        if (!checkConnection(endpoint))
-            throw new RemotingException("The server is dead " + endpoint);
-
         CompletableFuture<Message> fut = new CompletableFuture<>();
 
         fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS).

@@ -121,8 +121,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 return true;
 
             try {
-                final RpcRequests.PingRequest req = RpcRequests.PingRequest.newBuilder() //
-                    .setSendTimestamp(System.currentTimeMillis()) //
+                final RpcRequests.PingRequest req = RpcRequests.PingRequest.newBuilder()
+                    .setSendTimestamp(System.currentTimeMillis())
                     .build();
 
                 Future<Message> fut =
@@ -178,6 +178,11 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         final RpcClient rc = this.rpcClient;
         final FutureImpl<Message> future = new FutureImpl<>();
         final Executor currExecutor = rpcExecutor != null ? rpcExecutor : this.rpcExecutor;
+
+        if (request instanceof RpcRequests.InstallSnapshotRequest) {
+            LOG.info("DBG: s1 to={} rc={}", endpoint, rc);
+        }
+
         try {
             if (rc == null) {
                 // TODO asch replace with ignite exception, check all places IGNITE-14832
@@ -191,6 +196,10 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             return rc.invokeAsync(endpoint, request, ctx, new InvokeCallback() {
                 @Override
                 public void complete(final Object result, final Throwable err) {
+                    if (request instanceof RpcRequests.InstallSnapshotRequest) {
+                        LOG.info("DBG: s1_complete to={} res={} err={}", endpoint, result, err);
+                    }
+
                     if (future.isCancelled()) {
                         onCanceled(request, done);
                         return;

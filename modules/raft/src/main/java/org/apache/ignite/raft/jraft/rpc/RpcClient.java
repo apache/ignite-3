@@ -44,19 +44,6 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     void registerConnectEventListener(TopologyEventHandler handler);
 
     /**
-     * Synchronous invocation using a invoke context.
-     *
-     * @param endpoint target address
-     * @param request request object
-     * @param ctx invoke context
-     * @param timeoutMs timeout millisecond
-     * @return invoke result
-     * @deprecated TODO asch get rid IGNITE-14382
-     */
-    Object invokeSync(Endpoint endpoint, Object request, @Nullable InvokeContext ctx,
-        long timeoutMs) throws InterruptedException, RemotingException;
-
-    /**
      * Asynchronous invocation with a callback.
      *
      * @param endpoint target address
