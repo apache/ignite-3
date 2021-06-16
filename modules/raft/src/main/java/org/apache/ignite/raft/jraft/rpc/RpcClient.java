@@ -22,26 +22,26 @@ import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
  */
 public interface RpcClient extends Lifecycle<RpcOptions> {
-
     /**
      * Check connection for given address. // TODO asch rename to isAlive.
      *
      * @param endpoint target address
      * @return true if there is a connection and the connection is active and writable.
      */
-    boolean checkConnection(final Endpoint endpoint);
+    boolean checkConnection(Endpoint endpoint);
 
     /**
      * Register a connect event listener for the handler.
      *
      * @param handler The handler.
      */
-    void registerConnectEventListener(final TopologyEventHandler handler);
+    void registerConnectEventListener(TopologyEventHandler handler);
 
     /**
      * Synchronous invocation using a invoke context.
@@ -53,11 +53,12 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      * @return invoke result
      * @deprecated TODO asch get rid IGNITE-14382
      */
-    Object invokeSync(final Endpoint endpoint, final Object request, final InvokeContext ctx,
-        final long timeoutMs) throws InterruptedException, RemotingException;
+    Object invokeSync(Endpoint endpoint, Object request, @Nullable InvokeContext ctx,
+        long timeoutMs) throws InterruptedException, RemotingException;
 
     /**
      * Asynchronous invocation with a callback.
+     *
      * @param endpoint target address
      * @param request request object
      * @param ctx invoke context
@@ -66,7 +67,7 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      *
      * @return The future.
      */
-    CompletableFuture<Message> invokeAsync(final Endpoint endpoint, final Object request, final InvokeContext ctx,
-                                           final InvokeCallback callback,
-                                           final long timeoutMs) throws InterruptedException, RemotingException;
+    CompletableFuture<Message> invokeAsync(Endpoint endpoint, Object request, @Nullable InvokeContext ctx,
+        InvokeCallback callback,
+        long timeoutMs) throws InterruptedException, RemotingException;
 }

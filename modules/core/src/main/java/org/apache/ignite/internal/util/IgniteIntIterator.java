@@ -15,29 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.vault.common;
-
-import org.jetbrains.annotations.NotNull;
+package org.apache.ignite.internal.util;
 
 /**
- * Vault storage listener for changes.
+ * Iterator over integer primitives.
  */
-//TODO: need to generify with metastorage WatchListener https://issues.apache.org/jira/browse/IGNITE-14653
-public interface VaultListener {
+public interface IgniteIntIterator {
     /**
-     * The method will be called on each vault update.
-     *
-     * @param entries A single entry or a batch.
-     * @return {@code True} if listener must continue event handling. If returns {@code false} then the listener and
-     * corresponding watch will be unregistered.
+     * @return {@code true} if the iteration has more elements.
      */
-    boolean onUpdate(@NotNull Iterable<Entry> entries);
+    public boolean hasNext();
 
     /**
-     * The method will be called in case of an error occurred. The listener and corresponding watch will be
-     * unregistered.
-     *
-     * @param e Exception.
+     * @return Next int.
      */
-    void onError(@NotNull Throwable e);
+    public int next();
 }

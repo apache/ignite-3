@@ -15,36 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.vault.common;
+package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import java.util.concurrent.CompletableFuture;
-import org.jetbrains.annotations.NotNull;
+import java.util.List;
+
+import com.google.common.collect.ImmutableList;
 
 /**
- * Vault watcher.
  *
- * Watches for vault entries updates.
  */
-public interface Watcher {
-    /**
-     * Registers watch for vault entries updates.
-     *
-     * @param vaultWatch Vault watch.
-     * @return Id of registered watch.
-     */
-    CompletableFuture<Long> register(@NotNull VaultWatch vaultWatch);
+class ExecutionPlan {
+    /** */
+    private final long ver;
 
-    /**
-     * Notifies watcher that vault entry {@code val} was changed.
-     *
-     * @param val Vault entry.
-     */
-    void notify(@NotNull Entry val);
+    /** */
+    private final ImmutableList<Fragment> fragments;
 
-    /**
-     * Cancels watch with specified {@code id}.
-     *
-     * @param id Id of watch.
-     */
-    void cancel(@NotNull Long id);
+    /** */
+    ExecutionPlan(long ver, List<Fragment> fragments) {
+        this.ver = ver;
+        this.fragments = ImmutableList.copyOf(fragments);
+    }
+
+    /** */
+    public long topologyVersion() {
+        return ver;
+    }
+
+    /** */
+    public List<Fragment> fragments() {
+        return fragments;
+    }
 }
