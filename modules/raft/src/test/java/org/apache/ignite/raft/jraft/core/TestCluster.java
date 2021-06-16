@@ -28,8 +28,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -47,7 +47,10 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -57,7 +60,7 @@ public class TestCluster {
     /** Default election timeout. */
     private static final int ELECTION_TIMEOUT = 300;
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TestCluster.class);
 
     private final String dataPath;
     private final String name;
@@ -199,7 +202,7 @@ public class TestCluster {
 
         NodeManager nodeManager = new NodeManager();
 
-        final IgniteRpcServer rpcServer = new TestIgniteRpcServer(listenAddr, servers, nodeManager);
+        final IgniteRpcServer rpcServer = new TestIgniteRpcServer(listenAddr, servers, nodeManager, nodeOptions);
         nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
 
         if (optsClo != null)
@@ -278,7 +281,7 @@ public class TestCluster {
 
     public void clean(final Endpoint listenAddr) throws IOException {
         final String path = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
-        LOG.info("Clean dir: {0}", path);
+        LOG.info("Clean dir: {}", path);
         Utils.delete(new File(path));
     }
 
@@ -396,11 +399,16 @@ public class TestCluster {
         return ret;
     }
 
+    public void ensureSame() throws InterruptedException {
+        ensureSame(addr -> false);
+    }
+
     /**
+     * @param filter The node to exclude filter.
      * @return {@code True} if all FSM state are the same.
      * @throws InterruptedException
      */
-    public void ensureSame() throws InterruptedException {
+    public void ensureSame(Predicate<Endpoint> filter) throws InterruptedException {
         this.lock.lock();
 
         List<MockStateMachine> fsmList = new ArrayList<>(this.fsms.values());
@@ -411,17 +419,22 @@ public class TestCluster {
             return;
         }
 
-        LOG.info("Start ensureSame");
+        Node leader = getLeader();
+
+        MockStateMachine first = fsms.get(leader.getNodeId().getPeerId());
+
+        LOG.info("Start ensureSame, leader={}", leader);
 
         try {
             assertTrue(TestUtils.waitForCondition(() -> {
-                MockStateMachine first = fsmList.get(0);
-
                 first.lock();
 
                 try {
-                    for (int i = 1; i < fsmList.size(); i++) {
+                    for (int i = 0; i < fsmList.size(); i++) {
                         MockStateMachine fsm = fsmList.get(i);
+
+                        if (fsm == first || filter.test(fsm.getAddress()))
+                            continue;
 
                         fsm.lock();
 
@@ -454,7 +467,12 @@ public class TestCluster {
         }
         finally {
             this.lock.unlock();
-            LOG.info("End ensureSame");
+
+            Node leader1 = getLeader();
+
+            LOG.info("End ensureSame, leader={}", leader1);
+
+            assertSame("Leader shouldn't change while comparing fsms", leader, leader1);
         }
     }
 }

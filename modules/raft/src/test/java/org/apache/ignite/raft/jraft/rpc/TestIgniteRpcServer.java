@@ -53,18 +53,20 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
     /**
      * @param endpoint The endpoint.
      * @param nodeManager The node manager.
+     * @param nodeOptions Node options.
      */
-    public TestIgniteRpcServer(Endpoint endpoint, NodeManager nodeManager) {
-        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), List.of(), nodeManager);
+    public TestIgniteRpcServer(Endpoint endpoint, NodeManager nodeManager, NodeOptions nodeOptions) {
+        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), List.of(), nodeManager, nodeOptions);
     }
 
     /**
      * @param endpoint The endpoint.
      * @param servers Server list.
      * @param nodeManager The node manager.
+     * @param nodeOptions Node options.
      */
-    public TestIgniteRpcServer(Endpoint endpoint, List<String> servers, NodeManager nodeManager) {
-        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), servers, nodeManager);
+    public TestIgniteRpcServer(Endpoint endpoint, List<String> servers, NodeManager nodeManager, NodeOptions nodeOptions) {
+        this(endpoint.getIp() + ":" + endpoint.getPort(), endpoint.getPort(), servers, nodeManager, nodeOptions);
     }
 
     /**
@@ -72,9 +74,10 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
      * @param port The port.
      * @param servers Server list.
      * @param nodeManager The node manager.
+     * @param nodeOptions Node options.
      */
-    public TestIgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager) {
+    public TestIgniteRpcServer(String name, int port, List<String> servers, NodeManager nodeManager, NodeOptions nodeOptions) {
         super(SERVICE_FACTORY.createClusterService(new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY)),
-            false, nodeManager, MSG_FACTORY, JRaftUtils.createRequestExecutor(new NodeOptions()));
+            false, nodeManager, MSG_FACTORY, JRaftUtils.createRequestExecutor(nodeOptions));
     }
 }

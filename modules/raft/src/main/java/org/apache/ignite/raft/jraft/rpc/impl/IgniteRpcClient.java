@@ -76,7 +76,7 @@ public class IgniteRpcClient implements RpcClientEx {
     @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx,
         long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
-            throw new RemotingException("Server is dead " + endpoint);
+            throw new RemotingException("The server is dead " + endpoint);
 
         CompletableFuture<Object> fut = new CompletableFuture();
 
@@ -115,7 +115,7 @@ public class IgniteRpcClient implements RpcClientEx {
     @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback,
         long timeoutMs) throws InterruptedException, RemotingException {
         if (!checkConnection(endpoint))
-            throw new RemotingException("Server is dead " + endpoint);
+            throw new RemotingException("The server is dead " + endpoint);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 

@@ -190,12 +190,14 @@ public class ITCliServiceTest {
         final PeerId learner3 = new PeerId(TestUtils.getMyIp(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + 3);
         assertTrue(this.cluster.startLearner(learner3));
         sendTestTaskAndWait(this.cluster.getLeader(), 0);
-        Thread.sleep(500);
+        this.cluster.ensureSame(addr -> addr.equals(learner3.getEndpoint()));
+
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             if (!fsm.getAddress().equals(learner3.getEndpoint())) {
                 assertEquals(10, fsm.getLogs().size());
             }
         }
+
         assertEquals(0, this.cluster.getFsmByPeer(learner3).getLogs().size());
         List<PeerId> oldLearners = new ArrayList<PeerId>(this.conf.getLearners());
         assertEquals(oldLearners, this.cliService.getLearners(this.groupId, this.conf));
@@ -203,15 +205,17 @@ public class ITCliServiceTest {
 
         // Add learner3
         this.cliService.addLearners(this.groupId, this.conf, Arrays.asList(learner3));
-        Thread.sleep(1000);
-        assertEquals(10, this.cluster.getFsmByPeer(learner3).getLogs().size());
+
+        assertTrue(waitForCondition(() -> this.cluster.getFsmByPeer(learner3).getLogs().size() == 10, 5_000));
 
         sendTestTaskAndWait(this.cluster.getLeader(), 0);
-        Thread.sleep(1000);
+
+        this.cluster.ensureSame();
+
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             assertEquals(20, fsm.getLogs().size());
-
         }
+
         List<PeerId> newLearners = new ArrayList<>(oldLearners);
         newLearners.add(learner3);
         assertEquals(newLearners, this.cliService.getLearners(this.groupId, this.conf));
@@ -220,12 +224,15 @@ public class ITCliServiceTest {
         // Remove  3
         this.cliService.removeLearners(this.groupId, this.conf, Arrays.asList(learner3));
         sendTestTaskAndWait(this.cluster.getLeader(), 0);
-        Thread.sleep(1000);
+
+        this.cluster.ensureSame(addr -> addr.equals(learner3.getEndpoint()));
+
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             if (!fsm.getAddress().equals(learner3.getEndpoint())) {
                 assertEquals(30, fsm.getLogs().size());
             }
         }
+
         // Latest 10 logs are not replicated to learner3, because it's removed.
         assertEquals(20, this.cluster.getFsmByPeer(learner3).getLogs().size());
         assertEquals(oldLearners, this.cliService.getLearners(this.groupId, this.conf));
@@ -233,11 +240,13 @@ public class ITCliServiceTest {
 
         // Set learners into [learner3]
         this.cliService.resetLearners(this.groupId, this.conf, Arrays.asList(learner3));
-        Thread.sleep(100);
-        assertEquals(30, this.cluster.getFsmByPeer(learner3).getLogs().size());
+
+        assertTrue(waitForCondition(() -> this.cluster.getFsmByPeer(learner3).getLogs().size() == 30, 5_000));
 
         sendTestTaskAndWait(this.cluster.getLeader(), 0);
-        Thread.sleep(1000);
+
+        this.cluster.ensureSame(addr -> oldLearners.contains(new PeerId(addr, 0)));
+
         // Latest 10 logs are not replicated to learner1 and learner2, because they were removed by resetting learners set.
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             if (!oldLearners.contains(new PeerId(fsm.getAddress(), 0))) {
@@ -247,6 +256,7 @@ public class ITCliServiceTest {
                 assertEquals(30, fsm.getLogs().size());
             }
         }
+
         assertEquals(Arrays.asList(learner3), this.cliService.getLearners(this.groupId, this.conf));
         assertEquals(Arrays.asList(learner3), this.cliService.getAliveLearners(this.groupId, this.conf));
 
@@ -262,15 +272,18 @@ public class ITCliServiceTest {
         final PeerId peer3 = new PeerId(TestUtils.getMyIp(), TestUtils.INIT_PORT + 3);
         assertTrue(this.cluster.start(peer3.getEndpoint()));
         sendTestTaskAndWait(this.cluster.getLeader(), 0);
-        Thread.sleep(100);
+        this.cluster.ensureSame(addr -> addr.equals(peer3.getEndpoint()));
         assertEquals(0, this.cluster.getFsmByPeer(peer3).getLogs().size());
 
         assertTrue(this.cliService.addPeer(this.groupId, this.conf, peer3).isOk());
-        Thread.sleep(100);
-        assertEquals(10, this.cluster.getFsmByPeer(peer3).getLogs().size());
+
+        assertTrue(waitForCondition(() -> this.cluster.getFsmByPeer(peer3).getLogs().size() == 10, 5_000));
         sendTestTaskAndWait(this.cluster.getLeader(), 0);
-        Thread.sleep(100);
+
         assertEquals(6, this.cluster.getFsms().size());
+
+        this.cluster.ensureSame();
+
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             assertEquals(20, fsm.getLogs().size());
         }
@@ -279,8 +292,11 @@ public class ITCliServiceTest {
         assertTrue(this.cliService.removePeer(this.groupId, this.conf, peer3).isOk());
         Thread.sleep(200);
         sendTestTaskAndWait(this.cluster.getLeader(), 0);
-        Thread.sleep(1000);
+
         assertEquals(6, this.cluster.getFsms().size());
+
+        this.cluster.ensureSame(addr -> addr.equals(peer3.getEndpoint()));
+
         for (final MockStateMachine fsm : this.cluster.getFsms()) {
             if (fsm.getAddress().equals(peer3.getEndpoint())) {
                 assertEquals(20, fsm.getLogs().size());

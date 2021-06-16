@@ -43,6 +43,7 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
     void registerConnectEventListener(final TopologyEventHandler handler);
 
     /**
+     * TODO asch get rid IGNITE-14382
      * Synchronous invocation.
      *
      * @param endpoint target address

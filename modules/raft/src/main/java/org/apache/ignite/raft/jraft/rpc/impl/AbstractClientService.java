@@ -130,6 +130,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 if (resp.getErrorCode() == 0) {
                     readyAddresses.add(endpoint.toString());
 
+                    LOG.info("DBG: ping to={} status=ok", endpoint);
+
                     return true;
                 }
             }
@@ -140,6 +142,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                 LOG.error("Fail to connect {}, remoting exception: {}.", endpoint, e.getMessage());
             }
         }
+
+        LOG.info("DBG: ping to={} status=fail", endpoint);
 
         return false;
     }

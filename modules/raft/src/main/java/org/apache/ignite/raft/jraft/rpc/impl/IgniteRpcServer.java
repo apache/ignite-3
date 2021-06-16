@@ -92,7 +92,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new GetFileRequestProcessor(rpcExecutor));
         registerProcessor(new InstallSnapshotRequestProcessor(rpcExecutor));
         registerProcessor(new RequestVoteRequestProcessor(rpcExecutor));
-        registerProcessor(new PingRequestProcessor(rpcExecutor));
+        registerProcessor(new PingRequestProcessor(rpcExecutor)); // TODO asch this should go last.
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor));
         // raft native cli service
