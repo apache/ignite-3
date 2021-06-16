@@ -58,14 +58,14 @@ import org.apache.ignite.lang.IgniteLogger;
  */
 @Experimental
 public class AsmSerializerGenerator implements SerializerFactory {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(AsmSerializerGenerator.class);
+
     /** Serializer package name. */
     public static final String SERIALIZER_PACKAGE_NAME = "org.apache.ignite.internal.schema.marshaller";
 
     /** Serializer package name prefix. */
     public static final String SERIALIZER_CLASS_NAME_PREFIX = "SerializerForSchema_";
-
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AsmSerializerGenerator.class);
 
     /** Dump generated code. */
     private final boolean dumpCode = LOG.isTraceEnabled();
@@ -260,7 +260,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
                 .invoke("valueColumns", Columns.class)));
 
         Columns columns = schema.keyColumns();
-        if (columns.firstVarlengthColumn() >= 0) {
+        if (columns.hasVarlengthColumns()) {
             final Variable tmp = scope.createTempVariable(Object.class);
 
             for (int i = columns.firstVarlengthColumn(); i < columns.length(); i++) {
@@ -280,7 +280,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
         }
 
         columns = schema.valueColumns();
-        if (columns.firstVarlengthColumn() >= 0) {
+        if (columns.hasVarlengthColumns()) {
             final Variable tmp = scope.createTempVariable(Object.class);
 
             for (int i = columns.firstVarlengthColumn(); i < columns.length(); i++) {
@@ -301,7 +301,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
 
         body.append(BytecodeExpressions.newInstance(RowAssembler.class,
             methodDef.getThis().getField("schema", SchemaDescriptor.class),
-            BytecodeExpressions.invokeStatic(RowAssembler.class, "rowChunkSize", int.class,
+            BytecodeExpressions.invokeStatic(RowAssembler.class, "rowSize", int.class,
                 keyCols, varlenKeyCols, varlenKeyColsSize,
                 valCols, varlenValueCols, varlenValueColsSize),
             varlenKeyCols,

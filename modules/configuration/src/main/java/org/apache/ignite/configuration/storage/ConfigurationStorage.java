@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.storage;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Common interface for configuration storage.
@@ -34,27 +35,22 @@ public interface ConfigurationStorage {
     /**
      * Write key-value pairs into the storage with last known version.
      * @param newValues Key-value pairs.
-     * @param version Last known version.
+     * @param ver Last known version.
      * @return Future that gives you {@code true} if successfully written, {@code false} if version of the storage is
      *      different from the passed argument and {@link StorageException} if failed to write data.
      */
-    CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long version);
+    CompletableFuture<Boolean> write(Map<String, Serializable> newValues, long ver);
 
     /**
      * Add listener to the storage that notifies of data changes.
-     * @param listener Listener.
+     * @param lsnr Listener. Cannot be null.
      */
-    void addListener(ConfigurationStorageListener listener);
-
-    /**
-     * Remove storage listener.
-     * @param listener Listener.
-     */
-    void removeListener(ConfigurationStorageListener listener);
+    void registerConfigurationListener(@NotNull ConfigurationStorageListener lsnr);
 
     /**
      * Notify storage that this specific revision was successfully handled and it is not necessary to repeat the same
      * notification on node restart.
+     * @param storageRevision Storage revision.
      */
     void notifyApplied(long storageRevision);
 

@@ -43,6 +43,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Order of fields must be the same as they are described in configuration schema.
      *
      * @param visitor Configuration visitor.
+     * @param <T> Parameter type of the passed visitor.
      */
     public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor);
 
@@ -75,6 +76,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *
      * @param key Name of the child.
      * @param visitor Configuration visitor.
+     * @param <T> Parameter type of passed visitor.
+     * @return Whatever {@code visitor} returned.
      * @throws NoSuchElementException If field {@code key} is not found.
      */
     public abstract <T> T traverseChild(String key, ConfigurationVisitor<T> visitor) throws NoSuchElementException;
@@ -86,7 +89,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *     switch (key) {
      *         case "namedList":
      *             if (src == null)
-     *                 namedList = new{@code NamedListNode<>}(Foo::new);
+     *                 namedList = new NamedListNode&lt;&gt;(Foo::new);
      *             else
      *                 src.descend(namedList = namedList.copy());
      *             break;
@@ -114,10 +117,9 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Assigns default value to the corresponding leaf. Defaults are gathered from configuration schema class.
      *
      * @param fieldName Field name to be initialized.
-     * @return {@code true} if default value has been assigned, {@code false} otherwise.
      * @throws NoSuchElementException If there's no such field or it is not a leaf value.
      */
-    public abstract boolean constructDefault(String fieldName) throws NoSuchElementException;
+    public abstract void constructDefault(String fieldName) throws NoSuchElementException;
 
     /**
      * @return Class of corresponding configuration schema.

@@ -20,9 +20,6 @@ import com.google.testing.compile.Compilation;
 import com.squareup.javapoet.ClassName;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.configuration.processor.internal.HasFieldMatcher.hasFields;
-import static org.apache.ignite.configuration.processor.internal.HasMethodMatcher.hasMethods;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,40 +43,10 @@ public class ITProcessorTest extends AbstractProcessorTest {
 
         assertNotEquals(Compilation.Status.FAILURE, status.status());
 
-        assertEquals(6, batch.generated().size());
+        assertEquals(3, batch.generated().size());
 
         final ConfigSet classSet = batch.getBySchema(testConfigurationSchema);
 
         assertTrue(classSet.allGenerated());
-
-        assertThat(
-            classSet.getNodeClass(),
-            hasFields(
-                "value1", String.class.getCanonicalName(),
-                "primitiveLong", Long.class.getCanonicalName(),
-                "primitiveInt", Integer.class.getCanonicalName(),
-                "stringArray", String[].class.getCanonicalName()
-            )
-        );
-
-        String nodeClassName = classSet.getNodeClass().getClassName();
-
-        assertThat(
-            classSet.getNodeClass(),
-            hasMethods(
-                "value1()", String.class.getCanonicalName(),
-                "primitiveLong()", long.class.getCanonicalName(),
-                "primitiveInt()", int.class.getCanonicalName(),
-                "stringArray()", String[].class.getCanonicalName(),
-                "initValue1(java.lang.String)", nodeClassName,
-                "initPrimitiveLong(long)", nodeClassName,
-                "initPrimitiveInt(int)", nodeClassName,
-                "initStringArray(java.lang.String[])", nodeClassName,
-                "changeValue1(java.lang.String)", nodeClassName,
-                "changePrimitiveLong(long)", nodeClassName,
-                "changePrimitiveInt(int)", nodeClassName,
-                "changeStringArray(java.lang.String[])", nodeClassName
-            )
-        );
     }
 }

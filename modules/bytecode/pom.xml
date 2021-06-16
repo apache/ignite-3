@@ -33,6 +33,7 @@
     <version>3.0.0-SNAPSHOT</version>
 
     <dependencies>
+        <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
@@ -64,7 +65,7 @@
     <build>
         <plugins>
             <!--
-               Disable javadoc validataion for forked foreign module.
+               Disable javadoc validation for forked foreign module.
            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

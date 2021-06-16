@@ -17,29 +17,62 @@
 
 package org.apache.ignite.network.scalecube;
 
+import java.lang.management.ManagementFactory;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.network.AbstractClusterService;
+import org.apache.ignite.network.NetworkMessagesFactory;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkConfigurationException;
+import org.apache.ignite.network.internal.netty.ConnectionManager;
+import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
  * {@link ClusterServiceFactory} implementation that uses ScaleCube for messaging and topology services.
+ * TODO: IGNITE-14538: This factory should use ScaleCube configuration instead of default parameters.
  */
 public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
     /** {@inheritDoc} */
     @Override public ClusterService createClusterService(ClusterLocalConfiguration context) {
+        String consistentId = context.getName();
+
         var topologyService = new ScaleCubeTopologyService();
+
         var messagingService = new ScaleCubeMessagingService(topologyService);
 
-        var cluster = new ClusterImpl()
+        var messageFactory = new NetworkMessagesFactory();
+
+        MessageSerializationRegistry registry = context.getSerializationRegistry();
+
+        UUID launchId = UUID.randomUUID();
+
+        var connectionManager = new ConnectionManager(
+            context.getPort(),
+            registry,
+            consistentId,
+            () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
+            () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory)
+        );
+
+        var transport = new ScaleCubeDirectMarshallerTransport(connectionManager, topologyService, messageFactory);
+
+        var cluster = new ClusterImpl(defaultConfig())
             .handler(cl -> new ClusterMessageHandler() {
                 /** {@inheritDoc} */
                 @Override public void onMessage(Message message) {
@@ -51,8 +84,8 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
                     topologyService.onMembershipEvent(event);
                 }
             })
-            .config(opts -> opts.memberAlias(context.getName()))
-            .transport(opts -> opts.port(context.getPort()))
+            .config(opts -> opts.memberAlias(consistentId))
+            .transport(opts -> opts.transportFactory(new DelegatingTransportFactory(messagingService, config -> transport)))
             .membership(opts -> opts.seedMembers(parseAddresses(context.getMemberAddresses())));
 
         // resolve cyclic dependencies
@@ -61,6 +94,8 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
         return new AbstractClusterService(context, topologyService, messagingService) {
             /** {@inheritDoc} */
             @Override public void start() {
+                connectionManager.start();
+
                 cluster.startAwait();
 
                 topologyService.setLocalMember(cluster.member());
@@ -68,10 +103,37 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override public void shutdown() {
+                stopJmxMonitor();
+
                 cluster.shutdown();
                 cluster.onShutdown().block();
+                connectionManager.stop();
+            }
+
+            /**
+             * Removes the JMX MBean registered by the "io.scalecube.cluster.ClusterImpl#startJmxMonitor()" method.
+             * Current ScaleCube implementation does not do that which leads to memory leaks.
+             */
+            private void stopJmxMonitor() {
+                MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+
+                try {
+                    var pattern = new ObjectName("io.scalecube.cluster", "name", cluster.member().id() + "@*");
+
+                    for (ObjectName name : server.queryNames(pattern, null))
+                        server.unregisterMBean(name);
+                }
+                catch (MalformedObjectNameException | InstanceNotFoundException | MBeanRegistrationException ignore) {
+                }
             }
         };
+    }
+
+    /**
+     * @return The default configuration.
+     */
+    protected ClusterConfig defaultConfig() {
+        return ClusterConfig.defaultConfig();
     }
 
     /**
@@ -79,7 +141,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
      * @param addresses "host:port" formatted strings.
      * @return List of addresses.
      */
-    private List<Address> parseAddresses(List<String> addresses) {
+    private static List<Address> parseAddresses(List<String> addresses) {
         try {
             return addresses.stream()
                 .map(Address::from)

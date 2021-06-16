@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -28,17 +29,17 @@ abstract class AbstractTableView {
     /** Internal table. */
     protected final InternalTable tbl;
 
-    /** Schema manager. */
-    protected final TableSchemaManager schemaMgr;
+    /** Schema registry. */
+    protected final SchemaRegistry schemaReg;
 
     /**
      * Constructor
      * @param tbl Internal table.
-     * @param schemaMgr Schema manager.
+     * @param schemaReg Schema registry.
      */
-    protected AbstractTableView(InternalTable tbl, TableSchemaManager schemaMgr) {
+    protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg) {
         this.tbl = tbl;
-        this.schemaMgr = schemaMgr;
+        this.schemaReg = schemaReg;
     }
 
     /**

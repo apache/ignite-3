@@ -18,14 +18,16 @@
 package org.apache.ignite.raft.client.message;
 
 import java.io.Serializable;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft error response. Also used as a default response when errorCode == {@link RaftErrorCode#SUCCESS}
+ * Raft error response.
  */
+@Transferable(value = RaftClientMessageGroup.RAFT_ERROR_RESPONSE, autoSerializable = false)
 public interface RaftErrorResponse extends NetworkMessage, Serializable {
     /**
      * @return Error code.
@@ -33,28 +35,12 @@ public interface RaftErrorResponse extends NetworkMessage, Serializable {
     public RaftErrorCode errorCode();
 
     /**
+     * @return Error message.
+     */
+    public String errorMessage();
+
+    /**
      * @return The new leader if a current leader is obsolete or null if not applicable.
      */
     public @Nullable Peer newLeader();
-
-    /** */
-    public interface Builder {
-        /**
-         * @param errorCode Error code.
-         * @return The builder.
-         */
-        Builder errorCode(RaftErrorCode errorCode);
-
-        /**
-         * @param newLeader New leader.
-         * @return The builder.
-         */
-        Builder newLeader(Peer newLeader);
-
-        /**
-         * @return The complete message.
-         * @throws IllegalStateException If the message is not in valid state.
-         */
-        RaftErrorResponse build();
-    }
 }

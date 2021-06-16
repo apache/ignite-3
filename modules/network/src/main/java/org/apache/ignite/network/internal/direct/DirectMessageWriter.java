@@ -23,12 +23,13 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.internal.MessageWriter;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.internal.direct.state.DirectMessageState;
 import org.apache.ignite.network.internal.direct.state.DirectMessageStateItem;
 import org.apache.ignite.network.internal.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.network.internal.direct.stream.DirectByteBufferStreamImplV1;
-import org.apache.ignite.network.message.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,10 +38,11 @@ public class DirectMessageWriter implements MessageWriter {
     private final DirectMessageState<StateItem> state;
 
     /**
+     * @param serializationRegistry Serialization registry.
      * @param protoVer Protocol version.
      */
-    public DirectMessageWriter(byte protoVer) {
-        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(protoVer));
+    public DirectMessageWriter(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationRegistry, protoVer));
     }
 
     /** {@inheritDoc} */
@@ -54,10 +56,21 @@ public class DirectMessageWriter implements MessageWriter {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean writeHeader(short type, byte fieldCnt) {
+    // TODO: compress the header https://issues.apache.org/jira/browse/IGNITE-14818
+    @Override public boolean writeHeader(short groupType, short messageType, byte fieldCnt) {
         DirectByteBufferStream stream = state.item().stream;
 
-        stream.writeShort(type);
+        // first part of the header might have already been sent in a previous write attempt
+        if (!state.item().partialHdrWritten) {
+            stream.writeShort(groupType);
+
+            if (stream.lastFinished())
+                state.item().partialHdrWritten = true;
+            else
+                return false;
+        }
+
+        stream.writeShort(messageType);
 
         return stream.lastFinished();
     }
@@ -341,16 +354,24 @@ public class DirectMessageWriter implements MessageWriter {
         /** */
         private int state;
 
-        /** */
+        /**
+         * Flag indicating that the first part of the message header has been written.
+         */
+        private boolean partialHdrWritten;
+
+        /**
+         * Flag indicating that the whole message header has been written.
+         */
         private boolean hdrWritten;
 
         /**
+         * @param registry Serialization registry.
          * @param protoVer Protocol version.
          */
-        StateItem(byte protoVer) {
+        StateItem(MessageSerializationRegistry registry, byte protoVer) {
             switch (protoVer) {
                 case 1:
-                    stream = new DirectByteBufferStreamImplV1(null);
+                    stream = new DirectByteBufferStreamImplV1(registry);
 
                     break;
 
@@ -362,6 +383,7 @@ public class DirectMessageWriter implements MessageWriter {
         /** {@inheritDoc} */
         @Override public void reset() {
             state = 0;
+            partialHdrWritten = false;
             hdrWritten = false;
         }
     }

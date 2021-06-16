@@ -17,29 +17,38 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 /**
- * Marshaller implementation.
+ * Tuple marshaller implementation.
  */
-class TupleMarshallerImpl implements TupleMarshaller {
+public class TupleMarshallerImpl implements TupleMarshaller {
     /** Schema manager. */
-    private final TableSchemaManager schemaMgr;
+    private final SchemaRegistry schemaReg;
 
     /**
      * Constructor.
      *
-     * @param schemaMgr Schema manager.
+     * @param schemaReg Schema manager.
      */
-    TupleMarshallerImpl(TableSchemaManager schemaMgr) {
-        this.schemaMgr = schemaMgr;
+    public TupleMarshallerImpl(SchemaRegistry schemaReg) {
+        this.schemaReg = schemaReg;
     }
 
     /** {@inheritDoc} */
@@ -48,12 +57,12 @@ class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /** {@inheritDoc} */
-    @Override public Row marshal(Tuple keyTuple, Tuple valTuple) {
-        final SchemaDescriptor schema = schemaMgr.schema();
+    @Override public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) {
+        final SchemaDescriptor schema = schemaReg.schema();
 
-        assert keyTuple instanceof TupleBuilderImpl;
+        validate(keyTuple, schema.keyColumns());
 
-        final RowAssembler rowBuilder = new RowAssembler(schema, 4096, 0, 0);
+        final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
             final Column col = schema.keyColumns().column(i);
@@ -62,6 +71,8 @@ class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         if (valTuple != null) {
+            validate(valTuple, schema.valueColumns());
+
             for (int i = 0; i < schema.valueColumns().length(); i++) {
                 final Column col = schema.valueColumns().column(i);
 
@@ -72,27 +83,158 @@ class TupleMarshallerImpl implements TupleMarshaller {
         return new Row(schema, new ByteBufferRow(rowBuilder.build()));
     }
 
+    /** */
+    private void validate(Tuple tuple, Columns columns) {
+        if (tuple instanceof TupleBuilderImpl) {
+            TupleBuilderImpl t0 = (TupleBuilderImpl)tuple;
+
+            SchemaDescriptor expSchema = schemaReg.schema(t0.schema().version());
+
+            if (!Objects.equals(t0.schema(), expSchema))
+                throw new SchemaMismatchException("Unexpected schema: [expected=" + expSchema + ", actual=" + t0.schema() + ']');
+        }
+        else {
+            Arrays.stream(columns.columns()).forEach(c -> c.validate(tuple.value(c.name())));
+        }
+    }
+
+    /**
+     * Creates {@link RowAssembler} for key-value tuples.
+     *
+     * @param keyTuple Key tuple.
+     * @param valTuple Value tuple.
+     * @return Row assembler.
+     */
+    private RowAssembler createAssembler(SchemaDescriptor schema, Tuple keyTuple, Tuple valTuple) {
+        final ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyTuple);
+        final ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valTuple);
+
+        int size = RowAssembler.rowSize(
+            schema.keyColumns(), keyStat.nonNullCols, keyStat.nonNullColsSize,
+            schema.valueColumns(), valStat.nonNullCols, valStat.nonNullColsSize);
+
+        return new RowAssembler(schema, size, keyStat.nonNullCols, valStat.nonNullCols);
+    }
+
     /**
      * @param tup Tuple.
      * @param col Column.
      * @param rowAsm Row assembler.
      */
     private void writeColumn(Tuple tup, Column col, RowAssembler rowAsm) {
-        if (tup.value(col.name()) == null) {
+        Object val;
+
+        if (!tup.contains(col.name()))
+            val = col.defaultValue();
+        else {
+            val = tup.value(col.name());
+        }
+
+        if (val == null) {
             rowAsm.appendNull();
+
             return;
         }
 
         switch (col.type().spec()) {
-            case LONG: {
-                rowAsm.appendLong(tup.longValue(col.name()));
+            case BYTE: {
+                rowAsm.appendByte((byte)val);
 
                 break;
             }
+            case SHORT: {
+                rowAsm.appendShort((short)val);
 
+                break;
+            }
+            case INTEGER: {
+                rowAsm.appendInt((int)val);
+
+                break;
+            }
+            case LONG: {
+                rowAsm.appendLong((long)val);
+
+                break;
+            }
+            case FLOAT: {
+                rowAsm.appendFloat((float)val);
+
+                break;
+            }
+            case DOUBLE: {
+                rowAsm.appendDouble((double)val);
+
+                break;
+            }
+            case UUID: {
+                rowAsm.appendUuid((UUID)val);
+
+                break;
+            }
+            case STRING: {
+                rowAsm.appendString((String)val);
+
+                break;
+            }
+            case BYTES: {
+                rowAsm.appendBytes((byte[])val);
+
+                break;
+            }
+            case BITMASK: {
+                rowAsm.appendBitmask((BitSet)val);
+
+                break;
+            }
             default:
                 throw new IllegalStateException("Unexpected value: " + col.type());
         }
     }
 
+    /**
+     * Reads object fields and gather statistic.
+     *
+     * @param cols Schema columns.
+     * @param tup Tuple.
+     * @return Object statistic.
+     */
+    private ObjectStatistic collectObjectStats(Columns cols, Tuple tup) {
+        if (tup == null || !cols.hasVarlengthColumns())
+            return new ObjectStatistic(0, 0);
+
+        int cnt = 0;
+        int size = 0;
+
+        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
+            Column col = cols.column(i);
+
+            final Object val = tup.contains(col.name()) ? tup.value(col.name()) : col.defaultValue();
+
+            if (val == null || cols.column(i).type().spec().fixedLength())
+                continue;
+
+            size += getValueSize(val, cols.column(i).type());
+            cnt++;
+        }
+
+        return new ObjectStatistic(cnt, size);
+    }
+
+    /**
+     * Object statistic.
+     */
+    private static class ObjectStatistic {
+        /** Non-null fields of varlen type. */
+        int nonNullCols;
+
+        /** Length of all non-null fields of varlen types. */
+        int nonNullColsSize;
+
+        /** Constructor. */
+        ObjectStatistic(int nonNullCols, int nonNullColsSize) {
+            this.nonNullCols = nonNullCols;
+            this.nonNullColsSize = nonNullColsSize;
+        }
+    }
 }

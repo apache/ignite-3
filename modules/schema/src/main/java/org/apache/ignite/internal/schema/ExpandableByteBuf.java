@@ -63,7 +63,7 @@ public class ExpandableByteBuf {
      */
     public ExpandableByteBuf(int size) {
         if (size <= 0)
-            size = 16;
+            size = 32;
 
         arr = new byte[size];
         buf = ByteBuffer.wrap(arr);
@@ -189,7 +189,7 @@ public class ExpandableByteBuf {
                     break;
 
                 if (cr.isOverflow()) {
-                    expand(len + 1);
+                    expand(len + (int)encoder.maxBytesPerChar());
 
                     continue;
                 }
@@ -205,7 +205,7 @@ public class ExpandableByteBuf {
                 len = buf.position();
 
                 if (cr.isOverflow()) {
-                    expand(len + 1);
+                    expand(len + (int)encoder.maxBytesPerChar());
 
                     continue;
                 }
@@ -249,7 +249,7 @@ public class ExpandableByteBuf {
      *
      * @param cap Target capacity.
      */
-    private void ensureCapacity(int cap) {
+    void ensureCapacity(int cap) {
         if (arr.length < cap)
             expand(cap);
 
@@ -270,7 +270,7 @@ public class ExpandableByteBuf {
                 l += MB;
         }
 
-        byte[] tmp = new byte[cap];
+        byte[] tmp = new byte[l];
 
         System.arraycopy(arr, 0, tmp, 0, arr.length);
 

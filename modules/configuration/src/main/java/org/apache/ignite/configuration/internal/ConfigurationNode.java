@@ -33,7 +33,7 @@ import org.apache.ignite.configuration.tree.TraversableTreeNode;
 /**
  * Super class for dynamic configuration tree nodes. Has all common data and value retrieving algorithm in it.
  */
-abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationProperty<VIEW, CHANGE> {
+public abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationProperty<VIEW, CHANGE> {
     /** Listeners of property update. */
     protected final List<ConfigurationListener<VIEW>> updateListeners = new CopyOnWriteArrayList<>();
 
@@ -111,11 +111,13 @@ abstract class ConfigurationNode<VIEW, CHANGE> implements ConfigurationProperty<
 
             synchronized (this) {
                 if (cachedRootNode == oldRootNode) {
-                    cachedRootNode = newRootNode;
-
                     beforeRefreshValue(newVal);
 
-                    return val = newVal;
+                    val = newVal;
+
+                    cachedRootNode = newRootNode;
+
+                    return newVal;
                 }
                 else {
                     if (invalid)

@@ -19,19 +19,48 @@ package org.apache.ignite.internal.util;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.function.Predicate;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
+    /** Byte bit-mask. */
+    private static final int MASK = 0xf;
+
     /** Version of the JDK. */
     private static String jdkVer;
 
-    /**
-     * Initializes enterprise check.
+    /** Class loader used to load Ignite. */
+    private static final ClassLoader igniteClassLoader = IgniteUtils.class.getClassLoader();
+
+    /** Primitive class map. */
+    private static final Map<String, Class<?>> primitiveMap = new HashMap<>(16, .5f);
+
+    /** */
+    private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class>> classCache =
+        new ConcurrentHashMap<>();
+
+    /*
+      Initializes enterprise check.
      */
     static {
         IgniteUtils.jdkVer = System.getProperty("java.specification.version");
+
+        primitiveMap.put("byte", byte.class);
+        primitiveMap.put("short", short.class);
+        primitiveMap.put("int", int.class);
+        primitiveMap.put("long", long.class);
+        primitiveMap.put("float", float.class);
+        primitiveMap.put("double", double.class);
+        primitiveMap.put("char", char.class);
+        primitiveMap.put("boolean", boolean.class);
+        primitiveMap.put("void", void.class);
     }
 
     /**
@@ -166,5 +195,144 @@ public class IgniteUtils {
         int val = (int)(key ^ (key >>> 32));
 
         return hash(val);
+    }
+
+    /**
+     * Converts byte array to hex string.
+     *
+     * @param arr Array of bytes.
+     * @return Hex string.
+     */
+    public static String toHexString(byte[] arr) {
+        return toHexString(arr, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Converts byte array to hex string.
+     *
+     * @param arr Array of bytes.
+     * @param maxLen Maximum length of result string. Rounds down to a power of two.
+     * @return Hex string.
+     */
+    public static String toHexString(byte[] arr, int maxLen) {
+        assert maxLen >= 0 : "maxLem must be not negative.";
+
+        int capacity = Math.min(arr.length << 1, maxLen);
+
+        int lim = capacity >> 1;
+
+        StringBuilder sb = new StringBuilder(capacity);
+
+        for (int i = 0; i < lim; i++)
+            addByteAsHex(sb, arr[i]);
+
+        return sb.toString().toUpperCase();
+    }
+
+    /**
+     * @param sb String builder.
+     * @param b Byte to add in hexadecimal format.
+     */
+    private static void addByteAsHex(StringBuilder sb, byte b) {
+        sb.append(Integer.toHexString(MASK & b >>> 4)).append(Integer.toHexString(MASK & b));
+    }
+
+    /**
+     * Gets absolute value for integer. If integer is {@link Integer#MIN_VALUE}, then {@code 0} is returned.
+     *
+     * @param i Integer.
+     * @return Absolute value.
+     */
+    public static int safeAbs(int i) {
+        i = Math.abs(i);
+
+        return i < 0 ? 0 : i;
+    }
+
+    /**
+     * Returns a first non-null value in a given array, if such is present.
+     *
+     * @param vals Input array.
+     * @return First non-null value, or {@code null}, if array is empty or contains
+     *      only nulls.
+     */
+    @Nullable public static <T> T firstNotNull(@Nullable T... vals) {
+        if (vals == null)
+            return null;
+
+        for (T val : vals) {
+            if (val != null)
+                return val;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return Class loader used to load Ignite itself.
+     */
+    public static ClassLoader igniteClassLoader() {
+        return igniteClassLoader;
+    }
+
+    /**
+     * Gets class for provided name. Accepts primitive types names.
+     *
+     * @param clsName Class name.
+     * @param ldr Class loader.
+     * @return Class.
+     * @throws ClassNotFoundException If class not found.
+     */
+    public static Class<?> forName(String clsName, @Nullable ClassLoader ldr) throws ClassNotFoundException {
+        return forName(clsName, ldr, null);
+    }
+
+    /**
+     * Gets class for provided name. Accepts primitive types names.
+     *
+     * @param clsName Class name.
+     * @param ldr Class loader.
+     * @return Class.
+     * @throws ClassNotFoundException If class not found.
+     */
+    public static Class<?> forName(
+        String clsName,
+        @Nullable ClassLoader ldr,
+        Predicate<String> clsFilter
+    ) throws ClassNotFoundException {
+        assert clsName != null;
+
+        Class<?> cls = primitiveMap.get(clsName);
+
+        if (cls != null)
+            return cls;
+
+        if (ldr == null)
+            ldr = igniteClassLoader;
+
+        ConcurrentMap<String, Class> ldrMap = classCache.get(ldr);
+
+        if (ldrMap == null) {
+            ConcurrentMap<String, Class> old = classCache.putIfAbsent(ldr, ldrMap = new ConcurrentHashMap<>());
+
+            if (old != null)
+                ldrMap = old;
+        }
+
+        cls = ldrMap.get(clsName);
+
+        if (cls == null) {
+            if (clsFilter != null && !clsFilter.test(clsName))
+                throw new ClassNotFoundException("Deserialization of class " + clsName + " is disallowed.");
+
+            cls = Class.forName(clsName, true, ldr);
+
+            Class old = ldrMap.putIfAbsent(clsName, cls);
+
+            if (old != null)
+                cls = old;
+        }
+
+        return cls;
     }
 }

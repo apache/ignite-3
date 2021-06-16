@@ -16,13 +16,12 @@
  */
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.Member;
-import io.scalecube.cluster.membership.MembershipEvent;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.lang.IgniteInternalException;
+import java.util.concurrent.ConcurrentMap;
+import io.scalecube.cluster.Member;
+import io.scalecube.cluster.membership.MembershipEvent;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -36,52 +35,65 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     private ClusterNode localMember;
 
     /** Topology members. */
-    private final Map<String, ClusterNode> members = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ClusterNode> members = new ConcurrentHashMap<>();
 
     /**
      * Sets the ScaleCube's local {@link Member}.
+     *
+     * @param member Local member.
      */
     void setLocalMember(Member member) {
-        this.localMember = fromMember(member);
+        localMember = fromMember(member);
 
-        this.members.put(localMember.name(), localMember);
+        // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
+        onMembershipEvent(MembershipEvent.createAdded(member, null, System.currentTimeMillis()));
     }
 
     /**
      * Delegates the received topology event to the registered event handlers.
+     *
+     * @param event Membership event.
      */
     void onMembershipEvent(MembershipEvent event) {
         ClusterNode member = fromMember(event.member());
-        for (TopologyEventHandler handler : getEventHandlers()) {
-            switch (event.type()) {
-                case ADDED:
-                    members.put(member.name(), member);
 
-                    handler.onAppeared(member);
+        if (event.isAdded()) {
+            members.put(member.address(), member);
 
-                    break;
-
-                case LEAVING:
-                    members.remove(member.name());
-
-                    handler.onDisappeared(member);
-
-                    break;
-
-                case REMOVED:
-                case UPDATED:
-                    // No-op.
-                    break;
-
-                default:
-                    throw new IgniteInternalException("This event is not supported: event = " + event);
-
-            }
+            fireAppearedEvent(member);
         }
+        else if (event.isRemoved()) {
+            members.compute(member.address(), // Ignore stale remove event.
+                (k, v) -> v.id().equals(member.id()) ? null : v);
+
+            fireDisappearedEvent(member);
+        }
+    }
+
+    /**
+     * Fire a cluster member appearance event.
+     *
+     * @param member Appeared cluster member.
+     */
+    private void fireAppearedEvent(ClusterNode member) {
+        for (TopologyEventHandler handler : getEventHandlers())
+            handler.onAppeared(member);
+    }
+
+    /**
+     * Fire a cluster member disappearance event.
+     *
+     * @param member Disappeared cluster member.
+     */
+    private void fireDisappearedEvent(ClusterNode member) {
+        for (TopologyEventHandler handler : getEventHandlers())
+            handler.onDisappeared(member);
     }
 
     /** {@inheritDoc} */
     @Override public ClusterNode localMember() {
+        assert localMember != null : "Cluster has not been started";
+
         return localMember;
     }
 
@@ -90,10 +102,15 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         return Collections.unmodifiableCollection(members.values());
     }
 
+    /** {@inheritDoc} */
+    @Override public ClusterNode getByAddress(String addr) {
+        return members.get(addr);
+    }
+
     /**
      * Converts the given {@link Member} to a {@link ClusterNode}.
      */
     private static ClusterNode fromMember(Member member) {
-        return new ClusterNode(member.alias(), member.address().host(), member.address().port());
+        return new ClusterNode(member.id(), member.alias(), member.address().host(), member.address().port());
     }
 }
