@@ -42,6 +42,10 @@ import org.rocksdb.RocksIterator;
  * Storage implementation based on a single RocksDB instance.
  */
 public class RocksDbStorage implements Storage, AutoCloseable {
+    static {
+        RocksDB.loadLibrary();
+    }
+
     /** RocksDB comparator options. */
     private final ComparatorOptions comparatorOptions;
 
