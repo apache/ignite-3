@@ -33,7 +33,7 @@ public class ITProcessorTest extends AbstractProcessorTest {
      */
     @Test
     public void test() {
-        final String packageName = "org.apache.ignite.configuration.processor.internal";
+        final String packageName = "org.apache.ignite.internal.configuration.processor";
 
         final ClassName testConfigurationSchema = ClassName.get(packageName, "TestConfigurationSchema");
 
