@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.internal.storage.api;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.storage.api.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.api.basic.SimpleReadInvokeClosure;
+import org.apache.ignite.internal.storage.api.basic.SimpleRemoveInvokeClosure;
+import org.apache.ignite.internal.storage.api.basic.SimpleWriteInvokeClosure;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.storage.api.basic.SimpleDataRow;
-import org.apache.ignite.storage.api.basic.SimpleReadInvokeClosure;
-import org.apache.ignite.storage.api.basic.SimpleRemoveInvokeClosure;
-import org.apache.ignite.storage.api.basic.SimpleWriteInvokeClosure;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.emptyList;
@@ -104,7 +105,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(searchRow, readClosure);
 
-        assertArrayEquals(dataRow.value().array(), readClosure.row().value().array());
+        Assertions.assertArrayEquals(dataRow.value().array(), readClosure.row().value().array());
 
         storage.invoke(searchRow, new SimpleRemoveInvokeClosure());
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.rocksdb;
+package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -23,13 +23,13 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.storage.api.DataRow;
+import org.apache.ignite.internal.storage.api.InvokeClosure;
+import org.apache.ignite.internal.storage.api.SearchRow;
+import org.apache.ignite.internal.storage.api.Storage;
+import org.apache.ignite.internal.storage.api.StorageException;
+import org.apache.ignite.internal.storage.api.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.storage.api.DataRow;
-import org.apache.ignite.storage.api.InvokeClosure;
-import org.apache.ignite.storage.api.SearchRow;
-import org.apache.ignite.storage.api.Storage;
-import org.apache.ignite.storage.api.StorageException;
-import org.apache.ignite.storage.api.basic.SimpleDataRow;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;

@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.internal.storage.api;
 
-import java.nio.ByteBuffer;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Interface that represents data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
- */
-public interface DataRow extends SearchRow {
+/** */
+public interface InvokeClosure {
     /**
-     * @return Value bytes.
+     * @param row Old row or {@code null} if old row not found.
      */
-    byte[] valueBytes();
+    void call(@Nullable DataRow row);
 
     /**
-     * @return Value object as a byte buffer. Allows more effective memory management in certain cases.
+     * @return New row for {@link OperationType#WRITE} operation.
      */
-    ByteBuffer value();
+    DataRow newRow();
+
+    /**
+     * @return Operation type for this closure or {@code null} if it is unknown.
+     * After method {@link #call(DataRow)} has been called, operation type must
+     * be know and this method can not return {@code null}.
+     */
+    OperationType operationType();
 }

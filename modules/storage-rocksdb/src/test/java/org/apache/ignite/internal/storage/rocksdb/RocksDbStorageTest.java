@@ -15,20 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.internal.storage.rocksdb;
 
-import org.apache.ignite.storage.api.basic.ConcurrentHashMapStorage;
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import org.apache.ignite.internal.storage.api.AbstractStorageTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
-public class ConcurrentHashMapStorageTest extends AbstractStorageTest {
+public class RocksDbStorageTest extends AbstractStorageTest {
+    private Path path;
+
     @BeforeEach
-    public void setUp() {
-        storage = new ConcurrentHashMapStorage();
+    public void setUp() throws Exception {
+        path = Paths.get("rocksdb_test");
+
+        IgniteUtils.delete(path);
+
+        storage = new RocksDbStorage(path, ByteBuffer::compareTo);
     }
 
     @AfterEach
-    public void tearDown() {
-        storage = null;
+    public void tearDown() throws Exception {
+        try {
+            if (storage != null)
+                ((AutoCloseable)storage).close();
+        }
+        finally {
+            IgniteUtils.delete(path);
+        }
     }
 }

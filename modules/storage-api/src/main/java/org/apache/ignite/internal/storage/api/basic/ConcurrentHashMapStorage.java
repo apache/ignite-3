@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api.basic;
+package org.apache.ignite.internal.storage.api.basic;
 
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.storage.api.DataRow;
+import org.apache.ignite.internal.storage.api.InvokeClosure;
+import org.apache.ignite.internal.storage.api.SearchRow;
+import org.apache.ignite.internal.storage.api.Storage;
+import org.apache.ignite.internal.storage.api.StorageException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.storage.api.DataRow;
-import org.apache.ignite.storage.api.InvokeClosure;
-import org.apache.ignite.storage.api.SearchRow;
-import org.apache.ignite.storage.api.Storage;
-import org.apache.ignite.storage.api.StorageException;
 import org.jetbrains.annotations.NotNull;
 
 /**

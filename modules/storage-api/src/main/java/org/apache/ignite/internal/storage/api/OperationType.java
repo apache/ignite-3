@@ -15,25 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api.basic;
+package org.apache.ignite.internal.storage.api;
 
-import org.apache.ignite.storage.api.DataRow;
-import org.apache.ignite.storage.api.InvokeClosure;
-import org.apache.ignite.storage.api.OperationType;
-import org.jetbrains.annotations.Nullable;
+/** Operation types for {@link InvokeClosure}. */
+public enum OperationType {
+    /** Noop, signifies read operation. */
+    NOOP,
 
-public class SimpleRemoveInvokeClosure implements InvokeClosure {
-    /** {@inheritDoc} */
-    @Override public void call(@Nullable DataRow row) {
-    }
+    /** Remove operation. */
+    REMOVE,
 
-    /** {@inheritDoc} */
-    @Override public DataRow newRow() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public OperationType operationType() {
-        return OperationType.REMOVE;
-    }
+    /** Write/insert operation. */
+    WRITE
 }

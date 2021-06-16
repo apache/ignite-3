@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.internal.storage.api;
 
 import java.util.function.Predicate;
 import org.apache.ignite.internal.util.Cursor;

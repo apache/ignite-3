@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api.basic;
+package org.apache.ignite.internal.storage.api.basic;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.apache.ignite.storage.api.DataRow;
+import org.apache.ignite.internal.storage.api.DataRow;
 
 /**
  * Basic array-based implementation of the {@link DataRow}

@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.internal.storage.api;
 
 import java.nio.ByteBuffer;
 
 /**
- * Interface to be used as a key representation to search data in storage.
+ * Interface that represents data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
  */
-public interface SearchRow {
+public interface DataRow extends SearchRow {
     /**
-     * @return Hash of the key.
+     * @return Value bytes.
      */
-    int hash();
+    byte[] valueBytes();
 
     /**
-     * @return Key bytes.
+     * @return Value object as a byte buffer. Allows more effective memory management in certain cases.
      */
-    byte[] keyBytes();
-
-    /**
-     * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
-     */
-    ByteBuffer key();
+    ByteBuffer value();
 }

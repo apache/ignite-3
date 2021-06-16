@@ -15,35 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api.basic;
+package org.apache.ignite.internal.storage.api;
 
-import org.apache.ignite.storage.api.DataRow;
-import org.apache.ignite.storage.api.InvokeClosure;
-import org.apache.ignite.storage.api.OperationType;
-import org.jetbrains.annotations.Nullable;
-
-public class SimpleWriteInvokeClosure implements InvokeClosure {
-    /** Data row to write into storage. */
-    private final DataRow newRow;
-
-    /**
-     * @param newRow Data row to write into storage.
-     */
-    public SimpleWriteInvokeClosure(DataRow newRow) {
-        this.newRow = newRow;
+public class StorageException extends Exception {
+    public StorageException(String message) {
+        super(message);
     }
 
-    /** {@inheritDoc} */
-    @Override public void call(@Nullable DataRow row) {
+    public StorageException(String message, Throwable cause) {
+        super(message, cause);
     }
 
-    /** {@inheritDoc} */
-    @Override public DataRow newRow() {
-        return newRow;
+    public StorageException(Throwable cause) {
+        super(cause);
     }
 
-    /** {@inheritDoc} */
-    @Override public OperationType operationType() {
-        return OperationType.WRITE;
+    public StorageException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
     }
 }

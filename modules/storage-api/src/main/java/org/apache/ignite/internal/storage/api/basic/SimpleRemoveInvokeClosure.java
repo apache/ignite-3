@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.internal.storage.api.basic;
 
-public class StorageException extends Exception {
-    public StorageException(String message) {
-        super(message);
+import org.apache.ignite.internal.storage.api.DataRow;
+import org.apache.ignite.internal.storage.api.InvokeClosure;
+import org.apache.ignite.internal.storage.api.OperationType;
+import org.jetbrains.annotations.Nullable;
+
+public class SimpleRemoveInvokeClosure implements InvokeClosure {
+    /** {@inheritDoc} */
+    @Override public void call(@Nullable DataRow row) {
     }
 
-    public StorageException(String message, Throwable cause) {
-        super(message, cause);
+    /** {@inheritDoc} */
+    @Override public DataRow newRow() {
+        return null;
     }
 
-    public StorageException(Throwable cause) {
-        super(cause);
-    }
-
-    public StorageException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
+    /** {@inheritDoc} */
+    @Override public OperationType operationType() {
+        return OperationType.REMOVE;
     }
 }

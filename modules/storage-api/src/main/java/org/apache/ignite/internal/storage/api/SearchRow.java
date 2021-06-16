@@ -15,16 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.internal.storage.api;
 
-/** Operation types for {@link InvokeClosure}. */
-public enum OperationType {
-    /** Noop, signifies read operation. */
-    NOOP,
+import java.nio.ByteBuffer;
 
-    /** Remove operation. */
-    REMOVE,
+/**
+ * Interface to be used as a key representation to search data in storage.
+ */
+public interface SearchRow {
+    /**
+     * @return Hash of the key.
+     */
+    int hash();
 
-    /** Write/insert operation. */
-    WRITE
+    /**
+     * @return Key bytes.
+     */
+    byte[] keyBytes();
+
+    /**
+     * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
+     */
+    ByteBuffer key();
 }
