@@ -17,6 +17,8 @@
 
 package org.apache.ignite.storage.api.basic;
 
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
@@ -27,6 +29,7 @@ import org.apache.ignite.storage.api.InvokeClosure;
 import org.apache.ignite.storage.api.SearchRow;
 import org.apache.ignite.storage.api.Storage;
 import org.apache.ignite.storage.api.StorageException;
+import org.jetbrains.annotations.NotNull;
 
 public class ConcurrentHashMapStorage implements Storage {
     private final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
@@ -39,22 +42,69 @@ public class ConcurrentHashMapStorage implements Storage {
         return new SimpleDataRow(keyBytes, valueBytes);
     }
 
-    @Override public void write(DataRow row) throws StorageException {
+    /** {@inheritDoc} */
+    @Override public synchronized void write(DataRow row) throws StorageException {
         map.put(new ByteArray(row.keyBytes()), row.valueBytes());
     }
 
-    @Override public void remove(SearchRow key) throws StorageException {
+    /** {@inheritDoc} */
+    @Override public synchronized void remove(SearchRow key) throws StorageException {
         map.remove(new ByteArray(key.keyBytes()));
     }
 
-    @Override public void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
-//        map.compute(new ByteArray(key.keyBytes()), (keyBytes, valueBytes) -> {
-//            return valueBytes;
-//        });
+    /** {@inheritDoc} */
+    @Override public synchronized void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
+        byte[] keyBytes = key.keyBytes();
+
+        ByteArray mapKey = new ByteArray(keyBytes);
+        byte[] existingDataBytes = map.get(mapKey);
+
+        clo.call(new SimpleDataRow(keyBytes, existingDataBytes));
+
+        switch (clo.operationType()) {
+            case WRITE:
+                map.put(mapKey, clo.newRow().valueBytes());
+
+                break;
+
+            case REMOVE:
+                map.remove(mapKey);
+
+                break;
+
+            case NOOP:
+                break;
+        }
     }
 
+    /** {@inheritDoc} */
     @Override public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
+        Iterator<Map.Entry<ByteArray, byte[]>> iter = map.entrySet().stream()
+            .filter(entry -> filter.test(new SimpleDataRow(entry.getKey().bytes(), null)))
+            .iterator();
 
-        return null;
+        return new Cursor<DataRow>() {
+            /** {@inheritDoc} */
+            @Override public boolean hasNext() {
+                return iter.hasNext();
+            }
+
+            /** {@inheritDoc} */
+            @Override public DataRow next() {
+                Map.Entry<ByteArray, byte[]> next = iter.next();
+
+                return new SimpleDataRow(next.getKey().bytes(), next.getValue());
+            }
+
+            /** {@inheritDoc} */
+            @NotNull @Override public Iterator<DataRow> iterator() {
+                return this;
+            }
+
+            /** {@inheritDoc} */
+            @Override public void close() throws Exception {
+                // No-op.
+            }
+        };
     }
 }
