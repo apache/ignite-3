@@ -67,10 +67,13 @@ import org.jetbrains.annotations.NotNull;
 final class LoggerMessageHelper {
     /** Left brace. */
     private static final char DELIM_START = '{';
+
     /** Right brace. */
     private static final char DELIM_STOP = '}';
+
     /** Formatting anchor. */
     private static final String DELIM_STR = "{}";
+
     /** Excape character. */
     private static final char ESCAPE_CHAR = '\\';
 
