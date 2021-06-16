@@ -17,11 +17,11 @@
 
 package org.apache.ignite.storage.api;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.storage.api.basic.SimpleDataRow;
 import org.apache.ignite.storage.api.basic.SimpleReadInvokeClosure;
 import org.apache.ignite.storage.api.basic.SimpleRemoveInvokeClosure;
@@ -52,7 +52,7 @@ public abstract class AbstractStorageTest {
      */
     private SearchRow searchRow(String key) {
         return new SimpleDataRow(
-            new ByteArray(key).bytes(),
+            key.getBytes(StandardCharsets.UTF_8),
             null
         );
     }
@@ -66,8 +66,8 @@ public abstract class AbstractStorageTest {
      */
     private DataRow dataRow(String key, String value) {
         return new SimpleDataRow(
-            new ByteArray(key).bytes(),
-            new ByteArray(value).bytes()
+            key.getBytes(StandardCharsets.UTF_8),
+            value.getBytes(StandardCharsets.UTF_8)
         );
     }
 
