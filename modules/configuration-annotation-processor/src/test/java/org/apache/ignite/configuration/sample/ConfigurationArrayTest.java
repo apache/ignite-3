@@ -22,14 +22,14 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.internal.asm.ConfigurationAsmGenerator;
-import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.apache.ignite.configuration.internal.util.ConfigurationUtil.leafNodeVisitor;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.sameInstance;

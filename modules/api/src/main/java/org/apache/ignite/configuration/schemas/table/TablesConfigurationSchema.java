@@ -19,7 +19,7 @@ package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.storage.ConfigurationType;
+import org.apache.ignite.internal.configuration.storage.ConfigurationType;
 
 /**
  * Tables configuration schema.

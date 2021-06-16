@@ -19,8 +19,8 @@ package org.apache.ignite.configuration.sample;
 
 import java.util.Arrays;
 import java.util.Collections;
-import org.apache.ignite.configuration.ConfigurationRegistry;
-import org.apache.ignite.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

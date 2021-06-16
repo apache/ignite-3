@@ -19,10 +19,10 @@ package org.apache.ignite.configuration.sample;
 
 import java.util.Collections;
 import java.util.NoSuchElementException;
-import org.apache.ignite.configuration.internal.asm.ConfigurationAsmGenerator;
-import org.apache.ignite.configuration.tree.ConfigurationSource;
-import org.apache.ignite.configuration.tree.ConstructableTreeNode;
-import org.apache.ignite.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

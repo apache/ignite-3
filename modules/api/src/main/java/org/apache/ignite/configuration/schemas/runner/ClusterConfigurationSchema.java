@@ -19,7 +19,7 @@ package org.apache.ignite.configuration.schemas.runner;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.storage.ConfigurationType;
+import org.apache.ignite.internal.configuration.storage.ConfigurationType;
 
 /**
  * Configuration schema for cluster endpoint subtree.

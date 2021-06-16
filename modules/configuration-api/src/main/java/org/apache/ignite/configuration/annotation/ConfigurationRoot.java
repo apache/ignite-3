@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.annotation;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import org.apache.ignite.configuration.storage.ConfigurationType;
+import org.apache.ignite.internal.configuration.storage.ConfigurationType;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
