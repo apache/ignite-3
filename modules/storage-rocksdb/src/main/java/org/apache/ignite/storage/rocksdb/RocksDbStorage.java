@@ -67,25 +67,11 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
     }
 
-    @NotNull private static byte[] getBytes(ByteBuffer keyBuf) {
-        keyBuf.rewind();
-
-        byte[] keyBytes = new byte[keyBuf.remaining()];
-        keyBuf.get(keyBytes);
-        return keyBytes;
-    }
-
-    private static ByteBuffer wrap(byte[] existingDataBytes) {
-        return existingDataBytes == null ? null : ByteBuffer.wrap(existingDataBytes);
-    }
-
     @Override public DataRow read(SearchRow key) throws StorageException {
-        ByteBuffer keyBuf = key.key();
-
         try {
-            byte[] keyBytes = getBytes(keyBuf);
+            byte[] keyBytes = key.keyBytes();
 
-            return new SimpleDataRow(key.key(), wrap(db.get(keyBytes)));
+            return new SimpleDataRow(keyBytes, db.get(keyBytes));
         }
         catch (RocksDBException e) {
             throw new StorageException(e);
@@ -94,7 +80,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
     @Override public synchronized void write(DataRow row) throws StorageException {
         try {
-            db.put(getBytes(row.key()), getBytes(row.value()));
+            db.put(row.keyBytes(), row.valueBytes());
         }
         catch (RocksDBException e) {
             throw new StorageException(e);
@@ -103,7 +89,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
     @Override public synchronized void remove(SearchRow key) throws StorageException {
         try {
-            db.delete(getBytes(key.key()));
+            db.delete(key.keyBytes());
         }
         catch (RocksDBException e) {
             throw new StorageException(e);
@@ -112,14 +98,14 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
     @Override public synchronized void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
         try {
-            byte[] keyBytes = getBytes(key.key());
+            byte[] keyBytes = key.keyBytes();
             byte[] existingDataBytes = db.get(keyBytes);
 
-            clo.call(new SimpleDataRow(key.key(), wrap(existingDataBytes)));
+            clo.call(new SimpleDataRow(keyBytes, existingDataBytes));
 
             switch (clo.operationType()) {
-                case PUT:
-                    db.put(keyBytes, getBytes(clo.newRow().value()));
+                case WRITE:
+                    db.put(keyBytes, clo.newRow().valueBytes());
 
                     break;
 
@@ -162,11 +148,11 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
 
         @NotNull @Override public Iterator<DataRow> iterator() {
-            throw new UnsupportedOperationException("iterator");
+            return this;
         }
 
         @Override public boolean hasNext() {
-            while (iter.isValid() && !filter.test(new SimpleDataRow(wrap(iter.key()), null)))
+            while (iter.isValid() && !filter.test(new SimpleDataRow(iter.key(), null)))
                 iter.next();
 
             return iter.isValid();
@@ -176,7 +162,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
             if (!hasNext())
                 throw new NoSuchElementException();
 
-            var row = new SimpleDataRow(wrap(iter.key()), wrap(iter.value()));
+            var row = new SimpleDataRow(iter.key(), iter.value());
 
             iter.next();
 

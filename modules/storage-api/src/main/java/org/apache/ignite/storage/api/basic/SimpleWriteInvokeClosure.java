@@ -15,12 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.storage.api;
+package org.apache.ignite.storage.api.basic;
 
-import java.nio.ByteBuffer;
+import org.apache.ignite.storage.api.DataRow;
+import org.apache.ignite.storage.api.InvokeClosure;
+import org.apache.ignite.storage.api.OperationType;
+import org.jetbrains.annotations.Nullable;
 
-public interface DataRow extends SearchRow {
-    ByteBuffer value();
+public class SimpleWriteInvokeClosure implements InvokeClosure {
+    private final DataRow newRow;
 
-    byte[] valueBytes();
+    public SimpleWriteInvokeClosure(DataRow newRow) {
+        this.newRow = newRow;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void call(@Nullable DataRow row) {
+    }
+
+    /** {@inheritDoc} */
+    @Override public DataRow newRow() {
+        return newRow;
+    }
+
+    /** {@inheritDoc} */
+    @Override public OperationType operationType() {
+        return OperationType.WRITE;
+    }
 }

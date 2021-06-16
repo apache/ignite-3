@@ -18,27 +18,41 @@
 package org.apache.ignite.storage.api.basic;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import org.apache.ignite.storage.api.DataRow;
 
 public class SimpleDataRow implements DataRow {
-    private final ByteBuffer key;
+    private final byte[] key;
 
-    private final ByteBuffer value;
+    private final byte[] value;
 
-    public SimpleDataRow(ByteBuffer key, ByteBuffer value) {
+    public SimpleDataRow(byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
     }
 
+    /** {@inheritDoc} */
     @Override public ByteBuffer key() {
+        return ByteBuffer.wrap(key);
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] keyBytes() {
         return key;
     }
 
+    /** {@inheritDoc} */
     @Override public ByteBuffer value() {
+        return value == null ? null : ByteBuffer.wrap(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte[] valueBytes() {
         return value;
     }
 
+    /** {@inheritDoc} */
     @Override public int hash() {
-        return key.hashCode();
+        return Arrays.hashCode(key);
     }
 }

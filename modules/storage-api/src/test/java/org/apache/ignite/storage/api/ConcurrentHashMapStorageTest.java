@@ -17,10 +17,18 @@
 
 package org.apache.ignite.storage.api;
 
-import java.nio.ByteBuffer;
+import org.apache.ignite.storage.api.basic.ConcurrentHashMapStorage;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
-public interface DataRow extends SearchRow {
-    ByteBuffer value();
+public class ConcurrentHashMapStorageTest extends AbstractStorageTest {
+    @BeforeEach
+    public void setUp() {
+        storage = new ConcurrentHashMapStorage();
+    }
 
-    byte[] valueBytes();
+    @AfterEach
+    public void tearDown() {
+        storage = null;
+    }
 }

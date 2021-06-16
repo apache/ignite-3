@@ -427,6 +427,13 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-api</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-engine</artifactId>
                 <version>${junit.jupiter.version}</version>

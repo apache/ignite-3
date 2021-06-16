@@ -1,0 +1,118 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.storage.api;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.storage.api.basic.SimpleDataRow;
+import org.apache.ignite.storage.api.basic.SimpleReadInvokeClosure;
+import org.apache.ignite.storage.api.basic.SimpleRemoveInvokeClosure;
+import org.apache.ignite.storage.api.basic.SimpleWriteInvokeClosure;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Test;
+
+import static java.util.Collections.emptyList;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+public abstract class AbstractStorageTest {
+    protected Storage storage;
+
+    private SearchRow searchRow(String key) {
+        return new SimpleDataRow(
+            new ByteArray(key).bytes(),
+            null
+        );
+    }
+
+    private DataRow dataRow(String key, String value) {
+        return new SimpleDataRow(
+            new ByteArray(key).bytes(),
+            new ByteArray(value).bytes()
+        );
+    }
+
+    @Test
+    public void readWriteRemove() throws Exception {
+        SearchRow searchRow = searchRow("key");
+
+        assertNull(storage.read(searchRow).value());
+
+        DataRow dataRow = dataRow("key", "value");
+
+        storage.write(dataRow);
+
+        assertArrayEquals(dataRow.value().array(), storage.read(searchRow).value().array());
+
+        storage.remove(searchRow);
+
+        assertNull(storage.read(searchRow).value());
+    }
+
+    @Test
+    public void invoke() throws Exception {
+        SearchRow searchRow = searchRow("key");
+
+        SimpleReadInvokeClosure readClosure = new SimpleReadInvokeClosure();
+
+        storage.invoke(searchRow, readClosure);
+
+        assertNull(readClosure.row().value());
+
+        DataRow dataRow = dataRow("key", "value");
+
+        storage.invoke(searchRow, new SimpleWriteInvokeClosure(dataRow));
+
+        storage.invoke(searchRow, readClosure);
+
+        assertArrayEquals(dataRow.value().array(), readClosure.row().value().array());
+
+        storage.invoke(searchRow, new SimpleRemoveInvokeClosure());
+
+        storage.invoke(searchRow, readClosure);
+
+        assertNull(readClosure.row().value());
+    }
+
+    @Test
+    public void scan() throws Exception {
+        List<DataRow> list = toList(storage.scan(row -> true));
+
+        assertEquals(emptyList(), list);
+
+        DataRow dataRow = dataRow("key", "value");
+
+        storage.write(dataRow);
+
+        list = toList(storage.scan(row -> true));
+
+        assertThat(list, hasSize(1));
+
+        assertArrayEquals(dataRow.value().array(), list.get(0).value().array());
+    }
+
+    @NotNull private List<DataRow> toList(Cursor<DataRow> cursor) {
+        return StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
+    }
+}

@@ -26,5 +26,5 @@ public enum OperationType {
     REMOVE,
 
     /** */
-    PUT
+    WRITE
 }

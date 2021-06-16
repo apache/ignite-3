@@ -25,18 +25,22 @@ import org.jetbrains.annotations.Nullable;
 public class SimpleReadInvokeClosure implements InvokeClosure {
     private DataRow row;
 
+    /** {@inheritDoc} */
     @Override public void call(@Nullable DataRow row) {
         this.row = row;
     }
 
+    /** {@inheritDoc} */
     @Override public DataRow newRow() {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override public OperationType operationType() {
         return OperationType.NOOP;
     }
 
+    /** {@inheritDoc} */
     public DataRow row() {
         return row;
     }

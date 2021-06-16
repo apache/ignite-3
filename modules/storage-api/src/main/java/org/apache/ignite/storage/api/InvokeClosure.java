@@ -27,7 +27,7 @@ public interface InvokeClosure {
     void call(@Nullable DataRow row);
 
     /**
-     * @return New row for {@link OperationType#PUT} operation.
+     * @return New row for {@link OperationType#WRITE} operation.
      */
     DataRow newRow();
 

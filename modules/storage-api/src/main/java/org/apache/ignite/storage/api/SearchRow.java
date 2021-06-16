@@ -24,5 +24,5 @@ public interface SearchRow {
 
     ByteBuffer key();
 
-//    void writeKey(OutputStream out);
+    byte[] keyBytes();
 }
