@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.storage;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.jetbrains.annotations.NotNull;
 
 /**

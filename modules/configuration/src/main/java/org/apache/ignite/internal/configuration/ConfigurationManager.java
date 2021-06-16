@@ -27,10 +27,10 @@ import java.util.concurrent.ExecutionException;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.json.JsonConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.ConfigurationType;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.

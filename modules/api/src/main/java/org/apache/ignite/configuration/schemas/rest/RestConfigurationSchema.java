@@ -18,10 +18,10 @@
 package org.apache.ignite.configuration.schemas.rest;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
-import org.apache.ignite.internal.configuration.storage.ConfigurationType;
 
 /**
  * Configuration schema for REST endpoint subtree.

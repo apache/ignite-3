@@ -24,6 +24,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.apache.ignite.configuration.NamedListChange;
+import org.apache.ignite.configuration.NamedListView;
 
 /** */
 public final class NamedListNode<N extends InnerNode> implements NamedListView<N>, NamedListChange<N>, TraversableTreeNode, ConstructableTreeNode {

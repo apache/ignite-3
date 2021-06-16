@@ -25,10 +25,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
+import org.apache.ignite.configuration.NamedListChange;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.internal.configuration.tree.NamedListChange;
-import org.apache.ignite.internal.configuration.tree.NamedListView;
 
 /**
  * Named configuration wrapper.
