@@ -68,9 +68,6 @@ final class LoggerMessageHelper {
     /** Left brace. */
     private static final char DELIM_START = '{';
 
-    /** Right brace. */
-    private static final char DELIM_STOP = '}';
-
     /** Formatting anchor. */
     private static final String DELIM_STR = "{}";
 
