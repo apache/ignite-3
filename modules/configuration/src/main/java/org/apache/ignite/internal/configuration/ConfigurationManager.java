@@ -26,6 +26,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
@@ -88,7 +90,9 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
      * @throws InterruptedException If thread is interrupted during bootstrap.
      * @throws ExecutionException If configuration update failed for some reason.
      */
-    public void bootstrap(String jsonStr, ConfigurationType type) throws InterruptedException, ExecutionException {
+    public void bootstrap(String hoconStr, ConfigurationType type) throws InterruptedException, ExecutionException {
+        String jsonStr = ConfigFactory.parseString(hoconStr).root().render(ConfigRenderOptions.concise());
+
         JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
 
         confRegistry.change(JsonConverter.jsonSource(jsonCfg), configurationStorages.get(type)).get();
