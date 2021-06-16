@@ -123,7 +123,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.setDaemon(true);
         writeWorker.start();
 
-        LOG.info("Started replication server [node=" + service + ']');
+        LOG.info("Started replication server [node={}]", service);
     }
 
     /** {@inheritDoc} */
@@ -160,7 +160,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.interrupt();
         writeWorker.join();
 
-        LOG.info("Stopped replication server [node=" + service.toString() + ']');
+        LOG.info("Stopped replication server [node={}]", service);
     }
 
     /**

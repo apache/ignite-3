@@ -111,7 +111,7 @@ public class IgnitionImpl implements Ignition {
                 locConfigurationMgr.bootstrap(jsonStrBootstrapCfg, ConfigurationType.LOCAL);
             }
             catch (Exception e) {
-                LOG.warn("Unable to parse user specific configuration, default configuration will be used: " + e.getMessage());
+                LOG.warn("Unable to parse user specific configuration, default configuration will be used: {}", e.getMessage());
             }
         else if (jsonStrBootstrapCfg != null)
             LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
@@ -191,6 +191,6 @@ public class IgnitionImpl implements Ignition {
 
         String banner = String.join("\n", BANNER);
 
-        LOG.info(banner + '\n' + " ".repeat(22) + "Apache Ignite ver. " + ver + '\n');
+        LOG.info("{}\n" + " ".repeat(22) + "Apache Ignite ver. {}\n", banner, ver);
     }
 }

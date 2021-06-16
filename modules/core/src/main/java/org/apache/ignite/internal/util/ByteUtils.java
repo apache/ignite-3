@@ -118,7 +118,7 @@ public class ByteUtils {
             }
         }
         catch (Exception e) {
-            LOG.warn("Could not serialize a class [cls=" + obj.getClass().getName() + "]", e);
+            LOG.warn("Could not serialize a class [cls={}]", obj.getClass().getName(), e);
 
             return null;
         }

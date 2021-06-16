@@ -56,9 +56,11 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void info(String msg, Object... params) {
-        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+        if (log.isLoggable(INFO)) {
+            IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
 
-        log.log(INFO, readyParams.get1(), readyParams.get1());
+            log.log(INFO, readyParams.get1(), readyParams.get1());
+        }
     }
 
     /**
@@ -66,9 +68,11 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void debug(String msg, Object... params) {
-        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
-        
-        log.log(DEBUG, readyParams.get1(), readyParams.get2());
+        if (log.isLoggable(DEBUG)) {
+            IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+
+            log.log(DEBUG, readyParams.get1(), readyParams.get2());
+        }
     }
 
     /**
@@ -84,9 +88,11 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void warn(String msg, Object... params) {
-        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+        if (log.isLoggable(WARNING)) {
+            IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
 
-        log.log(WARNING, readyParams.get1(), readyParams.get2());
+            log.log(WARNING, readyParams.get1(), readyParams.get2());
+        }
     }
 
     /**
@@ -94,9 +100,11 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void error(String msg, Object... params) {
-        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+        if (log.isLoggable(ERROR)) {
+            IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
 
-        log.log(ERROR, readyParams.get1(), readyParams.get2());
+            log.log(ERROR, readyParams.get1(), readyParams.get2());
+        }
     }
 
     /**
@@ -112,9 +120,11 @@ public class IgniteLogger {
      * @param params Parameters.
      */
     public void trace(String msg, Object... params) {
-        IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
+        if (log.isLoggable(TRACE)) {
+            IgniteBiTuple<String, Throwable> readyParams = format(msg, params);
 
-        log.log(TRACE, readyParams.get1(), readyParams.get2());
+            log.log(TRACE, readyParams.get1(), readyParams.get2());
+        }
     }
 
     /**

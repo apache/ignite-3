@@ -306,7 +306,7 @@ public class TestCluster {
 
     public void clean(final Endpoint listenAddr) throws IOException {
         final String path = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
-        LOG.info("Clean dir: {0}", path);
+        LOG.info("Clean dir: {}", path);
         Utils.delete(new File(path));
     }
 
