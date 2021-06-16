@@ -15,27 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.sample;
+package org.apache.ignite.internal.configuration.sample;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Test node configuration schema.
+ * Test network configuration schema.
  */
-@Config
-public class NodeConfigurationSchema {
-    /** Consistent id. */
-    @Value
-    @Immutable
-    public String consistentId;
-
-    /** Port. */
-    @Value
-    public int port;
-
-    /** Auto adjust enabled. */
-    @Value(hasDefault = true)
-    public boolean autoAdjustEnabled = true;
+@ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
+public class NetworkConfigurationSchema {
+    /** Discovery. */
+    @ConfigValue
+    public DiscoveryConfigurationSchema discovery;
 }

@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.sample;
+package org.apache.ignite.internal.configuration.sample;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Test discovery configuration schema.
+ * Test local configuration schema.
  */
-@Config
-public class DiscoveryConfigurationSchema {
-    /** Node failure detection timeout. */
-    @Value(hasDefault = true)
-    public int failureDetectionTimeout = 10_000;
-
-    /** Node join timeout. */
-    @Value(hasDefault = true)
-    public int joinTimeout = 5_000;
+@ConfigurationRoot(rootName = "local", type = ConfigurationType.LOCAL)
+public class LocalConfigurationSchema {
+    /** Baseline. */
+    @ConfigValue
+    public BaselineConfigurationSchema baseline;
 }

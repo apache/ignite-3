@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.sample;
+package org.apache.ignite.internal.configuration.sample;
 
 import java.util.Arrays;
 import java.util.Collections;

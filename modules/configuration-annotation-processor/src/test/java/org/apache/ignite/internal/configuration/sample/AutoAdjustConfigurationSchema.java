@@ -15,18 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.sample;
+package org.apache.ignite.internal.configuration.sample;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Min;
 
 /**
- * Test network configuration schema.
+ * Test auto adjust configuration schema.
  */
-@ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
-public class NetworkConfigurationSchema {
-    /** Discovery. */
-    @ConfigValue
-    public DiscoveryConfigurationSchema discovery;
+@Config
+public class AutoAdjustConfigurationSchema {
+    /** Timeout. */
+    @Value(hasDefault = true)
+    @Min(0)
+    public long timeout = 0L;
+
+    /** Enabled. */
+    @Value(hasDefault = true)
+    public boolean enabled = true;
 }
