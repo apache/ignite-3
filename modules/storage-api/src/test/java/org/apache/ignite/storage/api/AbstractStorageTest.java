@@ -36,9 +36,19 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+/**
+ * Abstract test that covers basic scenarios of the storage API.
+ */
 public abstract class AbstractStorageTest {
+    /** Storage instance. */
     protected Storage storage;
 
+    /**
+     * Wraps string key into a search row.
+     *
+     * @param key String key.
+     * @return Search row.
+     */
     private SearchRow searchRow(String key) {
         return new SimpleDataRow(
             new ByteArray(key).bytes(),
@@ -46,6 +56,13 @@ public abstract class AbstractStorageTest {
         );
     }
 
+    /**
+     * Wraps string key/value pair into a data row.
+     *
+     * @param key String key.
+     * @param value String value.
+     * @return Data row.
+     */
     private DataRow dataRow(String key, String value) {
         return new SimpleDataRow(
             new ByteArray(key).bytes(),
@@ -96,23 +113,63 @@ public abstract class AbstractStorageTest {
     }
 
     @Test
-    public void scan() throws Exception {
+    public void scanSimple() throws Exception {
         List<DataRow> list = toList(storage.scan(row -> true));
 
         assertEquals(emptyList(), list);
 
-        DataRow dataRow = dataRow("key", "value");
+        DataRow dataRow1 = dataRow("key1", "value1");
 
-        storage.write(dataRow);
+        storage.write(dataRow1);
 
         list = toList(storage.scan(row -> true));
 
         assertThat(list, hasSize(1));
 
-        assertArrayEquals(dataRow.value().array(), list.get(0).value().array());
+        assertArrayEquals(dataRow1.value().array(), list.get(0).value().array());
+
+        DataRow dataRow2 = dataRow("key2", "value2");
+
+        storage.write(dataRow2);
+
+        list = toList(storage.scan(row -> true));
+
+        assertThat(list, hasSize(2));
+
+        // "key1" and "key2" have the same order both by hash and lexicographically.
+        assertArrayEquals(dataRow1.value().array(), list.get(0).value().array());
+        assertArrayEquals(dataRow2.value().array(), list.get(1).value().array());
     }
 
-    @NotNull private List<DataRow> toList(Cursor<DataRow> cursor) {
+    @Test
+    public void scanFiltered() throws Exception {
+        DataRow dataRow1 = dataRow("key1", "value1");
+        DataRow dataRow2 = dataRow("key2", "value2");
+
+        storage.write(dataRow1);
+        storage.write(dataRow2);
+
+        List<DataRow> list = toList(storage.scan(row -> row.keyBytes()[3] == '1'));
+
+        assertThat(list, hasSize(1));
+
+        assertArrayEquals(dataRow1.value().array(), list.get(0).value().array());
+
+        list = toList(storage.scan(row -> row.keyBytes()[3] == '2'));
+
+        assertThat(list, hasSize(1));
+
+        assertArrayEquals(dataRow2.value().array(), list.get(0).value().array());
+    }
+
+    /**
+     * Converts cursor to list.
+     *
+     * @param cursor Cursor.
+     * @param <T> Type of cursor content.
+     * @return List.
+     */
+    @NotNull private <T> List<T> toList(Cursor<T> cursor) {
         return StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
     }
 }

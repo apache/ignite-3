@@ -17,14 +17,14 @@
 
 package org.apache.ignite.storage.api;
 
-/** */
+/** Operation types for {@link InvokeClosure}. */
 public enum OperationType {
-    /** */
+    /** Noop, signifies read operation. */
     NOOP,
 
-    /** */
+    /** Remove operation. */
     REMOVE,
 
-    /** */
+    /** Write/insert operation. */
     WRITE
 }
