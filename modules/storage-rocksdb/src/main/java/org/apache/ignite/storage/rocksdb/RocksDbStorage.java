@@ -88,9 +88,9 @@ public class RocksDbStorage implements Storage, AutoCloseable {
             this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString());
         }
         catch (RocksDBException e) {
-            try (this) {
-                throw new StorageException("Failed to start storage", e);
-            }
+            close();
+
+            throw new StorageException("Failed to start storage", e);
         }
     }
 
