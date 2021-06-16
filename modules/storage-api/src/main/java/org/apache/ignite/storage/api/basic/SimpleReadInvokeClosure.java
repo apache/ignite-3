@@ -23,11 +23,12 @@ import org.apache.ignite.storage.api.OperationType;
 import org.jetbrains.annotations.Nullable;
 
 public class SimpleReadInvokeClosure implements InvokeClosure {
+    /** Copy of the row that was passed to {@link #call(DataRow)} method. */
     private DataRow row;
 
     /** {@inheritDoc} */
     @Override public void call(@Nullable DataRow row) {
-        this.row = row;
+        this.row = row == null ? null : new SimpleDataRow(row.keyBytes(), row.valueBytes());
     }
 
     /** {@inheritDoc} */
@@ -40,6 +41,7 @@ public class SimpleReadInvokeClosure implements InvokeClosure {
         return OperationType.NOOP;
     }
 
+    /** Copy of the row that was passed to {@link #call(DataRow)} method. */
     public DataRow row() {
         return row;
     }

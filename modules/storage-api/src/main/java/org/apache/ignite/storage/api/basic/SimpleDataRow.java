@@ -21,9 +21,14 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.storage.api.DataRow;
 
+/**
+ * Basic array-based implementation of the {@link DataRow}
+ */
 public class SimpleDataRow implements DataRow {
+    /** Key array. */
     private final byte[] key;
 
+    /** Value array. */
     private final byte[] value;
 
     public SimpleDataRow(byte[] key, byte[] value) {

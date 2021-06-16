@@ -19,8 +19,17 @@ package org.apache.ignite.storage.api;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Interface that represents data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ */
 public interface DataRow extends SearchRow {
-    ByteBuffer value();
-
+    /**
+     * @return Value bytes.
+     */
     byte[] valueBytes();
+
+    /**
+     * @return Value object as a byte buffer. Allows more effective memory management in certain cases.
+     */
+    ByteBuffer value();
 }
