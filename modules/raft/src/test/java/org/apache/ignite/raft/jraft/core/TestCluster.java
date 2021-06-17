@@ -57,8 +57,12 @@ import static org.junit.Assert.assertTrue;
  * Test cluster for NodeTest
  */
 public class TestCluster {
-    /** Default election timeout. */
-    private static final int ELECTION_TIMEOUT = 300;
+    /**
+     * Default election timeout.
+     * Important: due to sync disk ops (writing raft meta) during probe request processing this timeout should be high
+     * enough to avoid test flakiness.
+     */
+    private static final int ELECTION_TIMEOUT = 600;
 
     private static final Logger LOG = LoggerFactory.getLogger(TestCluster.class);
 

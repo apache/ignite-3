@@ -137,7 +137,7 @@ public class RaftGroupService {
             this.rpcServer.init(null);
         }
         else {
-            LOG.warn("RPC server is not started in RaftGroupService.");
+            LOG.info("RPC server is shared by RaftGroupService.");
         }
 
         this.node = new NodeImpl(groupId, serverId);

@@ -158,7 +158,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
 
         servers.add(server);
 
-        assertTrue(waitForTopology(service, servers.size(), 5_000));
+        assertTrue(waitForTopology(service, servers.size(), 15_000));
 
         return server;
     }
@@ -186,11 +186,9 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      */
     private void startCluster() {
         for (int i = 0; i < 3; i++) {
-            startServer(i, new Consumer<RaftServer>() {
-                @Override public void accept(RaftServer raftServer) {
-                    raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-                    raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
-                }
+            startServer(i, raftServer -> {
+                raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
+                raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
             });
         }
 
