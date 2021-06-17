@@ -121,16 +121,7 @@ public class ITCliServiceTest {
         }
 
         this.cluster.waitLeader();
-
-        for (Node follower : cluster.getFollowers()) {
-            assertTrue(waitForCondition(() -> follower.getLeaderId() != null, 3_000));
-        }
-
-        for (PeerId learner : cluster.getLearners()) {
-            Node node = cluster.getNode(learner.getEndpoint());
-
-            assertTrue(waitForCondition(() -> node.getLeaderId() != null, 3_000));
-        }
+        this.cluster.ensureLeader(this.cluster.getLeader());
 
         this.cliService = new CliServiceImpl();
         this.conf = new Configuration(peers, learners);

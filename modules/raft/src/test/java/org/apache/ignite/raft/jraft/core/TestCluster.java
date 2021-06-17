@@ -50,6 +50,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -313,11 +314,18 @@ public class TestCluster {
         return null;
     }
 
+    /**
+     * Wait until a leader is elected.
+     * @throws InterruptedException
+     */
     public void waitLeader() throws InterruptedException {
+        Node node;
+
         while (true) {
-            final Node node = getLeader();
+            node = getLeader();
+
             if (node != null) {
-                return;
+                break;
             }
             else {
                 Thread.sleep(10);
@@ -342,25 +350,38 @@ public class TestCluster {
     }
 
     /**
-     * Ensure all peers leader is expectAddr
+     * Ensure all peers follow the leader
      *
-     * @param expectAddr expected address
+     * @param node The leader.
      * @throws InterruptedException if interrupted
      */
-    public void ensureLeader(final Endpoint expectAddr) throws InterruptedException {
+    public void ensureLeader(final Node node) throws InterruptedException {
         while (true) {
             this.lock.lock();
-            for (final Node node : this.nodes) {
-                final PeerId leaderId = node.getLeaderId();
-                if (!leaderId.getEndpoint().equals(expectAddr)) {
-                    this.lock.unlock();
+            try {
+                boolean wait = false;
+
+                for (final Node node0 : this.nodes) {
+                    final PeerId leaderId = node0.getLeaderId();
+
+                    if (leaderId == null || !leaderId.equals(node.getNodeId().getPeerId())) {
+                        wait = true;
+
+                        break;
+                    }
+                }
+
+                if (wait) {
                     Thread.sleep(10);
+
                     continue;
                 }
+                else
+                    return;
             }
-            // all is ready
-            this.lock.unlock();
-            return;
+            finally {
+                this.lock.unlock();
+            }
         }
     }
 
@@ -424,6 +445,8 @@ public class TestCluster {
         }
 
         Node leader = getLeader();
+
+        assertNotNull(leader);
 
         MockStateMachine first = fsms.get(leader.getNodeId().getPeerId());
 

@@ -110,15 +110,6 @@ public class RaftGroupService {
      * Starts the raft group service, returns the raft node.
      */
     public synchronized Node start() {
-        return start(true);
-    }
-
-    /**
-     * Starts the raft group service, returns the raft node.
-     *
-     * @param startRpcServer whether to start RPC server.
-     */
-    public synchronized Node start(final boolean startRpcServer) {
         if (this.started) {
             return this.node;
         }
@@ -133,7 +124,7 @@ public class RaftGroupService {
         assert this.nodeOptions.getRpcClient() != null;
 
         // Should start RPC server before node initialization to avoid race.
-        if (startRpcServer) {
+        if (!sharedRpcServer) {
             this.rpcServer.init(null);
         }
         else {
@@ -164,19 +155,18 @@ public class RaftGroupService {
 
     public synchronized void shutdown() {
         // TODO asch remove handlers before shutting down raft node https://issues.apache.org/jira/browse/IGNITE-14519
-        if (!this.started) {
-            return;
-        }
-        if (this.rpcServer != null) {
+        if (this.rpcServer != null && !this.sharedRpcServer) {
             try {
-                if (!this.sharedRpcServer) {
-                    this.rpcServer.shutdown();
-                }
+                this.rpcServer.shutdown();
             }
             catch (Exception e) {
                 LOG.error("Failed to shutdown the server", e);
             }
             this.rpcServer = null;
+        }
+
+        if (!this.started) {
+            return;
         }
 
         this.node.shutdown();
