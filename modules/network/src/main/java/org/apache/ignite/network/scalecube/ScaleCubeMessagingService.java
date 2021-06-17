@@ -68,15 +68,11 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      */
     void fireEvent(Message message) {
         NetworkMessage msg = message.data();
-        ClusterNode sender = topologyService.getByAddress(message.header(Message.HEADER_SENDER));
-
-        if (sender == null) // Ignore the message from the unknown node.
-            return;
 
         String correlationId = message.correlationId();
 
         for (NetworkMessageHandler handler : getMessageHandlers())
-            handler.onReceived(msg, sender, correlationId);
+            handler.onReceived(msg, message.header(Message.HEADER_SENDER), correlationId);
     }
 
     /** {@inheritDoc} */
@@ -95,13 +91,19 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg, String correlationId) {
+        return send(recipient.address(), msg, correlationId);
+    }
+
+    @Override public CompletableFuture<Void> send(String addr, NetworkMessage msg, String correlationId) {
         var message = Message
             .withData(msg)
             .correlationId(correlationId)
             .build();
 
+        Address address = Address.from(addr);
+
         return cluster
-            .send(clusterNodeAddress(recipient), message)
+            .send(address, message)
             .toFuture();
     }
 

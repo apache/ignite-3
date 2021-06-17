@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -45,7 +46,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.when;
 
 @RunWith(value = MockitoJUnitRunner.class)
 public class AbstractClientServiceTest {
@@ -57,10 +61,11 @@ public class AbstractClientServiceTest {
     private final Endpoint endpoint = new Endpoint("localhost", 8081);
 
     @Before
-    public void setup() {
+    public void setup() throws Exception {
         this.rpcOptions = new RpcOptions();
         this.rpcOptions.setClientExecutor(JRaftUtils.createClientExecutor(this.rpcOptions, "unittest"));
         this.clientService = new MockClientService();
+        when(this.rpcClient.invokeAsync(any(), any(), any(), any(), anyLong())).thenReturn(new CompletableFuture<>());
         this.rpcOptions.setRpcClient(this.rpcClient);
         assertTrue(this.clientService.init(this.rpcOptions));
     }
@@ -202,7 +207,7 @@ public class AbstractClientServiceTest {
     }
 
     @Test
-    public void testInvokeWithDOneOnErrorResponse() throws Exception {
+    public void testInvokeWithDoneOnErrorResponse() throws Exception {
         final InvokeContext invokeCtx = new InvokeContext();
         final ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
         final CliRequests.GetPeersRequest request = CliRequests.GetPeersRequest.newBuilder() //

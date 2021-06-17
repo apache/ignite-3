@@ -22,8 +22,8 @@ package org.apache.ignite.network;
 public interface NetworkMessageHandler {
     /**
      * @param message Message which was received from the cluster.
-     * @param sender Sender.
+     * @param sender Sender address.
      * @param correlationId Correlation id.
      */
-    void onReceived(NetworkMessage message, ClusterNode sender, String correlationId);
+    void onReceived(NetworkMessage message, String sender, String correlationId);
 }

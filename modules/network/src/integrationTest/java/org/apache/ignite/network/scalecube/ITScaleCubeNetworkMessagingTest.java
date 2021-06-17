@@ -137,11 +137,11 @@ class ITScaleCubeNetworkMessagingTest {
         class Data {
             private final TestMessage message;
 
-            private final ClusterNode sender;
+            private final String sender;
 
             private final String correlationId;
 
-            private Data(TestMessage message, ClusterNode sender, String correlationId) {
+            private Data(TestMessage message, String sender, String correlationId) {
                 this.message = message;
                 this.sender = sender;
                 this.correlationId = correlationId;

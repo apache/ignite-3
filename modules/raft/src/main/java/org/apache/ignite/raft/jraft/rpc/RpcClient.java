@@ -29,10 +29,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface RpcClient extends Lifecycle<RpcOptions> {
     /**
-     * Check connection for given address. // TODO asch rename to isAlive.
+     * Check connection for given address.
      *
      * @param endpoint target address
      * @return true if there is a connection and the connection is active and writable.
+     * @deprecated // TODO asch remove IGNITE-14832
      */
     boolean checkConnection(Endpoint endpoint);
 

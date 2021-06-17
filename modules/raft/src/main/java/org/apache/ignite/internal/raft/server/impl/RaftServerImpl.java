@@ -28,7 +28,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -187,7 +186,7 @@ public class RaftServerImpl implements RaftServer {
      * @param <T> Command type.
      */
     private <T extends Command> void handleActionRequest(
-        ClusterNode sender,
+        String sender,
         ActionRequest req,
         String corellationId,
         BlockingQueue<CommandClosureEx<T>> queue,
@@ -238,7 +237,7 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    private void sendError(ClusterNode sender, String corellationId, RaftErrorCode errorCode) {
+    private void sendError(String sender, String corellationId, RaftErrorCode errorCode) {
         RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
         service.messagingService().send(sender, resp, corellationId);

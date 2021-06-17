@@ -1913,8 +1913,6 @@ public class ITNodeTest {
         LOG.info("start follower {}", followerAddr2);
         assertTrue(cluster.start(followerAddr2, true, 300));
 
-        cluster.ensureLeader(leader);
-
         CountDownLatch latch = new CountDownLatch(1);
         LOG.info("Add old follower {}", followerAddr1);
         leader.addPeer(followerPeer1, new ExpectClosure(latch));
