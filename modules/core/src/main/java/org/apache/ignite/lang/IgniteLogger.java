@@ -52,8 +52,9 @@ public class IgniteLogger {
     }
 
     /**
-     * @param msg The message.
-     * @param params Parameters.
+     * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
+     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * A last one of the parameter list may be {@code Throwable}, that cause of the message appeared.
      */
     public void info(String msg, Object... params) {
         if (log.isLoggable(INFO)) {
@@ -64,8 +65,9 @@ public class IgniteLogger {
     }
 
     /**
-     * @param msg The message.
-     * @param params Parameters.
+     * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
+     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * A last one of the parameter list may be {@code Throwable}, that cause of the message appeared.
      */
     public void debug(String msg, Object... params) {
         if (log.isLoggable(DEBUG)) {
@@ -76,7 +78,7 @@ public class IgniteLogger {
     }
 
     /**
-     * @param msg The message.
+     * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message;
      */
     public void debug(String msg, Throwable th) {
@@ -84,8 +86,9 @@ public class IgniteLogger {
     }
 
     /**
-     * @param msg The message.
-     * @param params Parameters.
+     * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
+     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * A last one of the parameter list may be {@code Throwable}, that cause of the message appeared.
      */
     public void warn(String msg, Object... params) {
         if (log.isLoggable(WARNING)) {
@@ -96,8 +99,9 @@ public class IgniteLogger {
     }
 
     /**
-     * @param msg The message.
-     * @param params Parameters.
+     * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
+     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * A last one of the parameter list may be {@code Throwable}, that cause of the message appeared.
      */
     public void error(String msg, Object... params) {
         if (log.isLoggable(ERROR)) {
@@ -108,7 +112,7 @@ public class IgniteLogger {
     }
 
     /**
-     * @param msg The message.
+     * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message.
      */
     public void error(String msg, Throwable th) {
@@ -116,8 +120,9 @@ public class IgniteLogger {
     }
 
     /**
-     * @param msg The message.
-     * @param params Parameters.
+     * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
+     * @param params A list of arguments to be substituted in place of formatting anchors.
+     * A last one of the parameter list may be {@code Throwable}, that cause of the message appeared.
      */
     public void trace(String msg, Object... params) {
         if (log.isLoggable(TRACE)) {
