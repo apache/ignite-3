@@ -327,4 +327,14 @@ public class RelJsonReader {
                 type, name);
         }
     }
+
+    enum Type {
+        ONE;
+    }
+
+    public static void main(String[] args) {
+        Class<?> cls = RelJsonReader.Type.ONE.getClass();
+
+        System.out.println(RelJsonReader.Type.ONE.getClass().getSimpleName());
+    }
 }
