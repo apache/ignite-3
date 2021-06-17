@@ -49,11 +49,15 @@ public class IgnitionManager {
             ignition = ldr.iterator().next();
         }
 
-        try (InputStream inputStream = new ByteArrayInputStream(configStr.getBytes(StandardCharsets.UTF_8))) {
-            return ignition.start(nodeName, inputStream);
-        }
-        catch (IOException e) {
-            throw new IgniteException("Couldn't close the stream with node config.", e);
+        if (configStr == null)
+            return ignition.start(nodeName);
+        else {
+            try (InputStream inputStream = new ByteArrayInputStream(configStr.getBytes(StandardCharsets.UTF_8))) {
+                return ignition.start(nodeName, inputStream);
+            }
+            catch (IOException e) {
+                throw new IgniteException("Couldn't close the stream with node config.", e);
+            }
         }
     }
 
