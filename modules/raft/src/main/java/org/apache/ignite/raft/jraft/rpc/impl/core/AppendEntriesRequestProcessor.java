@@ -411,7 +411,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         final Node node = (Node) service;
 
         if (node.getNodeId().getPeerId().getEndpoint().getPort() == 5006) {
-            LOG.info("DBG: received AppendEntriesRequest term={} count={} prevTerm={} prevIdx={}", request.getTerm(), request.getEntriesCount(), request.getPrevLogTerm(), request.getPrevLogIndex());
+            LOG.info("DBG: received AppendEntriesRequest grp={} term={} count={} prevTerm={} prevIdx={} hasData={}", request.getGroupId(), request.getTerm(), request.getEntriesCount(), request.getPrevLogTerm(), request.getPrevLogIndex(), request.hasData());
         }
 
         if (node.getRaftOptions().isReplicatorPipeline()) {
@@ -420,11 +420,18 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
             boolean isHeartbeat = isHeartbeatRequest(request);
             int reqSequence = -1;
+
             if (!isHeartbeat) {
                 reqSequence = getAndIncrementSequence(groupId, pair, done.getRpcCtx().getNodeManager());
             }
+
             final Message response = service.handleAppendEntriesRequest(request, new SequenceRpcRequestClosure(done,
                 defaultResp(), groupId, pair, reqSequence, isHeartbeat));
+
+            if (node.getNodeId().getPeerId().getEndpoint().getPort() == 5006 && !isHeartbeat) {
+                LOG.info("DBG: resp={} grp={} term={} count={} prevTerm={} prevIdx={} hasData={}", response, request.getGroupId(), request.getTerm(), request.getEntriesCount(), request.getPrevLogTerm(), request.getPrevLogIndex(), request.hasData());
+            }
+
             if (response != null) {
                 // heartbeat or probe request
                 if (isHeartbeat) {
@@ -434,6 +441,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                     sendSequenceResponse(groupId, pair, reqSequence, done.getRpcCtx(), response);
                 }
             }
+
             return null;
         }
         else {

@@ -270,7 +270,6 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             // should be in another thread to avoid dead locking.
             Utils.runClosureInExecutor(currExecutor, done, new Status(RaftError.EINTERNAL,
                 "Fail to send a RPC request:" + e.getMessage()));
-
         }
 
         return future;

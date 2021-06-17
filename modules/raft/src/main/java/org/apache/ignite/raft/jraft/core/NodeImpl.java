@@ -1930,8 +1930,8 @@ public class NodeImpl implements Node, RaftServerService {
             if (localPrevLogTerm != prevLogTerm) {
                 final long lastLogIndex = this.logManager.getLastLogIndex();
 
-                LOG.warn(
-                    "Node {} reject term_unmatched AppendEntriesRequest from {}, term={}, prevLogIndex={}, prevLogTerm={}, localPrevLogTerm={}, lastLogIndex={}, entriesSize={}.",
+                LOG.warn("Node {} reject term_unmatched AppendEntriesRequest from {}, term={}, prevLogIndex={}, " +
+                        "prevLogTerm={}, localPrevLogTerm={}, lastLogIndex={}, entriesSize={}.",
                     getNodeId(), request.getServerId(), request.getTerm(), prevLogIndex, prevLogTerm, localPrevLogTerm,
                     lastLogIndex, entriesCount);
 
@@ -1991,6 +1991,11 @@ public class NodeImpl implements Node, RaftServerService {
             // update configuration after _log_manager updated its memory status
             checkAndSetConfiguration(true);
             return null;
+        }
+        catch (Throwable t) {
+            LOG.error("Exception", t);
+
+            throw t;
         }
         finally {
             if (doUnlock) {
