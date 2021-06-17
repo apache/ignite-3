@@ -125,10 +125,10 @@ public class IgnitionImpl implements Ignition {
     }
 
     /**
-     * Starts Ignite node with optional bootstrap configuration in Hocon format.
+     * Starts Ignite node with optional bootstrap configuration in hocon format.
      *
      * @param nodeName Name of the node. Couldn't be {@code null}.
-     * @param cfgContent Node configuration in Hocon format. Could be {@code null}.
+     * @param cfgContent Node configuration in hocon format. Could be {@code null}.
      * @return Started Ignite node.
      */
     private Ignite doStart(@NotNull String nodeName, @Nullable String cfgContent) {

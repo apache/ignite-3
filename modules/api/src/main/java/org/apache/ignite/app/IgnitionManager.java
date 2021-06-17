@@ -36,10 +36,10 @@ public class IgnitionManager {
     private static Ignition ignition;
 
     /**
-     * Starts Ignite node with optional bootstrap configuration in Hocon format.
+     * Starts Ignite node with optional bootstrap configuration in hocon format.
      *
      * @param nodeName Name of the node.
-     * @param configStr Node configuration in Hocon format.
+     * @param configStr Node configuration in hocon format.
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
@@ -62,10 +62,10 @@ public class IgnitionManager {
     }
 
     /**
-     * Starts Ignite node with optional bootstrap configuration in Hocon format.
+     * Starts Ignite node with optional bootstrap configuration in hocon format.
      *
      * @param nodeName Name of the node.
-     * @param cfgPath Node configuration in Hocon format.
+     * @param cfgPath Node configuration in hocon format.
      * @param clsLdr The class loader to be used to load provider-configuration files
      * and provider classes, or {@code null} if the system class
      * loader (or, failing that, the bootstrap class loader) is to be used

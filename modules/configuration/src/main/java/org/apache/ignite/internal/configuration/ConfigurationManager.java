@@ -85,7 +85,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 
     /**
      * Bootstrap configuration manager with customer user cfg.
-     * @param jsonStr Customer configuration in json format.
+     * @param hoconStr Customer configuration in hocon format.
      * @param type Configuration type.
      * @throws InterruptedException If thread is interrupted during bootstrap.
      * @throws ExecutionException If configuration update failed for some reason.
