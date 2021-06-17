@@ -410,10 +410,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
         final Node node = (Node) service;
 
-        if (node.getNodeId().getPeerId().getEndpoint().getPort() == 5006) {
-            LOG.info("DBG: received AppendEntriesRequest grp={} term={} count={} prevTerm={} prevIdx={} hasData={}", request.getGroupId(), request.getTerm(), request.getEntriesCount(), request.getPrevLogTerm(), request.getPrevLogIndex(), request.hasData());
-        }
-
         if (node.getRaftOptions().isReplicatorPipeline()) {
             final String groupId = request.getGroupId();
             final PeerPair pair = pairOf(request.getPeerId(), request.getServerId());
@@ -427,10 +423,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
             final Message response = service.handleAppendEntriesRequest(request, new SequenceRpcRequestClosure(done,
                 defaultResp(), groupId, pair, reqSequence, isHeartbeat));
-
-            if (node.getNodeId().getPeerId().getEndpoint().getPort() == 5006 && !isHeartbeat) {
-                LOG.info("DBG: resp={} grp={} term={} count={} prevTerm={} prevIdx={} hasData={}", response, request.getGroupId(), request.getTerm(), request.getEntriesCount(), request.getPrevLogTerm(), request.getPrevLogIndex(), request.hasData());
-            }
 
             if (response != null) {
                 // heartbeat or probe request
