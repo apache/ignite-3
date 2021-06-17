@@ -132,6 +132,14 @@ public class RaftGroupService {
 
         assert this.nodeOptions.getRpcClient() != null;
 
+        // Should start RPC server before node initialization to avoid race.
+        if (startRpcServer) {
+            this.rpcServer.init(null);
+        }
+        else {
+            LOG.warn("RPC server is not started in RaftGroupService.");
+        }
+
         this.node = new NodeImpl(groupId, serverId);
 
         if (!this.node.init(this.nodeOptions)) {
@@ -146,13 +154,6 @@ public class RaftGroupService {
             }
 
             throw new IgniteInternalException("Fail to init node, please see the logs to find the reason.");
-        }
-
-        if (startRpcServer) {
-            this.rpcServer.init(null);
-        }
-        else {
-            LOG.warn("RPC server is not started in RaftGroupService.");
         }
 
         this.nodeManager.add(this.node);
