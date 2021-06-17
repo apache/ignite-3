@@ -15,16 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.api;
+package org.apache.ignite.internal.storage;
 
-/** Operation types for {@link InvokeClosure}. */
-public enum OperationType {
-    /** Noop, signifies read operation. */
-    NOOP,
+import org.jetbrains.annotations.Nullable;
 
-    /** Remove operation. */
-    REMOVE,
+/** */
+public interface InvokeClosure {
+    /**
+     * @param row Old row or {@code null} if old row not found.
+     */
+    void call(@Nullable DataRow row);
 
-    /** Write/insert operation. */
-    WRITE
+    /**
+     * @return New row for {@link OperationType#WRITE} operation.
+     */
+    DataRow newRow();
+
+    /**
+     * @return Operation type for this closure or {@code null} if it is unknown.
+     * After method {@link #call(DataRow)} has been called, operation type must
+     * be know and this method can not return {@code null}.
+     */
+    OperationType operationType();
 }

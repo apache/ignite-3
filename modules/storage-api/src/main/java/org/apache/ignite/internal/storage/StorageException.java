@@ -15,26 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.api;
+package org.apache.ignite.internal.storage;
 
-import java.nio.ByteBuffer;
+public class StorageException extends Exception {
+    public StorageException(String message) {
+        super(message);
+    }
 
-/**
- * Interface to be used as a key representation to search data in storage.
- */
-public interface SearchRow {
-    /**
-     * @return Hash of the key.
-     */
-    int hash();
+    public StorageException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-    /**
-     * @return Key bytes.
-     */
-    byte[] keyBytes();
+    public StorageException(Throwable cause) {
+        super(cause);
+    }
 
-    /**
-     * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
-     */
-    ByteBuffer key();
+    public StorageException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
+    }
 }

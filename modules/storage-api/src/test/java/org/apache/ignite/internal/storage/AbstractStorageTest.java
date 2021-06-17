@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.api;
+package org.apache.ignite.internal.storage;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.internal.storage.api.basic.SimpleDataRow;
-import org.apache.ignite.internal.storage.api.basic.SimpleReadInvokeClosure;
-import org.apache.ignite.internal.storage.api.basic.SimpleRemoveInvokeClosure;
-import org.apache.ignite.internal.storage.api.basic.SimpleWriteInvokeClosure;
+import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.basic.SimpleReadInvokeClosure;
+import org.apache.ignite.internal.storage.basic.SimpleRemoveInvokeClosure;
+import org.apache.ignite.internal.storage.basic.SimpleWriteInvokeClosure;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.apache.ignite.internal.storage.api.AbstractStorageTest;
+import org.apache.ignite.internal.storage.AbstractStorageTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

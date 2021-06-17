@@ -15,26 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.api;
+package org.apache.ignite.internal.storage.basic;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.storage.AbstractStorageTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
-/** */
-public interface InvokeClosure {
-    /**
-     * @param row Old row or {@code null} if old row not found.
-     */
-    void call(@Nullable DataRow row);
+public class ConcurrentHashMapStorageTest extends AbstractStorageTest {
+    @BeforeEach
+    public void setUp() {
+        storage = new ConcurrentHashMapStorage();
+    }
 
-    /**
-     * @return New row for {@link OperationType#WRITE} operation.
-     */
-    DataRow newRow();
-
-    /**
-     * @return Operation type for this closure or {@code null} if it is unknown.
-     * After method {@link #call(DataRow)} has been called, operation type must
-     * be know and this method can not return {@code null}.
-     */
-    OperationType operationType();
+    @AfterEach
+    public void tearDown() {
+        storage = null;
+    }
 }

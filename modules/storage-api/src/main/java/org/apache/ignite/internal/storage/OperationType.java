@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.api;
+package org.apache.ignite.internal.storage;
 
-public class StorageException extends Exception {
-    public StorageException(String message) {
-        super(message);
-    }
+/** Operation types for {@link InvokeClosure}. */
+public enum OperationType {
+    /** Noop, signifies read operation. */
+    NOOP,
 
-    public StorageException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    /** Remove operation. */
+    REMOVE,
 
-    public StorageException(Throwable cause) {
-        super(cause);
-    }
-
-    public StorageException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
+    /** Write/insert operation. */
+    WRITE
 }

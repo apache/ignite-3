@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.api.basic;
+package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.api.AbstractStorageTest;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import java.nio.ByteBuffer;
 
-public class ConcurrentHashMapStorageTest extends AbstractStorageTest {
-    @BeforeEach
-    public void setUp() {
-        storage = new ConcurrentHashMapStorage();
-    }
+/**
+ * Interface that represents data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ */
+public interface DataRow extends SearchRow {
+    /**
+     * @return Value bytes.
+     */
+    byte[] valueBytes();
 
-    @AfterEach
-    public void tearDown() {
-        storage = null;
-    }
+    /**
+     * @return Value object as a byte buffer. Allows more effective memory management in certain cases.
+     */
+    ByteBuffer value();
 }

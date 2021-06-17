@@ -15,35 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.api.basic;
+package org.apache.ignite.internal.storage.basic;
 
-import org.apache.ignite.internal.storage.api.DataRow;
-import org.apache.ignite.internal.storage.api.InvokeClosure;
-import org.apache.ignite.internal.storage.api.OperationType;
+import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.InvokeClosure;
+import org.apache.ignite.internal.storage.OperationType;
 import org.jetbrains.annotations.Nullable;
 
-public class SimpleWriteInvokeClosure implements InvokeClosure {
-    /** Data row to write into storage. */
-    private final DataRow newRow;
-
-    /**
-     * @param newRow Data row to write into storage.
-     */
-    public SimpleWriteInvokeClosure(DataRow newRow) {
-        this.newRow = newRow;
-    }
+public class SimpleReadInvokeClosure implements InvokeClosure {
+    /** Copy of the row that was passed to {@link #call(DataRow)} method. */
+    private DataRow row;
 
     /** {@inheritDoc} */
     @Override public void call(@Nullable DataRow row) {
+        this.row = row == null ? null : new SimpleDataRow(row.keyBytes(), row.valueBytes());
     }
 
     /** {@inheritDoc} */
     @Override public DataRow newRow() {
-        return newRow;
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override public OperationType operationType() {
-        return OperationType.WRITE;
+        return OperationType.NOOP;
+    }
+
+    /** Copy of the row that was passed to {@link #call(DataRow)} method. */
+    public DataRow row() {
+        return row;
     }
 }
