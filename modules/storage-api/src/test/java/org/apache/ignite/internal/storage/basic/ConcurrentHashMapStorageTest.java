@@ -21,6 +21,9 @@ import org.apache.ignite.internal.storage.AbstractStorageTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
+/**
+ * Storage test implementation for {@link ConcurrentHashMapStorage}.
+ */
 public class ConcurrentHashMapStorageTest extends AbstractStorageTest {
     @BeforeEach
     public void setUp() {

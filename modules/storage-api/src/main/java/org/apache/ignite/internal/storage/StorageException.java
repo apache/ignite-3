@@ -17,20 +17,29 @@
 
 package org.apache.ignite.internal.storage;
 
+/**
+ * Exception thrown by storage.
+ */
 public class StorageException extends Exception {
+    /**
+     * @param message Error message.
+     */
     public StorageException(String message) {
         super(message);
     }
 
+    /**
+     * @param message Error message.
+     * @param cause The cause.
+     */
     public StorageException(String message, Throwable cause) {
         super(message, cause);
     }
 
+    /**
+     * @param cause The cause.
+     */
     public StorageException(Throwable cause) {
         super(cause);
-    }
-
-    public StorageException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
     }
 }

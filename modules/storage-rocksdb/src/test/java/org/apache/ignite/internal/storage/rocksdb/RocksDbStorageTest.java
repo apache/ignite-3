@@ -25,6 +25,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
+/**
+ * Storage test implementation for {@link RocksDbStorage}.
+ */
 public class RocksDbStorageTest extends AbstractStorageTest {
     private Path path;
 
