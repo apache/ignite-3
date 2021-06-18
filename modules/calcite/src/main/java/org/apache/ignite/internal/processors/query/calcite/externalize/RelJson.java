@@ -53,7 +53,6 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
@@ -193,7 +192,6 @@ class RelJson {
         register(enumByName, SqlSelectKeyword.class);
         register(enumByName, SqlTrimFunction.Flag.class);
         register(enumByName, TimeUnitRange.class);
-        register(enumByName, Spool.Type.class);
 
         ENUM_BY_NAME = enumByName.build();
     }
@@ -571,7 +569,7 @@ class RelJson {
     }
 
     /** */
-    <T extends Enum<T>> T toEnum(Object o) {
+    private <T extends Enum<T>> T toEnum(Object o) {
         if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>)o;
             String class_ = (String)map.get("class");
@@ -579,7 +577,7 @@ class RelJson {
             return Util.enumVal((Class<T>)classForName(class_, false), name);
         }
 
-        assert o instanceof String && ENUM_BY_NAME.containsKey(o) : o;
+        assert o instanceof String && ENUM_BY_NAME.containsKey(o);
 
         String name = (String)o;
         return (T)ENUM_BY_NAME.get(name);
@@ -658,9 +656,6 @@ class RelJson {
 
         if (ENUM_BY_NAME.get(key) == enum0)
             return key;
-
-        if (true)
-            throw new AssertionError(key);
 
         Map<String, Object> map = map();
         map.put("class", enum0.getDeclaringClass().getName());
