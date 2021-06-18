@@ -20,12 +20,13 @@ package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 /**
  * Represents an abstract data consumer.
  *
- * <p/><b>Note</b>: except several cases (like consumer node and mailboxes), {@link Node#request(int)},
+ * <b>Note</b>: except several cases (like consumer node and mailboxes), {@link Node#request(int)},
  * {@link Downstream#push(Object)} and {@link Downstream#end()} methods should be used from one single thread.
  */
 public interface Downstream<Row> {
     /**
      * Pushes a row to consumer.
+     *
      * @param row Data row.
      */
     void push(Row row) throws Exception;
@@ -35,6 +36,10 @@ public interface Downstream<Row> {
      */
     void end() throws Exception;
 
-    /** */
+    /**
+     * Notifies consumer about error.
+     *
+     * @param e Error to notify consumer about.
+     */
     void onError(Throwable e);
 }

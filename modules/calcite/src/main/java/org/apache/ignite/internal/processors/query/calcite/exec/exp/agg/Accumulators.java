@@ -173,7 +173,7 @@ public class Accumulators {
         /** */
         public static final Supplier<Accumulator> FACTORY = SingleVal::new;
 
-        /** */
+        /** {@inheritDoc} */
         @Override public void add(Object... args) {
             assert args.length == 1 : args.length;
 
@@ -185,24 +185,24 @@ public class Accumulators {
             holder = args[0];
         }
 
-        /** */
+        /** {@inheritDoc} */
         @Override public void apply(Accumulator other) {
             assert holder == null : "sudden apply for: " + other + " on SingleVal";
 
             holder = ((SingleVal)other).holder;
         }
 
-        /** */
+        /** {@inheritDoc} */
         @Override public Object end() {
             return holder;
         }
 
-        /** */
+        /** {@inheritDoc} */
         @Override public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
             return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), true));
         }
 
-        /** */
+        /** {@inheritDoc} */
         @Override public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createSqlType(ANY);
         }

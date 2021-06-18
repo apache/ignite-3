@@ -76,9 +76,11 @@ public class ExecutionContext<Row> implements DataContext {
     private Object[] correlations = new Object[16];
 
     /**
+     * @param executor Task executor.
      * @param ctx Parent context.
      * @param qryId Query ID.
      * @param fragmentDesc Partitions information.
+     * @param handler Row handler.
      * @param params Parameters.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
@@ -128,12 +130,18 @@ public class ExecutionContext<Row> implements DataContext {
         return fragmentDesc.target();
     }
 
-    /** */
+    /**
+     * @param exchangeId ExchangeId to find remote nodes for.
+     * @return Remote nodes for given exchangeId.
+     */
     public List<UUID> remotes(long exchangeId) {
         return fragmentDesc.remotes().get(exchangeId);
     }
 
-    /** */
+    /**
+     * @param sourceId SourceId to find colocation group for.
+     * @return Colocation group for given sourceId.
+     */
     public ColocationGroup group(long sourceId) {
         return fragmentDesc.mapping().findGroup(sourceId);
     }

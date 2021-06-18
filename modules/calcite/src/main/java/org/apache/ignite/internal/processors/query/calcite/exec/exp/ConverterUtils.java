@@ -45,6 +45,11 @@ public class ConverterUtils {
     /**
      * In Calcite, {@code java.sql.Date} and {@code java.sql.Time} are stored as {@code Integer} type, {@code
      * java.sql.Timestamp} is stored as {@code Long} type.
+     *
+     * @param operand Operand that should be converted.
+     * @param targetType Required type.
+     *
+     * @return New expression of required type.
      */
     static Expression toInternal(Expression operand, Type targetType) {
         return toInternal(operand, operand.getType(), targetType);
