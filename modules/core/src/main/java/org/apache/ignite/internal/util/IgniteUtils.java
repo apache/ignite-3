@@ -22,9 +22,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,27 +34,34 @@ public class IgniteUtils {
     private static final int MASK = 0xf;
 
     /** Version of the JDK. */
-    private static final String jdkVer = System.getProperty("java.specification.version");
+    private static String jdkVer;
 
     /** Class loader used to load Ignite. */
     private static final ClassLoader igniteClassLoader = IgniteUtils.class.getClassLoader();
 
     /** Primitive class map. */
-    private static final Map<String, Class<?>> primitiveMap = Map.of(
-        "byte", byte.class,
-        "short", short.class,
-        "int", int.class,
-        "long", long.class,
-        "float", float.class,
-        "double", double.class,
-        "char", char.class,
-        "boolean", boolean.class,
-        "void", void.class
-    );
+    private static final Map<String, Class<?>> primitiveMap = new HashMap<>(16, .5f);
 
     /** */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class>> classCache =
         new ConcurrentHashMap<>();
+
+    /*
+      Initializes enterprise check.
+     */
+    static {
+        IgniteUtils.jdkVer = System.getProperty("java.specification.version");
+
+        primitiveMap.put("byte", byte.class);
+        primitiveMap.put("short", short.class);
+        primitiveMap.put("int", int.class);
+        primitiveMap.put("long", long.class);
+        primitiveMap.put("float", float.class);
+        primitiveMap.put("double", double.class);
+        primitiveMap.put("char", char.class);
+        primitiveMap.put("boolean", boolean.class);
+        primitiveMap.put("void", void.class);
+    }
 
     /**
      * Get JDK version.
@@ -328,49 +334,5 @@ public class IgniteUtils {
         }
 
         return cls;
-    }
-
-    /**
-     * Shuts down the given executor service gradually, first disabling new submissions and later, if
-     * necessary, cancelling remaining tasks.
-     *
-     * <p>The method takes the following steps:
-     *
-     * <ol>
-     *   <li>calls {@link ExecutorService#shutdown()}, disabling acceptance of new submitted tasks.
-     *   <li>awaits executor service termination for half of the specified timeout.
-     *   <li>if the timeout expires, it calls {@link ExecutorService#shutdownNow()}, cancelling
-     *       pending tasks and interrupting running tasks.
-     *   <li>awaits executor service termination for the other half of the specified timeout.
-     * </ol>
-     *
-     * <p>If, at any step of the process, the calling thread is interrupted, the method calls {@link
-     * ExecutorService#shutdownNow()} and returns.
-     *
-     * @param service the {@code ExecutorService} to shut down
-     * @param timeout the maximum time to wait for the {@code ExecutorService} to terminate
-     * @param unit the time unit of the timeout argument
-     */
-    public static void shutdownAndAwaitTermination(ExecutorService service, long timeout, TimeUnit unit) {
-        long halfTimeoutNanos = unit.toNanos(timeout) / 2;
-
-        // Disable new tasks from being submitted
-        service.shutdown();
-
-        try {
-            // Wait for half the duration of the timeout for existing tasks to terminate
-            if (!service.awaitTermination(halfTimeoutNanos, TimeUnit.NANOSECONDS)) {
-                // Cancel currently executing tasks
-                service.shutdownNow();
-                // Wait the other half of the timeout for tasks to respond to being cancelled
-                service.awaitTermination(halfTimeoutNanos, TimeUnit.NANOSECONDS);
-            }
-        }
-        catch (InterruptedException ie) {
-            // Preserve interrupt status
-            Thread.currentThread().interrupt();
-            // (Re-)Cancel if current thread also interrupted
-            service.shutdownNow();
-        }
     }
 }

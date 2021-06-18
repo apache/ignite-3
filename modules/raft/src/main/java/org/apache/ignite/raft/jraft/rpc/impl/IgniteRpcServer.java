@@ -20,17 +20,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.util.IgniteUtils;
+import java.util.concurrent.Executor;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
-import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -52,6 +48,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcesso
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
@@ -66,23 +63,19 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     private final Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
-    private final ExecutorService rpcExecutor;
-
     /**
      * @param service The cluster service.
      * @param nodeManager The node manager.
      * @param factory Message factory.
-     * @param opts Node options.
+     * @param rpcExecutor The executor for RPC requests.
      */
     public IgniteRpcServer(
         ClusterService service,
         NodeManager nodeManager,
         RaftClientMessagesFactory factory,
-        NodeOptions opts
+        @Nullable Executor rpcExecutor
     ) {
         this.service = service;
-
-        rpcExecutor = JRaftUtils.createRequestExecutor(opts);
 
         // raft server RPC
         AppendEntriesRequestProcessor appendEntriesRequestProcessor = new AppendEntriesRequestProcessor(rpcExecutor);
@@ -128,31 +121,42 @@ public class IgniteRpcServer implements RpcServer<Void> {
             if (prc == null)
                 return;
 
+            RpcProcessor.ExecutorSelector selector = prc.executorSelector();
+
+            Executor executor = null;
+
+            if (selector != null)
+                executor = selector.select(prc.getClass().getName(), msg, nodeManager);
+
+            if (executor == null)
+                executor = prc.executor();
+
+            if (executor == null)
+                executor = rpcExecutor;
+
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
-            var context = new RpcContext() {
-                @Override public NodeManager getNodeManager() {
-                    return nodeManager;
-                }
+            executor.execute(() -> {
+                var context = new RpcContext() {
+                    @Override public NodeManager getNodeManager() {
+                        return nodeManager;
+                    }
 
-                @Override public void sendResponse(Object responseObj) {
-                    service.messagingService().send(sender, (NetworkMessage) responseObj, corellationId);
-                }
+                    @Override public void sendResponse(Object responseObj) {
+                        service.messagingService().send(sender, (NetworkMessage) responseObj, corellationId);
+                    }
 
-                @Override public String getRemoteAddress() {
-                    return sender.address();
-                }
+                    @Override public String getRemoteAddress() {
+                        return sender.address();
+                    }
 
-                @Override public String getLocalAddress() {
-                    return service.topologyService().localMember().address();
-                }
-            };
+                    @Override public String getLocalAddress() {
+                        return service.topologyService().localMember().address();
+                    }
+                };
 
-            // TODO: this is hack for the ITNodeTest#testFollowerStartStopFollowing and should be removed
-            if (rpcExecutor.isShutdown())
                 finalPrc.handleRequest(context, msg);
-            else
-                rpcExecutor.execute(() -> finalPrc.handleRequest(context, msg));
+            });
         });
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
@@ -194,6 +198,5 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
     /** {@inheritDoc} */
     @Override public void shutdown() {
-        IgniteUtils.shutdownAndAwaitTermination(rpcExecutor, 10, TimeUnit.SECONDS);
     }
 }

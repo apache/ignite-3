@@ -117,7 +117,7 @@ public class JRaftServerImpl implements RaftServer {
         if (opts.getClientExecutor() == null)
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
 
-        rpcServer = new IgniteRpcServer(service, nodeManager, factory, opts);
+        rpcServer = new IgniteRpcServer(service, nodeManager, factory, JRaftUtils.createRequestExecutor(opts));
 
         rpcServer.init(null);
     }
