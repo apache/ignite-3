@@ -35,7 +35,7 @@ public class BaseStorageTest {
 
     @After
     public void teardown() throws Exception {
-        assertTrue(Utils.delete(new File(this.path)));
+        Utils.delete(new File(this.path));
     }
 
     protected String writeData() throws IOException {

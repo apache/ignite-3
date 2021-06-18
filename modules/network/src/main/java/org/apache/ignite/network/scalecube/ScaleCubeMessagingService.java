@@ -39,20 +39,6 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     private Cluster cluster;
 
     /**
-     * Topology service.
-     */
-    private ScaleCubeTopologyService topologyService;
-
-    /**
-     * Constructor.
-     *
-     * @param topologyService Topology service.
-     */
-    ScaleCubeMessagingService(ScaleCubeTopologyService topologyService) {
-        this.topologyService = topologyService;
-    }
-
-    /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
      *
      * @param cluster Cluster.

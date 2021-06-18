@@ -23,7 +23,6 @@ import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.FileService;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
