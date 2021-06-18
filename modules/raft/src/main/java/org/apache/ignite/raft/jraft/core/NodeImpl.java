@@ -3508,6 +3508,13 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
+    /**
+     * @return The state.
+     */
+    public State getState() {
+        return state;
+    }
+
     @Override
     public String toString() {
         return "JRaftNode [nodeId=" + getNodeId() + "]";
