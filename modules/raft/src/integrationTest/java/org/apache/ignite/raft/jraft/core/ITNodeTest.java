@@ -3008,7 +3008,12 @@ public class ITNodeTest {
             Status status = done.await();
             assertTrue(status.getRaftError().toString(), status.isOk());
         }
-        cluster.ensureSame();
+
+        cluster.waitLeader();
+
+        for (final MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
     }
 
     @Test
