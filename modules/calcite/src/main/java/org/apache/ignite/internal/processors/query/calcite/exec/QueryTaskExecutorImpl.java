@@ -76,7 +76,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));
     }
 
-    /** {@inheritDoc} */
+    /** Releases resources. */
     public void tearDown() {
         stripedThreadPoolExecutor.shutdownNow();
     }
