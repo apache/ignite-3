@@ -1992,11 +1992,6 @@ public class NodeImpl implements Node, RaftServerService {
             checkAndSetConfiguration(true);
             return null;
         }
-        catch (Throwable t) {
-            LOG.error("Exception", t);
-
-            throw t;
-        }
         finally {
             if (doUnlock) {
                 this.writeLock.unlock();

@@ -51,12 +51,9 @@ public final class ThrowUtil {
      * @return {@code True} if one of the causing exception is an instance of passed in classes,
      *      {@code false} otherwise.
      */
-    @SafeVarargs
     public static boolean hasCause(@Nullable Throwable t, @Nullable String msg, @Nullable Class<?>... cls) {
         if (t == null || cls == null || cls.length == 0)
             return false;
-
-        assert cls != null;
 
         for (Throwable th = t; th != null; th = th.getCause()) {
             for (Class<?> c : cls) {

@@ -63,7 +63,7 @@ public class TestCluster {
      * Important: due to sync disk ops (writing raft meta) during probe request processing this timeout should be high
      * enough to avoid test flakiness.
      */
-    private static final int ELECTION_TIMEOUT = 600;
+    private static final int ELECTION_TIMEOUT_MILLIS = 600;
 
     private static final Logger LOG = LoggerFactory.getLogger(TestCluster.class);
 
@@ -102,17 +102,17 @@ public class TestCluster {
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers) {
-        this(name, dataPath, peers, ELECTION_TIMEOUT);
+        this(name, dataPath, peers, ELECTION_TIMEOUT_MILLIS);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
         final int electionTimeoutMs) {
-        this(name, dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT, null);
+        this(name, dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
         final LinkedHashSet<PeerId> learners, final int electionTimeoutMs) {
-        this(name, dataPath, peers, learners, ELECTION_TIMEOUT, null);
+        this(name, dataPath, peers, learners, ELECTION_TIMEOUT_MILLIS, null);
     }
 
     public TestCluster(final String name, final String dataPath, final List<PeerId> peers,
