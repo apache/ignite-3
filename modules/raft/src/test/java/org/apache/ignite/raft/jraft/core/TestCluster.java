@@ -30,6 +30,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -47,8 +48,6 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
@@ -65,7 +64,7 @@ public class TestCluster {
      */
     private static final int ELECTION_TIMEOUT_MILLIS = 600;
 
-    private static final Logger LOG = LoggerFactory.getLogger(TestCluster.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
 
     private final String dataPath;
     private final String name;
