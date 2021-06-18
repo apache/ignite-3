@@ -257,7 +257,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx Execution context.
          * @param cond Join expression.
          */
-        public InnerJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
+        private InnerJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
             super(ctx, rowType, cond);
         }
 
@@ -332,7 +332,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx Execution context.
          * @param cond Join expression.
          */
-        public LeftJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> rightRowFactory) {
+        private LeftJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> rightRowFactory) {
             super(ctx, rowType, cond);
 
             this.rightRowFactory = rightRowFactory;
@@ -428,7 +428,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx Execution context.
          * @param cond Join expression.
          */
-        public RightJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> leftRowFactory) {
+        private RightJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> leftRowFactory) {
             super(ctx, rowType, cond);
 
             this.leftRowFactory = leftRowFactory;
@@ -554,7 +554,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx Execution context.
          * @param cond Join expression.
          */
-        public FullOuterJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> leftRowFactory,
+        private FullOuterJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond, RowHandler.RowFactory<Row> leftRowFactory,
             RowHandler.RowFactory<Row> rightRowFactory) {
             super(ctx, rowType, cond);
 
@@ -683,7 +683,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx Execution context.
          * @param cond Join expression.
          */
-        public SemiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
+        private SemiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
             super(ctx, rowType, cond);
         }
 
@@ -751,7 +751,7 @@ public abstract class NestedLoopJoinNode<Row> extends AbstractNode<Row> {
          * @param ctx Execution context.
          * @param cond Join expression.
          */
-        public AntiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
+        private AntiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Predicate<Row> cond) {
             super(ctx, rowType, cond);
         }
 

@@ -184,7 +184,7 @@ public class TreeIndexSpoolExecutionTest extends AbstractExecutionTest {
         final int expectedResultSize;
 
         /** */
-        public TestParams(Predicate<Object[]> pred, Object[] lower, Object[] upper, int expectedResultSize) {
+        private TestParams(Predicate<Object[]> pred, Object[] lower, Object[] upper, int expectedResultSize) {
             this.pred = pred;
             this.lower = lower;
             this.upper = upper;

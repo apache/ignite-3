@@ -175,8 +175,8 @@ class RelJson {
         final ImmutableMap.Builder<String, Enum<?>> enumByName =
             ImmutableMap.builder();
 
-//        register(enumByName, JoinConditionType.class);
-//        register(enumByName, JoinType.class);
+        register(enumByName, JoinConditionType.class);
+        register(enumByName, JoinType.class);
         register(enumByName, Direction.class);
         register(enumByName, NullDirection.class);
         register(enumByName, SqlTypeName.class);

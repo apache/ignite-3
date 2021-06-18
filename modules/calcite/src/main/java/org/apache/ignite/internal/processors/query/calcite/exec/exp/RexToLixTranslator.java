@@ -57,6 +57,7 @@ import org.apache.calcite.rex.RexRangeRef;
 import org.apache.calcite.rex.RexSubQuery;
 import org.apache.calcite.rex.RexTableInputRef;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.rex.RexVariable;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.runtime.GeoFunctions;
 import org.apache.calcite.runtime.Geometries;
@@ -1156,7 +1157,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         + " since correlate variables resolver is not defined");
                 }
                 final RexToLixTranslator.InputGetter getter =
-                    correlates.apply(((RexCorrelVariable)target).getName());
+                    correlates.apply(((RexVariable)target).getName());
                 final Expression input = getter.field(
                     list, fieldIndex, currentStorageType);
                 final Expression condition = checkNull(input);

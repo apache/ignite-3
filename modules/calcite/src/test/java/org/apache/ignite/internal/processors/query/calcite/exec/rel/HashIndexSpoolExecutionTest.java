@@ -158,7 +158,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
         final int expectedResultSize;
 
         /** */
-        public TestParams(Predicate<Object[]> pred, Object[] bounds, int expectedResultSize) {
+        private TestParams(Predicate<Object[]> pred, Object[] bounds, int expectedResultSize) {
             this.pred = pred;
             this.bounds = bounds;
             this.expectedResultSize = expectedResultSize;

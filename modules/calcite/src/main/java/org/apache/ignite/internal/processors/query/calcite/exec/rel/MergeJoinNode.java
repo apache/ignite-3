@@ -265,7 +265,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param rowType Row type.
          * @param comp Join expression comparator.
          */
-        public InnerJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+        private InnerJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
             super(ctx, rowType, comp);
         }
 
@@ -420,7 +420,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param comp Join expression comparator.
          * @param rightRowFactory Right row factory.
          */
-        public LeftJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp, RowHandler.RowFactory<Row> rightRowFactory) {
+        private LeftJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp, RowHandler.RowFactory<Row> rightRowFactory) {
             super(ctx, rowType, comp);
 
             this.rightRowFactory = rightRowFactory;
@@ -593,7 +593,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param comp Join expression comparator.
          * @param leftRowFactory Left row factory.
          */
-        public RightJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp, RowHandler.RowFactory<Row> leftRowFactory) {
+        private RightJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp, RowHandler.RowFactory<Row> leftRowFactory) {
             super(ctx, rowType, comp);
 
             this.leftRowFactory = leftRowFactory;
@@ -787,7 +787,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param leftRowFactory Left row factory.
          * @param rightRowFactory Right row factory.
          */
-        public FullOuterJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp,
+        private FullOuterJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp,
             RowHandler.RowFactory<Row> leftRowFactory, RowHandler.RowFactory<Row> rightRowFactory) {
             super(ctx, rowType, comp);
 
@@ -992,7 +992,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param rowType Row type.
          * @param comp Join expression comparator.
          */
-        public SemiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+        private SemiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
             super(ctx, rowType, comp);
         }
 
@@ -1068,7 +1068,7 @@ public abstract class MergeJoinNode<Row> extends AbstractNode<Row> {
          * @param rowType Row type.
          * @param comp Join expression comparator.
          */
-        public AntiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
+        private AntiJoin(ExecutionContext<Row> ctx, RelDataType rowType, Comparator<Row> comp) {
             super(ctx, rowType, comp);
         }
 

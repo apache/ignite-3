@@ -37,11 +37,11 @@ public abstract class AbstractIgniteSpool extends Spool implements IgniteRel {
         super(cluster, traits, input, readType, Type.EAGER);
     }
 
-//    /** {@inheritDoc} */
-//    @Override public RelWriter explainTerms(RelWriter pw) {
-//        return pw
-//            .input("input", getInput())
-//            .item("readType", readType.name())
-//            .item("writeType", writeType.name());
-//    }
+    /** {@inheritDoc} */
+    @Override public RelWriter explainTerms(RelWriter pw) {
+        return pw
+            .input("input", getInput())
+            .item("readType", readType.name())
+            .item("writeType", writeType.name());
+    }
 }

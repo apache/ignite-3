@@ -473,7 +473,7 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
         private Map<String, FieldGetter> correlates;
 
         /** */
-        public CorrelatesBuilder(BlockBuilder builder, Expression ctx_, Expression hnd_) {
+        private CorrelatesBuilder(BlockBuilder builder, Expression ctx_, Expression hnd_) {
             this.builder = builder;
             this.hnd_ = hnd_;
             this.ctx_ = ctx_;

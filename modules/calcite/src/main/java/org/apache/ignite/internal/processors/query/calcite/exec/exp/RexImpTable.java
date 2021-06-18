@@ -1016,7 +1016,6 @@ public class RexImpTable {
         /** {@inheritDoc} */
         @Override Expression implementSafe(RexToLixTranslator translator,
             RexCall call, List<Expression> argValueList) {
-            final Expression expression;
             final List<Expression> newOperands = new ArrayList<>();
             newOperands.add(argValueList.get(0));
             newOperands.add(argValueList.get(1));
@@ -1061,7 +1060,7 @@ public class RexImpTable {
             newOperands.add(errorBehavior);
             newOperands.add(defaultValueOnError);
             Class clazz = method.getDeclaringClass();
-            expression = EnumUtils.call(clazz, method.getName(), newOperands);
+            final Expression expression = EnumUtils.call(clazz, method.getName(), newOperands);
 
             final Type returnType =
                 translator.typeFactory.getJavaClass(call.getType());
@@ -1173,7 +1172,7 @@ public class RexImpTable {
                 // If one or both operands have ANY type, use the late-binding backup
                 // method.
                 if (anyAnyOperands(call))
-                    return callBackupMethodAnyType(translator, call, argValueList);
+                    return callBackupMethodAnyType(argValueList);
 
                 final Type type0 = argValueList.get(0).getType();
                 final Type type1 = argValueList.get(1).getType();
@@ -1216,8 +1215,7 @@ public class RexImpTable {
         }
 
         /** */
-        private Expression callBackupMethodAnyType(RexToLixTranslator translator,
-            RexCall call, List<Expression> expressions) {
+        private Expression callBackupMethodAnyType(List<Expression> expressions) {
             final String backupMethodNameForAnyType =
                 backupMethodName + METHOD_POSTFIX_FOR_ANY_TYPE;
 
@@ -1964,7 +1962,7 @@ public class RexImpTable {
 
             final Expression valueExpression =
                 Expressions.condition(condition,
-                    getIfTrue(convertedCallValue.getType(), argValueList),
+                    getIfTrue(convertedCallValue.getType()),
                     convertedCallValue);
             final ParameterExpression value =
                 Expressions.parameter(convertedCallValue.getType(),
@@ -1975,7 +1973,7 @@ public class RexImpTable {
         }
 
         /** */
-        Expression getIfTrue(Type type, final List<Expression> argValueList) {
+        Expression getIfTrue(Type type) {
             return getDefaultValue(type);
         }
 
@@ -2060,7 +2058,7 @@ public class RexImpTable {
             // "Long.valueOf(x)" generates "x"
             if (argValue instanceof MethodCallExpression) {
                 MethodCallExpression mce = (MethodCallExpression)argValue;
-                if (mce.method.getName().equals("valueOf") && mce.expressions.size() == 1) {
+                if ("valueOf".equals(mce.method.getName()) && mce.expressions.size() == 1) {
                     Expression originArg = mce.expressions.get(0);
                     if (Primitive.of(originArg.type) == fromBox)
                         return originArg;
@@ -2337,7 +2335,7 @@ public class RexImpTable {
         }
 
         /** {@inheritDoc} */
-        @Override Expression getIfTrue(Type type, final List<Expression> argValueList) {
+        @Override Expression getIfTrue(Type type) {
             return Expressions.constant(false, type);
         }
 
@@ -2361,7 +2359,7 @@ public class RexImpTable {
         }
 
         /** {@inheritDoc} */
-        @Override Expression getIfTrue(Type type, final List<Expression> argValueList) {
+        @Override Expression getIfTrue(Type type) {
             return Expressions.constant(true, type);
         }
 
@@ -2385,7 +2383,7 @@ public class RexImpTable {
         }
 
         /** {@inheritDoc} */
-        @Override Expression getIfTrue(Type type, final List<Expression> argValueList) {
+        @Override Expression getIfTrue(Type type) {
             return Expressions.constant(false, type);
         }
 
@@ -2409,7 +2407,7 @@ public class RexImpTable {
         }
 
         /** {@inheritDoc} */
-        @Override Expression getIfTrue(Type type, final List<Expression> argValueList) {
+        @Override Expression getIfTrue(Type type) {
             return Expressions.constant(true, type);
         }
 
@@ -2433,7 +2431,7 @@ public class RexImpTable {
         }
 
         /** {@inheritDoc} */
-        @Override Expression getIfTrue(Type type, final List<Expression> argValueList) {
+        @Override Expression getIfTrue(Type type) {
             return Expressions.constant(true, type);
         }
 
@@ -2457,7 +2455,7 @@ public class RexImpTable {
         }
 
         /** {@inheritDoc} */
-        @Override Expression getIfTrue(Type type, final List<Expression> argValueList) {
+        @Override Expression getIfTrue(Type type) {
             return Expressions.constant(false, type);
         }
 
