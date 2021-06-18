@@ -2077,6 +2077,7 @@ public class ITNodeTest {
     }
 
     @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
+    @Ignore("https://issues.apache.org/jira/browse/IGNITE-14943")
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         final List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", this.dataPath, peers.subList(0, 3));
@@ -2982,7 +2983,6 @@ public class ITNodeTest {
     }
 
     @Test
-    @Ignore("https://issues.apache.org/jira/browse/IGNITE-14852")
     public void testChangePeers() throws Exception {
         final PeerId peer0 = new PeerId(TestUtils.getMyIp(), TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", this.dataPath, Collections.singletonList(peer0));
