@@ -71,7 +71,6 @@ public class AbstractClientServiceTest {
     }
 
     static class MockRpcResponseClosure<T extends Message> extends RpcResponseClosureAdapter<T> {
-
         CountDownLatch latch = new CountDownLatch(1);
 
         Status status;
@@ -81,33 +80,6 @@ public class AbstractClientServiceTest {
             this.status = status;
             this.latch.countDown();
         }
-    }
-
-    @Test
-    public void testCancel() throws Exception {
-        ArgumentCaptor<InvokeCallback> callbackArg = ArgumentCaptor.forClass(InvokeCallback.class);
-        PingRequest request = TestUtils.createPingRequest();
-
-        MockRpcResponseClosure<ErrorResponse> done = new MockRpcResponseClosure<>();
-        Future<Message> future = this.clientService.invokeWithDone(this.endpoint, request, done, -1);
-        Mockito.verify(this.rpcClient).invokeAsync(eq(this.endpoint), eq(request), Mockito.any(),
-            callbackArg.capture(), eq((long) this.rpcOptions.getRpcDefaultTimeout()));
-        InvokeCallback cb = callbackArg.getValue();
-        assertNotNull(cb);
-        assertNotNull(future);
-
-        assertNull(done.getResponse());
-        assertNull(done.status);
-        assertFalse(future.isDone());
-
-        future.cancel(true);
-        ErrorResponse response = (ErrorResponse) this.rpcResponseFactory.newResponse(null, Status.OK());
-        cb.complete(response, null);
-
-        // The closure should be notified with ECANCELED error code.
-        done.latch.await();
-        assertNotNull(done.status);
-        assertEquals(RaftError.ECANCELED.getNumber(), done.status.getCode());
     }
 
     @Test
@@ -129,11 +101,6 @@ public class AbstractClientServiceTest {
 
         ErrorResponse response = (ErrorResponse) this.rpcResponseFactory.newResponse(null, Status.OK());
         cb.complete(response, null);
-
-        Message msg = future.get();
-        assertNotNull(msg);
-        assertTrue(msg instanceof ErrorResponse);
-        assertSame(msg, response);
 
         done.latch.await();
         assertNotNull(done.status);
@@ -160,14 +127,6 @@ public class AbstractClientServiceTest {
 
         assertTrue(future.isDone());
 
-        try {
-            future.get();
-            fail();
-        }
-        catch (ExecutionException e) {
-            assertTrue(e.getCause() instanceof RemotingException);
-        }
-
         done.latch.await();
         assertNotNull(done.status);
         assertEquals(RaftError.EINTERNAL.getNumber(), done.status.getCode());
@@ -192,14 +151,6 @@ public class AbstractClientServiceTest {
         assertFalse(future.isDone());
 
         cb.complete(null, new InvokeTimeoutException());
-
-        try {
-            future.get();
-            fail();
-        }
-        catch (ExecutionException e) {
-            assertTrue(e.getCause() instanceof InvokeTimeoutException);
-        }
 
         done.latch.await();
         assertNotNull(done.status);
@@ -230,11 +181,6 @@ public class AbstractClientServiceTest {
         final Message resp = this.rpcResponseFactory.newResponse(CliRequests.GetPeersResponse.getDefaultInstance(),
             new Status(-1, "failed"));
         cb.complete(resp, null);
-
-        final Message msg = future.get();
-
-        assertTrue(msg instanceof ErrorResponse);
-        assertEquals(((ErrorResponse) msg).getErrorMsg(), "failed");
 
         done.latch.await();
         assertNotNull(done.status);

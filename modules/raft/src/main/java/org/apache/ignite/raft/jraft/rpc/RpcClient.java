@@ -55,7 +55,11 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      *
      * @return The future.
      */
-    CompletableFuture<Message> invokeAsync(Endpoint endpoint, Object request, @Nullable InvokeContext ctx,
+    CompletableFuture<Message> invokeAsync(
+        Endpoint endpoint,
+        Object request,
+        @Nullable InvokeContext ctx,
         InvokeCallback callback,
-        long timeoutMs) throws InterruptedException, RemotingException;
+        long timeoutMs
+    ) throws InterruptedException, RemotingException;
 }

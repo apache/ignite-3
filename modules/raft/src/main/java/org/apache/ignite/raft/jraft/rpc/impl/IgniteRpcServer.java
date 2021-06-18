@@ -113,7 +113,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new org.apache.ignite.raft.jraft.rpc.impl.client.SnapshotRequestProcessor(rpcExecutor, FACTORY));
 
         service.messagingService().addMessageHandler(new NetworkMessageHandler() {
-            @Override public void onReceived(NetworkMessage msg, String sender, String corellationId) {
+            @Override public void onReceived(NetworkMessage msg, String senderAddr, String corellationId) {
                 Class<? extends NetworkMessage> cls = msg.getClass();
                 RpcProcessor prc = processors.get(cls.getName());
 
@@ -153,11 +153,11 @@ public class IgniteRpcServer implements RpcServer<Void> {
                         }
 
                         @Override public void sendResponse(Object responseObj) {
-                            service.messagingService().send(sender, (NetworkMessage) responseObj, corellationId);
+                            service.messagingService().send(senderAddr, (NetworkMessage) responseObj, corellationId);
                         }
 
                         @Override public String getRemoteAddress() {
-                            return sender;
+                            return senderAddr;
                         }
 
                         @Override public String getLocalAddress() {

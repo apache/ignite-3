@@ -98,11 +98,11 @@ public class RaftServerImpl implements RaftServer {
         readQueue = new ArrayBlockingQueue<>(QUEUE_SIZE);
         writeQueue = new ArrayBlockingQueue<>(QUEUE_SIZE);
 
-        service.messagingService().addMessageHandler((message, sender, correlationId) -> {
+        service.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {
             if (message instanceof GetLeaderRequest) {
                 GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(service.topologyService().localMember().address())).build();
 
-                service.messagingService().send(sender, resp, correlationId);
+                service.messagingService().send(senderAddr, resp, correlationId);
             }
             else if (message instanceof ActionRequest) {
                 ActionRequest req0 = (ActionRequest)message;
@@ -110,15 +110,15 @@ public class RaftServerImpl implements RaftServer {
                 RaftGroupListener lsnr = listeners.get(req0.groupId());
 
                 if (lsnr == null) {
-                    sendError(sender, correlationId, RaftErrorCode.ILLEGAL_STATE);
+                    sendError(senderAddr, correlationId, RaftErrorCode.ILLEGAL_STATE);
 
                     return;
                 }
 
                 if (req0.command() instanceof ReadCommand)
-                    handleActionRequest(sender, req0, correlationId, readQueue, lsnr);
+                    handleActionRequest(senderAddr, req0, correlationId, readQueue, lsnr);
                 else
-                    handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
+                    handleActionRequest(senderAddr, req0, correlationId, writeQueue, lsnr);
             }
             // TODO https://issues.apache.org/jira/browse/IGNITE-14775
         });

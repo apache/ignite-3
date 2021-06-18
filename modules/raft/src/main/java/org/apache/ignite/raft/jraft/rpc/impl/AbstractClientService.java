@@ -189,11 +189,6 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             return rc.invokeAsync(endpoint, request, ctx, new InvokeCallback() {
                 @Override
                 public void complete(final Object result, final Throwable err) {
-                    if (future.isCancelled()) {
-                        onCanceled(request, done);
-                        return;
-                    }
-
                     if (err == null) {
                         Status status = Status.OK();
                         Message msg;
@@ -267,16 +262,4 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         status.setErrorMsg(eResp.getErrorMsg());
         return status;
     }
-
-    private <T extends Message> void onCanceled(final Message request, final RpcResponseClosure<T> done) {
-        if (done != null) {
-            try {
-                done.run(new Status(RaftError.ECANCELED, "RPC request was canceled by future."));
-            }
-            catch (final Throwable t) {
-                LOG.error("Fail to run RpcResponseClosure, the request is {}.", request, t);
-            }
-        }
-    }
-
 }
