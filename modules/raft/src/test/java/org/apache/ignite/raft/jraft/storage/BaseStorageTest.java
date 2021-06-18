@@ -23,8 +23,6 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.After;
 
-import static org.junit.Assert.assertTrue;
-
 public class BaseStorageTest {
     protected String path;
 
