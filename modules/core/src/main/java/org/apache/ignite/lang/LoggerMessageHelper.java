@@ -18,7 +18,6 @@
 package org.apache.ignite.lang;
 
 import java.util.HashSet;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Formats messages according to very simple substitution rules. Substitutions can be made 1, 2 or more arguments.
@@ -64,7 +63,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * will return the string "File name is C:\file.zip".
  */
-final class LoggerMessageHelper {
+public final class LoggerMessageHelper {
     /** Left brace. */
     private static final char DELIM_START = '{';
 
@@ -75,28 +74,14 @@ final class LoggerMessageHelper {
     private static final char ESCAPE_CHAR = '\\';
 
     /**
-     * Replaces all substitutions in the messagePattern and separates an exception if it is passed.
+     * Replaces all substitutions in the messagePattern.
      *
      * @param messagePattern Message with formatting anchor.
      * @param params Parrameters.
-     * @return A tuple contains message and exception if it was passed in the last parameter.
+     * @return A formatted message.
      */
-    public static @NotNull IgniteBiTuple<String, Throwable> format(
-        final String messagePattern,
-        final Object... params
-    ) {
-        Throwable th = getThrowableCandidate(params);
-
-        if (messagePattern == null)
-            return new IgniteBiTuple<>(null, th);
-
-        if (params == null)
-            return new IgniteBiTuple<>(messagePattern, null);
-
-        if (th == null)
-            return new IgniteBiTuple<>(arrayFormat(messagePattern, params), null);
-
-        return new IgniteBiTuple<>(arrayFormat(messagePattern, trimmedCopy(params)), th);
+    public static String format(final String messagePattern, final Object... params) {
+        return arrayFormat(messagePattern, params);
     }
 
     /**
@@ -106,7 +91,7 @@ final class LoggerMessageHelper {
      * @param messagePattern Message with formatting anchor.
      * @param params Parrameters.
      */
-    private static String arrayFormat(final String messagePattern, final Object[] params) {
+    static String arrayFormat(final String messagePattern, final Object[] params) {
         if (messagePattern == null)
             return null;
 
@@ -461,44 +446,5 @@ final class LoggerMessageHelper {
         }
 
         sbuf.append(']');
-    }
-
-    /**
-     * Helper method to determine if an {@link Object} array contains a {@link Throwable} as last element.
-     *
-     * @param params The arguments off which we want to know if it contains a {@link Throwable} as last element.
-     * @return if the last {@link Object} in params is a {@link Throwable} this method will return it, otherwise it
-     * returns null.
-     */
-    private static Throwable getThrowableCandidate(final Object[] params) {
-        if (params == null || params.length == 0)
-            return null;
-
-        final Object lastEntry = params[params.length - 1];
-
-        if (lastEntry instanceof Throwable)
-            return (Throwable)lastEntry;
-
-        return null;
-    }
-
-    /**
-     * Helper method to get all but the last element of an array
-     *
-     * @param argArray The arguments from which we want to remove the last element
-     * @return a copy of the array without the last element
-     */
-    private static Object[] trimmedCopy(final Object[] argArray) {
-        if (argArray == null || argArray.length == 0)
-            throw new IllegalStateException("non-sensical empty or null argument array");
-
-        final int trimmedLen = argArray.length - 1;
-
-        Object[] trimmed = new Object[trimmedLen];
-
-        if (trimmedLen > 0)
-            System.arraycopy(argArray, 0, trimmed, 0, trimmedLen);
-
-        return trimmed;
     }
 }
