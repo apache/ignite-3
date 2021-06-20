@@ -22,12 +22,6 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.NotNull;
 
-import static java.lang.System.Logger.Level.DEBUG;
-import static java.lang.System.Logger.Level.ERROR;
-import static java.lang.System.Logger.Level.INFO;
-import static java.lang.System.Logger.Level.TRACE;
-import static java.lang.System.Logger.Level.WARNING;
-
 /**
  * Ignite logger wraps system logger for more convenient access.
  */
@@ -57,18 +51,18 @@ public class IgniteLogger {
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
     public void info(String msg, Object... params) {
-        logInternal(INFO, msg, params);
+        logInternal(Level.INFO, msg, params);
     }
 
     /**
-     * Logs a message which produces in {@code msgSupplier},
-     * on {@link INFO} level with associated exception {@code thrown}.
+     * Logs a message which produces in {@code msgSupplier}, on {@link Level#INFO} level with associated exception
+     * {@code thrown}.
      *
      * @param msgSupplier A supplier function that produces a message.
      * @param thrown A {@code Throwable} associated with log message; can be {@code null}.
      */
     public void info(Supplier<String> msgSupplier, Throwable thrown) {
-        logInternalExceptional(INFO, msgSupplier, thrown);
+        logInternalExceptional(Level.INFO, msgSupplier, thrown);
     }
 
     /**
@@ -76,7 +70,7 @@ public class IgniteLogger {
      * @param th A {@code Throwable} associated with the log message.
      */
     public void info(String msg, Throwable th) {
-        log.log(INFO, msg, th);
+        log.log(Level.INFO, msg, th);
     }
 
     /**
@@ -84,18 +78,18 @@ public class IgniteLogger {
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
     public void debug(String msg, Object... params) {
-        logInternal(DEBUG, msg, params);
+        logInternal(Level.DEBUG, msg, params);
     }
 
     /**
-     * Logs a message which produces in {@code msgSupplier},
-     * on {@link DEBUG} level with associated exception {@code thrown}.
+     * Logs a message which produces in {@code msgSupplier}, on {@link Level#DEBUG} level with associated exception
+     * {@code thrown}.
      *
      * @param msgSupplier A supplier function that produces a message.
      * @param thrown A {@code Throwable} associated with log message; can be {@code null}.
      */
     public void debug(Supplier<String> msgSupplier, Throwable thrown) {
-        logInternalExceptional(DEBUG, msgSupplier, thrown);
+        logInternalExceptional(Level.DEBUG, msgSupplier, thrown);
     }
 
     /**
@@ -103,7 +97,7 @@ public class IgniteLogger {
      * @param th A {@code Throwable} associated with the log message;
      */
     public void debug(String msg, Throwable th) {
-        log.log(DEBUG, msg, th);
+        log.log(Level.DEBUG, msg, th);
     }
 
     /**
@@ -111,18 +105,18 @@ public class IgniteLogger {
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
     public void warn(String msg, Object... params) {
-        logInternal(WARNING, msg, params);
+        logInternal(Level.WARNING, msg, params);
     }
 
     /**
-     * Logs a message which produces in {@code msgSupplier},
-     * on {@link WARNING} level with associated exception {@code thrown}.
+     * Logs a message which produces in {@code msgSupplier}, on {@link Level#WARNING} level with associated exception
+     * {@code thrown}.
      *
      * @param msgSupplier A supplier function that produces a message.
      * @param thrown A {@code Throwable} associated with log message; can be {@code null}.
      */
     public void warn(Supplier<String> msgSupplier, Throwable thrown) {
-        logInternalExceptional(WARNING, msgSupplier, thrown);
+        logInternalExceptional(Level.WARNING, msgSupplier, thrown);
     }
 
     /**
@@ -130,7 +124,7 @@ public class IgniteLogger {
      * @param th A {@code Throwable} associated with the log message.
      */
     public void warn(String msg, Throwable th) {
-        log.log(WARNING, msg, th);
+        log.log(Level.WARNING, msg, th);
     }
 
     /**
@@ -138,18 +132,18 @@ public class IgniteLogger {
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
     public void error(String msg, Object... params) {
-        logInternal(ERROR, msg, params);
+        logInternal(Level.ERROR, msg, params);
     }
 
     /**
-     * Logs a message which produces in {@code msgSupplier},
-     * on {@link ERROR} level with associated exception {@code thrown}.
+     * Logs a message which produces in {@code msgSupplier}, on {@link Level#ERROR} level with associated exception
+     * {@code thrown}.
      *
      * @param msgSupplier A supplier function that produces a message.
      * @param thrown A {@code Throwable} associated with log message; can be {@code null}.
      */
     public void error(Supplier<String> msgSupplier, Throwable thrown) {
-        logInternalExceptional(ERROR, msgSupplier, thrown);
+        logInternalExceptional(Level.ERROR, msgSupplier, thrown);
     }
 
     /**
@@ -157,7 +151,7 @@ public class IgniteLogger {
      * @param th A {@code Throwable} associated with the log message.
      */
     public void error(String msg, Throwable th) {
-        log.log(ERROR, msg, th);
+        log.log(Level.ERROR, msg, th);
     }
 
     /**
@@ -165,18 +159,18 @@ public class IgniteLogger {
      * @param params A list of arguments to be substituted in place of formatting anchors.
      */
     public void trace(String msg, Object... params) {
-        logInternal(TRACE, msg, params);
+        logInternal(Level.TRACE, msg, params);
     }
 
     /**
-     * Logs a message which produces in {@code msgSupplier},
-     * on {@link TRACE} level with associated exception {@code thrown}.
+     * Logs a message which produces in {@code msgSupplier}, on {@link Level#TRACE} level with associated exception
+     * {@code thrown}.
      *
      * @param msgSupplier A supplier function that produces a message.
      * @param thrown A {@code Throwable} associated with log message; can be {@code null}.
      */
     public void trace(Supplier<String> msgSupplier, Throwable thrown) {
-        logInternalExceptional(TRACE, msgSupplier, thrown);
+        logInternalExceptional(Level.TRACE, msgSupplier, thrown);
     }
 
     /**
@@ -184,7 +178,7 @@ public class IgniteLogger {
      * @param th A {@code Throwable} associated with the log message.
      */
     public void trace(String msg, Throwable th) {
-        log.log(TRACE, msg, th);
+        log.log(Level.TRACE, msg, th);
     }
 
     /**
@@ -223,30 +217,30 @@ public class IgniteLogger {
     }
 
     /**
-     * @return {@code true} if the {@link TRACE} log message level is currently being logged.
+     * @return {@code true} if the {@link Level#TRACE} log message level is currently being logged.
      */
     public boolean isTraceEnabled() {
-        return log.isLoggable(TRACE);
+        return log.isLoggable(Level.TRACE);
     }
 
     /**
-     * @return {@code true} if the {@link DEBUG} log message level is currently being logged.
+     * @return {@code true} if the {@link Level#DEBUG} log message level is currently being logged.
      */
     public boolean isDebugEnabled() {
-        return log.isLoggable(DEBUG);
+        return log.isLoggable(Level.DEBUG);
     }
 
     /**
-     * @return {@code true} if the {@link INFO} log message level is currently being logged.
+     * @return {@code true} if the {@link Level#INFO} log message level is currently being logged.
      */
     public boolean isInfoEnabled() {
-        return log.isLoggable(INFO);
+        return log.isLoggable(Level.INFO);
     }
 
     /**
-     * @return {@code true} if the {@link WARNING} log message level is currently being logged.
+     * @return {@code true} if the {@link Level#WARNING} log message level is currently being logged.
      */
     public boolean isWarnEnabled() {
-        return log.isLoggable(WARNING);
+        return log.isLoggable(Level.WARNING);
     }
 }
