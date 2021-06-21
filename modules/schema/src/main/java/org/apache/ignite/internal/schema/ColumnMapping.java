@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.table;
+package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.Value;
+import java.io.Serializable;
 
 /**
- * Configuration for single column in SQL table.
+ * Column mapping.
  */
-@Config
-public class ColumnConfigurationSchema {
-    /** Column name. */
-    @Value
-    public String name;
-
-    /** Column type. */
-    @ConfigValue
-    public ColumnTypeConfigurationSchema type;
-
-    /** Nullable flag. */
-    @Value
-    public boolean nullable;
-
-    /** Default value. */
-    @Value(hasDefault = true)
-    public String defaultValue = "";
+public interface ColumnMapping extends Serializable {
+    /**
+     * Map column idx in source schema to column idx in target schema.
+     *
+     * @param idx Column index in source schema.
+     * @return Column index in target schema or {@code -1} if no column exists in target schema.
+     */
+    int map(int idx);
 }

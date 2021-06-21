@@ -398,16 +398,6 @@ public class SchemaConfigurationConverter {
     }
 
     /**
-     * Convert TableConfiguration to SchemaTable.
-     *
-     * @param tblCfg TableConfiguration to convert.
-     * @return SchemaTable.
-     */
-    public static SchemaTable convert(TableConfiguration tblCfg) {
-        return convert(tblCfg.value());
-    }
-
-    /**
      * Convert configuration to SchemaTable.
      *
      * @param tblView TableView to convert.

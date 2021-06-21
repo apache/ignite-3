@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +35,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.internal.util.ConfigurationUtil;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -220,8 +223,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             assert newTbl.columns().namedListKeys() != null && oldTbl.columns().namedListKeys() != null;
 
-                            return newTbl.columns().namedListKeys().stream().anyMatch(c -> !oldTbl.columns().namedListKeys().contains(c)) ||
-                                oldTbl.columns().namedListKeys().stream().anyMatch(c -> !newTbl.columns().namedListKeys().contains(c));
+                            if (!newTbl.columns().namedListKeys().equals(oldTbl.columns().namedListKeys()))
+                                return true;
+
+                            return newTbl.columns().namedListKeys().stream().anyMatch(k -> {
+                                final ColumnView newCol = newTbl.columns().get(k);
+                                final ColumnView oldCol = oldTbl.columns().get(k);
+
+                                assert oldCol != null;
+
+                                assert Objects.equals(newCol.type(), oldCol.type()) : "Columns type change is not supported.";
+                                assert Objects.equals(newCol.nullable(), oldCol.nullable()) : "Column nullability change is not supported";
+
+                                return !Objects.equals(newCol.name(), oldCol.name()) ||
+                                    !Objects.equals(newCol.defaultValue(), oldCol.defaultValue());
+                            });
                         }).collect(Collectors.toSet()) :
                     Collections.emptySet();
 
@@ -229,7 +245,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 futs.addAll(startTables(tablesToStart, ctx.storageRevision(), ctx.newValue()));
 
             if (!schemaChanged.isEmpty())
-                futs.addAll(changeSchema(schemaChanged));
+                futs.addAll(changeSchema(ctx, schemaChanged));
 
             if (!tablesToStop.isEmpty())
                 futs.addAll(stopTables(tablesToStop));
@@ -376,10 +392,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Start tables routine.
      *
+     * @param ctx Configuration change context.
      * @param tbls Tables to start.
      * @return Table creation futures.
      */
-    private List<CompletableFuture<Boolean>> changeSchema(Set<String> tbls) {
+    private List<CompletableFuture<Boolean>> changeSchema(
+        ConfigurationNotificationEvent<NamedListView<TableView>> ctx,
+        Set<String> tbls
+    ) {
         boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
 
         List<CompletableFuture<Boolean>> futs = new ArrayList<>();
@@ -392,7 +412,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
             if (hasMetastorageLocally)
-                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName));
+                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName, ctx.oldValue().get(tblName), ctx.newValue().get(tblName)));
 
             final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 

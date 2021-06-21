@@ -15,50 +15,54 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.registry;
-
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+package org.apache.ignite.internal.schema;
 
 /**
- * Column mapping.
+ * Column mapper implementation.
  */
-class ColumnMapping {
+class ColumnMapper implements ColumnMapping {
+    /** Identity mapper. */
+    private static final IdentityMapper IDENTITY_MAPPER = new IdentityMapper();
+
+    /**
+     * @return Identity mapper instance.
+     */
+    static ColumnMapping identityMapping() {
+        return IDENTITY_MAPPER;
+    }
+
     /** Mapping. */
     private final int[] mapping;
-
-    /** First mapped column index. */
-    private final int firstColIdx;
 
     /**
      * @param schema Source schema descriptor.
      */
-    ColumnMapping(SchemaDescriptor schema) {
-        firstColIdx = schema.keyColumns().length();
-        mapping = new int[schema.valueColumns().length()];
+    public ColumnMapper(SchemaDescriptor schema) {
+        mapping = new int[schema.length()];
     }
 
     /**
      * Add column mapping.
      *
-     * @param from Column index in source schema.
-     * @param to Column index in schema.
+     * @param from Source column index.
+     * @param to Target column index.
      */
-    void add(int from, int to) {
-        assert from >= firstColIdx && from < firstColIdx + mapping.length;
+    public void add(int from, int to) {
+        mapping[from] = to;
+    }
 
-        mapping[from - firstColIdx] = to;
+    /** {@inheritDoc} */
+    @Override public int map(int idx) {
+        return mapping[idx];
     }
 
     /**
-     * Gets mapped column idx.
-     *
-     * @param idx Column index in source.
-     * @return Column index in targer schema.
+     * Identity column mapper.
      */
-    int map(int idx) {
-        if (idx < firstColIdx)
+    private static class IdentityMapper implements ColumnMapping {
+        /** {@inheritDoc} */
+        @Override public int map(int idx) {
             return idx;
-
-        return mapping[idx - firstColIdx];
+        }
     }
 }

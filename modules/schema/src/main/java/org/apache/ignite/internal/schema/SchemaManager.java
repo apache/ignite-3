@@ -20,13 +20,16 @@ package org.apache.ignite.internal.schema;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -125,7 +128,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                             onEvent(SchemaEvent.DROPPED, new SchemaEventParameters(tblId, null), null);
                         }
                         else {
-                            int v = (int)ByteUtils.bytesToLong(evt.newEntry().value(),0);
+                            int v = (int)ByteUtils.bytesToLong(evt.newEntry().value());
 
                             assert reg.lastSchemaVersion() == v;
 
@@ -184,7 +187,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 final ByteArray lastVerKey = new ByteArray(INTERNAL_PREFIX + tblId);
                 final ByteArray schemaKey = new ByteArray(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + schemaVer);
 
-                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig);
+                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig.value());
                 final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, schemaVer, schemaTable);
 
                 return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
@@ -203,24 +206,33 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      *
      * @param tblId Table id.
      * @param tblName Table name.
+     * @param oldTbl Old table configuration.
+     * @param newTbl New table configuraiton.
      * @return Operation future.
      */
-    public CompletableFuture<Boolean> updateSchemaForTable(final UUID tblId, String tblName) {
+    public CompletableFuture<Boolean> updateSchemaForTable(
+        final UUID tblId,
+        String tblName,
+        TableView oldTbl,
+        TableView newTbl
+    ) {
         return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
             thenCompose(entry -> {
-                TableConfiguration tblConfig = configurationMgr.configurationRegistry().
-                    getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
-
                 assert !entry.empty();
 
-                final int oldVer = (int)ByteUtils.bytesToLong(entry.value(), 0);
+                final int oldVer = (int)ByteUtils.bytesToLong(entry.value());
                 final int newVer = oldVer + 1;
 
                 final ByteArray lastVerKey = new ByteArray(INTERNAL_PREFIX + tblId);
                 final ByteArray schemaKey = new ByteArray(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + newVer);
 
-                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig);
-                final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, newVer, schemaTable);
+                final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, newVer, SchemaConfigurationConverter.convert(newTbl));
+
+                desc.columnMapper(columnMapper(
+                    schemaRegistryForTable(tblId).schema(oldVer),
+                    oldTbl,
+                    desc,
+                    newTbl));
 
                 return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
                     Operations.put(schemaKey, ByteUtils.toBytes(desc)),
@@ -231,6 +243,61 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                         Operations.put(lastVerKey, ByteUtils.longToBytes(newVer)),
                         Operations.noop()));
             });
+    }
+
+    /**
+     * @param oldDesc Old schema descriptor.
+     * @param oldTbl Old table configuration.
+     * @param newDesc New schema descriptor.
+     * @param newTbl New table configuration.
+     * @return Column mapper.
+     */
+    private ColumnMapping columnMapper(
+        SchemaDescriptor oldDesc,
+        TableView oldTbl,
+        SchemaDescriptor newDesc,
+        TableView newTbl) {
+        ColumnMapper mapper = null;
+
+        for (String s : newTbl.columns().namedListKeys()) {
+            final ColumnView newColView = newTbl.columns().get(s);
+            final ColumnView oldColView = oldTbl.columns().get(s);
+
+            if (oldColView == null) {
+                assert !newDesc.isKeyColumn(newDesc.column(newColView.name()).schemaIndex());
+
+                if (mapper == null)
+                    mapper = new ColumnMapper(newDesc);
+
+                mapper.add(newDesc.column(newColView.name()).schemaIndex(), -1); // New column added.
+            }
+            else {
+                final Column newCol = newDesc.column(newColView.name());
+                final Column oldCol = oldDesc.column(oldColView.name());
+
+                if (!newCol.type().equals(oldCol.type()) || newCol.nullable() != oldCol.nullable())
+                    throw new InvalidTypeException("Column of incompatible type: [schemaVer=" + newDesc.version() + ", col=" + newCol);
+
+                if (newCol.name().equals(newCol.name()))
+                    continue; // Changing column 'default' doesn't change mapping.
+
+                if (mapper == null)
+                    mapper = new ColumnMapper(newDesc);
+
+                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+            }
+        }
+
+        final Optional<Column> droppedKeyCol = oldTbl.columns().namedListKeys().stream()
+            .filter(k -> newTbl.columns().get(k) == null)
+            .map(k -> oldDesc.column(oldTbl.columns().get(k).name()))
+            .filter(c -> oldDesc.isKeyColumn(c.schemaIndex()))
+            .findAny();
+
+        if (droppedKeyCol.isPresent())
+            throw new SchemaRegistryException("Dropping of key column is forbidden: [schemaVer=" + newDesc.version() + ", col=" + droppedKeyCol.get());
+
+        return mapper == null ? ColumnMapper.identityMapping() : mapper;
     }
 
     /**
