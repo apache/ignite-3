@@ -37,7 +37,7 @@ class ColumnMapper implements ColumnMapping {
     /**
      * @param schema Source schema descriptor.
      */
-    public ColumnMapper(SchemaDescriptor schema) {
+    ColumnMapper(SchemaDescriptor schema) {
         mapping = new int[schema.length()];
     }
 
