@@ -32,15 +32,15 @@ import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.transport.api.Message;
 import io.scalecube.net.Address;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.network.AbstractClusterService;
-import org.apache.ignite.network.NetworkMessagesFactory;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.NetworkConfigurationException;
-import org.apache.ignite.network.internal.netty.ConnectionManager;
-import org.apache.ignite.network.internal.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.network.internal.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -54,7 +54,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
         var topologyService = new ScaleCubeTopologyService();
 
-        var messagingService = new ScaleCubeMessagingService(topologyService);
+        var messagingService = new ScaleCubeMessagingService();
 
         var messageFactory = new NetworkMessagesFactory();
 
@@ -103,6 +103,10 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override public void shutdown() {
+                // local member will be null, if cluster has not been started
+                if (cluster.member() == null)
+                    return;
+
                 stopJmxMonitor();
 
                 cluster.shutdown();

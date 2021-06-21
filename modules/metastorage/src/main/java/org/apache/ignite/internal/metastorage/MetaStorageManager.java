@@ -27,8 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -167,7 +167,7 @@ public class MetaStorageManager {
 //        );
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
-        clusterNetSvc.messagingService().addMessageHandler((message, sender, correlationId) -> {});
+        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
     }
 
     /**
