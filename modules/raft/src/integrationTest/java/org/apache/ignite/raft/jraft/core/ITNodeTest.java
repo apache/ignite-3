@@ -35,10 +35,14 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import com.codahale.metrics.ConsoleReporter;
+import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
+import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -101,20 +105,11 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
  */
 public class ITNodeTest {
-    static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
-
-    private String dataPath;
-
-    private final AtomicInteger startedCounter = new AtomicInteger(0);
-    private final AtomicInteger stoppedCounter = new AtomicInteger(0);
-
-    private long testStartMs;
+    private static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
 
     private static DumpThread dumpThread;
 
-    private TestCluster cluster;
-
-    static class DumpThread extends Thread {
+    private static class DumpThread extends Thread {
         private static long DUMP_TIMEOUT_MS = 5 * 60 * 1000;
         private volatile boolean stopped = false;
 
@@ -134,6 +129,18 @@ public class ITNodeTest {
             }
         }
     }
+
+    private String dataPath;
+
+    private final AtomicInteger startedCounter = new AtomicInteger(0);
+
+    private final AtomicInteger stoppedCounter = new AtomicInteger(0);
+
+    private long testStartMs;
+
+    private TestCluster cluster;
+
+    private final List<RaftGroupService> services = new ArrayList<>();
 
     @BeforeAll
     public static void setupNodeTest() {
@@ -167,6 +174,15 @@ public class ITNodeTest {
 
     @AfterEach
     public void teardown(TestInfo testInfo) throws Exception {
+        services.forEach(service -> {
+            try {
+                service.shutdown();
+            }
+            catch (Exception e) {
+                LOG.error("Error while closing a service", e);
+            }
+        });
+
         if (cluster != null)
             cluster.stopAll();
 
@@ -190,8 +206,6 @@ public class ITNodeTest {
         RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
 
         service.start();
-
-        service.shutdown();
     }
 
     @Test
@@ -235,13 +249,9 @@ public class ITNodeTest {
             node.apply(task);
             tasks.add(task);
         }
-        try {
-            Task.joinAll(tasks, TimeUnit.SECONDS.toMillis(30));
-            assertEquals(10, c.get());
-        }
-        finally {
-            service.shutdown();
-        }
+
+        Task.joinAll(tasks, TimeUnit.SECONDS.toMillis(30));
+        assertEquals(10, c.get());
     }
 
     /**
@@ -349,8 +359,6 @@ public class ITNodeTest {
         // No read-index request succeed.
         assertEquals(0, readIndexSuccesses.get());
         assertTrue(n - 1 >= currentValue.get());
-
-        service.shutdown();
     }
 
     @Test
@@ -380,7 +388,6 @@ public class ITNodeTest {
         int i = 0;
         for (ByteBuffer data : fsm.getLogs())
             assertEquals("hello" + i++, new String(data.array()));
-        service.shutdown();
     }
 
     @Test
@@ -1470,16 +1477,14 @@ public class ITNodeTest {
             NodeImpl follower0 = (NodeImpl) follower;
             DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-            rpcClientEx.blockMessages(new BiPredicate<>() {
-                @Override public boolean test(Object msg, String nodeId) {
-                    if (msg instanceof RpcRequests.RequestVoteRequest) {
-                        RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
+            rpcClientEx.blockMessages((msg, nodeId) -> {
+                if (msg instanceof RpcRequests.RequestVoteRequest) {
+                    RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                        return !msg0.getPreVote();
-                    }
-
-                    return false;
+                    return !msg0.getPreVote();
                 }
+
+                return false;
             });
         }
 
@@ -2211,8 +2216,6 @@ public class ITNodeTest {
         node.snapshot(new ExpectClosure(RaftError.EINVAL, "Snapshot is not supported", latch));
         waitLatch(latch);
         assertEquals(0, fsm.getSaveSnapshotTimes());
-
-        service.shutdown();
     }
 
     @Test
@@ -2240,8 +2243,6 @@ public class ITNodeTest {
         int times = fsm.getSaveSnapshotTimes();
         assertTrue(times >= 1, "snapshotTimes=" + times);
         assertTrue(fsm.getSnapshotIndex() > 0);
-
-        service.shutdown();
     }
 
     @Test
@@ -2484,9 +2485,6 @@ public class ITNodeTest {
             }
             catch (Exception e) {
                 // Expected.
-            }
-            finally {
-                service.shutdown();
             }
         }
     }
@@ -2843,22 +2841,18 @@ public class ITNodeTest {
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
-        try {
-            Node node = service.start();
-            assertEquals(26, fsm.getLogs().size());
 
-            for (int i = 0; i < 26; i++)
-                assertEquals('a' + i, fsm.getLogs().get(i).get());
+        Node node = service.start();
+        assertEquals(26, fsm.getLogs().size());
 
-            // Group configuration will be restored from snapshot meta.
-            while (!node.isLeader())
-                Thread.sleep(20);
-            sendTestTaskAndWait(node);
-            assertEquals(36, fsm.getLogs().size());
-        }
-        finally {
-            service.shutdown();
-        }
+        for (int i = 0; i < 26; i++)
+            assertEquals('a' + i, fsm.getLogs().get(i).get());
+
+        // Group configuration will be restored from snapshot meta.
+        while (!node.isLeader())
+            Thread.sleep(20);
+        sendTestTaskAndWait(node);
+        assertEquals(36, fsm.getLogs().size());
     }
 
     @Test
@@ -2885,16 +2879,12 @@ public class ITNodeTest {
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
-        try {
-            Node node = service.start();
-            while (!node.isLeader())
-                Thread.sleep(20);
-            sendTestTaskAndWait(node);
-            assertEquals(10, fsm.getLogs().size());
-        }
-        finally {
-            service.shutdown();
-        }
+
+        Node node = service.start();
+        while (!node.isLeader())
+            Thread.sleep(20);
+        sendTestTaskAndWait(node);
+        assertEquals(10, fsm.getLogs().size());
     }
 
     @Test
@@ -3285,16 +3275,14 @@ public class ITNodeTest {
             NodeImpl follower0 = (NodeImpl) follower;
             DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-            rpcClientEx.blockMessages(new BiPredicate<>() {
-                @Override public boolean test(Object msg, String nodeId) {
-                    if (msg instanceof RpcRequests.RequestVoteRequest) {
-                        RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
+            rpcClientEx.blockMessages((msg, nodeId) -> {
+                if (msg instanceof RpcRequests.RequestVoteRequest) {
+                    RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                        return !msg0.getPreVote();
-                    }
-
-                    return false;
+                    return !msg0.getPreVote();
                 }
+
+                return false;
             });
         }
 
@@ -3402,24 +3390,50 @@ public class ITNodeTest {
      * @return Raft group service.
      */
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
-        NodeManager nodeManager = new NodeManager();
-
-        List<String> servers = new ArrayList<>();
-
         Configuration initialConf = nodeOptions.getInitialConf();
 
-        if (initialConf != null) {
-            for (PeerId id : initialConf.getPeers())
-                servers.add(id.getEndpoint().toString());
+        var servers = List.<String>of();
 
-            for (PeerId id : initialConf.getLearners())
-                servers.add(id.getEndpoint().toString());
+        if (initialConf != null) {
+            servers = Stream.concat(initialConf.getPeers().stream(), initialConf.getLearners().stream())
+                .map(id -> id.getEndpoint().toString())
+                .collect(Collectors.toList());
         }
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(peerId.getEndpoint(), servers, nodeManager, nodeOptions);
-        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
+        var nodeManager = new NodeManager();
 
-        return new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);
+        ClusterService clusterService = createClusterService(peerId.getEndpoint(), servers);
+
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, servers, nodeManager, nodeOptions);
+
+        nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
+
+        clusterService.start();
+
+        var service = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager) {
+            @Override public synchronized void shutdown() {
+                super.shutdown();
+
+                clusterService.shutdown();
+            }
+        };
+
+        services.add(service);
+
+        return service;
+    }
+
+    /**
+     * Creates a non-started {@link ClusterService}.
+     */
+    private static ClusterService createClusterService(Endpoint endpoint, List<String> members) {
+        var registry = new TestMessageSerializationRegistryImpl();
+
+        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), members, registry);
+
+        var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
+
+        return clusterServiceFactory.createClusterService(clusterConfig);
     }
 
     private void sendTestTaskAndWait(final Node node) throws InterruptedException {
