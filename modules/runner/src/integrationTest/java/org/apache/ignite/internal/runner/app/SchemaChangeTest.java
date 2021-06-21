@@ -138,27 +138,27 @@ class SchemaChangeTest {
         final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
         assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
-        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
-
         assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val1"));
+        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val2"));
+
+        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("key"));
         assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
 
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("val2"));
-
+        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
         assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val1"));
-        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
+        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val2"));
 
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple2).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple2).value("val2"));
+        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
+        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("val2"));
 
         // Check old row conversion.
         final Tuple keyTuple3 = tbl2.tupleBuilder().set("key", 3L).build();
 
         assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
         assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val1"));
-        assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
         assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple3).value("val2"));
+
+        assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
         assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple3).value("val2"));
     }
 
@@ -218,8 +218,9 @@ class SchemaChangeTest {
 
         assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
         assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val1"));
-        assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
         assertEquals("str", tbl2.get(keyTuple3).value("val2"));
+
+        assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
         assertEquals("str", kvView2.get(keyTuple3).value("val2"));
 
         // Check old row conversion.
@@ -227,18 +228,17 @@ class SchemaChangeTest {
         final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
         assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
-        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
-
         assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val1"));
-        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
-
         assertEquals("default", tbl2.get(keyTuple1).value("val2"));
+
+        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
         assertEquals("default", kvView2.get(keyTuple1).value("val2"));
 
+        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
         assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val1"));
-        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
-
         assertEquals("default", tbl2.get(keyTuple2).value("val2"));
+
+        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
         assertEquals("default", kvView2.get(keyTuple2).value("val2"));
     }
 }
