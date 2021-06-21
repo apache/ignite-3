@@ -331,6 +331,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return fut.thenApply(resp -> (R) ((ActionResponse) resp).result());
     }
 
+    /** {@inheritDoc} */
+    @Override public void shutdown() {
+        // No-op.
+    }
+
     /**
      * Retries request until success or timeout.
      *
