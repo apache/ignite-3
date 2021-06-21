@@ -122,7 +122,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      */
     private ColumnMapping columnMapper(SchemaDescriptor src, SchemaDescriptor dst) {
         assert src.version() > dst.version();
-        assert src.version() == dst.version() + 1; // TODO: implement merged mapper for arbitraty schema versions.
+        assert src.version() == dst.version() + 1; // TODO: IGNITE-14863 implement merged mapper for arbitraty schema versions.
 
         final Columns srcCols = src.valueColumns();
         final Columns dstCols = dst.valueColumns();

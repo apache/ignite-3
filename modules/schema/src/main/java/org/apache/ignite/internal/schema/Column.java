@@ -134,11 +134,9 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        Object val = defValSup;
+        assert nullable || defValSup != null : "Null value is not accepted for not nullable column: [col=" + this + ']';
 
-        assert nullable || val != null : "Null value is not accepted for not nullable column: [col=" + this + ']';
-
-        return val;
+        return defValSup;
     }
 
     /** {@inheritDoc} */

@@ -81,9 +81,7 @@ public class TableRow extends RowChunkAdapter {
         return row;
     }
 
-    /**
-     *
-     */
+    /** {@inheritDoc} */
     @Override public boolean contains(String colName) {
         return schema.column(colName) != null;
     }
@@ -109,9 +107,7 @@ public class TableRow extends RowChunkAdapter {
             return col;
         }
 
-        /**
-         *
-         */
+        /** {@inheritDoc} */
         @Override public boolean contains(String colName) {
             return schema.column(colName) != null;
         }
@@ -138,9 +134,7 @@ public class TableRow extends RowChunkAdapter {
             return col;
         }
 
-        /**
-         *
-         */
+        /** {@inheritDoc} */
         @Override public boolean contains(String colName) {
             return schema.column(colName) != null;
         }

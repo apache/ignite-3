@@ -85,7 +85,7 @@ public class SchemaDescriptorConverter {
                 return UUID;
 
             case BITMASK:
-                return NativeTypes.bitmaskOf(((ColumnType.VarLenColumnType) colType).length());
+                return NativeTypes.bitmaskOf(((ColumnType.VarLenColumnType)colType).length());
 
             case STRING:
                 int strLen = ((ColumnType.VarLenColumnType)colType).length();
@@ -131,7 +131,7 @@ public class SchemaDescriptorConverter {
 
         Column[] keyCols = new Column[keyColsCfg.size()];
 
-        for (int i = 0;i < keyCols.length;i++)
+        for (int i = 0; i < keyCols.length; i++)
             keyCols[i] = convert(keyColsCfg.get(i));
 
         String[] affCols = tblCfg.affinityColumns().stream().map(org.apache.ignite.schema.Column::name)
@@ -141,7 +141,7 @@ public class SchemaDescriptorConverter {
 
         Column[] valCols = new Column[valColsCfg.size()];
 
-        for (int i = 0;i < valCols.length;i++)
+        for (int i = 0; i < valCols.length; i++)
             valCols[i] = convert(valColsCfg.get(i));
 
         return new SchemaDescriptor(tblId, schemaVer, keyCols, affCols, valCols);
