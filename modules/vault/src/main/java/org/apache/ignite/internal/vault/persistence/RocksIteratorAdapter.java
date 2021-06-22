@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.vault.persistence;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -62,10 +64,8 @@ class RocksIteratorAdapter implements Cursor<VaultEntry> {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
-        try (lowerBound; upperBound; it) {
-            // no-op, just closing stuff
-        }
+    @Override public void close() throws Exception {
+        IgniteUtils.closeAll(List.of(lowerBound, upperBound, it));
     }
 
     /** {@inheritDoc} */
