@@ -162,17 +162,9 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
     /** {@inheritDoc} */
     @Override public void close() {
-        if (db != null)
+        try (comparatorOptions; comparator; options) {
             db.close();
-
-        if (options != null)
-            options.close();
-
-        if (comparator != null)
-            comparator.close();
-
-        if (comparatorOptions != null)
-            comparatorOptions.close();
+        }
     }
 
     /** Cusror wrapper over the RocksIterator object with custom filter. */
