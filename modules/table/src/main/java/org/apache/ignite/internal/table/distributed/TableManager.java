@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaModificationException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
@@ -68,6 +69,8 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.schema.PrimaryIndex;
+import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -232,8 +235,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                 assert oldCol != null;
 
-                                assert Objects.equals(newCol.type(), oldCol.type()) : "Columns type change is not supported.";
-                                assert Objects.equals(newCol.nullable(), oldCol.nullable()) : "Column nullability change is not supported";
+                                if (!Objects.equals(newCol.type(), oldCol.type()))
+                                    throw new SchemaModificationException("Columns type change is not supported.");
+
+                                if (!Objects.equals(newCol.nullable(), oldCol.nullable()))
+                                    throw new SchemaModificationException("Column nullability change is not supported");
+
+                                if (!Objects.equals(newCol.name(), oldCol.name()) &&
+                                    oldTbl.indices().namedListKeys().stream()
+                                        .map(n -> oldTbl.indices().get(n))
+                                        .filter(idx -> PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(idx.name()))
+                                        .anyMatch(idx -> idx.columns().namedListKeys().stream()
+                                            .anyMatch(c -> idx.columns().get(c).name().equals(oldCol.name()))
+                                        ))
+                                    throw new SchemaModificationException("Key column rename is not supported");
 
                                 return !Objects.equals(newCol.name(), oldCol.name()) ||
                                     !Objects.equals(newCol.defaultValue(), oldCol.defaultValue());

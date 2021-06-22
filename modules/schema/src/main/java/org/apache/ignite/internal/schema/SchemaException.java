@@ -54,22 +54,25 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * The exception is thrown when the row assembler encountered an unrecoverable error during the row marshalling.
- * After the exception is thrown, the assembler remains in an invalid state and should be discarded.
+ * Base class for schema exceptions.
  */
-public class AssemblyException extends IgniteInternalException {
+public class SchemaException extends IgniteInternalException {
     /**
-     * @param errMsg Error message
+     * Constructor with error message.
+     *
+     * @param msg Message.
      */
-    public AssemblyException(String errMsg) {
-        super(errMsg);
+    public SchemaException(String msg) {
+        super(msg);
     }
 
     /**
-     * @param errMsg Error message
-     * @param cause Cause for this error.
+     * Constructor with error message and cause.
+     *
+     * @param msg Message.
+     * @param cause Cause.
      */
-    public AssemblyException(String errMsg, Exception cause) {
-        super(errMsg, cause);
+    public SchemaException(String msg, Throwable cause) {
+        super(msg, cause);
     }
 }

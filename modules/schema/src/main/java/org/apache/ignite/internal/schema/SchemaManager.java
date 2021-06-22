@@ -153,7 +153,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                             reg.onSchemaDropped(ver);
                         }
                         else
-                            throw new SchemaRegistryException("Schema of concrete version can't be changed.");
+                            throw new SchemaModificationException("Schema of concrete version can't be changed.");
                     }
                 }
 
@@ -295,7 +295,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             .findAny();
 
         if (droppedKeyCol.isPresent())
-            throw new SchemaRegistryException("Dropping of key column is forbidden: [schemaVer=" + newDesc.version() + ", col=" + droppedKeyCol.get());
+            throw new SchemaModificationException("Dropping of key column is forbidden: [schemaVer=" + newDesc.version() + ", col=" + droppedKeyCol.get());
 
         return mapper == null ? ColumnMapper.identityMapping() : mapper;
     }
@@ -313,7 +313,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 .thenApply(e -> e.empty() ? null : (SchemaDescriptor)ByteUtils.fromBytes(e.value())).get();
         }
         catch (InterruptedException | ExecutionException e) {
-            throw new SchemaRegistryException("Can't read schema from vault: ver=" + schemaVer, e);
+            throw new SchemaException("Can't read schema from vault: ver=" + schemaVer, e);
         }
     }
 

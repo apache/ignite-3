@@ -127,8 +127,11 @@ class SchemaChangeTest {
             }));
 
         assertThrows(ColumnNotFoundException.class, () -> kvView1.put(
-            tbl1.tupleBuilder().set("key", 2L).build(),
-            tbl1.tupleBuilder().set("val1", 222).set("val2", "str").build())
+            kvView1.tupleBuilder().set("key", 2L).build(),
+            kvView1.tupleBuilder().set("val1", 222).set("val2", "str").build())
+        );
+        assertThrows(ColumnNotFoundException.class, () -> tbl1.insert(
+            tbl1.tupleBuilder().set("key", 2L).set("val1", 222).set("val2", "str").build())
         );
 
         tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val1", 111).build());
@@ -137,32 +140,38 @@ class SchemaChangeTest {
         // Get data on node 2.
         KeyValueBinaryView kvView2 = tbl2.kvView();
 
-        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
-        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
+        {
+            final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
 
-        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
-        assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val1"));
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val2"));
+            assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
+            assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val1"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val2"));
 
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("key"));
-        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("key"));
+            assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
+        }
 
-        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
-        assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val1"));
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val2"));
+        {
+            final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
-        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("val2"));
+            assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
+            assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val1"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple2).value("val2"));
 
-        // Check old row conversion.
-        final Tuple keyTuple3 = tbl2.tupleBuilder().set("key", 3L).build();
+            assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple2).value("val2"));
+        }
 
-        assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
-        assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val1"));
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple3).value("val2"));
+        {   // Check old row conversion.
+            final Tuple keyTuple3 = tbl2.tupleBuilder().set("key", 3L).build();
 
-        assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple3).value("val2"));
+            assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
+            assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val1"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple3).value("val2"));
+
+            assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple3).value("val2"));
+        }
     }
 
     /**
@@ -202,6 +211,9 @@ class SchemaChangeTest {
             tbl1.tupleBuilder().set("key", 2L).build(),
             tbl1.tupleBuilder().set("val1", 222).set("val2", "str").build())
         );
+        assertThrows(ColumnNotFoundException.class, () -> tbl1.insert(
+            kvView1.tupleBuilder().set("key", 2L).set("val1", 222).set("val2", "str").build())
+        );
 
         clusterNodes.get(1).tables().alterTable(schTbl1.canonicalName(),
             chng -> chng.changeColumns(cols -> {
@@ -220,39 +232,45 @@ class SchemaChangeTest {
         // Get data on node 2.
         KeyValueBinaryView kvView2 = tbl2.kvView();
 
-        final Tuple keyTuple3 = tbl2.tupleBuilder().set("key", 3L).build();
+        {
+            Tuple keyTuple3 = tbl2.tupleBuilder().set("key", 3L).build();
 
-        assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
-        assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val1"));
-        assertEquals("str", tbl2.get(keyTuple3).value("val2"));
+            assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
+            assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val1"));
+            assertEquals("str", tbl2.get(keyTuple3).value("val2"));
 
-        assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
-        assertEquals("str", kvView2.get(keyTuple3).value("val2"));
+            assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val1"));
+            assertEquals("str", kvView2.get(keyTuple3).value("val2"));
+        }
 
-        // Check old row conversion.
-        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
-        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
+        {   // Check old row conversion.
+            Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
 
-        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
-        assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val1"));
-        assertEquals("default", tbl2.get(keyTuple1).value("val2"));
+            assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
+            assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val1"));
+            assertEquals("default", tbl2.get(keyTuple1).value("val2"));
 
-        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
-        assertEquals("default", kvView2.get(keyTuple1).value("val2"));
+            assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val1"));
+            assertEquals("default", kvView2.get(keyTuple1).value("val2"));
+        }
 
-        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
-        assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val1"));
-        assertEquals("default", tbl2.get(keyTuple2).value("val2"));
+        {
+            Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
-        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
-        assertEquals("default", kvView2.get(keyTuple2).value("val2"));
+            assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
+            assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val1"));
+            assertEquals("default", tbl2.get(keyTuple2).value("val2"));
+
+            assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val1"));
+            assertEquals("default", kvView2.get(keyTuple2).value("val2"));
+        }
     }
 
     /**
      * Check rename column from table schema.
      */
     @Test
-    void renameValueColumn() {
+    void renameColumn() {
         List<Ignite> clusterNodes = new ArrayList<>();
 
         for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
@@ -309,32 +327,37 @@ class SchemaChangeTest {
 
         // Get data on node 2.
         KeyValueBinaryView kvView2 = tbl2.kvView();
+        {
+            Tuple keyTuple3 = tbl2.tupleBuilder().set("key", 3L).build();
 
-        final Tuple keyTuple3 = tbl2.tupleBuilder().set("key", 3L).build();
+            assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
+            assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple3).value("val1"));
 
-        assertEquals(3, (Long)tbl2.get(keyTuple3).value("key"));
-        assertEquals(333, (Integer)tbl2.get(keyTuple3).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple3).value("val1"));
+            assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple3).value("val1"));
+        }
 
-        assertEquals(333, (Integer)kvView2.get(keyTuple3).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple3).value("val1"));
+        {// Check old row conversion.
+            Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
 
-        // Check old row conversion.
-        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
-        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
+            assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
+            assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val1"));
 
-        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
-        assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple1).value("val1"));
+            assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("val1"));
+        }
 
-        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple1).value("val1"));
+        {
+            Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
-        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
-        assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple2).value("val1"));
+            assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
+            assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl2.get(keyTuple2).value("val1"));
 
-        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val2"));
-        assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple2).value("val1"));
+            assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView2.get(keyTuple2).value("val1"));
+        }
     }
 }
