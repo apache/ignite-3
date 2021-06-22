@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.basic;
 
 import org.apache.ignite.internal.storage.AbstractStorageTest;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -28,10 +27,5 @@ public class ConcurrentHashMapStorageTest extends AbstractStorageTest {
     @BeforeEach
     public void setUp() {
         storage = new ConcurrentHashMapStorage();
-    }
-
-    @AfterEach
-    public void tearDown() {
-        storage = null;
     }
 }
