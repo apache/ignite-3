@@ -22,19 +22,19 @@ import org.jetbrains.annotations.Nullable;
 /** */
 public interface InvokeClosure {
     /**
-     * @param row Old row or {@code null} if old row not found.
+     * @param row Old row or {@code null} if the old row has not been found.
      */
     void call(@Nullable DataRow row);
 
     /**
-     * @return New row for {@link OperationType#WRITE} operation.
+     * @return New row for the {@link OperationType#WRITE} operation.
      */
-    DataRow newRow();
+    @Nullable DataRow newRow();
 
     /**
      * @return Operation type for this closure or {@code null} if it is unknown.
      * After method {@link #call(DataRow)} has been called, operation type must
      * be know and this method can not return {@code null}.
      */
-    OperationType operationType();
+    @Nullable OperationType operationType();
 }

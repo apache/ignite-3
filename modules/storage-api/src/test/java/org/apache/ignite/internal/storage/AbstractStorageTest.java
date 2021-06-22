@@ -27,7 +27,6 @@ import org.apache.ignite.internal.storage.basic.SimpleRemoveInvokeClosure;
 import org.apache.ignite.internal.storage.basic.SimpleWriteInvokeClosure;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.emptyList;
@@ -72,6 +71,11 @@ public abstract class AbstractStorageTest {
         );
     }
 
+    /**
+     * Tests that read / write / remove work consistently on the same key.
+     *
+     * @throws Exception If failed.
+     */
     @Test
     public void readWriteRemove() throws Exception {
         SearchRow searchRow = searchRow("key");
@@ -89,6 +93,12 @@ public abstract class AbstractStorageTest {
         assertNull(storage.read(searchRow).value());
     }
 
+    /**
+     * Tests that invoke method works consistently with default read / write / remove closures implementations on the
+     *      same key.
+     *
+     * @throws Exception If failed.
+     */
     @Test
     public void invoke() throws Exception {
         SearchRow searchRow = searchRow("key");
@@ -105,7 +115,7 @@ public abstract class AbstractStorageTest {
 
         storage.invoke(searchRow, readClosure);
 
-        Assertions.assertArrayEquals(dataRow.value().array(), readClosure.row().value().array());
+        assertArrayEquals(dataRow.value().array(), readClosure.row().value().array());
 
         storage.invoke(searchRow, new SimpleRemoveInvokeClosure());
 
@@ -114,6 +124,11 @@ public abstract class AbstractStorageTest {
         assertNull(readClosure.row().value());
     }
 
+    /**
+     * Tests that scan operation works properly without filter.
+     *
+     * @throws Exception If failed.
+     */
     @Test
     public void scanSimple() throws Exception {
         List<DataRow> list = toList(storage.scan(key -> true));
@@ -143,6 +158,11 @@ public abstract class AbstractStorageTest {
         assertArrayEquals(dataRow2.value().array(), list.get(1).value().array());
     }
 
+    /**
+     * Tests that scan operation works properly with passed filter.
+     *
+     * @throws Exception If failed.
+     */
     @Test
     public void scanFiltered() throws Exception {
         DataRow dataRow1 = dataRow("key1", "value1");
@@ -174,8 +194,12 @@ public abstract class AbstractStorageTest {
      * @param cursor Cursor.
      * @param <T> Type of cursor content.
      * @return List.
+     * @throws Exception If error occurred during iteration or while closing the cursor.
      */
-    @NotNull private <T> List<T> toList(Cursor<T> cursor) {
-        return StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
+    @NotNull
+    private <T> List<T> toList(Cursor<T> cursor) throws Exception {
+        try (cursor) {
+            return StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
+        }
     }
 }

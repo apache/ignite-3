@@ -18,20 +18,20 @@
 package org.apache.ignite.internal.storage.basic;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import org.apache.ignite.internal.storage.DataRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Basic array-based implementation of the {@link DataRow}
+ * Basic array-based implementation of the {@link DataRow}.
  */
 public class SimpleDataRow implements DataRow {
     /** Key array. */
     private final byte[] key;
 
     /** Value array. */
-    private final byte[] value;
+    @Nullable private final byte[] value;
 
-    public SimpleDataRow(byte[] key, byte[] value) {
+    public SimpleDataRow(byte[] key, @Nullable byte[] value) {
         this.key = key;
         this.value = value;
     }
@@ -47,17 +47,14 @@ public class SimpleDataRow implements DataRow {
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public ByteBuffer value() {
         return value == null ? null : ByteBuffer.wrap(value);
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public byte[] valueBytes() {
         return value;
-    }
-
-    /** {@inheritDoc} */
-    @Override public int hash() {
-        return Arrays.hashCode(key);
     }
 }

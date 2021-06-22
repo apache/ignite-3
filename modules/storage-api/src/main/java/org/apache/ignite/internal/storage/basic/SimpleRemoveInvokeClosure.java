@@ -22,17 +22,20 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.OperationType;
 import org.jetbrains.annotations.Nullable;
 
+/** Invoke closure implementation for remove operation. */
 public class SimpleRemoveInvokeClosure implements InvokeClosure {
     /** {@inheritDoc} */
     @Override public void call(@Nullable DataRow row) {
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public DataRow newRow() {
         return null;
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public OperationType operationType() {
         return OperationType.REMOVE;
     }

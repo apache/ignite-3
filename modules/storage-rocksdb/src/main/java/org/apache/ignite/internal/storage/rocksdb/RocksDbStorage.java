@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.Storage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
@@ -174,9 +175,12 @@ public class RocksDbStorage implements Storage, AutoCloseable {
             comparatorOptions.close();
     }
 
+    /** Cusror wrapper over the RocksIterator object with custom filter. */
     private static class ScanCursor implements Cursor<DataRow> {
+        /** Iterator from RocksDB. */
         private final RocksIterator iter;
 
+        /** Custom filter predicate. */
         private final Predicate<SearchRow> filter;
 
         private ScanCursor(RocksIterator iter, Predicate<SearchRow> filter) {
@@ -184,8 +188,6 @@ public class RocksDbStorage implements Storage, AutoCloseable {
             this.filter = filter;
 
             iter.seekToFirst();
-
-            hasNext();
         }
 
         /** {@inheritDoc} */
@@ -195,10 +197,30 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
         /** {@inheritDoc} */
         @Override public boolean hasNext() {
-            while (iter.isValid() && !filter.test(new SimpleDataRow(iter.key(), null)))
+            while (isValid() && !filter.test(new SimpleDataRow(iter.key(), null)))
                 iter.next();
 
-            return iter.isValid();
+            return isValid();
+        }
+
+        /**
+         * Checks iterator validity.
+         *
+         * @throws IgniteInternalException If iterator is not valid and {@link RocksIterator#status()} has thrown an
+         *      exception.
+         */
+        private boolean isValid() {
+            if (iter.isValid())
+                return true;
+
+            try {
+                iter.status();
+
+                return false;
+            }
+            catch (RocksDBException e) {
+                throw new IgniteInternalException(e);
+            }
         }
 
         /** {@inheritDoc} */

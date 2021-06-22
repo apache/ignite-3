@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.basic;
 
 import java.util.Iterator;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
@@ -84,11 +83,12 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException {
-        Iterator<Map.Entry<ByteArray, byte[]>> iter = map.entrySet().stream()
-            .filter(entry -> filter.test(new SimpleDataRow(entry.getKey().bytes(), null)))
+        Iterator<SimpleDataRow> iter = map.entrySet().stream()
+            .map(e -> new SimpleDataRow(e.getKey().bytes(), e.getValue()))
+            .filter(filter)
             .iterator();
 
-        return new Cursor<DataRow>() {
+        return new Cursor<>() {
             /** {@inheritDoc} */
             @Override public boolean hasNext() {
                 return iter.hasNext();
@@ -96,9 +96,7 @@ public class ConcurrentHashMapStorage implements Storage {
 
             /** {@inheritDoc} */
             @Override public DataRow next() {
-                Map.Entry<ByteArray, byte[]> next = iter.next();
-
-                return new SimpleDataRow(next.getKey().bytes(), next.getValue());
+                return iter.next();
             }
 
             /** {@inheritDoc} */

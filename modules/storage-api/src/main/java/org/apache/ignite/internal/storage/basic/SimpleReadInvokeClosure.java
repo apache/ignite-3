@@ -22,6 +22,7 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.OperationType;
 import org.jetbrains.annotations.Nullable;
 
+/** Invoke closure implementation for read operation. */
 public class SimpleReadInvokeClosure implements InvokeClosure {
     /** Copy of the row that was passed to {@link #call(DataRow)} method. */
     private DataRow row;
@@ -32,11 +33,13 @@ public class SimpleReadInvokeClosure implements InvokeClosure {
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public DataRow newRow() {
         return null;
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public OperationType operationType() {
         return OperationType.NOOP;
     }

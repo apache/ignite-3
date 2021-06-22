@@ -18,23 +18,19 @@
 package org.apache.ignite.internal.storage;
 
 import java.nio.ByteBuffer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface to be used as a key representation to search data in storage.
  */
 public interface SearchRow {
     /**
-     * @return Hash of the key.
-     */
-    int hash();
-
-    /**
      * @return Key bytes.
      */
-    byte[] keyBytes();
+    @Nullable byte[] keyBytes();
 
     /**
      * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
      */
-    ByteBuffer key();
+    @Nullable ByteBuffer key();
 }

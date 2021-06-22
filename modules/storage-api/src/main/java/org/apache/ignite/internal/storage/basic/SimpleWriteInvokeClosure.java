@@ -22,6 +22,7 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.OperationType;
 import org.jetbrains.annotations.Nullable;
 
+/** Invoke closure implementation for write operation. */
 public class SimpleWriteInvokeClosure implements InvokeClosure {
     /** Data row to write into storage. */
     private final DataRow newRow;
@@ -38,11 +39,13 @@ public class SimpleWriteInvokeClosure implements InvokeClosure {
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public DataRow newRow() {
         return newRow;
     }
 
     /** {@inheritDoc} */
+    @Nullable
     @Override public OperationType operationType() {
         return OperationType.WRITE;
     }

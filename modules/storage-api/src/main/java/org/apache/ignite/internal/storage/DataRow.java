@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage;
 import java.nio.ByteBuffer;
 
 /**
- * Interface that represents data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ * Interface that represents a data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
  */
 public interface DataRow extends SearchRow {
     /**
