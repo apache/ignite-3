@@ -68,9 +68,9 @@ Each chunk section has the following structure:
 All columns within a group are split into groups of fixed-size columns and variable-size columns. Withing the group of 
 fixsize columns, the columns are sorted by size, then by column name. Within the group of varsize columns, the columns 
 are sorted by column name. Inside a row default values and nulls are omitted and encoded in the null-defaults map 
-(essentially, a bitset). The size of the varsize columns offsets table is equal to the number of non-null non-default 
-varsize columns multiplied by 2 (a single entry in the offsets table is 2 bytes). The offset stored in the offsets table 
-is calculated from the beginning of the chunk.
+(essentially, a bitset). The size of the varsize columns offsets table is equal to the number of non-null 
+varsize columns multiplied by entry size (a single entry size in the offsets table may be 1-2-4 bytes depending on format). 
+The offset stored in the offsets table is calculated from the very first column value offset.
 
 ### Row construction and access
 To assemble a row with some schema, an instance of `org.apache.ignite.internal.schema.row.RowAssembler`
@@ -78,7 +78,7 @@ must be used which provides the low-level API for building rows. When using the 
 columns must be passed to the assembler in the internal schema sort order. Additionally, when constructing
 the instance of the assembler, the user should pre-calculate the size of the row to avoid extra array copies,
 and the number of non-null varlen columns for key and value chunks. Less restrictive building techniques
-are provided by class (de)serializers and row builder, which take care of sizing and column order.
+are provided by class (de)serializers and tuple builder, which take care of sizing and column order.
 
 To read column values of a row, one needs to construct a subclass of
 `org.apache.ignite.internal.schema.row.Row` which provides necessary logic to read arbitrary columns with

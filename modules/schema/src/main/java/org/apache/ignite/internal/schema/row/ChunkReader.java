@@ -30,8 +30,8 @@ class ChunkReader {
     /** Base offset. */
     protected final int baseOff;
 
-    /** Chunk format. */
-    private final ChunkFormat format;
+    /** Vartable format helper. */
+    private final VarTableFormat format;
 
     /** Vartable offset. */
     protected int varTblOff;
@@ -44,9 +44,9 @@ class ChunkReader {
      * @param baseOff Chunk base offset.
      * @param nullMapLen Null-map size in bytes.
      * @param hasVarTable {@code true} if chunk has vartable, {@code false} otherwise.
-     * @param format Chunk format.
+     * @param format Vartable format helper.
      */
-    ChunkReader(BinaryRow row, int baseOff, int nullMapLen, boolean hasVarTable, ChunkFormat format) {
+    ChunkReader(BinaryRow row, int baseOff, int nullMapLen, boolean hasVarTable, VarTableFormat format) {
         this.row = row;
         this.baseOff = baseOff;
         this.format = format;

@@ -64,7 +64,7 @@ public class Row implements BinaryRow {
 
         final short flags = readShort(FLAGS_FIELD_OFFSET);
 
-        keyReader = ChunkFormat.createReader(
+        keyReader = VarTableFormat.createReader(
             this,
             KEY_CHUNK_OFFSET,
             schema.keyColumns().nullMapSize(),
@@ -389,7 +389,7 @@ public class Row implements BinaryRow {
 
         assert (flags & RowFlags.NO_VALUE_FLAG) == 0 : "Row has no value.";
 
-        return (valReader = ChunkFormat.createReader(
+        return (valReader = VarTableFormat.createReader(
             this,
             KEY_CHUNK_OFFSET + keyReader.chunkLength(),
             schema.valueColumns().nullMapSize(),

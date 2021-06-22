@@ -57,7 +57,7 @@ public class RowAssembler {
     private final int valVarlenCols;
 
     /** Value write mode. */
-    private final ChunkFormat valWriteMode;
+    private final VarTableFormat valWriteMode;
 
     /** Current columns chunk. */
     private Columns curCols;
@@ -146,8 +146,7 @@ public class RowAssembler {
         int valDataSize,
         int nonNullVarlenValCols
     ) {
-        this(
-            schema,
+        this(schema,
             keyDataSize,
             schema.keyColumns().nullMapSize() > 0,
             nonNullVarlenKeyCols,
@@ -190,8 +189,8 @@ public class RowAssembler {
         final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
         final int valNullMapSize = valHasNulls ? schema.valueColumns().nullMapSize() : 0;
 
-        final ChunkFormat keyWriteMode = ChunkFormat.formatter(keyDataSize);
-        valWriteMode = ChunkFormat.formatter(valDataSize);
+        final VarTableFormat keyWriteMode = VarTableFormat.formatter(keyDataSize);
+        valWriteMode = VarTableFormat.formatter(valDataSize);
 
         int size = BinaryRow.HEADER_SIZE +
             keyWriteMode.chunkSize(keyDataSize, keyNullMapSize, keyVarlenCols) +

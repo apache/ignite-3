@@ -61,7 +61,7 @@ public class Columns implements Serializable {
     /**
      * Estimated max length of fixed-size columns.
      */
-    private int fixsizeMaxLen;
+    private int fixedSizeMaxLen;
 
     /**
      * Fixed-size column length folding table. The table is used to quickly calculate the offset of a fixed-length
@@ -192,7 +192,7 @@ public class Columns implements Serializable {
      * @return Fixsize columns size upper bound.
      */
     public int fixsizeMaxLen() {
-        return fixsizeMaxLen;
+        return fixedSizeMaxLen;
     }
 
     /**
@@ -247,7 +247,7 @@ public class Columns implements Serializable {
         if (numFixsize == 0) {
             foldingTbl = EMPTY_FOLDING_TABLE;
             foldingMask = EMPTY_FOLDING_MASK;
-            fixsizeMaxLen = 0;
+            fixedSizeMaxLen = 0;
 
             return;
         }
@@ -282,7 +282,7 @@ public class Columns implements Serializable {
 
         foldingTbl = res;
         foldingMask = resMask;
-        fixsizeMaxLen = maxLen;
+        fixedSizeMaxLen = maxLen;
     }
 
     /**

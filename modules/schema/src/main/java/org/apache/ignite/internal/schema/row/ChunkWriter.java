@@ -40,8 +40,8 @@ class ChunkWriter {
     /** Offset of data for the chunk. */
     protected final int dataOff;
 
-    /** Chunk format. */
-    private final ChunkFormat format;
+    /** Vartable format helper. */
+    private final VarTableFormat format;
 
     /** Index of the current varlen table entry. Incremented each time non-null varlen column is appended. */
     protected int curVartblEntry;
@@ -57,9 +57,9 @@ class ChunkWriter {
      * @param baseOff Chunk base offset.
      * @param nullMapLen Null-map length in bytes.
      * @param vartblLen Vartable length in bytes.
-     * @param format Chunk format.
+     * @param format Vartable format helper.
      */
-    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblLen, ChunkFormat format) {
+    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblLen, VarTableFormat format) {
         this.buf = buf;
         this.baseOff = baseOff;
         this.format = format;
@@ -71,10 +71,10 @@ class ChunkWriter {
         curVartblEntry = 0;
 
         if (nullMapLen == 0)
-            flags |= ChunkFormat.OMIT_NULL_MAP_FLAG;
+            flags |= VarTableFormat.OMIT_NULL_MAP_FLAG;
 
         if (vartblLen == 0)
-            flags |= ChunkFormat.OMIT_VARTBL_FLAG;
+            flags |= VarTableFormat.OMIT_VARTBL_FLAG;
     }
 
     /**
@@ -208,7 +208,7 @@ class ChunkWriter {
      * @return Null-map offset.
      */
     private int nullmapOff() {
-        return baseOff + ChunkFormat.CHUNK_LEN_FLD_SIZE;
+        return baseOff + VarTableFormat.CHUNK_LEN_FLD_SIZE;
     }
 
     /**
@@ -248,7 +248,7 @@ class ChunkWriter {
         if (entryIdx == 0)
             return; // Omit offset for very first varlen.
 
-        assert (flags & ChunkFormat.OMIT_VARTBL_FLAG) == 0 :
+        assert (flags & VarTableFormat.OMIT_VARTBL_FLAG) == 0 :
             "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
         format.writeVarlenOffset(buf, varTblOff, entryIdx - 1, off);
@@ -260,7 +260,7 @@ class ChunkWriter {
      * @param colIdx Column index.
      */
     protected void setNull(int colIdx) {
-        assert (flags & ChunkFormat.OMIT_NULL_MAP_FLAG) == 0 : "Null-map is omitted.";
+        assert (flags & VarTableFormat.OMIT_NULL_MAP_FLAG) == 0 : "Null-map is omitted.";
 
         int byteInMap = colIdx / 8;
         int bitInByte = colIdx % 8;
