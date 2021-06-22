@@ -73,8 +73,8 @@ class ChunkReader {
         if (!hasNullmap())
             return false;
 
-        int nullByte = idx / 8;
-        int posInByte = idx % 8;
+        int nullByte = idx >> 3; // Equivalent expression for: idx / 8
+        int posInByte = idx & 7; // Equivalent expression for: idx % 8
 
         int map = row.readByte(nullmapOff() + nullByte);
 
@@ -103,22 +103,23 @@ class ChunkReader {
     }
 
     /**
-     * Calculates the offset of the fixlen column with the given index in the row. It essentially folds the null-map
+     * Calculates the offset of the fixed-size column with the given index in the row. It essentially folds the null-map
      * with the column lengths to calculate the size of non-null columns preceding the requested column.
      *
      * @param cols Columns chunk.
      * @param idx Column index in the chunk.
      * @return Encoded offset (from the row start) of the requested fixlen column.
      */
-    int fixlenColumnOffset(Columns cols, int idx) {
+    int fixedSizeColumnOffset(Columns cols, int idx) {
         int colOff = 0;
 
         // Calculate fixlen column offset.
-        int colByteIdx = idx / 8;
+        int colByteIdx = idx >> 3; // Equivalent expression for: idx / 8
 
         // Set bits starting from posInByte, inclusive, up to either the end of the byte or the last column index, inclusive
-        int startBit = idx % 8;
-        int endBit = colByteIdx == (cols.length() + 7) / 8 - 1 ? ((cols.numberOfFixsizeColumns() - 1) % 8) : 7;
+        int startBit = idx & 7; // Equivalent expression for: idx % 8
+        int endBit = (colByteIdx == (cols.length() + 7) >> 3 - 1) /* last byte */ ?
+            ((cols.numberOfFixsizeColumns() - 1) & 7) : 7; // Equivalent expression for: (expr) % 8
         int mask = (0xFF >> (7 - endBit)) & (0xFF << startBit);
 
         if (hasNullmap()) {
@@ -155,11 +156,11 @@ class ChunkReader {
         assert cols.hasVarlengthColumns() && cols.firstVarlengthColumn() <= idx : "Invalid varlen column index: colId=" + idx;
 
         if (hasNullmap()) { // Calculates fixlen columns chunk size regarding the 'null' flags.
-            int nullStartByte = cols.firstVarlengthColumn() / 8;
-            int startBitInByte = cols.firstVarlengthColumn() % 8;
+            int nullStartByte = cols.firstVarlengthColumn() >> 3; // Equivalent expression for: idx / 8
+            int startBitInByte = cols.firstVarlengthColumn() & 7; // Equivalent expression for: (expr) % 8
 
-            int nullEndByte = idx / 8;
-            int endBitInByte = idx % 8;
+            int nullEndByte = idx >> 3; // Equivalent expression for: idx / 8
+            int endBitInByte = idx & 7; // Equivalent expression for: idx % 8
 
             int numNullsBefore = 0;
 
@@ -185,7 +186,7 @@ class ChunkReader {
         // Calculate length and offset for very first (non-null) varlen column
         // as vartable don't store the offset for the first varlen.
         if (idx == 0) {
-            int off = cols.numberOfFixsizeColumns() == 0 ? dataOff : fixlenColumnOffset(cols, cols.numberOfFixsizeColumns());
+            int off = cols.numberOfFixsizeColumns() == 0 ? dataOff : fixedSizeColumnOffset(cols, cols.numberOfFixsizeColumns());
 
             long len = hasVartable() ? // Length is either diff between current offset and next varlen offset or end-of-chunk.
                 format.readVarlenOffset(row, varTblOff, 0) - (off - dataOff) :

@@ -374,7 +374,7 @@ public class Row implements BinaryRow {
             return -1;
 
         return type.fixedLength() ?
-            reader.fixlenColumnOffset(cols, colIdx) :
+            reader.fixedSizeColumnOffset(cols, colIdx) :
             reader.varlenColumnOffsetAndLength(cols, colIdx);
     }
 
