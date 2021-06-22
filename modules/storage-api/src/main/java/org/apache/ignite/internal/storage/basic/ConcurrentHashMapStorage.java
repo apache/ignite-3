@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.basic;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
@@ -37,6 +39,9 @@ public class ConcurrentHashMapStorage implements Storage {
     /** Storage content. */
     private final ConcurrentMap<ByteArray, byte[]> map = new ConcurrentHashMap<>();
 
+    /** RW lock. */
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
     /** {@inheritDoc} */
     @Override public DataRow read(SearchRow key) throws StorageException {
         byte[] keyBytes = key.keyBytes();
@@ -48,12 +53,26 @@ public class ConcurrentHashMapStorage implements Storage {
 
     /** {@inheritDoc} */
     @Override public synchronized void write(DataRow row) throws StorageException {
-        map.put(new ByteArray(row.keyBytes()), row.valueBytes());
+        rwLock.readLock().lock();
+
+        try {
+            map.put(new ByteArray(row.keyBytes()), row.valueBytes());
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Override public synchronized void remove(SearchRow key) throws StorageException {
-        map.remove(new ByteArray(key.keyBytes()));
+        rwLock.readLock().lock();
+
+        try {
+            map.remove(new ByteArray(key.keyBytes()));
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
@@ -61,23 +80,31 @@ public class ConcurrentHashMapStorage implements Storage {
         byte[] keyBytes = key.keyBytes();
 
         ByteArray mapKey = new ByteArray(keyBytes);
-        byte[] existingDataBytes = map.get(mapKey);
 
-        clo.call(new SimpleDataRow(keyBytes, existingDataBytes));
+        rwLock.writeLock().lock();
 
-        switch (clo.operationType()) {
-            case WRITE:
-                map.put(mapKey, clo.newRow().valueBytes());
+        try {
+            byte[] existingDataBytes = map.get(mapKey);
 
-                break;
+            clo.call(new SimpleDataRow(keyBytes, existingDataBytes));
 
-            case REMOVE:
-                map.remove(mapKey);
+            switch (clo.operationType()) {
+                case WRITE:
+                    map.put(mapKey, clo.newRow().valueBytes());
 
-                break;
+                    break;
 
-            case NOOP:
-                break;
+                case REMOVE:
+                    map.remove(mapKey);
+
+                    break;
+
+                case NOOP:
+                    break;
+            }
+        }
+        finally {
+            rwLock.writeLock().unlock();
         }
     }
 

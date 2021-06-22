@@ -22,6 +22,8 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
@@ -58,6 +60,9 @@ public class RocksDbStorage implements Storage, AutoCloseable {
 
     /** RocksDb instance. */
     private final RocksDB db;
+
+    /** RW lock. */
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     /**
      * @param dbPath Path to the folder to store data.
@@ -108,27 +113,39 @@ public class RocksDbStorage implements Storage, AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void write(DataRow row) throws StorageException {
+    @Override public void write(DataRow row) throws StorageException {
+        rwLock.readLock().lock();
+
         try {
             db.put(row.keyBytes(), row.valueBytes());
         }
         catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
+        finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void remove(SearchRow key) throws StorageException {
+    @Override public void remove(SearchRow key) throws StorageException {
+        rwLock.readLock().lock();
+
         try {
             db.delete(key.keyBytes());
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
+        finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
+    @Override public void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
+        rwLock.writeLock().lock();
+
         try {
             byte[] keyBytes = key.keyBytes();
             byte[] existingDataBytes = db.get(keyBytes);
@@ -152,6 +169,9 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         }
         catch (RocksDBException e) {
             throw new StorageException("Failed to access data in the storage", e);
+        }
+        finally {
+            rwLock.writeLock().unlock();
         }
     }
 
