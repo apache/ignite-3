@@ -174,7 +174,7 @@ public class MetaStorageManager {
 //        );
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
-        clusterNetSvc.messagingService().addMessageHandler((message, sender, correlationId) -> {});
+        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
     }
 
     /**
@@ -390,8 +390,8 @@ public class MetaStorageManager {
      */
     public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
         return new CursorWrapper<>(
-                metaStorageSvcFut,
-                metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, revUpperBound))
+            metaStorageSvcFut,
+            metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, revUpperBound))
         );
     }
 
@@ -422,6 +422,66 @@ public class MetaStorageManager {
         return new CursorWrapper<>(
             metaStorageSvcFut,
             metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo))
+        );
+    }
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order.
+     * Entries will be filtered out by the current applied revision as an upper bound.
+     * Applied revision is a revision of the last successful vault update.
+     *
+     * Prefix query is a synonym of the range query {@code (prefixKey, nextKey(prefixKey))}.
+     *
+     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @return Cursor built upon entries corresponding to the given range and applied revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    public @NotNull Cursor<Entry> prefixWithAppliedRevision(@NotNull ByteArray keyPrefix) {
+        var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
+
+        return new CursorWrapper<>(
+            metaStorageSvcFut,
+            metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision()))
+        );
+    }
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order. Short cut for
+     * {@link #prefix(ByteArray, long)} where {@code revUpperBound == -1}.
+     *
+     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    public @NotNull Cursor<Entry> prefix(@NotNull ByteArray keyPrefix) {
+        return prefix(keyPrefix, -1);
+    }
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound
+     * of given revision number.
+     *
+     * Prefix query is a synonym of the range query {@code range(prefixKey, nextKey(prefixKey))}.
+     *
+     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param revUpperBound  The upper bound for entry revision. {@code -1} means latest revision.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    public @NotNull Cursor<Entry> prefix(@NotNull ByteArray keyPrefix, long revUpperBound) {
+        var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
+        return new CursorWrapper<>(
+            metaStorageSvcFut,
+            metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), revUpperBound))
         );
     }
 
@@ -588,14 +648,12 @@ public class MetaStorageManager {
         }
 
         /** {@inheritDoc} */
-        @Override
-        public boolean hasNext() {
+        @Override public boolean hasNext() {
             return it.hasNext();
         }
 
         /** {@inheritDoc} */
-        @Override
-        public T next() {
+        @Override public T next() {
             return it.next();
         }
 
