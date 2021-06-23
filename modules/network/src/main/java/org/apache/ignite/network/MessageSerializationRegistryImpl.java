@@ -17,6 +17,7 @@
 
 package org.apache.ignite.network;
 
+import org.apache.ignite.internal.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -51,11 +52,12 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
             groupFactories = new MessageSerializationFactory<?>[Short.MAX_VALUE + 1];
             factories[groupType] = groupFactories;
         }
-        else if (groupFactories[messageType] != null)
+        else if (groupFactories[messageType] != null) {
             throw new NetworkConfigurationException(String.format(
                 "Message serialization factory for message type %d in module %d is already defined",
                 messageType, groupType
             ));
+        }
 
         groupFactories[messageType] = factory;
 
@@ -78,9 +80,11 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
 
         MessageSerializationFactory<?> provider = groupFactories == null ? null : groupFactories[messageType];
 
-        assert provider != null :
-            String.format("No serializer provider defined for group type %d and message type %d",
-                groupType, messageType);
+        if (provider == null) {
+            throw new NetworkConfigurationException(String.format(
+                "No serializer provider defined for group type %d and message type %d", groupType, messageType
+            ));
+        }
 
         return (MessageSerializationFactory<T>) provider;
     }
