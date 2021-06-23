@@ -346,9 +346,7 @@ public class Row implements BinaryRow {
 
         Columns cols;
         int chunkBaseOff;
-        int nullMapLen;
         int flags;
-        VarTableFormat format;
 
         if (isKeyCol) {
             cols = schema.keyColumns();
@@ -370,8 +368,8 @@ public class Row implements BinaryRow {
             throw new InvalidTypeException("Invalid column type requested [requested=" + type +
                 ", column=" + cols.column(colIdx) + ']');
 
-        nullMapLen = (flags & VarTableFormat.OMIT_NULL_MAP_FLAG) == 0 ? cols.nullMapSize() : 0;
-        format = (flags & VarTableFormat.OMIT_VARTBL_FLAG) == 0 ? VarTableFormat.fromFlags(flags) : null;
+        int nullMapLen = (flags & VarTableFormat.OMIT_NULL_MAP_FLAG) == 0 ? cols.nullMapSize() : 0;
+        VarTableFormat format = (flags & VarTableFormat.OMIT_VARTBL_FLAG) == 0 ? VarTableFormat.fromFlags(flags) : null;
 
         if (nullMapLen > 0 && isNull(chunkBaseOff + BinaryRow.CHUNK_LEN_FLD_SIZE, colIdx))
             return -1;

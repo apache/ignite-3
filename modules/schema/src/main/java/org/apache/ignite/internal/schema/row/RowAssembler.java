@@ -189,8 +189,8 @@ public class RowAssembler {
         final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
         final int valNullMapSize = valHasNulls ? schema.valueColumns().nullMapSize() : 0;
 
-        final VarTableFormat keyWriteMode = VarTableFormat.formatter(keyDataSize);
-        valWriteMode = VarTableFormat.formatter(valDataSize);
+        final VarTableFormat keyWriteMode = VarTableFormat.format(keyDataSize);
+        valWriteMode = VarTableFormat.format(valDataSize);
 
         int size = BinaryRow.HEADER_SIZE +
             keyWriteMode.chunkSize(keyDataSize, keyNullMapSize, keyVarlenCols) +
@@ -199,7 +199,12 @@ public class RowAssembler {
         buf = new ExpandableByteBuf(size);
         buf.putShort(0, (short)schema.version());
 
-        chunkWriter = keyWriteMode.writer(buf, KEY_CHUNK_OFFSET, keyNullMapSize, keyVarlenCols);
+        chunkWriter = new ChunkWriter(
+            buf,
+            KEY_CHUNK_OFFSET,
+            keyNullMapSize,
+            keyVarlenCols,
+            keyWriteMode);
     }
 
     /**
@@ -505,10 +510,12 @@ public class RowAssembler {
             flags |= (chunkWriter.chunkFlags() & 0x0F) << KEY_FLAGS_OFFSET;
 
             // Create value chunk writer.
-            chunkWriter = valWriteMode.writer(buf,
+            chunkWriter.reset(
                 BinaryRow.HEADER_SIZE + chunkWriter.chunkLength() /* Key chunk size */,
                 schema.valueColumns().nullMapSize(),
-                valVarlenCols);
+                valVarlenCols,
+                valWriteMode
+            );
         }
     }
 }

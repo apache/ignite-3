@@ -33,16 +33,16 @@ class ChunkWriter {
     protected final ExpandableByteBuf buf;
 
     /** Base offset of the chunk */
-    protected final int baseOff;
+    protected int baseOff;
 
     /** Offset of the varlen table for the chunk. */
-    protected final int varTblOff;
+    protected int varTblOff;
 
     /** Offset of data for the chunk. */
-    protected final int dataOff;
+    protected int dataOff;
 
     /** Vartable format helper. */
-    private final VarTableFormat format;
+    private VarTableFormat format;
 
     /** Index of the current varlen table entry. Incremented each time non-null varlen column is appended. */
     protected int curVartblEntry;
@@ -57,13 +57,16 @@ class ChunkWriter {
      * @param buf Row buffer.
      * @param baseOff Chunk base offset.
      * @param nullMapLen Null-map length in bytes.
-     * @param vartblLen Vartable length in bytes.
+     * @param vartblEntries Vartable entries.
      * @param format Vartable format helper.
      */
-    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblLen, VarTableFormat format) {
+    protected ChunkWriter(ExpandableByteBuf buf, int baseOff, int nullMapLen, int vartblEntries,
+        VarTableFormat format) {
         this.buf = buf;
         this.baseOff = baseOff;
         this.format = format;
+
+        int vartblLen = format.vartableLength(vartblEntries - 1);
 
         flags = format.formatFlags();
         varTblOff = nullmapOff() + nullMapLen;
@@ -269,5 +272,35 @@ class ChunkWriter {
         buf.ensureCapacity(nullmapOff() + byteInMap + 1);
 
         buf.put(nullmapOff() + byteInMap, (byte)(buf.get(nullmapOff() + byteInMap) | (1 << bitInByte)));
+    }
+
+    /**
+     * @param baseOff Chunk base offset.
+     * @param nullMapLen Null-map length.
+     * @param vartblEntries Vartable entries.
+     * @param format Vartable format.
+     */
+    public void reset(
+        int baseOff,
+        int nullMapLen,
+        int vartblEntries,
+        VarTableFormat format
+    ) {
+        this.format = format;
+        this.baseOff = baseOff;
+
+        int vartblLen = format.vartableLength(vartblEntries - 1);
+
+        flags = format.formatFlags();
+        varTblOff = nullmapOff() + nullMapLen;
+        dataOff = varTblOff + vartblLen;
+        curOff = dataOff;
+        curVartblEntry = 0;
+
+        if (nullMapLen == 0)
+            flags |= VarTableFormat.OMIT_NULL_MAP_FLAG;
+
+        if (vartblLen == 0)
+            flags |= VarTableFormat.OMIT_VARTBL_FLAG;
     }
 }

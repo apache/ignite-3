@@ -47,7 +47,7 @@ abstract class VarTableFormat {
      * @param payloadLen Payload size in bytes.
      * @return Chunk formatter.
      */
-    static VarTableFormat formatter(int payloadLen) {
+    static VarTableFormat format(int payloadLen) {
         if (payloadLen > 0) {
             if (payloadLen < 256)
                 return TINY;
@@ -173,24 +173,6 @@ abstract class VarTableFormat {
      * @return Number of entries in the vartable.
      */
     abstract int readVartableSize(BinaryRow row, int vartblOff);
-
-    /**
-     * Chunk writer factory method.
-     *
-     * @param buf Row buffer.
-     * @param baseOff Chunk base offset.
-     * @param nullMapLen Null-map length.
-     * @param nonNullVarlens Number of entries in vartable.
-     * @return Chunk writer.
-     */
-    ChunkWriter writer(ExpandableByteBuf buf, int baseOff, int nullMapLen, int nonNullVarlens) {
-        return new ChunkWriter(
-            buf,
-            baseOff,
-            nullMapLen,
-            vartableLength(nonNullVarlens - 1),
-            this);
-    }
 
     /**
      * Chunk format for small rows.
