@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -34,6 +33,7 @@ import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
 import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
+import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -47,77 +47,36 @@ public class IgniteRpcClient implements RpcClientEx {
 
     private final ClusterService service;
 
-    private final boolean reuse;
-
     /**
      * @param service The service.
-     * @param reuse {@code True} to reuse already started service.
      */
-    public IgniteRpcClient(ClusterService service, boolean reuse) {
+    public IgniteRpcClient(ClusterService service) {
         this.service = service;
-        this.reuse = reuse;
-
-        if (!reuse) // TODO asch use init
-            service.start();
     }
 
     public ClusterService clusterService() {
         return service;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean checkConnection(Endpoint endpoint) {
         return service.topologyService().getByAddress(endpoint.toString()) != null;
     }
 
+    /** {@inheritDoc} */
     @Override public void registerConnectEventListener(TopologyEventHandler handler) {
         service.topologyService().addEventHandler(handler);
     }
 
-    @Override public Object invokeSync(Endpoint endpoint, Object request, InvokeContext ctx,
-        long timeoutMs) throws InterruptedException, RemotingException {
-        if (!checkConnection(endpoint))
-            throw new RemotingException("Server is dead " + endpoint);
-
-        CompletableFuture<Object> fut = new CompletableFuture();
-
-        // Future hashcode used as corellation id.
-        if (recordPred != null && recordPred.test(request, endpoint.toString()))
-            recordedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
-
-        boolean wasBlocked;
-
-        synchronized (this) {
-            wasBlocked = blockPred != null && blockPred.test(request, endpoint.toString());
-
-            if (wasBlocked)
-                blockedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), (Runnable) () -> send(endpoint, request, fut, timeoutMs)});
-        }
-
-        if (!wasBlocked)
-            send(endpoint, request, fut, timeoutMs);
-
-        try {
-            return fut.whenComplete((res, err) -> {
-                assert !(res == null && err == null) : res + " " + err;
-
-                if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
-            }).get(timeoutMs, TimeUnit.MILLISECONDS);
-        }
-        catch (ExecutionException e) {
-            throw new RemotingException(e);
-        }
-        catch (TimeoutException e) {
-            throw new InvokeTimeoutException();
-        }
-    }
-
-    @Override public void invokeAsync(Endpoint endpoint, Object request, InvokeContext ctx, InvokeCallback callback,
-        long timeoutMs) throws InterruptedException, RemotingException {
-        if (!checkConnection(endpoint))
-            throw new RemotingException("Server is dead " + endpoint);
-
-        CompletableFuture<Object> fut = new CompletableFuture<>();
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Message> invokeAsync(
+        Endpoint endpoint,
+        Object request,
+        InvokeContext ctx,
+        InvokeCallback callback,
+        long timeoutMs
+    ) throws InterruptedException, RemotingException {
+        CompletableFuture<Message> fut = new CompletableFuture<>();
 
         fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS).
             whenComplete((res, err) -> {
@@ -150,14 +109,16 @@ public class IgniteRpcClient implements RpcClientEx {
                     }
                 }});
 
-                return;
+                return fut;
             }
         }
 
         send(endpoint, request, fut, timeoutMs);
+
+        return fut;
     }
 
-    public void send(Endpoint endpoint, Object request, CompletableFuture<Object> fut, long timeout) {
+    public void send(Endpoint endpoint, Object request, CompletableFuture<Message> fut, long timeout) {
         CompletableFuture<NetworkMessage> fut0 = service.messagingService().invoke(endpoint.toString(), (NetworkMessage) request, timeout);
 
         fut0.whenComplete(new BiConsumer<NetworkMessage, Throwable>() {
@@ -165,29 +126,26 @@ public class IgniteRpcClient implements RpcClientEx {
                 if (err != null)
                     fut.completeExceptionally(err);
                 else
-                    fut.complete(resp);
+                    fut.complete((Message) resp);
             }
         });
     }
 
+    /** {@inheritDoc} */
     @Override public boolean init(RpcOptions opts) {
         return true;
     }
 
+    /** {@inheritDoc} */
     @Override public void shutdown() {
-        try {
-            if (!reuse)
-                service.shutdown();
-        }
-        catch (Exception e) {
-            throw new IgniteInternalException(e);
-        }
     }
 
+    /** {@inheritDoc} */
     @Override public void blockMessages(BiPredicate<Object, String> predicate) {
         this.blockPred = predicate;
     }
 
+    /** {@inheritDoc} */
     @Override public void stopBlock() {
         ArrayList<Object[]> msgs = new ArrayList<>();
 
@@ -204,18 +162,22 @@ public class IgniteRpcClient implements RpcClientEx {
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void recordMessages(BiPredicate<Object, String> predicate) {
         this.recordPred = predicate;
     }
 
+    /** {@inheritDoc} */
     @Override public void stopRecord() {
         this.recordPred = null;
     }
 
+    /** {@inheritDoc} */
     @Override public Queue<Object[]> recordedMessages() {
         return recordedMsgs;
     }
 
+    /** {@inheritDoc} */
     @Override public Queue<Object[]> blockedMessages() {
         return blockedMsgs;
     }

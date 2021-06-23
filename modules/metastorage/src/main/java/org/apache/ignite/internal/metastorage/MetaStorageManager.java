@@ -27,15 +27,23 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.internal.ConfigurationManager;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.metastorage.client.CompactedException;
+import org.apache.ignite.internal.metastorage.client.Condition;
+import org.apache.ignite.internal.metastorage.client.Entry;
+import org.apache.ignite.internal.metastorage.client.MetaStorageService;
 import org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl;
+import org.apache.ignite.internal.metastorage.client.Operation;
+import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
+import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -43,13 +51,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.internal.metastorage.client.CompactedException;
-import org.apache.ignite.internal.metastorage.client.Condition;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.MetaStorageService;
-import org.apache.ignite.internal.metastorage.client.Operation;
-import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
@@ -68,6 +69,15 @@ import org.jetbrains.annotations.Nullable;
 public class MetaStorageManager {
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
+
+    /** Prefix added to configuration keys to distinguish them in the meta storage. Must end with a dot. */
+    public static final String DISTRIBUTED_PREFIX = "dst-cfg.";
+
+    /**
+     * Special key for the vault where the applied revision for {@link MetaStorageManager#storeEntries(Collection, long)}
+     * operation is stored. This mechanism is needed for committing processed watches to {@link VaultManager}.
+     */
+    public static final ByteArray APPLIED_REV = ByteArray.fromString(DISTRIBUTED_PREFIX + "applied_revision");
 
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
@@ -103,6 +113,9 @@ public class MetaStorageManager {
      */
     private boolean deployed;
 
+    /** Flag indicates if meta storage nodes were set on start */
+    private boolean metaStorageNodesOnStart;
+
     /**
      * The constructor.
      *
@@ -129,6 +142,8 @@ public class MetaStorageManager {
             clusterNode -> Arrays.asList(metastorageNodes).contains(clusterNode.name());
 
         if (metastorageNodes.length > 0) {
+            metaStorageNodesOnStart = true;
+
             this.metaStorageSvcFut = CompletableFuture.completedFuture(new MetaStorageServiceImpl(
                     raftMgr.startRaftGroup(
                         METASTORAGE_RAFT_GROUP_NAME,
@@ -152,7 +167,7 @@ public class MetaStorageManager {
 //        );
 
         // TODO: IGNITE-14414 Cluster initialization flow. Here we should complete metaStorageServiceFuture.
-        clusterNetSvc.messagingService().addMessageHandler((message, sender, correlationId) -> {});
+        clusterNetSvc.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {});
     }
 
     /**
@@ -161,14 +176,22 @@ public class MetaStorageManager {
     public synchronized void deployWatches() {
         try {
             var watch = watchAggregator.watch(
-                vaultMgr.appliedRevision() + 1,
+                appliedRevision() + 1,
                 this::storeEntries
             );
 
             if (watch.isEmpty())
                 deployFut.complete(Optional.empty());
-            else
-                dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id))).join();
+            else {
+                CompletableFuture<Void> fut =
+                    dispatchAppropriateMetaStorageWatch(watch.get()).thenAccept(id -> deployFut.complete(Optional.of(id)));
+
+                if (metaStorageNodesOnStart)
+                    fut.join();
+                else {
+                    // TODO: need to wait for this future in init phase https://issues.apache.org/jira/browse/IGNITE-14414
+                }
+            }
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during deploy watches", e);
@@ -388,7 +411,7 @@ public class MetaStorageManager {
             metaStorageSvcFut,
             metaStorageSvcFut.thenApply(svc -> {
                 try {
-                    return svc.range(keyFrom, keyTo, vaultMgr.appliedRevision());
+                    return svc.range(keyFrom, keyTo, appliedRevision());
                 }
                 catch (IgniteInternalCheckedException e) {
                     throw new IgniteInternalException(e);
@@ -408,10 +431,93 @@ public class MetaStorageManager {
     }
 
     /**
+     * Retrieves entries for the given key prefix in lexicographic order.
+     * Entries will be filtered out by the current applied revision as an upper bound.
+     * Applied revision is a revision of the last successful vault update.
+     *
+     * Prefix query is a synonym of the range query {@code (prefixKey, nextKey(prefixKey))}.
+     *
+     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @return Cursor built upon entries corresponding to the given range and applied revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    public @NotNull Cursor<Entry> prefixWithAppliedRevision(@NotNull ByteArray keyPrefix) {
+        var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
+        return new CursorWrapper<>(
+            metaStorageSvcFut,
+            metaStorageSvcFut.thenApply(svc -> {
+                try {
+                    return svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision());
+                }
+                catch (IgniteInternalCheckedException e) {
+                    throw new IgniteInternalException(e);
+                }
+            })
+        );
+    }
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order. Short cut for
+     * {@link #prefix(ByteArray, long)} where {@code revUpperBound == -1}.
+     *
+     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    public @NotNull Cursor<Entry> prefix(@NotNull ByteArray keyPrefix) {
+        return prefix(keyPrefix, -1);
+    }
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound
+     * of given revision number.
+     *
+     * Prefix query is a synonym of the range query {@code range(prefixKey, nextKey(prefixKey))}.
+     *
+     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param revUpperBound  The upper bound for entry revision. {@code -1} means latest revision.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    public @NotNull Cursor<Entry> prefix(@NotNull ByteArray keyPrefix, long revUpperBound) {
+        var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
+        return new CursorWrapper<>(
+            metaStorageSvcFut,
+            metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), revUpperBound))
+        );
+    }
+
+    /**
      * @see MetaStorageService#compact()
      */
     public @NotNull CompletableFuture<Void> compact() {
         return metaStorageSvcFut.thenCompose(MetaStorageService::compact);
+    }
+
+    /**
+     * @return Applied revision for {@link VaultManager#putAll(Map, ByteArray, long)} operation.
+     * @throws IgniteInternalCheckedException If couldn't get applied revision from vault.
+     */
+    private long appliedRevision() throws IgniteInternalCheckedException {
+        byte[] appliedRevision;
+
+        try {
+            appliedRevision = vaultMgr.get(APPLIED_REV).get().value();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw new IgniteInternalCheckedException("Error occurred when getting applied revision", e);
+        }
+
+        return appliedRevision == null ? 0L : ByteUtils.bytesToLong(appliedRevision);
     }
 
     /**
@@ -420,9 +526,9 @@ public class MetaStorageManager {
      * @return Ignite UUID of new consolidated watch.
      */
     private CompletableFuture<Optional<IgniteUuid>> updateWatches() {
-        Long revision;
+        long revision;
         try {
-            revision = vaultMgr.appliedRevision() + 1;
+            revision = appliedRevision() + 1;
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't receive applied revision during watch redeploy", e);
@@ -455,7 +561,7 @@ public class MetaStorageManager {
     private CompletableFuture<Void> storeEntries(Collection<IgniteBiTuple<ByteArray, byte[]>> entries, long revision) {
         try {
             return vaultMgr.putAll(entries.stream().collect(
-                Collectors.toMap(e -> e.getKey(), IgniteBiTuple::getValue)), revision);
+                Collectors.toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue)), APPLIED_REV, revision);
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Couldn't put entries with considered revision.", e);
@@ -544,7 +650,7 @@ public class MetaStorageManager {
 
             /** {@inheritDoc} */
         @Override public void close() throws Exception {
-            innerCursorFut.thenCompose(cursor -> {
+            innerCursorFut.thenApply(cursor -> {
                 try {
                     cursor.close();
 
@@ -561,13 +667,11 @@ public class MetaStorageManager {
             return it;
         }
 
-        @Override
-        public boolean hasNext() {
+        @Override public boolean hasNext() {
             return it.hasNext();
         }
 
-        @Override
-        public T next() {
+        @Override public T next() {
             return it.next();
         }
 

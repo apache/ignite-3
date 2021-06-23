@@ -46,7 +46,7 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
         Objects.requireNonNull(schemaDesc);
 
         this.schemaDesc = schemaDesc;
-        map = new HashMap<>();
+        map = new HashMap<>(schemaDesc.length());
     }
 
     /** {@inheritDoc} */
