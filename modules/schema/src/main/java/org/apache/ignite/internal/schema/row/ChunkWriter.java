@@ -22,6 +22,7 @@ import java.nio.charset.CharsetEncoder;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.AssemblyException;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.NativeTypes;
 
 /**
@@ -208,7 +209,7 @@ class ChunkWriter {
      * @return Null-map offset.
      */
     private int nullmapOff() {
-        return baseOff + VarTableFormat.CHUNK_LEN_FLD_SIZE;
+        return baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE;
     }
 
     /**

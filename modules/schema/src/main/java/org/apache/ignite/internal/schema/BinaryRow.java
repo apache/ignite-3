@@ -38,6 +38,9 @@ public interface BinaryRow {
     /** Key chunk field offset. */
     int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4 /* hash length */;
 
+    /** Size of chunk length field. */
+    int CHUNK_LEN_FLD_SIZE = Integer.BYTES;
+
     /** Row header size. */
     int HEADER_SIZE = KEY_CHUNK_OFFSET;
 

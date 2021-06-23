@@ -60,25 +60,12 @@ abstract class VarTableFormat {
     }
 
     /**
-     * Creates chunk reader.
-     *
-     * @param row Binary row.
-     * @param offset Chunk offset.
-     * @param nullMapSize Default chunk null-map size.
-     * @param chunkFlags Chunk flags. First 4-bits are meaningful.
-     * @return Chunk reader.
-     */
-    static ChunkReader createReader(BinaryRow row, int offset, int nullMapSize, byte chunkFlags) {
-        return fromFlags(chunkFlags).reader(row, offset, nullMapSize, chunkFlags);
-    }
-
-    /**
      * Chunk format factory method.
      *
      * @param chunkFlags Chunk specific flags. Only first 4-bits are meaningful.
      * @return Chunk formatter regarding the provided flags.
      */
-    private static VarTableFormat fromFlags(byte chunkFlags) {
+    public static VarTableFormat fromFlags(int chunkFlags) {
         switch (chunkFlags & FORMAT_CODE_MASK) {
             case 1:
                 return TINY;
@@ -89,8 +76,6 @@ abstract class VarTableFormat {
         }
     }
 
-    /** Size of chunk length field. */
-    public static final int CHUNK_LEN_FLD_SIZE = Integer.BYTES;
 
     /** Size of vartable entry. */
     private final int vartblEntrySize;
@@ -128,7 +113,7 @@ abstract class VarTableFormat {
      * @return Total chunk size.
      */
     int chunkSize(int payloadLen, int nullMapLen, int vartblEntries) {
-        return CHUNK_LEN_FLD_SIZE /* Chunk len. */ + nullMapLen + vartableLength(vartblEntries - 1) + payloadLen;
+        return BinaryRow.CHUNK_LEN_FLD_SIZE /* Chunk len. */ + nullMapLen + vartableLength(vartblEntries - 1) + payloadLen;
     }
 
     /**
@@ -204,24 +189,6 @@ abstract class VarTableFormat {
             baseOff,
             nullMapLen,
             vartableLength(nonNullVarlens - 1),
-            this);
-    }
-
-    /**
-     * Chunk reader factory method.
-     *
-     * @param row Row buffer.
-     * @param baseOff Chunk base offset.
-     * @param nullMapSize Default chunk null-map size.
-     * @param chunkFlags Chunk flags.
-     * @return Chunk reader.
-     */
-    ChunkReader reader(BinaryRow row, int baseOff, int nullMapSize, byte chunkFlags) {
-        return new ChunkReader(
-            row,
-            baseOff,
-            (chunkFlags & OMIT_NULL_MAP_FLAG) == 0 ? nullMapSize : 0,
-            (chunkFlags & OMIT_VARTBL_FLAG) == 0,
             this);
     }
 
