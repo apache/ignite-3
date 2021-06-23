@@ -76,7 +76,6 @@ abstract class VarTableFormat {
         }
     }
 
-
     /** Size of vartable entry. */
     private final int vartblEntrySize;
 
