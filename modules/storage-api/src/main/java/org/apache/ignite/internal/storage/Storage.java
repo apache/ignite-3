@@ -29,6 +29,7 @@ public interface Storage {
      *
      * @param key Search row.
      * @return Data row.
+     * @throws StorageException If failed to read data or storage is already stopped.
      */
     public DataRow read(SearchRow key) throws StorageException;
 
