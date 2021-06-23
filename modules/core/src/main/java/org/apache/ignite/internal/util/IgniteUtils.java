@@ -47,6 +47,8 @@ public class IgniteUtils {
     /** Class loader used to load Ignite. */
     private static final ClassLoader igniteClassLoader = IgniteUtils.class.getClassLoader();
 
+    private static final boolean assertionsEnabled;
+
     /** Primitive class map. */
     private static final Map<String, Class<?>> primitiveMap = Map.of(
         "byte", byte.class,
@@ -61,8 +63,27 @@ public class IgniteUtils {
     );
 
     /** */
-    private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class>> classCache =
+    private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache =
         new ConcurrentHashMap<>();
+
+    /*
+      Initializes enterprise check.
+     */
+    static {
+        boolean assertionsEnabled0 = true;
+
+        try {
+            assert false;
+
+            assertionsEnabled0 = false;
+        }
+        catch (AssertionError ignored) {
+            assertionsEnabled0 = true;
+        }
+        finally {
+            assertionsEnabled = assertionsEnabled0;
+        }
+    }
 
     /**
      * Get JDK version.
@@ -257,6 +278,7 @@ public class IgniteUtils {
      * @return First non-null value, or {@code null}, if array is empty or contains
      *      only nulls.
      */
+    @SafeVarargs
     @Nullable public static <T> T firstNotNull(@Nullable T... vals) {
         if (vals == null)
             return null;
@@ -311,14 +333,7 @@ public class IgniteUtils {
         if (ldr == null)
             ldr = igniteClassLoader;
 
-        ConcurrentMap<String, Class> ldrMap = classCache.get(ldr);
-
-        if (ldrMap == null) {
-            ConcurrentMap<String, Class> old = classCache.putIfAbsent(ldr, ldrMap = new ConcurrentHashMap<>());
-
-            if (old != null)
-                ldrMap = old;
-        }
+        ConcurrentMap<String, Class<?>> ldrMap = classCache.computeIfAbsent(ldr, k -> new ConcurrentHashMap<>());
 
         cls = ldrMap.get(clsName);
 
@@ -328,13 +343,50 @@ public class IgniteUtils {
 
             cls = Class.forName(clsName, true, ldr);
 
-            Class old = ldrMap.putIfAbsent(clsName, cls);
+            Class<?> old = ldrMap.putIfAbsent(clsName, cls);
 
             if (old != null)
                 cls = old;
         }
 
         return cls;
+    }
+
+    /**
+     * @return {@code True} if assertions enabled.
+     */
+    public static boolean assertionsEnabled() {
+        return assertionsEnabled;
+    }
+
+    /**
+     * Deletes a file or a directory with all sub-directories and files.
+     *
+     * @param path File or directory to delete.
+     * @return {@code true} if and only if the file or directory is successfully deleted,
+     *      {@code false} otherwise
+     */
+    public static boolean delete(Path path) {
+        try {
+            Files.walkFileTree(path, new SimpleFileVisitor<>() {
+                @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    Files.delete(dir);
+
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+
+            return true;
+        }
+        catch (IOException e) {
+            return false;
+        }
     }
 
     /**
@@ -378,36 +430,6 @@ public class IgniteUtils {
             Thread.currentThread().interrupt();
             // (Re-)Cancel if current thread also interrupted
             service.shutdownNow();
-        }
-    }
-
-    /**
-     * Deletes a file or a directory with all sub-directories and files.
-     *
-     * @param path File or directory to delete.
-     * @return {@code true} if and only if the file or directory is successfully deleted,
-     *      {@code false} otherwise
-     */
-    public static boolean delete(Path path) {
-        try {
-            Files.walkFileTree(path, new SimpleFileVisitor<>() {
-                @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    Files.delete(dir);
-
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.delete(file);
-
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-
-            return true;
-        }
-        catch (IOException e) {
-            return false;
         }
     }
 
