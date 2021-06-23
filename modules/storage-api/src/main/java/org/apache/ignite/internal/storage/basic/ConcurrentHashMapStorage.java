@@ -52,7 +52,7 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void write(DataRow row) throws StorageException {
+    @Override public void write(DataRow row) throws StorageException {
         rwLock.readLock().lock();
 
         try {
@@ -64,7 +64,7 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void remove(SearchRow key) throws StorageException {
+    @Override public void remove(SearchRow key) throws StorageException {
         rwLock.readLock().lock();
 
         try {
@@ -76,7 +76,7 @@ public class ConcurrentHashMapStorage implements Storage {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
+    @Override public void invoke(SearchRow key, InvokeClosure clo) throws StorageException {
         byte[] keyBytes = key.keyBytes();
 
         ByteArray mapKey = new ByteArray(keyBytes);
