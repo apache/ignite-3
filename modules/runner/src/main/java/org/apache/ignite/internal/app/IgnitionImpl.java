@@ -25,16 +25,16 @@ import io.netty.util.internal.StringUtil;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -100,11 +100,11 @@ public class IgnitionImpl implements Ignition {
             TablesConfiguration.KEY
         );
 
-        List<ConfigurationStorage> configurationStorages =
+        List<ConfigurationStorage> cfgStorages =
             new ArrayList<>(Collections.singletonList(new LocalConfigurationStorage(vaultMgr)));
 
         // Bootstrap local configuration manager.
-        ConfigurationManager locConfigurationMgr = new ConfigurationManager(rootKeys, configurationStorages);
+        ConfigurationManager locConfigurationMgr = new ConfigurationManager(rootKeys, cfgStorages);
 
         if (!cfgBootstrappedFromPds && jsonStrBootstrapCfg != null)
             try {
@@ -147,10 +147,10 @@ public class IgnitionImpl implements Ignition {
         );
 
         // TODO IGNITE-14578 Bootstrap configuration manager with distributed configuration.
-        configurationStorages.add(new DistributedConfigurationStorage(metaStorageMgr));
+        cfgStorages.add(new DistributedConfigurationStorage(metaStorageMgr, vaultMgr));
 
         // Start configuration manager.
-        ConfigurationManager configurationMgr = new ConfigurationManager(rootKeys, configurationStorages);
+        ConfigurationManager configurationMgr = new ConfigurationManager(rootKeys, cfgStorages);
 
         // Baseline manager startup.
         BaselineManager baselineMgr = new BaselineManager(configurationMgr, metaStorageMgr, clusterNetSvc);

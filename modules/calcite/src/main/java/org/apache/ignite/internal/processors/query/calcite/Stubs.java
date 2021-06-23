@@ -23,12 +23,6 @@ public class Stubs {
         return args == null ? 0 : args.length;
     }
 
-    /** */
-    public static long longFoo(Object... args) {
-        return args == null ? 0 : args.length;
-    }
-
-    /** */
     public static boolean boolFoo(Object... args) {
         return args == null;
     }
