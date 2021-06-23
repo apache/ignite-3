@@ -57,12 +57,6 @@ public class RowAssembler {
     /** The number of non-null varlen columns in values chunk. */
     private final int valVarlenCols;
 
-    /** Value null-map size in bytes. */
-    private int valNullMapSize;
-
-    /** Value write mode. */
-    private final VarTableFormat valWriteMode;
-
     /** Current columns chunk. */
     private Columns curCols;
 
@@ -92,9 +86,6 @@ public class RowAssembler {
 
     /** Current offset for the next column to be appended. */
     protected int curOff;
-
-    /** Vartable format helper. */
-    private VarTableFormat format;
 
     /**
      * Calculates encoded string length.
@@ -140,10 +131,8 @@ public class RowAssembler {
     ) {
         this(schema,
             0,
-            schema.keyColumns().nullMapSize() > 0,
             nonNullVarlenKeyCols,
             0,
-            schema.valueColumns().nullMapSize() > 0,
             nonNullVarlenValCols);
     }
 
@@ -154,46 +143,15 @@ public class RowAssembler {
      *
      * @param schema Row schema.
      * @param keyDataSize Key payload size. Estimated upper-bound or zero if unknown.
-     * @param nonNullVarlenKeyCols Number of non-null varlen columns in key chunk.
-     * @param valDataSize Value data size. Estimated upper-bound or zero if unknown.
-     * @param nonNullVarlenValCols Number of non-null varlen columns in value chunk.
-     */
-    public RowAssembler(
-        SchemaDescriptor schema,
-        int keyDataSize,
-        int nonNullVarlenKeyCols,
-        int valDataSize,
-        int nonNullVarlenValCols
-    ) {
-        this(schema,
-            keyDataSize,
-            schema.keyColumns().nullMapSize() > 0,
-            nonNullVarlenKeyCols,
-            valDataSize,
-            schema.valueColumns().nullMapSize() > 0,
-            nonNullVarlenValCols);
-    }
-
-    /**
-     * Creates RowAssembler for chunks with estimated sizes.
-     * <p>
-     * RowAssembler will apply optimizations based on chunks sizes estimations.
-     *
-     * @param schema Row schema.
-     * @param keyDataSize Key payload size. Estimated upper-bound or zero if unknown.
-     * @param keyHasNulls Null flag. {@code True} if key has nulls values, {@code false} otherwise.
      * @param keyVarlenCols Number of non-null varlen columns in key chunk.
      * @param valDataSize Value data size. Estimated upper-bound or zero if unknown.
-     * @param valHasNulls Null flag. {@code True} if value has nulls values, {@code false} otherwise.
      * @param valVarlenCols Number of non-null varlen columns in value chunk.
      */
     public RowAssembler(
         SchemaDescriptor schema,
         int keyDataSize,
-        boolean keyHasNulls,
         int keyVarlenCols,
         int valDataSize,
-        boolean valHasNulls,
         int valVarlenCols
     ) {
         this.schema = schema;
@@ -204,20 +162,21 @@ public class RowAssembler {
         hash = 0;
         strEncoder = null;
 
-        final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
-        valNullMapSize = valHasNulls ? schema.valueColumns().nullMapSize() : 0;
-
-        final VarTableFormat keyWriteMode = VarTableFormat.format(keyDataSize);
-        valWriteMode = VarTableFormat.format(valDataSize);
+        final int keyNullMapSize = schema.keyColumns().nullMapSize();
+        final int valNullMapSize = schema.valueColumns().nullMapSize();
 
         int size = BinaryRow.HEADER_SIZE +
-            keyWriteMode.chunkSize(keyDataSize, keyNullMapSize, keyVarlenCols) +
-            valWriteMode.chunkSize(valDataSize, valNullMapSize, valVarlenCols);
+            +keyDataSize + keyNullMapSize + varTableLength(keyVarlenCols, Integer.BYTES) +
+            valDataSize + valNullMapSize + varTableLength(valVarlenCols, Integer.BYTES);
 
         buf = new ExpandableByteBuf(size);
         buf.putShort(0, (short)schema.version());
 
-        initChunk(KEY_CHUNK_OFFSET, keyNullMapSize, keyVarlenCols, keyWriteMode);
+        initChunk(KEY_CHUNK_OFFSET, keyNullMapSize, keyVarlenCols);
+    }
+
+    private int varTableLength(int entries, int entrySize) {
+        return entries <= 1 ? 0 : Short.BYTES + entries * entrySize;
     }
 
     /**
@@ -569,9 +528,9 @@ public class RowAssembler {
                 assert varTblOff < dataOff :
                     "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
 
-                assert varTblOff + format.vartableLength(curVartblEntry - 1) == dataOff : "Vartable overlow: size=" + curVartblEntry;
+                assert varTblOff + varTableLength(curVartblEntry - 1, Integer.BYTES) == dataOff : "Vartable overlow: size=" + curVartblEntry;
 
-                format.writeVartableSize(buf, varTblOff, curVartblEntry - 1);
+                buf.putShort(varTblOff, (short)(curVartblEntry - 1));
             }
 
             if (schema.valueColumns() == curCols)
@@ -582,12 +541,7 @@ public class RowAssembler {
             curCol = 0;
 
             // Create value chunk writer.
-            initChunk(
-                BinaryRow.HEADER_SIZE + size/* Key chunk size */,
-                valNullMapSize,
-                valVarlenCols,
-                valWriteMode
-            );
+            initChunk(BinaryRow.HEADER_SIZE + size/* Key chunk size */, curCols.nullMapSize(), valVarlenCols);
         }
     }
 
@@ -608,7 +562,7 @@ public class RowAssembler {
         if (entryIdx == 0)
             return; // Omit offset for very first varlen.
 
-        format.writeVarlenOffset(buf, varTblOff, entryIdx - 1, off);
+        buf.putInt(varTblOff + Short.BYTES + (entryIdx - 1) * Integer.BYTES, off);
     }
 
     /**
@@ -617,20 +571,18 @@ public class RowAssembler {
      * @param baseOff Chunk base offset.
      * @param nullMapLen Null-map length in bytes.
      * @param vartblEntries Vartable entries.
-     * @param format Vartable format helper.
      */
-    private void initChunk(int baseOff, int nullMapLen, int vartblEntries, VarTableFormat format) {
+    private void initChunk(int baseOff, int nullMapLen, int vartblEntries) {
         this.baseOff = baseOff;
-        this.format = format;
 
-        int vartblLen = format.vartableLength(vartblEntries - 1);
+        final int vartblLen = varTableLength(vartblEntries, Integer.BYTES);
 
         varTblOff = nullmapOff() + nullMapLen;
         dataOff = varTblOff + vartblLen;
         curOff = dataOff;
         curVartblEntry = 0;
 
-        int flags = format.formatFlags();
+        int flags = 0;
 
         if (nullMapLen == 0)
             flags |= VarTableFormat.OMIT_NULL_MAP_FLAG;

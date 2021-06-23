@@ -21,7 +21,6 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
 
 /**
@@ -41,7 +40,7 @@ public final class MarshallerUtil {
                 return ((byte[])val).length;
 
             case STRING:
-                return RowAssembler.utf8EncodedLength((CharSequence)val);
+                return ((CharSequence)val).length() << 1; //RowAssembler.utf8EncodedLength((CharSequence)val);
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);

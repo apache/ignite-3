@@ -98,7 +98,7 @@ public class JavaSerializer extends AbstractSerializer {
      */
     private ObjectStatistic collectObjectStats(Columns cols, Marshaller marsh, Object obj) {
         if (obj == null || !cols.hasVarlengthColumns())
-            return new ObjectStatistic(0, 0);
+            return new ObjectStatistic(0, cols.fixsizeMaxLen());
 
         int cnt = 0;
         int size = cols.fixsizeMaxLen();

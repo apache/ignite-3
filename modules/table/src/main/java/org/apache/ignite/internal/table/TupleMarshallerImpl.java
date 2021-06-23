@@ -99,20 +99,21 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         TupleStatistics chunk = new TupleStatistics();
 
-        for (int i = 0; i < cols.length(); i++) {
+        chunk.payloadLen = cols.fixsizeMaxLen();
+
+        if (!cols.hasVarlengthColumns())
+            return chunk;
+
+        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
             Column col = cols.column(i);
 
             Object val = (tup.contains(col.name())) ? tup.value(col.name()) : col.defaultValue();
 
             if (val == null)
-                chunk.hasNulls = true;
-            else if (col.type().spec().fixedLength())
-                chunk.payloadLen += col.type().sizeInBytes();
-            else {
-                chunk.nonNullVarlen++;
+                continue;
 
-                chunk.payloadLen += getValueSize(val, col.type());
-            }
+            chunk.nonNullVarlen++;
+            chunk.payloadLen += getValueSize(val, col.type());
         }
 
         return chunk;
@@ -150,10 +151,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         return new RowAssembler(
             schema,
             keyStat.payloadLen,
-            keyStat.hasNulls,
             keyStat.nonNullVarlen,
             valStat.payloadLen,
-            valStat.hasNulls,
             valStat.nonNullVarlen);
     }
 
@@ -231,9 +230,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * Tuple statistics record.
      */
     private static class TupleStatistics {
-        /** Tuple has nulls. */
-        boolean hasNulls;
-
         /** Payload length in bytes. */
         int payloadLen;
 
