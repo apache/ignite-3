@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -25,22 +26,27 @@ import org.apache.ignite.table.manager.IgniteTables;
  */
 public class IgniteImpl implements Ignite {
     /** Distributed table manager. */
-    private final IgniteTables distributedTblMgr;
+    private final IgniteTables distributedTableManager;
+
+    /** Vault manager */
+    private final VaultManager vaultManager;
 
     /**
-     * @param TblMgr Table manager.
+     * @param tableManager Table manager.
+     * @param vaultManager Vault manager.
      */
-    IgniteImpl(IgniteTables TblMgr) {
-        this.distributedTblMgr = TblMgr;
+    IgniteImpl(IgniteTables tableManager, VaultManager vaultManager) {
+        this.distributedTableManager = tableManager;
+        this.vaultManager = vaultManager;
     }
 
     /** {@inheritDoc} */
     @Override public IgniteTables tables() {
-        return distributedTblMgr;
+        return distributedTableManager;
     }
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        // TODO IGNITE-14581 Implement IgniteImpl close method.
+        vaultManager.close();
     }
 }

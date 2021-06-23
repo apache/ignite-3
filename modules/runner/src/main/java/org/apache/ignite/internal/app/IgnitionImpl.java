@@ -186,13 +186,7 @@ public class IgnitionImpl implements Ignition {
 
         ackSuccessStart();
 
-        return new IgniteImpl(distributedTblMgr) {
-            @Override public void close() throws Exception {
-                super.close();
-
-                vaultMgr.close();
-            }
-        };
+        return new IgniteImpl(distributedTblMgr, vaultMgr);
     }
 
     /** {@inheritDoc} */

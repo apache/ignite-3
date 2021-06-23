@@ -510,16 +510,16 @@ public class MetaStorageManager {
         long revision = appliedRevision() + 1;
 
         deployFut = deployFut
-            .thenCompose(idOpt -> idOpt.map(id -> metaStorageSvcFut.thenCompose(svc -> svc.stopWatch(id))).
-                orElse(CompletableFuture.completedFuture(null))
-            .thenCompose(r -> {
-                var watch = watchAggregator.watch(revision, this::storeEntries);
-
-                if (watch.isEmpty())
-                    return CompletableFuture.completedFuture(Optional.empty());
-                else
-                    return dispatchAppropriateMetaStorageWatch(watch.get()).thenApply(Optional::of);
-            }));
+            .thenCompose(idOpt ->
+                idOpt
+                    .map(id -> metaStorageSvcFut.thenCompose(svc -> svc.stopWatch(id)))
+                    .orElseGet(() -> CompletableFuture.completedFuture(null))
+            )
+            .thenCompose(r ->
+                watchAggregator.watch(revision, this::storeEntries)
+                    .map(watch -> dispatchAppropriateMetaStorageWatch(watch).thenApply(Optional::of))
+                    .orElseGet(() -> CompletableFuture.completedFuture(Optional.empty()))
+            );
 
         return deployFut;
     }
