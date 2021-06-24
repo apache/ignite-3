@@ -280,13 +280,4 @@ public class ExpandableByteBuf {
         buf.position(oldPos);
         buf.order(ByteOrder.LITTLE_ENDIAN);
     }
-
-    /**
-     * Unwrap to ByteBuffer.
-     *
-     * @return internal buffer.
-     */
-    ByteBuffer unwrap() {
-        return buf;
-    }
 }

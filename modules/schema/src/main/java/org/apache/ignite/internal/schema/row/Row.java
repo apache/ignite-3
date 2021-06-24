@@ -55,7 +55,6 @@ public class Row implements BinaryRow {
 
         this.row = row;
         this.schema = schema;
-
     }
 
     /**
