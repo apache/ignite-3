@@ -94,6 +94,8 @@ public class ConnectionManager {
     public void start() throws IgniteInternalException {
         try {
             server.start().join();
+
+            LOG.info("Connection created [address=" + server.address() + ']');
         }
         catch (CompletionException e) {
             Throwable cause = e.getCause();
