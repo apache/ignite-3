@@ -125,9 +125,10 @@ public class RaftServerImpl implements RaftServer {
                     handleActionRequest(sender, req0, correlationId, writeQueue, lsnr);
                 }
             }
-            else {
-                LOG.warn("Unsupported message class " + message.getClass().getName());
-            }
+            // TODO: IGNITE-14992 - Temporarily commenting out for alpha2
+            // else {
+            //     LOG.warn("Unsupported message class " + message.getClass().getName());
+            // }
         });
 
         readWorker = new Thread(() -> processQueue(readQueue, RaftGroupCommandListener::onRead), "read-cmd-worker#" + id);
