@@ -370,7 +370,7 @@ public class Row implements BinaryRow {
         int nullMapLen = (flags & VarTableFormat.OMIT_NULL_MAP_FLAG) == 0 ? cols.nullMapSize() : 0;
         VarTableFormat format = (flags & VarTableFormat.OMIT_VARTBL_FLAG) == 0 ? VarTableFormat.fromFlags(flags) : null;
 
-        if (nullMapLen > 0 && isNull(chunkBaseOff + BinaryRow.CHUNK_LEN_FLD_SIZE, colIdx))
+        if (nullMapLen > 0 && isNull(chunkBaseOff, colIdx))
             return -1;
 
         int dataOffset = varTableOffset(chunkBaseOff, nullMapLen);
@@ -409,9 +409,9 @@ public class Row implements BinaryRow {
         if (hasNullmap) {
             // Fold offset based on the whole map bytes in the schema
             for (int i = 0; i < colByteIdx; i++)
-                colOff += cols.foldFixedLength(i, row.readByte(nullMapOffset(chunkBaseOff) + i));
+                colOff += cols.foldFixedLength(i, Byte.toUnsignedInt(row.readByte(nullMapOffset(chunkBaseOff) + i)));
 
-            colOff += cols.foldFixedLength(colByteIdx, row.readByte(nullMapOffset(chunkBaseOff) + colByteIdx) | mask);
+            colOff += cols.foldFixedLength(colByteIdx, Byte.toUnsignedInt(row.readByte(nullMapOffset(chunkBaseOff) + colByteIdx)) | mask);
         }
         else {
             for (int i = 0; i < colByteIdx; i++)
@@ -525,31 +525,17 @@ public class Row implements BinaryRow {
     }
 
     /**
-     * @param baseOff Chunk base offset.
-     * @param nullMapLen Null-map length.
-     * @param format Vartable format helper.
-     * @return Data offset.
-     */
-    private int dataOffset(int baseOff, int nullMapLen, VarTableFormat format) {
-        int varTableOffset = varTableOffset(baseOff, nullMapLen);
-
-        int varTableLen = format == null ? 0 : format.vartableLength(readShort(varTableOffset));
-
-        return varTableOffset + varTableLen;
-    }
-
-    /**
      * Checks the row's null-map for the given column index in the chunk.
      *
-     * @param nullMapOff Null-map offset.
+     * @param baseOff Chunk base offset.
      * @param idx Offset of the column in the chunk.
      * @return {@code true} if the column value is {@code null}, {@code false} otherwise.
      */
-    protected boolean isNull(int nullMapOff, int idx) {
+    protected boolean isNull(int baseOff, int idx) {
         int nullByte = idx >> 3; // Equivalent expression for: idx / 8
         int posInByte = idx & 7; // Equivalent expression for: idx % 8
 
-        int map = row.readByte(nullMapOff + nullByte);
+        int map = row.readByte(baseOff  + BinaryRow.CHUNK_LEN_FLD_SIZE + nullByte) & 0xFF;
 
         return (map & (1 << posInByte)) != 0;
     }

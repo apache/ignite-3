@@ -235,6 +235,16 @@ public class ExpandableByteBuf {
     }
 
     /**
+     * Reads {@code short} value from buffer.
+     *
+     * @param off Buffer offset.
+     * @return Value.
+     */
+    public short getShort(int off) {
+        return buf.getShort(off);
+    }
+
+    /**
      * @return The byte array of all bytes written to this array, including gaps.
      */
     public byte[] toArray() {
@@ -278,6 +288,25 @@ public class ExpandableByteBuf {
         int oldPos = buf.position();
         buf = ByteBuffer.wrap(arr);
         buf.position(oldPos);
+        buf.order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    /**
+     * Compact array.
+     *
+     * @param srcOff Source offset.
+     * @param dstOff Destination offset.
+     */
+    void shift(int srcOff, int dstOff) {
+        assert srcOff > dstOff;
+
+        final int shift = srcOff - dstOff;
+
+        System.arraycopy(arr, srcOff, arr, dstOff, len - srcOff);
+        Arrays.fill(arr, len - shift, len, (byte)0);
+
+        len -= shift;
+        buf = ByteBuffer.wrap(arr);
         buf.order(ByteOrder.LITTLE_ENDIAN);
     }
 }

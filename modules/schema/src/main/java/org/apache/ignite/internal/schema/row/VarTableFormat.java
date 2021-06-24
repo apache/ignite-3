@@ -33,13 +33,13 @@ abstract class VarTableFormat {
     public static final int OMIT_VARTBL_FLAG = 1 << 3;
 
     /** Writer factory for tiny-sized chunks. */
-    private static final VarTableFormat TINY = new TinyFormat();
+    static final VarTableFormat TINY = new TinyFormat();
 
     /** Writer factory for med-sized chunks. */
-    private static final VarTableFormat MEDIUM = new MediumFormat();
+    static final VarTableFormat MEDIUM = new MediumFormat();
 
     /** Writer factory for large-sized chunks. */
-    private static final VarTableFormat LARGE = new LargeFormat();
+    static final VarTableFormat LARGE = new LargeFormat();
 
     /**
      * Return chunk formatter.
@@ -104,18 +104,6 @@ abstract class VarTableFormat {
     }
 
     /**
-     * Calculates chunk size for the format.
-     *
-     * @param payloadLen Row payload length in bytes.
-     * @param nullMapLen Null-map length in bytes.
-     * @param vartblEntries Number of vartable entries.
-     * @return Total chunk size.
-     */
-    int chunkSize(int payloadLen, int nullMapLen, int vartblEntries) {
-        return BinaryRow.CHUNK_LEN_FLD_SIZE /* Chunk len. */ + nullMapLen + vartableLength(vartblEntries - 1) + payloadLen;
-    }
-
-    /**
      * Calculates vartable size in bytes.
      *
      * @param entries Vartable entries.
@@ -136,16 +124,6 @@ abstract class VarTableFormat {
     }
 
     /**
-     * Writes varlen offset to vartable.
-     *
-     * @param buf Row buffer.
-     * @param vartblOff Vartable offset.
-     * @param entryIdx Vartable entry index.
-     * @param off Varlen offset to be written.
-     */
-    abstract void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off);
-
-    /**
      * Readss varlen offset from vartable.
      *
      * @param row Row.
@@ -156,15 +134,6 @@ abstract class VarTableFormat {
     abstract int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx);
 
     /**
-     * Writes vartable size.
-     *
-     * @param buf Row buffer.
-     * @param vartblOff Vartable offset.
-     * @param size Number of entries in the vartable.
-     */
-    abstract void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size);
-
-    /**
      * Reads vartable size.
      *
      * @param row Row.
@@ -172,6 +141,16 @@ abstract class VarTableFormat {
      * @return Number of entries in the vartable.
      */
     abstract int readVartableSize(BinaryRow row, int vartblOff);
+
+    /**
+     * Convert vartable inplace to the current format.
+     *
+     * @param buf Row buffer.
+     * @param vartblOff Vartable offset.
+     * @param entries Number of entries in the vartable.
+     * @return Number of bytes vartable was shrinked by.
+     */
+    public abstract int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entries);
 
     /**
      * Chunk format for small rows.
@@ -185,27 +164,30 @@ abstract class VarTableFormat {
         }
 
         /** {@inheritDoc} */
-        @Override void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off) {
-            assert off < (1 << 8) && off >= 0 : "Varlen offset overflow: offset=" + off;
-
-            buf.put(vartblOff + vartableEntryOffset(entryIdx), (byte)off);
-        }
-
-        /** {@inheritDoc} */
         @Override int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
-            return row.readByte(vartblOff + vartableEntryOffset(entryIdx)) & 0xFF;
-        }
-
-        /** {@inheritDoc} */
-        @Override void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size) {
-            assert size < (1 << 8) && size >= 0 : "Vartable size overflow: size=" + size;
-
-            buf.put(vartblOff, (byte)size);
+            return Byte.toUnsignedInt(row.readByte(vartblOff + vartableEntryOffset(entryIdx)));
         }
 
         /** {@inheritDoc} */
         @Override int readVartableSize(BinaryRow row, int vartblOff) {
-            return row.readByte(vartblOff) & 0xFF;
+            return Byte.toUnsignedInt(row.readByte(vartblOff));
+        }
+
+        /** {@inheritDoc} */
+        @Override public int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entres) {
+            assert entres > 0;
+
+            buf.put(vartblOff, (byte)entres);
+
+            int dstOff = vartblOff + 1;
+            int srcOff = vartblOff + 2;
+
+            for (int i = 0; i < entres; i++, srcOff += Integer.BYTES, dstOff++)
+                buf.put(dstOff, buf.get(srcOff));
+
+            buf.shift(srcOff, dstOff);
+
+            return srcOff - dstOff;
         }
     }
 
@@ -221,27 +203,28 @@ abstract class VarTableFormat {
         }
 
         /** {@inheritDoc} */
-        @Override void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off) {
-            assert off < (1 << 16) && off >= 0 : "Varlen offset overflow: offset=" + off;
-
-            buf.putShort(vartblOff + vartableEntryOffset(entryIdx), (short)off);
-        }
-
-        /** {@inheritDoc} */
         @Override int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
-            return row.readShort(vartblOff + vartableEntryOffset(entryIdx)) & 0xFFFF;
-        }
-
-        /** {@inheritDoc} */
-        @Override void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size) {
-            assert size < (1 << 16) && size >= 0 : "Vartable size overflow: size=" + size;
-
-            buf.putShort(vartblOff, (short)size);
+            return Short.toUnsignedInt(row.readShort(vartblOff + vartableEntryOffset(entryIdx)));
         }
 
         /** {@inheritDoc} */
         @Override int readVartableSize(BinaryRow row, int vartblOff) {
-            return row.readShort(vartblOff) & 0xFFFF;
+            return Short.toUnsignedInt(row.readShort(vartblOff));
+        }
+
+        /** {@inheritDoc} */
+        @Override public int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entries) {
+            buf.putShort(vartblOff, (short)entries);
+
+            int dstOff = vartblOff + 2;
+            int srcOff = vartblOff + 2;
+
+            for (int i = 0; i < entries; i++, srcOff += Integer.BYTES, dstOff += Short.BYTES)
+                buf.putShort(dstOff, buf.getShort(srcOff));
+
+            buf.shift(srcOff, dstOff);
+
+            return srcOff - dstOff;
         }
     }
 
@@ -257,25 +240,20 @@ abstract class VarTableFormat {
         }
 
         /** {@inheritDoc} */
-        @Override void writeVarlenOffset(ExpandableByteBuf buf, int vartblOff, int entryIdx, int off) {
-            buf.putInt(vartblOff + vartableEntryOffset(entryIdx), off);
-        }
-
-        /** {@inheritDoc} */
         @Override int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
             return row.readInteger(vartblOff + vartableEntryOffset(entryIdx));
         }
 
         /** {@inheritDoc} */
-        @Override void writeVartableSize(ExpandableByteBuf buf, int vartblOff, int size) {
-            assert size < (1 << 16) && size >= 0 : "Vartable size overflow: size=" + size;
-
-            buf.putShort(vartblOff, (short)size);
+        @Override int readVartableSize(BinaryRow row, int vartblOff) {
+            return Short.toUnsignedInt(row.readShort(vartblOff));
         }
 
         /** {@inheritDoc} */
-        @Override int readVartableSize(BinaryRow row, int vartblOff) {
-            return row.readShort(vartblOff) & 0xFFFF;
+        @Override public int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entries) {
+            buf.putShort(vartblOff, (short)entries);
+
+            return 0; // Nothing to do.
         }
     }
 }
