@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
+/**
+ * An exception thrown when an attempt to modification schema was failed or forbidden,
+ */
 public class SchemaModificationException extends SchemaException {
     /**
      * Constructor with error message.

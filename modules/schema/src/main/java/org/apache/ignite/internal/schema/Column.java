@@ -49,7 +49,7 @@ public class Column implements Comparable<Column>, Serializable {
     /**
      * Default value supplier.
      */
-    private final Serializable defValSup;
+    private final Serializable defVal;
 
     /**
      * @param name Column name.
@@ -68,15 +68,15 @@ public class Column implements Comparable<Column>, Serializable {
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
-     * @param defValSup Default value supplier.
+     * @param defVal Default value supplier.
      */
     public Column(
         String name,
         NativeType type,
         boolean nullable,
-        @NotNull Serializable defValSup
+        @NotNull Serializable defVal
     ) {
-        this(-1, name, type, nullable, defValSup);
+        this(-1, name, type, nullable, defVal);
     }
 
     /**
@@ -84,20 +84,20 @@ public class Column implements Comparable<Column>, Serializable {
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
-     * @param defValSup Default value supplier.
+     * @param defVal Default value supplier.
      */
     Column(
         int schemaIndex,
         String name,
         NativeType type,
         boolean nullable,
-        @NotNull Serializable defValSup
+        @NotNull Serializable defVal
     ) {
         this.schemaIndex = schemaIndex;
         this.name = name;
         this.type = type;
         this.nullable = nullable;
-        this.defValSup = defValSup;
+        this.defVal = defVal;
     }
 
     /**
@@ -134,9 +134,9 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        assert nullable || defValSup != null : "Null value is not accepted for not nullable column: [col=" + this + ']';
+        assert nullable || defVal != null : "Null value is not accepted for not nullable column: [col=" + this + ']';
 
-        return defValSup;
+        return defVal;
     }
 
     /** {@inheritDoc} */
@@ -196,7 +196,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Column.
      */
     public Column copy(int schemaIndex) {
-        return new Column(schemaIndex, name, type, nullable, defValSup);
+        return new Column(schemaIndex, name, type, nullable, defVal);
     }
 
     /** {@inheritDoc} */
