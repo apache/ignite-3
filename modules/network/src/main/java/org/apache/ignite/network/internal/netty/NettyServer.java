@@ -43,6 +43,9 @@ import org.jetbrains.annotations.TestOnly;
  * Netty server channel wrapper.
  */
 public class NettyServer {
+    /** Port range. */
+    private static final int PORT_RANGE = 100;
+
     /** A lock for start and stop operations. */
     private final Object startStopLock = new Object();
 
