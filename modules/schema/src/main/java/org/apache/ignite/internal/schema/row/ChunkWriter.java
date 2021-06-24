@@ -262,8 +262,8 @@ class ChunkWriter {
     protected void setNull(int colIdx) {
         assert (flags & ChunkFormat.OMIT_NULL_MAP_FLAG) == 0 : "Null-map is omitted.";
 
-        int byteInMap = colIdx / 8;
-        int bitInByte = colIdx % 8;
+        int byteInMap = colIdx >> 3;
+        int bitInByte = colIdx & 7;
 
         buf.ensureCapacity(nullmapOff() + byteInMap + 1);
 

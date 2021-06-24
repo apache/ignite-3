@@ -149,9 +149,7 @@ abstract class ChunkFormat {
      * @return Chunk formatter regarding the provided flags.
      */
     private static ChunkFormat fromFlags(byte chunkFlags) {
-        final int mode = chunkFlags & FORMAT_CODE_MASK;
-
-        switch (mode) {
+        switch (chunkFlags & FORMAT_CODE_MASK) {
             case 1:
                 return TINY;
             case 2:
