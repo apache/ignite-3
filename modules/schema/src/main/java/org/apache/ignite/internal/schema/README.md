@@ -73,7 +73,7 @@ varsize columns multiplied by 2 (a single entry in the offsets table is 2 bytes)
 is calculated from the beginning of the chunk.
 
 ### Row construction and access
-To assemble a row with some schema, an instance of `org.apache.ignite.internal.schema.RowAssembler`
+To assemble a row with some schema, an instance of `org.apache.ignite.internal.schema.row.RowAssembler`
 must be used which provides the low-level API for building rows. When using the row assembler, the
 columns must be passed to the assembler in the internal schema sort order. Additionally, when constructing
 the instance of the assembler, the user should pre-calculate the size of the row to avoid extra array copies,
@@ -81,7 +81,7 @@ and the number of non-null varlen columns for key and value chunks. Less restric
 are provided by class (de)serializers and row builder, which take care of sizing and column order.
 
 To read column values of a row, one needs to construct a subclass of
-`org.apache.ignite.internal.schema.Row` which provides necessary logic to read arbitrary columns with
-type checking. For primitive types, `org.apache.ignite.internal.schema.Row` provides boxed and non-boxed
+`org.apache.ignite.internal.schema.row.Row` which provides necessary logic to read arbitrary columns with
+type checking. For primitive types, `org.apache.ignite.internal.schema.row.Row` provides boxed and non-boxed
 value methods to avoid boxing in scenarios where boxing can be avoided (deserialization of non-null columns to
 POJO primitives, for example).
