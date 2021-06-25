@@ -48,6 +48,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.LONG;
+import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 
 /**
  * Serializer benchmark.
@@ -71,18 +72,22 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     public int fieldsCount;
 
     /** Payload size. */
-    @Param({"250", "64000", "65000"})
+    @Param({"250", "64000", "66000"})
     public int dataSize;
 
     /** Nullable cols. */
     @Param({"true", "false"})
-    public boolean nullable;
+    public boolean nullable ;
+
+    /** Column types. */
+    @Param({"string", "bytes"})
+    public String type;
 
     /** Schema descriptor. */
     private SchemaDescriptor schema;
 
-    /** Values. */
-    private byte[] val;
+    /** Value. */
+    private Object val;
 
     /**
      * Runner.
@@ -100,7 +105,8 @@ public class TupleMarshallerVarlenOnlyBenchmark {
      */
     @Setup
     public void init() {
-        long seed = System.currentTimeMillis();
+        final long seed = System.currentTimeMillis();
+        final boolean useString = "string".equals(type);
 
         rnd = new Random(seed);
 
@@ -109,7 +115,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
             42,
             new Column[] {new Column("key", LONG, false)},
             IntStream.range(0, fieldsCount).boxed()
-                .map(i -> new Column("col" + i, BYTES, nullable))
+                .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
                 .toArray(Column[]::new)
         );
 
@@ -123,9 +129,19 @@ public class TupleMarshallerVarlenOnlyBenchmark {
             }
         });
 
-        val = new byte[dataSize / fieldsCount];
+        if (useString) {
+            final byte[] data = new byte[dataSize / fieldsCount];
 
-        rnd.nextBytes(val);
+            for (int i = 0; i < data.length; i++) {
+                final byte b = (byte)rnd.nextInt();
+
+                data[i] = b < 0 ? (byte)(-b) : b;
+            }
+
+            val = new String(data); // Latin1 string.
+        }
+        else
+            rnd.nextBytes((byte[])(val = new byte[dataSize / fieldsCount]));
     }
 
     /**
