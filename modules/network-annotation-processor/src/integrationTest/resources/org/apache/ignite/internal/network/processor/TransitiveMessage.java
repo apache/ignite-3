@@ -22,7 +22,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 interface NetworkMessage1 extends NetworkMessage {
-
+    int t();
 }
 
 interface FakeInterface {

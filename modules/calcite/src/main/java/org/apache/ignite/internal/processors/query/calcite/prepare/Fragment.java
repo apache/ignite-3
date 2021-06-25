@@ -150,7 +150,7 @@ public class Fragment {
     }
 
     /** */
-    private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<UUID>> nodesSource) {
+    private FragmentMapping mapping(PlanningContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
         try {
             FragmentMapping mapping = IgniteMdFragmentMapping._fragmentMapping(root, mq);
 
@@ -176,7 +176,7 @@ public class Fragment {
     }
 
     /** */
-    @NotNull private Supplier<List<UUID>> nodesSource(MappingService mappingSrvc, PlanningContext ctx) {
+    @NotNull private Supplier<List<String>> nodesSource(MappingService mappingSrvc, PlanningContext ctx) {
         return () -> mappingSrvc.executionNodes(ctx.topologyVersion(), single(), null);
     }
 

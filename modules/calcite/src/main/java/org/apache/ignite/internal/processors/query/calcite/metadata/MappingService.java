@@ -37,5 +37,5 @@ public interface MappingService {
      * @param nodeFilter Node filter.
      * @return Nodes mapping for intermediate fragments.
      */
-    List<UUID> executionNodes(long topVer, boolean single, @Nullable Predicate<ClusterNode> nodeFilter);
+    List<String> executionNodes(long topVer, boolean single, @Nullable Predicate<ClusterNode> nodeFilter);
 }
