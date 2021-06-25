@@ -38,7 +38,7 @@
         </file>
 
         <file>
-            <source>assembly/README</source>
+            <source>assembly/README.md</source>
             <outputDirectory/>
         </file>
 
@@ -57,11 +57,6 @@
             <outputDirectory>/examples</outputDirectory>
             <destName>pom.xml</destName>
         </file>
-
-        <file>
-            <source>examples/README.md</source>
-            <outputDirectory>/examples</outputDirectory>
-        </file>
     </files>
 
     <fileSets>
@@ -71,6 +66,7 @@
             <includes>
                 <include>config/**</include>
                 <include>src/**</include>
+                <include>README.md</include>
             </includes>
         </fileSet>
     </fileSets>
