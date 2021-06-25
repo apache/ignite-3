@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class ClientConnectorIntegrationTest {
     @Test
-    void testHandshake() throws Exception {
+    void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
         ChannelFuture channelFuture = startServer();
 
         var res = clientSendReceive(new byte[]{1, 2, 3, 4, 5});
@@ -79,12 +79,21 @@ public class ClientConnectorIntegrationTest {
                         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
                             cause.printStackTrace();
                             ctx.close();
+                            result.completeExceptionally(cause);
                         }
 
                         @Override
                         public void channelActive(ChannelHandlerContext ctx) throws Exception {
                             chCtx.complete(ctx);
                             super.channelActive(ctx);
+                        }
+
+                        @Override
+                        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+                            // TODO: How to detect dropped connection?
+                            result.complete(null);
+
+                            super.channelInactive(ctx);
                         }
                     });
                 }
