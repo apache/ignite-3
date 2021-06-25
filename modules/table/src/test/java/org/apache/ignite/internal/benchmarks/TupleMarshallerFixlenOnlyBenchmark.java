@@ -20,7 +20,6 @@ package org.apache.ignite.internal.benchmarks;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -45,22 +44,21 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.LONG;
 
 /**
  * Serializer benchmark.
  */
 @State(Scope.Benchmark)
-@Warmup(iterations = 1, time = 15, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 1, time = 30, timeUnit = TimeUnit.SECONDS)
-@BenchmarkMode({Mode.Throughput, Mode.AverageTime})
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@Warmup(iterations = 1, time = 15)
+@Measurement(iterations = 1, time = 30)
+@BenchmarkMode({Mode.Throughput})
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(jvmArgs = "-Djava.lang.invoke.stringConcat=BC_SB" /* Workaround for Java 9+ */, value = 1)
-public class TupleMarshallerBenchmarkTest {
+@SuppressWarnings("InstanceVariableMayNotBeInitialized")
+public class TupleMarshallerFixlenOnlyBenchmark {
     /** Random. */
     private Random rnd = new Random();
 
@@ -75,24 +73,21 @@ public class TupleMarshallerBenchmarkTest {
     @Param({"true", "false"})
     public boolean nullable;
 
-    /** Fixed length. */
-    @Param({"true", "false"})
-    public boolean fixedLen;
-
     /** Schema descriptor. */
     private SchemaDescriptor schema;
 
+    /** Values. */
     private Object[] vals;
 
     /**
      * Runner.
      */
     public static void main(String[] args) throws RunnerException {
-        Options opt = new OptionsBuilder()
-            .include(TupleMarshallerBenchmarkTest.class.getSimpleName())
-            .build();
-
-        new Runner(opt).run();
+        new Runner(
+            new OptionsBuilder()
+                .include(TupleMarshallerFixlenOnlyBenchmark.class.getSimpleName())
+                .build()
+        ).run();
     }
 
     /**
@@ -109,7 +104,7 @@ public class TupleMarshallerBenchmarkTest {
             42,
             new Column[] {new Column("key", LONG, false)},
             IntStream.range(0, fieldsCount).boxed()
-                .map(i -> new Column("col" + i, fixedLen ? LONG : BYTES, nullable))
+                .map(i -> new Column("col" + i, LONG, nullable))
                 .toArray(Column[]::new)
         );
 
@@ -123,21 +118,10 @@ public class TupleMarshallerBenchmarkTest {
             }
         });
 
-        Supplier<Object> gen = fixedLen ? () -> rnd.nextLong() :
-            new Supplier<>() {
-                private final byte[] bytes = new byte[8];
-
-                @Override public Object get() {
-                    rnd.nextBytes(bytes);
-
-                    return bytes;
-                }
-            };
-
         vals = new Object[schema.valueColumns().length()];
 
         for (int i = 0; i < vals.length; i++)
-            vals[i] = gen.get();
+            vals[i] = rnd.nextLong();
     }
 
     /**
