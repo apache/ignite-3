@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector.routes;
+package org.apache.ignite.clientconnector;
 
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;

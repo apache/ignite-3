@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector.routes;
+package org.apache.ignite.clientconnector;
 
 import io.netty.channel.ChannelFuture;
-import org.apache.ignite.clientconnector.ClientConnectorModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
