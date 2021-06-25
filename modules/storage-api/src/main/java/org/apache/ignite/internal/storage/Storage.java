@@ -44,6 +44,7 @@ public interface Storage {
     /**
      * Removes a DataRow associated with a given Key.
      *
+     * @param key Search row.
      * @throws StorageException If failed to read data or storage is already stopped.
      */
     public void remove(SearchRow key) throws StorageException;

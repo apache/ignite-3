@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage;
 /**
  * Exception thrown by storage.
  */
-public class StorageException extends Exception {
+public class StorageException extends RuntimeException {
     /**
      * @param message Error message.
      */
