@@ -66,7 +66,7 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
         }
 
         for (; cnt < 0 && byteBuf.readableBytes() > 0; cnt++)
-            msgSize |= (byteBuf.readByte() & 0xFF) << (8 * (4 + cnt));
+            data[4 + cnt] = byteBuf.readByte();
 
         if (cnt < 0)
             return false;
