@@ -54,8 +54,8 @@ import static org.apache.ignite.internal.schema.NativeTypes.LONG;
 @State(Scope.Benchmark)
 @Warmup(iterations = 1, time = 15)
 @Measurement(iterations = 1, time = 30)
-@BenchmarkMode({Mode.Throughput})
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@BenchmarkMode({Mode.AverageTime})
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Fork(jvmArgs = "-Djava.lang.invoke.stringConcat=BC_SB" /* Workaround for Java 9+ */, value = 1)
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class TupleMarshallerFixlenOnlyBenchmark {
