@@ -486,7 +486,7 @@ public class RowTest {
             }
         }
 
-        byte[] data = asm.build();
+        byte[] data = asm.toBytes();
 
         Row row = new Row(schema, new ByteBufferRow(data));
 

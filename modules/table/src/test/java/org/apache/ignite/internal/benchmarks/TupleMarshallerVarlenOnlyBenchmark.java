@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import java.io.Serializable;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -62,7 +64,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class TupleMarshallerVarlenOnlyBenchmark {
     /** Random. */
-    private Random rnd = new Random();
+    private Random rnd;
 
     /** Tuple marshaller. */
     private TupleMarshaller marshaller;
@@ -113,7 +115,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         schema = new SchemaDescriptor(
             UUID.randomUUID(),
             42,
-            new Column[] {new Column("key", LONG, false)},
+            new Column[] {new Column("key", LONG, false, (Supplier<Object> & Serializable)()-> 0L)},
             IntStream.range(0, fieldsCount).boxed()
                 .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
                 .toArray(Column[]::new)
@@ -132,11 +134,8 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         if (useString) {
             final byte[] data = new byte[dataSize / fieldsCount];
 
-            for (int i = 0; i < data.length; i++) {
-                final byte b = (byte)rnd.nextInt();
-
-                data[i] = b < 0 ? (byte)(-b) : b;
-            }
+            for (int i = 0; i < data.length; i++)
+                data[i] = (byte)(rnd.nextInt() & 0x7F);
 
             val = new String(data); // Latin1 string.
         }

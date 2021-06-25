@@ -71,7 +71,7 @@ public class JavaSerializer extends AbstractSerializer {
         keyMarsh.writeObject(key, asm);
         valMarsh.writeObject(val, asm);
 
-        return asm.build();
+        return asm.toBytes();
     }
 
     /**

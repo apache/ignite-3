@@ -194,7 +194,7 @@ public class ITDistributedTableTest {
 
         rowBuilder.appendLong(1L);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 
     /**
@@ -208,7 +208,7 @@ public class ITDistributedTableTest {
         rowBuilder.appendLong(1L);
         rowBuilder.appendLong(10L);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 
     /**

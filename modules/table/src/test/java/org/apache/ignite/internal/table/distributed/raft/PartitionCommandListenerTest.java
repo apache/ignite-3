@@ -681,7 +681,7 @@ public class PartitionCommandListenerTest {
 
         rowBuilder.appendInt(key);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 
     /**
@@ -695,6 +695,6 @@ public class PartitionCommandListenerTest {
         rowBuilder.appendInt(key);
         rowBuilder.appendInt(val);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.build()));
+        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
     }
 }

@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -80,7 +79,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
         }
 
-        return new Row(schema, new ByteBufferRow(rowBuilder.build()));
+        return new Row(schema, rowBuilder.build());
     }
 
     /**

@@ -309,4 +309,11 @@ public class ExpandableByteBuf {
         buf = ByteBuffer.wrap(arr);
         buf.order(ByteOrder.LITTLE_ENDIAN);
     }
+
+    /**
+     * @return Underlying buffer.
+     */
+    public ByteBuffer unwrap() {
+        return buf.duplicate().limit(len).order(ByteOrder.LITTLE_ENDIAN);
+    }
 }

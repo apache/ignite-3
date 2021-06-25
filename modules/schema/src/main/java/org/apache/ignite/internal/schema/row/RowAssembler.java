@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRow.RowFlags;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
@@ -426,7 +427,25 @@ public class RowAssembler {
     /**
      * @return Serialized row.
      */
-    public byte[] build() {
+    public BinaryRow build() {
+        flush();
+
+        return new ByteBufferRow(buf.unwrap());
+    }
+
+    /**
+     * @return Row bytes.
+     */
+    public byte[] toBytes() {
+        flush();
+
+        return buf.toArray();
+    }
+
+    /**
+     * Finish building row.
+     */
+    private void flush() {
         if (schema.keyColumns() == curCols)
             throw new AssemblyException("Key column missed: colIdx=" + curCol);
         else {
@@ -440,8 +459,6 @@ public class RowAssembler {
 
         buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
         buf.putInt(BinaryRow.KEY_HASH_FIELD_OFFSET, keyHash);
-
-        return buf.toArray();
     }
 
     /**
