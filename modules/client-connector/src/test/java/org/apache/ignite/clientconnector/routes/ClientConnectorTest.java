@@ -17,16 +17,14 @@
 
 package org.apache.ignite.clientconnector.routes;
 
-import io.netty.handler.codec.http.DefaultHttpRequest;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpHeaderValues;
+import org.apache.ignite.clientconnector.ClientConnectorModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.junit.jupiter.api.Test;
+import org.slf4j.helpers.NOPLogger;
 
-import static io.netty.handler.codec.http.HttpMethod.GET;
-import static io.netty.handler.codec.http.HttpMethod.PUT;
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.Collections;
 
 /**
  *
@@ -37,6 +35,14 @@ public class ClientConnectorTest {
      */
     @Test
     void testTodo() {
-        // var module = new Re
+        var registry = new ConfigurationRegistry(
+                Collections.singletonList(ClientConnectorConfiguration.KEY),
+                Collections.emptyMap(),
+                Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
+        );
+
+        var module = new ClientConnectorModule(NOPLogger.NOP_LOGGER);
+
+        module.prepareStart(registry);
     }
 }
