@@ -33,6 +33,7 @@ public abstract class RowChunkAdapter implements Tuple {
     /**
      * @param colName Column name.
      * @return Column.
+     * @throws ColumnNotFoundException If column wasn't found.
      */
     @NotNull protected abstract Column columnByName(@NotNull String colName);
 
@@ -40,6 +41,16 @@ public abstract class RowChunkAdapter implements Tuple {
      * @return Underlying row.
      */
     protected abstract Row row();
+
+    /** {@inheritDoc} */
+    @Override public <T> T valueOrDefault(String colName, T def) {
+        try {
+            return value(colName);
+        }
+        catch (ColumnNotFoundException ex) {
+            return def;
+        }
+    }
 
     /** {@inheritDoc} */
     @Override public <T> T value(String colName) {

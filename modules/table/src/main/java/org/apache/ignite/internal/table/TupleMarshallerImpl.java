@@ -129,12 +129,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param tup Tuple.
      */
     private void writeColumn(RowAssembler rowAsm, Column col, Tuple tup) {
-        Object val;
-
-        if (!tup.contains(col.name()))
-            val = col.defaultValue();
-        else
-            val = tup.value(col.name());
+        Object val = tup.valueOrDefault(col.name(), col.defaultValue());
 
         if (val == null) {
             rowAsm.appendNull();
@@ -215,7 +210,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
             Column col = cols.column(i);
 
-            final Object val = tup.contains(col.name()) ? tup.value(col.name()) : col.defaultValue();
+            final Object val = tup.valueOrDefault(col.name(), col.defaultValue());
 
             if (val == null)
                 continue;

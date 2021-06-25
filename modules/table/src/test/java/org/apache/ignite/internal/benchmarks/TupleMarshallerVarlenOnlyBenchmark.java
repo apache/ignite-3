@@ -77,7 +77,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
 
     /** Nullable cols. */
     @Param({"true", "false"})
-    public boolean nullable = true;
+    public boolean nullable;
 
     /** Column types. */
     @Param({"string", "bytes"})
@@ -115,10 +115,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
             42,
             new Column[] {new Column("key", LONG, false)},
             IntStream.range(0, fieldsCount).boxed()
-                .map(i -> {
-
-                    return new Column("col" + i, useString ? STRING : BYTES, nullable);
-                })
+                .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
                 .toArray(Column[]::new)
         );
 

@@ -31,9 +31,10 @@ public interface Tuple {
      * Returns {@code true} if this tuple contains a column with the specified name.
      *
      * @param colName Column name.
-     * @return {@code true} if this tuple contains a column with the specified name. Otherwise returns {@code false}.
+     * @param def Default value.
+     * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code default}.
      */
-    boolean contains(String colName);
+    <T> T valueOrDefault(String colName, T def);
 
     /**
      * Gets column value for given column name.
