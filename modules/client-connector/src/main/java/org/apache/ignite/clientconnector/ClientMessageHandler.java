@@ -77,6 +77,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 case 3: // TABLES_GET
                     packer.packInt(0); // Success.
                     packer.packInt(0); // 0 tables.
+                    // TODO: Wrapper around MsgPack with our custom types (UUID, dates and times).
                     break;
 
                 default:
