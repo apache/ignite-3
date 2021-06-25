@@ -56,6 +56,9 @@ public class RowAssembler {
     /** The number of non-null varlen columns in values chunk. */
     private final int valVarlenCols;
 
+    /** Null-map length in bytes in values chunk. */
+    private final int valNullMapSize;
+
     /** Value write mode. */
     private final ChunkFormat valWriteMode;
 
@@ -188,7 +191,7 @@ public class RowAssembler {
         strEncoder = null;
 
         final int keyNullMapSize = keyHasNulls ? schema.keyColumns().nullMapSize() : 0;
-        final int valNullMapSize = valHasNulls ? schema.valueColumns().nullMapSize() : 0;
+        valNullMapSize = valHasNulls ? schema.valueColumns().nullMapSize() : 0;
 
         final ChunkFormat keyWriteMode = ChunkFormat.formatter(keyDataSize);
         valWriteMode = ChunkFormat.formatter(valDataSize);
@@ -508,7 +511,7 @@ public class RowAssembler {
             // Create value chunk writer.
             chunkWriter = valWriteMode.writer(buf,
                 BinaryRow.HEADER_SIZE + chunkWriter.chunkLength() /* Key chunk size */,
-                schema.valueColumns().nullMapSize(),
+                valNullMapSize,
                 valVarlenCols);
         }
     }
