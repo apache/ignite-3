@@ -35,6 +35,8 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -48,13 +50,13 @@ public class ClientConnectorIntegrationTest {
         var res = clientSendReceive(new byte[]{1, 2, 3});
 
         channelFuture.cancel(true);
-        channelFuture.sync();
+        channelFuture.await();
     }
 
-    private byte[] clientSendReceive(byte[] request) throws InterruptedException {
+    private byte[] clientSendReceive(byte[] request) throws Exception {
         var workerGroup = new NioEventLoopGroup();
         final byte[][] result = {null};
-        AtomicReference<ChannelHandlerContext> chCtx = new AtomicReference<>();
+        CompletableFuture<ChannelHandlerContext> chCtx = new CompletableFuture<>();
 
         try {
             Bootstrap b = new Bootstrap();
@@ -80,7 +82,7 @@ public class ClientConnectorIntegrationTest {
 
                         @Override
                         public void channelActive(ChannelHandlerContext ctx) throws Exception {
-                            chCtx.set(ctx);
+                            chCtx.complete(ctx);
                             super.channelActive(ctx);
                         }
                     });
