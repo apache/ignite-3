@@ -47,16 +47,17 @@ public class ClientConnectorIntegrationTest {
     void testHandshake() throws Exception {
         ChannelFuture channelFuture = startServer();
 
-        var res = clientSendReceive(new byte[]{1, 2, 3});
+        var res = clientSendReceive(new byte[]{1, 2, 3, 4, 5});
 
         channelFuture.cancel(true);
         channelFuture.await();
     }
 
     private byte[] clientSendReceive(byte[] request) throws Exception {
-        var workerGroup = new NioEventLoopGroup();
-        final byte[][] result = {null};
+        CompletableFuture<byte[]> result = new CompletableFuture<>();
         CompletableFuture<ChannelHandlerContext> chCtx = new CompletableFuture<>();
+
+        var workerGroup = new NioEventLoopGroup();
 
         try {
             Bootstrap b = new Bootstrap();
@@ -70,7 +71,7 @@ public class ClientConnectorIntegrationTest {
                         @Override
                         public void channelRead(ChannelHandlerContext ctx, Object msg) {
                             ByteBuf m = (ByteBuf) msg;
-                            result[0] = m.array();
+                            result.complete(m.array());
                             m.release();
                         }
 
@@ -93,12 +94,14 @@ public class ClientConnectorIntegrationTest {
 
             chCtx.get().channel().writeAndFlush(Unpooled.copiedBuffer(request));
 
+            var res = result.get();
+
             f.channel().closeFuture().sync();
+
+            return res;
         } finally {
             workerGroup.shutdownGracefully();
         }
-
-        return result[0];
     }
 
     private ChannelFuture startServer() throws InterruptedException {
