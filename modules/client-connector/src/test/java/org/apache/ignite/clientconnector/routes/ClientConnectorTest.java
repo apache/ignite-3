@@ -28,7 +28,7 @@ import org.slf4j.helpers.NOPLogger;
 import java.util.Collections;
 
 /**
- *
+ * TODO: ClientMessageHandler tests - handshake and operations with fake context.
  */
 public class ClientConnectorTest {
     /**

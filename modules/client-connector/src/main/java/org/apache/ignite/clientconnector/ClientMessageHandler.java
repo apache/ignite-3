@@ -23,12 +23,21 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.CharsetUtil;
+import org.msgpack.core.MessagePack;
 
+/**
+ * https://netty.io/wiki/user-guide-for-4.x.html
+ */
 public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ByteBuf inBuffer = (ByteBuf) msg;
 
+        // TODO: Pooled unpacker.
+        // TODO: Ensure no buffer copy.
+        var unpacker = MessagePack.newDefaultUnpacker(inBuffer.nioBuffer());
+
+        // TODO: Read full messages before processing.
         System.out.println("RCV: ");
 
         for (int i = 0; i < inBuffer.readableBytes(); i++) {
