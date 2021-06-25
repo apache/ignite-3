@@ -22,7 +22,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.util.CharsetUtil;
 import org.msgpack.core.MessagePack;
 import org.slf4j.Logger;
 
@@ -45,8 +44,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         var buf = (byte[]) msg;
 
-        // TODO: Pooled unpacker.
+        // TODO: Pooled or cached packer/unpacker.
         var unpacker = MessagePack.newDefaultUnpacker(buf);
+        var packer = MessagePack.newDefaultBufferPacker();
 
         if (clientContext == null) {
             var major = unpacker.unpackInt();
@@ -62,12 +62,31 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValue(extensionsLen);
-        } else {
 
+            // TODO: Write response.
+        } else {
+            var opCode = unpacker.unpackInt();
+            var requestId = unpacker.unpackInt();
+
+            packer.packInt(0); // Response.
+            packer.packInt(requestId);
+
+            // TODO: Handle operations asynchronously.
+            // TODO: Catch errors.
+            switch (opCode) {
+                case 3: // TABLES_GET
+                    packer.packInt(0); // Success.
+                    packer.packInt(0); // 0 tables.
+                    break;
+
+                default:
+                    packer.packInt(1); // Error.
+                    packer.packString("Unexpected operation code: " + opCode);
+            }
         }
 
-        // TODO
-        var response = Unpooled.copiedBuffer("todo", CharsetUtil.UTF_8);
+        // TODO: Pooled buffers.
+        ByteBuf response = Unpooled.copiedBuffer(packer.toByteArray());
 
         ctx.write(response);
     }
