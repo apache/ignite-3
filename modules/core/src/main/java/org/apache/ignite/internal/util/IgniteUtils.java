@@ -44,17 +44,33 @@ public class IgniteUtils {
     /** Class loader used to load Ignite. */
     private static final ClassLoader igniteClassLoader = IgniteUtils.class.getClassLoader();
 
+    private static final boolean assertionsEnabled;
+
     /** Primitive class map. */
     private static final Map<String, Class<?>> primitiveMap = new HashMap<>(16, .5f);
 
     /** */
-    private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class>> classCache =
+    private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache =
         new ConcurrentHashMap<>();
 
     /*
       Initializes enterprise check.
      */
     static {
+        boolean assertionsEnabled0 = true;
+
+        try {
+            assert false;
+
+            assertionsEnabled0 = false;
+        }
+        catch (AssertionError ignored) {
+            assertionsEnabled0 = true;
+        }
+        finally {
+            assertionsEnabled = assertionsEnabled0;
+        }
+
         IgniteUtils.jdkVer = System.getProperty("java.specification.version");
 
         primitiveMap.put("byte", byte.class);
@@ -261,6 +277,7 @@ public class IgniteUtils {
      * @return First non-null value, or {@code null}, if array is empty or contains
      *      only nulls.
      */
+    @SafeVarargs
     @Nullable public static <T> T firstNotNull(@Nullable T... vals) {
         if (vals == null)
             return null;
@@ -297,6 +314,7 @@ public class IgniteUtils {
      *
      * @param clsName Class name.
      * @param ldr Class loader.
+     * @param clsFilter Predicate to filter class names.
      * @return Class.
      * @throws ClassNotFoundException If class not found.
      */
@@ -315,10 +333,10 @@ public class IgniteUtils {
         if (ldr == null)
             ldr = igniteClassLoader;
 
-        ConcurrentMap<String, Class> ldrMap = classCache.get(ldr);
+        ConcurrentMap<String, Class<?>> ldrMap = classCache.get(ldr);
 
         if (ldrMap == null) {
-            ConcurrentMap<String, Class> old = classCache.putIfAbsent(ldr, ldrMap = new ConcurrentHashMap<>());
+            ConcurrentMap<String, Class<?>> old = classCache.putIfAbsent(ldr, ldrMap = new ConcurrentHashMap<>());
 
             if (old != null)
                 ldrMap = old;
@@ -369,5 +387,12 @@ public class IgniteUtils {
         catch (IOException e) {
             return false;
         }
+    }
+
+    /**
+     * @return {@code True} if assertions enabled.
+     */
+    public static boolean assertionsEnabled() {
+        return assertionsEnabled;
     }
 }

@@ -35,10 +35,14 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import com.codahale.metrics.ConsoleReporter;
+import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
+import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -98,23 +102,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Integration tests for raft cluster.
+ * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
  */
 public class ITNodeTest {
-    static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
-
-    private String dataPath;
-
-    private final AtomicInteger startedCounter = new AtomicInteger(0);
-    private final AtomicInteger stoppedCounter = new AtomicInteger(0);
-
-    private long testStartMs;
+    private static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
 
     private static DumpThread dumpThread;
 
-    private TestCluster cluster;
-
-    static class DumpThread extends Thread {
+    private static class DumpThread extends Thread {
         private static long DUMP_TIMEOUT_MS = 5 * 60 * 1000;
         private volatile boolean stopped = false;
 
@@ -134,6 +129,18 @@ public class ITNodeTest {
             }
         }
     }
+
+    private String dataPath;
+
+    private final AtomicInteger startedCounter = new AtomicInteger(0);
+
+    private final AtomicInteger stoppedCounter = new AtomicInteger(0);
+
+    private long testStartMs;
+
+    private TestCluster cluster;
+
+    private final List<RaftGroupService> services = new ArrayList<>();
 
     @BeforeAll
     public static void setupNodeTest() {
@@ -167,6 +174,15 @@ public class ITNodeTest {
 
     @AfterEach
     public void teardown(TestInfo testInfo) throws Exception {
+        services.forEach(service -> {
+            try {
+                service.shutdown();
+            }
+            catch (Exception e) {
+                LOG.error("Error while closing a service", e);
+            }
+        });
+
         if (cluster != null)
             cluster.stopAll();
 
@@ -189,9 +205,7 @@ public class ITNodeTest {
 
         RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
 
-        service.start(true);
-
-        service.shutdown();
+        service.start();
     }
 
     @Test
@@ -212,7 +226,7 @@ public class ITNodeTest {
 
         RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
 
-        Node node = service.start(true);
+        final Node node = service.start();
 
         assertEquals(1, node.listPeers().size());
         assertTrue(node.listPeers().contains(peer));
@@ -235,13 +249,9 @@ public class ITNodeTest {
             node.apply(task);
             tasks.add(task);
         }
-        try {
-            Task.joinAll(tasks, TimeUnit.SECONDS.toMillis(30));
-            assertEquals(10, c.get());
-        }
-        finally {
-            service.shutdown();
-        }
+
+        Task.joinAll(tasks, TimeUnit.SECONDS.toMillis(30));
+        assertEquals(10, c.get());
     }
 
     /**
@@ -294,7 +304,7 @@ public class ITNodeTest {
 
         RaftGroupService service = createService("unittest", peer, nodeOptions);
 
-        Node node = service.start(true);
+        final Node node = service.start();
 
         assertEquals(1, node.listPeers().size());
         assertTrue(node.listPeers().contains(peer));
@@ -341,16 +351,14 @@ public class ITNodeTest {
             applyLatch.countDown();
 
             // The state machine is in error state, the node should step down.
-            while (node.isLeader())
-                Thread.sleep(10);
+            waitForCondition(() -> !node.isLeader(), 5_000);
+
             latch.await();
             applyCompleteLatch.await();
         }
         // No read-index request succeed.
         assertEquals(0, readIndexSuccesses.get());
         assertTrue(n - 1 >= currentValue.get());
-
-        service.shutdown();
     }
 
     @Test
@@ -380,7 +388,6 @@ public class ITNodeTest {
         int i = 0;
         for (ByteBuffer data : fsm.getLogs())
             assertEquals("hello" + i++, new String(data.array()));
-        service.shutdown();
     }
 
     @Test
@@ -410,51 +417,6 @@ public class ITNodeTest {
         waitLatch(latch);
     }
 
-    private void sendTestTaskAndWait(Node node) throws InterruptedException {
-        sendTestTaskAndWait(node, 0, 10, RaftError.SUCCESS);
-    }
-
-    private void sendTestTaskAndWait(Node node, int amount) throws InterruptedException {
-        sendTestTaskAndWait(node, 0, amount, RaftError.SUCCESS);
-    }
-
-    private void sendTestTaskAndWait(Node node, RaftError err) throws InterruptedException {
-        sendTestTaskAndWait(node, 0, 10, err);
-    }
-
-    private void sendTestTaskAndWait(Node node, int start, int amount,
-        RaftError err) throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(amount);
-        for (int i = start; i < start + amount; i++) {
-            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
-            Task task = new Task(data, new ExpectClosure(err, latch));
-            node.apply(task);
-        }
-        waitLatch(latch);
-    }
-
-    private void sendTestTaskAndWait(Node node, int start,
-        RaftError err) throws InterruptedException {
-        sendTestTaskAndWait(node, start, 10, err);
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(String prefix, Node node, int code) throws InterruptedException {
-        sendTestTaskAndWait(prefix, node, 10, code);
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(String prefix, Node node, int amount,
-        int code) throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(10);
-        for (int i = 0; i < amount; i++) {
-            ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes());
-            Task task = new Task(data, new ExpectClosure(code, null, latch));
-            node.apply(task);
-        }
-        waitLatch(latch);
-    }
-
     @Test
     public void testTripleNodesWithReplicatorStateListener() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -471,6 +433,7 @@ public class ITNodeTest {
 
         // elect leader
         cluster.waitLeader();
+        cluster.ensureLeader(cluster.getLeader());
 
         for (Node follower : cluster.getFollowers())
             waitForCondition(() -> follower.getLeaderId() != null, 5_000);
@@ -503,6 +466,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(3, leader.listPeers().size());
         // apply tasks to leader
         sendTestTaskAndWait(leader);
@@ -565,8 +530,9 @@ public class ITNodeTest {
             assertTrue(cluster.start(peer.getEndpoint()));
 
         cluster.waitLeader();
-
         Node leader = cluster.getLeader();
+        cluster.ensureLeader(leader);
+
         sendTestTaskAndWait(leader);
         Thread.sleep(100);
         List<Node> followers = cluster.getFollowers();
@@ -602,6 +568,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(3, leader.listPeers().size());
         // apply tasks to leader
         sendTestTaskAndWait(leader);
@@ -665,7 +633,7 @@ public class ITNodeTest {
                 .singletonList(learnerPeer)));
 
             learnerServer = createService("unittest", new PeerId(learnerAddr, 0), nodeOptions);
-            learnerServer.start(true);
+            learnerServer.start();
         }
 
         {
@@ -680,7 +648,7 @@ public class ITNodeTest {
                 .singletonList(learnerPeer)));
 
             RaftGroupService server = createService("unittest", new PeerId(addr, 0), nodeOptions);
-            Node node = server.start(true);
+            Node node = server.start();
 
             assertEquals(1, node.listPeers().size());
             assertTrue(node.listPeers().contains(peer));
@@ -724,12 +692,12 @@ public class ITNodeTest {
         cluster.waitLeader();
 
         Node leader = cluster.getLeader();
+        cluster.ensureLeader(leader);
 
         waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000);
         waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000);
 
         sendTestTaskAndWait(leader);
-        Thread.sleep(500);
         List<MockStateMachine> fsms = cluster.getFsms();
         assertEquals(6, fsms.size());
         cluster.ensureSame();
@@ -793,6 +761,7 @@ public class ITNodeTest {
         // elect leader
         cluster.waitLeader();
         Node leader = cluster.getLeader();
+        cluster.ensureLeader(leader);
 
         assertEquals(3, leader.listPeers().size());
         assertEquals(1, leader.listLearners().size());
@@ -829,6 +798,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(3, leader.listPeers().size());
         assertTrue(leader.listLearners().isEmpty());
         assertTrue(leader.listAliveLearners().isEmpty());
@@ -895,6 +866,7 @@ public class ITNodeTest {
             assertTrue(done.await().isOk());
             assertEquals(2, leader.listAliveLearners().size());
             assertEquals(2, leader.listLearners().size());
+            cluster.ensureSame();
         }
         {
             // stop two followers
@@ -909,13 +881,11 @@ public class ITNodeTest {
             assertEquals(RaftError.EPERM, done.getStatus().getRaftError());
             // One peer with two learners.
             assertEquals(3, cluster.getFsms().size());
-            cluster.ensureSame();
         }
     }
 
     @Test
     public void testNodesWithPriorityElection() throws Exception {
-
         List<Integer> priorities = new ArrayList<>();
         priorities.add(100);
         priorities.add(40);
@@ -933,6 +903,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(3, leader.listPeers().size());
         assertEquals(100, leader.getNodeTargetPriority());
         assertEquals(100, leader.getLeaderId().getPriority());
@@ -941,7 +913,6 @@ public class ITNodeTest {
 
     @Test
     public void testNodesWithPartPriorityElection() throws Exception {
-
         List<Integer> priorities = new ArrayList<>();
         priorities.add(100);
         priorities.add(40);
@@ -959,6 +930,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(3, leader.listPeers().size());
         assertEquals(2, cluster.getFollowers().size());
     }
@@ -983,6 +956,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(3, leader.listPeers().size());
         assertEquals(2, cluster.getFollowers().size());
     }
@@ -1007,6 +982,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(3, leader.listPeers().size());
         assertEquals(2, cluster.getFollowers().size());
         assertEquals(50, leader.getNodeTargetPriority());
@@ -1050,6 +1027,7 @@ public class ITNodeTest {
 
         cluster.waitLeader();
         Node leader = cluster.getLeader();
+        cluster.ensureLeader(leader);
 
         assertNotNull(leader);
         assertEquals(100, leader.getNodeId().getPeerId().getPriority());
@@ -1104,6 +1082,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         assertEquals(100, leader.getNodeTargetPriority());
         assertEquals(100, leader.getNodeId().getPeerId().getPriority());
 
@@ -1243,6 +1223,7 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+
         assertEquals(3, leader.listPeers().size());
         // apply tasks to leader
         sendTestTaskAndWait(leader);
@@ -1288,6 +1269,7 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+
         assertEquals(3, leader.listPeers().size());
         // apply tasks to leader
         sendTestTaskAndWait(leader);
@@ -1434,31 +1416,6 @@ public class ITNodeTest {
             assertEquals(10000, fsm.getLogs().size());
     }
 
-    @SuppressWarnings({"unused", "SameParameterValue"})
-    private boolean assertReadIndex(Node node, int index) throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(1);
-        byte[] requestContext = TestUtils.getRandomBytes();
-        AtomicBoolean success = new AtomicBoolean(false);
-        node.readIndex(requestContext, new ReadIndexClosure() {
-
-            @Override
-            public void run(Status status, long theIndex, byte[] reqCtx) {
-                if (status.isOk()) {
-                    assertEquals(index, theIndex);
-                    assertArrayEquals(requestContext, reqCtx);
-                    success.set(true);
-                }
-                else {
-                    assertTrue(status.getErrorMsg().contains("RPC exception:Check connection["), status.getErrorMsg());
-                    assertTrue(status.getErrorMsg().contains("] fail and try to create new one"), status.getErrorMsg());
-                }
-                latch.countDown();
-            }
-        });
-        latch.await();
-        return success.get();
-    }
-
     @Test
     public void testNodeMetrics() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -1520,16 +1477,14 @@ public class ITNodeTest {
             NodeImpl follower0 = (NodeImpl) follower;
             DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-            rpcClientEx.blockMessages(new BiPredicate<>() {
-                @Override public boolean test(Object msg, String nodeId) {
-                    if (msg instanceof RpcRequests.RequestVoteRequest) {
-                        RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
+            rpcClientEx.blockMessages((msg, nodeId) -> {
+                if (msg instanceof RpcRequests.RequestVoteRequest) {
+                    RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                        return !msg0.getPreVote();
-                    }
-
-                    return false;
+                    return !msg0.getPreVote();
                 }
+
+                return false;
             });
         }
 
@@ -1657,10 +1612,6 @@ public class ITNodeTest {
             assertEquals(10, fsm.getLogs().size());
     }
 
-    private void waitLatch(CountDownLatch latch) throws InterruptedException {
-        assertTrue(latch.await(30, TimeUnit.SECONDS));
-    }
-
     @Test
     public void testRemoveFollower() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -1675,6 +1626,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         // apply tasks to leader
         sendTestTaskAndWait(leader);
 
@@ -1735,6 +1688,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         // apply tasks to leader
         sendTestTaskAndWait(leader);
 
@@ -1751,7 +1706,6 @@ public class ITNodeTest {
         CountDownLatch latch = new CountDownLatch(1);
         leader.removePeer(oldLeader, new ExpectClosure(latch));
         waitLatch(latch);
-        Thread.sleep(100);
 
         // elect new leader
         cluster.waitLeader();
@@ -1912,9 +1866,6 @@ public class ITNodeTest {
         LOG.info("start follower {}", followerAddr2);
         assertTrue(cluster.start(followerAddr2, true, 300));
 
-        // Make sure the leader has discovered new nodes.
-        assertTrue(waitForTopology(cluster, leaderAddr, 3, 30_000)); // Discovery may take a while sometimes.
-
         CountDownLatch latch = new CountDownLatch(1);
         LOG.info("Add old follower {}", followerAddr1);
         leader.addPeer(followerPeer1, new ExpectClosure(latch));
@@ -1938,7 +1889,7 @@ public class ITNodeTest {
      * @throws Exception
      */
     @Test
-    public void testRestoreSnasphot() throws Exception {
+    public void testRestoreSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
         cluster = new TestCluster("unitest", dataPath, peers);
@@ -2017,22 +1968,6 @@ public class ITNodeTest {
         assertEquals(1, fsm.getLoadSnapshotTimes());
     }
 
-    private void triggerLeaderSnapshot(TestCluster cluster, Node leader) throws InterruptedException {
-        triggerLeaderSnapshot(cluster, leader, 1);
-    }
-
-    private void triggerLeaderSnapshot(TestCluster cluster, Node leader, int times)
-        throws InterruptedException {
-        // trigger leader snapshot
-        // first snapshot will be triggered randomly
-        int snapshotTimes = cluster.getLeaderFsm().getSaveSnapshotTimes();
-        assertTrue(snapshotTimes == times - 1 || snapshotTimes == times, "snapshotTimes=" + snapshotTimes + ", times=" + times);
-        CountDownLatch latch = new CountDownLatch(1);
-        leader.snapshot(new ExpectClosure(latch));
-        waitLatch(latch);
-        assertEquals(snapshotTimes + 1, cluster.getLeaderFsm().getSaveSnapshotTimes());
-    }
-
     @Test
     public void testInstallSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -2046,6 +1981,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         // apply tasks to leader
         sendTestTaskAndWait(leader);
 
@@ -2088,6 +2025,7 @@ public class ITNodeTest {
     }
 
     @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14943")
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3));
@@ -2100,6 +2038,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         // apply tasks to leader
         sendTestTaskAndWait(leader, 0, RaftError.SUCCESS);
 
@@ -2156,6 +2096,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         // apply tasks to leader
         sendTestTaskAndWait(leader, 0, RaftError.SUCCESS);
 
@@ -2201,7 +2143,6 @@ public class ITNodeTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14853")
     public void testInstallSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2214,6 +2155,8 @@ public class ITNodeTest {
         // get leader
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         // apply tasks to leader
         sendTestTaskAndWait(leader);
 
@@ -2273,8 +2216,6 @@ public class ITNodeTest {
         node.snapshot(new ExpectClosure(RaftError.EINVAL, "Snapshot is not supported", latch));
         waitLatch(latch);
         assertEquals(0, fsm.getSaveSnapshotTimes());
-
-        service.shutdown();
     }
 
     @Test
@@ -2302,8 +2243,6 @@ public class ITNodeTest {
         int times = fsm.getSaveSnapshotTimes();
         assertTrue(times >= 1, "snapshotTimes=" + times);
         assertTrue(fsm.getSnapshotIndex() > 0);
-
-        service.shutdown();
     }
 
     @Test
@@ -2342,12 +2281,10 @@ public class ITNodeTest {
 
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
 
         List<Node> followers = cluster.getFollowers();
         assertEquals(2, followers.size());
-
-        // Ensure the quorum before stopping a follower, otherwise leader can step down.
-        assertTrue(waitForCondition(() -> followers.get(1).getLeaderId() != null, 5_000));
 
         Endpoint followerAddr = followers.get(0).getNodeId().getPeerId().getEndpoint().copy();
         assertTrue(cluster.stop(followerAddr));
@@ -2392,7 +2329,6 @@ public class ITNodeTest {
         PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
         LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
-        Thread.sleep(1000);
         cluster.waitLeader();
         leader = cluster.getLeader();
         assertEquals(leader.getNodeId().getPeerId(), targetPeer);
@@ -2411,12 +2347,10 @@ public class ITNodeTest {
 
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
 
         List<Node> followers = cluster.getFollowers();
         assertEquals(2, followers.size());
-
-        // Ensure the quorum before stopping a follower, otherwise leader can step down.
-        assertTrue(waitForCondition(() -> followers.get(1).getLeaderId() != null, 5_000));
 
         PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
         assertTrue(cluster.stop(targetPeer.getEndpoint()));
@@ -2453,6 +2387,7 @@ public class ITNodeTest {
 
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
 
         List<Node> followers = cluster.getFollowers();
         assertEquals(2, followers.size());
@@ -2521,7 +2456,7 @@ public class ITNodeTest {
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
             RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
-            Node node = service.start(true);
+            Node node = service.start();
 
             Thread.sleep(1000);
             sendTestTaskAndWait(node);
@@ -2544,17 +2479,13 @@ public class ITNodeTest {
 
             RaftGroupService service = createService("unittest", new PeerId(addr, 0), nodeOptions);
             try {
-                service.start(true);
+                service.start();
 
                 fail();
             }
             catch (Exception e) {
                 // Expected.
             }
-            finally {
-                service.shutdown();
-            }
-
         }
     }
 
@@ -2639,7 +2570,7 @@ public class ITNodeTest {
 
         PeerId follower = followers.get(0).getNodeId().getPeerId();
         assertTrue(leader.transferLeadershipTo(follower).isOk());
-        Thread.sleep(2000);
+        cluster.waitLeader();
         leader = cluster.getLeader();
         assertEquals(follower, leader.getNodeId().getPeerId());
 
@@ -2726,6 +2657,8 @@ public class ITNodeTest {
         cluster.waitLeader();
         Node firstLeader = cluster.getLeader();
         assertNotNull(firstLeader);
+        cluster.ensureLeader(firstLeader);
+
         // apply something
         sendTestTaskAndWait(firstLeader);
 
@@ -2792,6 +2725,8 @@ public class ITNodeTest {
 
         Node leader = cluster.getLeader();
         assertNotNull(leader);
+        cluster.ensureLeader(leader);
+
         sendTestTaskAndWait(leader);
 
         // index == 1 is a CONFIGURATION log, so real_index will be 2 when returned.
@@ -2906,22 +2841,18 @@ public class ITNodeTest {
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
-        try {
-            Node node = service.start(true);
-            assertEquals(26, fsm.getLogs().size());
 
-            for (int i = 0; i < 26; i++)
-                assertEquals('a' + i, fsm.getLogs().get(i).get());
+        Node node = service.start();
+        assertEquals(26, fsm.getLogs().size());
 
-            // Group configuration will be restored from snapshot meta.
-            while (!node.isLeader())
-                Thread.sleep(20);
-            sendTestTaskAndWait(node);
-            assertEquals(36, fsm.getLogs().size());
-        }
-        finally {
-            service.shutdown();
-        }
+        for (int i = 0; i < 26; i++)
+            assertEquals('a' + i, fsm.getLogs().get(i).get());
+
+        // Group configuration will be restored from snapshot meta.
+        while (!node.isLeader())
+            Thread.sleep(20);
+        sendTestTaskAndWait(node);
+        assertEquals(36, fsm.getLogs().size());
     }
 
     @Test
@@ -2948,20 +2879,15 @@ public class ITNodeTest {
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
-        try {
-            Node node = service.start(true);
-            while (!node.isLeader())
-                Thread.sleep(20);
-            sendTestTaskAndWait(node);
-            assertEquals(10, fsm.getLogs().size());
-        }
-        finally {
-            service.shutdown();
-        }
+
+        Node node = service.start();
+        while (!node.isLeader())
+            Thread.sleep(20);
+        sendTestTaskAndWait(node);
+        assertEquals(10, fsm.getLogs().size());
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14852")
     public void testChangePeers() throws Exception {
         PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0));
@@ -2987,7 +2913,12 @@ public class ITNodeTest {
             Status status = done.await();
             assertTrue(status.isOk(), status.getRaftError().toString());
         }
-        cluster.ensureSame();
+
+        cluster.waitLeader();
+
+        for (final MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(10, fsm.getLogs().size());
+        }
     }
 
     @Test
@@ -3344,16 +3275,14 @@ public class ITNodeTest {
             NodeImpl follower0 = (NodeImpl) follower;
             DefaultRaftClientService rpcService = (DefaultRaftClientService) follower0.getRpcClientService();
             RpcClientEx rpcClientEx = (RpcClientEx) rpcService.getRpcClient();
-            rpcClientEx.blockMessages(new BiPredicate<>() {
-                @Override public boolean test(Object msg, String nodeId) {
-                    if (msg instanceof RpcRequests.RequestVoteRequest) {
-                        RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
+            rpcClientEx.blockMessages((msg, nodeId) -> {
+                if (msg instanceof RpcRequests.RequestVoteRequest) {
+                    RpcRequests.RequestVoteRequest msg0 = (RpcRequests.RequestVoteRequest)msg;
 
-                        return !msg0.getPreVote();
-                    }
-
-                    return false;
+                    return !msg0.getPreVote();
                 }
+
+                return false;
             });
         }
 
@@ -3363,7 +3292,7 @@ public class ITNodeTest {
 
         assertNull(cluster.getLeader());
 
-        Thread.sleep(3000);
+        Thread.sleep(2000);
 
         assertNull(cluster.getLeader());
 
@@ -3390,7 +3319,13 @@ public class ITNodeTest {
     }
 
     /**
-     * {@inheritDoc}
+     * TODO asch get rid of waiting for topology IGNITE-14832
+     *
+     * @param cluster
+     * @param addr
+     * @param expected
+     * @param timeout
+     * @return
      */
     private boolean waitForTopology(TestCluster cluster, Endpoint addr, int expected, long timeout) {
         RaftGroupService grp = cluster.getServer(addr);
@@ -3426,7 +3361,9 @@ public class ITNodeTest {
     }
 
     /**
-     * {@inheritDoc}
+     * @param cond The condition.
+     * @param timeout The timeout.
+     * @return {@code True} if the condition is satisfied.
      */
     private boolean waitForCondition(BooleanSupplier cond, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
@@ -3453,23 +3390,139 @@ public class ITNodeTest {
      * @return Raft group service.
      */
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
-        NodeManager nodeManager = new NodeManager();
-
-        List<String> servers = new ArrayList<>();
-
         Configuration initialConf = nodeOptions.getInitialConf();
 
-        if (initialConf != null) {
-            for (PeerId id : initialConf.getPeers())
-                servers.add(id.getEndpoint().toString());
+        var servers = List.<String>of();
 
-            for (PeerId id : initialConf.getLearners())
-                servers.add(id.getEndpoint().toString());
+        if (initialConf != null) {
+            servers = Stream.concat(initialConf.getPeers().stream(), initialConf.getLearners().stream())
+                .map(id -> id.getEndpoint().toString())
+                .collect(Collectors.toList());
         }
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(peerId.getEndpoint(), servers, nodeManager);
-        nodeOptions.setRpcClient(new IgniteRpcClient(rpcServer.clusterService(), true));
+        var nodeManager = new NodeManager();
 
-        return new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);
+        ClusterService clusterService = createClusterService(peerId.getEndpoint(), servers);
+
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, servers, nodeManager, nodeOptions);
+
+        nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
+
+        clusterService.start();
+
+        var service = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager) {
+            @Override public synchronized void shutdown() {
+                super.shutdown();
+
+                clusterService.shutdown();
+            }
+        };
+
+        services.add(service);
+
+        return service;
+    }
+
+    /**
+     * Creates a non-started {@link ClusterService}.
+     */
+    private static ClusterService createClusterService(Endpoint endpoint, List<String> members) {
+        var registry = new TestMessageSerializationRegistryImpl();
+
+        var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), members, registry);
+
+        var clusterServiceFactory = new TestScaleCubeClusterServiceFactory();
+
+        return clusterServiceFactory.createClusterService(clusterConfig);
+    }
+
+    private void sendTestTaskAndWait(final Node node) throws InterruptedException {
+        this.sendTestTaskAndWait(node, 0, 10, RaftError.SUCCESS);
+    }
+
+    private void sendTestTaskAndWait(final Node node, int amount) throws InterruptedException {
+        this.sendTestTaskAndWait(node, 0, amount, RaftError.SUCCESS);
+    }
+
+    private void sendTestTaskAndWait(final Node node, final RaftError err) throws InterruptedException {
+        this.sendTestTaskAndWait(node, 0, 10, err);
+    }
+
+    private void sendTestTaskAndWait(final Node node, final int start, int amount,
+                                     final RaftError err) throws InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(amount);
+        for (int i = start; i < start + amount; i++) {
+            final ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
+            final Task task = new Task(data, new ExpectClosure(err, latch));
+            node.apply(task);
+        }
+        waitLatch(latch);
+    }
+
+    private void sendTestTaskAndWait(final Node node, final int start,
+                                     final RaftError err) throws InterruptedException {
+        sendTestTaskAndWait(node, start, 10, err);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private void sendTestTaskAndWait(final String prefix, final Node node, final int code) throws InterruptedException {
+        sendTestTaskAndWait(prefix, node, 10, code);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private void sendTestTaskAndWait(final String prefix, final Node node, int amount,
+                                     final int code) throws InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(10);
+        for (int i = 0; i < amount; i++) {
+            final ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes());
+            final Task task = new Task(data, new ExpectClosure(code, null, latch));
+            node.apply(task);
+        }
+        waitLatch(latch);
+    }
+
+    private void triggerLeaderSnapshot(TestCluster cluster, Node leader) throws InterruptedException {
+        triggerLeaderSnapshot(cluster, leader, 1);
+    }
+
+    private void triggerLeaderSnapshot(TestCluster cluster, Node leader, int times)
+        throws InterruptedException {
+        // trigger leader snapshot
+        // first snapshot will be triggered randomly
+        int snapshotTimes = cluster.getLeaderFsm().getSaveSnapshotTimes();
+        assertTrue(snapshotTimes == times - 1 || snapshotTimes == times, "snapshotTimes=" + snapshotTimes + ", times=" + times);
+        CountDownLatch latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch));
+        waitLatch(latch);
+        assertEquals(snapshotTimes + 1, cluster.getLeaderFsm().getSaveSnapshotTimes());
+    }
+
+    private void waitLatch(final CountDownLatch latch) throws InterruptedException {
+        assertTrue(latch.await(30, TimeUnit.SECONDS));
+    }
+
+    @SuppressWarnings({"unused", "SameParameterValue"})
+    private boolean assertReadIndex(Node node, int index) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        byte[] requestContext = TestUtils.getRandomBytes();
+        AtomicBoolean success = new AtomicBoolean(false);
+        node.readIndex(requestContext, new ReadIndexClosure() {
+
+            @Override
+            public void run(Status status, long theIndex, byte[] reqCtx) {
+                if (status.isOk()) {
+                    assertEquals(index, theIndex);
+                    assertArrayEquals(requestContext, reqCtx);
+                    success.set(true);
+                }
+                else {
+                    assertTrue(status.getErrorMsg().contains("RPC exception:Check connection["), status.getErrorMsg());
+                    assertTrue(status.getErrorMsg().contains("] fail and try to create new one"), status.getErrorMsg());
+                }
+                latch.countDown();
+            }
+        });
+        latch.await();
+        return success.get();
     }
 }

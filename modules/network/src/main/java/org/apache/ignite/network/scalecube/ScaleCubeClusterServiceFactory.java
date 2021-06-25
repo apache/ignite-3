@@ -54,7 +54,7 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
         var topologyService = new ScaleCubeTopologyService();
 
-        var messagingService = new ScaleCubeMessagingService(topologyService);
+        var messagingService = new ScaleCubeMessagingService();
 
         var messageFactory = new NetworkMessagesFactory();
 
@@ -103,6 +103,10 @@ public class ScaleCubeClusterServiceFactory implements ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override public void shutdown() {
+                // local member will be null, if cluster has not been started
+                if (cluster.member() == null)
+                    return;
+
                 stopJmxMonitor();
 
                 cluster.shutdown();
