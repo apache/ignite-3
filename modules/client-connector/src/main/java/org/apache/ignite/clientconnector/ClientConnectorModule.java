@@ -87,8 +87,8 @@ public class ClientConnectorModule {
             .handler(new LoggingHandler(LogLevel.INFO)) // TODO: ?
             .childHandler(new ChannelInitializer<>() {
                 @Override
-                protected void initChannel(Channel ch) throws Exception {
-                    ch.pipeline().addLast(new ClientMessageHandler());
+                protected void initChannel(Channel ch) {
+                    ch.pipeline().addLast(new ClientMessageDecoder(), new ClientMessageHandler(log));
                 }
             });
 

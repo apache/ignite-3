@@ -24,29 +24,50 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.CharsetUtil;
 import org.msgpack.core.MessagePack;
+import org.slf4j.Logger;
+
+import java.io.IOException;
+import java.util.BitSet;
 
 /**
  * https://netty.io/wiki/user-guide-for-4.x.html
  */
 public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
+    private final Logger log;
+    private boolean handshakeCompleted;
+
+    public ClientMessageHandler(Logger log) {
+        this.log = log;
+    }
+
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ByteBuf inBuffer = (ByteBuf) msg;
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
+        var buf = (byte[]) msg;
 
         // TODO: Pooled unpacker.
-        // TODO: Ensure no buffer copy.
-        var unpacker = MessagePack.newDefaultUnpacker(inBuffer.nioBuffer());
+        var unpacker = MessagePack.newDefaultUnpacker(buf);
 
-        // TODO: Read full messages before processing.
-        System.out.println("RCV: ");
+        if (!handshakeCompleted) {
+            var major = unpacker.unpackInt();
+            var minor = unpacker.unpackInt();
+            var patch = unpacker.unpackInt();
+            var clientCode = unpacker.unpackInt();
 
-        for (int i = 0; i < inBuffer.readableBytes(); i++) {
-            System.out.print(inBuffer.getByte(i) + " ");
+            log.debug("Handshake: " + major + ", " + minor + ", " + patch +", " + clientCode);
+
+            var featuresLen = unpacker.unpackBinaryHeader();
+            var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
+
+            var extensionsLen = unpacker.unpackMapHeader();
+            unpacker.skipValue(extensionsLen);
+        } else {
+
         }
 
-        System.out.println();
+        // TODO
+        var response = Unpooled.copiedBuffer("todo", CharsetUtil.UTF_8);
 
-        ctx.write(Unpooled.copiedBuffer("todo", CharsetUtil.UTF_8));
+        ctx.write(response);
     }
 
     @Override
