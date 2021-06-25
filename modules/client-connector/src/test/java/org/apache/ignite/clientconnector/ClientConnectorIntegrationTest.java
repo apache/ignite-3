@@ -29,12 +29,18 @@ import java.util.Collections;
 /**
  * TODO: ClientMessageHandler tests - handshake and operations with fake context.
  */
-public class ClientConnectorTest {
+public class ClientConnectorIntegrationTest {
     /**
      *
      */
     @Test
     void testTodo() throws Exception {
+        ChannelFuture channelFuture = startServer();
+        // channelFuture.cancel(true);
+        channelFuture.sync();
+    }
+
+    private ChannelFuture startServer() throws InterruptedException {
         var registry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
@@ -45,8 +51,6 @@ public class ClientConnectorTest {
 
         module.prepareStart(registry);
 
-        ChannelFuture channelFuture = module.start();
-        // channelFuture.cancel(true);
-        channelFuture.sync();
+        return module.start();
     }
 }
