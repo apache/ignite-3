@@ -22,6 +22,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -90,7 +91,9 @@ public class ClientConnectorModule {
                 protected void initChannel(Channel ch) {
                     ch.pipeline().addLast(new ClientMessageDecoder(), new ClientMessageHandler(log));
                 }
-            });
+            })
+            .childOption(ChannelOption.SO_KEEPALIVE, true)
+            .childOption(ChannelOption.TCP_NODELAY, true);
 
         for (int portCandidate = desiredPort; portCandidate < desiredPort + portRange; portCandidate++) {
             ChannelFuture bindRes = b.bind(portCandidate).await();
