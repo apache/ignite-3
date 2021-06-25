@@ -17,10 +17,6 @@
 
 package org.apache.ignite.clientconnector;
 
-import java.net.BindException;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import com.google.gson.JsonSyntaxException;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -29,20 +25,14 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.rest.netty.RestApiInitializer;
-import org.apache.ignite.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.rest.presentation.json.JsonPresentation;
-import org.apache.ignite.rest.routes.Router;
 import org.slf4j.Logger;
 
-import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
+import java.net.BindException;
 
 /**
  * Client connector module maintains TCP endpoint for thin client connections.
@@ -51,12 +41,6 @@ import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 public class ClientConnectorModule {
     /** */
     public static final int DFLT_PORT = 10800;
-
-    /** */
-    private static final String CONF_URL = "/management/v1/configuration/";
-
-    /** */
-    private static final String PATH_PARAM = "selector";
 
     /** */
     private ConfigurationRegistry sysConf;
@@ -83,65 +67,11 @@ public class ClientConnectorModule {
      * @throws InterruptedException If thread has been interupted during the start.
      */
     public ChannelFuture start() throws InterruptedException {
-        var router = new Router();
-        router
-            .get(CONF_URL, (req, resp) -> {
-                resp.json(presentation.represent());
-            })
-            .get(CONF_URL + ":" + PATH_PARAM, (req, resp) -> {
-                String cfgPath = req.queryParams().get(PATH_PARAM);
-                try {
-                    resp.json(presentation.representByPath(cfgPath));
-                }
-                catch (IllegalArgumentException pathE) {
-                    ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
-
-                    resp.status(BAD_REQUEST);
-                    resp.json(Map.of("error", eRes));
-                }
-            })
-            .put(CONF_URL, HttpHeaderValues.APPLICATION_JSON, (req, resp) -> {
-                try {
-                    presentation.update(
-                        req
-                            .request()
-                            .content()
-                            .readCharSequence(req.request().content().readableBytes(), StandardCharsets.UTF_8)
-                            .toString());
-                }
-                catch (IllegalArgumentException argE) {
-                    ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", argE.getMessage());
-
-                    resp.status(BAD_REQUEST);
-                    resp.json(Map.of("error", eRes));
-                }
-                catch (ConfigurationValidationException validationE) {
-                    ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
-
-                    resp.status(BAD_REQUEST);
-                    resp.json(Map.of("error", eRes));
-                    resp.json(eRes);
-                }
-                catch (JsonSyntaxException e) {
-                    String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-
-                    ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
-                    resp.status(BAD_REQUEST);
-                    resp.json(Map.of("error", eRes));
-                }
-                catch (Exception e) {
-                    ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
-
-                    resp.status(BAD_REQUEST);
-                    resp.json(Map.of("error", eRes));
-                }
-            });
-
-        return startRestEndpoint(router);
+        return startRestEndpoint();
     }
 
     /** */
-    private ChannelFuture startRestEndpoint(Router router) throws InterruptedException {
+    private ChannelFuture startRestEndpoint() throws InterruptedException {
         RestView restConfigurationView = sysConf.getConfiguration(RestConfiguration.KEY).value();
 
         int desiredPort = restConfigurationView.port();
@@ -154,14 +84,12 @@ public class ClientConnectorModule {
         EventLoopGroup parentGrp = new NioEventLoopGroup();
         EventLoopGroup childGrp = new NioEventLoopGroup();
 
-        var hnd = new RestApiInitializer(router);
-
         ServerBootstrap b = new ServerBootstrap();
         b.option(ChannelOption.SO_BACKLOG, 1024);
         b.group(parentGrp, childGrp)
             .channel(NioServerSocketChannel.class)
-            .handler(new LoggingHandler(LogLevel.INFO))
-            .childHandler(hnd);
+            .handler(new LoggingHandler(LogLevel.INFO));
+            //.childHandler(hnd)        ;
 
         for (int portCandidate = desiredPort; portCandidate < desiredPort + portRange; portCandidate++) {
             ChannelFuture bindRes = b.bind(portCandidate).await();
