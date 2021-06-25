@@ -105,7 +105,7 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
                     case INT8:
                     case UINT8:
                         cnt = -1;
-                        data = new byte[] {firstByte, 0};
+                        data = new byte[] {firstByte, 0};  // TODO: Reuse array for length decoding.
                         break;
 
                     case INT16:
