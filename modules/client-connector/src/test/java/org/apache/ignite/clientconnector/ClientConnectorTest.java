@@ -46,7 +46,7 @@ public class ClientConnectorTest {
         module.prepareStart(registry);
 
         ChannelFuture channelFuture = module.start();
-
+        // channelFuture.cancel(true);
         channelFuture.sync();
     }
 }
