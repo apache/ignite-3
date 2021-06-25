@@ -26,23 +26,27 @@ import io.netty.util.CharsetUtil;
 
 public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ByteBuf inBuffer = (ByteBuf) msg;
 
-        String received = inBuffer.toString(CharsetUtil.UTF_8);
-        System.out.println("Server received: " + received);
+        System.out.println("RCV: ");
 
-        ctx.write(Unpooled.copiedBuffer("Hello " + received, CharsetUtil.UTF_8));
+        for (int i = 0; i < inBuffer.readableBytes(); i++) {
+            System.out.print(inBuffer.getByte(i) + " ");
+        }
+
+        System.out.println();
+
+        ctx.write(Unpooled.copiedBuffer("todo", CharsetUtil.UTF_8));
     }
 
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
-        ctx.writeAndFlush(Unpooled.EMPTY_BUFFER)
-                .addListener(ChannelFutureListener.CLOSE);
+    public void channelReadComplete(ChannelHandlerContext ctx) {
+        ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         // TODO: Logging
         cause.printStackTrace();
         ctx.close();
