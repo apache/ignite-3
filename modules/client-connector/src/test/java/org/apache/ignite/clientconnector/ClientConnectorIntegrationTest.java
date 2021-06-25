@@ -54,6 +54,7 @@ public class ClientConnectorIntegrationTest {
     }
 
     private byte[] clientSendReceive(byte[] request) throws Exception {
+        // TODO: Don't bother with Netty, use plain socket stream for simplicity.
         CompletableFuture<byte[]> result = new CompletableFuture<>();
         CompletableFuture<ChannelHandlerContext> chCtx = new CompletableFuture<>();
 
