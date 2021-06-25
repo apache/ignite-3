@@ -23,7 +23,6 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.CharsetUtil;
 import org.apache.ignite.lang.IgniteException;
 
-import java.nio.charset.Charset;
 import java.util.List;
 
 /**
@@ -46,29 +45,36 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
     private boolean magicDecoded;
 
     @Override
-    protected void decode(ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf, List<Object> list)  {
-        if (!magicDecoded) {
-            for (; cnt < 0 && byteBuf.readableBytes() > 0; cnt++)
-                msgSize |= (byteBuf.readByte() & 0xFF) << (8 * (4 + cnt));
+    protected void decode(ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf, List<Object> list) {
+        if (!readMagic(byteBuf))
+            return;
 
-            if (cnt < 0)
-                return;
-
-            magicDecoded = true;
-            cnt = -1;
-            msgSize = 0;
-
-            var magic = new String(data, CharsetUtil.US_ASCII);
-
-            if (!MAGIC.equals(magic)) {
-                throw new IgniteException("Invalid magic header in thin client connection. " +
-                        "Expected 'IGNI', but was '" + magic + "'");
-            }
-        }
-
-        while (read(byteBuf)) {
+        while (read(byteBuf))
             list.add(data);
+    }
+
+    private boolean readMagic(ByteBuf byteBuf) {
+        if (magicDecoded) {
+            return true;
         }
+
+        for (; cnt < 0 && byteBuf.readableBytes() > 0; cnt++)
+            msgSize |= (byteBuf.readByte() & 0xFF) << (8 * (4 + cnt));
+
+        if (cnt < 0)
+            return false;
+
+        magicDecoded = true;
+        cnt = -1;
+        msgSize = 0;
+
+        var magic = new String(data, CharsetUtil.US_ASCII);
+
+        if (MAGIC.equals(magic))
+            return true;
+
+        throw new IgniteException("Invalid magic header in thin client connection. " +
+                "Expected 'IGNI', but was '" + magic + "'");
     }
 
     /**
