@@ -36,5 +36,4 @@ public class ClientConnectorConfigurationSchema {
     @Min(0)
     @Value(hasDefault = true)
     public final int portRange = 0;
-
 }

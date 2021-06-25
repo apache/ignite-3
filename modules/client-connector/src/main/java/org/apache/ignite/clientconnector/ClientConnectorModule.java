@@ -27,8 +27,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.rest.RestView;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.slf4j.Logger;
 
@@ -39,9 +38,6 @@ import java.net.BindException;
  *
  */
 public class ClientConnectorModule {
-    /** */
-    public static final int DFLT_PORT = 10800;
-
     /** */
     private ConfigurationRegistry sysConf;
 
@@ -63,19 +59,19 @@ public class ClientConnectorModule {
     }
 
     /**
-     * @return REST channel future.
+     * @return channel future.
      * @throws InterruptedException If thread has been interupted during the start.
      */
     public ChannelFuture start() throws InterruptedException {
-        return startRestEndpoint();
+        return startEndpoint();
     }
 
     /** */
-    private ChannelFuture startRestEndpoint() throws InterruptedException {
-        RestView restConfigurationView = sysConf.getConfiguration(RestConfiguration.KEY).value();
+    private ChannelFuture startEndpoint() throws InterruptedException {
+        var configurationView = sysConf.getConfiguration(ClientConnectorConfiguration.KEY).value();
 
-        int desiredPort = restConfigurationView.port();
-        int portRange = restConfigurationView.portRange();
+        int desiredPort = configurationView.port();
+        int portRange = configurationView.portRange();
 
         int port = 0;
 
@@ -113,7 +109,7 @@ public class ClientConnectorModule {
         }
 
         if (ch == null) {
-            String msg = "Cannot start REST endpoint. " +
+            String msg = "Cannot start thin client connector endpoint. " +
                 "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
 
             log.error(msg);
@@ -124,7 +120,7 @@ public class ClientConnectorModule {
             throw new RuntimeException(msg);
         }
 
-        log.info("REST protocol started successfully on port " + port);
+        log.info("Thin client connector started successfully on port " + port);
 
         return ch.closeFuture();
     }
