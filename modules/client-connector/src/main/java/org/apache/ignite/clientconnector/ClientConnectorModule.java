@@ -21,10 +21,15 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.HttpServerExpectContinueHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
@@ -83,22 +88,26 @@ public class ClientConnectorModule {
 
         ServerBootstrap b = new ServerBootstrap();
         b.option(ChannelOption.SO_BACKLOG, 1024);
-        b.group(parentGrp, childGrp)
+        b.group(parentGrp, childGrp) // TODO: Why two groups?
             .channel(NioServerSocketChannel.class)
-            .handler(new LoggingHandler(LogLevel.INFO));
-            //.childHandler(hnd)        ;
+            .handler(new LoggingHandler(LogLevel.INFO))
+            .childHandler(new ChannelInitializer<>() {
+                @Override
+                protected void initChannel(Channel ch) throws Exception {
+                    ch.pipeline().addLast(new ClientMessageHandler());
+                }
+            });
 
         for (int portCandidate = desiredPort; portCandidate < desiredPort + portRange; portCandidate++) {
             ChannelFuture bindRes = b.bind(portCandidate).await();
             if (bindRes.isSuccess()) {
                 ch = bindRes.channel();
 
-                ch.closeFuture().addListener(new ChannelFutureListener() {
-                    @Override public void operationComplete(ChannelFuture fut) {
-                        parentGrp.shutdownGracefully();
-                        childGrp.shutdownGracefully();
-                    }
+                ch.closeFuture().addListener((ChannelFutureListener) fut -> {
+                    parentGrp.shutdownGracefully();
+                    childGrp.shutdownGracefully();
                 });
+
                 port = portCandidate;
                 break;
             }
