@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.clientconnector;
 
 import java.net.BindException;
 import java.nio.charset.StandardCharsets;
@@ -45,14 +45,12 @@ import org.slf4j.Logger;
 import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 
 /**
- * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
+ * Client connector module maintains TCP endpoint for thin client connections.
  *
- * It is started on port 10300 by default but it is possible to change this in configuration itself.
- * Refer to default config file in resources for the example.
  */
-public class RestModule {
+public class ClientConnectorModule {
     /** */
-    public static final int DFLT_PORT = 10300;
+    public static final int DFLT_PORT = 10800;
 
     /** */
     private static final String CONF_URL = "/management/v1/configuration/";
@@ -64,15 +62,12 @@ public class RestModule {
     private ConfigurationRegistry sysConf;
 
     /** */
-    private volatile ConfigurationPresentation<String> presentation;
-
-    /** */
     private final Logger log;
 
     /**
      * @param log Logger.
      */
-    public RestModule(Logger log) {
+    public ClientConnectorModule(Logger log) {
         this.log = log;
     }
 
@@ -81,8 +76,6 @@ public class RestModule {
      */
     public void prepareStart(ConfigurationRegistry sysCfg) {
         sysConf = sysCfg;
-
-        presentation = new JsonPresentation(sysCfg);
     }
 
     /**

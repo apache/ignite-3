@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest.netty;
+package org.apache.ignite.clientconnector.netty;
 
 import io.netty.buffer.EmptyByteBuf;
 import io.netty.buffer.Unpooled;

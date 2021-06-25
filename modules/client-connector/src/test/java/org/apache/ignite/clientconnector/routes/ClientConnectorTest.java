@@ -15,38 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector;
+package org.apache.ignite.clientconnector.routes;
+
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import org.junit.jupiter.api.Test;
+
+import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpMethod.PUT;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Error result represent a tuple of error type and user-friendly error message.
+ *
  */
-public class ErrorResult {
-    /** */
-    private final String type;
-
-    /** */
-    private final String message;
-
+public class ClientConnectorTest {
     /**
-     * @param type Error type describing the class of the error occurred.
-     * @param message User-friendly error message.
+     *
      */
-    public ErrorResult(String type, String message) {
-        this.type = type;
-        this.message = message;
-    }
-
-    /**
-     * @return Error type describing the class of the error occurred.
-     */
-    public String type() {
-        return type;
-    }
-
-    /**
-     * @return User-friendly error message.
-     */
-    public String message() {
-        return message;
+    @Test
+    void testTodo() {
+        // var module = new Re
     }
 }
