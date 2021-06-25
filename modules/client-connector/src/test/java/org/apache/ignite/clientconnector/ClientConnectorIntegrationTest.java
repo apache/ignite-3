@@ -17,7 +17,17 @@
 
 package org.apache.ignite.clientconnector;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -25,19 +35,68 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * TODO: ClientMessageHandler tests - handshake and operations with fake context.
+ * Client connector integration tests with real sockets.
  */
 public class ClientConnectorIntegrationTest {
-    /**
-     *
-     */
     @Test
-    void testTodo() throws Exception {
+    void testHandshake() throws Exception {
         ChannelFuture channelFuture = startServer();
-        // channelFuture.cancel(true);
+
+        var res = clientSendReceive(new byte[]{1, 2, 3});
+
+        channelFuture.cancel(true);
         channelFuture.sync();
+    }
+
+    private byte[] clientSendReceive(byte[] request) throws InterruptedException {
+        var workerGroup = new NioEventLoopGroup();
+        final byte[][] result = {null};
+        AtomicReference<ChannelHandlerContext> chCtx = new AtomicReference<>();
+
+        try {
+            Bootstrap b = new Bootstrap();
+            b.group(workerGroup);
+            b.channel(NioSocketChannel.class);
+            b.option(ChannelOption.SO_KEEPALIVE, true);
+            b.handler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                public void initChannel(SocketChannel ch)  {
+                    ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                        @Override
+                        public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                            ByteBuf m = (ByteBuf) msg;
+                            result[0] = m.array();
+                            m.release();
+                        }
+
+                        @Override
+                        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+                            cause.printStackTrace();
+                            ctx.close();
+                        }
+
+                        @Override
+                        public void channelActive(ChannelHandlerContext ctx) throws Exception {
+                            chCtx.set(ctx);
+                            super.channelActive(ctx);
+                        }
+                    });
+                }
+            });
+
+            ChannelFuture f = b.connect("127.0.0.1", 10800).sync();
+
+            chCtx.get().channel().writeAndFlush(Unpooled.copiedBuffer(request));
+
+            f.channel().closeFuture().sync();
+        } finally {
+            workerGroup.shutdownGracefully();
+        }
+
+        return result[0];
     }
 
     private ChannelFuture startServer() throws InterruptedException {
