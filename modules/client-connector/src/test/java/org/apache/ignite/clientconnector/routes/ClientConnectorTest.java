@@ -17,6 +17,7 @@
 
 package org.apache.ignite.clientconnector.routes;
 
+import io.netty.channel.ChannelFuture;
 import org.apache.ignite.clientconnector.ClientConnectorModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
@@ -34,7 +35,7 @@ public class ClientConnectorTest {
      *
      */
     @Test
-    void testTodo() {
+    void testTodo() throws Exception {
         var registry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
@@ -44,5 +45,9 @@ public class ClientConnectorTest {
         var module = new ClientConnectorModule(NOPLogger.NOP_LOGGER);
 
         module.prepareStart(registry);
+
+        ChannelFuture channelFuture = module.start();
+
+        channelFuture.sync();
     }
 }

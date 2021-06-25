@@ -68,10 +68,11 @@ public class ClientConnectorModule {
 
     /** */
     private ChannelFuture startEndpoint() throws InterruptedException {
-        var configurationView = sysConf.getConfiguration(ClientConnectorConfiguration.KEY).value();
+        var configuration = sysConf.getConfiguration(ClientConnectorConfiguration.KEY);
 
-        int desiredPort = configurationView.port();
-        int portRange = configurationView.portRange();
+        // TODO: Why defaults are not returned?
+        int desiredPort = configuration.port().value() == null ? 10800 : configuration.port().value();
+        int portRange = configuration.portRange().value() == null ? 1 : configuration.portRange().value();
 
         int port = 0;
 
