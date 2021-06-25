@@ -34,7 +34,8 @@ import java.util.BitSet;
  */
 public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     private final Logger log;
-    private boolean handshakeCompleted;
+
+    private ClientContext clientContext;
 
     public ClientMessageHandler(Logger log) {
         this.log = log;
@@ -47,16 +48,17 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         // TODO: Pooled unpacker.
         var unpacker = MessagePack.newDefaultUnpacker(buf);
 
-        if (!handshakeCompleted) {
+        if (clientContext == null) {
             var major = unpacker.unpackInt();
             var minor = unpacker.unpackInt();
             var patch = unpacker.unpackInt();
             var clientCode = unpacker.unpackInt();
-
-            log.debug("Handshake: " + major + ", " + minor + ", " + patch +", " + clientCode);
-
             var featuresLen = unpacker.unpackBinaryHeader();
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
+
+            clientContext = new ClientContext(major, minor, patch, clientCode, features);
+
+            log.debug("Handshake: " + clientContext);
 
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValue(extensionsLen);
