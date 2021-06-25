@@ -62,10 +62,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         validate(keyTuple, schema.keyColumns());
 
-        TupleStatistics keyStat = tupleStatistics(schema.keyColumns(), keyTuple);
-        TupleStatistics valStat = tupleStatistics(schema.valueColumns(), valTuple);
-
-        final RowAssembler rowBuilder = createAssembler(schema, keyStat, valStat);
+        final RowAssembler rowBuilder = createAssembler(schema, keyTuple, valTuple);
 
         for (int i = 0; i < schema.keyColumns().length(); i++) {
             final Column col = schema.keyColumns().column(i);
@@ -84,38 +81,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         return new Row(schema, new ByteBufferRow(rowBuilder.build()));
-    }
-
-    /**
-     * Analyze given tuple and gather statistics.
-     *
-     * @param cols Columns which statistics is calculated for.
-     * @param tup Tuple to analyze.
-     * @return Tuple statistics.
-     */
-    private TupleStatistics tupleStatistics(Columns cols, Tuple tup) {
-        if (tup == null)
-            return new TupleStatistics();
-
-        TupleStatistics chunk = new TupleStatistics();
-
-        for (int i = 0; i < cols.length(); i++) {
-            Column col = cols.column(i);
-
-            Object val = (tup.contains(col.name())) ? tup.value(col.name()) : col.defaultValue();
-
-            if (val == null)
-                chunk.hasNulls = true;
-            else if (col.type().spec().fixedLength())
-                chunk.payloadLen += col.type().sizeInBytes();
-            else {
-                chunk.nonNullVarlen++;
-
-                chunk.payloadLen += getValueSize(val, col.type());
-            }
-        }
-
-        return chunk;
     }
 
     /**
@@ -142,11 +107,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     /**
      * Creates {@link RowAssembler} for key-value tuples.
      *
-     * @param keyStat Key tuple statistics.
-     * @param valStat Value tuple statistics.
+     * @param keyTuple Key tuple.
+     * @param valTuple Value tuple.
      * @return Row assembler.
      */
-    private RowAssembler createAssembler(SchemaDescriptor schema, TupleStatistics keyStat, TupleStatistics valStat) {
+    private RowAssembler createAssembler(SchemaDescriptor schema, Tuple keyTuple, Tuple valTuple) {
+        TupleStatistics keyStat = tupleStatistics(schema.keyColumns(), keyTuple);
+        TupleStatistics valStat = tupleStatistics(schema.valueColumns(), valTuple);
+
         return new RowAssembler(
             schema,
             keyStat.payloadLen,
@@ -163,7 +131,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param tup Tuple.
      */
     private void writeColumn(RowAssembler rowAsm, Column col, Tuple tup) {
-        Object val = tup.contains(col.name()) ? tup.value(col.name()) : col.defaultValue();
+        Object val = tup.valueOrDefault(col.name(), col.defaultValue());
 
         if (val == null) {
             rowAsm.appendNull();
@@ -228,16 +196,51 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /**
+     * Analyze given tuple and gather statistics.
+     *
+     * @param cols Columns which statistics is calculated for.
+     * @param tup Tuple to analyze.
+     * @return Tuple statistics.
+     */
+    private TupleStatistics tupleStatistics(Columns cols, Tuple tup) {
+        if (tup == null)
+            return TupleStatistics.ZERO_VARLEN_STATISTICS;
+
+        TupleStatistics chunk = new TupleStatistics();
+
+        for (int i = 0; i < cols.length(); i++) {
+            Column col = cols.column(i);
+
+            final Object val = tup.valueOrDefault(col.name(), col.defaultValue());
+
+            if (val == null)
+                chunk.hasNulls = true;
+            else if (col.type().spec().fixedLength())
+                chunk.payloadLen += col.type().sizeInBytes();
+            else {
+                chunk.nonNullVarlen++;
+
+                chunk.payloadLen += getValueSize(val, col.type());
+            }
+        }
+
+        return chunk;
+    }
+
+    /**
      * Tuple statistics record.
      */
     private static class TupleStatistics {
-        /** Tuple has nulls. */
-        boolean hasNulls;
+        /** Cached zero statistics. */
+        static final TupleStatistics ZERO_VARLEN_STATISTICS = new TupleStatistics();
+
+        /** Number of non-null varlen columns. */
+        int nonNullVarlen;
 
         /** Payload length in bytes. */
         int payloadLen;
 
-        /** Number of non-null varlen columns. */
-        int nonNullVarlen;
+        /** Tuple has nulls. */
+        boolean hasNulls;
     }
 }
