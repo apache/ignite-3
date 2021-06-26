@@ -54,6 +54,23 @@ public class ClientConnectorIntegrationTest {
         }
     }
 
+    @Test
+    void testHandshakeValidReturnsSuccess() throws Exception {
+        ChannelFuture channelFuture = startServer();
+
+        try {
+            var sock = new Socket("127.0.0.1", 10800);
+            OutputStream out = sock.getOutputStream();
+            out.write(new byte[]{63, 64, 65, 66, 67});
+            out.flush();
+
+            assertThrows(IOException.class, () -> writeAndFlushLoop(sock, 5000));
+        } finally {
+            channelFuture.cancel(true);
+            channelFuture.await();
+        }
+    }
+
     private ChannelFuture startServer() throws InterruptedException {
         var registry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),

@@ -48,10 +48,13 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
     private boolean magicDecoded;
 
     /** */
+    private boolean magicFailed;
+
+    /** */
     private MessageFormat sizeFormat = null;
 
     @Override
-    protected void decode(ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf, List<Object> list)
+    protected void decode(ChannelHandlerContext ctx, ByteBuf byteBuf, List<Object> list)
             throws IOException {
         if (!readMagic(byteBuf))
             return;
@@ -61,9 +64,11 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
     }
 
     private boolean readMagic(ByteBuf byteBuf) {
-        if (magicDecoded) {
+        if (magicFailed)
+            return false;
+
+        if (magicDecoded)
             return true;
-        }
 
         for (; cnt < 0 && byteBuf.readableBytes() > 0; cnt++)
             data[4 + cnt] = byteBuf.readByte();
@@ -79,6 +84,8 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
 
         if (MAGIC.equals(magic))
             return true;
+
+        magicFailed = true;
 
         throw new IgniteException("Invalid magic header in thin client connection. " +
                 "Expected 'IGNI', but was '" + magic + "'");
