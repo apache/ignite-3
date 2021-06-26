@@ -67,8 +67,6 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.writePayload(new byte[]{0x49, 0x47, 0x4E, 0x49}); // Magic. // TODO: Encoder should be responsible for this?
             packer.packInt(7); // Length.
 
-            packer.packInt(7); // Size.
-
             // TODO: Protocol version check.
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
