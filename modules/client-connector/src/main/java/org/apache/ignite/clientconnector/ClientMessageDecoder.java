@@ -139,7 +139,9 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
             if (cnt < 0)
                 return false;
 
-            msgSize = MessagePack.newDefaultUnpacker(data).unpackInt(); // TODO: Cache unpacker.
+            if (msgSize == 0)
+                msgSize = MessagePack.newDefaultUnpacker(data).unpackInt(); // TODO: Cache unpacker.
+
             data = new byte[msgSize];
         }
 

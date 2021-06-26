@@ -68,7 +68,7 @@ public class ClientConnectorIntegrationTest {
 
             // Handshake.
             var packer = MessagePack.newDefaultBufferPacker();
-            packer.packInt(6); // Size.
+            packer.packInt(7); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -83,7 +83,7 @@ public class ClientConnectorIntegrationTest {
             out.flush();
 
             // TODO: Read response.
-            channelFuture.await(1000);
+            channelFuture.await();
         } finally {
             channelFuture.cancel(true);
             channelFuture.await();
