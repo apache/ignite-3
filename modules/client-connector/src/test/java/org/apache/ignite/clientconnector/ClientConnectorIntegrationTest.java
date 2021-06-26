@@ -24,12 +24,12 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Collections;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Client connector integration tests with real sockets.
@@ -39,13 +39,27 @@ public class ClientConnectorIntegrationTest {
     void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
         ChannelFuture channelFuture = startServer();
 
-        var sock = new Socket("127.0.0.1", 10800);
-        sock.getOutputStream().write(new byte[]{63, 64, 65, 66, 67});
+        try {
+            var sock = new Socket("127.0.0.1", 10800);
+            OutputStream out = sock.getOutputStream();
+            out.write(new byte[]{63, 64, 65, 66, 67});
+            out.flush();
 
-        var res = sock.getInputStream().readAllBytes();
+            // TODO: Connection should be dropped by server at this point.
+            var res = sock.getInputStream().readAllBytes();
+            assertEquals(0, res.length);
 
-        assertEquals(0, res.length);
-        assertTrue(channelFuture.await(1, TimeUnit.SECONDS));
+            out.write(new byte[]{63, 64, 65, 66, 67});
+            out.flush();
+
+            res = sock.getInputStream().readAllBytes();
+            assertEquals(0, res.length);
+
+            assertFalse(sock.isConnected());
+        } finally {
+            channelFuture.cancel(true);
+            channelFuture.await();
+        }
     }
 
     private ChannelFuture startServer() throws InterruptedException {
