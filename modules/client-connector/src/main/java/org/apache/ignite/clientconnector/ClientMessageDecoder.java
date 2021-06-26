@@ -98,7 +98,11 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
      * @return True when a complete message has been received; false otherwise.
      */
     private boolean read(ByteBuf buf) throws IOException {
+        if (buf.readableBytes() == 0)
+            return false;
+
         if (cnt < 0) {
+            // Read varint message size.
             if (sizeFormat == null) {
                 byte firstByte = buf.readByte();
                 sizeFormat = MessageFormat.valueOf(firstByte);

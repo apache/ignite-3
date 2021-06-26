@@ -30,14 +30,19 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Collections;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Client connector integration tests with real sockets.
  */
 public class ClientConnectorIntegrationTest {
+
+    private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
+
     @Test
     void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
         ChannelFuture channelFuture = startServer();
@@ -64,7 +69,7 @@ public class ClientConnectorIntegrationTest {
             OutputStream out = sock.getOutputStream();
 
             // Magic: IGNI
-            out.write(new byte[]{0x49, 0x47, 0x4E, 0x49});
+            out.write(MAGIC);
 
             // Handshake.
             var packer = MessagePack.newDefaultBufferPacker();
@@ -82,8 +87,27 @@ public class ClientConnectorIntegrationTest {
             out.write(packer.toByteArray());
             out.flush();
 
-            // TODO: Read response.
-            channelFuture.await();
+            // Read response.
+            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+            var magic = unpacker.readPayload(4);
+            var len = unpacker.unpackInt();
+            var major = unpacker.unpackInt();
+            var minor = unpacker.unpackInt();
+            var patch = unpacker.unpackInt();
+            var success = unpacker.unpackBoolean();
+
+            var featuresLen = unpacker.unpackBinaryHeader();
+            unpacker.skipValue(featuresLen);
+
+            var extensionsLen = unpacker.unpackBinaryHeader();
+            unpacker.skipValue(extensionsLen);
+
+            assertArrayEquals(MAGIC, magic);
+            assertEquals(7, len);
+            assertEquals(3, major);
+            assertEquals(0, minor);
+            assertEquals(0, patch);
+            assertTrue(success);
         } finally {
             channelFuture.cancel(true);
             channelFuture.await();
