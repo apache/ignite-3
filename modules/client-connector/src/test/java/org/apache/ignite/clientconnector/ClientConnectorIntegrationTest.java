@@ -17,27 +17,19 @@
 
 package org.apache.ignite.clientconnector;
 
-import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
+import java.net.Socket;
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Client connector integration tests with real sockets.
@@ -47,71 +39,13 @@ public class ClientConnectorIntegrationTest {
     void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
         ChannelFuture channelFuture = startServer();
 
-        var res = clientSendReceive(new byte[]{1, 2, 3, 4, 5});
+        var sock = new Socket("127.0.0.1", 10800);
+        sock.getOutputStream().write(new byte[]{63, 64, 65, 66, 67});
 
-        channelFuture.cancel(true);
-        channelFuture.await();
-    }
+        var res = sock.getInputStream().readAllBytes();
 
-    private byte[] clientSendReceive(byte[] request) throws Exception {
-        // TODO: Don't bother with Netty, use plain socket stream for simplicity.
-        CompletableFuture<byte[]> result = new CompletableFuture<>();
-        CompletableFuture<ChannelHandlerContext> chCtx = new CompletableFuture<>();
-
-        var workerGroup = new NioEventLoopGroup();
-
-        try {
-            Bootstrap b = new Bootstrap();
-            b.group(workerGroup);
-            b.channel(NioSocketChannel.class);
-            b.option(ChannelOption.SO_KEEPALIVE, true);
-            b.handler(new ChannelInitializer<SocketChannel>() {
-                @Override
-                public void initChannel(SocketChannel ch)  {
-                    ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
-                        @Override
-                        public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                            ByteBuf m = (ByteBuf) msg;
-                            result.complete(m.array());
-                            m.release();
-                        }
-
-                        @Override
-                        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-                            cause.printStackTrace();
-                            ctx.close();
-                            result.completeExceptionally(cause);
-                        }
-
-                        @Override
-                        public void channelActive(ChannelHandlerContext ctx) throws Exception {
-                            chCtx.complete(ctx);
-                            super.channelActive(ctx);
-                        }
-
-                        @Override
-                        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-                            // TODO: How to detect dropped connection?
-                            result.complete(null);
-
-                            super.channelInactive(ctx);
-                        }
-                    });
-                }
-            });
-
-            ChannelFuture f = b.connect("127.0.0.1", 10800).sync();
-
-            chCtx.get().channel().writeAndFlush(Unpooled.copiedBuffer(request));
-
-            var res = result.get();
-
-            f.channel().closeFuture().sync();
-
-            return res;
-        } finally {
-            workerGroup.shutdownGracefully();
-        }
+        assertEquals(0, res.length);
+        assertTrue(channelFuture.await(1, TimeUnit.SECONDS));
     }
 
     private ChannelFuture startServer() throws InterruptedException {
