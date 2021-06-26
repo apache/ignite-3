@@ -24,12 +24,14 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Client connector integration tests with real sockets.
@@ -45,17 +47,7 @@ public class ClientConnectorIntegrationTest {
             out.write(new byte[]{63, 64, 65, 66, 67});
             out.flush();
 
-            // TODO: Connection should be dropped by server at this point.
-            var res = sock.getInputStream().readAllBytes();
-            assertEquals(0, res.length);
-
-            out.write(new byte[]{63, 64, 65, 66, 67});
-            out.flush();
-
-            res = sock.getInputStream().readAllBytes();
-            assertEquals(0, res.length);
-
-            assertFalse(sock.isConnected());
+            assertThrows(IOException.class, () -> writeAndFlushLoop(sock, 5000));
         } finally {
             channelFuture.cancel(true);
             channelFuture.await();
@@ -74,5 +66,15 @@ public class ClientConnectorIntegrationTest {
         module.prepareStart(registry);
 
         return module.start();
+    }
+
+    private void writeAndFlushLoop(Socket socket, long timeout) throws Exception {
+        var stop = System.currentTimeMillis() + timeout;
+        var out = socket.getOutputStream();
+
+        while (System.currentTimeMillis() < stop) {
+            out.write(1);
+            out.flush();
+        }
     }
 }
