@@ -22,6 +22,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.junit.jupiter.api.Test;
+import org.msgpack.core.MessagePack;
 import org.slf4j.helpers.NOPLogger;
 
 import java.io.IOException;
@@ -61,10 +62,28 @@ public class ClientConnectorIntegrationTest {
         try {
             var sock = new Socket("127.0.0.1", 10800);
             OutputStream out = sock.getOutputStream();
-            out.write(new byte[]{63, 64, 65, 66, 67});
+
+            // Magic: IGNI
+            out.write(new byte[]{0x49, 0x47, 0x4E, 0x49});
+
+            // Handshake.
+            var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(6); // Size.
+
+            packer.packInt(3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(0); // Extensions.
+
+            out.write(packer.toByteArray());
             out.flush();
 
-            assertThrows(IOException.class, () -> writeAndFlushLoop(sock, 5000));
+            // TODO: Read response.
+            channelFuture.await(1000);
         } finally {
             channelFuture.cancel(true);
             channelFuture.await();
