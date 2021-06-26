@@ -63,7 +63,21 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValue(extensionsLen);
 
-            // TODO: Write response.
+            // Response.
+            packer.writePayload(new byte[]{0x49, 0x47, 0x4E, 0x49}); // Magic. // TODO: Encoder should be responsible for this?
+            packer.packInt(7); // Length.
+
+            packer.packInt(7); // Size.
+
+            // TODO: Protocol version check.
+            packer.packInt(3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packBoolean(true); // Success.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(0); // Extensions.
         } else {
             var opCode = unpacker.unpackInt();
             var requestId = unpacker.unpackInt();
