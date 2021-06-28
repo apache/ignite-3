@@ -183,7 +183,7 @@ public class ExpandableByteBuf {
         try {
             CharBuffer valBuf = CharBuffer.wrap(val);
 
-            while(true) {
+            while (true) {
                 CoderResult cr = valBuf.hasRemaining() ? encoder.encode(valBuf, buf, true) : CoderResult.UNDERFLOW;
 
                 if (cr.isUnderflow())
