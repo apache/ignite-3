@@ -96,7 +96,7 @@ public class RocksDbStorage implements Storage, AutoCloseable {
         catch (RocksDBException e) {
             close();
 
-            throw new StorageException("Failed to start storage", e);
+            throw new StorageException("Failed to start the storage", e);
         }
     }
 

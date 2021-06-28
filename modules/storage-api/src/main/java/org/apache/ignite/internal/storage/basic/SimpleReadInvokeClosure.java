@@ -25,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /** Invoke closure implementation for read operation. */
 public class SimpleReadInvokeClosure implements InvokeClosure {
     /** Copy of the row that was passed to {@link #call(DataRow)} method. */
+    @Nullable
     private DataRow row;
 
     /** {@inheritDoc} */
@@ -45,6 +46,7 @@ public class SimpleReadInvokeClosure implements InvokeClosure {
     }
 
     /** Copy of the row that was passed to {@link #call(DataRow)} method. */
+    @Nullable
     public DataRow row() {
         return row;
     }

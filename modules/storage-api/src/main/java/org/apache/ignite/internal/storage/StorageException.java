@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 /**
- * Exception thrown by storage.
+ * Exception thrown by the storage.
  */
 public class StorageException extends RuntimeException {
     /**

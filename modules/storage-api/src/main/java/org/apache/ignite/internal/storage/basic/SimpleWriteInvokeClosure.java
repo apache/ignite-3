@@ -22,13 +22,13 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.OperationType;
 import org.jetbrains.annotations.Nullable;
 
-/** Invoke closure implementation for write operation. */
+/** Invoke closure implementation for a write operation. */
 public class SimpleWriteInvokeClosure implements InvokeClosure {
     /** Data row to write into storage. */
     private final DataRow newRow;
 
     /**
-     * @param newRow Data row to write into storage.
+     * @param newRow Data row to write into the storage.
      */
     public SimpleWriteInvokeClosure(DataRow newRow) {
         this.newRow = newRow;

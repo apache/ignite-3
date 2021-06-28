@@ -27,7 +27,7 @@ public interface SearchRow {
     /**
      * @return Key bytes.
      */
-    @Nullable byte[] keyBytes();
+    byte @Nullable [] keyBytes();
 
     /**
      * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
