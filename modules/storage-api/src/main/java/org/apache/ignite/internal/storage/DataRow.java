@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.nio.ByteBuffer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface that represents a data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
@@ -26,7 +27,7 @@ public interface DataRow extends SearchRow {
     /**
      * @return Value bytes.
      */
-    byte[] valueBytes();
+    byte @Nullable [] valueBytes();
 
     /**
      * @return Value object as a byte buffer. Allows more effective memory management in certain cases.
