@@ -45,7 +45,11 @@ public class SimpleReadInvokeClosure implements InvokeClosure {
         return OperationType.NOOP;
     }
 
-    /** Copy of the row that was passed to {@link #call(DataRow)} method. */
+    /**
+     * Copy of the row that was passed to {@link #call(DataRow)} method.
+     *
+     * @return Copy of data row.
+     */
     @Nullable
     public DataRow row() {
         return row;
