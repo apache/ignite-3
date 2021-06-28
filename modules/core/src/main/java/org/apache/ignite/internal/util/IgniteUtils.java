@@ -361,13 +361,6 @@ public class IgniteUtils {
     }
 
     /**
-     * @return {@code True} if assertions enabled.
-     */
-    public static boolean assertionsEnabled() {
-        return assertionsEnabled;
-    }
-
-    /**
      * Deletes a file or a directory with all sub-directories and files.
      *
      * @param path File or directory to delete.
@@ -395,6 +388,13 @@ public class IgniteUtils {
         catch (IOException e) {
             return false;
         }
+    }
+
+    /**
+     * @return {@code True} if assertions enabled.
+     */
+    public static boolean assertionsEnabled() {
+        return assertionsEnabled;
     }
 
     /**
