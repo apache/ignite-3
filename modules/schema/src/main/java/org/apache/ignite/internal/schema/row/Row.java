@@ -535,7 +535,7 @@ public class Row implements BinaryRow {
         int nullByte = idx >> 3; // Equivalent expression for: idx / 8
         int posInByte = idx & 7; // Equivalent expression for: idx % 8
 
-        int map = row.readByte(baseOff  + BinaryRow.CHUNK_LEN_FLD_SIZE + nullByte) & 0xFF;
+        int map = row.readByte(baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + nullByte) & 0xFF;
 
         return (map & (1 << posInByte)) != 0;
     }

@@ -115,7 +115,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         schema = new SchemaDescriptor(
             UUID.randomUUID(),
             42,
-            new Column[] {new Column("key", LONG, false, (Supplier<Object> & Serializable)()-> 0L)},
+            new Column[] {new Column("key", LONG, false, (Supplier<Object> & Serializable)() -> 0L)},
             IntStream.range(0, fieldsCount).boxed()
                 .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
                 .toArray(Column[]::new)
