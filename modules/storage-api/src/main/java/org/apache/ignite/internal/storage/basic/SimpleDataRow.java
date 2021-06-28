@@ -29,9 +29,9 @@ public class SimpleDataRow implements DataRow {
     private final byte[] key;
 
     /** Value array. */
-    @Nullable private final byte[] value;
+    private final byte @Nullable [] value;
 
-    public SimpleDataRow(byte[] key, @Nullable byte[] value) {
+    public SimpleDataRow(byte[] key, byte @Nullable [] value) {
         this.key = key;
         this.value = value;
     }
@@ -53,8 +53,7 @@ public class SimpleDataRow implements DataRow {
     }
 
     /** {@inheritDoc} */
-    @Nullable
-    @Override public byte[] valueBytes() {
+    @Override public byte @Nullable [] valueBytes() {
         return value;
     }
 }
