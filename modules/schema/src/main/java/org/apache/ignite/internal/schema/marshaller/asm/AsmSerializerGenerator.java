@@ -337,7 +337,7 @@ public class AsmSerializerGenerator implements SerializerFactory {
                     asm,
                     methodDef.getScope().getVariable("val"))
             )
-            .append(asm.invoke("build", byte[].class))
+            .append(asm.invoke("toBytes", byte[].class))
             .retObject();
 
         final Variable ex = methodDef.getScope().createTempVariable(Throwable.class);
