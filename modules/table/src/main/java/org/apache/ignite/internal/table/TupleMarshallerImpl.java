@@ -234,7 +234,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         /** Length of all non-null fields of varlen types. */
         int nonNullVarLenSize;
 
-        public TupleStatistics(int nonNullVarlen, int nonNullVarLenSize) {
+        TupleStatistics(int nonNullVarlen, int nonNullVarLenSize) {
             this.nonNullVarlen = nonNullVarlen;
             this.nonNullVarLenSize = nonNullVarLenSize;
         }
