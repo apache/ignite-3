@@ -33,6 +33,7 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
@@ -78,7 +79,7 @@ class ITScaleCubeNetworkMessagingTest {
 
         for (ClusterService member : testCluster.members) {
             member.messagingService().addMessageHandler(
-                (message, sender, correlationId) -> {
+                (message, senderAddr, correlationId) -> {
                     messageStorage.put(member.localConfiguration().getName(), (TestMessage)message);
                     messageReceivedLatch.countDown();
                 }
@@ -91,9 +92,8 @@ class ITScaleCubeNetworkMessagingTest {
 
         ClusterService alice = testCluster.members.get(0);
 
-        for (ClusterNode member : alice.topologyService().allMembers()) {
+        for (ClusterNode member : alice.topologyService().allMembers())
             alice.messagingService().weakSend(member, testMessage);
-        }
 
         boolean messagesReceived = messageReceivedLatch.await(3, TimeUnit.SECONDS);
         assertTrue(messagesReceived);
@@ -137,11 +137,11 @@ class ITScaleCubeNetworkMessagingTest {
         class Data {
             private final TestMessage message;
 
-            private final ClusterNode sender;
+            private final NetworkAddress sender;
 
             private final String correlationId;
 
-            private Data(TestMessage message, ClusterNode sender, String correlationId) {
+            private Data(TestMessage message, NetworkAddress sender, String correlationId) {
                 this.message = message;
                 this.sender = sender;
                 this.correlationId = correlationId;
@@ -151,7 +151,8 @@ class ITScaleCubeNetworkMessagingTest {
         var dataFuture = new CompletableFuture<Data>();
 
         member.messagingService().addMessageHandler(
-            (message, sender, correlationId) -> dataFuture.complete(new Data((TestMessage)message, sender, correlationId))
+            (message, senderAddr, correlationId) ->
+                dataFuture.complete(new Data((TestMessage)message, senderAddr, correlationId))
         );
 
         var requestMessage = messageFactory.testMessage().msg("request").build();
@@ -162,7 +163,7 @@ class ITScaleCubeNetworkMessagingTest {
         Data actualData = dataFuture.get(3, TimeUnit.SECONDS);
 
         assertThat(actualData.message.msg(), is(requestMessage.msg()));
-        assertThat(actualData.sender, is(self));
+        assertThat(actualData.sender, is(self.address()));
         assertThat(actualData.correlationId, is(correlationId));
     }
 
@@ -181,7 +182,7 @@ class ITScaleCubeNetworkMessagingTest {
         var requestMessage = messageFactory.testMessage().msg("request").build();
         var responseMessage = messageFactory.testMessage().msg("response").build();
 
-        member.messagingService().addMessageHandler((message, sender, correlationId) -> {
+        member.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {
             if (message.equals(requestMessage))
                 member.messagingService().send(self, responseMessage, correlationId);
         });
@@ -278,8 +279,8 @@ class ITScaleCubeNetworkMessagingTest {
 
             int initialPort = 3344;
 
-            List<String> addresses = IntStream.range(0, numOfNodes)
-                .mapToObj(i -> String.format("localhost:%d", initialPort + i))
+            List<NetworkAddress> addresses = IntStream.range(0, numOfNodes)
+                .mapToObj(i -> new NetworkAddress("localhost", initialPort + i))
                 .collect(Collectors.toUnmodifiableList());
 
             members = IntStream.range(0, numOfNodes)
@@ -296,7 +297,7 @@ class ITScaleCubeNetworkMessagingTest {
          * @param initial Whether this node is the first one.
          * @return Started cluster node.
          */
-        private ClusterService startNode(String name, int port, List<String> addresses, boolean initial) {
+        private ClusterService startNode(String name, int port, List<NetworkAddress> addresses, boolean initial) {
             var context = new ClusterLocalConfiguration(name, port, addresses, serializationRegistry);
 
             ClusterService clusterService = networkFactory.createClusterService(context);

@@ -47,6 +47,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
@@ -111,24 +112,19 @@ public class ITDistributedTableTest {
      */
     @BeforeEach
     public void beforeTest() {
-        for (int i = 0; i < NODES; i++) {
-            cluster.add(startClient(
-                "node_" + i,
-                NODE_PORT_BASE + i,
-                IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES).boxed().map((port) -> "localhost:" + port).collect(Collectors.toList())
-            ));
-        }
+        List<NetworkAddress> allNodes = IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES)
+            .mapToObj(port -> new NetworkAddress("localhost", port))
+            .collect(Collectors.toList());
+
+        for (int i = 0; i < NODES; i++)
+            cluster.add(startClient("node_" + i, NODE_PORT_BASE + i, allNodes));
 
         for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
 
         LOG.info("Cluster started.");
 
-        client = startClient(
-            "client",
-            NODE_PORT_BASE + NODES,
-            IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES).boxed().map((port) -> "localhost:" + port).collect(Collectors.toList())
-        );
+        client = startClient("client", NODE_PORT_BASE + NODES, allNodes);
 
         assertTrue(waitForTopology(client, NODES + 1, 1000));
 
@@ -158,17 +154,13 @@ public class ITDistributedTableTest {
     public void partitionListener() throws Exception {
         String grpId = "part";
 
-        RaftServer partSrv = new RaftServerImpl(
-            cluster.get(0),
-            FACTORY,
-            true
-        );
+        RaftServer partSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 
         List<Peer> conf = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
         partSrv.startRaftGroup(grpId, new PartitionListener(), conf);
 
-        RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true);
+        RaftGroupService partRaftGrp = new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200);
 
         Row testRow = getTestRow();
 
@@ -222,13 +214,8 @@ public class ITDistributedTableTest {
     public void partitionedTable() {
         HashMap<ClusterNode, RaftServer> raftServers = new HashMap<>(NODES);
 
-        for (int i = 0; i < NODES; i++) {
-            raftServers.put(cluster.get(i).topologyService().localMember(), new RaftServerImpl(
-                cluster.get(i),
-                FACTORY,
-                true
-            ));
-        }
+        for (int i = 0; i < NODES; i++)
+            raftServers.put(cluster.get(i).topologyService().localMember(), new RaftServerImpl(cluster.get(i), FACTORY));
 
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
             cluster.stream().map(node -> node.topologyService().localMember()).collect(Collectors.toList()),
@@ -251,7 +238,7 @@ public class ITDistributedTableTest {
 
             rs.startRaftGroup(grpId, new PartitionListener(), conf);
 
-            partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200, true));
+            partMap.put(p, new RaftGroupServiceImpl(grpId, client, FACTORY, 10_000, conf, true, 200));
 
             p++;
         }
@@ -283,7 +270,7 @@ public class ITDistributedTableTest {
      * @param keysCnt Count of keys.
      */
     public void partitionedTableView(Table view, int keysCnt) {
-        LOG.info("Test for Table view [keys=" + keysCnt + ']');
+        LOG.info("Test for Table view [keys={}]", keysCnt);
 
         for (int i = 0; i < keysCnt; i++) {
             view.insert(view.tupleBuilder()
@@ -390,7 +377,7 @@ public class ITDistributedTableTest {
      * @param keysCnt Count of keys.
      */
     public void partitionedTableKVBinaryView(KeyValueBinaryView view, int keysCnt) {
-        LOG.info("Tes for Key-Value binary view [keys=" + keysCnt + ']');
+        LOG.info("Tes for Key-Value binary view [keys={}]", keysCnt);
 
         for (int i = 0; i < keysCnt; i++) {
             view.putIfAbsent(
@@ -508,7 +495,7 @@ public class ITDistributedTableTest {
      * @param servers Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private ClusterService startClient(String name, int port, List<String> servers) {
+    private ClusterService startClient(String name, int port, List<NetworkAddress> servers) {
         var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
         var network = NETWORK_FACTORY.createClusterService(context);
         network.start();

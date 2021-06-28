@@ -34,6 +34,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>examples</module>
         <module>modules/affinity</module>
         <module>modules/api</module>
         <module>modules/baseline</module>
@@ -57,6 +58,8 @@
         <module>modules/rest</module>
         <module>modules/runner</module>
         <module>modules/schema</module>
+        <module>modules/storage-api</module>
+        <module>modules/storage-rocksdb</module>
         <module>modules/table</module>
         <module>modules/vault</module>
     </modules>

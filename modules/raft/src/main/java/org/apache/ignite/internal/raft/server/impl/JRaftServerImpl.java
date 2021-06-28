@@ -22,11 +22,11 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.ElectionPriority;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -48,9 +48,10 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
 
 /**
  * Raft server implementation on top of forked JRaft library.
@@ -78,24 +79,21 @@ public class JRaftServerImpl implements RaftServer {
      * @param service Cluster service.
      * @param dataPath Data path.
      * @param factory The factory.
-     * @param reuse {@code True} to reuse cluster service (do not manage lifecyle)
      */
-    public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessagesFactory factory, boolean reuse) {
-        this(service, dataPath, factory, reuse, new NodeOptions());
+    public JRaftServerImpl(ClusterService service, String dataPath, RaftClientMessagesFactory factory) {
+        this(service, dataPath, factory, new NodeOptions());
     }
 
     /**
      * @param service Cluster service.
      * @param dataPath Data path.
      * @param factory The factory.
-     * @param reuse {@code True} to reuse cluster service (do not manage lifecyle)
      * @param opts Default node options.
      */
     public JRaftServerImpl(
         ClusterService service,
         String dataPath,
         RaftClientMessagesFactory factory,
-        boolean reuse,
         NodeOptions opts
     ) {
         this.service = service;
@@ -103,7 +101,7 @@ public class JRaftServerImpl implements RaftServer {
         this.nodeManager = new NodeManager();
         this.opts = opts;
 
-        assert !reuse || service.topologyService().localMember() != null;
+        assert service.topologyService().localMember() != null;
 
         if (opts.getServerName() == null)
             opts.setServerName(service.localConfiguration().getName());
@@ -120,7 +118,7 @@ public class JRaftServerImpl implements RaftServer {
         if (opts.getClientExecutor() == null)
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
 
-        rpcServer = new IgniteRpcServer(service, reuse, nodeManager, factory, JRaftUtils.createRequestExecutor(opts));
+        rpcServer = new IgniteRpcServer(service, nodeManager, factory, JRaftUtils.createRequestExecutor(opts));
 
         rpcServer.init(null);
     }
@@ -137,9 +135,7 @@ public class JRaftServerImpl implements RaftServer {
     public String getServerDataPath(String groupId) {
         ClusterNode clusterNode = service.topologyService().localMember();
 
-        Endpoint endpoint = new Endpoint(clusterNode.host(), clusterNode.port());
-
-        return this.dataPath + File.separator + groupId + "_" + endpoint.toString().replace(':', '_');
+        return this.dataPath + File.separator + groupId + "_" + clusterNode.address().toString().replace(':', '_');
     }
 
     /** {@inheritDoc} */
@@ -151,9 +147,6 @@ public class JRaftServerImpl implements RaftServer {
         // Thread pools are shared by all raft groups.
         final NodeOptions nodeOptions = opts.copy();
 
-        ClusterNode clusterNode = service.topologyService().localMember();
-        Endpoint endpoint = new Endpoint(clusterNode.host(), clusterNode.port());
-
         final String serverDataPath = getServerDataPath(groupId);
         new File(serverDataPath).mkdirs();
 
@@ -164,21 +157,22 @@ public class JRaftServerImpl implements RaftServer {
         nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
 
         if (initialConf != null) {
-            List<PeerId> mapped = initialConf.stream().map(p -> {
-                return PeerId.fromPeer(p);
-            }).collect(Collectors.toList());
+            List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
 
             nodeOptions.setInitialConf(new Configuration(mapped, null));
         }
 
-        IgniteRpcClient client = new IgniteRpcClient(service, true);
+        IgniteRpcClient client = new IgniteRpcClient(service);
 
         nodeOptions.setRpcClient(client);
 
-        final RaftGroupService server = new RaftGroupService(groupId, new PeerId(endpoint, 0,
-            ElectionPriority.DISABLED), nodeOptions, rpcServer, nodeManager, true);
+        NetworkAddress addr = service.topologyService().localMember().address();
 
-        server.start(false);
+        var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
+
+        var server = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager, true);
+
+        server.start();
 
         groups.put(groupId, server);
 
@@ -206,7 +200,7 @@ public class JRaftServerImpl implements RaftServer {
 
         PeerId peerId = service.getRaftNode().getNodeId().getPeerId();
 
-        return new Peer(peerId.getEndpoint().toString(), peerId.getPriority());
+        return new Peer(addressFromEndpoint(peerId.getEndpoint()), peerId.getPriority());
     }
 
     /**
@@ -245,16 +239,16 @@ public class JRaftServerImpl implements RaftServer {
         /** {@inheritDoc} */
         @Override public void onApply(Iterator iter) {
             try {
-                listener.onWrite(new java.util.Iterator<CommandClosure<WriteCommand>>() {
+                listener.onWrite(new java.util.Iterator<>() {
                     @Override public boolean hasNext() {
                         return iter.hasNext();
                     }
 
                     @Override public CommandClosure<WriteCommand> next() {
-                        @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
+                        @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>)iter.done();
                         ByteBuffer data = iter.getData();
 
-                        return new CommandClosure<WriteCommand>() {
+                        return new CommandClosure<>() {
                             @Override public WriteCommand command() {
                                 return JDKMarshaller.DEFAULT.unmarshall(data.array());
                             }
@@ -282,22 +276,20 @@ public class JRaftServerImpl implements RaftServer {
         /** {@inheritDoc} */
         @Override public void onSnapshotSave(SnapshotWriter writer, Closure done) {
             try {
-                listener.onSnapshotSave(writer.getPath(), new Consumer<Throwable>() {
-                    @Override public void accept(Throwable res) {
-                        if (res == null) {
-                            File file = new File(writer.getPath());
+                listener.onSnapshotSave(writer.getPath(), res -> {
+                    if (res == null) {
+                        File file = new File(writer.getPath());
 
-                            for (File file0 : file.listFiles()) {
-                                if (file0.isFile())
-                                    writer.addFile(file0.getName(), null);
-                            }
+                        for (File file0 : file.listFiles()) {
+                            if (file0.isFile())
+                                writer.addFile(file0.getName(), null);
+                        }
 
-                            done.run(Status.OK());
-                        }
-                        else {
-                            done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s, reason %s",
-                                writer.getPath(), res.getMessage()));
-                        }
+                        done.run(Status.OK());
+                    }
+                    else {
+                        done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s, reason %s",
+                            writer.getPath(), res.getMessage()));
                     }
                 });
             }

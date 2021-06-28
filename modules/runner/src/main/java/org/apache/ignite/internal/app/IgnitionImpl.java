@@ -17,24 +17,25 @@
 
 package org.apache.ignite.internal.app;
 
-import io.netty.util.internal.StringUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import io.netty.util.internal.StringUtil;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.internal.ConfigurationManager;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.configuration.storage.ConfigurationType;
 import org.apache.ignite.internal.affinity.AffinityManager;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -44,9 +45,11 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
@@ -111,7 +114,7 @@ public class IgnitionImpl implements Ignition {
                 locConfigurationMgr.bootstrap(jsonStrBootstrapCfg, ConfigurationType.LOCAL);
             }
             catch (Exception e) {
-                LOG.warn("Unable to parse user specific configuration, default configuration will be used: " + e.getMessage());
+                LOG.warn("Unable to parse user specific configuration, default configuration will be used: {}", e.getMessage());
             }
         else if (jsonStrBootstrapCfg != null)
             LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
@@ -123,12 +126,16 @@ public class IgnitionImpl implements Ignition {
 
         var serializationRegistry = new MessageSerializationRegistryImpl();
 
+        List<NetworkAddress> peers = Arrays.stream(netConfigurationView.netClusterNodes())
+            .map(NetworkAddress::from)
+            .collect(Collectors.toUnmodifiableList());
+
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
             new ClusterLocalConfiguration(
                 nodeName,
                 netConfigurationView.port(),
-                Arrays.asList(netConfigurationView.netClusterNodes()),
+                peers,
                 serializationRegistry
             )
         );
@@ -191,6 +198,8 @@ public class IgnitionImpl implements Ignition {
 
         String banner = String.join("\n", BANNER);
 
-        LOG.info(banner + '\n' + " ".repeat(22) + "Apache Ignite ver. " + ver + '\n');
+        LOG.info(() ->
+            LoggerMessageHelper.format("{}\n" + " ".repeat(22) + "Apache Ignite ver. {}\n", banner, ver),
+            null);
     }
 }

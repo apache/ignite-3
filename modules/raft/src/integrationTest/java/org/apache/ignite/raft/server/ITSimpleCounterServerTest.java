@@ -19,12 +19,13 @@ package org.apache.ignite.raft.server;
 
 import java.util.List;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,28 +71,46 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     @BeforeEach
     void before(TestInfo testInfo) {
-        LOG.info(">>>> Starting test " + testInfo.getTestMethod().orElseThrow().getName());
+        LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
 
-        String id = "localhost:" + PORT;
+        var addr = new NetworkAddress("localhost", PORT);
 
-        ClusterService service = clusterService(id, PORT, List.of(), false);
+        ClusterService service = clusterService(addr.toString(), PORT, List.of(), true);
 
-        server = new RaftServerImpl(service, FACTORY, false);
+        server = new RaftServerImpl(service, FACTORY) {
+            @Override public synchronized void shutdown() throws Exception {
+                super.shutdown();
 
-        ClusterNode serverNode = this.server.clusterService().topologyService().localMember();
+                service.shutdown();
+            }
+        };
 
-        this.server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address())));
-        this.server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address())));
+        ClusterNode serverNode = server.clusterService().topologyService().localMember();
 
-        ClusterService clientNode1 = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(id), false);
+        server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address())));
+        server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address())));
+
+        ClusterService clientNode1 = clusterService("localhost:" + (PORT + 1), PORT + 1, List.of(addr), true);
 
         client1 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_0, clientNode1, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200, false);
+            List.of(new Peer(serverNode.address())), false, 200) {
+            @Override public void shutdown() {
+                super.shutdown();
 
-        ClusterService clientNode2 = clusterService("localhost:" + (PORT + 2), PORT + 2, List.of(id), false);
+                clientNode1.shutdown();
+            }
+        };
+
+        ClusterService clientNode2 = clusterService("localhost:" + (PORT + 2), PORT + 2, List.of(addr), true);
 
         client2 = new RaftGroupServiceImpl(COUNTER_GROUP_ID_1, clientNode2, FACTORY, 1000,
-            List.of(new Peer(serverNode.address())), false, 200, false);
+            List.of(new Peer(serverNode.address())), false, 200) {
+            @Override public void shutdown() {
+                super.shutdown();
+
+                clientNode2.shutdown();
+            }
+        };
 
         assertTrue(waitForTopology(service, 2, 1000));
         assertTrue(waitForTopology(clientNode1, 2, 1000));

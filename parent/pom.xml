@@ -80,7 +80,7 @@
         <reflections.version>0.9.10</reflections.version>
         <javassist.version>3.27.0-GA</javassist.version>
         <esri.geometry.version>2.2.3</esri.geometry.version>
-        <rocksdb.version>5.18.4</rocksdb.version>
+        <rocksdb.version>6.20.3</rocksdb.version>
         <disruptor.version>3.3.7</disruptor.version>
         <metrics.version>4.0.2</metrics.version>
         <jctools.version>3.3.0</jctools.version>
@@ -169,7 +169,7 @@
                 <artifactId>ignite-configuration-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-core</artifactId>
@@ -187,7 +187,7 @@
                 <artifactId>ignite-metastorage-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-metastorage-common</artifactId>
@@ -244,6 +244,18 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-rocksdb</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-table</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -251,6 +263,12 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-vault</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-runner</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -410,6 +428,13 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-network</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
@@ -631,7 +656,7 @@
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>default-test</id>
+                                <id>default</id>
                                 <phase>none</phase>
                             </execution>
                         </executions>
@@ -669,7 +694,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
                         <configuration>
-                            <excludePackageNames>org.apache.ignite.internal.*:org.apache.ignite.configuration.internal:org.apache.ignite.configuration.internal.*:org.apache.ignite.configuration.processor.internal:org.apache.ignite.network.internal:org.apache.ignite.network.internal.*:org.apache.ignite.network.processor.internal:org.apache.ignite.network.processor.internal.*</excludePackageNames>
+                            <excludePackageNames>org.apache.ignite.internal.*</excludePackageNames>
                         </configuration>
                         <executions>
                             <execution>
@@ -681,7 +706,7 @@
                         </executions>
                     </plugin>
                 </plugins>
-            </build>    
+            </build>
         </profile>
     </profiles>
 

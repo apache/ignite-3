@@ -40,6 +40,7 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.client.Peer;
@@ -155,18 +156,16 @@ public class ITMetaStorageServiceTest {
     }
 
     /**
-     * Run @{code} NODES cluster nodes.
+     * Run {@code NODES} cluster nodes.
      */
     @BeforeEach
     public void beforeTest() {
-        for (int i = 0; i < NODES; i++) {
-            cluster.add(
-                    startClusterNode(
-                            "node_" + i,
-                            NODE_PORT_BASE + i,
-                            IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES).boxed().
-                                    map((port) -> "localhost:" + port).collect(Collectors.toList())));
-        }
+        List<NetworkAddress> servers = IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES)
+            .mapToObj(port -> new NetworkAddress("localhost", port))
+            .collect(Collectors.toList());
+
+        for (int i = 0; i < NODES; i++)
+            cluster.add(startClusterNode("node_" + i, NODE_PORT_BASE + i, servers));
 
         for (ClusterService node : cluster)
             assertTrue(waitForTopology(node, NODES, 1000));
@@ -968,7 +967,7 @@ public class ITMetaStorageServiceTest {
      * @param srvs Server nodes of the cluster.
      * @return The client cluster view.
      */
-    private ClusterService startClusterNode(String name, int port, List<String> srvs) {
+    private ClusterService startClusterNode(String name, int port, List<NetworkAddress> srvs) {
         var ctx = new ClusterLocalConfiguration(name, port, srvs, SERIALIZATION_REGISTRY);
 
         var net = NETWORK_FACTORY.createClusterService(ctx);
@@ -1013,11 +1012,7 @@ public class ITMetaStorageServiceTest {
     private MetaStorageService prepareMetaStorage(KeyValueStorage keyValStorageMock) {
         List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
 
-        metaStorageRaftSrv = new RaftServerImpl(
-            cluster.get(0),
-            FACTORY,
-            true
-        );
+        metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 
         metaStorageRaftSrv.
             startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(keyValStorageMock), peers);
@@ -1029,8 +1024,7 @@ public class ITMetaStorageServiceTest {
             10_000,
             peers,
             true,
-            200,
-            true
+            200
         );
 
         return new MetaStorageServiceImpl(metaStorageRaftGrpSvc);
