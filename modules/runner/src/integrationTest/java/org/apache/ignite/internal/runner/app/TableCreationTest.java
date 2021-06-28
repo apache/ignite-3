@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.app.IgnitionCleaner;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
@@ -157,6 +158,8 @@ class TableCreationTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(clusterNodes);
+
+        IgnitionCleaner.removeAllData();
     }
 
     /**

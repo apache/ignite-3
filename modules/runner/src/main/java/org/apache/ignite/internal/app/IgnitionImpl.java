@@ -45,7 +45,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -72,7 +71,7 @@ public class IgnitionImpl implements Ignition {
     /**
      * Path to the persistent storage used by the {@link VaultService} component.
      */
-    private static final Path VAULT_DB_PATH = Paths.get("vault");
+    static final Path VAULT_DB_PATH = Paths.get("vault");
 
     /** */
     private static final String[] BANNER = {
@@ -193,11 +192,6 @@ public class IgnitionImpl implements Ignition {
         ackSuccessStart();
 
         return new IgniteImpl(distributedTblMgr, vaultMgr);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() {
-        IgniteUtils.delete(VAULT_DB_PATH);
     }
 
     /**

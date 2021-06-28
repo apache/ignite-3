@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.vault.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 /**
  * Base class for testing {@link VaultService} implementations.
@@ -237,11 +238,11 @@ public abstract class VaultServiceTest {
 
         List<VaultEntry> range = range(getKey(4), getKey(1));
 
-        assertThat(range, equalTo(empty()));
+        assertThat(range, is(empty()));
 
         range = range(getKey(4), getKey(4));
 
-        assertThat(range, equalTo(empty()));
+        assertThat(range, is(empty()));
     }
 
     /**

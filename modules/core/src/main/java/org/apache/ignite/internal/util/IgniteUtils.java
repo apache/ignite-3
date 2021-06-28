@@ -334,7 +334,14 @@ public class IgniteUtils {
         if (ldr == null)
             ldr = igniteClassLoader;
 
-        ConcurrentMap<String, Class<?>> ldrMap = classCache.computeIfAbsent(ldr, k -> new ConcurrentHashMap<>());
+        ConcurrentMap<String, Class<?>> ldrMap = classCache.get(ldr);
+
+        if (ldrMap == null) {
+            ConcurrentMap<String, Class<?>> old = classCache.putIfAbsent(ldr, ldrMap = new ConcurrentHashMap<>());
+
+            if (old != null)
+                ldrMap = old;
+        }
 
         cls = ldrMap.get(clsName);
 

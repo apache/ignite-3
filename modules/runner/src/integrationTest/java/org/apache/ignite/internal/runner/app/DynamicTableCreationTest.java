@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.app.IgnitionCleaner;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -90,6 +91,8 @@ class DynamicTableCreationTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(clusterNodes);
+
+        IgnitionCleaner.removeAllData();
     }
 
     /**

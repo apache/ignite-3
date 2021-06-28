@@ -23,7 +23,9 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.app.IgnitionCleaner;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -64,24 +66,28 @@ class IgnitionTest {
                 "}");
         }};
 
+    /** */
+    private final List<Ignite> startedNodes = new ArrayList<>();
+
+    /** */
+    @AfterEach
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(startedNodes);
+
+        IgnitionCleaner.removeAllData();
+    }
+
     /**
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
     @Test
-    void testNodesStartWithBootstrapConfiguration() throws Exception {
-        List<Ignite> startedNodes = new ArrayList<>();
+    void testNodesStartWithBootstrapConfiguration() {
+        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
+            startedNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
 
-        try {
-            for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-                startedNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
+        Assertions.assertEquals(3, startedNodes.size());
 
-            Assertions.assertEquals(3, startedNodes.size());
-
-            startedNodes.forEach(Assertions::assertNotNull);
-        }
-        finally {
-            IgniteUtils.closeAll(startedNodes);
-        }
+        startedNodes.forEach(Assertions::assertNotNull);
     }
 
     /**

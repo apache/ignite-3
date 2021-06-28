@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.internal.app;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
- * Entry point for handling grid lifecycle.
+ * Class for removing data of an Ignite node.
  */
-@SuppressWarnings("UnnecessaryInterfaceModifier")
-public interface Ignition {
+public class IgnitionCleaner {
     /**
-     * Starts Ignite node with optional bootstrap configuration in json format.
-     *
-     * @param name Name of the node. Couldn't be {@code null}.
-     * @param jsonStrBootstrapCfg Node configuration in json format. Could be {@code null}.
-     * @return Started Ignite node.
+     * Removes all directories that were created during a node startup.
      */
-    // TODO: IGNITE-14599 Add generic way to bootstrap configuration.
-    public Ignite start(@NotNull String name, @Nullable String jsonStrBootstrapCfg);
+    public static void removeAllData() {
+        IgniteUtils.delete(IgnitionImpl.VAULT_DB_PATH);
+    }
 }
