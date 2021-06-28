@@ -34,6 +34,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>examples</module>
         <module>modules/affinity</module>
         <module>modules/api</module>
         <module>modules/baseline</module>
