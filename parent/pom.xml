@@ -947,7 +947,7 @@
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
                 <configuration>
-                    <addDefaultLicenseMatchers>true</addDefaultLicenseMatchers>
+                    <addDefaultLicenseMatchers>false</addDefaultLicenseMatchers>
                     <licenses>
                         <license implementation="org.apache.rat.analysis.license.FullTextMatchingLicense">
                             <licenseFamilyCategory>IAL20</licenseFamilyCategory>
