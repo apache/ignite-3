@@ -23,6 +23,7 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.apache.ignite.internal.util.Constants;
 
@@ -171,6 +172,9 @@ public class ExpandableByteBuf {
      * @throws CharacterCodingException If encoding failed.
      */
     public int putString(int off, String val, CharsetEncoder encoder) throws CharacterCodingException {
+        if (val.isEmpty())
+            return 0;
+
         ensureCapacity(off);
 
         encoder.reset();
@@ -180,8 +184,11 @@ public class ExpandableByteBuf {
         try {
             CharBuffer valBuf = CharBuffer.wrap(val);
 
-            while (true) {
-                CoderResult cr = encoder.encode(valBuf, buf, true);
+            for(;;) {
+                CoderResult cr = valBuf.hasRemaining() ? encoder.encode(valBuf, buf, true) : CoderResult.UNDERFLOW;
+
+                if (cr.isUnderflow())
+                    cr = encoder.flush(buf);
 
                 len = buf.position();
 
@@ -197,24 +204,6 @@ public class ExpandableByteBuf {
                 if (cr.isError())
                     cr.throwException();
 
-            }
-
-            while (true) {
-                CoderResult cr = encoder.flush(buf);
-
-                len = buf.position();
-
-                if (cr.isOverflow()) {
-                    expand(len + (int)encoder.maxBytesPerChar());
-
-                    continue;
-                }
-
-                if (cr.isUnderflow())
-                    break;
-
-                if (cr.isError())
-                    cr.throwException();
             }
 
             return len - off;
