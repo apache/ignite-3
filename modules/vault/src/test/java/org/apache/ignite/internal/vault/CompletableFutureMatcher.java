@@ -63,7 +63,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      *
      * @param matcher matcher to forward the result of the completable future.
      */
-    public static <T> CompletableFutureMatcher<T> await(Matcher<T> matcher) {
+    public static <T> CompletableFutureMatcher<T> willBe(Matcher<T> matcher) {
         return new CompletableFutureMatcher<>(matcher);
     }
 }

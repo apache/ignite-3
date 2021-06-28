@@ -90,8 +90,6 @@ class DynamicTableCreationTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(clusterNodes);
-
-        IgnitionManager.close();
     }
 
     /**

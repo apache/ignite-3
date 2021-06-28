@@ -18,6 +18,7 @@
 package org.apache.ignite.app;
 
 import java.util.ServiceLoader;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,7 +27,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgnitionManager {
     /** Loaded Ignition instance. */
+    @Nullable
     private static Ignition ignition;
+
+    static {
+        Runtime.getRuntime().addShutdownHook(new Thread(IgnitionManager::close));
+    }
 
     /**
      * Starts Ignite node with optional bootstrap configuration in json format.
@@ -67,7 +73,14 @@ public class IgnitionManager {
     /**
      * Closes the encapsulated {@link Ignition} instance.
      */
-    public static synchronized void close() throws Exception {
-        ignition.close();
+    private static synchronized void close() {
+        if (ignition != null) {
+            try {
+                ignition.close();
+            }
+            catch (Exception e) {
+                throw new IgniteInternalException(e);
+            }
+        }
     }
 }

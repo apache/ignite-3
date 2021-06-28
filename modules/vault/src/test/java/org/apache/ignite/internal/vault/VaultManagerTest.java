@@ -22,9 +22,9 @@ import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.ignite.internal.vault.CompletableFutureMatcher.await;
+import static org.apache.ignite.internal.vault.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -49,15 +49,15 @@ public class VaultManagerTest {
      */
     @Test
     void testName() throws Exception {
-        assertThat(vaultManager.name(), await(nullValue(String.class)));
+        assertThat(vaultManager.name(), willBe(nullValue(String.class)));
 
         vaultManager.putName("foobar").get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-        assertThat(vaultManager.name(), await(is("foobar")));
+        assertThat(vaultManager.name(), willBe(equalTo("foobar")));
 
         vaultManager.putName("foobarbaz").get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-        assertThat(vaultManager.name(), await(is("foobarbaz")));
+        assertThat(vaultManager.name(), willBe(equalTo("foobarbaz")));
     }
 
     /**

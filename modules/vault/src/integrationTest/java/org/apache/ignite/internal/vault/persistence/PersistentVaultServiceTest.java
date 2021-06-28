@@ -34,16 +34,20 @@ import org.junit.jupiter.api.TestInfo;
  */
 class PersistentVaultServiceTest extends VaultServiceTest {
     /** */
+    private Path baseDir;
+
+    /** */
     private Path vaultDir;
 
     /** */
     @BeforeEach
     @Override public void setUp(TestInfo testInfo) throws IOException {
-        String dirName = testInfo.getTestMethod()
+        baseDir = testInfo.getTestMethod()
             .map(Method::getName)
+            .map(Paths::get)
             .orElseThrow();
 
-        vaultDir = Paths.get(dirName, "vault");
+        vaultDir = baseDir.resolve("vault");
 
         Files.createDirectories(vaultDir);
 
@@ -55,7 +59,7 @@ class PersistentVaultServiceTest extends VaultServiceTest {
     @Override public void tearDown() throws Exception {
         super.tearDown();
 
-        IgniteUtils.delete(vaultDir);
+        IgniteUtils.delete(baseDir);
     }
 
     /** {@inheritDoc} */

@@ -37,8 +37,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
-import static org.apache.ignite.internal.vault.CompletableFutureMatcher.await;
+import static org.apache.ignite.internal.vault.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 /**
@@ -49,16 +50,20 @@ class PersistencePropertiesVaultServiceTest {
     private static final int TIMEOUT_SECONDS = 1;
 
     /** */
+    private Path baseDir;
+
+    /** */
     private Path vaultDir;
 
     /** */
     @BeforeEach
     void setUp(TestInfo testInfo) throws IOException {
-        String dirName = testInfo.getTestMethod()
+        baseDir = testInfo.getTestMethod()
             .map(Method::getName)
+            .map(Paths::get)
             .orElseThrow();
 
-        vaultDir = Paths.get(dirName, "vault");
+        vaultDir = baseDir.resolve("vault");
 
         Files.createDirectories(vaultDir);
     }
@@ -66,7 +71,7 @@ class PersistencePropertiesVaultServiceTest {
     /** */
     @AfterEach
     void tearDown() {
-        IgniteUtils.delete(vaultDir);
+        IgniteUtils.delete(baseDir);
     }
 
     /**
@@ -87,7 +92,7 @@ class PersistencePropertiesVaultServiceTest {
         try (var vaultService = new PersistentVaultService(vaultDir)) {
             assertThat(
                 vaultService.get(new ByteArray("key" + 1)),
-                await(is(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
+                willBe(equalTo(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
             );
         }
 

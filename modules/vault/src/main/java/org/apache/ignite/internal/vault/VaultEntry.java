@@ -58,7 +58,7 @@ public final class VaultEntry {
     }
 
     /**
-     * Returns a value. Can be {@code null} for if the entry is empty.
+     * Returns a value. Can be {@code null} if the entry is empty.
      *
      * @return Value.
      */

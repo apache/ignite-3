@@ -9,7 +9,7 @@
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License equalTo distributed on an "AS equalTo" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -36,10 +36,10 @@ import org.junit.jupiter.api.TestInfo;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.vault.CompletableFutureMatcher.await;
-import static org.hamcrest.CoreMatchers.is;
+import static org.apache.ignite.internal.vault.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 
 /**
  * Base class for testing {@link VaultService} implementations.
@@ -75,22 +75,22 @@ public abstract class VaultServiceTest {
     public void testPut() throws Exception {
         ByteArray key = getKey(1);
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
 
         byte[] val = getValue(1);
 
         doAwait(() -> vaultService.put(key, val));
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
 
         // test idempotency
         doAwait(() -> vaultService.put(key, val));
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
     }
 
     /**
-     * Tests that the {@link VaultService#put} method removes the given {@code key} if {@code value} is {@code null}.
+     * Tests that the {@link VaultService#put} method removes the given {@code key} if {@code value} equalTo {@code null}.
      */
     @Test
     public void testPutWithNull() throws Exception {
@@ -100,11 +100,11 @@ public abstract class VaultServiceTest {
 
         doAwait(() -> vaultService.put(key, val));
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
 
         doAwait(() -> vaultService.put(key, null));
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
     }
 
     /**
@@ -117,18 +117,18 @@ public abstract class VaultServiceTest {
         // Remove non-existent value.
         doAwait(() -> vaultService.remove(key));
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
 
         byte[] val = getValue(1);
 
         doAwait(() -> vaultService.put(key, val));
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
 
         // Remove existing value.
         doAwait(() -> vaultService.remove(key));
 
-        assertThat(vaultService.get(key), await(is(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
     }
 
     /**
@@ -142,11 +142,11 @@ public abstract class VaultServiceTest {
 
         doAwait(() -> vaultService.putAll(batch));
 
-        batch.forEach((k, v) -> assertThat(vaultService.get(k), await(is(new VaultEntry(k, v)))));
+        batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
 
         doAwait(() -> vaultService.putAll(batch));
 
-        batch.forEach((k, v) -> assertThat(vaultService.get(k), await(is(new VaultEntry(k, v)))));
+        batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
     }
 
     /**
@@ -160,7 +160,7 @@ public abstract class VaultServiceTest {
 
         doAwait(() -> vaultService.putAll(batch));
 
-        batch.forEach((k, v) -> assertThat(vaultService.get(k), await(is(new VaultEntry(k, v)))));
+        batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
 
         Map<ByteArray, byte[]> secondBatch = new HashMap<>();
 
@@ -171,10 +171,10 @@ public abstract class VaultServiceTest {
 
         doAwait(() -> vaultService.putAll(secondBatch));
 
-        assertThat(vaultService.get(getKey(4)), await(is(new VaultEntry(getKey(4), getValue(3)))));
-        assertThat(vaultService.get(getKey(8)), await(is(new VaultEntry(getKey(8), getValue(3)))));
-        assertThat(vaultService.get(getKey(1)), await(is(new VaultEntry(getKey(1), null))));
-        assertThat(vaultService.get(getKey(3)), await(is(new VaultEntry(getKey(3), null))));
+        assertThat(vaultService.get(getKey(4)), willBe(equalTo(new VaultEntry(getKey(4), getValue(3)))));
+        assertThat(vaultService.get(getKey(8)), willBe(equalTo(new VaultEntry(getKey(8), getValue(3)))));
+        assertThat(vaultService.get(getKey(1)), willBe(equalTo(new VaultEntry(getKey(1), null))));
+        assertThat(vaultService.get(getKey(3)), willBe(equalTo(new VaultEntry(getKey(3), null))));
     }
 
     /**
@@ -190,7 +190,7 @@ public abstract class VaultServiceTest {
 
         List<VaultEntry> range = range(getKey(3), getKey(7));
 
-        assertThat(range, is(getRange(3, 7)));
+        assertThat(range, equalTo(getRange(3, 7)));
     }
 
     /**
@@ -207,11 +207,11 @@ public abstract class VaultServiceTest {
 
         List<VaultEntry> range = range(getKey(0), getKey(9));
 
-        assertThat(range, is(entries));
+        assertThat(range, equalTo(entries));
     }
 
     /**
-     * Tests that the {@link VaultService#range} upper bound is not included.
+     * Tests that the {@link VaultService#range} upper bound equalTo not included.
      */
     @Test
     public void testRangeNotIncludedBoundary() throws Exception {
@@ -223,11 +223,11 @@ public abstract class VaultServiceTest {
 
         List<VaultEntry> range = range(getKey(3), getKey(4));
 
-        assertThat(range, is(List.of(new VaultEntry(getKey(3), getValue(3)))));
+        assertThat(range, equalTo(List.of(new VaultEntry(getKey(3), getValue(3)))));
     }
 
     /**
-     * Tests that an empty result is returned when {@link VaultService#range} contains invalid boundaries.
+     * Tests that an empty result equalTo returned when {@link VaultService#range} contains invalid boundaries.
      */
     @Test
     public void testRangeInvalidBoundaries() throws Exception {
@@ -237,11 +237,11 @@ public abstract class VaultServiceTest {
 
         List<VaultEntry> range = range(getKey(4), getKey(1));
 
-        assertThat(range, is(empty()));
+        assertThat(range, equalTo(empty()));
 
         range = range(getKey(4), getKey(4));
 
-        assertThat(range, is(empty()));
+        assertThat(range, equalTo(empty()));
     }
 
     /**

@@ -24,7 +24,6 @@ import java.util.Map;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -64,12 +63,6 @@ class IgnitionTest {
                 "  }\n" +
                 "}");
         }};
-
-    /** */
-    @AfterEach
-    void tearDown() throws Exception {
-        IgnitionManager.close();
-    }
 
     /**
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
