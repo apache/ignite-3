@@ -23,6 +23,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferInput;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * https://netty.io/wiki/user-guide-for-4.x.html
@@ -117,11 +119,27 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         try {
             switch (opCode) {
                 case ClientOp.TABLE_CREATE: {
-                    // TODO: Options as map.
-                    var name = unpacker.unpackString();
-                    ignite.tables().createTable(name, tbl -> tbl
-                            .changeReplicas(1)
-                            .changePartitions(10));
+                    var size = unpacker.unpackMapHeader();
+                    String name = null;
+
+                    for (int i = 0; i < size; i++) {
+                        var key = unpacker.unpackString();
+
+                        if (key.equals("name"))
+                            name = unpacker.unpackString();
+                        else {
+                            // TODO: Build config from key-value pairs.
+                            unpacker.unpackValue();
+                        }
+                    }
+
+                    Consumer<TableChange> tableChangeConsumer = tbl -> tbl
+                            .changeReplicas(1) // TODO: Values from stream.
+                            .changePartitions(10);
+
+                    var table = ignite.tables().createTable(name, tableChangeConsumer);
+
+                    packer.packUuid(UUID.randomUUID()); // TODO: Get table ID.
 
                     break;
                 }
