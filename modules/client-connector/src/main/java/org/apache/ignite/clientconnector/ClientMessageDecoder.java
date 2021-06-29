@@ -26,6 +26,7 @@ import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -33,7 +34,7 @@ import java.util.List;
  */
 class ClientMessageDecoder extends ByteToMessageDecoder {
     /** Magic bytes before handshake. */
-    private static final String MAGIC = "IGNI";
+    public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
 
     /** */
     private byte[] data = new byte[4]; // TODO: Pooled buffers.
@@ -80,15 +81,13 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
         cnt = -1;
         msgSize = 0;
 
-        var magic = new String(data, CharsetUtil.US_ASCII);
-
-        if (MAGIC.equals(magic))
+        if (Arrays.equals(data, MAGIC_BYTES))
             return true;
 
         magicFailed = true;
 
         throw new IgniteException("Invalid magic header in thin client connection. " +
-                "Expected 'IGNI', but was '" + magic + "'");
+                "Expected 'IGNI', but was '" + new String(data, CharsetUtil.US_ASCII) + "'");
     }
 
     /**

@@ -55,7 +55,6 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         var buf = (byte[]) msg;
 
-        // TODO: Pooled or cached packer/unpacker.
         var unpacker = getUnpacker(buf);
         var packer = getPacker();
 
@@ -75,7 +74,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             unpacker.skipValue(extensionsLen);
 
             // Response.
-            packer.writePayload(new byte[]{0x49, 0x47, 0x4E, 0x49}); // Magic. // TODO: Encoder should be responsible for this?
+            packer.writePayload(ClientMessageDecoder.MAGIC_BYTES);
             packer.packInt(7); // Length.
 
             // TODO: Protocol version check.
@@ -104,10 +103,12 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private ClientMessagePacker getPacker() {
+        // TODO: Pooling
         return new ClientMessagePacker();
     }
 
     private ClientMessageUnpacker getUnpacker(byte[] buf) {
+        // TODO: Pooling
         return new ClientMessageUnpacker(new ArrayBufferInput(buf), MessagePack.DEFAULT_UNPACKER_CONFIG);
     }
 
