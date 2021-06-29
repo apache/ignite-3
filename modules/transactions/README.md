@@ -1,5 +1,4 @@
 # Ignite transactions
-
 This module provides transactions support for cross partition operations. Using the transactions, such operations are
 executed in atomic way (either all changes all applied, or nothing at all) with a serializable isolation.
 
@@ -8,7 +7,6 @@ ignite 2 to the new replication infrastructure. In the next phases, MVCC support
 and some other optimization, like parallel commits from <sup id="a1">[1](#f1)</sup>
 
 # Transaction protocol design
-
 In high level, we utilize 2 phase locking (2PL) for a concurrency control, 2 phase commit (2PC) as an atomic commitment 
 protocol, in conjunction with WAIT_DIE deadlock prevention, described in <sup id="a2">[2](#f2)</sup>. 
 This implementation is very close to Ignite 2 optimistic serializable mode. 
@@ -18,14 +16,12 @@ Additional goals are:
 3) utilize new common replication infrastructure based on RAFT.
 
 # Two phase commit
-
 This protocol is responsible for atomic commitment (all or nothing) tx guraranties.
 Each update is **pre-written** to a replication groups on first phase (and replicated to a majority).
 As soon as all updates are pre-written, it's safe to commit.
-Slightly differs from ignite 2, because where is no PREPARED state.
+This slightly differs from ignite 2, because where is no PREPARED state.
 
 # Two phase locking
-
 2PL states the transaction constist of growing phase, where locks are acquired, and shrinking phase where locks are released.
 A tx acquires shared locks for reads and exclusive locks for writes.
 It's possible to lock for read in exclusive mode (select for update semantics)
@@ -36,7 +32,6 @@ Exclusive lock is obtained on DN-prewrite operation.
 (DN - data node)
 
 # Lock manager
-
 Locking functionality is implemented by LockManager.
 Each **leaseholder** for a partition replication group deploys an instance of LockManager. 
 All reads and writes go through the **leaseholder**. Only raft leader for some term can become a **leaseholder**.
@@ -44,13 +39,11 @@ It's important what no two different leaseholder intervals can overlap for the s
 Current leasholder map can be loaded from metastore (watches can be used for a fast notification about leaseholder change).
 
 # Locking precausion
-
 LockManager has a volatile state, so some precausions must be taken before locking the keys due to possible node restarts.
 Before taking a lock, LockManager should consult a tx state for the key (by reading it's metadata if present and looking into txstate map).
 If a key is enlisted in transaction and wait is possible according to tx priority, lock cannot be taken immediately.
 
 # Tx coordinator
-
 Tx coordinator is assigned in a random fashion from a list of allowed nodes. They can be dedicated nodes or same as data nodes.
 They are responsible for id assignment and failover handling if some nodes from tx topology have failed. 
 Knows full tx topology.
@@ -60,7 +53,6 @@ The drawback of this is a additional hop for each tx op.
 But from the architecure point of view having the dedicated coordinators is definetely more robust.
 
 # Deadlock prevention
-
 Deadlock prevention in WAIT_DIE mode - uses priorities to decide which tx should be restarted.
 Each transaction is assigned a unique globally comparable timestamp (for example UUID), which defines tx priority.
 If T1 has lower priority when T2 (T1 is younger) it can wait for lock, otherwise it's restarted keeping it's timestamp.
@@ -68,23 +60,21 @@ committing transaction can't be restarted.
 Deadlock detection is not an option due to huge computation resources requirement and no real-time guaranties.
 
 # Tx map
-
 Each node maintains a persistent tx map:
+
 txid -> timestamp|txstate(PENDING|ABORTED|COMMITED)
-This map is used for failover.
-Oldest entries in txid map must be cleaned to avoid unlimited grow.
+
+This map is used for a failover. Oldest entries in txid map must be cleaned to avoid unlimited grow.
 
 # Data format
-
-Row is stored in key-value database with additional metadata for referencing current tx.
+A row is stored in key-value database with additional attached metadata for referencing associated tx.
 
 # Write tx example.
+Assume the current row is: key -> oldvalue
 
-Consider the write example:
-Assume the the current row is key -> value
 The steps to update a row:
 
-1. acquire exlusive lock on key on prewrite
+1. acquire exclusive lock on key on prewrite
 
 2. remove key -> oldvalue<br/>
    set key -> newvalue [txid] // Inserted row has a special metadata containing transaction id it's enlisted in.<br/>
@@ -92,14 +82,14 @@ The steps to update a row:
 
 3. on commit:<br/>
    set txid -> commited<br/>
-   release write lock<br/>
+   release exclusive lock<br/>
    async clear garbage
 
 4. on abort:<br/>
    set txid -> aborted<br/>
    remove key -> newvalue<br/>
    set key -> oldvalue<br/>
-   release write lock<br/>
+   release exclusive lock<br/>
    async clear garbage
 
 # SQL and indexes.
