@@ -28,6 +28,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.slf4j.Logger;
@@ -43,12 +44,16 @@ public class ClientConnectorModule {
     private ConfigurationRegistry sysConf;
 
     /** */
+    private final Ignite ignite;
+
+    /** */
     private final Logger log;
 
     /**
      * @param log Logger.
      */
-    public ClientConnectorModule(Logger log) {
+    public ClientConnectorModule(Ignite ignite, Logger log) {
+        this.ignite = ignite;
         this.log = log;
     }
 
@@ -89,7 +94,7 @@ public class ClientConnectorModule {
             .childHandler(new ChannelInitializer<>() {
                 @Override
                 protected void initChannel(Channel ch) {
-                    ch.pipeline().addLast(new ClientMessageDecoder(), new ClientMessageHandler(log));
+                    ch.pipeline().addLast(new ClientMessageDecoder(), new ClientMessageHandler(ignite, log));
                 }
             })
             .childOption(ChannelOption.SO_KEEPALIVE, true)

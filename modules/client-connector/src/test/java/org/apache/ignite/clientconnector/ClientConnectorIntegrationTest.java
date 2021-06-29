@@ -18,6 +18,7 @@
 package org.apache.ignite.clientconnector;
 
 import io.netty.channel.ChannelFuture;
+import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
  * Client connector integration tests with real sockets.
@@ -118,7 +120,7 @@ public class ClientConnectorIntegrationTest {
                 Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
-        var module = new ClientConnectorModule(NOPLogger.NOP_LOGGER);
+        var module = new ClientConnectorModule(mock(Ignite.class), NOPLogger.NOP_LOGGER);
 
         module.prepareStart(registry);
 

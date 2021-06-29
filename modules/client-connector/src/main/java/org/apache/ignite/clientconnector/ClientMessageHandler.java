@@ -22,6 +22,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.ignite.app.Ignite;
 import org.msgpack.core.MessagePack;
 import org.slf4j.Logger;
 
@@ -42,9 +43,15 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private final Logger log;
 
+    private final Ignite ignite;
+
     private ClientContext clientContext;
 
-    public ClientMessageHandler(Logger log) {
+    public ClientMessageHandler(Ignite ignite, Logger log) {
+        assert ignite != null;
+        assert log != null;
+
+        this.ignite = ignite;
         this.log = log;
     }
 
