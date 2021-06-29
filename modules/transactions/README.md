@@ -4,7 +4,7 @@ This module provides transactions support for cross partition operations. Using 
 executed in atomic way (either all changes all applied, or nothing at all) with a serializable isolation.
 
 Transactions support is supposed to be icremental. In the first approach, we are trying to put existing ideas from
-ignite 2 to the new replication infrastructure. In the next phases, MVCC support shoudl be added to avoid blocking reads 
+ignite 2 to the new replication infrastructure. In the next phases, MVCC support should be added to avoid blocking reads
 and some other optimization, like parallel commits from <sup id="a1">[1](#f1)</sup>
 
 # Transaction protocol design
@@ -20,9 +20,9 @@ Additional goals are:
 # Two phase commit
 
 This protocol is responsible for atomic commitment (all or nothing) tx guraranties.
-Each update is **pre-written** to a replication groups on first phase (and replicated to majority).
+Each update is **pre-written** to a replication groups on first phase (and replicated to a majority).
 As soon as all updates are pre-written, it's safe to commit.
-Slightly differs from ignite 2, because has not PREPARED state.
+Slightly differs from ignite 2, because where is no PREPARED state.
 
 # Two phase locking
 
@@ -32,6 +32,8 @@ It's possible to lock for read in exclusive mode (select for update semantics)
 Locks for different keys can be acquired in parallel.
 Shared lock is obtained on DN-read operation.
 Exclusive lock is obtained on DN-prewrite operation.
+
+(DN - data node)
 
 # Lock manager
 
@@ -45,7 +47,7 @@ Current leasholder map can be loaded from metastore (watches can be used for a f
 
 LockManager has a volatile state, so some precausions must be taken before locking the keys due to possible node restarts.
 Before taking a lock, LockManager should consult a tx state for the key (by reading it's metadata if present and looking into txstate map).
-If a key is enlisted in transaction and wait is possible, lock cannot be taken immediately.
+If a key is enlisted in transaction and wait is possible according to tx priority, lock cannot be taken immediately.
 
 # Tx coordinator
 
@@ -85,8 +87,8 @@ The steps to update a row:
 1. acquire exlusive lock on key on prewrite
 
 2. remove key -> oldvalue
-   put key -> newvalue [txid] Inserted row has a special metadata containing transaction id it's enlisted in.
-   put txid + key -> oldvalue (for aborting)
+   set key -> newvalue [txid] // Inserted row has a special metadata containing transaction id it's enlisted in.
+   set txid + key -> oldvalue (for aborting purposes)
 
 3. on commit:
    set txid -> commited
@@ -96,7 +98,7 @@ The steps to update a row:
 4. on abort:
    set txid -> aborted
    remove key -> newvalue
-   put key -> oldvalue
+   set key -> oldvalue
    release write lock
    async clear garbage
 
