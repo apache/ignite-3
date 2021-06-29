@@ -91,7 +91,7 @@ public class ClientConnectorIntegrationTest {
             var major = unpacker.unpackInt();
             var minor = unpacker.unpackInt();
             var patch = unpacker.unpackInt();
-            var success = unpacker.unpackBoolean();
+            var errorCode = unpacker.unpackInt();
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
@@ -104,7 +104,7 @@ public class ClientConnectorIntegrationTest {
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertTrue(success);
+            assertEquals(0, errorCode);
         } finally {
             channelFuture.cancel(true);
             channelFuture.await();

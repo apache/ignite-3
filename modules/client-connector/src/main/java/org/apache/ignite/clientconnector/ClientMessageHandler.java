@@ -32,6 +32,14 @@ import java.util.BitSet;
  * https://netty.io/wiki/user-guide-for-4.x.html
  */
 public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
+    private static final int MESSAGE_TYPE_RESPONSE = 0;
+
+    private static final int MESSAGE_TYPE_NOTIFICATION = 1;
+
+    private static final int ERROR_CODE_SUCCESS = 0;
+
+    private static final int ERROR_CODE_GENERIC = 1;
+
     private final Logger log;
 
     private ClientContext clientContext;
@@ -72,7 +80,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(0); // Minor.
             packer.packInt(0); // Patch.
 
-            packer.packBoolean(true); // Success.
+            packer.packInt(ERROR_CODE_SUCCESS); // Success.
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
@@ -80,14 +88,14 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             var opCode = unpacker.unpackInt();
             var requestId = unpacker.unpackInt();
 
-            packer.packInt(0); // Response.
+            packer.packInt(MESSAGE_TYPE_RESPONSE);
             packer.packInt(requestId);
 
             // TODO: Handle operations asynchronously.
             // TODO: Catch errors.
             switch (opCode) {
                 case 3: // TABLES_GET
-                    packer.packInt(0); // Success.
+                    packer.packInt(ERROR_CODE_SUCCESS); // Success.
                     packer.packInt(0); // 0 tables.
                     // TODO: Wrapper around MsgPack with our custom types (UUID, dates and times).
                     break;
