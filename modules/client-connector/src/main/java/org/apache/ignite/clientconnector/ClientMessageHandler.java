@@ -24,15 +24,14 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.table.Table;
-import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
-import org.msgpack.core.MessageUnpacker;
 import org.msgpack.core.buffer.ArrayBufferInput;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * https://netty.io/wiki/user-guide-for-4.x.html
@@ -95,7 +94,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ClientMessageType.RESPONSE);
             packer.packInt(requestId);
 
-            processOperation(packer, opCode);
+            processOperation(unpacker, packer, opCode);
         }
 
         // TODO: Pooled buffers.
@@ -112,24 +111,39 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         return new ClientMessageUnpacker(new ArrayBufferInput(buf), MessagePack.DEFAULT_UNPACKER_CONFIG);
     }
 
-    private void processOperation(org.msgpack.core.MessageBufferPacker packer, int opCode) throws IOException {
+    private void processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode) throws IOException {
         // TODO: Handle operations asynchronously.
         try {
             switch (opCode) {
                 case ClientOp.TABLE_CREATE: {
+                    // TODO: Options as map.
+                    var name = unpacker.unpackString();
+                    ignite.tables().createTable(name, tbl -> tbl
+                            .changeReplicas(1)
+                            .changePartitions(10));
+
                     break;
                 }
 
                 case ClientOp.TABLE_DROP: {
+                    var tableId = unpacker.unpackUuid();
+
+                    // TODO: Drop by ID - request API changes.
+                    ignite.tables().dropTable(tableId.toString());
+
                     break;
                 }
 
                 case ClientOp.TABLES_GET: {
                     List<Table> tables = ignite.tables().tables();
 
-                    packer.packInt(ClientErrorCode.SUCCESS);
-                    packer.packInt(tables.size()); // 0 tables.
-                    // TODO: Wrapper around MsgPack with our custom types (UUID, dates and times).
+                    packer.packInt(tables.size());
+
+                    for (var table : tables) {
+                        packer.packUuid(UUID.randomUUID()); // TODO: Get ID from table.
+                        packer.packString(table.tableName());
+                    }
+
                     break;
                 }
 
