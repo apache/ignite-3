@@ -22,6 +22,8 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.msgpack.core.MessagePack;
 import org.slf4j.helpers.NOPLogger;
@@ -34,7 +36,6 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -44,26 +45,32 @@ public class ClientConnectorIntegrationTest {
     /** Magic bytes. */
     private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
 
+    private ChannelFuture serverFuture;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        serverFuture = startServer();
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        serverFuture.cancel(true);
+        serverFuture.await();
+    }
+
     @Test
     void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
-        ChannelFuture channelFuture = startServer();
-
         try (var sock = new Socket("127.0.0.1", 10800)) {
             OutputStream out = sock.getOutputStream();
             out.write(new byte[]{63, 64, 65, 66, 67});
             out.flush();
 
             assertThrows(IOException.class, () -> writeAndFlushLoop(sock, 5000));
-        } finally {
-            channelFuture.cancel(true);
-            channelFuture.await();
         }
     }
 
     @Test
     void testHandshakeValidReturnsSuccess() throws Exception {
-        ChannelFuture channelFuture = startServer();
-
         try (var sock = new Socket("127.0.0.1", 10800)) {
             OutputStream out = sock.getOutputStream();
 
@@ -107,9 +114,6 @@ public class ClientConnectorIntegrationTest {
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(0, errorCode);
-        } finally {
-            channelFuture.cancel(true);
-            channelFuture.await();
         }
     }
 
