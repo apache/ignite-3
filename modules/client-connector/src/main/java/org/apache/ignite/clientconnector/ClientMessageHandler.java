@@ -24,7 +24,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.table.Table;
+import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
+import org.msgpack.core.MessageUnpacker;
+import org.msgpack.core.buffer.ArrayBufferInput;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -54,8 +57,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         var buf = (byte[]) msg;
 
         // TODO: Pooled or cached packer/unpacker.
-        var unpacker = MessagePack.newDefaultUnpacker(buf);
-        var packer = MessagePack.newDefaultBufferPacker();
+        var unpacker = getUnpacker(buf);
+        var packer = getPacker();
 
         if (clientContext == null) {
             var major = unpacker.unpackInt();
@@ -99,6 +102,14 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         ByteBuf response = Unpooled.copiedBuffer(packer.toByteArray());
 
         ctx.write(response);
+    }
+
+    private ClientMessagePacker getPacker() {
+        return new ClientMessagePacker();
+    }
+
+    private ClientMessageUnpacker getUnpacker(byte[] buf) {
+        return new ClientMessageUnpacker(new ArrayBufferInput(buf), MessagePack.DEFAULT_UNPACKER_CONFIG);
     }
 
     private void processOperation(org.msgpack.core.MessageBufferPacker packer, int opCode) throws IOException {

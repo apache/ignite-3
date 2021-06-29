@@ -16,6 +16,7 @@
 
 package org.apache.ignite.clientconnector;
 
+import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessagePacker;
 import org.msgpack.core.buffer.ChannelBufferOutput;
@@ -30,19 +31,9 @@ import java.util.UUID;
 /**
  * Ignite-specific MsgPack extension.
  */
-class ClientMessagePacker extends MessagePacker {
-
-    /**
-     * Create an MessagePacker that outputs the packed data to the given {@link MessageBufferOutput}.
-     * This method is available for subclasses to override.
-     * Use MessagePack.PackerConfig.newPacker method to instantiate this implementation.
-     *
-     * @param out    MessageBufferOutput. Use {@link OutputStreamBufferOutput}, {@link ChannelBufferOutput} or
-     *               your own implementation of {@link MessageBufferOutput} interface.
-     * @param config Config.
-     */
-    public ClientMessagePacker(MessageBufferOutput out, MessagePack.PackerConfig config) {
-        super(out, config);
+class ClientMessagePacker extends MessageBufferPacker {
+    public ClientMessagePacker() {
+        super(MessagePack.DEFAULT_PACKER_CONFIG);
     }
 
     ClientMessagePacker packUuid(UUID v) throws IOException {
