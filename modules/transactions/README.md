@@ -96,7 +96,7 @@ The steps to update a row:
 
 # SQL and indexes.
 
-We assume only row level locking in the first approach, which gives as repeatable_read isolation.
+We assume only row level locking in the first approach, which gives us a repeatable_read isolation.
 
 When the SQL query is executed, it acquires locks while the the data is collected on data nodes.
 
