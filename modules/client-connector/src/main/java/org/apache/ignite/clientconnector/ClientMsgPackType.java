@@ -19,16 +19,16 @@ package org.apache.ignite.clientconnector;
 /**
  * Ignite-specific extension type codes.
  */
-public class ClientMsgPackTypes {
-    public static final byte TYPE_NUMBER = 1;
+public class ClientMsgPackType {
+    public static final byte NUMBER = 1;
 
-    public static final byte TYPE_DECIMAL = 2;
+    public static final byte DECIMAL = 2;
 
-    public static final byte TYPE_UUID = 3;
+    public static final byte UUID = 3;
 
-    public static final byte TYPE_DATE = 4;
+    public static final byte DATE = 4;
 
-    public static final byte TYPE_TIME = 5;
+    public static final byte TIME = 5;
 
-    public static final byte TYPE_DATETIME = 6;
+    public static final byte DATETIME = 6;
 }

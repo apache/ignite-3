@@ -27,8 +27,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
 
-import static org.apache.ignite.clientconnector.ClientMsgPackTypes.TYPE_UUID;
-
 /**
  * Ignite-specific MsgPack extension.
  */
@@ -48,7 +46,7 @@ class ClientMessagePacker extends MessagePacker {
     }
 
     ClientMessagePacker packUuid(UUID v) throws IOException {
-        packExtensionTypeHeader(TYPE_UUID, 16);
+        packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
         var bytes = new byte[16];
         ByteBuffer bb = ByteBuffer.wrap(bytes);
