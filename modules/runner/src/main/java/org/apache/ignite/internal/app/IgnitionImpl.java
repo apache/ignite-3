@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import io.netty.util.internal.StringUtil;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -131,7 +130,8 @@ public class IgnitionImpl implements Ignition {
      * @return Started Ignite node.
      */
     private Ignite doStart(@NotNull String nodeName, @Nullable String cfgContent) {
-        assert !StringUtil.isNullOrEmpty(nodeName) : "Node local name is empty";
+        if (nodeName.isEmpty())
+            throw new IllegalArgumentException("Node name must not be null or empty.");
 
         ackBanner();
 

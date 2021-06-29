@@ -91,6 +91,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
      * @throws ExecutionException If configuration update failed for some reason.
      */
     public void bootstrap(String hoconStr, ConfigurationType type) throws InterruptedException, ExecutionException {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-14924 Implement HoconConfigurationSource
         String jsonStr = ConfigFactory.parseString(hoconStr).root().render(ConfigRenderOptions.concise());
 
         JsonObject jsonCfg = JsonParser.parseString(jsonStr).getAsJsonObject();
