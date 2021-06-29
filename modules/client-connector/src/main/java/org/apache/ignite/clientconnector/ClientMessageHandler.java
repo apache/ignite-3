@@ -23,24 +23,18 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.table.Table;
 import org.msgpack.core.MessagePack;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.BitSet;
+import java.util.List;
 
 /**
  * https://netty.io/wiki/user-guide-for-4.x.html
  */
 public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
-    private static final int MESSAGE_TYPE_RESPONSE = 0;
-
-    private static final int MESSAGE_TYPE_NOTIFICATION = 1;
-
-    private static final int ERROR_CODE_SUCCESS = 0;
-
-    private static final int ERROR_CODE_GENERIC = 1;
-
     private final Logger log;
 
     private final Ignite ignite;
@@ -87,7 +81,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(0); // Minor.
             packer.packInt(0); // Patch.
 
-            packer.packInt(ERROR_CODE_SUCCESS); // Success.
+            packer.packInt(ClientErrorCode.SUCCESS);
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
@@ -95,28 +89,48 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             var opCode = unpacker.unpackInt();
             var requestId = unpacker.unpackInt();
 
-            packer.packInt(MESSAGE_TYPE_RESPONSE);
+            packer.packInt(ClientMessageType.RESPONSE);
             packer.packInt(requestId);
 
-            // TODO: Handle operations asynchronously.
-            // TODO: Catch errors.
-            switch (opCode) {
-                case 3: // TABLES_GET
-                    packer.packInt(ERROR_CODE_SUCCESS); // Success.
-                    packer.packInt(0); // 0 tables.
-                    // TODO: Wrapper around MsgPack with our custom types (UUID, dates and times).
-                    break;
-
-                default:
-                    packer.packInt(1); // Error.
-                    packer.packString("Unexpected operation code: " + opCode);
-            }
+            processOperation(packer, opCode);
         }
 
         // TODO: Pooled buffers.
         ByteBuf response = Unpooled.copiedBuffer(packer.toByteArray());
 
         ctx.write(response);
+    }
+
+    private void processOperation(org.msgpack.core.MessageBufferPacker packer, int opCode) throws IOException {
+        // TODO: Handle operations asynchronously.
+        try {
+            switch (opCode) {
+                case ClientOp.TABLE_CREATE: {
+                    break;
+                }
+
+                case ClientOp.TABLE_DROP: {
+                    break;
+                }
+
+                case ClientOp.TABLES_GET: {
+                    List<Table> tables = ignite.tables().tables();
+
+                    packer.packInt(ClientErrorCode.SUCCESS);
+                    packer.packInt(tables.size()); // 0 tables.
+                    // TODO: Wrapper around MsgPack with our custom types (UUID, dates and times).
+                    break;
+                }
+
+                default:
+                    packer.packInt(ClientErrorCode.GENERIC);
+                    packer.packString("Unexpected operation code: " + opCode);
+            }
+        } catch (Throwable t) {
+            // TODO: Seek back to the start of the message.
+            packer.packInt(ClientErrorCode.GENERIC);
+            packer.packString("Internal server error: " + t.getMessage());
+        }
     }
 
     @Override
