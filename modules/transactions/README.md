@@ -104,8 +104,8 @@ Locks are acquired lazily as result set is consumed.
 
 The locking rules are same as for get/put operations.
 
-The values are removed from indexes on step 2, they are written as tombstones to avoid inconsistency and can be cleaned
-up on tx finish.
+Then values are removed from indexes on step 2, they are written as tombstones to avoid read inconsistency and should be 
+cleaned up after tx finish.
 
 # Failover handling
 Failover protocol is similar to Ignite 2 with a main difference: until tx is sure it can commit or rollback, it holds
