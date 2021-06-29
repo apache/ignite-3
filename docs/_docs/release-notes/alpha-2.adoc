@@ -1,0 +1,2 @@
+= What's New in Apache Ignite Alpha 2
+

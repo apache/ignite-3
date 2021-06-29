@@ -33,7 +33,4 @@ Below is a list of Ignite CLI tool commands with short descriptions:
 | `node stop` | Stops a locally running Ignite node.
 | `node classpath` | Shows the current classpath used by the Ignite nodes.
 | `node list` | Shows the list of currently running local Ignite nodes.
-| `config`| Inspects and updates Ignite cluster configuration.
-| `config get` | Gets current Ignite cluster configuration values.
-| `config set` | Updates Ignite cluster configuration values.
 |===
