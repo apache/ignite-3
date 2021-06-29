@@ -39,15 +39,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Client connector integration tests with real sockets.
  */
 public class ClientConnectorIntegrationTest {
-
+    /** Magic bytes. */
     private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
 
     @Test
     void testHandshakeInvalidMagicHeaderDropsConnection() throws Exception {
         ChannelFuture channelFuture = startServer();
 
-        try {
-            var sock = new Socket("127.0.0.1", 10800);
+        try (var sock = new Socket("127.0.0.1", 10800)) {
             OutputStream out = sock.getOutputStream();
             out.write(new byte[]{63, 64, 65, 66, 67});
             out.flush();
@@ -63,8 +62,7 @@ public class ClientConnectorIntegrationTest {
     void testHandshakeValidReturnsSuccess() throws Exception {
         ChannelFuture channelFuture = startServer();
 
-        try {
-            var sock = new Socket("127.0.0.1", 10800);
+        try (var sock = new Socket("127.0.0.1", 10800)) {
             OutputStream out = sock.getOutputStream();
 
             // Magic: IGNI
