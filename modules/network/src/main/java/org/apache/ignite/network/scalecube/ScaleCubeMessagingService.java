@@ -17,15 +17,16 @@
 
 package org.apache.ignite.network.scalecube;
 
-import io.scalecube.cluster.Cluster;
-import io.scalecube.cluster.transport.api.Message;
-import io.scalecube.net.Address;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import io.scalecube.cluster.Cluster;
+import io.scalecube.cluster.transport.api.Message;
+import io.scalecube.net.Address;
 import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 
@@ -37,20 +38,6 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      * Inner representation of a ScaleCube cluster.
      */
     private Cluster cluster;
-
-    /**
-     * Topology service.
-     */
-    private ScaleCubeTopologyService topologyService;
-
-    /**
-     * Constructor.
-     *
-     * @param topologyService Topology service.
-     */
-    ScaleCubeMessagingService(ScaleCubeTopologyService topologyService) {
-        this.topologyService = topologyService;
-    }
 
     /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
@@ -68,40 +55,43 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
      */
     void fireEvent(Message message) {
         NetworkMessage msg = message.data();
-        ClusterNode sender = topologyService.getByAddress(message.header(Message.HEADER_SENDER));
 
-        if (sender == null) // Ignore the message from the unknown node.
-            return;
+        var address = NetworkAddress.from(message.header(Message.HEADER_SENDER));
 
         String correlationId = message.correlationId();
 
         for (NetworkMessageHandler handler : getMessageHandlers())
-            handler.onReceived(msg, sender, correlationId);
+            handler.onReceived(msg, address, correlationId);
     }
 
     /** {@inheritDoc} */
     @Override public void weakSend(ClusterNode recipient, NetworkMessage msg) {
         cluster
-            .send(clusterNodeAddress(recipient), Message.fromData(msg))
+            .send(fromNetworkAddress(recipient.address()), Message.fromData(msg))
             .subscribe();
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
         return cluster
-            .send(clusterNodeAddress(recipient), Message.fromData(msg))
+            .send(fromNetworkAddress(recipient.address()), Message.fromData(msg))
             .toFuture();
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg, String correlationId) {
+        return send(recipient.address(), msg, correlationId);
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> send(NetworkAddress addr, NetworkMessage msg, String correlationId) {
         var message = Message
             .withData(msg)
             .correlationId(correlationId)
             .build();
 
         return cluster
-            .send(clusterNodeAddress(recipient), message)
+            .send(fromNetworkAddress(addr), message)
             .toFuture();
     }
 
@@ -111,28 +101,23 @@ final class ScaleCubeMessagingService extends AbstractMessagingService {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<NetworkMessage> invoke(String addr, NetworkMessage msg, long timeout) {
+    @Override public CompletableFuture<NetworkMessage> invoke(NetworkAddress addr, NetworkMessage msg, long timeout) {
         var message = Message
             .withData(msg)
             .correlationId(UUID.randomUUID().toString())
             .build();
 
-        Address address = Address.from(addr);
-
         return cluster
-            .requestResponse(address, message)
+            .requestResponse(fromNetworkAddress(addr), message)
             .timeout(Duration.ofMillis(timeout))
             .toFuture()
             .thenApply(m -> m == null ? null : m.data()); // The result can be null on node stopping.
     }
 
     /**
-     * Extracts the given node's {@link Address}.
-     *
-     * @param node Node.
-     * @return Node's address.
+     * Converts a {@link NetworkAddress} into ScaleCube's {@link Address}.
      */
-    private static Address clusterNodeAddress(ClusterNode node) {
-        return Address.create(node.host(), node.port());
+    private static Address fromNetworkAddress(NetworkAddress address) {
+        return Address.create(address.host(), address.port());
     }
 }

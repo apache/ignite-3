@@ -120,6 +120,8 @@ public class ConnectionManager {
             //TODO: timeout value should be extracted into common configuration
             // https://issues.apache.org/jira/browse/IGNITE-14538
             server.start().get(3, TimeUnit.SECONDS);
+
+            LOG.info("Connection created [address=" + server.address() + ']');
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
@@ -243,7 +245,7 @@ public class ConnectionManager {
              clientWorkerGroup.shutdownGracefully(0L, 15, TimeUnit.SECONDS).sync();
          }
          catch (Exception e) {
-             LOG.warn("Failed to stop the ConnectionManager: " + e.getMessage());
+             LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
          }
     }
 

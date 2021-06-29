@@ -36,6 +36,7 @@ import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 import reactor.core.Disposable;
@@ -97,7 +98,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
             .doFinally(s -> onStop.onComplete())
             .subscribe(
                 null,
-                ex -> LOG.warn("Failed to stop {0}: {1}", address, ex.toString())
+                ex -> LOG.warn("Failed to stop {}: {}", address, ex.toString())
             );
     }
 
@@ -127,12 +128,12 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      */
     private Mono<Void> doStop() {
         return Mono.defer(() -> {
-            LOG.info("Stopping {0}", address);
+            LOG.info("Stopping {}", address);
 
             // Complete incoming messages observable
             sink.complete();
 
-            LOG.info("Stopped {0}", address);
+            LOG.info("Stopped {}", address);
             return Mono.empty();
         });
     }
@@ -164,7 +165,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         var addr = InetSocketAddress.createUnresolved(address.host(), address.port());
 
         return Mono.fromFuture(() -> {
-            ClusterNode node = topologyService.getByAddress(address.toString());
+            ClusterNode node = topologyService.getByAddress(NetworkAddress.from(addr));
 
             String consistentId = node != null ? node.name() : null;
 
