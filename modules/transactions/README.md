@@ -86,20 +86,20 @@ The steps to update a row:
 
 1. acquire exlusive lock on key on prewrite
 
-2. remove key -> oldvalue
-   set key -> newvalue [txid] // Inserted row has a special metadata containing transaction id it's enlisted in.
+2. remove key -> oldvalue<br/>
+   set key -> newvalue [txid] // Inserted row has a special metadata containing transaction id it's enlisted in.<br/>
    set txid + key -> oldvalue (for aborting purposes)
 
-3. on commit:
-   set txid -> commited
-   release write lock
+3. on commit:<br/>
+   set txid -> commited<br/>
+   release write lock<br/>
    async clear garbage
 
-4. on abort:
-   set txid -> aborted
-   remove key -> newvalue
-   set key -> oldvalue
-   release write lock
+4. on abort:<br/>
+   set txid -> aborted<br/>
+   remove key -> newvalue<br/>
+   set key -> oldvalue<br/>
+   release write lock<br/>
    async clear garbage
 
 # SQL and indexes.
