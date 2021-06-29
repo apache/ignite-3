@@ -52,7 +52,6 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterLocalConfiguration;
