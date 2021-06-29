@@ -1,6 +1,6 @@
 # Ignite transactions
 This module provides transactions support for cross partition operations. Using the transactions, such operations are
-executed in atomic way (either all changes all applied, or nothing at all) with a serializable isolation.
+executed in atomic way (either all changes all applied, or nothing at all) with a strong isolation.
 
 Transactions support is supposed to be icremental. In the first approach, we are trying to put existing ideas from
 ignite 2 to the new replication infrastructure. In the next phases, MVCC support should be added to avoid blocking reads
@@ -11,7 +11,7 @@ In high level, we utilize 2 phase locking (2PL) for a concurrency control, 2 pha
 protocol, in conjunction with WAIT_DIE deadlock prevention, described in <sup id="a2">[2](#f2)</sup>. 
 This implementation is very close to Ignite 2 optimistic serializable mode. 
 Additional goals are: 
-1) retain only Serializable isolation 
+1) retain only strong isolation 
 2) support for SQL 
 3) utilize new common replication infrastructure based on RAFT.
 
@@ -37,6 +37,8 @@ Each **leaseholder** for a partition replication group deploys an instance of Lo
 All reads and writes go through the **leaseholder**. Only raft leader for some term can become a **leaseholder**.
 It's important what no two different leaseholder intervals can overlap for the same group.
 Current leasholder map can be loaded from metastore (watches can be used for a fast notification about leaseholder change).
+
+The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first approach.
 
 # Locking precausion
 LockManager has a volatile state, so some precausions must be taken before locking the keys due to possible node restarts.
@@ -94,7 +96,16 @@ The steps to update a row:
 
 # SQL and indexes.
 
-When an entry is locked, the same locks are acquired for each configured index.
+We assume only row level locking in the first approach, which gives as repeatable_read isolation.
+
+When the SQL query is executed, it acquires locks while the the data is collected on data nodes.
+
+Locks are acquired lazily as result set is consumed.
+
+The locking rules are same as for get/put operations.
+
+The values are removed from indexes on step 2, they are written as tombstones to avoid inconsistency and can be cleaned
+up on tx finish.
 
 # Failover handling
 Failover protocol is similar to Ignite 2 with a main difference: until tx is sure it can commit or rollback, it holds
