@@ -596,7 +596,6 @@
         <!--
             Profile to exclude running surefire (unit) tests but do not prevent running integration ones
         -->
-        <!--suppress MavenModelInspection -->
         <profile>
             <id>skip-unit-tests</id>
             <activation>
@@ -705,10 +704,17 @@
                             </execution>
                         </executions>
                     </plugin>
+                </plugins>
+            </build>
+        </profile>
 
-                    <!--
-                        Javadoc style checks for public api.
-                    -->
+        <!--
+            Profile to enable Javadoc style checks for public API.
+        -->
+        <profile>
+            <id>javadoc-public-api</id>
+            <build>
+                <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-checkstyle-plugin</artifactId>

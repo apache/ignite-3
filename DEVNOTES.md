@@ -30,15 +30,17 @@ Code style is checked with [Apache Maven Checkstyle Plugin](https://maven.apache
 * [Checkstyle suppressions](check-rules/checkstyle-suppressions.xml)
 * [Checkstyle rules for javadocs](https://checkstyle.sourceforge.io/config_javadoc.html)
 
-Run code style checks:
+Run code style checks only:
 ```
 mvn clean checkstyle:checkstyle-aggregate
 ```
 
-Run javadoc style checks for public api:
+Run javadoc style checks for public api only:
 ```
-mvn clean checkstyle:checkstyle-aggregate -P javadoc
+mvn clean checkstyle:checkstyle-aggregate -P javadoc-public-api
 ```
+>ℹ `javadoc-public-api` profile is required for enabling checkstyle rules for public API javadoc.
+
 Code style check result is generated at `target/site/checkstyle-aggregate.html`
 
 ### License headers
