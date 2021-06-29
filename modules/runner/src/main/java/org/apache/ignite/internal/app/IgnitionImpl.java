@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.app;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import io.netty.util.internal.StringUtil;
+import java.util.stream.Collectors;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.Ignition;
 import org.apache.ignite.configuration.RootKey;
@@ -42,11 +46,15 @@ import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.impl.VaultServiceImpl;
+import org.apache.ignite.internal.vault.VaultService;
+import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.LoggerMessageHelper;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.utils.IgniteProperties;
@@ -59,6 +67,11 @@ import org.jetbrains.annotations.Nullable;
 public class IgnitionImpl implements Ignition {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
+
+    /**
+     * Path to the persistent storage used by the {@link VaultService} component.
+     */
+    static final Path VAULT_DB_PATH = Paths.get("vault");
 
     /** */
     private static final String[] BANNER = {
@@ -82,14 +95,11 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override public synchronized Ignite start(@NotNull String nodeName, @Nullable String jsonStrBootstrapCfg) {
-        assert !StringUtil.isNullOrEmpty(nodeName) : "Node local name is empty";
+        assert nodeName != null && !nodeName.isBlank() : "Node local name is empty";
 
         ackBanner();
 
-        // Vault Component startup.
-        VaultManager vaultMgr = new VaultManager(new VaultServiceImpl());
-
-        vaultMgr.putName(nodeName).join();
+        VaultManager vaultMgr = createVault(nodeName);
 
         boolean cfgBootstrappedFromPds = vaultMgr.bootstrapped();
 
@@ -111,10 +121,10 @@ public class IgnitionImpl implements Ignition {
                 locConfigurationMgr.bootstrap(jsonStrBootstrapCfg, ConfigurationType.LOCAL);
             }
             catch (Exception e) {
-                LOG.warn("Unable to parse user specific configuration, default configuration will be used: " + e.getMessage());
+                LOG.warn("Unable to parse user-specific configuration, default configuration will be used: {}", e.getMessage());
             }
         else if (jsonStrBootstrapCfg != null)
-            LOG.warn("User specific configuration will be ignored, cause vault was bootstrapped with pds configuration");
+            LOG.warn("User-specific configuration will be ignored, because vault has been bootstrapped with PDS configuration");
         else
             locConfigurationMgr.configurationRegistry().startStorageConfigurations(ConfigurationType.LOCAL);
 
@@ -123,12 +133,16 @@ public class IgnitionImpl implements Ignition {
 
         var serializationRegistry = new MessageSerializationRegistryImpl();
 
+        List<NetworkAddress> peers = Arrays.stream(netConfigurationView.netClusterNodes())
+            .map(NetworkAddress::from)
+            .collect(Collectors.toUnmodifiableList());
+
         // Network startup.
         ClusterService clusterNetSvc = new ScaleCubeClusterServiceFactory().createClusterService(
             new ClusterLocalConfiguration(
                 nodeName,
                 netConfigurationView.port(),
-                Arrays.asList(netConfigurationView.netClusterNodes()),
+                peers,
                 serializationRegistry
             )
         );
@@ -177,7 +191,27 @@ public class IgnitionImpl implements Ignition {
 
         ackSuccessStart();
 
-        return new IgniteImpl(distributedTblMgr);
+        return new IgniteImpl(distributedTblMgr, vaultMgr);
+    }
+
+    /**
+     * Starts the Vault component.
+     */
+    private static VaultManager createVault(String nodeName) {
+        Path vaultPath = VAULT_DB_PATH.resolve(nodeName);
+
+        try {
+            Files.createDirectories(vaultPath);
+        }
+        catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        var vaultMgr = new VaultManager(new PersistentVaultService(vaultPath));
+
+        vaultMgr.putName(nodeName).join();
+
+        return vaultMgr;
     }
 
     /** */
@@ -191,6 +225,8 @@ public class IgnitionImpl implements Ignition {
 
         String banner = String.join("\n", BANNER);
 
-        LOG.info(banner + '\n' + " ".repeat(22) + "Apache Ignite ver. " + ver + '\n');
+        LOG.info(() ->
+            LoggerMessageHelper.format("{}\n" + " ".repeat(22) + "Apache Ignite ver. {}\n", banner, ver),
+            null);
     }
 }

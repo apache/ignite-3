@@ -17,13 +17,21 @@
 
 package org.apache.ignite.internal.util;
 
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
-
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,7 +42,7 @@ public class IgniteUtils {
     private static final int MASK = 0xf;
 
     /** Version of the JDK. */
-    private static String jdkVer;
+    private static final String jdkVer = System.getProperty("java.specification.version");
 
     /** Class loader used to load Ignite. */
     private static final ClassLoader igniteClassLoader = IgniteUtils.class.getClassLoader();
@@ -42,7 +50,17 @@ public class IgniteUtils {
     private static final boolean assertionsEnabled;
 
     /** Primitive class map. */
-    private static final Map<String, Class<?>> primitiveMap = new HashMap<>(16, .5f);
+    private static final Map<String, Class<?>> primitiveMap = Map.of(
+        "byte", byte.class,
+        "short", short.class,
+        "int", int.class,
+        "long", long.class,
+        "float", float.class,
+        "double", double.class,
+        "char", char.class,
+        "boolean", boolean.class,
+        "void", void.class
+    );
 
     /** */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache =
@@ -65,18 +83,6 @@ public class IgniteUtils {
         finally {
             assertionsEnabled = assertionsEnabled0;
         }
-
-        IgniteUtils.jdkVer = System.getProperty("java.specification.version");
-
-        primitiveMap.put("byte", byte.class);
-        primitiveMap.put("short", short.class);
-        primitiveMap.put("int", int.class);
-        primitiveMap.put("long", long.class);
-        primitiveMap.put("float", float.class);
-        primitiveMap.put("double", double.class);
-        primitiveMap.put("char", char.class);
-        primitiveMap.put("boolean", boolean.class);
-        primitiveMap.put("void", void.class);
     }
 
     /**
@@ -309,6 +315,7 @@ public class IgniteUtils {
      *
      * @param clsName Class name.
      * @param ldr Class loader.
+     * @param clsFilter Predicate to filter class names.
      * @return Class.
      * @throws ClassNotFoundException If class not found.
      */
@@ -344,7 +351,7 @@ public class IgniteUtils {
 
             cls = Class.forName(clsName, true, ldr);
 
-            Class old = ldrMap.putIfAbsent(clsName, cls);
+            Class<?> old = ldrMap.putIfAbsent(clsName, cls);
 
             if (old != null)
                 cls = old;
@@ -354,9 +361,109 @@ public class IgniteUtils {
     }
 
     /**
+     * Deletes a file or a directory with all sub-directories and files.
+     *
+     * @param path File or directory to delete.
+     * @return {@code true} if and only if the file or directory is successfully deleted,
+     *      {@code false} otherwise
+     */
+    public static boolean delete(Path path) {
+        try {
+            Files.walkFileTree(path, new SimpleFileVisitor<>() {
+                @Override public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    Files.delete(dir);
+
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+
+            return true;
+        }
+        catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
      * @return {@code True} if assertions enabled.
      */
     public static boolean assertionsEnabled() {
         return assertionsEnabled;
+    }
+
+    /**
+     * Shuts down the given executor service gradually, first disabling new submissions and later, if
+     * necessary, cancelling remaining tasks.
+     *
+     * <p>The method takes the following steps:
+     *
+     * <ol>
+     *   <li>calls {@link ExecutorService#shutdown()}, disabling acceptance of new submitted tasks.
+     *   <li>awaits executor service termination for half of the specified timeout.
+     *   <li>if the timeout expires, it calls {@link ExecutorService#shutdownNow()}, cancelling
+     *       pending tasks and interrupting running tasks.
+     *   <li>awaits executor service termination for the other half of the specified timeout.
+     * </ol>
+     *
+     * <p>If, at any step of the process, the calling thread is interrupted, the method calls {@link
+     * ExecutorService#shutdownNow()} and returns.
+     *
+     * @param service the {@code ExecutorService} to shut down
+     * @param timeout the maximum time to wait for the {@code ExecutorService} to terminate
+     * @param unit the time unit of the timeout argument
+     */
+    public static void shutdownAndAwaitTermination(ExecutorService service, long timeout, TimeUnit unit) {
+        long halfTimeoutNanos = unit.toNanos(timeout) / 2;
+
+        // Disable new tasks from being submitted
+        service.shutdown();
+
+        try {
+            // Wait for half the duration of the timeout for existing tasks to terminate
+            if (!service.awaitTermination(halfTimeoutNanos, TimeUnit.NANOSECONDS)) {
+                // Cancel currently executing tasks
+                service.shutdownNow();
+                // Wait the other half of the timeout for tasks to respond to being cancelled
+                service.awaitTermination(halfTimeoutNanos, TimeUnit.NANOSECONDS);
+            }
+        }
+        catch (InterruptedException ie) {
+            // Preserve interrupt status
+            Thread.currentThread().interrupt();
+            // (Re-)Cancel if current thread also interrupted
+            service.shutdownNow();
+        }
+    }
+
+    /**
+     * Closes all provided objects. If any of the {@link AutoCloseable#close} methods throw an exception, only the first
+     * thrown exception will be propagated to the caller, after all other objects are closed, similar to
+     * the try-with-resources block.
+     *
+     * @param closeables collection of objects to close
+     */
+    public static void closeAll(Collection<? extends AutoCloseable> closeables) throws Exception {
+        Exception ex = null;
+
+        for (AutoCloseable closeable : closeables) {
+            try {
+                closeable.close();
+            }
+            catch (Exception e) {
+                if (ex == null)
+                    ex = e;
+                else
+                    ex.addSuppressed(e);
+            }
+        }
+
+        if (ex != null)
+            throw ex;
     }
 }

@@ -25,6 +25,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ServerChannel;
@@ -32,8 +33,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -43,6 +44,9 @@ import org.jetbrains.annotations.TestOnly;
  * Netty server channel wrapper.
  */
 public class NettyServer {
+    /** Port range. */
+    private static final int PORT_RANGE = 100;
+
     /** A lock for start and stop operations. */
     private final Object startStopLock = new Object();
 
@@ -179,8 +183,6 @@ public class NettyServer {
                  */
                 .option(ChannelOption.SO_BACKLOG, 128)
                 .option(ChannelOption.SO_REUSEADDR, true)
-                .childOption(ChannelOption.SO_LINGER, 0)
-                .childOption(ChannelOption.TCP_NODELAY, true)
                 /*
                  * When the keepalive option is set for a TCP socket and no data has been exchanged across the socket
                  * in either direction for 2 hours (NOTE: the actual value is implementation dependent),
@@ -205,7 +207,18 @@ public class NettyServer {
                  */
                 .childOption(ChannelOption.TCP_NODELAY, true);
 
-            serverStartFuture = NettyUtils.toChannelCompletableFuture(bootstrap.bind(port))
+            CompletableFuture<Channel> bindFuture = NettyUtils.toChannelCompletableFuture(bootstrap.bind(port));
+
+            for (int i = 1; i < PORT_RANGE; i++) {
+                int port0 = port + i;
+
+                bindFuture = bindFuture
+                    .thenApply(CompletableFuture::completedFuture)
+                    .exceptionally(err -> NettyUtils.toChannelCompletableFuture(bootstrap.bind(port0)))
+                    .thenCompose(Function.identity());
+            }
+
+            serverStartFuture = bindFuture
                 .handle((channel, err) -> {
                     synchronized (startStopLock) {
                         CompletableFuture<Void> workerCloseFuture = serverCloseFuture;
