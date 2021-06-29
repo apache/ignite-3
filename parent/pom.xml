@@ -705,6 +705,18 @@
                             </execution>
                         </executions>
                     </plugin>
+
+                    <!--
+                        Javadoc style checks for public api.
+                    -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
+                        <configuration>
+                            <configLocation>${project.basedir}/check-rules/checkstyle-public-api-javadoc.xml</configLocation>
+                            <suppressionsLocation>${project.basedir}/check-rules/checkstyle-disabled-modules.xml</suppressionsLocation>
+                        </configuration>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
