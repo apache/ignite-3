@@ -14,7 +14,7 @@
 // limitations under the License.
 = Getting Started Guide
 
-This guide provides essential details on how to start working with Ignite 3.0 by using the Ignite CLI tool, including the following information:
+This guide provides essential details on how to start working with Ignite 3.0 alpha 2 by using the Ignite CLI tool, including the following information:
 
 * How to download and install the tool.
 * How to use the Ignite CLI tool to manage nodes.
@@ -24,7 +24,7 @@ This guide provides essential details on how to start working with Ignite 3.0 by
 == Prerequisites
 
 
-Ignite 3.0 was officially tested on:
+Ignite 3.0 alpha 2 was officially tested on:
 
 include::../includes/prereqs.adoc[]
 
@@ -132,8 +132,7 @@ permanently update the `PATH` environment variable by adding a full path to the 
 
 == Using Ignite CLI Tool
 
-Ignite CLI is a single entry point for all the Ignite operations. For example, it allows you to perform the following
-actions:
+Ignite CLI is a single entry point for all the Ignite operations. You can perform the following actions with it:
 
 * Manage existing nodes.
 * Install new nodes.
@@ -160,7 +159,7 @@ ignite init --help
 
 Ignite CLI allows to install Ignite modules and 3rd party Maven dependencies.
 
-. To start an Ignite 3.0 cluster, you need to install Ignite core artifacts first:
+. To start an Ignite 3.0 alpha 2 cluster, you need to install Ignite core artifacts first:
 +
 [source, shell]
 ----
@@ -214,16 +213,16 @@ ignite node stop myFirstNode
 
 == Built-in Examples
 
-Apache Ignite alpha comes with examples that are configured as a separate Maven project located in the *examples* folder.
+Ignite 3.0 alpha 2 comes with examples that are configured as a separate Maven project located in the `examples` folder.
 
 The project includes the following examples:
 
-* `TableExample` demonstrates the usage of the `org.apache.ignite.table.Table` API to create a table. It also shows how you can get data from a table, or insert a line into a table.
+* `TableExample` demonstrates the usage of the `org.apache.ignite.table.Table` API to create a table. It also shows how to get data from a table, or insert a line into a table.
 * `KeyValueBinaryViewExample` - demonstrates the usage of the `org.apache.ignite.table.KeyValueBinaryView` API to insert a line into a table.
 
 To run an example:
 
-1. Import the *examples* folder into your IDE as a Maven project.
+1. Import the `examples` folder into your IDE as a Maven project.
 
 2. Follow the steps in the specific example to start it.
 

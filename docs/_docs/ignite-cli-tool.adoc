@@ -28,7 +28,7 @@ Below is a list of Ignite CLI tool commands with short descriptions:
 | `module list` | Shows the list of available optional Ignite modules.
 | `module add` | Adds an optional Ignite module or an external artifact.
 | `module remove` | Adds an optional Ignite module or an external artifact.
-| `node`| Starts, stops and manages locally running Ignite nodes.
+| `node`| Starts, stops, and manages locally running Ignite nodes.
 | `node start` | Starts an Ignite node locally.
 | `node stop` | Stops a locally running Ignite node.
 | `node classpath` | Shows the current classpath used by the Ignite nodes.
