@@ -25,6 +25,8 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferInput;
@@ -165,7 +167,31 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 case ClientOp.TUPLE_UPSERT: {
+                    var tableId = unpacker.unpackUuid();
+                    var schemaId = unpacker.unpackInt();
+                    var cnt = unpacker.unpackInt();
 
+                    var tables = (TableManager)ignite.tables();
+                    var table = tables.table(tableId, true);
+                    var schema = table.schemaView().schema(schemaId);
+
+                    if (schema.length() != cnt) {
+                        // TODO: Return error without using exceptions.
+                        throw new IgniteException(
+                                "Incorrect number of tuple values. Expected: " + schema.length() + ", but got: " + cnt);
+                    }
+
+                    var builder = table.tupleBuilder();
+
+                    for (int i = 0; i < cnt; i++) {
+                        // TODO: Don't use column names, set values by index.
+                        var col = schema.column(i);
+
+                        // TODO: Unpack value of correct type, including extensions.
+                        builder.set(col.name(), unpacker.unpackValue());
+                    }
+
+                    table.upsert(builder.build());
                 }
 
                 default:
