@@ -30,7 +30,7 @@ import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.TupleBuilder;
+import org.apache.ignite.table.Tuple;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferInput;
@@ -171,32 +171,23 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 case ClientOp.TUPLE_UPSERT: {
-                    var tableId = unpacker.unpackUuid();
-                    var schemaId = unpacker.unpackInt();
-                    var cnt = unpacker.unpackInt();
+                    var table = readTable(unpacker);
+                    var tuple = readTuple(unpacker, table);
 
-                    var tables = (TableManager)ignite.tables();
-                    var table = tables.table(tableId, true);
-                    var schema = table.schemaView().schema(schemaId);
+                    table.upsert(tuple);
 
-                    if (schema.length() != cnt) {
-                        // TODO: Return error without using exceptions.
-                        throw new IgniteException(
-                                "Incorrect number of tuple values. Expected: " + schema.length() + ", but got: " + cnt);
-                    }
+                    break;
+                }
 
-                    var builder = table.tupleBuilderInternal();
+                case ClientOp.TUPLE_GET: {
+                    var table = readTable(unpacker);
+                    var keyTuple = readTuple(unpacker, table);
 
-                    for (int i = 0; i < cnt; i++) {
-                        if (unpacker.getNextFormat() == MessageFormat.NIL) {
-                            unpacker.skipValue();
-                            continue;
-                        }
+                    // TODO: getAsync
+                    Tuple tuple = table.get(keyTuple);
+                    writeTuple(packer, tuple);
 
-                        readAndSetColumnValue(unpacker, builder, schema.column(i));
-                    }
-
-                    table.upsert(builder.build());
+                    break;
                 }
 
                 default:
@@ -208,6 +199,40 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ClientErrorCode.GENERIC);
             packer.packString("Internal server error: " + t.getMessage());
         }
+    }
+
+    private void writeTuple(ClientMessagePacker packer, Tuple tuple) throws IOException {
+        packer.packInt(-1); // TODO: Get schema ID from tuple - missing API.
+        packer.packNil(); // TODO: Get all values from tuple - missing API.
+    }
+
+    private Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
+        var schemaId = unpacker.unpackInt();
+        var cnt = unpacker.unpackInt();
+
+        var schema = table.schemaView().schema(schemaId);
+
+        if (cnt > schema.length())
+            throw new IgniteException(
+                "Incorrect number of tuple values. Expected: " + schema.length() + ", but got: " + cnt);
+
+        var builder = table.tupleBuilderInternal();
+
+        for (int i = 0; i < cnt; i++) {
+            if (unpacker.getNextFormat() == MessageFormat.NIL) {
+                unpacker.skipValue();
+                continue;
+            }
+
+            readAndSetColumnValue(unpacker, builder, schema.column(i));
+        }
+
+        return builder.build();
+    }
+
+    private TableImpl readTable(ClientMessageUnpacker unpacker) throws IOException {
+        var tableId = unpacker.unpackUuid();
+        return ((TableManager)ignite.tables()).table(tableId, true);
     }
 
     private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilderImpl builder, Column col)
