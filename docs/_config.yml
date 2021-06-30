@@ -14,7 +14,7 @@
 # limitations under the License.
 exclude: [guidelines.md,  "Gemfile", "Gemfile.lock", README.adoc, "_docs/code-snippets", "_docs/includes", '*.sh']
 attrs: &asciidoc_attributes
-  version: 3.0.0-alpha1
+  version: 3.0.0-alpha2
   base_url: /docs
   stylesdir: /docs/assets/css
   imagesdir: /docs
@@ -39,8 +39,7 @@ defaults:
     scope:
       path: '_docs'
     values:
-      toc: ignite 
+      toc: ignite
 asciidoctor:
-  base_dir: _docs/ 
+  base_dir: _docs/
   attributes: *asciidoc_attributes
-   
