@@ -20,7 +20,8 @@ package org.apache.ignite.internal.tx;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Lock manager allows to acquired locks in shared and exclusive mode and supports deadlock prevention by timestamp.
+ * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp
+ * ordering.
  */
 public interface LockManager {
     /**
