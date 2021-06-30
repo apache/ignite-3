@@ -34,3 +34,5 @@ Below is a list of Ignite CLI tool commands with short descriptions:
 | `node classpath` | Shows the current classpath used by the Ignite nodes.
 | `node list` | Shows the list of currently running local Ignite nodes.
 |===
+
+NOTE: While `config`, `config get`, `config set` commands are listed in command output, they do not work in alpha 2.
