@@ -31,6 +31,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -466,23 +470,47 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Gets a table if it exists or {@code null} if it was not created or was removed before.
      *
+     * @param id Table ID.
+     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
+     * false otherwise.
+     * @return A table or {@code null} if table does not exist.
+     */
+    public TableImpl table(UUID id, boolean checkConfiguration) {
+        return table(() -> tablesById.get(id), p -> p.tableId().equals(id), checkConfiguration);
+    }
+
+    /**
+     * Gets a table if it exists or {@code null} if it was not created or was removed before.
+     *
      * @param name Table name.
      * @param checkConfiguration True when the method checks a configuration before tries to get a table,
      * false otherwise.
      * @return A table or {@code null} if table does not exist.
      */
     private Table table(String name, boolean checkConfiguration) {
-        if (checkConfiguration && !isTableConfigured(name))
-            return null;
+        return table(() -> tables.get(name), p -> p.tableName().equals(name), checkConfiguration);
+    }
 
-        Table tbl = tables.get(name);
+    /**
+     * Gets a table if it exists or {@code null} if it was not created or was removed before.
+     *
+     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
+     * false otherwise.
+     * @return A table or {@code null} if table does not exist.
+     */
+    private TableImpl table(Supplier<TableImpl> supplier, Predicate<TableEventParameters> predicate, boolean checkConfiguration) {
+        var tbl = supplier.get();
 
-        if (tbl != null)
-            return tbl;
+        if (tbl != null) {
+            if (isTableConfigured(tbl.tableName()))
+                return tbl;
+            else
+                return null;
+        }
 
-        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
+        CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<TableEventParameters>() {
+        var clo = new EventListener<TableEventParameters>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 if (e instanceof ListenerRemovedException) {
                     getTblFut.completeExceptionally(e);
@@ -490,13 +518,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     return true;
                 }
 
-                String tableName = parameters.tableName();
-
-                if (!name.equals(tableName))
+                if (!predicate.test(parameters))
                     return false;
 
                 if (e == null)
-                    getTblFut.complete(parameters.table());
+                    getTblFut.complete((TableImpl) parameters.table());
                 else
                     getTblFut.completeExceptionally(e);
 
@@ -510,10 +536,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        tbl = tables.get(name);
+        tbl = supplier.get();
 
-        if (tbl != null && getTblFut.complete(tbl) ||
-            !isTableConfigured(name) && getTblFut.complete(null))
+        if (tbl != null && isTableConfigured(tbl.tableName()) && getTblFut.complete(tbl) ||
+            getTblFut.complete(null))
             removeListener(TableEvent.CREATE, clo);
 
         return getTblFut.join();
