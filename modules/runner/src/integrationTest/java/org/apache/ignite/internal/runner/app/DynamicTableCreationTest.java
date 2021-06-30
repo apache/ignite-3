@@ -49,9 +49,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class DynamicTableCreationTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
-
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
             put("node0", "{\n" +
