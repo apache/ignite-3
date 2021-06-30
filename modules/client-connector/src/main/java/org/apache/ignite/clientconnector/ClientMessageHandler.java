@@ -119,25 +119,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         try {
             switch (opCode) {
                 case ClientOp.TABLE_CREATE: {
-                    var size = unpacker.unpackMapHeader();
-                    String name = null;
-
-                    for (int i = 0; i < size; i++) {
-                        var key = unpacker.unpackString();
-
-                        if (key.equals("name"))
-                            name = unpacker.unpackString();
-                        else {
-                            // TODO: Build config from key-value pairs.
-                            unpacker.unpackValue();
-                        }
-                    }
-
-                    Consumer<TableChange> tableChangeConsumer = tbl -> tbl
-                            .changeReplicas(1) // TODO: Values from stream.
-                            .changePartitions(10);
-
-                    var table = (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
+                    TableImpl table = createTable(unpacker);
 
                     packer.packUuid(table.tableId());
 
@@ -176,6 +158,41 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ClientErrorCode.GENERIC);
             packer.packString("Internal server error: " + t.getMessage());
         }
+    }
+
+    private TableImpl createTable(ClientMessageUnpacker unpacker) throws IOException {
+        var size = unpacker.unpackMapHeader();
+        String name = null;
+        var settings = new Object() {
+            Integer replicas = null;
+            Integer partitions  = null;
+        };
+
+        // TODO: Read map as object - use Jackson?
+        for (int i = 0; i < size; i++) {
+            var key = unpacker.unpackString();
+
+            switch (key) {
+                case "name":
+                    name = unpacker.unpackString();
+                    break;
+                case "replicas":
+                    settings.replicas = unpacker.unpackInt();
+                    break;
+                case "partitions":
+                    settings.partitions = unpacker.unpackInt();
+                    break;
+            }
+        }
+
+        Consumer<TableChange> tableChangeConsumer = tbl -> {
+            if (settings.replicas != null) {
+                tbl.changeReplicas(settings.replicas);
+            }
+        };
+
+        var table = (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
+        return table;
     }
 
     @Override
