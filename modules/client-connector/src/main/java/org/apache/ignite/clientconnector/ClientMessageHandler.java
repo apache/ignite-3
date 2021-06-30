@@ -24,10 +24,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.TupleBuilder;
+import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferInput;
 import org.msgpack.value.ImmutableMapValue;
@@ -184,11 +187,13 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     var builder = table.tupleBuilder();
 
                     for (int i = 0; i < cnt; i++) {
-                        // TODO: Don't use column names, set values by index.
-                        var col = schema.column(i);
+                        if (unpacker.getNextFormat() == MessageFormat.NIL) {
+                            unpacker.skipValue();
+                            continue;
+                        }
 
-                        // TODO: Unpack value of correct type, including extensions.
-                        builder.set(col.name(), unpacker.unpackValue());
+                        // TODO: Don't use column names, set values by index.
+                        readAndSetColumnValue(unpacker, builder, schema.column(i));
                     }
 
                     table.upsert(builder.build());
@@ -202,6 +207,56 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             // TODO: Seek back to the start of the message.
             packer.packInt(ClientErrorCode.GENERIC);
             packer.packString("Internal server error: " + t.getMessage());
+        }
+    }
+
+    private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col)
+            throws IOException {
+        switch (col.type().spec()) {
+            case BYTE:
+                builder.set(col.name(), unpacker.unpackByte());
+                break;
+
+            case SHORT:
+                builder.set(col.name(), unpacker.unpackShort());
+                break;
+
+            case INTEGER:
+                builder.set(col.name(), unpacker.unpackInt());
+                break;
+
+            case LONG:
+                builder.set(col.name(), unpacker.unpackLong());
+                break;
+
+            case FLOAT:
+                builder.set(col.name(), unpacker.unpackFloat());
+                break;
+
+            case DOUBLE:
+                builder.set(col.name(), unpacker.unpackDouble());
+                break;
+
+            case DECIMAL:
+                throw new UnsupportedOperationException("TODO");
+
+            case UUID:
+                builder.set(col.name(), unpacker.unpackUuid());
+                break;
+
+            case STRING:
+                builder.set(col.name(), unpacker.unpackString());
+                break;
+
+            case BYTES:
+                builder.set(col.name(), unpacker.readPayload(unpacker.unpackBinaryHeader()));
+                break;
+
+            case BITMASK:
+                throw new UnsupportedOperationException("TODO");
+
+            default:
+                throw new UnsupportedOperationException("Unsupported data type: " + col.type().spec());
         }
     }
 
