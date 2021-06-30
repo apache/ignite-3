@@ -19,7 +19,7 @@ Additional goals are:
 This protocol is responsible for atomic commitment (all or nothing) tx guraranties.
 Each update is **pre-written** to a replication groups on first phase (and replicated to a majority).
 As soon as all updates are pre-written, it's safe to commit.
-This slightly differs from ignite 2, because where is no PREPARED state.
+This slightly differs from ignite 2, because there is no PREPARED state.
 
 # Two phase locking
 2PL states the transaction constist of growing phase, where locks are acquired, and shrinking phase where locks are released.
@@ -119,6 +119,6 @@ An enlisted node asks a coordinator if it can commit or not.
 Broadcast recovery is necessary (because we don't have full tx topology on each enlisted node).
 All nodes are requested about local txs state. If at least one is commiting, it's safe to commit.
 
-<em id="f1">[1]</em> CockroachDB: The Resilient Geo-Distributed SQL Database. [↩](#a1)<br/>
-<em id="f2">[2]</em> Concurrency Control in Distributed Database Systems. [↩](#a2)
+<em id="f1">[1]</em> CockroachDB: The Resilient Geo-Distributed SQL Database, 2020 [↩](#a1)<br/>
+<em id="f2">[2]</em> Concurrency Control in Distributed Database Systems, 1981 [↩](#a2)
  
