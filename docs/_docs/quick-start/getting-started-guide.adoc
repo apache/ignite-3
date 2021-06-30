@@ -198,10 +198,10 @@ To run an example:
 
 == Stopping the Cluster
 
-To stop the node, use the command below passing `myFirstNode` as a node unique identifier:
+To stop the node, use the command below passing `node-1` as a node unique identifier:
 [source, shell]
 ----
-ignite node stop myFirstNode
+ignite node stop node-1
 ----
 
 
