@@ -22,8 +22,7 @@ class ClientOp {
     public static final int TABLE_DROP = 2;
     public static final int TABLES_GET = 3;
     public static final int TABLE_GET = 4;
-    public static final int TUPLE_UPSERT = 5;
-    public static final int TUPLE_UPSERT_WITH_SCHEMA = 6;
-    public static final int TUPLE_GET = 7;
-    public static final int SCHEMAS_GET = 8;
+    public static final int SCHEMAS_GET = 5;
+    public static final int TUPLE_UPSERT = 10;
+    public static final int TUPLE_GET = 11;
 }

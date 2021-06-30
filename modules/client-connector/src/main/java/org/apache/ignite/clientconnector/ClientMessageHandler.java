@@ -152,6 +152,18 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
+                case ClientOp.TABLE_GET: {
+                    String tableName = unpacker.unpackString();
+                    Table table = ignite.tables().table(tableName);
+
+                    if (table == null)
+                        packer.packNil();
+                    else
+                        packer.packUuid(((TableImpl)table).tableId());
+
+                    break;
+                }
+
                 default:
                     packer.packInt(ClientErrorCode.GENERIC);
                     packer.packString("Unexpected operation code: " + opCode);
