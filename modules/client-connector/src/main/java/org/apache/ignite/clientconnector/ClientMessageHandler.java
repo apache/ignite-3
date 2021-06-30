@@ -24,6 +24,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferInput;
@@ -32,7 +33,6 @@ import org.slf4j.Logger;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
@@ -137,18 +137,17 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                             .changeReplicas(1) // TODO: Values from stream.
                             .changePartitions(10);
 
-                    var table = ignite.tables().createTable(name, tableChangeConsumer);
+                    var table = (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
 
-                    packer.packUuid(UUID.randomUUID()); // TODO: Get table ID.
+                    packer.packUuid(table.tableId());
 
                     break;
                 }
 
                 case ClientOp.TABLE_DROP: {
-                    var tableId = unpacker.unpackUuid();
+                    var tableName = unpacker.unpackString();
 
-                    // TODO: Drop by ID - request API changes.
-                    ignite.tables().dropTable(tableId.toString());
+                    ignite.tables().dropTable(tableName);
 
                     break;
                 }
@@ -159,7 +158,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     packer.packInt(tables.size());
 
                     for (var table : tables) {
-                        packer.packUuid(UUID.randomUUID()); // TODO: Get ID from table.
+                        var tableImpl = (TableImpl) table;
+
+                        packer.packUuid(tableImpl.tableId());
                         packer.packString(table.tableName());
                     }
 
