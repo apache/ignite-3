@@ -164,6 +164,10 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
+                case ClientOp.TUPLE_UPSERT: {
+
+                }
+
                 default:
                     packer.packInt(ClientErrorCode.GENERIC);
                     packer.packString("Unexpected operation code: " + opCode);

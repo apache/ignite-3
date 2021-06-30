@@ -99,6 +99,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables. */
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
+    /** Tables. */
+    private final Map<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
+
     /**
      * Creates a new table manager.
      *
@@ -157,6 +160,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, schemaReg);
 
         tables.put(name, table);
+        tablesById.put(table.tableId(), table);
 
         onEvent(TableEvent.CREATE, new TableEventParameters(table), null);
     }
@@ -373,9 +377,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     return false;
 
                 if (e == null) {
-                    Table droppedTable = tables.remove(tableName);
+                    TableImpl droppedTable = tables.remove(tableName);
 
                     assert droppedTable != null;
+
+                    tablesById.remove(droppedTable.tableId());
 
                     dropTblFut.complete(null);
                 }
