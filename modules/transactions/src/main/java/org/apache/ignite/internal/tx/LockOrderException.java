@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * This exception is thrown when lock cannot be acquired due to wrong lock order.
+ * This exception is thrown when lock cannot be acquired due to wrong locking order.
  */
 public class LockOrderException extends IgniteInternalException {
 }

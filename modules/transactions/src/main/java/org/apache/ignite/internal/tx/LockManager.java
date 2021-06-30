@@ -35,7 +35,7 @@ public interface LockManager {
      * @param key The key.
      * @return {@code True} if the lock was released.
      */
-    public boolean tryRelease(byte[] key);
+    public boolean tryRelease(Object key);
 
     /**
      * @param key The key.
@@ -49,5 +49,5 @@ public interface LockManager {
      * @param key The key.
      * @return {@code True} if the lock was released.
      */
-    public boolean tryReleaseShared(byte[] key);
+    public boolean tryReleaseShared(Object key);
 }
