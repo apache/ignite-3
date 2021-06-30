@@ -28,11 +28,14 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferInput;
+import org.msgpack.value.ImmutableMapValue;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -165,10 +168,10 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         String name = null;
         var settings = new Object() {
             Integer replicas = null;
-            Integer partitions  = null;
+            Integer partitions = null;
+            Map<String, ImmutableMapValue> columns = null;
         };
 
-        // TODO: Read map as object - use Jackson?
         for (int i = 0; i < size; i++) {
             var key = unpacker.unpackString();
 
@@ -176,23 +179,45 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 case "name":
                     name = unpacker.unpackString();
                     break;
+
                 case "replicas":
                     settings.replicas = unpacker.unpackInt();
                     break;
+
                 case "partitions":
                     settings.partitions = unpacker.unpackInt();
                     break;
+
+                case "columns":
+                    var colCnt = unpacker.unpackMapHeader();
+                    settings.columns = new HashMap<>(colCnt);
+                    for (int j = 0; j < colCnt; j++) {
+                        var colName = unpacker.unpackString();
+                        var colSettings = unpacker.unpackValue().asMapValue();
+
+                        settings.columns.put(colName, colSettings);
+                    }
             }
         }
 
         Consumer<TableChange> tableChangeConsumer = tbl -> {
-            if (settings.replicas != null) {
+            if (settings.replicas != null)
                 tbl.changeReplicas(settings.replicas);
+
+            if (settings.partitions != null)
+                tbl.changePartitions(settings.partitions);
+
+            if (settings.columns != null) {
+                for (var col : settings.columns.entrySet()) {
+                    tbl.changeColumns(c -> c.create(col.getKey(), cc ->
+                            cc
+                                    .changeName(col.getKey())
+                                    .changeType(t -> t.changeType(col.getValue().map().get("type").toString()))));
+                }
             }
         };
 
-        var table = (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
-        return table;
+        return (TableImpl)ignite.tables().createTable(name, tableChangeConsumer);
     }
 
     @Override

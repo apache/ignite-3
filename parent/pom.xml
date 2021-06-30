@@ -424,6 +424,12 @@
                 <version>${msgpack.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.msgpack</groupId>
+                <artifactId>jackson-dataformat-msgpack</artifactId>
+                <version>${msgpack.version}</version>
+            </dependency>
+
             <!-- Test dependencies -->
             <dependency>
                 <groupId>org.apache.ignite</groupId>
