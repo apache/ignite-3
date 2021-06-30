@@ -377,6 +377,15 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
+        return tupleBuilderInternal();
+    }
+
+    /**
+     * Gets the tuple builder.
+     *
+     * @return Tuple builder.
+     */
+    public TupleBuilderImpl tupleBuilderInternal() {
         return new TupleBuilderImpl(schemaReg.schema());
     }
 

@@ -63,6 +63,23 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
         return this;
     }
 
+    /**
+     * Sets column value.
+     *
+     * @param col Column.
+     * @param value Value to set.
+     * @return {@code this} for chaining.
+     */
+    public TupleBuilder set(Column col, Object value) {
+        assert col != null;
+
+        col.validate(value);
+
+        map.put(col.name(), value);
+
+        return this;
+    }
+
     /** {@inheritDoc} */
     @Override public Tuple build() {
         return this;

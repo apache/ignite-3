@@ -26,6 +26,7 @@ import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
@@ -184,7 +185,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                                 "Incorrect number of tuple values. Expected: " + schema.length() + ", but got: " + cnt);
                     }
 
-                    var builder = table.tupleBuilder();
+                    var builder = table.tupleBuilderInternal();
 
                     for (int i = 0; i < cnt; i++) {
                         if (unpacker.getNextFormat() == MessageFormat.NIL) {
@@ -192,7 +193,6 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                             continue;
                         }
 
-                        // TODO: Don't use column names, set values by index.
                         readAndSetColumnValue(unpacker, builder, schema.column(i));
                     }
 
@@ -210,46 +210,46 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilder builder, Column col)
+    private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilderImpl builder, Column col)
             throws IOException {
         switch (col.type().spec()) {
             case BYTE:
-                builder.set(col.name(), unpacker.unpackByte());
+                builder.set(col, unpacker.unpackByte());
                 break;
 
             case SHORT:
-                builder.set(col.name(), unpacker.unpackShort());
+                builder.set(col, unpacker.unpackShort());
                 break;
 
             case INTEGER:
-                builder.set(col.name(), unpacker.unpackInt());
+                builder.set(col, unpacker.unpackInt());
                 break;
 
             case LONG:
-                builder.set(col.name(), unpacker.unpackLong());
+                builder.set(col, unpacker.unpackLong());
                 break;
 
             case FLOAT:
-                builder.set(col.name(), unpacker.unpackFloat());
+                builder.set(col, unpacker.unpackFloat());
                 break;
 
             case DOUBLE:
-                builder.set(col.name(), unpacker.unpackDouble());
+                builder.set(col, unpacker.unpackDouble());
                 break;
 
             case DECIMAL:
                 throw new UnsupportedOperationException("TODO");
 
             case UUID:
-                builder.set(col.name(), unpacker.unpackUuid());
+                builder.set(col, unpacker.unpackUuid());
                 break;
 
             case STRING:
-                builder.set(col.name(), unpacker.unpackString());
+                builder.set(col, unpacker.unpackString());
                 break;
 
             case BYTES:
-                builder.set(col.name(), unpacker.readPayload(unpacker.unpackBinaryHeader()));
+                builder.set(col, unpacker.readPayload(unpacker.unpackBinaryHeader()));
                 break;
 
             case BITMASK:
