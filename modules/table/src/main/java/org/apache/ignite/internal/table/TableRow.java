@@ -99,10 +99,8 @@ public class TableRow extends RowChunkAdapter {
 
             final Column col = schema.column(colName);
 
-            if (col == null )
+            if (col == null || !schema.isKeyColumn(col.schemaIndex()))
                 throw new ColumnNotFoundException("Invalid key column name: columnName=" + colName + ", schemaVersion=" + schema.version());
-            else if (!schema.isKeyColumn(col.schemaIndex()))
-                throw new SchemaMismatchException("Invalid key column name: columnName=" + colName + ", schemaVersion=" + schema.version());
 
             return col;
         }
@@ -126,10 +124,8 @@ public class TableRow extends RowChunkAdapter {
 
             final Column col = schema.column(colName);
 
-            if (col == null)
+            if (col == null || schema.isKeyColumn(col.schemaIndex()))
                 throw new ColumnNotFoundException("Invalid value column name: columnName=" + colName + ", schemaVersion=" + schema.version());
-            else if (schema.isKeyColumn(col.schemaIndex()))
-                throw new SchemaMismatchException("Invalid value column name: columnName=" + colName + ", schemaVersion=" + schema.version());
 
             return col;
         }
