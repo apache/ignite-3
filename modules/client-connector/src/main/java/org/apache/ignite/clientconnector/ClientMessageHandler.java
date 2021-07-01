@@ -172,6 +172,8 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 case ClientOp.TUPLE_UPSERT: {
+                    // TODO: Live Schema support
+                    // TODO: Benchmark schema approach vs map approach (devlist) - both get and put operations.
                     var table = readTable(unpacker);
                     var tuple = readTuple(unpacker, table);
 
