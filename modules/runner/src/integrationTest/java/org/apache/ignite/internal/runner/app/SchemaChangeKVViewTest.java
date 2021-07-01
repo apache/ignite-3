@@ -47,7 +47,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
                             kvView.tupleBuilder().set("val1", 111).set("val2", "str").build());
                 },
                 (grid) -> {
-                    KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+                    KeyValueBinaryView kvView = grid.get(2).tables().table(TABLE).kvView();
 
                     // Check old row conversion.
                     final Tuple keyTuple = kvView.tupleBuilder().set("key", 1L).build();
@@ -84,7 +84,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
                     // Put data on node.
                     KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
 
-                    kvView.put(kvView.tupleBuilder().set("key", 1L).build(), kvView.tupleBuilder().set("val1", 222).build());
+                    kvView.put(kvView.tupleBuilder().set("key", 1L).build(), kvView.tupleBuilder().set("val1", 111).build());
 
                     assertThrows(ColumnNotFoundException.class, () -> kvView.put(
                             kvView.tupleBuilder().set("key", 1L).build(),
@@ -133,7 +133,6 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
                     // Check old row conversion.
                     Tuple keyTuple1 = kvView.tupleBuilder().set("key", 1L).build();
 
-                    assertEquals(1, (Long) kvView.get(keyTuple1).value("key"));
                     assertEquals(111, (Integer) kvView.get(keyTuple1).value("val2"));
                     assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple1).value("val1"));
 

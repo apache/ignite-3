@@ -46,12 +46,12 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                     tbl.insert(tbl.tupleBuilder().set("key", 1L).set("val1", 111).set("val2", "str").build());
                 },
                 (grid) -> {
-                    Table tbl = grid.get(1).tables().table(TABLE);
+                    Table tbl = grid.get(2).tables().table(TABLE);
 
                     // Check old row conversion.
                     final Tuple keyTuple = tbl.tupleBuilder().set("key", 1L).build();
 
-                    assertEquals(1, (Integer) tbl.get(keyTuple).value("key"));
+                    assertEquals(1, (Long) tbl.get(keyTuple).value("key"));
                     assertEquals(111, (Integer) tbl.get(keyTuple).value("val1"));
                     assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple).value("val2"));
 
@@ -65,7 +65,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
                     final Tuple keyTuple2 = tbl.tupleBuilder().set("key", 2L).build();
 
-                    assertEquals(2, (Integer) tbl.get(keyTuple2).value("key"));
+                    assertEquals(2, (Long) tbl.get(keyTuple2).value("key"));
                     assertEquals(222, (Integer) tbl.get(keyTuple2).value("val1"));
                     assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple2).value("val2"));
                 }
@@ -90,7 +90,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                     tbl.insert(tbl.tupleBuilder().set("key", 1L).set("val1", 111).build());
 
                     assertThrows(ColumnNotFoundException.class,
-                            () -> tbl.insert(tbl.tupleBuilder().set("key", 2L).set("val1", -222).set("val2", "str").build())
+                            () -> tbl.insert(tbl.tupleBuilder().set("key", 1L).set("val1", -111).set("val2", "str").build())
                     );
                 },
                 grid -> {
@@ -130,7 +130,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                     );
                 },
                 grid -> {
-                    Table tbl = grid.get(1).tables().table(TABLE);
+                    Table tbl = grid.get(2).tables().table(TABLE);
 
                     // Check old row conversion.
                     Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();

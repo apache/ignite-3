@@ -44,7 +44,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Table name.
      */
-    public static final String TABLE = "tbl1";
+    public static final String TABLE = "PUBLIC.tbl1";
 
     /**
      * Nodes bootstrap configuration.
@@ -116,7 +116,7 @@ abstract class AbstractSchemaChangeTest {
         assertEquals(3, clusterNodes.size());
 
         // Create table on node 0.
-        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE).columns(
+        SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
                 SchemaBuilders.column("val1", ColumnType.INT32).asNullable().build(),
                 SchemaBuilders.column("val2", ColumnType.string()).withDefaultValue("default").build()

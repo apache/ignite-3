@@ -425,9 +425,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
-            if (hasMetastorageLocally)
-                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName, ctx.oldValue().get(tblName), ctx.newValue().get(tblName)));
-
             final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 
             CompletableFuture.allOf(schemaReadyFut)
@@ -459,6 +456,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     schemaReadyFut.completeExceptionally(e);
                 }
             });
+
+            if (hasMetastorageLocally)
+                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName, ctx.oldValue().get(tblName), ctx.newValue().get(tblName)));
         }
 
         return futs;
