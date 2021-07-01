@@ -37,6 +37,7 @@ import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -84,6 +85,14 @@ class DynamicTableCreationTest {
 
     /** */
     private final List<Ignite> clusterNodes = new ArrayList<>();
+
+    /** */
+    @BeforeEach
+    void setUp() throws Exception {
+        IgniteUtils.closeAll(clusterNodes);
+
+        IgnitionCleaner.removeAllData();
+    }
 
     /** */
     @AfterEach

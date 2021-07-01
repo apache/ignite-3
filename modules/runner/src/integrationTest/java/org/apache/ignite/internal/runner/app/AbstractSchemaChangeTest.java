@@ -26,6 +26,7 @@ import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -82,6 +83,14 @@ abstract class AbstractSchemaChangeTest {
 
     /** */
     private final List<Ignite> clusterNodes = new ArrayList<>();
+
+    /** */
+    @BeforeEach
+    void setUp() throws Exception {
+        IgniteUtils.closeAll(clusterNodes);
+
+        IgnitionCleaner.removeAllData();
+    }
 
     /** */
     @AfterEach
