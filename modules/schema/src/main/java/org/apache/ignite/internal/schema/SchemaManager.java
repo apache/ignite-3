@@ -278,8 +278,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 if (!newCol.type().equals(oldCol.type()) || newCol.nullable() != oldCol.nullable())
                     throw new InvalidTypeException("Column of incompatible type: [schemaVer=" + newDesc.version() + ", col=" + newCol);
 
-                if (newCol.name().equals(newCol.name()))
-                    continue; // Changing column 'default' doesn't change mapping.
+                if (newCol.schemaIndex() == newCol.schemaIndex())
+                    continue;
 
                 if (mapper == null)
                     mapper = new ColumnMapper(newDesc);
