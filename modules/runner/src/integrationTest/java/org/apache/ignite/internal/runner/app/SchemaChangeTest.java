@@ -23,8 +23,10 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.app.IgnitionCleaner;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
@@ -33,6 +35,7 @@ import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -81,13 +84,23 @@ class SchemaChangeTest {
             "}");
     }};
 
+    /** */
+    private final List<Ignite> clusterNodes = new ArrayList<>();
+
+    /** */
+    @AfterEach
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(clusterNodes);
+
+        IgnitionCleaner.removeAllData();
+    }
+
+
     /**
      * Check add a new column to table schema.
      */
     @Test
     void dropColumn() {
-        List<Ignite> clusterNodes = new ArrayList<>();
-
         for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
             clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
 
@@ -179,8 +192,6 @@ class SchemaChangeTest {
      */
     @Test
     void addNewColumn() {
-        List<Ignite> clusterNodes = new ArrayList<>();
-
         for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
             clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
 
