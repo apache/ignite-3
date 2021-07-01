@@ -204,6 +204,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void writeTuple(ClientMessagePacker packer, Tuple tuple) throws IOException {
         // TODO: There are other Tuple implementations, but table API seems to return TableRow.
+        // TODO: Add TupleInternal interface with schema access?
         // We should have a proper API to get schema and all values from Tuple.
         var row = (TableRow) tuple;
 
