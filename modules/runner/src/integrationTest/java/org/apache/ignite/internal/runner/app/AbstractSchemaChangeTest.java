@@ -135,8 +135,8 @@ abstract class AbstractSchemaChangeTest {
     protected void addColumn(List<Ignite> nodes, Column columnToAdd) {
         nodes.get(0).tables().alterTable(TABLE,
             chng -> chng.changeColumns(cols -> {
-                final int colIdx = chng.columns().size();
-                //TODO: avoid 'colIdx' or replace with correct last colIdx.
+                 int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
+
                 cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
             }));
     }
