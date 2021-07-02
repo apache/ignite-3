@@ -62,7 +62,7 @@ public class Column implements Comparable<Column>, Serializable {
         NativeType type,
         boolean nullable
     ) {
-        this(-1, name, type, nullable, null);
+        this(-1, name, type, nullable, (Supplier<Object> & Serializable)() -> null);
     }
 
     /**
