@@ -124,7 +124,7 @@ abstract class AbstractSchemaChangeTest {
         // Create table on node 0.
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().withDefaultValue(0).build(),
+                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
                 SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
