@@ -351,9 +351,9 @@ public class TableBinaryViewOperationsTest {
             1,
             new Column[] {new Column("id", NativeTypes.LONG, false)},
             new Column[] {
-                new Column("val", NativeTypes.LONG, true, 28L),
-                new Column("str", NativeTypes.stringOf(3), true, "ABC"),
-                new Column("blob", NativeTypes.blobOf(3), true, new byte[] {0, 1, 2})
+                new Column("val", NativeTypes.LONG, true, () -> 28L),
+                new Column("str", NativeTypes.stringOf(3), true, () -> "ABC"),
+                new Column("blob", NativeTypes.blobOf(3), true, () -> new byte[] {0, 1, 2})
             }
         );
 

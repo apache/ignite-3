@@ -23,7 +23,6 @@ import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -45,20 +44,18 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
-        SchemaTable schema = createTable(grid);
+        createTable(grid);
+
+        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
 
         {
-            KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
-
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(),
                     kvView.tupleBuilder().set("valInt", 111).set("colForDrop", "str").build());
         }
 
-        dropColumn(grid, schema, "colForDrop");
+        dropColumn(grid, TABLE, "colForDrop");
 
         {
-            KeyValueBinaryView kvView = grid.get(2).tables().table(TABLE).kvView();
-
             // Check old row conversion.
             final Tuple keyTuple = kvView.tupleBuilder().set("key", 1L).build();
 
@@ -89,13 +86,11 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     public void testAddNewColumn() {
         List<Ignite> grid = startGrid();
 
-        // Create table on node 0.
-        SchemaTable schTbl1 = createTable(grid);
+        createTable(grid);
+
+        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
 
         {
-            // Put data on node.
-            KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
-
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(), kvView.tupleBuilder().set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
@@ -104,11 +99,9 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, schTbl1, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, TABLE, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         {
-            KeyValueBinaryView kvView = grid.get(2).tables().table(TABLE).kvView();
-
             // Check old row conversion.
             Tuple keyTuple = kvView.tupleBuilder().set("key", 1L).build();
 
@@ -133,12 +126,11 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     public void testRenameColumn() {
         List<Ignite> grid = startGrid();
 
-        // Create table on node 0.
-        SchemaTable schTbl1 = createTable(grid);
+        createTable(grid);
+
+        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
 
         {
-            KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
-
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(), kvView.tupleBuilder().set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
@@ -147,11 +139,9 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        renameColumn(grid, schTbl1, "valInt", "val2");
+        renameColumn(grid, TABLE, "valInt", "val2");
 
         {
-            KeyValueBinaryView kvView = grid.get(2).tables().table(TABLE).kvView();
-
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
 
             // Check old row conversion.
@@ -185,7 +175,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
-        SchemaTable schema = createTable(grid);
+        createTable(grid);
 
         final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
 
@@ -201,7 +191,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, schema, column);
+        addColumn(grid, TABLE, column);
 
         {
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
@@ -213,7 +203,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
                     kvView.tupleBuilder().set("valInt", 3).build());
         }
 
-        dropColumn(grid, schema, column.name());
+        dropColumn(grid, TABLE, column.name());
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 4L).build(),
@@ -225,7 +215,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, schema, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, TABLE, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 5L).build(),

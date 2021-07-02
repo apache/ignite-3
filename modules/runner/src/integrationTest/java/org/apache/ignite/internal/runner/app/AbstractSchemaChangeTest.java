@@ -118,13 +118,12 @@ abstract class AbstractSchemaChangeTest {
 
     /**
      * @param nodes Cluster nodes.
-     * @return Create table.
      */
-    @NotNull protected SchemaTable createTable(List<Ignite> nodes) {
+    @NotNull protected void createTable(List<Ignite> nodes) {
         // Create table on node 0.
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
+                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().withDefaultValue(0).build(),
                 SchemaBuilders.column("colForDrop", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
@@ -132,17 +131,15 @@ abstract class AbstractSchemaChangeTest {
                 schTbl1.canonicalName(),
                 tblCh -> convert(schTbl1, tblCh).changeReplicas(1).changePartitions(10)
         );
-
-        return schTbl1;
     }
 
     /**
      * @param nodes Cluster nodes.
-     * @param schema Table schema.
+     * @param tableName Table name.
      * @param columnToAdd Column to add.
      */
-    protected void addColumn(List<Ignite> nodes, SchemaTable schema, Column columnToAdd) {
-        nodes.get(1).tables().alterTable(schema.canonicalName(),
+    protected void addColumn(List<Ignite> nodes, String tableName, Column columnToAdd) {
+        nodes.get(0).tables().alterTable(tableName,
                 chng -> chng.changeColumns(cols -> {
                     final int colIdx = chng.columns().size();
                     //TODO: avoid 'colIdx' or replace with correct last colIdx.
@@ -152,11 +149,11 @@ abstract class AbstractSchemaChangeTest {
 
     /**
      * @param nodes Cluster nodes.
-     * @param schema Table schema.
+     * @param tableName Table name.
      * @param colName Name of column to drop.
      */
-    protected void dropColumn(List<Ignite> nodes, SchemaTable schema, String colName) {
-        nodes.get(0).tables().alterTable(schema.canonicalName(),
+    protected void dropColumn(List<Ignite> nodes, String tableName, String colName) {
+        nodes.get(0).tables().alterTable(tableName,
                 chng -> chng.changeColumns(cols -> {
                     cols.delete(chng.columns().namedListKeys().stream()
                             .filter(key -> colName.equals(chng.columns().get(key).name()))
@@ -167,8 +164,14 @@ abstract class AbstractSchemaChangeTest {
                 }));
     }
 
-    protected void renameColumn(List<Ignite> clusterNodes, SchemaTable schTbl1, String oldName, String newName) {
-        clusterNodes.get(1).tables().alterTable(schTbl1.canonicalName(),
+    /**
+     * @param nodes Cluster nodes.
+     * @param tableName Table name.
+     * @param oldName Old column name.
+     * @param newName New column name.
+     */
+    protected void renameColumn(List<Ignite> nodes, String tableName, String oldName, String newName) {
+        nodes.get(0).tables().alterTable(tableName,
                 tblChanger -> tblChanger.changeColumns(cols -> {
                     final String colKey = tblChanger.columns().namedListKeys().stream()
                             .filter(c -> oldName.equals(tblChanger.columns().get(c).name()))

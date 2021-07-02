@@ -23,7 +23,6 @@ import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.SchemaTable;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -45,19 +44,18 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
-        SchemaTable schema = createTable(grid);
+        createTable(grid);
+
+        final Table tbl = grid.get(0).tables().table(TABLE);
 
         {
-            final Table tbl = grid.get(1).tables().table(TABLE);
 
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).set("colForDrop", "str").build());
         }
 
-        dropColumn(grid, schema, "colForDrop");
+        dropColumn(grid, TABLE, "colForDrop");
 
         {
-            Table tbl = grid.get(2).tables().table(TABLE);
-
             // Check old row conversion.
             final Tuple keyTuple = tbl.tupleBuilder().set("key", 1L).build();
 
@@ -88,11 +86,11 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testAddNewColumn() {
         List<Ignite> grid = startGrid();
 
-        SchemaTable schTbl1 = createTable(grid);
+        createTable(grid);
+
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
-            Table tbl = grid.get(1).tables().table(TABLE);
-
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class,
@@ -100,13 +98,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(
-                grid,
-                schTbl1,
-                SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build()
-        );
-
-        Table tbl = grid.get(2).tables().table(TABLE);
+        addColumn(grid, TABLE, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         // Check old row conversion.
         Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();
@@ -132,12 +124,11 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     void testRenameColumn() {
         List<Ignite> grid = startGrid();
 
-        // Create table on node 0.
-        SchemaTable schTbl1 = createTable(grid);
+        createTable(grid);
+
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
-            Table tbl = grid.get(1).tables().table(TABLE);
-
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class,
@@ -145,11 +136,9 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        renameColumn(grid, schTbl1, "valInt", "val2");
+        renameColumn(grid, TABLE, "valInt", "val2");
 
         {
-            Table tbl = grid.get(2).tables().table(TABLE);
-
             // Check old row conversion.
             Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();
 
@@ -180,11 +169,11 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
-        SchemaTable schema = createTable(grid);
+        createTable(grid);
 
         final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
 
-        Table tbl = grid.get(2).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
@@ -194,27 +183,27 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, schema, column);
+        addColumn(grid, TABLE, column);
 
         {
             assertNull(tbl.get(tbl.tupleBuilder().set("key", 2L).build()));
 
             tbl.insert(tbl.tupleBuilder().set("key", 2L).set("valInt", 222).set("val", "string").build());
 
-            tbl.insert(tbl.tupleBuilder().set("key", 3L).set("valInt", 3).build());
+            tbl.insert(tbl.tupleBuilder().set("key", 3L).set("valInt", 333).build());
         }
 
-        dropColumn(grid, schema, column.name());
+        dropColumn(grid, TABLE, column.name());
 
         {
-            tbl.insert(tbl.tupleBuilder().set("key", 4L).set("valInt", 4).build());
+            tbl.insert(tbl.tupleBuilder().set("key", 4L).set("valInt", 444).build());
 
             assertThrows(ColumnNotFoundException.class, () -> tbl.insert(
                     tbl.tupleBuilder().set("key", 4L).set("val", "I'm not exist").build())
             );
         }
 
-        addColumn(grid, schema, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, TABLE, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("default").build());
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 5L).set("valInt", 555).build());
