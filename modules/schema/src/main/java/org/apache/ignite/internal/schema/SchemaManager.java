@@ -281,7 +281,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 if (!newCol.type().equals(oldCol.type()) || newCol.nullable() != oldCol.nullable())
                     throw new InvalidTypeException("Column of incompatible type: [schemaVer=" + newDesc.version() + ", col=" + newCol);
 
-                if (newCol.schemaIndex() == newCol.schemaIndex())
+                if (newCol.schemaIndex() == oldCol.schemaIndex())
                     continue;
 
                 if (mapper == null)

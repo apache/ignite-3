@@ -50,10 +50,10 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(),
-                    kvView.tupleBuilder().set("valInt", 111).set("colForDrop", "str").build());
+                    kvView.tupleBuilder().set("valInt", 111).set("valStr", "str").build());
         }
 
-        dropColumn(grid, TABLE, "colForDrop");
+        dropColumn(grid, "valStr");
 
         {
             // Check old row conversion.
@@ -99,7 +99,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, TABLE, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         {
             // Check old row conversion.
@@ -139,7 +139,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        renameColumn(grid, TABLE, "valInt", "val2");
+        renameColumn(grid, "valInt", "val2");
 
         {
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
@@ -191,7 +191,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, TABLE, column);
+        addColumn(grid, column);
 
         {
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
@@ -203,7 +203,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
                     kvView.tupleBuilder().set("valInt", 3).build());
         }
 
-        dropColumn(grid, TABLE, column.name());
+        dropColumn(grid, column.name());
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 4L).build(),
@@ -215,7 +215,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, TABLE, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 5L).build(),

@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgnitionCleaner;
@@ -124,7 +125,7 @@ abstract class AbstractSchemaChangeTest {
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
                 SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().withDefaultValue(0).build(),
-                SchemaBuilders.column("colForDrop", ColumnType.string()).withDefaultValue("default").build()
+                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
         nodes.get(0).tables().createTable(
@@ -135,11 +136,10 @@ abstract class AbstractSchemaChangeTest {
 
     /**
      * @param nodes Cluster nodes.
-     * @param tableName Table name.
      * @param columnToAdd Column to add.
      */
-    protected void addColumn(List<Ignite> nodes, String tableName, Column columnToAdd) {
-        nodes.get(0).tables().alterTable(tableName,
+    protected void addColumn(List<Ignite> nodes, Column columnToAdd) {
+        nodes.get(0).tables().alterTable(TABLE,
                 chng -> chng.changeColumns(cols -> {
                     final int colIdx = chng.columns().size();
                     //TODO: avoid 'colIdx' or replace with correct last colIdx.
@@ -149,11 +149,10 @@ abstract class AbstractSchemaChangeTest {
 
     /**
      * @param nodes Cluster nodes.
-     * @param tableName Table name.
      * @param colName Name of column to drop.
      */
-    protected void dropColumn(List<Ignite> nodes, String tableName, String colName) {
-        nodes.get(0).tables().alterTable(tableName,
+    protected void dropColumn(List<Ignite> nodes, String colName) {
+        nodes.get(0).tables().alterTable(TABLE,
                 chng -> chng.changeColumns(cols -> {
                     cols.delete(chng.columns().namedListKeys().stream()
                             .filter(key -> colName.equals(chng.columns().get(key).name()))
@@ -166,12 +165,11 @@ abstract class AbstractSchemaChangeTest {
 
     /**
      * @param nodes Cluster nodes.
-     * @param tableName Table name.
      * @param oldName Old column name.
      * @param newName New column name.
      */
-    protected void renameColumn(List<Ignite> nodes, String tableName, String oldName, String newName) {
-        nodes.get(0).tables().alterTable(tableName,
+    protected void renameColumn(List<Ignite> nodes, String oldName, String newName) {
+        nodes.get(0).tables().alterTable(TABLE,
                 tblChanger -> tblChanger.changeColumns(cols -> {
                     final String colKey = tblChanger.columns().namedListKeys().stream()
                             .filter(c -> oldName.equals(tblChanger.columns().get(c).name()))
@@ -182,6 +180,27 @@ abstract class AbstractSchemaChangeTest {
 
                     tblChanger.changeColumns(listChanger ->
                             listChanger.update(colKey, colChanger -> colChanger.changeName(newName))
+                    );
+                }));
+    }
+
+    /**
+     * @param nodes Cluster nodes.
+     * @param colName Column name.
+     * @param defSup Default value supplier.
+     */
+    protected void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
+        nodes.get(0).tables().alterTable(TABLE,
+                tblChanger -> tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                            .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
+                            .findFirst()
+                            .orElseThrow(() -> {
+                                throw new IllegalStateException("Column not found.");
+                            });
+
+                    tblChanger.changeColumns(listChanger ->
+                            listChanger.update(colKey, colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
                     );
                 }));
     }

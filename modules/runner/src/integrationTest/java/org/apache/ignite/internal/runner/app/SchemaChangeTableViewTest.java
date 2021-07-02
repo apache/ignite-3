@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.io.Serializable;
 import java.util.List;
+import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.schema.Column;
@@ -50,10 +52,10 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         {
 
-            tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).set("colForDrop", "str").build());
+            tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).set("valStr", "str").build());
         }
 
-        dropColumn(grid, TABLE, "colForDrop");
+        dropColumn(grid, "valStr");
 
         {
             // Check old row conversion.
@@ -98,7 +100,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, TABLE, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         // Check old row conversion.
         Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();
@@ -136,7 +138,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        renameColumn(grid, TABLE, "valInt", "val2");
+        renameColumn(grid, "valInt", "val2");
 
         {
             // Check old row conversion.
@@ -183,7 +185,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, TABLE, column);
+        addColumn(grid, column);
 
         {
             assertNull(tbl.get(tbl.tupleBuilder().set("key", 2L).build()));
@@ -193,7 +195,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(tbl.tupleBuilder().set("key", 3L).set("valInt", 333).build());
         }
 
-        dropColumn(grid, TABLE, column.name());
+        dropColumn(grid, column.name());
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 4L).set("valInt", 444).build());
@@ -203,7 +205,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
         }
 
-        addColumn(grid, TABLE, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("default").build());
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 5L).set("valInt", 555).build());
@@ -233,6 +235,58 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
             assertEquals(555, (Integer) tbl.get(keyTuple5).value("valInt"));
             assertEquals("default", tbl.get(keyTuple5).value("val"));
+        }
+    }
+
+    /**
+     * Check merge table schema changes.
+     */
+    @Test
+    public void testMergeDefaultChanges() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        Table tbl = grid.get(0).tables().table(TABLE);
+
+        final String colName = "valStr";
+
+        {
+            tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
+        }
+
+        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
+
+        {
+            tbl.insert(tbl.tupleBuilder().set("key", 2L).set("valInt", 222).build());
+        }
+
+        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "brandNewDefault");
+        changeDefault(grid, "val", (Supplier<Object> & Serializable) () -> "brandNewDefault");
+
+        {
+            tbl.insert(tbl.tupleBuilder().set("key", 3L).set("valInt", 333).build());
+
+            // Check old row conversion.
+            Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();
+
+            assertEquals(111, (Integer) tbl.get(keyTuple1).value("valInt"));
+            assertEquals("default", tbl.get(keyTuple1).value("valStr"));
+            assertEquals("newDefault", tbl.get(keyTuple1).value("val"));
+
+            Tuple keyTuple2 = tbl.tupleBuilder().set("key", 2L).build();
+
+            assertEquals(222, (Integer) tbl.get(keyTuple2).value("valInt"));
+            assertEquals("newDefault", tbl.get(keyTuple2).value("valStr"));
+            assertEquals("newDefault", tbl.get(keyTuple2).value("val"));
+
+            Tuple keyTuple3 = tbl.tupleBuilder().set("key", 3L).build();
+
+            assertEquals(333, (Integer) tbl.get(keyTuple3).value("valInt"));
+            assertEquals("brandNewDefault", tbl.get(keyTuple3).value("valStr"));
+            assertEquals("brandNewDefault", tbl.get(keyTuple3).value("val"));
+
         }
     }
 }
