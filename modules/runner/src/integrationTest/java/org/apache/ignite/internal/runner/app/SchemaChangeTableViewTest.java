@@ -48,10 +48,9 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Table tbl = grid.get(1).tables().table(TABLE);
+        final Table tbl = grid.get(0).tables().table(TABLE);
 
         {
-
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).set("valStr", "str").build());
         }
 
@@ -90,7 +89,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
@@ -128,7 +127,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
@@ -175,7 +174,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         final Column column = SchemaBuilders.column("val", ColumnType.string()).asNullable().withDefaultValue("default").build();
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
@@ -247,7 +246,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         final String colName = "valStr";
 

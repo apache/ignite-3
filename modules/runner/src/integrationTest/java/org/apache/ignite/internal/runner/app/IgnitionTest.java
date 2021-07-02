@@ -72,7 +72,7 @@ class IgnitionTest {
 
     /** */
     @BeforeAll
-    void beforeAll() throws Exception {
+    static void beforeAll() throws Exception {
         IgnitionCleaner.removeAllData();
     }
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.io.Serializable;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -62,7 +63,7 @@ public class Column implements Comparable<Column>, Serializable {
         NativeType type,
         boolean nullable
     ) {
-        this(-1, name, type, nullable, null);
+        this(-1, name, type, nullable, (Supplier<Object> & Serializable)() -> null);
     }
 
     /**
@@ -75,7 +76,7 @@ public class Column implements Comparable<Column>, Serializable {
         String name,
         NativeType type,
         boolean nullable,
-        @Nullable Supplier<Object> defValSup
+        @NotNull Supplier<Object> defValSup
     ) {
         this(-1, name, type, nullable, defValSup);
     }
@@ -87,12 +88,12 @@ public class Column implements Comparable<Column>, Serializable {
      * @param nullable If {@code false}, null values will not be allowed for this column.
      * @param defValSup Default value supplier.
      */
-    Column(
+    private Column(
         int schemaIndex,
         String name,
         NativeType type,
         boolean nullable,
-        @Nullable Supplier<Object> defValSup
+        @NotNull Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.name = name;
