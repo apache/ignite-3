@@ -31,6 +31,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -155,12 +156,9 @@ class TableCreationTest {
     /** */
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
-
     /** */
-    @BeforeEach
-    void setUp() throws Exception {
-        IgniteUtils.closeAll(clusterNodes);
-
+    @BeforeAll
+    void beforeAll() throws Exception {
         IgnitionCleaner.removeAllData();
     }
 

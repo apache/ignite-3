@@ -41,14 +41,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Ignition interface tests.
  */
 abstract class AbstractSchemaChangeTest {
-    /**
-     * Table name.
-     */
+    /** Table name. */
     public static final String TABLE = "PUBLIC.tbl1";
 
-    /**
-     * Nodes bootstrap configuration.
-     */
+    /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
         put("node0", "{\n" +
                 "  \"node\": {\n" +
@@ -81,24 +77,18 @@ abstract class AbstractSchemaChangeTest {
                 "}");
     }};
 
-    /**
-     *
-     */
+    /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
-    /**
-     *
-     */
+    /** */
     @BeforeAll
-    static void setUp() throws Exception {
+    void beforeAll() throws Exception {
         IgnitionCleaner.removeAllData();
     }
 
-    /**
-     *
-     */
+    /** {@inheritDoc} */
     @AfterEach
-    void tearDown() throws Exception {
+    void afterEach() throws Exception {
         IgniteUtils.closeAll(clusterNodes);
 
         IgnitionCleaner.removeAllData();

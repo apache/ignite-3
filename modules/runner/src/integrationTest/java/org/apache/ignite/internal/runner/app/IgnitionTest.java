@@ -27,7 +27,7 @@ import org.apache.ignite.internal.app.IgnitionCleaner;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -69,6 +69,12 @@ class IgnitionTest {
 
     /** */
     private final List<Ignite> startedNodes = new ArrayList<>();
+
+    /** */
+    @BeforeAll
+    void beforeAll() throws Exception {
+        IgnitionCleaner.removeAllData();
+    }
 
     /** */
     @AfterEach

@@ -25,11 +25,9 @@ import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgnitionCleaner;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.table.SchemaMismatchException;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
@@ -37,7 +35,7 @@ import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -87,10 +85,8 @@ class DynamicTableCreationTest {
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
     /** */
-    @BeforeEach
-    void setUp() throws Exception {
-        IgniteUtils.closeAll(clusterNodes);
-
+    @BeforeAll
+    void beforeAll() throws Exception {
         IgnitionCleaner.removeAllData();
     }
 
