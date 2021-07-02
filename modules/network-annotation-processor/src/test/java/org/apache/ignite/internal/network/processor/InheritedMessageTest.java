@@ -65,9 +65,9 @@ public class InheritedMessageTest {
 
         InOrder inOrder = inOrder(mockWriter);
 
-        inOrder.verify(mockWriter).writeInt(eq("x"), anyInt());
-        inOrder.verify(mockWriter).writeInt(eq("y"), anyInt());
-        inOrder.verify(mockWriter).writeInt(eq("z"), anyInt());
+        inOrder.verify(mockWriter).writeInt(eq("x"), eq(1));
+        inOrder.verify(mockWriter).writeInt(eq("y"), eq(2));
+        inOrder.verify(mockWriter).writeInt(eq("z"), eq(3));
     }
 
     /**
