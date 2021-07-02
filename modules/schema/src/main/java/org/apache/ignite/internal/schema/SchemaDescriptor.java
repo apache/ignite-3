@@ -23,6 +23,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
+import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
@@ -51,7 +53,7 @@ public class SchemaDescriptor implements Serializable {
     private final Map<String, Column> colMap;
 
     /** Column mapper. */
-    private ColumnMapping colMapper = ColumnMapper.identityMapping();
+    private ColumnMapper colMapper = ColumnMapping.identityMapping();
 
     /**
      * @param tableId Table id.
@@ -170,14 +172,14 @@ public class SchemaDescriptor implements Serializable {
      *
      * @param colMapper Column mapper.
      */
-    public void columnMapper(ColumnMapping colMapper) {
+    public void columnMapping(ColumnMapper colMapper) {
         this.colMapper = colMapper;
     }
 
     /**
      * @return Column mapper.
      */
-    public ColumnMapping columnMapper() {
+    public ColumnMapper columnMapping() {
         return colMapper;
     }
 

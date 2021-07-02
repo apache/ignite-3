@@ -43,6 +43,9 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
+import org.apache.ignite.internal.schema.mapping.ColumnMapping;
+import org.apache.ignite.internal.schema.mapping.ColumnaMapperBuilder;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -228,7 +231,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
                 final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, newVer, SchemaConfigurationConverter.convert(newTbl));
 
-                desc.columnMapper(columnMapper(
+                desc.columnMapping(columnMapper(
                     schemaRegistryForTable(tblId).schema(oldVer),
                     oldTbl,
                     desc,
@@ -252,12 +255,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param newTbl New table configuration.
      * @return Column mapper.
      */
-    private ColumnMapping columnMapper(
+    private ColumnMapper columnMapper(
         SchemaDescriptor oldDesc,
         TableView oldTbl,
         SchemaDescriptor newDesc,
         TableView newTbl) {
-        ColumnMapper mapper = null;
+        ColumnaMapperBuilder mapper = null;
 
         for (String s : newTbl.columns().namedListKeys()) {
             final ColumnView newColView = newTbl.columns().get(s);
@@ -267,7 +270,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 assert !newDesc.isKeyColumn(newDesc.column(newColView.name()).schemaIndex());
 
                 if (mapper == null)
-                    mapper = new ColumnMapper(newDesc);
+                    mapper = ColumnMapping.mapperBuilder(newDesc.length());
 
                 mapper.add(newDesc.column(newColView.name()).schemaIndex(), -1); // New column added.
             }
@@ -282,7 +285,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     continue;
 
                 if (mapper == null)
-                    mapper = new ColumnMapper(newDesc);
+                    mapper = ColumnMapping.mapperBuilder(newDesc.length());
 
                 mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
             }
@@ -297,7 +300,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         if (droppedKeyCol.isPresent())
             throw new SchemaModificationException("Dropping of key column is forbidden: [schemaVer=" + newDesc.version() + ", col=" + droppedKeyCol.get());
 
-        return mapper == null ? ColumnMapper.identityMapping() : mapper;
+        return mapper == null ? ColumnMapping.identityMapping() : mapper.build();
     }
 
     /**

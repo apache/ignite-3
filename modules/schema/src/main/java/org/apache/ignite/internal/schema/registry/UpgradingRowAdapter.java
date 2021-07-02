@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.registry;
 
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ColumnMapping;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.Row;
@@ -29,14 +29,14 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
  */
 class UpgradingRowAdapter extends Row {
     /** Column mapper. */
-    private final ColumnMapping mapping;
+    private final ColumnMapper mapping;
 
     /**
      * @param schema Schema descriptor of new version.
      * @param row Row.
      * @param mapping Column mapping.
      */
-    UpgradingRowAdapter(SchemaDescriptor schema, BinaryRow row, ColumnMapping mapping) {
+    UpgradingRowAdapter(SchemaDescriptor schema, BinaryRow row, ColumnMapper mapping) {
         super(schema, row);
 
         this.mapping = mapping;

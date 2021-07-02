@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
@@ -115,7 +116,7 @@ public class SchemaDescriptorConverter {
      * @return Internal Column.
      */
     private static Column convert(org.apache.ignite.schema.Column colCfg) {
-        return new Column(colCfg.name(), convert(colCfg.type()), colCfg.nullable(), (Serializable)colCfg.defaultValue());
+        return new Column(colCfg.name(), convert(colCfg.type()), colCfg.nullable(), new ConstantSupplier((Serializable) colCfg.defaultValue()));
     }
 
     /**
@@ -145,5 +146,25 @@ public class SchemaDescriptorConverter {
             valCols[i] = convert(valColsCfg.get(i));
 
         return new SchemaDescriptor(tblId, schemaVer, keyCols, affCols, valCols);
+    }
+
+    /**
+     * Constant value supplier.
+     */
+    private static class ConstantSupplier implements Supplier<Object>, Serializable {
+        /** Value. */
+        private final Serializable val;
+
+        /**
+         * @param val Value.
+         */
+        ConstantSupplier(Serializable val) {
+            this.val = val;
+        }
+
+        /** {@inheritDoc */
+        @Override public Object get() {
+            return val;
+        }
     }
 }

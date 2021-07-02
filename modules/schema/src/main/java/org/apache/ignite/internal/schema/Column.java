@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.schema;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Column description for a type schema. Column contains a column name, a column type and a nullability flag.
@@ -49,7 +52,7 @@ public class Column implements Comparable<Column>, Serializable {
     /**
      * Default value supplier.
      */
-    private final Serializable defVal;
+    private final Supplier<Object> defValSup;
 
     /**
      * @param name Column name.
@@ -57,9 +60,9 @@ public class Column implements Comparable<Column>, Serializable {
      * @param nullable If {@code false}, null values will not be allowed for this column.
      */
     public Column(
-        String name,
-        NativeType type,
-        boolean nullable
+            String name,
+            NativeType type,
+            boolean nullable
     ) {
         this(-1, name, type, nullable, null);
     }
@@ -68,15 +71,15 @@ public class Column implements Comparable<Column>, Serializable {
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
-     * @param defVal Default value supplier.
+     * @param defValSup Default value supplier.
      */
     public Column(
-        String name,
-        NativeType type,
-        boolean nullable,
-        @NotNull Serializable defVal
+            String name,
+            NativeType type,
+            boolean nullable,
+            @Nullable Supplier<Object> defValSup
     ) {
-        this(-1, name, type, nullable, defVal);
+        this(-1, name, type, nullable, defValSup);
     }
 
     /**
@@ -84,20 +87,20 @@ public class Column implements Comparable<Column>, Serializable {
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
-     * @param defVal Default value supplier.
+     * @param defValSup Default value supplier.
      */
     Column(
-        int schemaIndex,
-        String name,
-        NativeType type,
-        boolean nullable,
-        @NotNull Serializable defVal
+            int schemaIndex,
+            String name,
+            NativeType type,
+            boolean nullable,
+            @NotNull Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.name = name;
         this.type = type;
         this.nullable = nullable;
-        this.defVal = defVal;
+        this.defValSup = defValSup;
     }
 
     /**
@@ -134,9 +137,35 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        assert nullable || defVal != null : "Null value is not accepted for not nullable column: [col=" + this + ']';
+        if (!nullable && defValSup == null) {
+            switch (type.spec()) {
+                case BYTE:
+                    return (byte) 0;
+                case SHORT:
+                    return (short) 0;
+                case INTEGER:
+                    return 0;
+                case LONG:
+                    return 0L;
+                case FLOAT:
+                    return 0.0f;
+                case DOUBLE:
+                    return 0.0d;
+                case STRING:
+                    return "";
+                case DECIMAL:
+                    return BigDecimal.ZERO;
+                default:
 
-        return defVal;
+            }
+        }
+
+        Object val = defValSup.get();
+
+        if (nullable || val != null)
+            return val;
+
+        throw new IllegalStateException("Null value is not accepted for not nullable column: [col=" + this + ']');
     }
 
     /** {@inheritDoc} */
@@ -147,10 +176,10 @@ public class Column implements Comparable<Column>, Serializable {
         if (o == null || getClass() != o.getClass())
             return false;
 
-        Column col = (Column)o;
+        Column col = (Column) o;
 
         return name.equals(col.name) &&
-            type.equals(col.type);
+                type.equals(col.type);
     }
 
     /** {@inheritDoc} */
@@ -170,22 +199,23 @@ public class Column implements Comparable<Column>, Serializable {
 
     /**
      * Validate the object by column's constraint.
+     *
      * @param val Object to validate.
      */
     public void validate(Object val) {
         if (val == null && !nullable) {
             throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): " +
-                "[col=" + this + ']');
+                    "[col=" + this + ']');
         }
 
         NativeType objType = NativeTypes.fromObject(val);
 
         if (objType != null && type.mismatch(objType)) {
             throw new InvalidTypeException("Column's type mismatch [" +
-                "column=" + this +
-                ", expectedType=" + type +
-                ", actualType=" + objType +
-                ", val=" + val + ']');
+                    "column=" + this +
+                    ", expectedType=" + type +
+                    ", actualType=" + objType +
+                    ", val=" + val + ']');
         }
     }
 
@@ -196,7 +226,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Column.
      */
     public Column copy(int schemaIndex) {
-        return new Column(schemaIndex, name, type, nullable, defVal);
+        return new Column(schemaIndex, name, type, nullable, defValSup);
     }
 
     /** {@inheritDoc} */

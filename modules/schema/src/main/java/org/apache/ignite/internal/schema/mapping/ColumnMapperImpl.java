@@ -15,19 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
-
-import java.io.Serializable;
+package org.apache.ignite.internal.schema.mapping;
 
 /**
- * Column mapping.
+ * Column mapper implementation.
  */
-public interface ColumnMapping extends Serializable {
+class ColumnMapperImpl implements ColumnMapper, ColumnaMapperBuilder {
+    /** Mapping. */
+    private final int[] mapping;
+
     /**
-     * Map column idx in source schema to column idx in target schema.
-     *
-     * @param idx Column index in source schema.
-     * @return Column index in target schema or {@code -1} if no column exists in target schema.
+     * @param cols Number of columns.
      */
-    int map(int idx);
+    ColumnMapperImpl(int cols) {
+        mapping = new int[cols];
+
+        for (int i = 0; i < mapping.length; i++)
+            mapping[i] = i;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void add(int from, int to) {
+        mapping[from] = to;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int map(int idx) {
+        if (idx > mapping.length)
+            return -1;
+
+        return mapping[idx];
+    }
+
+    /** {@inheritDoc} */
+    @Override public ColumnMapper build() {
+        return this;
+    }
 }
