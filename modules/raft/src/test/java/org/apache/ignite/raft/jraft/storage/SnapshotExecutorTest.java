@@ -227,7 +227,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
             .setFilename(Snapshot.JRAFT_SNAPSHOT_META_FILE).setCount(Integer.MAX_VALUE).setOffset(0)
             .setReadPartly(true);
 
-        //mock get metadata
+        // Mock get metadata
         final ArgumentCaptor<RpcResponseClosure> argument = ArgumentCaptor.forClass(RpcResponseClosure.class);
         Mockito.lenient().when(
             raftClientService.getFile(eq(new Endpoint("localhost", 8080)), eq(rb.build()),
@@ -272,7 +272,6 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         assertEquals(0, executor.getLastSnapshotTerm());
         assertEquals(0, executor.getLastSnapshotIndex());
-
     }
 
     @Test
@@ -297,6 +296,5 @@ public class SnapshotExecutorTest extends BaseStorageTest {
 
         assertEquals(1, executor.getLastSnapshotTerm());
         assertEquals(6, executor.getLastSnapshotIndex());
-
     }
 }
