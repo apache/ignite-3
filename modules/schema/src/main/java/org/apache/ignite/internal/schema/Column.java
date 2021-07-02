@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.schema;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
