@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 import java.io.Serializable;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Column description for a type schema. Column contains a column name, a column type and a nullability flag.
@@ -69,7 +69,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
-     * @param defVal Default value supplier.
+     * @param defValSup Default value supplier.
      */
     public Column(
         String name,
@@ -85,7 +85,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @param name Column name.
      * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
-     * @param defVal Default value supplier.
+     * @param defValSup Default value supplier.
      */
     private Column(
         int schemaIndex,
