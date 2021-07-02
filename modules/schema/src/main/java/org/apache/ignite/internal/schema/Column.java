@@ -60,9 +60,9 @@ public class Column implements Comparable<Column>, Serializable {
      * @param nullable If {@code false}, null values will not be allowed for this column.
      */
     public Column(
-            String name,
-            NativeType type,
-            boolean nullable
+        String name,
+        NativeType type,
+        boolean nullable
     ) {
         this(-1, name, type, nullable, null);
     }
@@ -74,10 +74,10 @@ public class Column implements Comparable<Column>, Serializable {
      * @param defValSup Default value supplier.
      */
     public Column(
-            String name,
-            NativeType type,
-            boolean nullable,
-            @Nullable Supplier<Object> defValSup
+        String name,
+        NativeType type,
+        boolean nullable,
+        @Nullable Supplier<Object> defValSup
     ) {
         this(-1, name, type, nullable, defValSup);
     }
@@ -90,11 +90,11 @@ public class Column implements Comparable<Column>, Serializable {
      * @param defValSup Default value supplier.
      */
     Column(
-            int schemaIndex,
-            String name,
-            NativeType type,
-            boolean nullable,
-            @NotNull Supplier<Object> defValSup
+        int schemaIndex,
+        String name,
+        NativeType type,
+        boolean nullable,
+        @Nullable Supplier<Object> defValSup
     ) {
         this.schemaIndex = schemaIndex;
         this.name = name;
@@ -137,29 +137,6 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        if (!nullable && defValSup == null) {
-            switch (type.spec()) {
-                case BYTE:
-                    return (byte) 0;
-                case SHORT:
-                    return (short) 0;
-                case INTEGER:
-                    return 0;
-                case LONG:
-                    return 0L;
-                case FLOAT:
-                    return 0.0f;
-                case DOUBLE:
-                    return 0.0d;
-                case STRING:
-                    return "";
-                case DECIMAL:
-                    return BigDecimal.ZERO;
-                default:
-
-            }
-        }
-
         Object val = defValSup.get();
 
         if (nullable || val != null)
@@ -176,10 +153,10 @@ public class Column implements Comparable<Column>, Serializable {
         if (o == null || getClass() != o.getClass())
             return false;
 
-        Column col = (Column) o;
+        Column col = (Column)o;
 
         return name.equals(col.name) &&
-                type.equals(col.type);
+            type.equals(col.type);
     }
 
     /** {@inheritDoc} */
@@ -205,17 +182,17 @@ public class Column implements Comparable<Column>, Serializable {
     public void validate(Object val) {
         if (val == null && !nullable) {
             throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): " +
-                    "[col=" + this + ']');
+                "[col=" + this + ']');
         }
 
         NativeType objType = NativeTypes.fromObject(val);
 
         if (objType != null && type.mismatch(objType)) {
             throw new InvalidTypeException("Column's type mismatch [" +
-                    "column=" + this +
-                    ", expectedType=" + type +
-                    ", actualType=" + objType +
-                    ", val=" + val + ']');
+                "column=" + this +
+                ", expectedType=" + type +
+                ", actualType=" + objType +
+                ", val=" + val + ']');
         }
     }
 

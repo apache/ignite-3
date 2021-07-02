@@ -50,36 +50,36 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class DynamicTableCreationTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
-            put("node0", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3344,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+        put("node0", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3344,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
-            put("node1", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3345,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+        put("node1", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3345,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
-            put("node2", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\"]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3346,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
-        }};
+        put("node2", "{\n" +
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\"]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3346,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
+    }};
 
     /** */
     private final List<Ignite> clusterNodes = new ArrayList<>();

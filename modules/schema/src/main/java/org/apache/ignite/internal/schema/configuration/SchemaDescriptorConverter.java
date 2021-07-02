@@ -116,7 +116,7 @@ public class SchemaDescriptorConverter {
      * @return Internal Column.
      */
     private static Column convert(org.apache.ignite.schema.Column colCfg) {
-        return new Column(colCfg.name(), convert(colCfg.type()), colCfg.nullable(), new ConstantSupplier((Serializable) colCfg.defaultValue()));
+        return new Column(colCfg.name(), convert(colCfg.type()), colCfg.nullable(), new ConstantSupplier((Serializable)colCfg.defaultValue()));
     }
 
     /**

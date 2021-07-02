@@ -52,7 +52,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(),
-                    kvView.tupleBuilder().set("valInt", 111).set("valStr", "str").build());
+                kvView.tupleBuilder().set("valInt", 111).set("valStr", "str").build());
         }
 
         dropColumn(grid, "valStr");
@@ -61,13 +61,13 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             final Tuple keyTuple = kvView.tupleBuilder().set("key", 1L).build();
 
-            assertEquals(111, (Integer) kvView.get(keyTuple).value("valInt"));
+            assertEquals(111, (Integer)kvView.get(keyTuple).value("valInt"));
             assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple).value("val2"));
 
             // Check tuple of outdated schema.
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
-                    kvView.tupleBuilder().set("key", 2L).build(),
-                    kvView.tupleBuilder().set("valInt", -222).set("val2", "str").build())
+                kvView.tupleBuilder().set("key", 2L).build(),
+                kvView.tupleBuilder().set("valInt", -222).set("val2", "str").build())
             );
 
             // Check tuple of correct schema.
@@ -75,7 +75,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
             final Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
 
-            assertEquals(222, (Integer) kvView.get(keyTuple2).value("valInt"));
+            assertEquals(222, (Integer)kvView.get(keyTuple2).value("valInt"));
             assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("val2"));
         }
     }
@@ -96,8 +96,8 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(), kvView.tupleBuilder().set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
-                    kvView.tupleBuilder().set("key", 1L).build(),
-                    kvView.tupleBuilder().set("valInt", -111).set("val2", "str").build())
+                kvView.tupleBuilder().set("key", 1L).build(),
+                kvView.tupleBuilder().set("valInt", -111).set("val2", "str").build())
             );
         }
 
@@ -107,16 +107,16 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             Tuple keyTuple = kvView.tupleBuilder().set("key", 1L).build();
 
-            assertEquals(111, (Integer) kvView.get(keyTuple).value("valInt"));
+            assertEquals(111, (Integer)kvView.get(keyTuple).value("valInt"));
             assertEquals("default", kvView.get(keyTuple).value("val2"));
 
             // Check tuple of new schema.
             kvView.put(kvView.tupleBuilder().set("key", 2L).build(),
-                    kvView.tupleBuilder().set("valInt", 222).set("val2", "str").build());
+                kvView.tupleBuilder().set("valInt", 222).set("val2", "str").build());
 
             Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
 
-            assertEquals(222, (Integer) kvView.get(keyTuple2).value("valInt"));
+            assertEquals(222, (Integer)kvView.get(keyTuple2).value("valInt"));
             assertEquals("str", kvView.get(keyTuple2).value("val2"));
         }
     }
@@ -136,8 +136,8 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(), kvView.tupleBuilder().set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
-                    kvView.tupleBuilder().set("key", 2L).build(),
-                    kvView.tupleBuilder().set("val2", 222).build())
+                kvView.tupleBuilder().set("key", 2L).build(),
+                kvView.tupleBuilder().set("val2", 222).build())
             );
         }
 
@@ -149,13 +149,13 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             Tuple keyTuple1 = kvView.tupleBuilder().set("key", 1L).build();
 
-            assertEquals(111, (Integer) kvView.get(keyTuple1).value("val2"));
+            assertEquals(111, (Integer)kvView.get(keyTuple1).value("val2"));
             assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple1).value("valInt"));
 
             // Check tuple of correct schema.
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
-                    kvView.tupleBuilder().set("key", 2L).build(),
-                    kvView.tupleBuilder().set("valInt", -222).build())
+                kvView.tupleBuilder().set("key", 2L).build(),
+                kvView.tupleBuilder().set("valInt", -222).build())
             );
 
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
@@ -165,7 +165,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
             Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
 
-            assertEquals(222, (Integer) kvView.get(keyTuple2).value("val2"));
+            assertEquals(222, (Integer)kvView.get(keyTuple2).value("val2"));
             assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("valInt"));
         }
     }
@@ -185,11 +185,11 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 1L).build(),
-                    kvView.tupleBuilder().set("valInt", 111).build());
+                kvView.tupleBuilder().set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
-                    kvView.tupleBuilder().set("key", 2L).build(),
-                    kvView.tupleBuilder().set("val", "I'not exists").build())
+                kvView.tupleBuilder().set("key", 2L).build(),
+                kvView.tupleBuilder().set("val", "I'not exists").build())
             );
         }
 
@@ -199,21 +199,21 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
 
             kvView.put(kvView.tupleBuilder().set("key", 2L).build(),
-                    kvView.tupleBuilder().set("valInt", 222).set("val", "string").build());
+                kvView.tupleBuilder().set("valInt", 222).set("val", "string").build());
 
             kvView.put(kvView.tupleBuilder().set("key", 3L).build(),
-                    kvView.tupleBuilder().set("valInt", 333).build());
+                kvView.tupleBuilder().set("valInt", 333).build());
         }
 
         dropColumn(grid, column.name());
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 4L).build(),
-                    kvView.tupleBuilder().set("valInt", 444).build());
+                kvView.tupleBuilder().set("valInt", 444).build());
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
-                    kvView.tupleBuilder().set("key", 4L).build(),
-                    kvView.tupleBuilder().set("val", "I'm not exist").build())
+                kvView.tupleBuilder().set("key", 4L).build(),
+                kvView.tupleBuilder().set("val", "I'm not exist").build())
             );
         }
 
@@ -221,32 +221,32 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
         {
             kvView.put(kvView.tupleBuilder().set("key", 5L).build(),
-                    kvView.tupleBuilder().set("valInt", 555).build());
+                kvView.tupleBuilder().set("valInt", 555).build());
 
             // Check old row conversion.
             Tuple keyTuple1 = kvView.tupleBuilder().set("key", 1L).build();
 
-            assertEquals(111, (Integer) kvView.get(keyTuple1).value("valInt"));
+            assertEquals(111, (Integer)kvView.get(keyTuple1).value("valInt"));
             assertEquals("default", kvView.get(keyTuple1).value("val"));
 
             Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
 
-            assertEquals(222, (Integer) kvView.get(keyTuple2).value("valInt"));
+            assertEquals(222, (Integer)kvView.get(keyTuple2).value("valInt"));
             assertEquals("default", kvView.get(keyTuple2).value("val"));
 
             Tuple keyTuple3 = kvView.tupleBuilder().set("key", 3L).build();
 
-            assertEquals(333, (Integer) kvView.get(keyTuple3).value("valInt"));
+            assertEquals(333, (Integer)kvView.get(keyTuple3).value("valInt"));
             assertEquals("default", kvView.get(keyTuple3).value("val"));
 
             Tuple keyTuple4 = kvView.tupleBuilder().set("key", 4L).build();
 
-            assertEquals(444, (Integer) kvView.get(keyTuple4).value("valInt"));
+            assertEquals(444, (Integer)kvView.get(keyTuple4).value("valInt"));
             assertEquals("default", kvView.get(keyTuple4).value("val"));
 
             Tuple keyTuple5 = kvView.tupleBuilder().set("key", 5L).build();
 
-            assertEquals(555, (Integer) kvView.get(keyTuple5).value("valInt"));
+            assertEquals(555, (Integer)kvView.get(keyTuple5).value("valInt"));
             assertEquals("default", kvView.get(keyTuple5).value("val"));
         }
     }
@@ -269,15 +269,15 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             vkView.put(vkView.tupleBuilder().set("key", 1L).build(), vkView.tupleBuilder().set("valInt", 111).build());
         }
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
+        changeDefault(grid, colName, (Supplier<Object> & Serializable)() -> "newDefault");
         addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
 
         {
             vkView.put(vkView.tupleBuilder().set("key", 2L).build(), vkView.tupleBuilder().set("valInt", 222).build());
         }
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "brandNewDefault");
-        changeDefault(grid, "val", (Supplier<Object> & Serializable) () -> "brandNewDefault");
+        changeDefault(grid, colName, (Supplier<Object> & Serializable)() -> "brandNewDefault");
+        changeDefault(grid, "val", (Supplier<Object> & Serializable)() -> "brandNewDefault");
 
         {
             vkView.put(vkView.tupleBuilder().set("key", 3L).build(), vkView.tupleBuilder().set("valInt", 333).build());
@@ -285,19 +285,19 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             Tuple keyTuple1 = vkView.tupleBuilder().set("key", 1L).build();
 
-            assertEquals(111, (Integer) vkView.get(keyTuple1).value("valInt"));
+            assertEquals(111, (Integer)vkView.get(keyTuple1).value("valInt"));
             assertEquals("default", vkView.get(keyTuple1).value("valStr"));
             assertEquals("newDefault", vkView.get(keyTuple1).value("val"));
 
             Tuple keyTuple2 = vkView.tupleBuilder().set("key", 2L).build();
 
-            assertEquals(222, (Integer) vkView.get(keyTuple2).value("valInt"));
+            assertEquals(222, (Integer)vkView.get(keyTuple2).value("valInt"));
             assertEquals("newDefault", vkView.get(keyTuple2).value("valStr"));
             assertEquals("newDefault", vkView.get(keyTuple2).value("val"));
 
             Tuple keyTuple3 = vkView.tupleBuilder().set("key", 3L).build();
 
-            assertEquals(333, (Integer) vkView.get(keyTuple3).value("valInt"));
+            assertEquals(333, (Integer)vkView.get(keyTuple3).value("valInt"));
             assertEquals("brandNewDefault", vkView.get(keyTuple3).value("valStr"));
             assertEquals("brandNewDefault", vkView.get(keyTuple3).value("val"));
 

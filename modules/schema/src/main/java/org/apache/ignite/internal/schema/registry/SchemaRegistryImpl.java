@@ -130,7 +130,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (curSchema.version() == rowSchema.version() + 1)
             return curSchema.columnMapping();
 
-        final long mappingKey = (((long) curSchema.version()) << 32) & (rowSchema.version());
+        final long mappingKey = (((long)curSchema.version()) << 32) & (rowSchema.version());
 
         ColumnMapper mapping;
 

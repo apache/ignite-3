@@ -47,46 +47,50 @@ abstract class AbstractSchemaChangeTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
         put("node0", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3344,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3344,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
         put("node1", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3345,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3345,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
 
         put("node2", "{\n" +
-                "  \"node\": {\n" +
-                "    \"metastorageNodes\":[ \"node0\" ]\n" +
-                "  },\n" +
-                "  \"network\": {\n" +
-                "    \"port\":3346,\n" +
-                "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
-                "  }\n" +
-                "}");
+            "  \"node\": {\n" +
+            "    \"metastorageNodes\":[ \"node0\" ]\n" +
+            "  },\n" +
+            "  \"network\": {\n" +
+            "    \"port\":3346,\n" +
+            "    \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n" +
+            "  }\n" +
+            "}");
     }};
 
     /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
-    /** */
+    /**
+     *
+     */
     @BeforeAll
-    void beforeAll() throws Exception {
+    static void beforeAll() throws Exception {
         IgnitionCleaner.removeAllData();
     }
 
-    /** {@inheritDoc} */
+    /**
+     *
+     */
     @AfterEach
     void afterEach() throws Exception {
         IgniteUtils.closeAll(clusterNodes);
@@ -113,14 +117,14 @@ abstract class AbstractSchemaChangeTest {
     @NotNull protected void createTable(List<Ignite> nodes) {
         // Create table on node 0.
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
-                SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
-                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
+            SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
+            SchemaBuilders.column("valInt", ColumnType.INT32).asNullable().build(),
+            SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
         nodes.get(0).tables().createTable(
-                schTbl1.canonicalName(),
-                tblCh -> convert(schTbl1, tblCh).changeReplicas(1).changePartitions(10)
+            schTbl1.canonicalName(),
+            tblCh -> convert(schTbl1, tblCh).changeReplicas(1).changePartitions(10)
         );
     }
 
@@ -130,11 +134,11 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void addColumn(List<Ignite> nodes, Column columnToAdd) {
         nodes.get(0).tables().alterTable(TABLE,
-                chng -> chng.changeColumns(cols -> {
-                    final int colIdx = chng.columns().size();
-                    //TODO: avoid 'colIdx' or replace with correct last colIdx.
-                    cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
-                }));
+            chng -> chng.changeColumns(cols -> {
+                final int colIdx = chng.columns().size();
+                //TODO: avoid 'colIdx' or replace with correct last colIdx.
+                cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
+            }));
     }
 
     /**
@@ -143,14 +147,14 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void dropColumn(List<Ignite> nodes, String colName) {
         nodes.get(0).tables().alterTable(TABLE,
-                chng -> chng.changeColumns(cols -> {
-                    cols.delete(chng.columns().namedListKeys().stream()
-                            .filter(key -> colName.equals(chng.columns().get(key).name()))
-                            .findAny()
-                            .orElseThrow(() -> {
-                                throw new IllegalStateException("Column not found.");
-                            }));
-                }));
+            chng -> chng.changeColumns(cols -> {
+                cols.delete(chng.columns().namedListKeys().stream()
+                    .filter(key -> colName.equals(chng.columns().get(key).name()))
+                    .findAny()
+                    .orElseThrow(() -> {
+                        throw new IllegalStateException("Column not found.");
+                    }));
+            }));
     }
 
     /**
@@ -160,18 +164,18 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void renameColumn(List<Ignite> nodes, String oldName, String newName) {
         nodes.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                            .filter(c -> oldName.equals(tblChanger.columns().get(c).name()))
-                            .findFirst()
-                            .orElseThrow(() -> {
-                                throw new IllegalStateException("Column not found.");
-                            });
+            tblChanger -> tblChanger.changeColumns(cols -> {
+                final String colKey = tblChanger.columns().namedListKeys().stream()
+                    .filter(c -> oldName.equals(tblChanger.columns().get(c).name()))
+                    .findFirst()
+                    .orElseThrow(() -> {
+                        throw new IllegalStateException("Column not found.");
+                    });
 
-                    tblChanger.changeColumns(listChanger ->
-                            listChanger.update(colKey, colChanger -> colChanger.changeName(newName))
-                    );
-                }));
+                tblChanger.changeColumns(listChanger ->
+                    listChanger.update(colKey, colChanger -> colChanger.changeName(newName))
+                );
+            }));
     }
 
     /**
@@ -181,17 +185,17 @@ abstract class AbstractSchemaChangeTest {
      */
     protected void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
         nodes.get(0).tables().alterTable(TABLE,
-                tblChanger -> tblChanger.changeColumns(cols -> {
-                    final String colKey = tblChanger.columns().namedListKeys().stream()
-                            .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
-                            .findFirst()
-                            .orElseThrow(() -> {
-                                throw new IllegalStateException("Column not found.");
-                            });
+            tblChanger -> tblChanger.changeColumns(cols -> {
+                final String colKey = tblChanger.columns().namedListKeys().stream()
+                    .filter(c -> colName.equals(tblChanger.columns().get(c).name()))
+                    .findFirst()
+                    .orElseThrow(() -> {
+                        throw new IllegalStateException("Column not found.");
+                    });
 
-                    tblChanger.changeColumns(listChanger ->
-                            listChanger.update(colKey, colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
-                    );
-                }));
+                tblChanger.changeColumns(listChanger ->
+                    listChanger.update(colKey, colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
+                );
+            }));
     }
 }
