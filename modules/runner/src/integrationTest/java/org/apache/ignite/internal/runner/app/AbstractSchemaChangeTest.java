@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgnitionCleaner;
@@ -32,6 +28,10 @@ import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -153,6 +153,27 @@ abstract class AbstractSchemaChangeTest {
                     .orElseThrow(() -> {
                         throw new IllegalStateException("Column not found.");
                     }));
+            }));
+    }
+
+    /**
+     * @param nodes Cluster nodes.
+     * @param oldName Old column name.
+     * @param newName New column name.
+     */
+    protected void renameColumn(List<Ignite> nodes, String oldName, String newName) {
+        nodes.get(0).tables().alterTable(TABLE,
+            tblChanger -> tblChanger.changeColumns(cols -> {
+                final String colKey = tblChanger.columns().namedListKeys().stream()
+                    .filter(c -> oldName.equals(tblChanger.columns().get(c).name()))
+                    .findFirst()
+                    .orElseThrow(() -> {
+                        throw new IllegalStateException("Column not found.");
+                    });
+
+                tblChanger.changeColumns(listChanger ->
+                    listChanger.update(colKey, colChanger -> colChanger.changeName(newName))
+                );
             }));
     }
 }

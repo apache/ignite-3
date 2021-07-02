@@ -77,7 +77,7 @@ public class Column implements Comparable<Column>, Serializable {
         boolean nullable,
         @Nullable Supplier<Object> defValSup
     ) {
-        this(-1, name, type, nullable, defVal);
+        this(-1, name, type, nullable, defValSup);
     }
 
     /**
@@ -98,7 +98,7 @@ public class Column implements Comparable<Column>, Serializable {
         this.name = name;
         this.type = type;
         this.nullable = nullable;
-        this.defVal = defVal;
+        this.defValSup = defValSup;
     }
 
     /**
@@ -201,7 +201,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Column.
      */
     public Column copy(int schemaIndex) {
-        return new Column(schemaIndex, name, type, nullable, defVal);
+        return new Column(schemaIndex, name, type, nullable, defValSup);
     }
 
     /** {@inheritDoc} */

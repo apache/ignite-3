@@ -114,4 +114,49 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         assertEquals(222, (Integer)tbl.get(keyTuple2).value("valInt"));
         assertEquals("str", tbl.get(keyTuple2).value("val2"));
     }
+
+    /**
+     * Check rename column from table schema.
+     */
+    @Test
+    void testRenameColumn() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        Table tbl = grid.get(1).tables().table(TABLE);
+
+        {
+            tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
+
+            assertThrows(ColumnNotFoundException.class,
+                    () -> tbl.insert(tbl.tupleBuilder().set("key", 2L).set("val2", -222).build())
+            );
+        }
+
+        renameColumn(grid, "valInt", "val2");
+
+        {
+            // Check old row conversion.
+            Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();
+
+            assertEquals(1, (Long) tbl.get(keyTuple1).value("key"));
+            assertEquals(111, (Integer) tbl.get(keyTuple1).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple1).value("valInt"));
+
+            // Check tuple of outdated schema.
+            assertThrows(ColumnNotFoundException.class,
+                    () -> tbl.insert(tbl.tupleBuilder().set("key", 2L).set("valInt", -222).build())
+            );
+
+            // Check tuple of correct schema.
+            tbl.insert(tbl.tupleBuilder().set("key", 2L).set("val2", 222).build());
+
+            Tuple keyTuple2 = tbl.tupleBuilder().set("key", 2L).build();
+
+            assertEquals(2, (Long) tbl.get(keyTuple2).value("key"));
+            assertEquals(222, (Integer) tbl.get(keyTuple2).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple2).value("valInt"));
+        }
+    }
 }

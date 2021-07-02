@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import java.util.List;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.schema.ColumnType;
@@ -26,8 +25,10 @@ import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -114,6 +115,55 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
             assertEquals(222, (Integer)kvView.get(keyTuple2).value("valInt"));
             assertEquals("str", kvView.get(keyTuple2).value("val2"));
+        }
+    }
+
+    /**
+     * Check rename column from table schema.
+     */
+    @Test
+    public void testRenameColumn() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        KeyValueBinaryView kvView = grid.get(1).tables().table(TABLE).kvView();
+
+        {
+            kvView.put(kvView.tupleBuilder().set("key", 1L).build(), kvView.tupleBuilder().set("valInt", 111).build());
+
+            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+                kvView.tupleBuilder().set("key", 2L).build(),
+                kvView.tupleBuilder().set("val2", 222).build())
+            );
+        }
+
+        renameColumn(grid, "valInt", "val2");
+
+        {
+            assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
+
+            // Check old row conversion.
+            Tuple keyTuple1 = kvView.tupleBuilder().set("key", 1L).build();
+
+            assertEquals(111, (Integer)kvView.get(keyTuple1).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple1).value("valInt"));
+
+            // Check tuple of correct schema.
+            assertThrows(ColumnNotFoundException.class, () -> kvView.put(
+                kvView.tupleBuilder().set("key", 2L).build(),
+                kvView.tupleBuilder().set("valInt", -222).build())
+            );
+
+            assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
+
+            // Check tuple of new schema.
+            kvView.put(kvView.tupleBuilder().set("key", 2L).build(), kvView.tupleBuilder().set("val2", 222).build());
+
+            Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
+
+            assertEquals(222, (Integer)kvView.get(keyTuple2).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("valInt"));
         }
     }
 }
