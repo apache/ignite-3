@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgnitionCleaner;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
@@ -32,10 +33,12 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Ignition interface tests.
@@ -99,6 +102,93 @@ abstract class AbstractSchemaChangeTest {
     }
 
     /**
+     * Check unsupported column type change.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
+    @Test
+    public void testChangeColumnType() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        SchemaBuilders.column("valInt", ColumnType.string()).build();
+
+        Assertions.assertThrows(InvalidTypeException.class, () -> {
+            grid.get(0).tables().alterTable(TABLE,
+                tblChanger -> tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                        .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
+                        .findFirst()
+                        .orElseThrow(() -> {
+                            throw new IllegalStateException("Column not found.");
+                        });
+
+                    tblChanger.changeColumns(listChanger ->
+                        listChanger.update(colKey, colChanger -> colChanger.changeType(c -> c.changeType("STRING")))
+                    );
+                }));
+        });
+    }
+
+    /**
+     * Check unsupported column nullability change.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
+    @Test
+    public void testChangeToNonNullabile() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        SchemaBuilders.column("valInt", ColumnType.string()).build();
+
+        Assertions.assertThrows(InvalidTypeException.class, () -> {
+            grid.get(0).tables().alterTable(TABLE,
+                tblChanger -> tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                        .filter(c -> "valInt".equals(tblChanger.columns().get(c).name()))
+                        .findFirst()
+                        .orElseThrow(() -> {
+                            throw new IllegalStateException("Column not found.");
+                        });
+
+                    tblChanger.changeColumns(listChanger ->
+                        listChanger.update(colKey, colChanger -> colChanger.changeNullable(false))
+                    );
+                }));
+        });
+    }
+
+    /**
+     * Check unsupported nullability change.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
+    @Test
+    public void testChangeToNullabile() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        SchemaBuilders.column("valInt", ColumnType.string()).build();
+
+        Assertions.assertThrows(InvalidTypeException.class, () -> {
+            grid.get(0).tables().alterTable(TABLE,
+                tblChanger -> tblChanger.changeColumns(cols -> {
+                    final String colKey = tblChanger.columns().namedListKeys().stream()
+                        .filter(c -> "valStr".equals(tblChanger.columns().get(c).name()))
+                        .findFirst()
+                        .orElseThrow(() -> {
+                            throw new IllegalStateException("Column not found.");
+                        });
+
+                    tblChanger.changeColumns(listChanger ->
+                        listChanger.update(colKey, colChanger -> colChanger.changeNullable(true))
+                    );
+                }));
+        });
+    }
+
+    /**
      * @return Grid nodes.
      */
     @NotNull protected List<Ignite> startGrid() {
@@ -107,7 +197,6 @@ abstract class AbstractSchemaChangeTest {
         for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
             clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
 
-        assertEquals(3, clusterNodes.size());
         return clusterNodes;
     }
 
@@ -135,7 +224,7 @@ abstract class AbstractSchemaChangeTest {
     protected void addColumn(List<Ignite> nodes, Column columnToAdd) {
         nodes.get(0).tables().alterTable(TABLE,
             chng -> chng.changeColumns(cols -> {
-                 int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
+                int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
 
                 cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
             }));
