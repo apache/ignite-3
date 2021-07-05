@@ -15,40 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.mapping;
+package org.apache.ignite.internal.network.processor;
 
-/**
- * Column mapper implementation.
- */
-public class ColumnMapperImpl implements ColumnMapper, ColumnaMapperBuilder {
-    /** Mapping. */
-    private final int[] mapping;
+import java.io.Serializable;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-    /**
-     * @param cols Number of columns.
-     */
-    ColumnMapperImpl(int cols) {
-        mapping = new int[cols];
+interface NetworkMessage1 extends NetworkMessage {
+    double x();
+}
 
-        for (int i = 0; i < mapping.length; i++)
-            mapping[i] = i;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void add(int from, int to) {
-        mapping[from] = to;
-    }
-
-    /** {@inheritDoc} */
-    @Override public int map(int idx) {
-        if (idx > mapping.length)
-            return -1;
-
-        return mapping[idx];
-    }
-
-    /** {@inheritDoc} */
-    @Override public ColumnMapper build() {
-        return this;
-    }
+@Transferable(2)
+public interface InheritedMessageClash extends NetworkMessage1 {
+    double x();
 }

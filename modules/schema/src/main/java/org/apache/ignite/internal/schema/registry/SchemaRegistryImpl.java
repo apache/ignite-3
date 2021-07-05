@@ -23,10 +23,12 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.mapping.ColumnMapper;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.jetbrains.annotations.Nullable;
 
@@ -118,7 +120,32 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
         ColumnMapper mapping = resolveMapping(rowSchema, curSchema);
 
-        return new UpgradingRowAdapter(curSchema, row, mapping);
+        return new UpgradingRowAdapter(curSchema, row, mapping);}
+
+    /**
+     * @param rowSchema Row schema.
+     * @param curSchema Target schema.
+     * @return Column mapper for target schema.
+     */
+    private ColumnMapper columnMapper(SchemaDescriptor rowSchema, SchemaDescriptor curSchema) {
+        if (curSchema.version() == rowSchema.version() + 1)
+            return curSchema.columnMapping();
+
+        final long mappingKey = (((long)curSchema.version()) << 32) & (rowSchema.version());
+
+        ColumnMapper mapping;
+
+        if ((mapping = mappingCache.get(mappingKey)) != null)
+            return mapping;
+
+        mapping = schema(rowSchema.version() + 1).columnMapping();
+
+        for (int i = rowSchema.version() + 2; i <= curSchema.version(); i++)
+            mapping = ColumnMapping.mergeMapping(mapping, schema(i));
+
+        mappingCache.putIfAbsent(mappingKey, mapping);
+
+        return mapping;
     }
 
     /**
