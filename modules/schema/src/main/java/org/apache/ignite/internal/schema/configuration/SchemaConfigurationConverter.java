@@ -32,6 +32,7 @@ import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnChange;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -393,6 +394,16 @@ public class SchemaConfigurationConverter {
         });
 
         return tblChg;
+    }
+
+    /**
+     * Convert TableConfiguration to SchemaTable.
+     *
+     * @param tblCfg TableConfiguration to convert.
+     * @return SchemaTable.
+     */
+    public static SchemaTable convert(TableConfiguration tblCfg) {
+        return convert(tblCfg.value());
     }
 
     /**

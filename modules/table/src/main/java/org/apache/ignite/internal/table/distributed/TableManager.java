@@ -423,10 +423,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             UUID tblId = tbl.tableId();
 
+            final int ver = tbl.schemaView().lastSchemaVersion() + 1;
+
             if (hasMetastorageLocally)
                 futs.add(schemaMgr.updateSchemaForTable(tblId, tblName, ctx.oldValue().get(tblName), ctx.newValue().get(tblName)));
-
-            final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
             final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 

@@ -127,32 +127,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param curSchema Target schema.
      * @return Column mapper for target schema.
      */
-    private ColumnMapper columnMapper(SchemaDescriptor rowSchema, SchemaDescriptor curSchema) {
-        if (curSchema.version() == rowSchema.version() + 1)
-            return curSchema.columnMapping();
-
-        final long mappingKey = (((long)curSchema.version()) << 32) & (rowSchema.version());
-
-        ColumnMapper mapping;
-
-        if ((mapping = mappingCache.get(mappingKey)) != null)
-            return mapping;
-
-        mapping = schema(rowSchema.version() + 1).columnMapping();
-
-        for (int i = rowSchema.version() + 2; i <= curSchema.version(); i++)
-            mapping = ColumnMapping.mergeMapping(mapping, schema(i));
-
-        mappingCache.putIfAbsent(mappingKey, mapping);
-
-        return mapping;
-    }
-
-    /**
-     * @param rowSchema Row schema.
-     * @param curSchema Target schema.
-     * @return Column mapper for target schema.
-     */
     public ColumnMapper resolveMapping(SchemaDescriptor rowSchema, SchemaDescriptor curSchema) {
         if (curSchema.version() == rowSchema.version() + 1)
             return curSchema.columnMapping();
@@ -185,7 +159,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (lastVer == INITIAL_SCHEMA_VERSION) {
             if (desc.version() != 1)
                 throw new SchemaRegistryException("Try to register schema of wrong version: ver=" + desc.version() + ", lastVer=" + lastVer);
-        } else if (desc.version() != lastVer + 1) {
+        }
+        else if (desc.version() != lastVer + 1) {
             if (desc.version() > 0 && desc.version() <= lastVer)
                 throw new SchemaRegistrationConflictException("Schema with given version has been already registered: " + desc.version());
 

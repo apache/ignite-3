@@ -193,7 +193,7 @@ public class SchemaConfigurationConverterTest {
         TableConfiguration tblCfg = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
             .get(tbl.canonicalName());
 
-        SchemaTable tbl2 = SchemaConfigurationConverter.convert(tblCfg.value());
+        SchemaTable tbl2 = SchemaConfigurationConverter.convert(tblCfg);
 
         assertEquals(tbl.canonicalName(), tbl2.canonicalName());
         assertEquals(tbl.indices().size(), tbl2.indices().size());

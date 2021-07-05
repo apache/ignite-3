@@ -22,7 +22,6 @@ import java.io.Serializable;
 /**
  * Column mapper interface.
  */
-@FunctionalInterface
 public interface ColumnMapper extends Serializable {
     /**
      * Map column idx in source schema to column idx in target schema.
