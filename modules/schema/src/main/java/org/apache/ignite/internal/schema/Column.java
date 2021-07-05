@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.Serializable;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
+import java.io.Serializable;
+import java.util.function.Supplier;
 
 /**
  * Column description for a type schema. Column contains a column name, a column type and a nullability flag.

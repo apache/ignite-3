@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgnitionCleaner;
@@ -28,10 +32,6 @@ import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.junit.jupiter.api.Assertions.assertEquals;

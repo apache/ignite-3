@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.util.List;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.schema.ColumnType;
@@ -25,7 +26,6 @@ import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
