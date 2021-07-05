@@ -220,11 +220,16 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         packer.packArrayHeader(schema.length());
 
         for (var col : schema.keyColumns().columns()) {
-            // TODO: Impossible to understand whether value exists for a given column - missing API.
-            tuple.intValue(col.name());
-        }
+            var val = tuple.value(col.name());
 
-        packer.packNil(); // TODO: Get all values from tuple - missing API.
+            if (val == null) {
+                packer.packNil();
+                continue;
+            }
+
+            // TODO: Switch on type or on column type?
+            packer.packInt((int)val);
+        }
     }
 
     private Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
