@@ -217,6 +217,13 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         var schema = ((SchemaAware) tuple).schema();
 
         packer.packInt(schema.version());
+        packer.packArrayHeader(schema.length());
+
+        for (var col : schema.keyColumns().columns()) {
+            // TODO: Impossible to understand whether value exists for a given column - missing API.
+            tuple.intValue(col.name());
+        }
+
         packer.packNil(); // TODO: Get all values from tuple - missing API.
     }
 
