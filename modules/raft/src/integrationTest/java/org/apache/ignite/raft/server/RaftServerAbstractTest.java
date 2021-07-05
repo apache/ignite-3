@@ -31,7 +31,7 @@ import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 /**
  * Abstract test for raft server.
  */
-abstract class RaftServerAbstractTest {
+public abstract class RaftServerAbstractTest {
     /** */
     protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerAbstractTest.class);
 

@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.metastorage.server;
 
 /**
- * Tests for in-memory key-value storage implementation.
+ * Tests for RocksDB key-value storage implementation.
  */
-class SimpleInMemoryKeyValueStorageTest extends AbstractKeyValueStorageTest {
+public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
     /** {@inheritDoc} */
     @Override KeyValueStorage storage() {
-        return new SimpleInMemoryKeyValueStorage();
+        return new RocksDBKeyValueStorage();
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -65,6 +66,7 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Meta storage listener.
@@ -315,13 +317,20 @@ public class MetaStorageListener implements RaftGroupListener {
 
     /** {@inheritDoc} */
     @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
-        // Not implemented yet.
+        storage.snapshot(Paths.get(path)).whenComplete((unused, throwable) -> {
+            doneClo.accept(throwable);
+        });
     }
 
     /** {@inheritDoc} */
     @Override public boolean onSnapshotLoad(String path) {
-        // Not implemented yet.
-        return false;
+        storage.restoreSnapshot(Paths.get(path));
+        return true;
+    }
+
+    @TestOnly
+    public KeyValueStorage getStorage() {
+        return storage;
     }
 
     /** */

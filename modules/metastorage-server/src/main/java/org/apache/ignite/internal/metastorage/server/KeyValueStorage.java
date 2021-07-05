@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 
@@ -203,4 +205,10 @@ public interface KeyValueStorage {
      * Compacts storage (removes tombstones).
      */
     void compact();
+
+    void close();
+
+    CompletableFuture<Void> snapshot(Path snapshotPath);
+
+    void restoreSnapshot(Path snapshotPath);
 }
