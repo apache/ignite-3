@@ -255,6 +255,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
     /**
      * Check merge table schema changes.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14479")
     @Test
     public void testMergeDefaultChanges() {
         List<Ignite> grid = startGrid();
