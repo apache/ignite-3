@@ -95,27 +95,27 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class,
-                () -> tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", -111).set("val2", "str").build())
+                () -> tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", -111).set("valStrNew", "str").build())
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         // Check old row conversion.
         Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();
 
         assertEquals(1, (Long)tbl.get(keyTuple1).value("key"));
         assertEquals(111, (Integer)tbl.get(keyTuple1).value("valInt"));
-        assertEquals("default", tbl.get(keyTuple1).value("val2"));
+        assertEquals("default", tbl.get(keyTuple1).value("valStrNew"));
 
         // Check tuple of new schema.
-        tbl.insert(tbl.tupleBuilder().set("key", 2L).set("valInt", 222).set("val2", "str").build());
+        tbl.insert(tbl.tupleBuilder().set("key", 2L).set("valInt", 222).set("valStrNew", "str").build());
 
         Tuple keyTuple2 = tbl.tupleBuilder().set("key", 2L).build();
 
         assertEquals(2, (Long)tbl.get(keyTuple2).value("key"));
         assertEquals(222, (Integer)tbl.get(keyTuple2).value("valInt"));
-        assertEquals("str", tbl.get(keyTuple2).value("val2"));
+        assertEquals("str", tbl.get(keyTuple2).value("valStrNew"));
     }
 
     /**
@@ -133,18 +133,18 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
 
             assertThrows(ColumnNotFoundException.class,
-                () -> tbl.insert(tbl.tupleBuilder().set("key", 2L).set("val2", -222).build())
+                () -> tbl.insert(tbl.tupleBuilder().set("key", 2L).set("valRenamed", -222).build())
             );
         }
 
-        renameColumn(grid, "valInt", "val2");
+        renameColumn(grid, "valInt", "valRenamed");
 
         {
             // Check old row conversion.
             Tuple keyTuple1 = tbl.tupleBuilder().set("key", 1L).build();
 
             assertEquals(1, (Long)tbl.get(keyTuple1).value("key"));
-            assertEquals(111, (Integer)tbl.get(keyTuple1).value("val2"));
+            assertEquals(111, (Integer)tbl.get(keyTuple1).value("valRenamed"));
             assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple1).value("valInt"));
 
             // Check tuple of outdated schema.
@@ -153,12 +153,12 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             );
 
             // Check tuple of correct schema.
-            tbl.insert(tbl.tupleBuilder().set("key", 2L).set("val2", 222).build());
+            tbl.insert(tbl.tupleBuilder().set("key", 2L).set("valRenamed", 222).build());
 
             Tuple keyTuple2 = tbl.tupleBuilder().set("key", 2L).build();
 
             assertEquals(2, (Long)tbl.get(keyTuple2).value("key"));
-            assertEquals(222, (Integer)tbl.get(keyTuple2).value("val2"));
+            assertEquals(222, (Integer)tbl.get(keyTuple2).value("valRenamed"));
             assertThrows(ColumnNotFoundException.class, () -> tbl.get(keyTuple2).value("valInt"));
         }
     }

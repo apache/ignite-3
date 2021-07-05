@@ -62,12 +62,12 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             final Tuple keyTuple = kvView.tupleBuilder().set("key", 1L).build();
 
             assertEquals(111, (Integer)kvView.get(keyTuple).value("valInt"));
-            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple).value("valStr"));
 
             // Check tuple of outdated schema.
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
                 kvView.tupleBuilder().set("key", 2L).build(),
-                kvView.tupleBuilder().set("valInt", -222).set("val2", "str").build())
+                kvView.tupleBuilder().set("valInt", -222).set("valStr", "str").build())
             );
 
             // Check tuple of correct schema.
@@ -76,7 +76,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             final Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
 
             assertEquals(222, (Integer)kvView.get(keyTuple2).value("valInt"));
-            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("val2"));
+            assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("valStr"));
         }
     }
 
@@ -97,27 +97,27 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
                 kvView.tupleBuilder().set("key", 1L).build(),
-                kvView.tupleBuilder().set("valInt", -111).set("val2", "str").build())
+                kvView.tupleBuilder().set("valInt", -111).set("valStrNew", "str").build())
             );
         }
 
-        addColumn(grid, SchemaBuilders.column("val2", ColumnType.string()).asNullable().withDefaultValue("default").build());
+        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable().withDefaultValue("default").build());
 
         {
             // Check old row conversion.
             Tuple keyTuple = kvView.tupleBuilder().set("key", 1L).build();
 
             assertEquals(111, (Integer)kvView.get(keyTuple).value("valInt"));
-            assertEquals("default", kvView.get(keyTuple).value("val2"));
+            assertEquals("default", kvView.get(keyTuple).value("valStrNew"));
 
             // Check tuple of new schema.
             kvView.put(kvView.tupleBuilder().set("key", 2L).build(),
-                kvView.tupleBuilder().set("valInt", 222).set("val2", "str").build());
+                kvView.tupleBuilder().set("valInt", 222).set("valStrNew", "str").build());
 
             Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
 
             assertEquals(222, (Integer)kvView.get(keyTuple2).value("valInt"));
-            assertEquals("str", kvView.get(keyTuple2).value("val2"));
+            assertEquals("str", kvView.get(keyTuple2).value("valStrNew"));
         }
     }
 
@@ -137,11 +137,11 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
 
             assertThrows(ColumnNotFoundException.class, () -> kvView.put(
                 kvView.tupleBuilder().set("key", 2L).build(),
-                kvView.tupleBuilder().set("val2", 222).build())
+                kvView.tupleBuilder().set("valRenamed", 222).build())
             );
         }
 
-        renameColumn(grid, "valInt", "val2");
+        renameColumn(grid, "valInt", "valRenamed");
 
         {
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
@@ -149,7 +149,7 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             // Check old row conversion.
             Tuple keyTuple1 = kvView.tupleBuilder().set("key", 1L).build();
 
-            assertEquals(111, (Integer)kvView.get(keyTuple1).value("val2"));
+            assertEquals(111, (Integer)kvView.get(keyTuple1).value("valRenamed"));
             assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple1).value("valInt"));
 
             // Check tuple of correct schema.
@@ -161,11 +161,11 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             assertNull(kvView.get(kvView.tupleBuilder().set("key", 2L).build()));
 
             // Check tuple of new schema.
-            kvView.put(kvView.tupleBuilder().set("key", 2L).build(), kvView.tupleBuilder().set("val2", 222).build());
+            kvView.put(kvView.tupleBuilder().set("key", 2L).build(), kvView.tupleBuilder().set("valRenamed", 222).build());
 
             Tuple keyTuple2 = kvView.tupleBuilder().set("key", 2L).build();
 
-            assertEquals(222, (Integer)kvView.get(keyTuple2).value("val2"));
+            assertEquals(222, (Integer)kvView.get(keyTuple2).value("valRenamed"));
             assertThrows(ColumnNotFoundException.class, () -> kvView.get(keyTuple2).value("valInt"));
         }
     }
