@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Column description for a type schema. Column contains a column name, a column type and a nullability flag.
