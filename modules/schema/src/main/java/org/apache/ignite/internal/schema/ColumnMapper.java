@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema;
 /**
  * Column mapper implementation.
  */
-class ColumnMapper implements ColumnMapping {
+public class ColumnMapper implements ColumnMapping {
     /** Identity mapper. */
     private static final IdentityMapper IDENTITY_MAPPER = new IdentityMapper();
 
@@ -37,7 +37,7 @@ class ColumnMapper implements ColumnMapping {
     /**
      * @param schema Source schema descriptor.
      */
-    ColumnMapper(SchemaDescriptor schema) {
+    public ColumnMapper(SchemaDescriptor schema) {
         mapping = new int[schema.length()];
 
         for (int i = 0; i < mapping.length; i++)

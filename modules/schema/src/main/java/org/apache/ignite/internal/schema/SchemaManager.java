@@ -222,7 +222,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 final ByteArray lastVerKey = new ByteArray(INTERNAL_PREFIX + tblId);
                 final ByteArray schemaKey = new ByteArray(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + newVer);
 
-                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig);
+                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig.value());
                 final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, newVer, schemaTable);
 
                 return metaStorageMgr.invoke(Conditions.notExists(schemaKey),

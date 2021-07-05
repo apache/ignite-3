@@ -22,10 +22,9 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.ColumnMapper;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.Row;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -122,14 +121,14 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param dst Target schema of older version.
      * @return Column mapping.
      */
-    private ColumnMapping columnMapper(SchemaDescriptor src, SchemaDescriptor dst) {
+    private ColumnMapper columnMapper(SchemaDescriptor src, SchemaDescriptor dst) {
         assert src.version() > dst.version();
         assert src.version() == dst.version() + 1; // TODO: IGNITE-14863 implement merged mapper for arbitraty schema versions.
 
         final Columns srcCols = src.valueColumns();
         final Columns dstCols = dst.valueColumns();
 
-        final ColumnMapping mapping = new ColumnMapping(src);
+        final ColumnMapper mapping = new ColumnMapper(src);
 
         for (int i = 0; i < srcCols.columns().length; i++) {
             final Column col = srcCols.column(i);
