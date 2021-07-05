@@ -132,10 +132,10 @@ public class SchemaDescriptorConverter {
      * @return Parsed object.
      */
     private static Serializable convertDefault(NativeType type, String dflt) {
-        assert dflt instanceof String;
-
-        if (dflt.isEmpty() && type.spec() != NativeTypeSpec.STRING)
+        if (dflt == null || dflt.isEmpty() && type.spec() != NativeTypeSpec.STRING)
             return null;
+
+        assert dflt instanceof String;
 
         switch (type.spec()) {
             case BYTE:
