@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,8 +29,10 @@ import java.util.NavigableMap;
 import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
@@ -326,6 +329,21 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             revsIdx = compactedRevsIdx;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
+        throw new IgniteInternalException("Not implemented!");
+    }
+
+    /** {@inheritDoc} */
+    @Override public void restoreSnapshot(Path snapshotPath) {
+        throw new IgniteInternalException("Not implemented!");
     }
 
     /** */
