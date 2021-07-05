@@ -26,5 +26,5 @@ public interface SchemaAware {
      *
      * @return Schema descriptor.
      */
-    SchemaDescriptor getSchema();
+    SchemaDescriptor schema();
 }

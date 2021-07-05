@@ -88,12 +88,12 @@ public class TableRow extends RowChunkAdapter implements SchemaAware {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor getSchema() {
+    @Override public SchemaDescriptor schema() {
         return schema;
     }
 
     /** Key column chunk. */
-    private class KeyRowChunk extends RowChunkAdapter {
+    private class KeyRowChunk extends RowChunkAdapter implements SchemaAware {
         /** {@inheritDoc} */
         @Override protected Row row() {
             return row;
@@ -114,6 +114,11 @@ public class TableRow extends RowChunkAdapter implements SchemaAware {
         /** */
         @Override public boolean contains(String colName) {
             return schema.column(colName) != null;
+        }
+
+        /** {@inheritDoc} */
+        @Override public SchemaDescriptor schema() {
+            return schema;
         }
     }
 
@@ -139,6 +144,11 @@ public class TableRow extends RowChunkAdapter implements SchemaAware {
         /** */
         @Override public boolean contains(String colName) {
             return schema.column(colName) != null;
+        }
+
+        /** {@inheritDoc} */
+        @Override public SchemaDescriptor schema() {
+            return schema;
         }
     }
 }

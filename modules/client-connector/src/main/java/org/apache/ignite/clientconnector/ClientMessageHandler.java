@@ -25,8 +25,8 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteException;
@@ -214,12 +214,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeTuple(ClientMessagePacker packer, Tuple tuple) throws IOException {
-        // TODO: There are other Tuple implementations, but table API seems to return TableRow.
-        // TODO: Add TupleInternal interface with schema access?
-        // We should have a proper API to get schema and all values from Tuple.
-        var row = (TableRow) tuple;
+        var schema = ((SchemaAware) tuple).schema();
 
-        packer.packInt(-1); // TODO: Get schema ID from tuple - missing API.
+        packer.packInt(schema.version());
         packer.packNil(); // TODO: Get all values from tuple - missing API.
     }
 

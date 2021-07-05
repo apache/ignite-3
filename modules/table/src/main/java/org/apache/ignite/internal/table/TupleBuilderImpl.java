@@ -25,6 +25,7 @@ import java.util.Objects;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
@@ -32,7 +33,7 @@ import org.apache.ignite.table.TupleBuilder;
 /**
  * Buildable tuple.
  */
-public class TupleBuilderImpl implements TupleBuilder, Tuple {
+public class TupleBuilderImpl implements TupleBuilder, Tuple, SchemaAware {
     /** Columns values. */
     private final Map<String, Object> map;
 
