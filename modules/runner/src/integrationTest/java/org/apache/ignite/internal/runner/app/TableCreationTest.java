@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,7 +25,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.internal.app.IgnitionCleaner;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -41,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * Ignition interface tests.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
+@ExtendWith(WorkDirectoryExtension.class)
 class TableCreationTest {
     /** Nodes bootstrap configuration with preconfigured tables. */
     private final LinkedHashMap<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {{
@@ -155,11 +159,13 @@ class TableCreationTest {
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
     /** */
+    @WorkDirectory
+    private Path workDir;
+
+    /** */
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(clusterNodes);
-
-        IgnitionCleaner.removeAllData();
     }
 
     /**
@@ -168,7 +174,9 @@ class TableCreationTest {
     @Test
     void testInitialSimpleTableConfiguration() {
         for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
+            clusterNodes.add(IgnitionManager.start(
+                nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue(), workDir
+            ));
 
         assertEquals(3, clusterNodes.size());
 
