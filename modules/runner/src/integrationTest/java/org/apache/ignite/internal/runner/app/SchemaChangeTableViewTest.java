@@ -44,7 +44,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final Table tbl = grid.get(1).tables().table(TABLE);
+        final Table tbl = grid.get(0).tables().table(TABLE);
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).set("valStr", "str").build());
@@ -85,7 +85,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());
@@ -115,7 +115,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
     }
 
     /**
-     * Check rename column from table schema.
+     * Check column renaming.
      */
     @Test
     void testRenameColumn() {
@@ -123,7 +123,7 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        Table tbl = grid.get(1).tables().table(TABLE);
+        Table tbl = grid.get(0).tables().table(TABLE);
 
         {
             tbl.insert(tbl.tupleBuilder().set("key", 1L).set("valInt", 111).build());

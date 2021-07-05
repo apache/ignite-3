@@ -15,54 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.schema.mapping;
+
+import java.io.Serializable;
 
 /**
- * Column mapper implementation.
+ * Column mapping helper.
  */
-public class ColumnMapper implements ColumnMapping {
+public class ColumnMapping {
     /** Identity mapper. */
     private static final IdentityMapper IDENTITY_MAPPER = new IdentityMapper();
 
     /**
      * @return Identity mapper instance.
      */
-    static ColumnMapping identityMapping() {
+    public static ColumnMapper identityMapping() {
         return IDENTITY_MAPPER;
     }
 
-    /** Mapping. */
-    private final int[] mapping;
-
     /**
-     * @param schema Source schema descriptor.
+     * @param cols Number of columns.
      */
-    public ColumnMapper(SchemaDescriptor schema) {
-        mapping = new int[schema.length()];
-
-        for (int i = 0; i < mapping.length; i++)
-            mapping[i] = i;
+    public static ColumnaMapperBuilder mapperBuilder(int cols) {
+        return new ColumnMapperImpl(cols);
     }
 
     /**
-     * Add column mapping.
-     *
-     * @param from Source column index.
-     * @param to Target column index.
+     * Stub.
      */
-    public void add(int from, int to) {
-        mapping[from] = to;
-    }
-
-    /** {@inheritDoc} */
-    @Override public int map(int idx) {
-        return mapping[idx];
+    private ColumnMapping() {
     }
 
     /**
      * Identity column mapper.
      */
-    private static class IdentityMapper implements ColumnMapping {
+    private static class IdentityMapper implements ColumnMapper, Serializable {
         /** {@inheritDoc} */
         @Override public int map(int idx) {
             return idx;

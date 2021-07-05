@@ -15,30 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
-
-import org.apache.ignite.lang.IgniteInternalException;
+package org.apache.ignite.internal.schema.mapping;
 
 /**
- * Base class for schema exceptions.
+ * Column mapper builder interface.
  */
-public class SchemaException extends IgniteInternalException {
+public interface ColumnaMapperBuilder {
     /**
-     * Constructor with error message.
+     * Add column mapping.
      *
-     * @param msg Message.
+     * @param from Source column index.
+     * @param to Target column index.
      */
-    public SchemaException(String msg) {
-        super(msg);
-    }
+    public void add(int from, int to);
 
     /**
-     * Constructor with error message and cause.
-     *
-     * @param msg Message.
-     * @param cause Cause.
+     * @return Column mapper.
      */
-    public SchemaException(String msg, Throwable cause) {
-        super(msg, cause);
-    }
+    ColumnMapper build();
 }

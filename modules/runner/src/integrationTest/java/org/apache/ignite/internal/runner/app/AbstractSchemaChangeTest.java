@@ -106,7 +106,6 @@ abstract class AbstractSchemaChangeTest {
         for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
             clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
 
-        assertEquals(3, clusterNodes.size());
         return clusterNodes;
     }
 
@@ -134,8 +133,8 @@ abstract class AbstractSchemaChangeTest {
     protected void addColumn(List<Ignite> nodes, Column columnToAdd) {
         nodes.get(0).tables().alterTable(TABLE,
             chng -> chng.changeColumns(cols -> {
-                final int colIdx = chng.columns().size();
-                //TODO: avoid 'colIdx' or replace with correct last colIdx.
+                int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
+
                 cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
             }));
     }
