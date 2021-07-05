@@ -24,5 +24,6 @@ class ClientOp {
     public static final int TABLE_GET = 4;
     public static final int SCHEMAS_GET = 5;
     public static final int TUPLE_UPSERT = 10;
-    public static final int TUPLE_GET = 11;
+    public static final int TUPLE_UPSERT_SCHEMALESS = 11;
+    public static final int TUPLE_GET = 12;
 }

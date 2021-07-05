@@ -172,10 +172,19 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 case ClientOp.TUPLE_UPSERT: {
-                    // TODO: Live Schema support
                     // TODO: Benchmark schema approach vs map approach (devlist) - both get and put operations.
+                    // TUPLE_UPSERT vs TUPLE_UPSERT_SCHEMALESS
                     var table = readTable(unpacker);
                     var tuple = readTuple(unpacker, table);
+
+                    table.upsert(tuple);
+
+                    break;
+                }
+
+                case ClientOp.TUPLE_UPSERT_SCHEMALESS: {
+                    var table = readTable(unpacker);
+                    var tuple = readTupleSchemaless(unpacker, table);
 
                     table.upsert(tuple);
 
@@ -216,7 +225,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
         var schemaId = unpacker.unpackInt();
-        var cnt = unpacker.unpackInt();
+        var cnt = unpacker.unpackArrayHeader();
 
         var schema = table.schemaView().schema(schemaId);
 
@@ -233,6 +242,19 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             }
 
             readAndSetColumnValue(unpacker, builder, schema.column(i));
+        }
+
+        return builder.build();
+    }
+
+    private Tuple readTupleSchemaless(ClientMessageUnpacker unpacker, TableImpl table) throws IOException {
+        var cnt = unpacker.unpackMapHeader();
+        var builder = table.tupleBuilderInternal();
+
+        for (int i = 0; i < cnt; i++) {
+            var colName = unpacker.unpackString();
+
+            builder.set(colName, unpacker.unpackValue());
         }
 
         return builder.build();
