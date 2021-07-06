@@ -34,12 +34,12 @@ class UpgradingRowAdapter extends Row {
     /**
      * @param schema Schema descriptor of new version.
      * @param row Row.
-     * @param mapping Column mapping.
+     * @param mapper Column mapper.
      */
-    UpgradingRowAdapter(SchemaDescriptor schema, BinaryRow row, ColumnMapper mapping) {
+    UpgradingRowAdapter(SchemaDescriptor schema, BinaryRow row, ColumnMapper mapper) {
         super(schema, row);
 
-        this.mapping = mapping;
+        this.mapping = mapper;
     }
 
     /** {@inheritDoc} */
