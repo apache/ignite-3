@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -130,7 +129,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftMgr = raftMgr;
         this.schemaMgr = schemaMgr;
 
-        listenForTableChange();
+        //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
+        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
+            return onConfigurationChanged(ctx.storageRevision(), ctx.oldValue(), ctx.newValue());
+        });
     }
 
     /**
@@ -200,72 +202,78 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Listens on a drop or create table.
+     * Table configuration changed callback.
+     *
+     * @param rev Storage revision.
+     * @param oldCfg Old configuration.
+     * @param newCfg New configuration.
+     * @return Operation future.
      */
-    private void listenForTableChange() {
-        //TODO: IGNITE-14652 Change a metastorage update in listeners to multi-invoke
-        configurationMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables().listen(ctx -> {
-            Set<String> tablesToStart = (ctx.newValue() == null || ctx.newValue().namedListKeys() == null) ?
-                Collections.emptySet() :
-                ctx.newValue().namedListKeys().stream().filter(t -> !ctx.oldValue().namedListKeys().contains(t)).collect(Collectors.toSet());
+    @NotNull private CompletableFuture<?> onConfigurationChanged(
+        long rev,
+        @Nullable NamedListView<TableView> oldCfg,
+        @Nullable NamedListView<TableView> newCfg
+    ) {
+        Set<String> tablesToStart = (newCfg == null || newCfg.namedListKeys() == null) ?
+            Collections.emptySet() :
+            newCfg.namedListKeys().stream().filter(t -> !oldCfg.namedListKeys().contains(t)).collect(Collectors.toSet());
 
-            Set<String> tablesToStop = (ctx.oldValue() == null || ctx.oldValue().namedListKeys() == null) ?
-                Collections.emptySet() :
-                ctx.oldValue().namedListKeys().stream().filter(t -> !ctx.newValue().namedListKeys().contains(t)).collect(Collectors.toSet());
+        Set<String> tablesToStop = (oldCfg == null || oldCfg.namedListKeys() == null) ?
+            Collections.emptySet() :
+            oldCfg.namedListKeys().stream().filter(t -> !newCfg.namedListKeys().contains(t)).collect(Collectors.toSet());
 
-            List<CompletableFuture<Boolean>> futs = new ArrayList<>();
+        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
-            final Set<String> schemaChanged =
-                (ctx.oldValue() != null && ctx.oldValue().namedListKeys() != null && ctx.newValue() != null && ctx.newValue().namedListKeys() != null) ?
-                    ctx.oldValue().namedListKeys().stream()
-                        .filter(tblName -> ctx.newValue().namedListKeys().contains(tblName)) // Filter changed tables.
-                        .filter(tblName -> {
-                            final TableView newTbl = ctx.newValue().get(tblName);
-                            final TableView oldTbl = ctx.oldValue().get(tblName);
+        final Set<String> schemaChanged =
+            (oldCfg != null && oldCfg.namedListKeys() != null && newCfg != null && newCfg.namedListKeys() != null) ?
+                oldCfg.namedListKeys().stream()
+                    .filter(tblName -> newCfg.namedListKeys().contains(tblName)) // Filter changed tables.
+                    .filter(tblName -> {
+                        final TableView newTbl = newCfg.get(tblName);
+                        final TableView oldTbl = oldCfg.get(tblName);
 
-                            assert newTbl.columns().namedListKeys() != null && oldTbl.columns().namedListKeys() != null;
+                        assert newTbl.columns().namedListKeys() != null && oldTbl.columns().namedListKeys() != null;
 
-                            if (!newTbl.columns().namedListKeys().equals(oldTbl.columns().namedListKeys()))
-                                return true;
+                        if (!newTbl.columns().namedListKeys().equals(oldTbl.columns().namedListKeys()))
+                            return true;
 
-                            return newTbl.columns().namedListKeys().stream().anyMatch(k -> {
-                                final ColumnView newCol = newTbl.columns().get(k);
-                                final ColumnView oldCol = oldTbl.columns().get(k);
+                        return newTbl.columns().namedListKeys().stream().anyMatch(k -> {
+                            final ColumnView newCol = newTbl.columns().get(k);
+                            final ColumnView oldCol = oldTbl.columns().get(k);
 
-                                assert oldCol != null;
+                            assert oldCol != null;
 
-                                if (!Objects.equals(newCol.type(), oldCol.type()))
-                                    throw new SchemaModificationException("Columns type change is not supported.");
+                            if (!Objects.equals(newCol.type(), oldCol.type()))
+                                throw new SchemaModificationException("Columns type change is not supported.");
 
-                                if (!Objects.equals(newCol.nullable(), oldCol.nullable()))
-                                    throw new SchemaModificationException("Column nullability change is not supported");
+                            if (!Objects.equals(newCol.nullable(), oldCol.nullable()))
+                                throw new SchemaModificationException("Column nullability change is not supported");
 
-                                if (!Objects.equals(newCol.name(), oldCol.name()) &&
-                                    oldTbl.indices().namedListKeys().stream()
-                                        .map(n -> oldTbl.indices().get(n))
-                                        .filter(idx -> PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(idx.name()))
-                                        .anyMatch(idx -> idx.columns().namedListKeys().stream()
-                                            .anyMatch(c -> idx.columns().get(c).name().equals(oldCol.name()))
-                                        ))
-                                    throw new SchemaModificationException("Key column rename is not supported");
+                            if (!Objects.equals(newCol.name(), oldCol.name()) &&
+                                oldTbl.indices().namedListKeys().stream()
+                                    .map(n -> oldTbl.indices().get(n))
+                                    .filter(idx -> PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(idx.name()))
+                                    .anyMatch(idx -> idx.columns().namedListKeys().stream()
+                                        .anyMatch(c -> idx.columns().get(c).name().equals(oldCol.name()))
+                                    ))
+                                throw new SchemaModificationException("Key column rename is not supported");
 
-                                return !Objects.equals(newCol.name(), oldCol.name()) ||
-                                    !Objects.equals(newCol.defaultValue(), oldCol.defaultValue());
-                            });
-                        }).collect(Collectors.toSet()) :
-                    Collections.emptySet();
+                            return !Objects.equals(newCol.name(), oldCol.name()) ||
+                                !Objects.equals(newCol.defaultValue(), oldCol.defaultValue());
+                        });
+                    }).collect(Collectors.toSet()) :
+                Collections.emptySet();
 
-            if (!tablesToStart.isEmpty())
-                futs.addAll(startTables(tablesToStart, ctx.storageRevision(), ctx.newValue()));
+        if (!tablesToStart.isEmpty())
+            futs.addAll(startTables(tablesToStart, rev, newCfg));
 
-            if (!schemaChanged.isEmpty())
-                futs.addAll(changeSchema(ctx, schemaChanged));
+        if (!schemaChanged.isEmpty())
+            futs.addAll(changeSchema(schemaChanged, oldCfg, newCfg));
 
-            if (!tablesToStop.isEmpty())
-                futs.addAll(stopTables(tablesToStop));
+        if (!tablesToStop.isEmpty())
+            futs.addAll(stopTables(tablesToStop));
 
-            return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
-        });
+        return CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -404,15 +412,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Start tables routine.
+     * Change tables schemas.
      *
-     * @param ctx Configuration change context.
-     * @param tbls Tables to start.
-     * @return Table creation futures.
+     * @param tbls Tables.
+     * @param oldCfg Old configuration.
+     * @param newCfg New configuration.
+     * @return Schema change futures.
      */
     private List<CompletableFuture<Boolean>> changeSchema(
-        ConfigurationNotificationEvent<NamedListView<TableView>> ctx,
-        Set<String> tbls
+        Set<String> tbls,
+        @NotNull NamedListView<TableView> oldCfg,
+        @NotNull NamedListView<TableView> newCfg
     ) {
         boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
 
@@ -426,7 +436,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
             if (hasMetastorageLocally)
-                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName, ctx.oldValue().get(tblName), ctx.newValue().get(tblName)));
+                futs.add(schemaMgr.updateSchemaForTable(tblId, tblName, oldCfg.get(tblName), newCfg.get(tblName)));
 
             final CompletableFuture<SchemaEventParameters> schemaReadyFut = new CompletableFuture<>();
 
