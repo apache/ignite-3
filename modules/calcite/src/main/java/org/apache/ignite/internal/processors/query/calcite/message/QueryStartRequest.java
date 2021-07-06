@@ -26,7 +26,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  *
  */
-@Transferable(value = SqlQueryMessageGroup.QUERY_START_REQUEST)
+@Transferable(value = SqlQueryMessageGroup.QUERY_START_REQUEST, autoSerializable = false)
 public interface QueryStartRequest extends ExecutionContextAwareMessage {
     /**
      * @return Query ID.

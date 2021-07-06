@@ -25,7 +25,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  *
  */
-@Transferable(value = SqlQueryMessageGroup.QUERY_START_RESPONSE)
+@Transferable(value = SqlQueryMessageGroup.QUERY_START_RESPONSE, autoSerializable = false)
 public interface QueryStartResponse extends NetworkMessage {
     /**
      * @return Query ID.

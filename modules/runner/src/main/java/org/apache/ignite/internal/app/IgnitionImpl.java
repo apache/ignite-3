@@ -42,6 +42,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.processors.query.calcite.SqlQueryProcessor;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DistributedConfigurationStorage;
@@ -220,6 +221,10 @@ public class IgnitionImpl implements Ignition {
             vaultMgr
         );
 
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(
+            clusterNetSvc
+        );
+
         // TODO IGNITE-14579 Start rest manager.
 
         // Deploy all resisted watches cause all components are ready and have registered their listeners.
@@ -227,7 +232,7 @@ public class IgnitionImpl implements Ignition {
 
         ackSuccessStart();
 
-        return new IgniteImpl(distributedTblMgr, vaultMgr);
+        return new IgniteImpl(distributedTblMgr, vaultMgr, qryProc);
     }
 
     /**

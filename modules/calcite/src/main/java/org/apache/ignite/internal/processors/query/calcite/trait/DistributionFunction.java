@@ -237,10 +237,10 @@ public abstract class DistributionFunction {
             ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.assignments()) && !k.isEmpty();
 
-            List<List<UUID>> assignments = m.assignments();
+            List<List<String>> assignments = m.assignments();
 
             if (IgniteUtils.assertionsEnabled()) {
-                for (List<UUID> assignment : assignments)
+                for (List<String> assignment : assignments)
                     assert nullOrEmpty(assignment) || assignment.size() == 1;
             }
 
@@ -288,10 +288,10 @@ public abstract class DistributionFunction {
             ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.assignments()) && k.size() == 1;
 
-            List<List<UUID>> assignments = m.assignments();
+            List<List<String>> assignments = m.assignments();
 
             if (IgniteUtils.assertionsEnabled()) {
-                for (List<UUID> assignment : assignments)
+                for (List<String> assignment : assignments)
                     assert nullOrEmpty(assignment) || assignment.size() == 1;
             }
 

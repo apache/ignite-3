@@ -25,6 +25,7 @@ import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgnitionCleaner;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.table.SchemaMismatchException;
@@ -146,6 +147,9 @@ class DynamicTableCreationTest {
         assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("key"));
         assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("val"));
         assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("val"));
+
+        for (List<?> row : ((IgniteImpl)clusterNodes.get(0)).queryEngine().query("PUBLIC", "select 'ama', 2").get(0))
+            System.out.println(row);
     }
 
     /**

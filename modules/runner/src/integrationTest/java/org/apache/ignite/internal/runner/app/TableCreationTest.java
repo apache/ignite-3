@@ -227,5 +227,7 @@ class TableCreationTest {
             assertNull(tbl2.get(keyTuple2).value("valNullable"));
             assertNull(kvView2.get(keyTuple2).value("valNullable"));
         }
+
+        System.out.println();
     }
 }

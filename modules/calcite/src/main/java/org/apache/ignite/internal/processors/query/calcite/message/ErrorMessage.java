@@ -25,7 +25,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  *
  */
-@Transferable(value = SqlQueryMessageGroup.ERROR_MESSAGE)
+@Transferable(value = SqlQueryMessageGroup.ERROR_MESSAGE, autoSerializable = false)
 public interface ErrorMessage extends NetworkMessage {
     /**
      * @return Query ID.

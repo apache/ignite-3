@@ -435,10 +435,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             CorrelationTraitDef.INSTANCE
         };
 
-        List<UUID> nodes = new ArrayList<>(4);
+        List<String> nodes = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++)
-            nodes.add(UUID.randomUUID());
+            nodes.add(UUID.randomUUID().toString());
 
         PlanningContext ctx = PlanningContext.builder()
             .localNodeId(first(nodes))

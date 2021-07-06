@@ -23,20 +23,20 @@ import java.util.UUID;
 /** */
 public final class AllNodes<Row> implements Destination<Row> {
     /** */
-    private final List<UUID> nodes;
+    private final List<String> nodes;
 
     /** */
-    public AllNodes(List<UUID> nodes) {
+    public AllNodes(List<String> nodes) {
         this.nodes = nodes;
     }
 
     /** {@inheritDoc} */
-    @Override public List<UUID> targets(Row row) {
+    @Override public List<String> targets(Row row) {
         return nodes;
     }
 
     /** {@inheritDoc} */
-    @Override public List<UUID> targets() {
+    @Override public List<String> targets() {
         return nodes;
     }
 }

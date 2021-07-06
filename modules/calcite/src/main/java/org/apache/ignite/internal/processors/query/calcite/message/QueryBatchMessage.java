@@ -25,7 +25,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  *
  */
-@Transferable(value = SqlQueryMessageGroup.QUERY_BATCH_MESSAGE)
+@Transferable(value = SqlQueryMessageGroup.QUERY_BATCH_MESSAGE, autoSerializable = false)
 public interface QueryBatchMessage extends ExecutionContextAwareMessage {
     /** {@inheritDoc} */
     @Override UUID queryId();

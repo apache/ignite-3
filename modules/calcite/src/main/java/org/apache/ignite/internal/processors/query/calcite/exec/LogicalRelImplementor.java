@@ -26,7 +26,9 @@ import java.util.function.Supplier;
 
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
@@ -36,13 +38,16 @@ import org.apache.ignite.internal.processors.query.calcite.exec.RowHandler.RowFa
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.processors.query.calcite.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.processors.query.calcite.exec.rel.AbstractSetOpNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.CorrelatedNestedLoopJoinNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.FilterNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.HashAggregateNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Inbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.IndexSpoolNode;
+import org.apache.ignite.internal.processors.query.calcite.exec.rel.IntersectNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.LimitNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.MergeJoinNode;
+import org.apache.ignite.internal.processors.query.calcite.exec.rel.MinusNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.NestedLoopJoinNode;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Node;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
@@ -84,6 +89,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleH
 import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteMapMinus;
 import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteReduceMinus;
+import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSingleMinus;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteIndex;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
@@ -293,7 +299,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
-        Iterable<Row> rowsIter = idx.scan(ctx, group, filters, lower, upper, prj, requiredColumns);
+        Iterable<Row> rowsIter = null;//idx.scan(ctx, group, filters, lower, upper, prj, requiredColumns);
 
         return new ScanNode<>(ctx, rowType, rowsIter);
     }
@@ -314,7 +320,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
-        Iterable<Row> rowsIter = tbl.scan(ctx, group, filters, prj, requiredColunms);
+        Iterable<Row> rowsIter = null;//tbl.scan(ctx, group, filters, prj, requiredColunms);
 
         return new ScanNode<>(ctx, rowType, rowsIter);
     }
@@ -425,16 +431,26 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         return node;
     }
 
-    @Override public Node<Row> visit(IgniteSingleMinus rel) {
-        return null;
-    }
+    /** {@inheritDoc} */
+    @Override public Node<Row> visit(IgniteSetOp rel) {
+        RelDataType rowType = rel.getRowType();
 
-    @Override public Node<Row> visit(IgniteMapMinus rel) {
-        return null;
-    }
+        RowFactory<Row> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-    @Override public Node<Row> visit(IgniteReduceMinus rel) {
-        return null;
+        List<Node<Row>> inputs = Commons.transform(rel.getInputs(), this::visit);
+
+        AbstractSetOpNode<Row> node;
+
+        if (rel instanceof Minus)
+            node = new MinusNode<>(ctx, rowType, rel.aggregateType(), rel.all(), rowFactory);
+        else if (rel instanceof Intersect)
+            node = new IntersectNode<>(ctx, rowType, rel.aggregateType(), rel.all(), rowFactory, rel.getInputs().size());
+        else
+            throw new AssertionError();
+
+        node.register(inputs);
+
+        return node;
     }
 
     /** {@inheritDoc} */

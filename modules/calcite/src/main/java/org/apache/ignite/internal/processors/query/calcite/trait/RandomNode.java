@@ -28,22 +28,22 @@ public final class RandomNode<Row> implements Destination<Row> {
     private final Random random;
 
     /** */
-    private final List<UUID> nodes;
+    private final List<String> nodes;
 
     /** */
-    public RandomNode(List<UUID> nodes) {
+    public RandomNode(List<String> nodes) {
         this.nodes = nodes;
 
         random = new Random();
     }
 
     /** {@inheritDoc} */
-    @Override public List<UUID> targets(Row row) {
+    @Override public List<String> targets(Row row) {
         return Collections.singletonList(nodes.get(random.nextInt(nodes.size())));
     }
 
     /** {@inheritDoc} */
-    @Override public List<UUID> targets() {
+    @Override public List<String> targets() {
         return nodes;
     }
 }

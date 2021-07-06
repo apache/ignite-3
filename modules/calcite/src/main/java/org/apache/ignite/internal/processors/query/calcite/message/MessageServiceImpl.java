@@ -117,6 +117,7 @@ public class MessageServiceImpl implements MessageService {
 
     /** */
     private void onMessage(NetworkMessage msg, ClusterNode node, String correlationId) {
+        if (msg.groupType() == 3)
             onMessage(node.id(), msg, false);
     }
 
