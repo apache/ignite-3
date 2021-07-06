@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema.mapping;
 
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+
 /**
  * Column mapper implementation.
  */
@@ -24,19 +27,26 @@ class ColumnMapperImpl implements ColumnMapper, ColumnaMapperBuilder {
     /** Mapping. */
     private final int[] mapping;
 
-    /**
-     * @param cols Number of columns.
-     */
-    ColumnMapperImpl(int cols) {
-        mapping = new int[cols];
+    /** Mapped columns. */
+    private final Column[] cols;
 
-        for (int i = 0; i < mapping.length; i++)
+    /**
+     * @param schema Schema descriptor.
+     */
+    ColumnMapperImpl(SchemaDescriptor schema) {
+        mapping = new int[schema.length()];
+        cols = new Column[schema.length()];
+
+        for (int i = 0; i < mapping.length; i++) {
             mapping[i] = i;
+            cols[i] = schema.column(i);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public void add(int from, int to) {
+    @Override public void add(int from, int to, Column col) {
         mapping[from] = to;
+        cols[from] = col;
     }
 
     /** {@inheritDoc} */
@@ -45,6 +55,11 @@ class ColumnMapperImpl implements ColumnMapper, ColumnaMapperBuilder {
             return -1;
 
         return mapping[idx];
+    }
+
+    /** {@inheritDoc} */
+    @Override public Column mappedColumn(int idx) {
+        return cols[idx];
     }
 
     /** {@inheritDoc} */

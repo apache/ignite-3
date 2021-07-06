@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.mapping;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.schema.Column;
 
 /**
  * Column mapper interface.
@@ -30,4 +31,12 @@ public interface ColumnMapper extends Serializable {
      * @return Column index in target schema or {@code -1} if no column exists in target schema.
      */
     int map(int idx);
+
+    /**
+     * Column descriptor for given column idx.
+     *
+     * @param idx Column index in source schema.
+     * @return Column descriptor.
+     */
+    Column mappedColumn(int idx);
 }

@@ -303,12 +303,14 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             final ColumnView oldColView = oldTbl.columns().get(s);
 
             if (oldColView == null) {
-                assert !newDesc.isKeyColumn(newDesc.column(newColView.name()).schemaIndex());
+                final Column newCol = newDesc.column(newColView.name());
+
+                assert !newDesc.isKeyColumn(newCol.schemaIndex());
 
                 if (mapper == null)
-                    mapper = ColumnMapping.mapperBuilder(newDesc.length());
+                    mapper = ColumnMapping.mapperBuilder(newDesc);
 
-                mapper.add(newDesc.column(newColView.name()).schemaIndex(), -1); // New column added.
+                mapper.add(newCol.schemaIndex(), -1, newCol); // New column added.
             }
             else {
                 final Column newCol = newDesc.column(newColView.name());
@@ -321,9 +323,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     continue;
 
                 if (mapper == null)
-                    mapper = ColumnMapping.mapperBuilder(newDesc.length());
+                    mapper = ColumnMapping.mapperBuilder(newDesc);
 
-                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex(), null);
             }
         }
 

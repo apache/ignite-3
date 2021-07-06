@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema.mapping;
 
+import org.apache.ignite.internal.schema.Column;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Column mapper builder interface.
  */
@@ -26,8 +29,9 @@ public interface ColumnaMapperBuilder {
      *
      * @param from Source column index.
      * @param to Target column index.
+     * @param col Target column descriptor.
      */
-    public void add(int from, int to);
+    public void add(int from, int to, @Nullable Column col);
 
     /**
      * @return Column mapper.

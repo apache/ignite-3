@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.mapping;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**
@@ -35,10 +36,10 @@ public class ColumnMapping {
     }
 
     /**
-     * @param cols Number of columns.
+     * @param schema Schema descriptor.
      */
-    public static ColumnaMapperBuilder mapperBuilder(int cols) {
-        return new ColumnMapperImpl(cols);
+    public static ColumnaMapperBuilder mapperBuilder(SchemaDescriptor schema) {
+        return new ColumnMapperImpl(schema);
     }
 
     /**
@@ -50,12 +51,7 @@ public class ColumnMapping {
      * @return Merged column mapper.
      */
     public static ColumnMapper mergeMapping(ColumnMapper mapping, SchemaDescriptor schema) {
-        if (mapping == identityMapping())
-            return schema.columnMapping();
-        else if (schema.columnMapping() == identityMapping())
-            return mapping;
-
-        ColumnaMapperBuilder builder = mapperBuilder(schema.length());
+        ColumnaMapperBuilder builder = mapperBuilder(schema);
 
         ColumnMapper schemaMapper = schema.columnMapping();
 
@@ -63,9 +59,9 @@ public class ColumnMapping {
             int idx = schemaMapper.map(i);
 
             if (idx < 0)
-                builder.add(i, -1);
+                builder.add(i, -1, schema.column(i));
             else
-                builder.add(i, mapping.map(idx));
+                builder.add(i, mapping.map(idx), mapping.mappedColumn(idx));
         }
 
         return builder.build();
@@ -84,6 +80,11 @@ public class ColumnMapping {
         /** {@inheritDoc} */
         @Override public int map(int idx) {
             return idx;
+        }
+
+        /** {@inheritDoc} */
+        @Override public Column mappedColumn(int idx) {
+            return null;
         }
     }
 }
