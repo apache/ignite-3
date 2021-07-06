@@ -209,8 +209,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param newCfg New configuration.
      * @return Operation future.
      */
-    @NotNull
-    private CompletableFuture<?> onConfigurationChanged(long rev, @Nullable NamedListView<TableView> oldCfg, @Nullable NamedListView<TableView> newCfg) {
+    @NotNull private CompletableFuture<?> onConfigurationChanged(
+        long rev,
+        @Nullable NamedListView<TableView> oldCfg,
+        @Nullable NamedListView<TableView> newCfg
+    ) {
         Set<String> tablesToStart = (newCfg == null || newCfg.namedListKeys() == null) ?
             Collections.emptySet() :
             newCfg.namedListKeys().stream().filter(t -> !oldCfg.namedListKeys().contains(t)).collect(Collectors.toSet());
@@ -417,7 +420,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Schema change futures.
      */
     private List<CompletableFuture<Boolean>> changeSchema(
-        Set<String> tbls, @Nullable NamedListView<TableView> oldCfg, @Nullable NamedListView<TableView> newCfg
+        Set<String> tbls,
+        @NotNull NamedListView<TableView> oldCfg,
+        @NotNull NamedListView<TableView> newCfg
     ) {
         boolean hasMetastorageLocally = metaStorageMgr.hasMetastorageLocally(configurationMgr);
 
