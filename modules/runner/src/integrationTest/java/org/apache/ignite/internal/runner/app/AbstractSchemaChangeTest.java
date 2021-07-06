@@ -126,7 +126,8 @@ abstract class AbstractSchemaChangeTest {
                     tblChanger.changeColumns(listChanger ->
                         listChanger.update(colKey, colChanger -> colChanger.changeType(c -> c.changeType("STRING")))
                     );
-                }));
+                })
+            );
         });
     }
 
@@ -155,7 +156,8 @@ abstract class AbstractSchemaChangeTest {
                     tblChanger.changeColumns(listChanger ->
                         listChanger.update(colKey, colChanger -> colChanger.changeNullable(false))
                     );
-                }));
+                })
+            );
         });
     }
 
@@ -184,7 +186,8 @@ abstract class AbstractSchemaChangeTest {
                     tblChanger.changeColumns(listChanger ->
                         listChanger.update(colKey, colChanger -> colChanger.changeNullable(true))
                     );
-                }));
+                })
+            );
         });
     }
 
@@ -227,7 +230,8 @@ abstract class AbstractSchemaChangeTest {
                 int colIdx = chng.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
 
                 cols.create(String.valueOf(colIdx), colChg -> convert(columnToAdd, colChg));
-            }));
+            })
+        );
     }
 
     /**
@@ -242,8 +246,10 @@ abstract class AbstractSchemaChangeTest {
                     .findAny()
                     .orElseThrow(() -> {
                         throw new IllegalStateException("Column not found.");
-                    }));
-            }));
+                    })
+                );
+            })
+        );
     }
 
     /**
@@ -264,7 +270,8 @@ abstract class AbstractSchemaChangeTest {
                 tblChanger.changeColumns(listChanger ->
                     listChanger.update(colKey, colChanger -> colChanger.changeName(newName))
                 );
-            }));
+            })
+        );
     }
 
     /**
@@ -285,6 +292,7 @@ abstract class AbstractSchemaChangeTest {
                 tblChanger.changeColumns(listChanger ->
                     listChanger.update(colKey, colChanger -> colChanger.changeDefaultValue(defSup.get().toString()))
                 );
-            }));
+            })
+        );
     }
 }
