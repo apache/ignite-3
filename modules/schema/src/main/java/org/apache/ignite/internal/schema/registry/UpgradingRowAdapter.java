@@ -56,14 +56,19 @@ class UpgradingRowAdapter extends Row {
         return schema;
     }
 
+    /** {@inheritDoc} */
     @Override public int schemaVersion() {
         return schema.version();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Map column.
+     *
+     * @param colIdx Column index in source schema.
+     * @return Column index in targer schema.
+     */
     private int mapColumn(int colIdx) throws InvalidTypeException {
         return mapping.map(colIdx);
-
     }
 
     /**
