@@ -101,10 +101,13 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     /** Update counter. Will be incremented for each update of any particular entry. */
     private long updCntr;
 
-    public RocksDBKeyValueStorage() {
+    /**
+     * Constructor.
+     *
+     * @param dbPath RocksDB path.
+     */
+    public RocksDBKeyValueStorage(Path dbPath) {
         try {
-            Path dbPath = Files.createTempDirectory("bla");
-
             options = new Options();
 
             options.setCreateIfMissing(true);

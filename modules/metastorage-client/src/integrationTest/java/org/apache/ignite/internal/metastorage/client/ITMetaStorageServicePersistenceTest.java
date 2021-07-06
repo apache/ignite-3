@@ -24,25 +24,20 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.metastorage.common.command.GetCommand;
-import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RocksDBKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -56,15 +51,17 @@ import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Meta storage client tests.
@@ -78,16 +75,10 @@ public class ITMetaStorageServicePersistenceTest {
 
     private static final int CLIENT_PORT = 6003;
 
-    /** Base network port. */
-    private static final int NODE_PORT_BASE = 20_000;
-
     private static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
         .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
         .map(Peer::new)
         .collect(Collectors.toUnmodifiableList());
-
-    /** Nodes. */
-    private static final int NODES = 3;
 
     /** */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
@@ -104,68 +95,11 @@ public class ITMetaStorageServicePersistenceTest {
     /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
-    /**  Expected server result entry. */
-    private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY =
-        new org.apache.ignite.internal.metastorage.server.Entry(
-            new byte[] {1},
-            new byte[] {2},
-            10,
-            2
-        );
-
-    /**  Expected server result entry. */
-    private static final EntryImpl EXPECTED_RESULT_ENTRY =
-        new EntryImpl(
-            new ByteArray(new byte[] {1}),
-            new byte[] {2},
-            10,
-            2
-        );
-
-    /** Expected result map. */
-    private static final NavigableMap<ByteArray, Entry> EXPECTED_RESULT_MAP;
-
-    private static final Collection<org.apache.ignite.internal.metastorage.server.Entry> EXPECTED_SRV_RESULT_COLL;
-
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
-    /**  Meta storage raft server. */
-    private RaftServer metaStorageRaftSrv;
-
-    static {
-        EXPECTED_RESULT_MAP = new TreeMap<>();
-
-        EntryImpl entry1 = new EntryImpl(
-                new ByteArray(new byte[]{1}),
-                new byte[]{2},
-                10,
-                2
-        );
-
-        EXPECTED_RESULT_MAP.put(entry1.key(), entry1);
-
-        EntryImpl entry2 = new EntryImpl(
-                new ByteArray(new byte[]{3}),
-                new byte[]{4},
-                10,
-                3
-        );
-
-        EXPECTED_RESULT_MAP.put(entry2.key(), entry2);
-
-        EXPECTED_SRV_RESULT_COLL = new ArrayList<>();
-
-        EXPECTED_SRV_RESULT_COLL.add(new org.apache.ignite.internal.metastorage.server.Entry(
-                entry1.key().bytes(), entry1.value(), entry1.revision(), entry1.updateCounter()
-        ));
-
-        EXPECTED_SRV_RESULT_COLL.add(new org.apache.ignite.internal.metastorage.server.Entry(
-                entry2.key().bytes(), entry2.value(), entry2.revision(), entry2.updateCounter()
-        ));
-    }
-
     private List<JRaftServerImpl> servers = new ArrayList<>();
+
     private List<RaftGroupService> clients = new ArrayList<>();
 
     /**
@@ -173,17 +107,6 @@ public class ITMetaStorageServicePersistenceTest {
      */
     @BeforeEach
     public void beforeTest() {
-//        List<NetworkAddress> servers = IntStream.range(NODE_PORT_BASE, NODE_PORT_BASE + NODES)
-//            .mapToObj(port -> new NetworkAddress("localhost", port))
-//            .collect(Collectors.toList());
-//
-//        for (int i = 0; i < NODES; i++)
-//            cluster.add(startClusterNode("node_" + i, NODE_PORT_BASE + i, servers));
-//
-//        for (ClusterService node : cluster)
-//            assertTrue(waitForTopology(node, NODES, 1000));
-//
-//        LOG.info("Cluster started.");
     }
 
     /**
@@ -193,28 +116,69 @@ public class ITMetaStorageServicePersistenceTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
-//        metaStorageRaftSrv.shutdown();
-//
-//        for (ClusterService node : cluster)
-//            node.shutdown();
+        for (RaftGroupService client : clients)
+            client.shutdown();
+
+        for (JRaftServerImpl server : servers)
+            server.shutdown();
     }
 
-    @Test
-    public void testSnapshot() throws Exception {
-        byte[] expVal = new byte[]{2};
+    private static class TestData {
+        private final boolean deleteFolder;
 
-        RaftGroupService metaStorageSvc = prepareMetaStorage(new RocksDBKeyValueStorage());
+        private final boolean writeAfterSnapshot;
+
+        private TestData(boolean deleteFolder, boolean writeAfterSnapshot) {
+            this.deleteFolder = deleteFolder;
+            this.writeAfterSnapshot = writeAfterSnapshot;
+        }
+
+        @Override public String toString() {
+            return String.format("deleteFolder=%s, writeAfterSnapshot=%s", deleteFolder, writeAfterSnapshot);
+        }
+    }
+
+    private static List<TestData> testSnapshotData() {
+        return List.of(
+            new TestData(false, false),
+            new TestData(true, true),
+            new TestData(false, true),
+            new TestData(true, false)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("testSnapshotData")
+    public void testSnapshot(TestData testData) throws Exception {
+        ByteArray firstKey = ByteArray.fromString("first");
+        byte[] firstValue = "firstValue".getBytes();
+
+        RaftGroupService metaStorageSvc = prepareMetaStorage(
+            () -> {
+                try {
+                    return new RocksDBKeyValueStorage(Files.createTempDirectory("1"));
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        );
 
         MetaStorageServiceImpl metaStorage = new MetaStorageServiceImpl(metaStorageSvc);
 
-        metaStorage.put(EXPECTED_RESULT_ENTRY.key(), expVal).get();
+        metaStorage.put(firstKey, firstValue).get();
 
         Peer leader = metaStorageSvc.leader();
 
+        Entry get1 = metaStorage.get(firstKey).get();
+
         assertArrayEquals(
-            EXPECTED_RESULT_ENTRY.value(),
-            metaStorage.get(EXPECTED_RESULT_ENTRY.key()).get().value()
+            firstValue,
+            get1.value()
         );
+
+        assertEquals(1, get1.revision());
+        assertEquals(1, get1.updateCounter());
 
         JRaftServerImpl toStop = null;
 
@@ -237,32 +201,65 @@ public class ITMetaStorageServicePersistenceTest {
 
         metaStorageSvc.snapshot(metaStorageSvc.leader()).get();
 
-        metaStorage.remove(EXPECTED_RESULT_ENTRY.key()).get();
+        metaStorage.remove(firstKey).get();
 
-        metaStorage.put(EXPECTED_RESULT_ENTRY.key(), expVal).get();
+        Entry get2 = metaStorage.get(firstKey).get();
+
+        assertTrue(get2.tombstone());
+        assertFalse(get2.empty());
+        assertNull(get2.value());
+        assertEquals(2, get2.revision());
+        assertEquals(2, get2.updateCounter());
+
+        metaStorage.put(firstKey, firstValue).get();
+
+        Entry get3 = metaStorage.get(firstKey).get();
+
+        assertFalse(get3.tombstone());
+        assertFalse(get3.empty());
+        assertArrayEquals(
+            firstValue,
+            get3.value()
+        );
+        assertEquals(3, get3.revision());
+        assertEquals(3, get3.updateCounter());
 
         metaStorageSvc.snapshot(metaStorageSvc.leader()).get();
 
-        Utils.delete(new File(serverDataPath0));
+        byte[] lastKey = firstKey.bytes();
+        byte[] lastValue = firstValue;
 
-        JRaftServerImpl restarted = startServer(stopIdx, initializer(new RocksDBKeyValueStorage()));
+        if (testData.deleteFolder)
+            Utils.delete(new File(serverDataPath0));
 
-        RaftGroupService svc2 = startClient(METASTORAGE_RAFT_GROUP_NAME, restarted.clusterService().topologyService().localMember().address());
+        if (testData.writeAfterSnapshot) {
+            ByteArray secondKey = ByteArray.fromString("second");
+            byte[] secondValue = "secondValue".getBytes();
 
-        SingleEntryResponse entry = svc2.<SingleEntryResponse>run(new GetCommand(EXPECTED_RESULT_ENTRY.key())).get();
+            metaStorage.put(secondKey, secondValue).get();
+
+            lastKey = secondKey.bytes();
+            lastValue = secondValue;
+        }
+
+        JRaftServerImpl restarted = startServer(stopIdx, initializer(
+            new RocksDBKeyValueStorage(Files.createTempDirectory("2"))
+        ));
 
         org.apache.ignite.raft.jraft.RaftGroupService svc = restarted.raftGroupService(METASTORAGE_RAFT_GROUP_NAME);
 
-        JRaftServerImpl.DelegatingStateMachine fsm0 =
-            (JRaftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+        DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-        MetaStorageListener listener = (MetaStorageListener) fsm0.getListener();
+        MetaStorageListener listener = (MetaStorageListener) fsm.getListener();
 
-        System.out.println("");
+        byte[] finalLastValue = lastValue;
+        byte[] finalLastKey = lastKey;
+
         boolean success = waitForCondition(() -> {
             KeyValueStorage storage = listener.getStorage();
-            return !storage.get(EXPECTED_RESULT_ENTRY.key().bytes()).empty();
-        }, 150_000);
+            org.apache.ignite.internal.metastorage.server.Entry e = storage.get(finalLastKey);
+            return !e.empty() && Arrays.equals(finalLastValue, e.value());
+        }, 10_000);
 
         assertTrue(success);
     }
@@ -293,21 +290,7 @@ public class ITMetaStorageServicePersistenceTest {
      */
     @SuppressWarnings("SameParameterValue")
     private boolean waitForTopology(ClusterService cluster, int exp, int timeout) {
-        long stop = System.currentTimeMillis() + timeout;
-
-        while (System.currentTimeMillis() < stop) {
-            if (cluster.topologyService().allMembers().size() >= exp)
-                return true;
-
-            try {
-                Thread.sleep(50);
-            }
-            catch (InterruptedException e) {
-                return false;
-            }
-        }
-
-        return false;
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= exp, timeout);
     }
 
     public static String getLocalAddress() {
@@ -315,7 +298,7 @@ public class ITMetaStorageServicePersistenceTest {
             return InetAddress.getLocalHost().getHostAddress();
         }
         catch (UnknownHostException e) {
-            throw new IgniteInternalException(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -332,18 +315,12 @@ public class ITMetaStorageServicePersistenceTest {
         return network;
     }
 
-    private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
+    private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) throws IOException {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr), true);
 
-        Path jraft = null;
-        try {
-            jraft = Files.createTempDirectory("jraft");
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
+        Path jraft = Files.createTempDirectory("jraft");
 
         JRaftServerImpl server = new JRaftServerImpl(service, jraft.toString(), FACTORY) {
             @Override public void shutdown() throws Exception {
@@ -357,7 +334,7 @@ public class ITMetaStorageServicePersistenceTest {
 
         servers.add(server);
 
-        assertTrue(waitForTopology(service, servers.size(), 15_000));
+        assertTrue(waitForTopology(service, servers.size(), 3_000));
 
         return server;
     }
@@ -369,9 +346,9 @@ public class ITMetaStorageServicePersistenceTest {
      * @param keyValStorageMock {@link KeyValueStorage} mock.
      * @return {@link MetaStorageService} instance.
      */
-    private RaftGroupService prepareMetaStorage(KeyValueStorage keyValStorageMock) {
+    private RaftGroupService prepareMetaStorage(Supplier<KeyValueStorage> keyValStorage) throws IOException {
         for (int i = 0; i < 3; i++) {
-            startServer(i, initializer(keyValStorageMock));
+            startServer(i, initializer(keyValStorage.get()));
         }
 
         return startClient(METASTORAGE_RAFT_GROUP_NAME);
@@ -379,18 +356,11 @@ public class ITMetaStorageServicePersistenceTest {
 
     private Consumer<RaftServer> initializer(KeyValueStorage keyValStorageMock) {
         return server -> {
-            try {
-                Path rocksdb = Files.createTempDirectory("rocksdb");
-                server.
-                    startRaftGroup(
-                        METASTORAGE_RAFT_GROUP_NAME,
-                        new MetaStorageListener(keyValStorageMock),
-                        INITIAL_CONF
-                    );
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
+            server.startRaftGroup(
+                METASTORAGE_RAFT_GROUP_NAME,
+                new MetaStorageListener(keyValStorageMock),
+                INITIAL_CONF
+            );
         };
     }
 
@@ -414,165 +384,5 @@ public class ITMetaStorageServicePersistenceTest {
         clients.add(client);
 
         return client;
-    }
-
-    /**
-     * Abstract {@link KeyValueStorage}. Used for tests purposes.
-     */
-    @SuppressWarnings("JavaAbbreviationUsage")
-    private abstract class AbstractKeyValueStorage implements KeyValueStorage {
-        /** {@inheritDoc} */
-        @Override public long revision() {
-            return 0;
-        }
-
-        /** {@inheritDoc} */
-        @Override public long updateCounter() {
-            return 0;
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry get(byte[] key, long rev) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull Collection<org.apache.ignite.internal.metastorage.server.Entry> getAll(List<byte[]> keys) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull Collection<org.apache.ignite.internal.metastorage.server.Entry> getAll(List<byte[]> keys, long revUpperBound) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void put(byte[] key, byte[] value) {
-            fail();
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry getAndPut(byte[] key, byte[] value) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void putAll(List<byte[]> keys, List<byte[]> values) {
-            fail();
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull Collection<org.apache.ignite.internal.metastorage.server.Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void remove(byte[] key) {
-            fail();
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull org.apache.ignite.internal.metastorage.server.Entry getAndRemove(byte[] key) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void removeAll(List<byte[]> keys) {
-            fail();
-        }
-
-        /** {@inheritDoc} */
-        @Override public @NotNull Collection<org.apache.ignite.internal.metastorage.server.Entry> getAndRemoveAll(List<byte[]> keys) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean invoke(
-                org.apache.ignite.internal.metastorage.server.Condition condition,
-                Collection<org.apache.ignite.internal.metastorage.server.Operation> success,
-                Collection<org.apache.ignite.internal.metastorage.server.Operation> failure
-        ) {
-            fail();
-
-            return false;
-        }
-
-        /** {@inheritDoc} */
-        @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public Cursor<org.apache.ignite.internal.metastorage.server.Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] key, long rev) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(Collection<byte[]> keys, long rev) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void compact() {
-            fail();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void close() {
-            fail();
-        }
-
-        /** {@inheritDoc} */
-        @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
-            fail();
-
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void restoreSnapshot(Path snapshotPath) {
-            fail();
-        }
     }
 }

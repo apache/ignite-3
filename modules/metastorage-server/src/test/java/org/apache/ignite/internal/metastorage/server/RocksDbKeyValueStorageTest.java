@@ -17,12 +17,20 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.io.IOException;
+import java.nio.file.Files;
+
 /**
  * Tests for RocksDB key-value storage implementation.
  */
 public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
     /** {@inheritDoc} */
     @Override KeyValueStorage storage() {
-        return new RocksDBKeyValueStorage();
+        try {
+            return new RocksDBKeyValueStorage(Files.createTempDirectory("test"));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
