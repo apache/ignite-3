@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
-/**
- * Tests a LockManager implementation.
- */
-public class LockManagerTest {
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+
+/** */
+public class HeapLockManagerTest extends AbstractLockManagerTest {
+    @Override protected LockManager newInstance() {
+        return new HeapLockManager();
+    }
 }

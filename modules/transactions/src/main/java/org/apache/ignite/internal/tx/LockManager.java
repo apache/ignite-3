@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -28,27 +29,61 @@ public interface LockManager {
      * @param key The key.
      * @param timestamp The timestamp.
      * @return The future.
-     * @throws LockOrderException When a lock can't be taken due to wrong ordering.
+     * @throws LockException When a lock can't be taken due to wrong ordering.
      */
-    public CompletableFuture<Void> tryAcquire(Object key, long timestamp) throws LockOrderException;
+    public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) throws LockException;
 
     /**
      * @param key The key.
+     * @param timestamp The timestamp.
      * @return {@code True} if the lock was released.
+     * @throws LockException If the unlock operation is invalid.
      */
-    public boolean tryRelease(Object key);
+    public void tryRelease(Object key, Timestamp timestamp);
 
     /**
      * @param key The key.
      * @param timestamp The timestamp.
      * @return The future.
-     * @throws LockOrderException When a lock can't be taken due to wrong ordering.
+     * @throws LockException When a lock can't be taken due to wrong ordering.
      */
-    public CompletableFuture<Void> tryAcquireShared(Object key, long timestamp) throws LockOrderException;
+    public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) throws LockException;
 
     /**
      * @param key The key.
+     * @param timestamp The timestamp.
      * @return {@code True} if the lock was released.
      */
-    public boolean tryReleaseShared(Object key);
+    public boolean tryReleaseShared(Object key, Timestamp timestamp);
+
+    /**
+     * @param key The key.
+     * @return The number of read locks.
+     */
+    public long readHoldCount(Object key);
+
+    /**
+     * @param key The key.
+     * @return {@code True} if a key is locked for read.
+     */
+    public boolean isReadLocked(Object key);
+
+    /**
+     * @param key The key.
+     * @return {@code True} if a key is locked for write.
+     */
+    public boolean isWriteLocked(Object key);
+
+    /**
+     * @param key The key.
+     * @return The waiters queue.
+     */
+    public Collection<Timestamp> queue(Object key);
+
+    /**
+     * @param key The key.
+     * @param timestamp The timestamp.
+     * @return The waiter.
+     */
+    public Waiter waiter(Object key, Timestamp timestamp);
 }
