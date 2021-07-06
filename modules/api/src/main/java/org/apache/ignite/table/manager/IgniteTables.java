@@ -47,7 +47,17 @@ public interface IgniteTables {
     void alterTable(String name, Consumer<TableChange> tableChange);
 
     /**
+     * Creates a cluster table or returns existed instance.
+     *
+     * @param name Table name.
+     * @param tableInitChange Table changer.
+     * @return Table.
+     */
+    Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange);
+
+    /**
      * Drops a table with the name specified.
+     * If a table with the specified name does not exist in the cluster, the operation has no effect.
      *
      * @param name Table name.
      */
