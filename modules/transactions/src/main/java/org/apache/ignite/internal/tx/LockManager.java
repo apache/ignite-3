@@ -29,7 +29,7 @@ public interface LockManager {
      * @param key The key.
      * @param timestamp The timestamp.
      * @return The future.
-     * @throws LockException When a lock can't be taken due to wrong ordering.
+     * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) throws LockException;
 
@@ -45,7 +45,7 @@ public interface LockManager {
      * @param key The key.
      * @param timestamp The timestamp.
      * @return The future.
-     * @throws LockException When a lock can't be taken due to wrong ordering.
+     * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) throws LockException;
 
@@ -53,8 +53,9 @@ public interface LockManager {
      * @param key The key.
      * @param timestamp The timestamp.
      * @return {@code True} if the lock was released.
+     * @throws LockException If the unlock operation is invalid.
      */
-    public boolean tryReleaseShared(Object key, Timestamp timestamp);
+    public void tryReleaseShared(Object key, Timestamp timestamp);
 
     /**
      * @param key The key.

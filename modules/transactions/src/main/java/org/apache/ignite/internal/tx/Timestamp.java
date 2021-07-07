@@ -17,12 +17,19 @@
 
 package org.apache.ignite.internal.tx;
 
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * The timestamp.
  */
 public class Timestamp implements Comparable<Timestamp> {
+    /** */
+    private static long localTime;
+
+    /** */
+    private static long cntr;
+
     /** */
     private final long timestamp;
 
@@ -38,7 +45,9 @@ public class Timestamp implements Comparable<Timestamp> {
      * @return Comparison result.
      */
     @Override public int compareTo(@NotNull Timestamp other) {
-        return Long.compare(timestamp, other.timestamp);
+        int ret = Long.compare(timestamp >> 16 << 16, other.timestamp >> 16 << 16);
+
+        return ret != 0 ? ret : Long.compare(timestamp << 48 >> 48, other.timestamp << 48 >> 48);
     }
 
     @Override public boolean equals(Object o) {
@@ -54,7 +63,20 @@ public class Timestamp implements Comparable<Timestamp> {
     /**
      * @return Next timestamp (monotonically increasing)
      */
-    public static Timestamp nextVersion() {
-        return new Timestamp(System.nanoTime());
+    public synchronized static Timestamp nextVersion() {
+        long localTimeCpy = localTime;
+
+        localTime = Math.max(localTimeCpy, System.nanoTime() >> 16 << 16);
+
+        if (localTimeCpy == localTime)
+            cntr++;
+        else
+            cntr = 0;
+
+        return new Timestamp(localTime | cntr);
+    }
+
+    @Override public String toString() {
+        return S.toString(Timestamp.class, this);
     }
 }

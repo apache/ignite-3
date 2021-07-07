@@ -63,7 +63,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyWriteLockConflict() {
+    public void testSingleKeyWriteLock() {
         Timestamp ts1 = Timestamp.nextVersion();
 
         Object key = new String("test");
@@ -94,6 +94,48 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertNull(lockManager.waiter(key, ts1));
         assertNull(lockManager.waiter(key, ts2));
+    }
+
+    @Test
+    public void testSingleKeyReadLock() {
+        Timestamp ts0 = Timestamp.nextVersion();
+        Timestamp ts1 = Timestamp.nextVersion();
+        Timestamp ts2 = Timestamp.nextVersion();
+        assertTrue(ts0.compareTo(ts1) < 0);
+        assertTrue(ts1.compareTo(ts2) < 0, ts1 + " " + ts2);
+        Object key = new String("test");
+
+        CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts0);
+        assertTrue(fut0.isDone());
+
+        CompletableFuture<Void> fut2 = lockManager.tryAcquireShared(key, ts2);
+        assertTrue(fut2.isDone());
+
+        CompletableFuture<Void> fut1 = lockManager.tryAcquireShared(key, ts1);
+        assertTrue(fut1.isDone());
+
+        assertEquals(3, lockManager.queue(key).size());
+
+        for (Timestamp timestamp : lockManager.queue(key))
+            assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, timestamp).state());
+
+        lockManager.tryReleaseShared(key, ts2);
+
+        assertEquals(2, lockManager.queue(key).size());
+
+        for (Timestamp timestamp : lockManager.queue(key))
+            assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, timestamp).state());
+
+        lockManager.tryReleaseShared(key, ts0);
+
+        assertEquals(1, lockManager.queue(key).size());
+
+        for (Timestamp timestamp : lockManager.queue(key))
+            assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, timestamp).state());
+
+        lockManager.tryReleaseShared(key, ts1);
+
+        assertEquals(0, lockManager.queue(key).size());
     }
 
     @Test
