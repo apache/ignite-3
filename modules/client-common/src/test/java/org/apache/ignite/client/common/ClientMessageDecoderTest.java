@@ -17,7 +17,13 @@
 
 package org.apache.ignite.client.common;
 
+import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Message decoding tests.
@@ -27,7 +33,38 @@ public class ClientMessageDecoderTest {
     private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
 
     @Test
+    void testEmptyBufferReturnsNoResults() throws Exception {
+
+        var buf = new byte[0];
+        var res = new ArrayList<>();
+
+        new ClientMessageDecoder().decode(null, Unpooled.wrappedBuffer(buf), res);
+
+        assertEquals(0, res.size());
+    }
+
+    @Test
     void testValidMagicAndMessageReturnsPayload() throws Exception {
-        // TODO
+        var decoder = new ClientMessageDecoder();
+
+        var buf = new byte[100];
+
+        // Magic.
+        System.arraycopy(MAGIC, 0, buf, 0, 4);
+
+        // Message size.
+        buf[4] = 2;
+
+        // Payload.
+        buf[5] = 33;
+        buf[6] = 44;
+
+        var res = new ArrayList<>();
+        decoder.decode(null, Unpooled.wrappedBuffer(buf), res);
+
+        assertEquals(1, res.size());
+
+        var resBuf = (byte[])res.get(0);
+        assertArrayEquals(new byte[]{33, 44}, resBuf);
     }
 }
