@@ -87,7 +87,7 @@ class ClientMessageDecoder extends ByteToMessageDecoder {
         magicFailed = true;
 
         throw new IgniteException("Invalid magic header in thin client connection. " +
-                "Expected 'IGNI', but was '" + new String(data, CharsetUtil.US_ASCII) + "'");
+                "Expected 'IGNI', but was '" + new String(data, CharsetUtil.US_ASCII) + "'.");
     }
 
     /**
