@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.common;
+package org.apache.ignite.client;
 
 import org.msgpack.core.MessagePack;
 import org.msgpack.core.MessageSizeException;

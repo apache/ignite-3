@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.common;
+package org.apache.ignite.client;
 
 public class ClientMessageType {
     public static final int RESPONSE = 0;

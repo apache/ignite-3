@@ -15,33 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.common;
+package org.apache.ignite.client;
 
-import org.junit.jupiter.api.Test;
-import org.msgpack.core.buffer.ArrayBufferInput;
-
-import java.io.IOException;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-/**
- * Tests Ignite-specific MsgPack extensions.
- */
-public class ClientMessagePackerUnpackerTest {
-    @Test
-    public void testUUID() throws IOException {
-        testUUID(UUID.randomUUID());
-        testUUID(new UUID(0, 0));
-    }
-
-    private void testUUID(UUID u) throws IOException {
-        var packer = new ClientMessagePacker();
-        packer.packUuid(u);
-
-        var unpacker = new ClientMessageUnpacker(new ArrayBufferInput(packer.toByteArray()));
-        var res = unpacker.unpackUuid();
-
-        assertEquals(u, res);
-    }
+public class ClientErrorCode {
+    public static final int SUCCESS = 0;
+    public static final int GENERIC = 1;
 }

@@ -15,9 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.common;
+package org.apache.ignite.client;
 
-public class ClientErrorCode {
-    public static final int SUCCESS = 0;
-    public static final int GENERIC = 1;
+/**
+ * Ignite-specific extension type codes.
+ */
+public class ClientMsgPackType {
+    public static final byte NUMBER = 1;
+
+    public static final byte DECIMAL = 2;
+
+    public static final byte UUID = 3;
+
+    public static final byte DATE = 4;
+
+    public static final byte TIME = 5;
+
+    public static final byte DATETIME = 6;
 }

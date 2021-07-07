@@ -64,6 +64,7 @@
         <module>modules/vault</module>
         <module>modules/client-handler</module>
         <module>modules/client-common</module>
+        <module>modules/client</module>
     </modules>
 
     <build>

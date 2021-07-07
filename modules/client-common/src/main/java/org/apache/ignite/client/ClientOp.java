@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.common;
+package org.apache.ignite.client;
 
-/**
- * Ignite-specific extension type codes.
- */
-public class ClientMsgPackType {
-    public static final byte NUMBER = 1;
-
-    public static final byte DECIMAL = 2;
-
-    public static final byte UUID = 3;
-
-    public static final byte DATE = 4;
-
-    public static final byte TIME = 5;
-
-    public static final byte DATETIME = 6;
+public class ClientOp {
+    public static final int TABLE_CREATE = 1;
+    public static final int TABLE_DROP = 2;
+    public static final int TABLES_GET = 3;
+    public static final int TABLE_GET = 4;
+    public static final int SCHEMAS_GET = 5;
+    public static final int TUPLE_UPSERT = 10;
+    public static final int TUPLE_UPSERT_SCHEMALESS = 11;
+    public static final int TUPLE_GET = 12;
 }
