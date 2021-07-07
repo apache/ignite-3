@@ -138,13 +138,13 @@ public class SchemaDescriptorConverter {
         assert dflt instanceof String;
 
         switch (type.spec()) {
-            case BYTE:
+            case INT8:
                 return Byte.parseByte(dflt);
-            case SHORT:
+            case INT16:
                 return Short.parseShort(dflt);
-            case INTEGER:
+            case INT32:
                 return Integer.parseInt(dflt);
-            case LONG:
+            case INT64:
                 return Long.parseLong(dflt);
             case FLOAT:
                 return Float.parseFloat(dflt);
