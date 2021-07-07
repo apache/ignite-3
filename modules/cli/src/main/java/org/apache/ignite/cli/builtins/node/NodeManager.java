@@ -71,17 +71,24 @@ public class NodeManager {
      * just waiting for appropriate message in the node logs.
      *
      * @param nodeName Node name.
+     * @param baseWorkDir Root directory to store nodes data.
      * @param logDir Log dir for receiving node state.
      * @param pidsDir Dir where pid files of running nodes will be stored.
      * @param srvCfg Config for Ignite node
      * @param out PrintWriter for user messages.
      * @return Information about successfully started node
      */
-    public RunningNode start(String nodeName, Path logDir, Path pidsDir, Path srvCfg, PrintWriter out) {
+    public RunningNode start(String nodeName, Path baseWorkDir, Path logDir, Path pidsDir, Path srvCfg, PrintWriter out) {
         if (getRunningNodes(logDir, pidsDir).stream().anyMatch(n -> n.name.equals(nodeName)))
             throw new IgniteCLIException("Node with nodeName " + nodeName + " is already exist");
 
         try {
+            Path workDir = workDir(baseWorkDir, nodeName);
+            if (Files.exists(workDir))
+                Files.delete(workDir);
+
+            Files.createDirectory(workDir);
+
             Path logFile = logFile(logDir, nodeName);
             if (Files.exists(logFile))
                 Files.delete(logFile);
@@ -100,6 +107,9 @@ public class NodeManager {
                 cmdArgs.add(srvCfg.toAbsolutePath().toString());
             }
 
+            cmdArgs.add("--work-dir");
+            cmdArgs.add(workDir.toAbsolutePath().toString());
+
             cmdArgs.add(nodeName);
 
             ProcessBuilder pb = new ProcessBuilder(
@@ -112,7 +122,7 @@ public class NodeManager {
 
             try (var spinner = new Spinner(out, "Starting a new Ignite node")) {
 
-                if (!waitForStart("Apache Ignite started successfully!", logFile, NODE_START_TIMEOUT, spinner)) {
+                if (!waitForStart("Apache Ignite started successfully!", logFile, p, NODE_START_TIMEOUT, spinner)) {
                     p.destroyForcibly();
 
                     throw new IgniteCLIException("Node wasn't started during timeout period "
@@ -145,12 +155,13 @@ public class NodeManager {
     private static boolean waitForStart(
         String started,
         Path file,
+        Process p,
         Duration timeout,
         Spinner spinner
     ) throws IOException, InterruptedException {
         var start = System.currentTimeMillis();
 
-        while ((System.currentTimeMillis() - start) < timeout.toMillis()) {
+        while ((System.currentTimeMillis() - start) < timeout.toMillis() && p.isAlive()) {
             spinner.spin();
             LockSupport.parkNanos(LOG_FILE_POLL_INTERVAL.toNanos());
 
@@ -158,9 +169,10 @@ public class NodeManager {
 
             if (content.contains(started))
                 return true;
-            else if (content.contains("Exception"))
-                throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
         }
+
+        if (!p.isAlive())
+            throw new IgniteCLIException("Can't start the node. Read logs for details: " + file);
 
         return false;
     }
@@ -285,7 +297,7 @@ public class NodeManager {
                     }).reduce((a, b) -> a && b).orElse(false);
                 }
                 else
-                    throw new IgniteCLIException("Can't find node with name" + nodeName);
+                    throw new IgniteCLIException("Can't find node with name " + nodeName);
             }
             catch (IOException e) {
                 throw new IgniteCLIException("Can't open directory with pid files " + pidsDir);
@@ -315,6 +327,15 @@ public class NodeManager {
      */
     private static Path logFile(Path logDir, String nodeName) {
           return logDir.resolve(nodeName + ".log");
+    }
+
+    /**
+     * @param baseWorkDir Base ignite working directory.
+     * @param nodeName Node name.
+     * @return Path to node work directory.
+     */
+    private static Path workDir(Path baseWorkDir, String nodeName) {
+        return baseWorkDir.resolve(nodeName);
     }
 
     /**
