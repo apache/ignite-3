@@ -20,8 +20,6 @@ package org.apache.ignite.client.internal;
 import java.nio.ByteBuffer;
 
 import org.apache.ignite.client.ClientMessageUnpacker;
-import org.apache.ignite.internal.binary.streams.BinaryByteBufferInputStream;
-import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.msgpack.core.buffer.ByteBufferInput;
 
 /**

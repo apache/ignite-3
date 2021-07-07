@@ -24,11 +24,8 @@ import java.util.function.Function;
 
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
-import org.apache.ignite.client.ClientConnectionException;
-import org.apache.ignite.client.ClientException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 
 /**
  * Processing thin client requests and responses.
