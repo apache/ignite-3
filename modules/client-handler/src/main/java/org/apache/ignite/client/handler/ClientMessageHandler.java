@@ -39,7 +39,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.msgpack.core.MessageFormat;
-import org.msgpack.core.MessagePack;
 import org.msgpack.core.buffer.ArrayBufferInput;
 import org.msgpack.value.ImmutableMapValue;
 import org.slf4j.Logger;
