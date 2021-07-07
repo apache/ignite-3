@@ -36,7 +36,7 @@ public class ColumnMapping {
     /**
      * @param cols Number of columns.
      */
-    public static ColumnaMapperBuilder mapperBuilder(int cols) {
+    public static ColumnMapperBuilder mapperBuilder(int cols) {
         return new ColumnMapperImpl(cols);
     }
 

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema.mapping;
 /**
  * Column mapper implementation.
  */
-class ColumnMapperImpl implements ColumnMapper, ColumnaMapperBuilder {
+class ColumnMapperImpl implements ColumnMapper, ColumnMapperBuilder {
     /** Mapping. */
     private final int[] mapping;
 

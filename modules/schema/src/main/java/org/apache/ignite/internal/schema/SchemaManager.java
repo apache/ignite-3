@@ -45,7 +45,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
-import org.apache.ignite.internal.schema.mapping.ColumnaMapperBuilder;
+import org.apache.ignite.internal.schema.mapping.ColumnMapperBuilder;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -296,7 +296,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         TableView oldTbl,
         SchemaDescriptor newDesc,
         TableView newTbl) {
-        ColumnaMapperBuilder mapper = null;
+        ColumnMapperBuilder mapper = null;
 
         for (String s : newTbl.columns().namedListKeys()) {
             final ColumnView newColView = newTbl.columns().get(s);
