@@ -62,7 +62,8 @@
         <module>modules/storage-rocksdb</module>
         <module>modules/table</module>
         <module>modules/vault</module>
-        <module>modules/client-connector</module>
+        <module>modules/client-handler</module>
+        <module>modules/client-common</module>
     </modules>
 
     <build>
