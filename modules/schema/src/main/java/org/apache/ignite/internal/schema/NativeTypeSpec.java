@@ -32,7 +32,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a single-byte signed value.
      */
-    INT8("byte", true) {
+    INT8("int8", true) {
         /** {@inheritDoc} */
         @Override public Object objectValue(Row tup, int colIdx) {
             return tup.byteValueBoxed(colIdx);
@@ -42,7 +42,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a two-bytes signed value.
      */
-    INT16("short", true) {
+    INT16("int16", true) {
         /** {@inheritDoc} */
         @Override public Object objectValue(Row tup, int colIdx) {
             return tup.shortValueBoxed(colIdx);
@@ -52,7 +52,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a four-bytes signed value.
      */
-    INT32("integer", true) {
+    INT32("int32", true) {
         /** {@inheritDoc} */
         @Override public Object objectValue(Row tup, int colIdx) {
             return tup.intValueBoxed(colIdx);
@@ -62,7 +62,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing an eight-bytes signed value.
      */
-    INT64("long", true) {
+    INT64("int64", true) {
         /** {@inheritDoc} */
         @Override public Object objectValue(Row tup, int colIdx) {
             return tup.longValueBoxed(colIdx);
