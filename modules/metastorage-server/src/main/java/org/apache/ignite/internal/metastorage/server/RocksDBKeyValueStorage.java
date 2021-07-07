@@ -46,6 +46,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.EnvOptions;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.Options;
@@ -1092,6 +1093,13 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         /** */
         private final Iterator<WatchEvent> it;
 
+        /** Options for {@link #nativeIterator}. */
+        private final ReadOptions options = new ReadOptions().setPrefixSameAsStart(true);
+
+        /** RocksDB iterator. */
+        @Nullable
+        private RocksIterator nativeIterator = null;
+
         /** */
         private long lastRetRev;
 
@@ -1117,7 +1125,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
         /** {@inheritDoc} */
         @Override public void close() throws Exception {
-            // No-op.
+            IgniteUtils.closeAll(Set.of(nativeIterator, options));
         }
 
         /** {@inheritDoc} */
@@ -1140,29 +1148,32 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                         while (true) {
                             long curRev = lastRetRev + 1;
 
-                            try (
-                                ReadOptions options = new ReadOptions().setPrefixSameAsStart(true);
-                                RocksIterator iterator = db.newIterator(options)
-                            ) {
-                                byte[] revisionPrefix = new byte[Long.BYTES];
-                                ByteUtils.toBytes(curRev, revisionPrefix, 0, Long.BYTES);
+                            byte[] revisionPrefix = new byte[Long.BYTES];
+                            ByteUtils.toBytes(curRev, revisionPrefix, 0, Long.BYTES);
 
-                                boolean hasEntries = false;
+                            boolean empty = true;
 
-                                for (iterator.seek(revisionPrefix); iterator.isValid(); iterator.next()) {
-                                    hasEntries = true;
+                            if (nativeIterator == null)
+                                nativeIterator = db.newIterator(options);
 
-                                    byte[] key = rocksKeyToBytes(iterator.key());
+                            for (nativeIterator.seek(revisionPrefix); nativeIterator.isValid(); nativeIterator.next()) {
+                                empty = false;
 
-                                    if (p.test(key)) {
-                                        nextRetRev = curRev;
+                                byte[] key = rocksKeyToBytes(nativeIterator.key());
 
-                                        return true;
-                                    }
+                                if (p.test(key)) {
+                                    nextRetRev = curRev;
+
+                                    return true;
                                 }
+                            }
 
-                                if (!hasEntries)
-                                    return false;
+                            if (empty) {
+                                nativeIterator.close();
+
+                                nativeIterator = null;
+
+                                return false;
                             }
 
                             lastRetRev++;
@@ -1180,54 +1191,46 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                     try {
                         while (true) {
                             if (nextRetRev != -1) {
-                                try (
-                                    ReadOptions options = new ReadOptions().setPrefixSameAsStart(true);
-                                    RocksIterator iterator = db.newIterator(options)
-                                ) {
-                                    byte[] revisionPrefix = new byte[Long.BYTES];
-                                    ByteUtils.toBytes(nextRetRev, revisionPrefix, 0, Long.BYTES);
+                                boolean empty = true;
 
-                                    boolean hasEntries = false;
+                                List<EntryEvent> evts = new ArrayList<>();
 
-                                    List<EntryEvent> evts = new ArrayList<>();
+                                for (; nativeIterator.isValid(); nativeIterator.next()) {
+                                    empty = false;
 
-                                    for (
-                                        iterator.seek(revisionPrefix);
-                                        iterator.isValid();
-                                        iterator.next()
-                                    ) {
-                                        hasEntries = true;
+                                    byte[] key = rocksKeyToBytes(nativeIterator.key());
 
-                                        byte[] key = rocksKeyToBytes(iterator.key());
+                                    Value val = bytesToValue(nativeIterator.value());
 
-                                        Value val = bytesToValue(iterator.value());
+                                    if (p.test(key)) {
+                                        Entry newEntry;
 
-                                        if (p.test(key)) {
-                                            Entry newEntry;
+                                        if (val.tombstone())
+                                            newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
+                                        else
+                                            newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
 
-                                            if (val.tombstone())
-                                                newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
-                                            else
-                                                newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
+                                        Entry oldEntry = doGet(key, nextRetRev - 1, false);
 
-                                            Entry oldEntry = doGet(key, nextRetRev - 1, false);
-
-                                            evts.add(new EntryEvent(oldEntry, newEntry));
-                                        }
+                                        evts.add(new EntryEvent(oldEntry, newEntry));
                                     }
-
-                                    if (!hasEntries)
-                                        return null;
-
-                                    if (evts.isEmpty())
-                                        continue;
-
-                                    lastRetRev = nextRetRev;
-
-                                    nextRetRev = -1;
-
-                                    return new WatchEvent(evts);
                                 }
+
+                                if (empty)
+                                    return null;
+
+                                if (evts.isEmpty())
+                                    continue;
+
+                                lastRetRev = nextRetRev;
+
+                                nextRetRev = -1;
+
+                                nativeIterator.close();
+
+                                nativeIterator = null;
+
+                                return new WatchEvent(evts);
                             }
                             else if (!hasNext())
                                 return null;
