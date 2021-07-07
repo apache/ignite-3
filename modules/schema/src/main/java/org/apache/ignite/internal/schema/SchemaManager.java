@@ -208,7 +208,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * registers initial schema from configuration.
      *
      * @param tblId Table id.
-     * @param tblName Table name.
      * @param oldTbl Old table configuration.
      * @param newTbl New table configuraiton.
      * @return Operation future.
