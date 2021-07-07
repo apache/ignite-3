@@ -47,7 +47,7 @@ public class ClientMessageDecoderTest {
     void testValidMagicAndMessageReturnsPayload() throws Exception {
         var decoder = new ClientMessageDecoder();
 
-        var buf = new byte[100];
+        var buf = new byte[7];
 
         // Magic.
         System.arraycopy(MAGIC, 0, buf, 0, 4);
