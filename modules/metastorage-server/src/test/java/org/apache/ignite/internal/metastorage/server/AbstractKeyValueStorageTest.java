@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +51,14 @@ public abstract class AbstractKeyValueStorageTest {
         storage = storage();
     }
 
+    @AfterEach
+    void tearDown() throws Exception {
+        storage.close();
+    }
+
+    /**
+     * @return Key value storage for this test.
+     */
     abstract KeyValueStorage storage();
 
     @Test

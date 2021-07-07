@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -58,8 +59,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -185,15 +184,7 @@ public class ITMetaStorageServicePersistenceTest {
 
         Peer leader = metaStorageSvc.leader();
 
-        Entry get1 = metaStorage.get(firstKey).get();
-
-        assertArrayEquals(
-            firstValue,
-            get1.value()
-        );
-
-        assertEquals(1, get1.revision());
-        assertEquals(1, get1.updateCounter());
+        check(metaStorage, firstKey, firstValue, false, false, 1, 1);
 
         JRaftServerImpl toStop = null;
 
@@ -206,7 +197,7 @@ public class ITMetaStorageServicePersistenceTest {
             }
         }
 
-        String serverDataPath0 = toStop.getServerDataPath(METASTORAGE_RAFT_GROUP_NAME);
+        String serverDataPath = toStop.getServerDataPath(METASTORAGE_RAFT_GROUP_NAME);
 
         int stopIdx = servers.indexOf(toStop);
 
@@ -218,26 +209,11 @@ public class ITMetaStorageServicePersistenceTest {
 
         metaStorage.remove(firstKey).get();
 
-        Entry get2 = metaStorage.get(firstKey).get();
-
-        assertTrue(get2.tombstone());
-        assertFalse(get2.empty());
-        assertNull(get2.value());
-        assertEquals(2, get2.revision());
-        assertEquals(2, get2.updateCounter());
+        check(metaStorage, firstKey, null, true, false, 2, 2);
 
         metaStorage.put(firstKey, firstValue).get();
 
-        Entry get3 = metaStorage.get(firstKey).get();
-
-        assertFalse(get3.tombstone());
-        assertFalse(get3.empty());
-        assertArrayEquals(
-            firstValue,
-            get3.value()
-        );
-        assertEquals(3, get3.revision());
-        assertEquals(3, get3.updateCounter());
+        check(metaStorage, firstKey, firstValue, false, false, 3, 3);
 
         metaStorageSvc.snapshot(metaStorageSvc.leader()).get();
 
@@ -245,7 +221,7 @@ public class ITMetaStorageServicePersistenceTest {
         byte[] lastValue = firstValue;
 
         if (testData.deleteFolder)
-            Utils.delete(new File(serverDataPath0));
+            Utils.delete(new File(serverDataPath));
 
         if (testData.writeAfterSnapshot) {
             ByteArray secondKey = ByteArray.fromString("second");
@@ -277,6 +253,51 @@ public class ITMetaStorageServicePersistenceTest {
         }, 10_000);
 
         assertTrue(success);
+
+        MetaStorageServiceImpl metaStorage2 = new MetaStorageServiceImpl(metaStorageSvc);
+
+        int expectedRevision = testData.writeAfterSnapshot ? 4 : 3;
+        int expectedUpdateCounter = testData.writeAfterSnapshot ? 4 : 3;
+
+        check(metaStorage2, new ByteArray(lastKey), lastValue, false, false, expectedRevision, expectedUpdateCounter);
+    }
+
+    /**
+     * Check meta storage entry.
+     *
+     * @param metaStorage Meta storage service.
+     * @param key Key.
+     * @param value Expected value.
+     * @param isTombstone Expected tombstone flag.
+     * @param isEmpty Expected empty flag.
+     * @param revision Expected revision.
+     * @param updateCounter Expected update counter.
+     * @throws ExecutionException If failed.
+     * @throws InterruptedException If failed.
+     */
+    private void check(
+        MetaStorageServiceImpl metaStorage,
+        ByteArray key,
+        byte[] value,
+        boolean isTombstone,
+        boolean isEmpty,
+        int revision,
+        int updateCounter
+    ) throws ExecutionException, InterruptedException {
+        Entry entry = metaStorage.get(key).get();
+
+        assertEquals(isTombstone, entry.tombstone());
+
+        assertEquals(isEmpty, entry.empty());
+
+        assertArrayEquals(
+            value,
+            entry.value()
+        );
+
+        assertEquals(revision, entry.revision());
+
+        assertEquals(updateCounter, entry.updateCounter());
     }
 
     /** */
