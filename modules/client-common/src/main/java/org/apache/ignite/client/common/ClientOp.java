@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.common;
 
-class ClientOp {
+public class ClientOp {
     public static final int TABLE_CREATE = 1;
     public static final int TABLE_DROP = 2;
     public static final int TABLES_GET = 3;

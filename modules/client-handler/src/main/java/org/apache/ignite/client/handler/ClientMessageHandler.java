@@ -23,6 +23,12 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
+import org.apache.ignite.client.common.ClientErrorCode;
+import org.apache.ignite.client.common.ClientMessageDecoder;
+import org.apache.ignite.client.common.ClientMessagePacker;
+import org.apache.ignite.client.common.ClientMessageType;
+import org.apache.ignite.client.common.ClientMessageUnpacker;
+import org.apache.ignite.client.common.ClientOp;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -121,7 +127,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private ClientMessageUnpacker getUnpacker(byte[] buf) {
         // TODO: Pooling
-        return new ClientMessageUnpacker(new ArrayBufferInput(buf), MessagePack.DEFAULT_UNPACKER_CONFIG);
+        return new ClientMessageUnpacker(new ArrayBufferInput(buf));
     }
 
     private void processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode) throws IOException {

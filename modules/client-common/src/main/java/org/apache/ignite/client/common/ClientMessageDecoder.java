@@ -32,7 +32,7 @@ import java.util.List;
 /**
  * Decodes full client messages.
  */
-class ClientMessageDecoder extends ByteToMessageDecoder {
+public class ClientMessageDecoder extends ByteToMessageDecoder {
     /** Magic bytes before handshake. */
     public static final byte[] MAGIC_BYTES = new byte[]{0x49, 0x47, 0x4E, 0x49}; // IGNI
 

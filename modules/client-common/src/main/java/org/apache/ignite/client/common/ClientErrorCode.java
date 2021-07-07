@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.common;
 
-class ClientErrorCode {
+public class ClientErrorCode {
     public static final int SUCCESS = 0;
     public static final int GENERIC = 1;
 }

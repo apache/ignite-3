@@ -28,12 +28,12 @@ import java.util.UUID;
 /**
  * Ignite-specific MsgPack extension.
  */
-class ClientMessagePacker extends MessageBufferPacker {
+public class ClientMessagePacker extends MessageBufferPacker {
     public ClientMessagePacker() {
         super(MessagePack.DEFAULT_PACKER_CONFIG);
     }
 
-    ClientMessagePacker packUuid(UUID v) throws IOException {
+    public ClientMessagePacker packUuid(UUID v) throws IOException {
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
         var bytes = new byte[16];
