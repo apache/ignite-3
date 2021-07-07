@@ -31,13 +31,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class ClientMessagePackerUnpackerTest {
     @Test
     public void testUUID() throws IOException {
+        testUUID(UUID.randomUUID());
+        testUUID(new UUID(0, 0));
+    }
+
+    private void testUUID(UUID u) throws IOException {
         var packer = new ClientMessagePacker();
-        var uuid = UUID.randomUUID();
-        packer.packUuid(uuid);
+        packer.packUuid(u);
 
         var unpacker = new ClientMessageUnpacker(new ArrayBufferInput(packer.toByteArray()));
         var res = unpacker.unpackUuid();
 
-        assertEquals(uuid, res);
+        assertEquals(u, res);
     }
 }
