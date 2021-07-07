@@ -17,8 +17,9 @@
 
 package org.apache.ignite.client.internal;
 
-import org.apache.ignite.internal.binary.streams.BinaryHeapOutputStream;
-import org.apache.ignite.internal.binary.streams.BinaryOutputStream;
+import org.apache.ignite.client.ClientMessagePacker;
+
+import java.io.IOException;
 
 /**
  * Thin client payload output channel.
@@ -31,13 +32,13 @@ class PayloadOutputChannel implements AutoCloseable {
     private final ClientChannel ch;
 
     /** Output stream. */
-    private final BinaryOutputStream out;
+    private final ClientMessagePacker out;
 
     /**
      * Constructor.
      */
     PayloadOutputChannel(ClientChannel ch) {
-        out = new BinaryHeapOutputStream(INITIAL_BUFFER_CAPACITY);
+        out = new ClientMessagePacker();
         this.ch = ch;
     }
 
@@ -51,12 +52,12 @@ class PayloadOutputChannel implements AutoCloseable {
     /**
      * Gets output stream.
      */
-    public BinaryOutputStream out() {
+    public ClientMessagePacker out() {
         return out;
     }
 
     /** {@inheritDoc} */
-    @Override public void close() {
+    @Override public void close() throws IOException {
         out.close();
     }
 }

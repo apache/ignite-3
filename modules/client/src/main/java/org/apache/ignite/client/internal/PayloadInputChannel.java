@@ -19,8 +19,10 @@ package org.apache.ignite.client.internal;
 
 import java.nio.ByteBuffer;
 
+import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.internal.binary.streams.BinaryByteBufferInputStream;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
+import org.msgpack.core.buffer.ByteBufferInput;
 
 /**
  * Thin client payload input channel.
@@ -30,13 +32,13 @@ class PayloadInputChannel {
     private final ClientChannel ch;
 
     /** Input stream. */
-    private final BinaryInputStream in;
+    private final ClientMessageUnpacker in;
 
     /**
      * Constructor.
      */
     PayloadInputChannel(ClientChannel ch, ByteBuffer payload) {
-        in = BinaryByteBufferInputStream.create(payload);
+        in = new ClientMessageUnpacker(new ByteBufferInput(payload));
         this.ch = ch;
     }
 
@@ -50,7 +52,7 @@ class PayloadInputChannel {
     /**
      * Gets input stream.
      */
-    public BinaryInputStream in() {
+    public ClientMessageUnpacker in() {
         return in;
     }
 }
