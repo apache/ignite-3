@@ -17,5 +17,6 @@
 
 package org.apache.ignite.client;
 
-public class IgnitionTest {
+public class ClientIgnitionTest {
+    // TODO
 }

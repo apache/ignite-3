@@ -17,6 +17,13 @@
 
 package org.apache.ignite.client;
 
-public class Ignition {
+import org.apache.ignite.app.Ignite;
 
+// TODO:
+// 1. Define client config
+// 2. Can we implement Ignition interface?
+public class ClientIgnition {
+    public static Ignite startClient() {
+        return null;
+    }
 }
