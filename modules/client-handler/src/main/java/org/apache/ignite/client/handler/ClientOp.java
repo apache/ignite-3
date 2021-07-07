@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector;
+package org.apache.ignite.client.handler;
 
 class ClientOp {
     public static final int TABLE_CREATE = 1;

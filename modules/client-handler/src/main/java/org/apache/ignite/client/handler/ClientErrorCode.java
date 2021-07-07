@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector;
+package org.apache.ignite.client.handler;
 
 class ClientErrorCode {
     public static final int SUCCESS = 0;

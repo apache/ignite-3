@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector;
+package org.apache.ignite.client.handler;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;

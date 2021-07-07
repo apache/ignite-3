@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector;
+package org.apache.ignite.client.handler;
 
 import io.netty.channel.ChannelFuture;
 import org.apache.ignite.app.Ignite;

@@ -15,21 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.clientconnector;
+package org.apache.ignite.client.handler;
 
-/**
- * Ignite-specific extension type codes.
- */
-public class ClientMsgPackType {
-    public static final byte NUMBER = 1;
-
-    public static final byte DECIMAL = 2;
-
-    public static final byte UUID = 3;
-
-    public static final byte DATE = 4;
-
-    public static final byte TIME = 5;
-
-    public static final byte DATETIME = 6;
+public class ClientMessageType {
+    public static final int RESPONSE = 0;
+    public static final int NOTIFICATION = 1;
 }
