@@ -59,14 +59,23 @@ import org.rocksdb.StringAppendOperator;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 
+/**
+ * Key-value storage based on RocksDB.
+ * Keys are stored with revision.
+ * Values are stored with update counter and a boolean flag which represenets whether this record is a tombstone.
+ * <br/>
+ * Key: [8 bytes revision, N bytes key itself].
+ * <br/>
+ * Value: [8 bytes update counter, 1 byte tombstone flag, N bytes value].
+ */
 public class RocksDBKeyValueStorage implements KeyValueStorage {
     /** Database snapshot file name. */
     private static final String SNAPSHOT_FILE_NAME = "db.snapshot";
 
-    /** */
+    /** Revision key. */
     private static final byte[] REVISION_KEY = keyToRocksKey(-1, "SYSTEM_REVISION_KEY".getBytes());
 
-    /** */
+    /** Update counter key. */
     private static final byte[] UPDATE_COUNTER_KEY = keyToRocksKey(-1, "SYSTEM_UPDATE_COUNTER_KEY".getBytes());
 
     static {
@@ -82,6 +91,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     /** RW lock. */
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
+    /** Thread-pool for a snapshot operation execution. */
     private final Executor snapshotExecutor = Executors.newSingleThreadExecutor();
     
     /**
@@ -90,6 +100,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      */
     private static final long LATEST_REV = -1;
 
+    /** Lexicographic order comparator. */
     private final Comparator<byte[]> CMP = Arrays::compare;
 
     /** Keys index. Value is the list of all revisions under which entry corresponding to the key was modified. */
@@ -135,7 +146,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
-        return doSnapshot(snapshotPath);
+        return createSnapshot(snapshotPath);
     }
 
     /** {@inheritDoc} */
@@ -143,7 +154,11 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         readSnapshot(snapshotPath);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Reads a snapsot from path and ingest this key-value storage.
+     *
+     * @param path Snapshot path.
+     */
     public void readSnapshot(Path path) {
         Lock writeLock = this.rwLock.writeLock();
         writeLock.lock();
@@ -156,6 +171,10 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
             this.db.ingestExternalFile(Collections.singletonList(snapshotPath.toString()), ingestOptions);
             buildKeyIndex();
+
+            rev = ByteUtils.bytesToLong(this.db.get(REVISION_KEY));
+
+            updCntr = ByteUtils.bytesToLong(this.db.get(UPDATE_COUNTER_KEY));
         }
         catch (RocksDBException e) {
             throw new IgniteInternalException("Fail to ingest sst file at path: " + path, e);
@@ -165,6 +184,11 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    /**
+     * Builds an index of this storage.
+     *
+     * @throws RocksDBException If failed.
+     */
     private void buildKeyIndex() throws RocksDBException {
         try (RocksIterator iterator = this.db.newIterator()) {
             for (iterator.seekToFirst(); iterator.isValid(); iterator.next()) {
@@ -178,13 +202,15 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 revs.add(revision);
             }
         }
-
-        rev = ByteUtils.bytesToLong(this.db.get(REVISION_KEY));
-        updCntr = ByteUtils.bytesToLong(this.db.get(UPDATE_COUNTER_KEY));
     }
 
-    /** {@inheritDoc} */
-    public CompletableFuture<Void> doSnapshot(Path snapsthotPath) {
+    /**
+     * Captures a snapshot.
+     *
+     * @param snapsthotPath Snapshot path.
+     * @return Future that represents a state of the operation.
+     */
+    public CompletableFuture<Void> createSnapshot(Path snapsthotPath) {
         Lock readLock = this.rwLock.readLock();
         readLock.lock();
 
@@ -196,7 +222,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
 
-            CompletableFuture<Void> sstFuture = doCreateSstFiles(tempPath);
+            CompletableFuture<Void> sstFuture = createSstFile(tempPath);
 
             sstFuture.whenComplete((aVoid, throwable) -> {
                 if (throwable == null) {
@@ -225,7 +251,13 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    CompletableFuture<Void> doCreateSstFiles(Path path) {
+    /**
+     * Creates a SST file from {@link #db}.
+     *
+     * @param path Path to store SST file at.
+     * @return Future that represents a state of the operation.
+     */
+    CompletableFuture<Void> createSstFile(Path path) {
         CompletableFuture<Void> sstFuture = new CompletableFuture<>();
 
         snapshotExecutor.execute(() -> {
@@ -295,6 +327,12 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return updCntr;
     }
 
+    /**
+     * Puts a value into {@link #db}.
+     *
+     * @param key Key.
+     * @param value Value.
+     */
     private void setValue(byte[] key, byte[] value) {
         try {
             this.db.put(key, value);
@@ -304,6 +342,11 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    /**
+     * Updates the revision of this storage.
+     *
+     * @param newRevision New revision.
+     */
     private void updateRevision(long newRevision) {
         setValue(REVISION_KEY, ByteUtils.longToBytes(newRevision));
 
@@ -744,19 +787,43 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return -1;
     }
 
+    /**
+     * Add a revision to a key.
+     *
+     * @param revision Revision.
+     * @param key Key.
+     * @return Key with a revision.
+     */
     private static byte[] keyToRocksKey(long revision, byte[] key) {
-        byte[] buffer = new byte[8 + key.length];
+        byte[] buffer = new byte[Long.BYTES + key.length];
+
         ByteUtils.toBytes(revision, buffer, 0, Long.BYTES);
+
         System.arraycopy(key, 0, buffer, Long.BYTES, key.length);
+
         return buffer;
     }
 
+    /**
+     * Get a key from a key with revision.
+     *
+     * @param rocksKey Key with a revision.
+     * @return Key without a revision.
+     */
     private static byte[] rocksKeyToBytes(byte[] rocksKey) {
         byte[] buffer = new byte[rocksKey.length - Long.BYTES];
+
         System.arraycopy(rocksKey, Long.BYTES, buffer, 0, buffer.length);
+
         return buffer;
     }
 
+    /**
+     * Build a value from a byte array.
+     *
+     * @param valueBytes Value byte array.
+     * @return Value.
+     */
     private static Value bytesToValue(byte[] valueBytes) {
         ByteBuffer buf = ByteBuffer.wrap(valueBytes);
 
@@ -775,11 +842,21 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return new Value(val, updateCounter);
     }
 
+    /**
+     * Add an update counter and a tombstone flag to a value.
+     * @param value Value byte array.
+     * @param updateCounter Update counter.
+     * @return Value with an update counter and a tombstone.
+     */
     private static byte[] valueToBytes(byte[] value, long updateCounter) {
         byte[] bytes = new byte[Long.BYTES + Byte.BYTES + value.length];
+
         ByteUtils.toBytes(updateCounter, bytes, 0, Long.BYTES);
+
         bytes[Long.BYTES] = (byte) (value == TOMBSTONE ? 0 : 1);
+
         System.arraycopy(value, 0, bytes, Long.BYTES + Byte.BYTES, value.length);
+
         return bytes;
     }
 
@@ -826,12 +903,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
         byte[] rocksValue = valueToBytes(bytes, curUpdCntr);
 
-        try {
-            this.db.put(rocksKey, rocksValue);
-        }
-        catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
-        }
+        setValue(rocksKey, rocksValue);
 
         return lastRev;
     }

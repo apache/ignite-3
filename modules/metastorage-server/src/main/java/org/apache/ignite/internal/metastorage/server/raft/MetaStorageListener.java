@@ -327,6 +327,9 @@ public class MetaStorageListener implements RaftGroupListener {
         return true;
     }
 
+    /**
+     * @return {@link KeyValueStorage} that is backing this listener.
+     */
     @TestOnly
     public KeyValueStorage getStorage() {
         return storage;

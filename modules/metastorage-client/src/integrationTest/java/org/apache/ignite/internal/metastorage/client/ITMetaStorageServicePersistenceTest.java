@@ -52,7 +52,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -64,17 +63,22 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Meta storage client tests.
+ * Persistent (rocksdb-based) meta storage client tests.
  */
 @SuppressWarnings("WeakerAccess")
 public class ITMetaStorageServicePersistenceTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITMetaStorageServicePersistenceTest.class);
 
+    /** Starting server port. */
     private static final int PORT = 5003;
 
+    /** Starting client port. */
     private static final int CLIENT_PORT = 6003;
 
+    /**
+     * Peers list.
+     */
     private static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
         .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
         .map(Peer::new)
@@ -98,16 +102,11 @@ public class ITMetaStorageServicePersistenceTest {
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
+    /** Servers. */
     private List<JRaftServerImpl> servers = new ArrayList<>();
 
+    /** Clients. */
     private List<RaftGroupService> clients = new ArrayList<>();
-
-    /**
-     * Run {@code NODES} cluster nodes.
-     */
-    @BeforeEach
-    public void beforeTest() {
-    }
 
     /**
      * Shutdown raft server and stop all cluster nodes.
@@ -123,21 +122,31 @@ public class ITMetaStorageServicePersistenceTest {
             server.shutdown();
     }
 
+    /**
+     * Test parameters for {@link #testSnapshot}.
+     */
     private static class TestData {
+        /** Delete raft group folder. */
         private final boolean deleteFolder;
 
+        /** Write to meta storage after a snapshot. */
         private final boolean writeAfterSnapshot;
 
+        /** */
         private TestData(boolean deleteFolder, boolean writeAfterSnapshot) {
             this.deleteFolder = deleteFolder;
             this.writeAfterSnapshot = writeAfterSnapshot;
         }
 
+        /** {@inheritDoc} */
         @Override public String toString() {
             return String.format("deleteFolder=%s, writeAfterSnapshot=%s", deleteFolder, writeAfterSnapshot);
         }
     }
 
+    /**
+     * @return {@link #testSnapshot} parameters.
+     */
     private static List<TestData> testSnapshotData() {
         return List.of(
             new TestData(false, false),
@@ -147,6 +156,12 @@ public class ITMetaStorageServicePersistenceTest {
         );
     }
 
+    /**
+     * Tests that a joining raft node successfuly restores a snapshot.
+     *
+     * @param testData Test parameters.
+     * @throws Exception If failed.
+     */
     @ParameterizedTest
     @MethodSource("testSnapshotData")
     public void testSnapshot(TestData testData) throws Exception {
@@ -264,6 +279,7 @@ public class ITMetaStorageServicePersistenceTest {
         assertTrue(success);
     }
 
+    /** */
     @SuppressWarnings("BusyWait") public static boolean waitForCondition(BooleanSupplier cond, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
@@ -288,11 +304,13 @@ public class ITMetaStorageServicePersistenceTest {
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    @SuppressWarnings("SameParameterValue")
     private boolean waitForTopology(ClusterService cluster, int exp, int timeout) {
         return waitForCondition(() -> cluster.topologyService().allMembers().size() >= exp, timeout);
     }
 
+    /**
+     * @return Local address.
+     */
     public static String getLocalAddress() {
         try {
             return InetAddress.getLocalHost().getHostAddress();
@@ -302,23 +320,33 @@ public class ITMetaStorageServicePersistenceTest {
         }
     }
 
-    protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers, boolean start) {
+    /**
+     * Creates a cluster service.
+     */
+    protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers) {
         var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
 
         var network = NETWORK_FACTORY.createClusterService(context);
 
-        if (start)
-            network.start();
+        network.start();
 
         cluster.add(network);
 
         return network;
     }
 
+    /**
+     * Starts a raft server.
+     *
+     * @param idx Server index (affects port of the server).
+     * @param clo Server initializer closure.
+     * @return Server.
+     * @throws IOException If failed.
+     */
     private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) throws IOException {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
-        ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr), true);
+        ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr));
 
         Path jraft = Files.createTempDirectory("jraft");
 
@@ -341,10 +369,10 @@ public class ITMetaStorageServicePersistenceTest {
 
     /**
      * Prepares meta storage by instantiating corresponding raft server with {@link MetaStorageListener} and
-     * {@link MetaStorageServiceImpl}.
+     * a client.
      *
-     * @param keyValStorageMock {@link KeyValueStorage} mock.
-     * @return {@link MetaStorageService} instance.
+     * @param keyValStorage Storage.
+     * @return Meta storage raft group service instance.
      */
     private RaftGroupService prepareMetaStorage(Supplier<KeyValueStorage> keyValStorage) throws IOException {
         for (int i = 0; i < 3; i++) {
@@ -354,23 +382,34 @@ public class ITMetaStorageServicePersistenceTest {
         return startClient(METASTORAGE_RAFT_GROUP_NAME);
     }
 
-    private Consumer<RaftServer> initializer(KeyValueStorage keyValStorageMock) {
+    /**
+     * Creates a raft server initializer.
+     * @param keyValStorage Key-value storage.
+     * @return Initializer.
+     */
+    private Consumer<RaftServer> initializer(KeyValueStorage keyValStorage) {
         return server -> {
             server.startRaftGroup(
                 METASTORAGE_RAFT_GROUP_NAME,
-                new MetaStorageListener(keyValStorageMock),
+                new MetaStorageListener(keyValStorage),
                 INITIAL_CONF
             );
         };
     }
 
+    /**
+     * Start a client with the default address.
+     */
     private RaftGroupService startClient(String groupId) {
         return startClient(groupId, new NetworkAddress(getLocalAddress(), PORT));
     }
 
+    /**
+     * Starts a client with a specific address.
+     */
     private RaftGroupService startClient(String groupId, NetworkAddress addr) {
         ClusterService clientNode = clusterService(
-            "client_" + groupId + "_", CLIENT_PORT + clients.size(), List.of(addr), true);
+            "client_" + groupId + "_", CLIENT_PORT + clients.size(), List.of(addr));
 
         RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200) {
