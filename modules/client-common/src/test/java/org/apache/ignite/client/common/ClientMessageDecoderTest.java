@@ -45,8 +45,33 @@ public class ClientMessageDecoderTest {
 
     @Test
     void testValidMagicAndMessageReturnsPayload() throws Exception {
-        var decoder = new ClientMessageDecoder();
+        var res = new ArrayList<>();
+        new ClientMessageDecoder().decode(null, Unpooled.wrappedBuffer(getMagicWithPayload()), res);
 
+        assertEquals(1, res.size());
+
+        var resBuf = (byte[])res.get(0);
+        assertArrayEquals(new byte[]{33, 44}, resBuf);
+    }
+
+    /**
+     * Tests multipart buffer arrival: socket can split incoming stream into arbitrary chunks.
+     */
+    @Test
+    void testMultipartValidMagicAndMessageReturnsPayload() throws Exception {
+        var decoder = new ClientMessageDecoder();
+        var res = new ArrayList<>();
+
+        for (byte b : getMagicWithPayload())
+            decoder.decode(null, Unpooled.wrappedBuffer(new byte[]{b}), res);
+
+        assertEquals(1, res.size());
+
+        var resBuf = (byte[])res.get(0);
+        assertArrayEquals(new byte[]{33, 44}, resBuf);
+    }
+
+    private byte[] getMagicWithPayload() {
         var buf = new byte[7];
 
         // Magic.
@@ -58,13 +83,6 @@ public class ClientMessageDecoderTest {
         // Payload.
         buf[5] = 33;
         buf[6] = 44;
-
-        var res = new ArrayList<>();
-        decoder.decode(null, Unpooled.wrappedBuffer(buf), res);
-
-        assertEquals(1, res.size());
-
-        var resBuf = (byte[])res.get(0);
-        assertArrayEquals(new byte[]{33, 44}, resBuf);
+        return buf;
     }
 }
