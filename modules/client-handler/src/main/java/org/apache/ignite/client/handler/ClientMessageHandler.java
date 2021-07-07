@@ -208,12 +208,12 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 default:
-                    packer.packInt(ClientErrorCode.GENERIC);
+                    packer.packInt(ClientErrorCode.FAILED);
                     packer.packString("Unexpected operation code: " + opCode);
             }
         } catch (Throwable t) {
             // TODO: Seek back to the start of the message.
-            packer.packInt(ClientErrorCode.GENERIC);
+            packer.packInt(ClientErrorCode.FAILED);
             packer.packString("Internal server error: " + t.getMessage());
         }
     }

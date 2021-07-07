@@ -22,7 +22,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
@@ -39,7 +38,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.internal.io.ClientConnectionStateHandler;
@@ -290,37 +291,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /**
-     * Converts exception to {@link org.apache.ignite.internal.processors.platform.client.IgniteClientException}.
+     * Converts exception to {@link IgniteClientException}.
      * @param e Exception to convert.
      * @return Resulting exception.
      */
-    private RuntimeException convertException(Throwable e) {
-        if (e.getCause() instanceof ClientError)
-            return new ClientException(e.getMessage(), e.getCause());
-
+    private IgniteClientException convertException(Throwable e) {
         // For every known class derived from ClientException, wrap cause in a new instance.
         // We could rethrow e.getCause() when instanceof ClientException,
         // but this results in an incomplete stack trace from the receiver thread.
         // This is similar to IgniteUtils.exceptionConverters.
-        if (e.getCause() instanceof ClientConnectionException)
-            return new ClientConnectionException(e.getMessage(), e.getCause());
+        if (e.getCause() instanceof IgniteClientConnectionException)
+            return new IgniteClientConnectionException(e.getMessage(), e.getCause());
 
-        if (e.getCause() instanceof ClientReconnectedException)
-            return new ClientReconnectedException(e.getMessage(), e.getCause());
+        if (e.getCause() instanceof IgniteClientAuthorizationException)
+            return new IgniteClientAuthorizationException(e.getMessage(), e.getCause());
 
-        if (e.getCause() instanceof ClientAuthenticationException)
-            return new ClientAuthenticationException(e.getMessage(), e.getCause());
-
-        if (e.getCause() instanceof ClientAuthorizationException)
-            return new ClientAuthorizationException(e.getMessage(), e.getCause());
-
-        if (e.getCause() instanceof ClientFeatureNotSupportedByServerException)
-            return new ClientFeatureNotSupportedByServerException(e.getMessage(), e.getCause());
-
-        if (e.getCause() instanceof ClientException)
-            return new ClientException(e.getMessage(), e.getCause());
-
-        return new ClientException(e.getMessage(), e);
+        return new IgniteClientException(e.getMessage(), e);
     }
 
     /**
@@ -516,16 +502,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Protocol context for a version.
      */
     private ProtocolContext protocolContextFromVersion(ProtocolVersion ver) {
-        EnumSet<ProtocolBitmaskFeature> features = null;
-        if (ProtocolContext.isFeatureSupported(ver, BITMAP_FEATURES))
-            features = ProtocolBitmaskFeature.allFeaturesAsEnumSet();
-
-        return new ProtocolContext(ver, features);
+        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet());
     }
 
     /** Receive and handle handshake response. */
     private void handshakeRes(ByteBuffer buf, ProtocolVersion proposedVer, String user, String pwd, Map<String, String> userAttrs)
-            throws ClientConnectionException, ClientAuthenticationException, ClientProtocolError {
+            throws IgniteClientConnectionException, IgniteClientAuthenticationException, ClientProtocolError {
         BinaryInputStream res = BinaryByteBufferInputStream.create(buf);
 
         try (BinaryReaderExImpl reader = ClientUtils.createBinaryReader(null, res)) {
@@ -547,7 +529,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 ProtocolVersion srvVer = new ProtocolVersion(res.readShort(), res.readShort(), res.readShort());
 
                 String err = reader.readString();
-                int errCode = ClientStatus.FAILED;
+                int errCode = ClientErrorCode.FAILED;
 
                 if (res.remaining() > 0)
                     errCode = reader.readInt();
@@ -606,6 +588,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      *
      */
-    private static class ClientRequestFuture extends GridFutureAdapter<ByteBuffer> {
+    private static class ClientRequestFuture extends CompletableFuture<ByteBuffer> {
     }
 }

@@ -19,5 +19,6 @@ package org.apache.ignite.client;
 
 public class ClientErrorCode {
     public static final int SUCCESS = 0;
-    public static final int GENERIC = 1;
+    public static final int FAILED = 1;
+    public static final int AUTH_FAILED = 2;
 }
