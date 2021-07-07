@@ -37,10 +37,9 @@ public class ClientMessageUnpacker extends MessageUnpacker {
      * This method is available for subclasses to override. Use MessagePack.UnpackerConfig.newUnpacker method to instantiate this implementation.
      *
      * @param in Input.
-     * @param config Config.
      */
-    public ClientMessageUnpacker(MessageBufferInput in, MessagePack.UnpackerConfig config) {
-        super(in, config);
+    public ClientMessageUnpacker(MessageBufferInput in) {
+        super(in, MessagePack.DEFAULT_UNPACKER_CONFIG);
     }
 
     public UUID unpackUuid() throws IOException {
