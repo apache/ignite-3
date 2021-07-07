@@ -37,7 +37,7 @@ public class ColumnMapping {
     /**
      * @param cols Number of columns.
      */
-    public static ColumnaMapperBuilder mapperBuilder(int cols) {
+    public static ColumnMapperBuilder mapperBuilder(int cols) {
         return new ColumnMapperImpl(cols);
     }
 
@@ -55,7 +55,7 @@ public class ColumnMapping {
         else if (schema.columnMapping() == identityMapping())
             return mapping;
 
-        ColumnaMapperBuilder builder = mapperBuilder(schema.length());
+        ColumnMapperBuilder builder = mapperBuilder(schema.length());
 
         ColumnMapper schemaMapper = schema.columnMapping();
 

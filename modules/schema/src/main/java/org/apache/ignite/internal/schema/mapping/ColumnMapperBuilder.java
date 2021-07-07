@@ -18,37 +18,19 @@
 package org.apache.ignite.internal.schema.mapping;
 
 /**
- * Column mapper implementation.
+ * Column mapper builder interface.
  */
-class ColumnMapperImpl implements ColumnMapper, ColumnMapperBuilder {
-    /** Mapping. */
-    private final int[] mapping;
+public interface ColumnMapperBuilder {
+    /**
+     * Add column mapping.
+     *
+     * @param from Source column index.
+     * @param to Target column index.
+     */
+    public void add(int from, int to);
 
     /**
-     * @param cols Number of columns.
+     * @return Column mapper.
      */
-    ColumnMapperImpl(int cols) {
-        mapping = new int[cols];
-
-        for (int i = 0; i < mapping.length; i++)
-            mapping[i] = i;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void add(int from, int to) {
-        mapping[from] = to;
-    }
-
-    /** {@inheritDoc} */
-    @Override public int map(int idx) {
-        if (idx > mapping.length)
-            return -1;
-
-        return mapping[idx];
-    }
-
-    /** {@inheritDoc} */
-    @Override public ColumnMapper build() {
-        return this;
-    }
+    ColumnMapper build();
 }
