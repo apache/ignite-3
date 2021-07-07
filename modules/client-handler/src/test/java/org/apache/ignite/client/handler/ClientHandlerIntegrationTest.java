@@ -41,7 +41,7 @@ import static org.mockito.Mockito.mock;
 /**
  * Client connector integration tests with real sockets.
  */
-public class ClientConnectorIntegrationTest {
+public class ClientHandlerIntegrationTest {
     /** Magic bytes. */
     private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
 
@@ -65,7 +65,7 @@ public class ClientConnectorIntegrationTest {
             out.write(new byte[]{63, 64, 65, 66, 67});
             out.flush();
 
-            assertThrows(IOException.class, () -> writeAndFlushLoop(sock, 5000));
+            assertThrows(IOException.class, () -> writeAndFlushLoop(sock));
         }
     }
 
@@ -131,8 +131,8 @@ public class ClientConnectorIntegrationTest {
         return module.start();
     }
 
-    private void writeAndFlushLoop(Socket socket, long timeout) throws Exception {
-        var stop = System.currentTimeMillis() + timeout;
+    private void writeAndFlushLoop(Socket socket) throws Exception {
+        var stop = System.currentTimeMillis() + 5000;
         var out = socket.getOutputStream();
 
         while (System.currentTimeMillis() < stop) {
