@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler;
+package org.apache.ignite.client.common;
 
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;

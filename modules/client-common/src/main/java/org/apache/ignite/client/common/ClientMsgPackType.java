@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler;
+package org.apache.ignite.client.common;
 
 /**
  * Ignite-specific extension type codes.
