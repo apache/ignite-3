@@ -27,7 +27,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Defines key/value storage interface.
  */
-public interface KeyValueStorage {
+public interface KeyValueStorage extends AutoCloseable {
     /**
      * Returns storage revision.
      *
@@ -206,9 +206,18 @@ public interface KeyValueStorage {
      */
     void compact();
 
-    void close();
-
+    /**
+     * Creates a snapshot of the storage.
+     *
+     * @param snapshotPath Path to a snapshot.
+     * @return Future that represents the state of a operation.
+     */
     CompletableFuture<Void> snapshot(Path snapshotPath);
 
+    /**
+     * Restores a snapshot.
+     *
+     * @param snapshotPath Path to a snapshot.
+     */
     void restoreSnapshot(Path snapshotPath);
 }
