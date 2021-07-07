@@ -17,13 +17,24 @@
 
 package org.apache.ignite.client;
 
-public class ClientOp {
-    public static final int TABLE_CREATE = 1;
-    public static final int TABLE_DROP = 2;
-    public static final int TABLES_GET = 3;
-    public static final int TABLE_GET = 4;
-    public static final int SCHEMAS_GET = 5;
-    public static final int TUPLE_UPSERT = 10;
-    public static final int TUPLE_UPSERT_SCHEMALESS = 11;
-    public static final int TUPLE_GET = 12;
+public enum ClientOp {
+    TABLE_CREATE(1),
+    TABLE_DROP(2),
+    TABLES_GET(3),
+    TABLE_GET(4),
+    SCHEMAS_GET(5),
+    TUPLE_UPSERT(10),
+    TUPLE_UPSERT_SCHEMALESS(11),
+    TUPLE_GET(12);
+
+    /** Code. */
+    private final int code;
+
+    ClientOp(int code) {
+        this.code = code;
+    }
+
+    public short code() {
+        return (short)code;
+    }
 }

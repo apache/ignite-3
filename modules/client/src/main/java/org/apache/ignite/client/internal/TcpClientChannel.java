@@ -39,13 +39,16 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.apache.ignite.client.ClientErrorCode;
+import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.internal.io.ClientConnection;
 import org.apache.ignite.client.internal.io.ClientConnectionStateHandler;
 import org.apache.ignite.client.internal.io.ClientMessageHandler;
 import org.jetbrains.annotations.Nullable;
+import org.msgpack.core.buffer.ByteBufferInput;
 
 
 /**
@@ -76,9 +79,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Server node ID. */
     private volatile UUID srvNodeId;
 
-    /** Server topology version. */
-    private volatile AffinityTopologyVersion srvTopVer;
-
     /** Channel. */
     private final ClientConnection sock;
 
@@ -90,15 +90,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Topology change listeners. */
     private final Collection<Consumer<ClientChannel>> topChangeLsnrs = new CopyOnWriteArrayList<>();
-
-    /** Notification listeners. */
-    @SuppressWarnings("unchecked")
-    private final Map<Long, NotificationListener>[] notificationLsnrs = new Map[ClientNotificationType.values().length];
-
-    /** Pending notification. */
-    @SuppressWarnings("unchecked")
-    private final Map<Long, Queue<T2<ByteBuffer, Exception>>>[] pendingNotifications =
-            new Map[ClientNotificationType.values().length];
 
     /** Guard for notification listeners. */
     private final ReadWriteLock notificationLsnrsGuard = new ReentrantReadWriteLock();
@@ -212,17 +203,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         try (PayloadOutputChannel payloadCh = new PayloadOutputChannel(this)) {
             if (closed())
-                throw new ClientConnectionException("Channel is closed");
+                throw new IgniteClientConnectionException("Channel is closed");
 
             ClientRequestFuture fut = new ClientRequestFuture();
 
             pendingReqs.put(id, fut);
 
-            BinaryOutputStream req = payloadCh.out();
+            var req = payloadCh.out();
 
-            req.writeInt(0); // Reserve an integer for the request size.
-            req.writeShort(op.code());
-            req.writeLong(id);
+            req.packInt(Integer.MAX_VALUE); // Reserve an integer for the request size.
+            req.packInt(op.code());
+            req.packLong(id);
 
             if (payloadWriter != null)
                 payloadWriter.accept(payloadCh);
@@ -312,12 +303,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Process next message from the input stream and complete corresponding future.
      */
-    private void processNextMessage(ByteBuffer buf) throws ClientProtocolError, ClientConnectionException {
-        BinaryInputStream dataInput = BinaryByteBufferInputStream.create(buf);
+    private void processNextMessage(ByteBuffer buf) throws IgniteClientException {
+        var dataInput = new ClientMessageUnpacker(new ByteBufferInput(buf));
 
         if (protocolCtx == null) {
             // Process handshake.
-            pendingReqs.remove(-1L).onDone(buf);
+            pendingReqs.remove(-1L).complete(buf);
             return;
         }
 
