@@ -301,7 +301,6 @@ class SchemaChangeKVViewTest extends AbstractSchemaChangeTest {
             assertEquals(333, (Integer)vkView.get(keyTuple3).value("valInt"));
             assertEquals("brandNewDefault", vkView.get(keyTuple3).value("valStr"));
             assertEquals("brandNewDefault", vkView.get(keyTuple3).value("val"));
-
         }
     }
 }
