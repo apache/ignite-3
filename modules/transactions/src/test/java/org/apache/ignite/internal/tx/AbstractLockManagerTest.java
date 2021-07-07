@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests a LockManager implementation.
@@ -97,12 +98,14 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadLock() {
+    public void testSingleKeyReadWriteLock() {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Timestamp ts2 = Timestamp.nextVersion();
+        Timestamp ts3 = Timestamp.nextVersion();
         assertTrue(ts0.compareTo(ts1) < 0);
-        assertTrue(ts1.compareTo(ts2) < 0, ts1 + " " + ts2);
+        assertTrue(ts1.compareTo(ts2) < 0);
+        assertTrue(ts2.compareTo(ts3) < 0);
         Object key = new String("test");
 
         CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts0);
@@ -114,28 +117,91 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         CompletableFuture<Void> fut1 = lockManager.tryAcquireShared(key, ts1);
         assertTrue(fut1.isDone());
 
-        assertEquals(3, lockManager.queue(key).size());
+        CompletableFuture<Void> fut3 = lockManager.tryAcquire(key, ts3);
+        assertFalse(fut3.isDone());
 
-        for (Timestamp timestamp : lockManager.queue(key))
-            assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, timestamp).state());
+        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts0).state());
+        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts1).state());
+        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts2).state());
+        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts3).state());
 
         lockManager.tryReleaseShared(key, ts2);
 
-        assertEquals(2, lockManager.queue(key).size());
-
-        for (Timestamp timestamp : lockManager.queue(key))
-            assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, timestamp).state());
+        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts0).state());
+        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts1).state());
+        assertNull(lockManager.waiter(key, ts2));
+        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts3).state());
 
         lockManager.tryReleaseShared(key, ts0);
 
-        assertEquals(1, lockManager.queue(key).size());
-
-        for (Timestamp timestamp : lockManager.queue(key))
-            assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, timestamp).state());
+        assertNull(lockManager.waiter(key, ts0));
+        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts1).state());
+        assertNull(lockManager.waiter(key, ts2));
+        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts3).state());
 
         lockManager.tryReleaseShared(key, ts1);
 
-        assertEquals(0, lockManager.queue(key).size());
+        assertNull(lockManager.waiter(key, ts0));
+        assertNull(lockManager.waiter(key, ts1));
+        assertNull(lockManager.waiter(key, ts2));
+        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts3).state());
+    }
+
+    @Test
+    public void testSingleKeyReadWriteConflict() {
+        Timestamp ts0 = Timestamp.nextVersion();
+        Timestamp ts1 = Timestamp.nextVersion();
+        Object key = new String("test");
+
+        // Lock in order
+        CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts0);
+        assertTrue(fut0.isDone());
+
+        CompletableFuture<Void> fut1 = lockManager.tryAcquire(key, ts1);
+        assertFalse(fut1.isDone());
+
+        lockManager.tryReleaseShared(key, ts0);
+        assertTrue(fut1.isDone());
+
+        lockManager.tryRelease(key, ts1);
+
+        assertTrue(lockManager.queue(key).isEmpty());
+
+        // Lock not in order
+        fut0 = lockManager.tryAcquireShared(key, ts1);
+        assertTrue(fut0.isDone());
+
+        try {
+            fut1 = lockManager.tryAcquire(key, ts0);
+
+            fail();
+        }
+        catch (LockException e) {
+            // Expected.
+        }
+    }
+
+    @Test
+    public void testSingleKeyReadWriteConflict2() {
+        Timestamp ts0 = Timestamp.nextVersion();
+        Timestamp ts1 = Timestamp.nextVersion();
+        Timestamp ts2 = Timestamp.nextVersion();
+        Object key = new String("test");
+
+        // Lock in order
+        CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts1);
+        assertTrue(fut0.isDone());
+
+        CompletableFuture<Void> fut1 = lockManager.tryAcquire(key, ts2);
+        assertFalse(fut1.isDone());
+
+        CompletableFuture<Void> fut2 = lockManager.tryAcquireShared(key, ts0);
+        assertTrue(fut2.isDone());
+
+        lockManager.tryReleaseShared(key, ts1);
+        lockManager.tryReleaseShared(key, ts0);
+
+        assertTrue(fut1.isDone());
     }
 
     @Test

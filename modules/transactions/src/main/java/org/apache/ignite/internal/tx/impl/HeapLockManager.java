@@ -81,8 +81,6 @@ public class HeapLockManager implements LockManager {
     private static class LockState {
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
 
-        private int writes = 0;
-
         public CompletableFuture<Void> tryAcquire(Timestamp timestamp) {
             WaiterImpl w = new WaiterImpl(new CompletableFuture<>(), timestamp, false);
 
@@ -95,10 +93,8 @@ public class HeapLockManager implements LockManager {
                 if (!tailMap.isEmpty() && tailMap.firstEntry().getValue().state() == Waiter.State.LOCKED) {
                     waiters.remove(timestamp);
 
-                    throw new LockException("Lock can't be taken because of the conflict");
+                    throw new LockException("Lock can't be taken because of the conflict " + tailMap.firstEntry().getValue());
                 }
-
-                writes++;
 
                 // Lock oldest.
                 if (waiters.firstKey() == timestamp)
@@ -122,8 +118,6 @@ public class HeapLockManager implements LockManager {
                     throw new LockException("Not exclusively locked by " + timestamp);
 
                 waiters.pollFirstEntry(); // TODO try avoid double get
-
-                writes--;
 
                 if (waiters.isEmpty())
                     return;
@@ -157,7 +151,7 @@ public class HeapLockManager implements LockManager {
                 if (!tailMap.isEmpty() && tailMap.firstEntry().getValue().state() == Waiter.State.LOCKED && !tailMap.firstEntry().getValue().isForRead()) {
                     waiters.remove(timestamp);
 
-                    throw new LockException("Lock can't be taken because of the conflict"); // TODO add conflicting waiter to the exception.
+                    throw new LockException("Lock can't be taken because of the conflict " + tailMap.firstEntry().getValue()); // TODO add conflicting waiter to the exception.
                 }
 
                 NavigableMap<Timestamp, WaiterImpl> headMap = waiters.headMap(timestamp, false);
@@ -189,7 +183,7 @@ public class HeapLockManager implements LockManager {
                 // Lock next exclusive waiter.
                 Map.Entry<Timestamp, WaiterImpl> first = tailMap.firstEntry();
 
-                if (!first.getValue().isForRead())
+                if (!first.getValue().isForRead() && first.getKey().equals(waiters.firstEntry().getKey()))
                     first.getValue().lock();
             }
         }
@@ -254,12 +248,14 @@ public class HeapLockManager implements LockManager {
 
         private void lock() {
             state(Waiter.State.LOCKED);
+
             fut.complete(null);
         }
 
         /** {@inheritDoc} */
         @Override public boolean equals(Object o) {
             if (!(o instanceof WaiterImpl)) return false;
+
             return compareTo((WaiterImpl) o) == 0;
         }
 

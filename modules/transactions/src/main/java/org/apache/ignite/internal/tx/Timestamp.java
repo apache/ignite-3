@@ -76,6 +76,7 @@ public class Timestamp implements Comparable<Timestamp> {
         return new Timestamp(localTime | cntr);
     }
 
+    /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(Timestamp.class, this);
     }

@@ -21,7 +21,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * This exception is thrown when lock cannot be acquired due to wrong locking order.
+ * This exception is thrown when lock cannot be acquired due to conflict.
  */
 public class LockException extends IgniteInternalException {
     public LockException() {
