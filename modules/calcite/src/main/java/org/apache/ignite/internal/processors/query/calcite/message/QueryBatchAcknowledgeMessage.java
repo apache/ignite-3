@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.calcite.message;
 
-import java.util.UUID;
-
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -26,12 +24,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(value = SqlQueryMessageGroup.QUERY_BATCH_ACK)
 public interface QueryBatchAcknowledgeMessage extends ExecutionContextAwareMessage {
-    /** {@inheritDoc} */
-    @Override UUID queryId();
-
-    /** {@inheritDoc} */
-    @Override long fragmentId();
-
     /**
      * @return Exchange ID.
      */

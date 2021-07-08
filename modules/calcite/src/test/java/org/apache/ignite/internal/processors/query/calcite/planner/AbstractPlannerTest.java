@@ -710,6 +710,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
+        @Override public ColocationGroup colocationGroup(PlanningContext ctx) {
+            throw new AssertionError();
+        }
+
+        /** {@inheritDoc} */
         @Override public ColumnStrategy generationStrategy(RelOptTable table, int iColumn) {
             throw new AssertionError();
         }
@@ -743,11 +748,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         TestColumnDescriptor(int idx, String name) {
             this.idx = idx;
             this.name = name;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean field() {
-            return true;
         }
 
         /** {@inheritDoc} */

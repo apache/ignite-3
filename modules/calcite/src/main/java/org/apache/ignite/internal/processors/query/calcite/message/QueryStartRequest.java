@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.message;
 
-import java.util.UUID;
-
 import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentDescription;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -28,16 +25,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(value = SqlQueryMessageGroup.QUERY_START_REQUEST, autoSerializable = false)
 public interface QueryStartRequest extends ExecutionContextAwareMessage {
-    /**
-     * @return Query ID.
-     */
-    @Override UUID queryId();
-
-    /**
-     * @return Fragment ID.
-     */
-    @Override long fragmentId();
-
     /**
      * @return Schema name.
      */

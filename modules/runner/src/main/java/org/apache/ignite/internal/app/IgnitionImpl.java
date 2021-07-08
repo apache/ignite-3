@@ -212,7 +212,7 @@ public class IgnitionImpl implements Ignition {
         SchemaManager schemaMgr = new SchemaManager(configurationMgr, metaStorageMgr, vaultMgr);
 
         // Distributed table manager startup.
-        IgniteTables distributedTblMgr = new TableManager(
+        TableManager distributedTblMgr = new TableManager(
             configurationMgr,
             metaStorageMgr,
             schemaMgr,
@@ -222,7 +222,8 @@ public class IgnitionImpl implements Ignition {
         );
 
         SqlQueryProcessor qryProc = new SqlQueryProcessor(
-            clusterNetSvc
+            clusterNetSvc,
+            distributedTblMgr
         );
 
         // TODO IGNITE-14579 Start rest manager.

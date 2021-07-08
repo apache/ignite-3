@@ -19,6 +19,9 @@ package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.network.TopologyService;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
@@ -27,7 +30,11 @@ public class EmptySchemaHolder implements SchemaHolder {
     /** */
     private final SchemaPlus calciteSchema;
 
-    public EmptySchemaHolder() {
+    public EmptySchemaHolder(
+        TopologyService topSrvc
+    ) {
+        this.topSrvc = topSrvc;
+
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
         calciteSchema = newCalciteSchema;

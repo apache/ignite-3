@@ -26,8 +26,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecutor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 
@@ -36,6 +38,8 @@ import org.apache.ignite.network.TopologyService;
  */
 public class MessageServiceImpl implements MessageService {
     private static final UUID QUERY_ID_STUB = UUID.randomUUID();
+
+    private static final IgniteLogger LOG = IgniteLogger.forClass(MessageServiceImpl.class);
 
     private final TopologyService topSrvc;
     private final MessagingService messagingSrvc;
@@ -77,6 +81,9 @@ public class MessageServiceImpl implements MessageService {
             try {
                 messagingSrvc.send(node, msg).get();
             } catch (Exception ex) {
+                if (ex instanceof IgniteInternalCheckedException)
+                    throw (IgniteInternalCheckedException)ex;
+
                 throw new IgniteInternalCheckedException(ex);
             }
         }
@@ -116,7 +123,15 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /** */
-    private void onMessage(NetworkMessage msg, ClusterNode node, String correlationId) {
+    private void onMessage(NetworkMessage msg, NetworkAddress addr, String correlationId) {
+        ClusterNode node = topSrvc.getByAddress(addr);
+
+        if (node == null) {
+            LOG.warn("Received message from a dead node: addr={}, msg={}", addr, msg);
+
+            return;
+        }
+
         if (msg.groupType() == 3)
             onMessage(node.id(), msg, false);
     }
