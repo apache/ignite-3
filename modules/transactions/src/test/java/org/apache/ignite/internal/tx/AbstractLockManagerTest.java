@@ -183,23 +183,21 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testSingleKeyReadWriteConflict2() {
-        Timestamp ts0 = Timestamp.nextVersion();
-        Timestamp ts1 = Timestamp.nextVersion();
-        Timestamp ts2 = Timestamp.nextVersion();
+        Timestamp[] ts = generate(3);
         Object key = new String("test");
 
         // Lock in order
-        CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts1);
+        CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts[1]);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Void> fut1 = lockManager.tryAcquire(key, ts2);
+        CompletableFuture<Void> fut1 = lockManager.tryAcquire(key, ts[2]);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Void> fut2 = lockManager.tryAcquireShared(key, ts0);
+        CompletableFuture<Void> fut2 = lockManager.tryAcquireShared(key, ts[0]);
         assertTrue(fut2.isDone());
 
-        lockManager.tryReleaseShared(key, ts1);
-        lockManager.tryReleaseShared(key, ts0);
+        lockManager.tryReleaseShared(key, ts[1]);
+        lockManager.tryReleaseShared(key, ts[0]);
 
         assertTrue(fut1.isDone());
     }
@@ -217,5 +215,17 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     @Test
     public void testOldestNeverInvalidated() {
 
+    }
+
+    private Timestamp[] generate(int num) {
+        Timestamp[] tmp = new Timestamp[num];
+
+        for (int i = 0; i < tmp.length; i++)
+            tmp[i] = Timestamp.nextVersion();
+
+        for (int i = 1; i < tmp.length; i++)
+            assertTrue(tmp[i-1].compareTo(tmp[i]) < 0);
+
+        return tmp;
     }
 }
