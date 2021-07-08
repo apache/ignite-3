@@ -25,9 +25,9 @@ import java.util.Map;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
@@ -36,9 +36,9 @@ import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 
