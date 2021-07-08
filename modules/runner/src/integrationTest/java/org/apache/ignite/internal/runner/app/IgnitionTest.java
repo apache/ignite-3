@@ -88,10 +88,9 @@ class IgnitionTest {
      */
     @Test
     void testNodesStartWithBootstrapConfiguration() {
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            startedNodes.add(IgnitionManager.start(
-                nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue(), workDir
-            ));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         Assertions.assertEquals(3, startedNodes.size());
 

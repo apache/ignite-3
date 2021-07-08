@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
@@ -173,10 +172,9 @@ class TableCreationTest {
      */
     @Test
     void testInitialSimpleTableConfiguration() {
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(
-                nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue(), workDir
-            ));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         assertEquals(3, clusterNodes.size());
 

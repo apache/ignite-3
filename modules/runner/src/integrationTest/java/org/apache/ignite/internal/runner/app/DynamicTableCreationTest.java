@@ -107,10 +107,9 @@ class DynamicTableCreationTest {
      */
     @Test
     void testDynamicSimpleTableCreation() {
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(
-                nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue(), workDir
-            ));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         assertEquals(3, clusterNodes.size());
 
@@ -161,10 +160,9 @@ class DynamicTableCreationTest {
      */
     @Test
     void testDynamicTableCreation() {
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(
-                nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue(), workDir
-            ));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         assertEquals(3, clusterNodes.size());
 

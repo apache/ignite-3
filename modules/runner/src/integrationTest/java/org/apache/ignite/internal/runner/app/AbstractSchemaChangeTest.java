@@ -81,6 +81,7 @@ abstract class AbstractSchemaChangeTest {
     /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
+    /** Work directory */
     @WorkDirectory
     private Path workDir;
 
@@ -96,10 +97,9 @@ abstract class AbstractSchemaChangeTest {
      * @return Grid nodes.
      */
     @NotNull protected List<Ignite> startGrid() {
-        List<Ignite> clusterNodes = new ArrayList<>();
-
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue(), workDir));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         return clusterNodes;
     }
@@ -107,7 +107,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * @param nodes Cluster nodes.
      */
-    @NotNull protected void createTable(List<Ignite> nodes) {
+    protected void createTable(List<Ignite> nodes) {
         // Create table on node 0.
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),

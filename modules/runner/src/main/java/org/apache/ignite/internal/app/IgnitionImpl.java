@@ -243,7 +243,7 @@ public class IgnitionImpl implements Ignition {
      * Starts the Vault component.
      */
     private static VaultManager createVault(String nodeName, Path workDir) {
-        Path vaultPath = workDir.resolve(nodeName).resolve(VAULT_DB_PATH);
+        Path vaultPath = workDir.resolve(VAULT_DB_PATH);
 
         try {
             Files.createDirectories(vaultPath);
