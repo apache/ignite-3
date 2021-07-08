@@ -26,8 +26,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.TupleMarshallerImpl;
@@ -49,7 +49,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.LONG;
+import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 
 /**
@@ -115,19 +115,23 @@ public class TupleMarshallerVarlenOnlyBenchmark {
         schema = new SchemaDescriptor(
             UUID.randomUUID(),
             42,
-            new Column[] {new Column("key", LONG, false, (Supplier<Object> & Serializable)() -> 0L)},
+            new Column[] {new Column("key", INT64, false, (Supplier<Object> & Serializable)() -> 0L)},
             IntStream.range(0, fieldsCount).boxed()
                 .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
                 .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistry() {
+        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl() {
             @Override public SchemaDescriptor schema() {
                 return schema;
             }
 
             @Override public SchemaDescriptor schema(int ver) {
                 return schema;
+            }
+
+            @Override public int lastSchemaVersion() {
+                return schema.version();
             }
         });
 

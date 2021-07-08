@@ -69,8 +69,10 @@ All columns within a group are split into groups of fixed-size columns and varia
 fixsize columns, the columns are sorted by size, then by column name. Within the group of varsize columns, the columns 
 are sorted by column name. Inside a row default values and nulls are omitted and encoded in the null-defaults map 
 (essentially, a bitset). The size of the varsize columns offsets table is equal to the number of non-null 
-varsize columns multiplied by entry size (a single entry size in the offsets table may be 1-2-4 bytes depending on format). 
-The offset stored in the offsets table is calculated from the very first column value offset.
+varsize columns multiplied by entry size. A single entry size in the offsets table may be 1-2-4 bytes depending on 
+choosed format. The very first varlen offset is omited because it offset can be easily calculated using a null-map and 
+fixed-size columns lengths. The offset stored in the offsets table is calculated from (the beginning of data section) 
+the very first column value offset. **A row is always written in the most compact way.**
 
 ### Row construction and access
 To assemble a row with some schema, an instance of `org.apache.ignite.internal.schema.row.RowAssembler`

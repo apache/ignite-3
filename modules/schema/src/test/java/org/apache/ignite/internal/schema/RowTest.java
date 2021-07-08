@@ -231,10 +231,10 @@ public class RowTest {
     @Test
     public void mediumLenWithFixSizedColumns() {
         Column[] keyCols = IntStream.range(0, 300)
-            .mapToObj(i -> new Column("keyCol" + i, BYTE, false))
+            .mapToObj(i -> new Column("keyCol" + i, INT8, false))
             .toArray(Column[]::new);
         Column[] valCols = IntStream.range(0, 330)
-            .mapToObj(i -> new Column("valCol" + i, BYTE, true))
+            .mapToObj(i -> new Column("valCol" + i, INT8, true))
             .toArray(Column[]::new);
 
         SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);
@@ -269,10 +269,10 @@ public class RowTest {
     @Test
     public void largeLenWithFixSizedColumns() {
         Column[] keyCols = IntStream.range(0, (2 << 16) + rnd.nextInt(20))
-            .mapToObj(i -> new Column("keyCol" + i, BYTE, false))
+            .mapToObj(i -> new Column("keyCol" + i, INT8, false))
             .toArray(Column[]::new);
         Column[] valCols = IntStream.range(0, (2 << 16) + rnd.nextInt(20))
-            .mapToObj(i -> new Column("valCol" + i, BYTE, true))
+            .mapToObj(i -> new Column("valCol" + i, INT8, true))
             .toArray(Column[]::new);
 
         SchemaDescriptor sch = new SchemaDescriptor(java.util.UUID.randomUUID(), 1, keyCols, valCols);

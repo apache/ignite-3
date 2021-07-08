@@ -383,7 +383,9 @@ public class Row implements BinaryRow {
 
         if (isKeyCol) {
             cols = schema.keyColumns();
+
             chunkBaseOff = KEY_CHUNK_OFFSET;
+
             flags = keyFlags();
         }
         else {        // Adjust the column index according to the number of key columns.
@@ -393,7 +395,9 @@ public class Row implements BinaryRow {
             colIdx -= schema.keyColumns().length();
 
             cols = schema.valueColumns();
+
             chunkBaseOff = KEY_CHUNK_OFFSET + readInteger(KEY_CHUNK_OFFSET);
+
             flags = valueFlags();
         }
 
@@ -402,6 +406,7 @@ public class Row implements BinaryRow {
                 ", column=" + cols.column(colIdx) + ']');
 
         int nullMapLen = (flags & VarTableFormat.OMIT_NULL_MAP_FLAG) == 0 ? cols.nullMapSize() : 0;
+
         VarTableFormat format = (flags & VarTableFormat.OMIT_VARTBL_FLAG) == 0 ? VarTableFormat.fromFlags(flags) : null;
 
         if (nullMapLen > 0 && isNull(chunkBaseOff, colIdx))

@@ -54,6 +54,9 @@ public interface BinaryRow {
      */
     boolean hasValue();
 
+    // TODO: IGNITE-14199. Add row version.
+    //GridRowVersion version();
+
     /**
      * Row hash code is a result of hash function applied to the row affinity columns values.
      *

@@ -23,9 +23,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.internal.table.TupleMarshallerImpl;
@@ -45,8 +46,6 @@ import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import static org.apache.ignite.internal.schema.NativeTypes.LONG;
 
 /**
  * Serializer benchmark.
@@ -102,19 +101,23 @@ public class TupleMarshallerFixlenOnlyBenchmark {
         schema = new SchemaDescriptor(
             UUID.randomUUID(),
             42,
-            new Column[] {new Column("key", LONG, false)},
+            new Column[] {new Column("key", NativeTypes.INT64, false)},
             IntStream.range(0, fieldsCount).boxed()
-                .map(i -> new Column("col" + i, LONG, nullable))
+                .map(i -> new Column("col" + i, NativeTypes.INT64, nullable))
                 .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistry() {
+        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl() {
             @Override public SchemaDescriptor schema() {
                 return schema;
             }
 
             @Override public SchemaDescriptor schema(int ver) {
                 return schema;
+            }
+
+            @Override public int lastSchemaVersion() {
+                return schema.version();
             }
         });
 

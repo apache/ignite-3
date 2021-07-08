@@ -146,7 +146,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                         SchemaRegistryImpl reg = schemaRegs.get(tblId);
 
                         if (reg == null)
-                            schemaRegs.put(tblId, (reg = new SchemaRegistryImpl(v -> tableSchema(tblId, v))));
+                            schemaRegs.put(tblId, (reg = new SchemaRegistryImpl()));
 
                         if (evt.oldEntry().empty() || evt.oldEntry().tombstone())
                             reg.onSchemaRegistered((SchemaDescriptor)ByteUtils.fromBytes(evt.newEntry().value()));

@@ -20,9 +20,9 @@ package org.apache.ignite.internal.schema.registry;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,9 +46,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param history Schema history.
      */
-    public SchemaRegistryImpl(Function<Integer, SchemaDescriptor> history) {
+    public SchemaRegistryImpl() {
         lastVer = INITIAL_SCHEMA_VERSION;
-        this.history = history;
+        this.history = i -> null;
     }
 
     /**

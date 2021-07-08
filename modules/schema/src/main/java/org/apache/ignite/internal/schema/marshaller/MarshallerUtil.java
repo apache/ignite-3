@@ -40,7 +40,7 @@ public final class MarshallerUtil {
                 return ((byte[])val).length;
 
             case STRING:
-                return ((CharSequence)val).length() << 1; //RowAssembler.utf8EncodedLength((CharSequence)val);
+                return ((CharSequence)val).length() << 1;
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);

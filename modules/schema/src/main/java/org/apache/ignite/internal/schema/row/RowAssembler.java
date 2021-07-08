@@ -43,8 +43,6 @@ import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFF
  * with the schema and provide the columns in strict internal column sort order during the row construction.
  * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid
  * unnecessary data copies and allow some size-optimizations can be applied.
- *
- * @see #utf8EncodedLength(CharSequence)
  */
 public class RowAssembler {
     /** Schema. */
