@@ -43,8 +43,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     /**
      * Default constructor.
-     *
-     * @param history Schema history.
      */
     public SchemaRegistryImpl() {
         lastVer = INITIAL_SCHEMA_VERSION;
