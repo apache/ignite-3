@@ -138,6 +138,7 @@ public class ITMetaStorageServiceTest {
     /**  Meta storage raft server. */
     private RaftServer metaStorageRaftSrv;
 
+    /** */
     @WorkDirectory
     private Path dataPath;
 

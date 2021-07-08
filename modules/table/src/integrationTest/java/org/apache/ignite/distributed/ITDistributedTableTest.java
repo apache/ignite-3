@@ -113,6 +113,7 @@ public class ITDistributedTableTest {
     /** Cluster. */
     private ArrayList<ClusterService> cluster = new ArrayList<>();
 
+    /** */
     @WorkDirectory
     private Path dataPath;
 

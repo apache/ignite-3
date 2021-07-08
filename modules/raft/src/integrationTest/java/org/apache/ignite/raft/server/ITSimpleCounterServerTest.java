@@ -71,6 +71,7 @@ class ITSimpleCounterServerTest extends RaftServerAbstractTest {
      */
     private RaftGroupService client2;
 
+    /** */
     @WorkDirectory
     private Path dataPath;
 
