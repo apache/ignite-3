@@ -329,7 +329,6 @@ class SchemaChangeTableViewTest extends AbstractSchemaChangeTest {
             assertEquals(333, (Integer)tbl.get(keyTuple3).value("valInt"));
             assertEquals("brandNewDefault", tbl.get(keyTuple3).value("valStr"));
             assertEquals("brandNewDefault", tbl.get(keyTuple3).value("val"));
-
         }
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,8 +25,9 @@ import java.util.Map;
 import java.util.function.Supplier;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
-import org.apache.ignite.internal.app.IgnitionCleaner;
 import org.apache.ignite.internal.schema.InvalidTypeException;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.Column;
 import org.apache.ignite.schema.ColumnType;
@@ -34,15 +36,16 @@ import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 
 /**
  * Ignition interface tests.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 abstract class AbstractSchemaChangeTest {
     /** Table name. */
     public static final String TABLE = "PUBLIC.tbl1";
@@ -83,13 +86,9 @@ abstract class AbstractSchemaChangeTest {
     /** Cluster nodes. */
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
-    /**
-     *
-     */
-    @BeforeAll
-    static void beforeAll() throws Exception {
-        IgnitionCleaner.removeAllData();
-    }
+    /** Work directory */
+    @WorkDirectory
+    private Path workDir;
 
     /**
      *
@@ -97,8 +96,6 @@ abstract class AbstractSchemaChangeTest {
     @AfterEach
     void afterEach() throws Exception {
         IgniteUtils.closeAll(clusterNodes);
-
-        IgnitionCleaner.removeAllData();
     }
 
     /**
@@ -195,10 +192,9 @@ abstract class AbstractSchemaChangeTest {
      * @return Grid nodes.
      */
     @NotNull protected List<Ignite> startGrid() {
-        List<Ignite> clusterNodes = new ArrayList<>();
-
-        for (Map.Entry<String, String> nodeBootstrapCfg : nodesBootstrapCfg.entrySet())
-            clusterNodes.add(IgnitionManager.start(nodeBootstrapCfg.getKey(), nodeBootstrapCfg.getValue()));
+        nodesBootstrapCfg.forEach((nodeName, configStr) ->
+            clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
+        );
 
         return clusterNodes;
     }
@@ -206,7 +202,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * @param nodes Cluster nodes.
      */
-    @NotNull protected void createTable(List<Ignite> nodes) {
+    protected void createTable(List<Ignite> nodes) {
         // Create table on node 0.
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
             SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),

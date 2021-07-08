@@ -34,7 +34,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
  */
 class UpgradingRowAdapter extends Row {
     /** Column mapper. */
-    private final ColumnMapper mapping;
+    private final ColumnMapper mapper;
 
     /** Adapter schema. */
     private final SchemaDescriptor schema;
@@ -43,12 +43,13 @@ class UpgradingRowAdapter extends Row {
      * @param schema Row adapter schema descriptor.
      * @param rowSchema Row schema descriptor.
      * @param row Row.
-     * @param mapping Column mapping.
+     * @param mapper Column mapper.
      */
-    UpgradingRowAdapter(SchemaDescriptor schema, SchemaDescriptor rowSchema, BinaryRow row, ColumnMapper mapping) {
+    UpgradingRowAdapter(SchemaDescriptor schema, SchemaDescriptor rowSchema, BinaryRow row, ColumnMapper mapper) {
         super(rowSchema, row);
+
         this.schema = schema;
-        this.mapping = mapping;
+        this.mapper = mapper;
     }
 
     /** {@inheritDoc} */

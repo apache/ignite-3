@@ -37,8 +37,9 @@ public class ColumnMapping {
 
     /**
      * @param schema Schema descriptor.
+     * @return Column mapper builder.
      */
-    public static ColumnaMapperBuilder mapperBuilder(SchemaDescriptor schema) {
+    public static ColumnMapperBuilder mapperBuilder(SchemaDescriptor schema) {
         return new ColumnMapperImpl(schema);
     }
 
@@ -51,7 +52,7 @@ public class ColumnMapping {
      * @return Merged column mapper.
      */
     public static ColumnMapper mergeMapping(ColumnMapper mapping, SchemaDescriptor schema) {
-        ColumnaMapperBuilder builder = mapperBuilder(schema);
+        ColumnMapperBuilder builder = mapperBuilder(schema);
 
         ColumnMapper schemaMapper = schema.columnMapping();
 

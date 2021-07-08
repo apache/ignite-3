@@ -16,28 +16,29 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.apache.ignite.raft.jraft.util.Utils;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ExtendWith(WorkDirectoryExtension.class)
 public class LocalSnapshotMetaTableTest {
     private LocalSnapshotMetaTable table;
 
-    @Before
+    @BeforeEach
     public void setup() {
         this.table = new LocalSnapshotMetaTable(new RaftOptions());
     }
@@ -59,7 +60,7 @@ public class LocalSnapshotMetaTableTest {
     }
 
     @Test
-    public void testSaveLoadFile() throws IOException {
+    public void testSaveLoadFile(@WorkDirectory Path workDir) throws IOException {
         LocalFileMetaOutter.LocalFileMeta meta1 = LocalFileMetaOutter.LocalFileMeta.newBuilder().setChecksum("data1")
             .setSource(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL).build();
         assertTrue(this.table.addFile("data1", meta1));
@@ -74,23 +75,16 @@ public class LocalSnapshotMetaTableTest {
         assertTrue(table.listFiles().contains("data2"));
         assertTrue(table.hasMeta());
 
-        String path = TestUtils.mkTempDir();
-        new File(path).mkdirs();
-        try {
-            String filePath = path + File.separator + "table";
-            table.saveToFile(filePath);
+        String filePath = workDir.resolve("table").toString();
+        table.saveToFile(filePath);
 
-            LocalSnapshotMetaTable newTable = new LocalSnapshotMetaTable(new RaftOptions());
-            assertNull(newTable.getFileMeta("data1"));
-            assertNull(newTable.getFileMeta("data2"));
-            assertTrue(newTable.loadFromFile(filePath));
-            Assert.assertEquals(meta1, newTable.getFileMeta("data1"));
-            Assert.assertEquals(meta2, newTable.getFileMeta("data2"));
-            Assert.assertEquals(meta, newTable.getMeta());
-        }
-        finally {
-            Utils.delete(new File(path));
-        }
+        LocalSnapshotMetaTable newTable = new LocalSnapshotMetaTable(new RaftOptions());
+        assertNull(newTable.getFileMeta("data1"));
+        assertNull(newTable.getFileMeta("data2"));
+        assertTrue(newTable.loadFromFile(filePath));
+        assertEquals(meta1, newTable.getFileMeta("data1"));
+        assertEquals(meta2, newTable.getFileMeta("data2"));
+        assertEquals(meta, newTable.getMeta());
     }
 
     @Test
@@ -110,7 +104,7 @@ public class LocalSnapshotMetaTableTest {
         assertNull(newTable.getFileMeta("data1"));
         assertNull(newTable.getFileMeta("data2"));
         assertTrue(newTable.loadFromIoBufferAsRemote(buf));
-        Assert.assertEquals(meta1, newTable.getFileMeta("data1"));
-        Assert.assertEquals(meta2, newTable.getFileMeta("data2"));
+        assertEquals(meta1, newTable.getFileMeta("data1"));
+        assertEquals(meta2, newTable.getFileMeta("data2"));
     }
 }

@@ -41,23 +41,25 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.eq;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 
-@RunWith(value = MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class LocalSnapshotCopierTest extends BaseStorageTest {
     private LocalSnapshotCopier copier;
     @Mock
@@ -75,15 +77,13 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
     private Scheduler timerManager;
     private NodeOptions nodeOptions;
 
-    @Override
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
-        super.setup();
         this.timerManager = new TimerManager(5);
         this.raftOptions = new RaftOptions();
-        this.writer = new LocalSnapshotWriter(this.path, this.snapshotStorage, this.raftOptions);
+        this.writer = new LocalSnapshotWriter(this.path.toString(), this.snapshotStorage, this.raftOptions);
         this.reader = new LocalSnapshotReader(this.snapshotStorage, null, new Endpoint("localhost", 8081),
-            this.raftOptions, this.path);
+            this.raftOptions, this.path.toString());
 
         Mockito.when(this.snapshotStorage.open()).thenReturn(this.reader);
         Mockito.when(this.snapshotStorage.create(true)).thenReturn(this.writer);
@@ -102,10 +102,8 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
         this.copier.setStorage(this.snapshotStorage);
     }
 
-    @Override
-    @After
+    @AfterEach
     public void teardown() throws Exception {
-        super.teardown();
         copier.close();
         timerManager.shutdown();
         nodeOptions.getCommonExecutor().shutdown();
@@ -136,8 +134,8 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
         //start timer
         final SnapshotReader reader = this.copier.getReader();
         assertNull(reader);
-        Assert.assertEquals(RaftError.ECANCELED.getNumber(), this.copier.getCode());
-        Assert.assertEquals("test cancel", this.copier.getErrorMsg());
+        assertEquals(RaftError.ECANCELED.getNumber(), this.copier.getCode());
+        assertEquals("test cancel", this.copier.getErrorMsg());
     }
 
     @Test
@@ -160,8 +158,8 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
         //start timer
         final SnapshotReader reader = this.copier.getReader();
         assertNull(reader);
-        Assert.assertEquals(RaftError.ECANCELED.getNumber(), this.copier.getCode());
-        Assert.assertEquals("Cancel the copier manually.", this.copier.getErrorMsg());
+        assertEquals(RaftError.ECANCELED.getNumber(), this.copier.getCode());
+        assertEquals("Cancel the copier manually.", this.copier.getErrorMsg());
     }
 
     @Test
