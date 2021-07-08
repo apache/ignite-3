@@ -133,7 +133,7 @@ abstract class AbstractSchemaChangeTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
-    public void testChangeToNonNullabile() {
+    public void testMakeColumnNonNullable() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -163,7 +163,7 @@ abstract class AbstractSchemaChangeTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15056")
     @Test
-    public void testChangeToNullabile() {
+    public void testMakeColumnsNullable() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
