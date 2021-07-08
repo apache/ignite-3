@@ -22,8 +22,6 @@ import java.lang.management.ThreadMXBean;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -38,6 +36,7 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.mockito.ArgumentCaptor;
 
 import static java.lang.Thread.sleep;
 
@@ -57,14 +56,6 @@ public class TestUtils {
         ThreadInfo[] infos = bean.dumpAllThreads(true, true);
         for (ThreadInfo info : infos)
             System.out.println(info);
-    }
-
-    public static String mkTempDir() {
-        String dir = System.getProperty("user.dir");
-        //String dir = System.getProperty("java.io.tmpdir", "/tmp");
-        Path path = Paths.get(dir, "jraft_test_" + System.nanoTime());
-        path.toFile().mkdirs();
-        return path.toString();
     }
 
     public static LogEntry mockEntry(int index, int term) {
@@ -173,5 +164,21 @@ public class TestUtils {
         }
 
         return false;
+    }
+
+    /**
+     * @param captor The captor.
+     * @param timeout The timeout.
+     * @return {@code True} if condition has happened within the timeout.
+     */
+    public static boolean waitForArgumentCapture(ArgumentCaptor<?> captor, long timeout) {
+        return waitForCondition(() -> {
+            try {
+                return captor.getValue() != null;
+            }
+            catch (Exception e) {
+                return false;
+            }
+        }, timeout);
     }
 }

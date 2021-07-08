@@ -29,6 +29,7 @@ import java.util.function.BiConsumer;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.RaftErrorCode;
@@ -91,7 +92,9 @@ public class RaftServerImpl implements RaftServer {
 
         service.messagingService().addMessageHandler((message, senderAddr, correlationId) -> {
             if (message instanceof GetLeaderRequest) {
-                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(new Peer(service.topologyService().localMember().address())).build();
+                var localPeer = new Peer(service.topologyService().localMember().address());
+
+                GetLeaderResponse resp = clientMsgFactory.getLeaderResponse().leader(localPeer).build();
 
                 service.messagingService().send(senderAddr, resp, correlationId);
             }
@@ -122,7 +125,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.setDaemon(true);
         writeWorker.start();
 
-        LOG.info("Started replication server [node=" + service + ']');
+        LOG.info("Started replication server [node={}]", service);
     }
 
     /** {@inheritDoc} */
@@ -159,7 +162,7 @@ public class RaftServerImpl implements RaftServer {
         writeWorker.interrupt();
         writeWorker.join();
 
-        LOG.info("Stopped replication server [node=" + service.toString() + ']');
+        LOG.info("Stopped replication server [node={}]", service);
     }
 
     /**
@@ -171,7 +174,7 @@ public class RaftServerImpl implements RaftServer {
      * @param <T> Command type.
      */
     private <T extends Command> void handleActionRequest(
-        String sender,
+        NetworkAddress sender,
         ActionRequest req,
         String corellationId,
         BlockingQueue<CommandClosureEx<T>> queue,
@@ -222,7 +225,7 @@ public class RaftServerImpl implements RaftServer {
         }
     }
 
-    private void sendError(String sender, String corellationId, RaftErrorCode errorCode) {
+    private void sendError(NetworkAddress sender, String corellationId, RaftErrorCode errorCode) {
         RaftErrorResponse resp = clientMsgFactory.raftErrorResponse().errorCode(errorCode).build();
 
         service.messagingService().send(sender, resp, corellationId);

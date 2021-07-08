@@ -1,0 +1,13 @@
+{
+    "node": {
+        "metastorageNodes": [
+            "node-0", "node-1", "node-2"
+        ]
+    },
+    "network": {
+        "port": 3344,
+        "netClusterNodes": [
+            "localhost:3344"
+        ]
+    }
+}

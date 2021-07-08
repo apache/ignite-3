@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,8 +40,11 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.codahale.metrics.ConsoleReporter;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -87,6 +91,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,6 +109,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class ITNodeTest {
     private static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
 
@@ -158,16 +164,11 @@ public class ITNodeTest {
     }
 
     @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
+    public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
-        dataPath = TestUtils.mkTempDir();
 
-        File dataFile = new File(dataPath);
+        dataPath = workDir.toString();
 
-        if (dataFile.exists())
-            assertTrue(Utils.delete(dataFile));
-
-        dataFile.mkdirs();
         testStartMs = Utils.monotonicMs();
         dumpThread.interrupt(); // reset dump timeout
     }
@@ -186,7 +187,6 @@ public class ITNodeTest {
         if (cluster != null)
             cluster.stopAll();
 
-        assertTrue(Utils.delete(new File(dataPath)));
         startedCounter.set(0);
         stoppedCounter.set(0);
         LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
@@ -2815,7 +2815,7 @@ public class ITNodeTest {
 
     @Test
     public void testBootStrapWithSnapshot() throws Exception {
-        Endpoint addr = JRaftUtils.getEndPoint("127.0.0.1:5006");
+        Endpoint addr = new Endpoint("127.0.0.1", 5006);
         MockStateMachine fsm = new MockStateMachine(addr);
 
         for (char ch = 'a'; ch <= 'z'; ch++)
@@ -2857,7 +2857,7 @@ public class ITNodeTest {
 
     @Test
     public void testBootStrapWithoutSnapshot() throws Exception {
-        Endpoint addr = JRaftUtils.getEndPoint("127.0.0.1:5006");
+        Endpoint addr = new Endpoint("127.0.0.1", 5006);
         MockStateMachine fsm = new MockStateMachine(addr);
 
         BootstrapOptions opts = new BootstrapOptions();
@@ -3392,11 +3392,12 @@ public class ITNodeTest {
     private RaftGroupService createService(String groupId, PeerId peerId, NodeOptions nodeOptions) {
         Configuration initialConf = nodeOptions.getInitialConf();
 
-        var servers = List.<String>of();
+        var servers = List.<NetworkAddress>of();
 
         if (initialConf != null) {
             servers = Stream.concat(initialConf.getPeers().stream(), initialConf.getLearners().stream())
-                .map(id -> id.getEndpoint().toString())
+                .map(PeerId::getEndpoint)
+                .map(JRaftUtils::addressFromEndpoint)
                 .collect(Collectors.toList());
         }
 
@@ -3426,7 +3427,7 @@ public class ITNodeTest {
     /**
      * Creates a non-started {@link ClusterService}.
      */
-    private static ClusterService createClusterService(Endpoint endpoint, List<String> members) {
+    private static ClusterService createClusterService(Endpoint endpoint, List<NetworkAddress> members) {
         var registry = new TestMessageSerializationRegistryImpl();
 
         var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), members, registry);

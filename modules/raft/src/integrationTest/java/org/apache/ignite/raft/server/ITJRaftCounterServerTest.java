@@ -18,17 +18,25 @@
 package org.apache.ignite.raft.server;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.exception.RaftException;
@@ -37,12 +45,11 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
-import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
 import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
@@ -58,6 +65,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Jraft server.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /**
      * The logger.
@@ -92,10 +100,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /**
      * Initial configuration.
      */
-    private static final List<Peer> INITIAL_CONF = List.of(
-        new Peer(getLocalAddress() + ":" + PORT),
-        new Peer(getLocalAddress() + ":" + (PORT + 1)),
-        new Peer(getLocalAddress() + ":" + (PORT + 2)));
+    private static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
+        .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
+        .map(Peer::new)
+        .collect(Collectors.toUnmodifiableList());
 
     /**
      * Listener factory.
@@ -115,14 +123,13 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /**
      * Data path.
      */
-    private String dataPath;
+    @WorkDirectory
+    private Path dataPath;
 
     /** */
     @BeforeEach
     void before(TestInfo testInfo) {
-        LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getTestMethod().orElseThrow().getName());
-
-        dataPath = TestUtils.mkTempDir();
+        LOG.info(">>>>>>>>>>>>>>> Start test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
 
     /** */
@@ -138,9 +145,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         for (RaftServer server : servers)
             server.shutdown();
 
-        assertTrue(Utils.delete(new File(dataPath)), "Failed to delete " + dataPath);
-
-        LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getTestMethod().orElseThrow().getName());
+        LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
     }
 
     /**
@@ -148,10 +153,11 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * @return Raft server instance.
      */
     private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) {
-        ClusterService service = clusterService("server" + idx, PORT + idx,
-            List.of(getLocalAddress() + ":" + PORT), true);
+        var addr = new NetworkAddress(getLocalAddress(), PORT);
 
-        JRaftServerImpl server = new JRaftServerImpl(service, dataPath, FACTORY) {
+        ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr), true);
+
+        JRaftServerImpl server = new JRaftServerImpl(service, dataPath.toString(), FACTORY) {
             @Override public void shutdown() throws Exception {
                 super.shutdown();
 
@@ -173,10 +179,10 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
      * @return The client.
      */
     private RaftGroupService startClient(String groupId) {
-        String addr = getLocalAddress() + ":" + PORT;
+        var addr = new NetworkAddress(getLocalAddress(), PORT);
 
-        ClusterService clientNode = clusterService("client_" + groupId + "_", CLIENT_PORT + clients.size(),
-            List.of(addr), true);
+        ClusterService clientNode = clusterService(
+            "client_" + groupId + "_", CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupServiceImpl client = new RaftGroupServiceImpl(groupId, clientNode, FACTORY, 10_000,
             List.of(new Peer(addr)), false, 200) {
@@ -519,8 +525,8 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         }
 
         if (cleanDir) {
-            Utils.delete(new File(serverDataPath0));
-            Utils.delete(new File(serverDataPath1));
+            IgniteUtils.deleteIfExists(Paths.get(serverDataPath0));
+            IgniteUtils.deleteIfExists(Paths.get(serverDataPath1));
         }
 
         var svc2 = startServer(stopIdx, r -> {
@@ -555,7 +561,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
         for (int i = start; i <= stop; i++) {
             val = client.<Long>run(new IncrementAndGetCommand(i)).get();
 
-            LOG.info("Val=" + val + ", i=" + i);
+            LOG.info("Val={}, i={}", val, i);
         }
 
         return val;

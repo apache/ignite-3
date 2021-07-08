@@ -73,14 +73,14 @@
         <typesafe.version>1.4.1</typesafe.version>
         <hamcrest.version>2.2</hamcrest.version>
         <scalecube.version>2.6.6</scalecube.version>
-        <calcite.version>1.26.0</calcite.version>
-        <janino.version>3.0.11</janino.version>
-        <avatica.version>1.17.0</avatica.version>
+        <calcite.version>1.27.0</calcite.version>
+        <janino.version>3.1.4</janino.version>
+        <avatica.version>1.18.0</avatica.version>
         <jsonpath.version>2.4.0</jsonpath.version>
         <reflections.version>0.9.10</reflections.version>
-        <javassist.version>3.27.0-GA</javassist.version>
+        <javassist.version>3.28.0-GA</javassist.version>
         <esri.geometry.version>2.2.3</esri.geometry.version>
-        <rocksdb.version>5.18.4</rocksdb.version>
+        <rocksdb.version>6.20.3</rocksdb.version>
         <disruptor.version>3.3.7</disruptor.version>
         <metrics.version>4.0.2</metrics.version>
         <jctools.version>3.3.0</jctools.version>
@@ -169,7 +169,7 @@
                 <artifactId>ignite-configuration-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-core</artifactId>
@@ -187,7 +187,7 @@
                 <artifactId>ignite-metastorage-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-metastorage-common</artifactId>
@@ -244,6 +244,18 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-rocksdb</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-table</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -251,6 +263,12 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-vault</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-runner</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -415,6 +433,13 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-api</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-engine</artifactId>
                 <version>${junit.jupiter.version}</version>
@@ -423,12 +448,6 @@
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-api</artifactId>
-                <version>${junit.jupiter.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.junit.vintage</groupId>
-                <artifactId>junit-vintage-engine</artifactId>
                 <version>${junit.jupiter.version}</version>
             </dependency>
 
@@ -630,7 +649,7 @@
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>default-test</id>
+                                <id>default</id>
                                 <phase>none</phase>
                             </execution>
                         </executions>
@@ -680,7 +699,7 @@
                         </executions>
                     </plugin>
                 </plugins>
-            </build>    
+            </build>
         </profile>
     </profiles>
 
@@ -941,7 +960,7 @@
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
                 <configuration>
-                    <addDefaultLicenseMatchers>true</addDefaultLicenseMatchers>
+                    <addDefaultLicenseMatchers>false</addDefaultLicenseMatchers>
                     <licenses>
                         <license implementation="org.apache.rat.analysis.license.FullTextMatchingLicense">
                             <licenseFamilyCategory>IAL20</licenseFamilyCategory>
@@ -975,13 +994,20 @@
                         <exclude>**/*.md</exclude> <!-- Markdown files -->
                         <exclude>docs/assets/images/**</exclude> <!-- SVG images are XML files, but they cannot have license header -->
                         <exclude>docs/assets/js/anchor.min.js</exclude> <!-- Distributed under the MIT license. The original license header is badly formatted -->
+                        <exclude>docs/assets/css/asciidoc-pygments.css</exclude> <!-- Dan Allen, Paul Rayner, and the Asciidoctor Project -->
+                        <exclude>docs/_plugins/asciidoctor-extensions.rb</exclude> <!-- MIT license -->
+                        <exclude>docs/_sass/rouge-base16-solarized.scss</exclude> <!-- MIT license. -->
                         <exclude>**/*.json</exclude> <!-- Files in JSON format -->
                         <exclude>modules/cli/src/**/resources//builtin_modules.conf</exclude> <!-- CLI configuration files -->
-                        <exclude>modules/configuration-annotation-processor/src/main/resources/META-INF/services/javax.annotation.processing.Processor</exclude> <!-- ? -->
                         <exclude>**/*.iml</exclude> <!-- IntelliJ IDEA project files -->
                         <exclude>modules/bytecode/src/main/java/com/facebook/presto/bytecode/ClassInfo.java</exclude> <!-- MIT license. -->
                         <exclude>modules/bytecode/src/main/java/com/facebook/presto/bytecode/ClassInfoLoader.java</exclude> <!-- MIT license. -->
                         <exclude>**/META-INF/services/**</exclude> <!-- Interface mappings: cannot be changed -->
+                        <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/Recyclers.java</exclude> <!-- Netty license. -->
+                        <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/NonReentrantLock.java</exclude> <!-- Netty license. -->
+                        <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/HeapByteBufUtil.java</exclude> <!-- Netty license. -->
+                        <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/TimerTask.java</exclude> <!-- Netty license. -->
+                        <exclude>modules/raft/src/main/java/org/apache/ignite/raft/jraft/util/timer/Timeout.java</exclude> <!-- Netty license. -->
                     </excludes>
                 </configuration>
             </plugin>

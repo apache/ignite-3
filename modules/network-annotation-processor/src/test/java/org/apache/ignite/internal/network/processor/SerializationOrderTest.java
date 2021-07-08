@@ -64,10 +64,10 @@ public class SerializationOrderTest {
 
         InOrder inOrder = inOrder(mockWriter);
 
-        inOrder.verify(mockWriter).writeInt(eq("a"), anyInt());
-        inOrder.verify(mockWriter).writeString(eq("b"), anyString());
-        inOrder.verify(mockWriter).writeInt(eq("c"), anyInt());
-        inOrder.verify(mockWriter).writeString(eq("d"), anyString());
+        inOrder.verify(mockWriter).writeInt(eq("a"), eq(1));
+        inOrder.verify(mockWriter).writeString(eq("b"), eq("2"));
+        inOrder.verify(mockWriter).writeInt(eq("c"), eq(3));
+        inOrder.verify(mockWriter).writeString(eq("d"), eq("4"));
     }
 
     /**

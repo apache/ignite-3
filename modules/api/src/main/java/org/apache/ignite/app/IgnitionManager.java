@@ -17,8 +17,13 @@
 
 package org.apache.ignite.app;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ServiceLoader;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,41 +31,56 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgnitionManager {
     /** Loaded Ignition instance. */
+    @Nullable
     private static Ignition ignition;
 
     /**
-     * Starts Ignite node with optional bootstrap configuration in json format.
+     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
-     * @param nodeName Name of the node.
-     * @param jsonStrBootstrapCfg Node configuration in json format.
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param configStr Node configuration in the HOCON format. Can be {@code null}.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(@NotNull String nodeName, @Nullable String jsonStrBootstrapCfg) {
+    public static synchronized Ignite start(String nodeName, @Nullable String configStr, Path workDir) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
             ignition = ldr.iterator().next();
         }
 
-        return ignition.start(nodeName, jsonStrBootstrapCfg);
+        if (configStr == null)
+            return ignition.start(nodeName, workDir);
+        else {
+            try (InputStream inputStream = new ByteArrayInputStream(configStr.getBytes(StandardCharsets.UTF_8))) {
+                return ignition.start(nodeName, inputStream, workDir);
+            }
+            catch (IOException e) {
+                throw new IgniteException("Couldn't close the stream with node config.", e);
+            }
+        }
     }
 
     /**
-     * Starts Ignite node with optional bootstrap configuration in json format.
-     * @param nodeName Name of the node.
-     * @param jsonStrBootstrapCfg Node configuration in json format.
+     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param cfgPath Path to the node configuration in the HOCON format. Can be {@code null}.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param clsLdr The class loader to be used to load provider-configuration files
-     * and provider classes, or {@code null} if the system class
-     * loader (or, failing that, the bootstrap class loader) is to be used
+     *               and provider classes, or {@code null} if the system class loader
+     *               (or, failing that, the bootstrap class loader) is to be used
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static synchronized Ignite start(@NotNull String nodeName, @Nullable String jsonStrBootstrapCfg, @Nullable ClassLoader clsLdr) {
+    public static synchronized Ignite start(
+        String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr
+    ) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
             ignition = ldr.iterator().next();
         }
 
-        return ignition.start(nodeName, jsonStrBootstrapCfg);
+        return ignition.start(nodeName, cfgPath, workDir);
     }
 }

@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Row to Tuple adapter.
- *
+ * <p>
  * Provides methods to access columns values by column names.
  */
 public class TableRow extends RowChunkAdapter {
@@ -115,7 +115,7 @@ public class TableRow extends RowChunkAdapter {
             final Column col = schema.column(colName);
 
             if (col == null || schema.isKeyColumn(col.schemaIndex()))
-                throw new ColumnNotFoundException("Invalid key column name: columnName=" + colName + ", schemaVersion=" + schema.version());
+                throw new ColumnNotFoundException("Invalid value column name: columnName=" + colName + ", schemaVersion=" + schema.version());
 
             return col;
         }

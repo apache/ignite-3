@@ -19,6 +19,8 @@ package org.apache.ignite.raft.jraft.core;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -30,9 +32,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -49,12 +53,11 @@ import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
-import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test cluster for NodeTest
@@ -203,11 +206,15 @@ public class TestCluster {
             final MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
 
-            if (!emptyPeers) {
+            if (!emptyPeers)
                 nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
-            }
 
-            List<String> servers = emptyPeers ? List.of() : this.peers.stream().map(p -> p.getEndpoint().toString()).collect(Collectors.toList());
+            List<NetworkAddress> servers = emptyPeers ?
+                List.of() :
+                this.peers.stream()
+                    .map(PeerId::getEndpoint)
+                    .map(JRaftUtils::addressFromEndpoint)
+                    .collect(Collectors.toList());
 
             NodeManager nodeManager = new NodeManager();
 
@@ -249,7 +256,7 @@ public class TestCluster {
     /**
      * Creates a non-started {@link ClusterService}.
      */
-    private static ClusterService createClusterService(Endpoint endpoint, List<String> members) {
+    private static ClusterService createClusterService(Endpoint endpoint, List<NetworkAddress> members) {
         var registry = new TestMessageSerializationRegistryImpl();
 
         var clusterConfig = new ClusterLocalConfiguration(endpoint.toString(), endpoint.getPort(), members, registry);
@@ -311,10 +318,10 @@ public class TestCluster {
             stop(addr);
     }
 
-    public void clean(final Endpoint listenAddr) throws IOException {
-        final String path = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
+    public void clean(final Endpoint listenAddr) {
+        final Path path = Paths.get(this.dataPath, listenAddr.toString().replace(':', '_'));
         LOG.info("Clean dir: {}", path);
-        Utils.delete(new File(path));
+        IgniteUtils.deleteIfExists(path);
     }
 
     public Node getLeader() {
@@ -526,7 +533,7 @@ public class TestCluster {
 
             LOG.info("End ensureSame, leader={}", leader1);
 
-            assertSame("Leader shouldn't change while comparing fsms", leader, leader1);
+            assertSame(leader, leader1, "Leader shouldn't change while comparing fsms");
         }
     }
 }

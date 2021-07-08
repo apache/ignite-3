@@ -89,7 +89,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @param nullable If {@code false}, null values will not be allowed for this column.
      * @param defValSup Default value supplier.
      */
-    Column(
+    private Column(
         int schemaIndex,
         String name,
         NativeType type,
@@ -137,7 +137,12 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        return defValSup.get();
+        Object val = defValSup.get();
+
+        if (nullable || val != null)
+            return val;
+
+        throw new IllegalStateException("Null value is not accepted for not nullable column: [col=" + this + ']');
     }
 
     /** {@inheritDoc} */
@@ -171,6 +176,7 @@ public class Column implements Comparable<Column>, Serializable {
 
     /**
      * Validate the object by column's constraint.
+     *
      * @param val Object to validate.
      */
     public void validate(Object val) {
