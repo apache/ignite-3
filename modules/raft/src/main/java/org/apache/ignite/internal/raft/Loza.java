@@ -20,7 +20,7 @@ package org.apache.ignite.internal.raft;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
@@ -53,10 +53,10 @@ public class Loza {
      *
      * @param clusterNetSvc Cluster network service.
      */
-    public Loza(ClusterService clusterNetSvc) {
+    public Loza(ClusterService clusterNetSvc, String dataPath) {
         this.clusterNetSvc = clusterNetSvc;
 
-        this.raftServer = new RaftServerImpl(clusterNetSvc, FACTORY);
+        this.raftServer = new JRaftServerImpl(clusterNetSvc, dataPath, FACTORY);
     }
 
     /**
