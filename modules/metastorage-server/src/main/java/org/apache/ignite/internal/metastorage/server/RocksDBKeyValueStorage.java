@@ -73,6 +73,9 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     /** Database snapshot file name. */
     private static final String SNAPSHOT_FILE_NAME = "db.snapshot";
 
+    /** Suffix for temporal snapshot folder */
+    private static final String TMP_SUFFIX = ".tmp";
+
     /** Revision key. */
     private static final byte[] REVISION_KEY = keyToRocksKey(-1, "SYSTEM_REVISION_KEY".getBytes());
 
@@ -216,7 +219,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         readLock.lock();
 
         try {
-            Path tempPath = Paths.get(snapsthotPath.toString() + ".temp");
+            Path tempPath = Paths.get(snapsthotPath.toString() + TMP_SUFFIX);
 
             IgniteUtils.delete(tempPath);
             Files.createDirectories(tempPath);
