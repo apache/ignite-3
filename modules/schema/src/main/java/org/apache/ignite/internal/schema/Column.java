@@ -137,12 +137,7 @@ public class Column implements Comparable<Column>, Serializable {
      * @return Default value.
      */
     public Object defaultValue() {
-        Object val = defValSup.get();
-
-        if (nullable || val != null)
-            return val;
-
-        throw new IllegalStateException("Null value is not accepted for not nullable column: [col=" + this + ']');
+        return defValSup.get();
     }
 
     /** {@inheritDoc} */
