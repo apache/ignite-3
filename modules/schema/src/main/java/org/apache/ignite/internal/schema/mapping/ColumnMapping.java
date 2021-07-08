@@ -34,7 +34,8 @@ public class ColumnMapping {
     }
 
     /**
-     * @param cols Number of columns.
+     * @param schema Schema descriptor.
+     * @return Column mapper builder.
      */
     public static ColumnMapperBuilder mapperBuilder(int cols) {
         return new ColumnMapperImpl(cols);
