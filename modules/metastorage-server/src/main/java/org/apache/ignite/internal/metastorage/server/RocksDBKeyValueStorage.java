@@ -64,9 +64,9 @@ import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
  * Key-value storage based on RocksDB.
  * Keys are stored with revision.
  * Values are stored with update counter and a boolean flag which represenets whether this record is a tombstone.
- * <br/>
+ * <br>
  * Key: [8 bytes revision, N bytes key itself].
- * <br/>
+ * <br>
  * Value: [8 bytes update counter, 1 byte tombstone flag, N bytes value].
  */
 public class RocksDBKeyValueStorage implements KeyValueStorage {
