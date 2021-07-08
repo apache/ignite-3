@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.schema.SchemaException;
 
 /**
  * Schema registration exception.
  */
-public class SchemaRegistryException extends IgniteInternalException {
+public class SchemaRegistryException extends SchemaException {
     /**
      * Constructor with error message.
      *

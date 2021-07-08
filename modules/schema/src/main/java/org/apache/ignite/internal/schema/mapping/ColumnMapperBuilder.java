@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.app;
-
-import org.apache.ignite.internal.util.IgniteUtils;
+package org.apache.ignite.internal.schema.mapping;
 
 /**
- * Class for removing data of an Ignite node.
+ * Column mapper builder interface.
  */
-public class IgnitionCleaner {
+public interface ColumnMapperBuilder {
     /**
-     * Removes all directories that were created during a node startup.
+     * Add column mapping.
+     *
+     * @param from Source column index.
+     * @param to Target column index.
      */
-    public static void removeAllData() {
-        IgniteUtils.delete(IgnitionImpl.VAULT_DB_PATH);
-    }
+    public void add(int from, int to);
+
+    /**
+     * @return Column mapper.
+     */
+    ColumnMapper build();
 }
