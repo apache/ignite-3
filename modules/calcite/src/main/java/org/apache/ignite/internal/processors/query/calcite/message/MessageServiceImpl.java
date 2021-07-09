@@ -138,7 +138,7 @@ public class MessageServiceImpl implements MessageService {
 
     /** */
     private void onMessageInternal(String nodeId, NetworkMessage msg) {
-        MessageListener lsnr = Objects.requireNonNull(lsnrs.get(msg.messageType()));
+        MessageListener lsnr = Objects.requireNonNull(lsnrs.get(msg.messageType()), "there is no listener for msgType=" + msg.groupType());
 
         lsnr.onMessage(nodeId, msg);
     }

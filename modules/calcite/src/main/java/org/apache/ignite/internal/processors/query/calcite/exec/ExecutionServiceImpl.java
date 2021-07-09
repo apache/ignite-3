@@ -49,9 +49,14 @@ import org.apache.ignite.internal.processors.query.calcite.exec.rel.Node;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.RootNode;
 import org.apache.ignite.internal.processors.query.calcite.message.ErrorMessage;
+import org.apache.ignite.internal.processors.query.calcite.message.InboxCloseMessage;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
+import org.apache.ignite.internal.processors.query.calcite.message.OutboxCloseMessage;
+import org.apache.ignite.internal.processors.query.calcite.message.QueryBatchAcknowledgeMessage;
+import org.apache.ignite.internal.processors.query.calcite.message.QueryBatchMessage;
 import org.apache.ignite.internal.processors.query.calcite.message.QueryStartRequest;
 import org.apache.ignite.internal.processors.query.calcite.message.QueryStartResponse;
+import org.apache.ignite.internal.processors.query.calcite.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.processors.query.calcite.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.processors.query.calcite.metadata.AffinityService;
 import org.apache.ignite.internal.processors.query.calcite.metadata.FragmentDescription;
@@ -180,6 +185,14 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         affSrvc = cacheId -> Objects::hashCode;
 
         topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
+
+        init();
+    }
+
+    private void init() {
+        msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
+        msgSrvc.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
     }
 
     /** {@inheritDoc} */
@@ -486,6 +499,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
                     try {
                         QueryStartRequest req = FACTORY.queryStartRequest()
                             .queryId(qryId)
+                            .fragmentId(fragment.fragmentId())
                             .schema(pctx.schemaName())
                             .root(fragment.serialized())
                             .topologyVersion(pctx.topologyVersion())

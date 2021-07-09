@@ -227,12 +227,14 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      * Extracts and validates the declared message group types marked with the {@link MessageGroup}
      * annotation.
      */
-    private static MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv) {
+    private MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv) {
         Set<? extends Element> messagemessageGroupSet = roundEnv.getElementsAnnotatedWith(MessageGroup.class);
 
         if (messagemessageGroupSet.size() != 1) {
             var errorMsg = "Invalid number of message groups (classes annotated with @MessageGroup): " +
                 messagemessageGroupSet.size();
+
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "DEBUG>>> " + roundEnv.getRootElements());
 
             throw new ProcessingException(errorMsg);
         }

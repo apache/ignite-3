@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.message;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 import org.apache.ignite.network.NetworkMessage;
@@ -26,7 +27,7 @@ import org.apache.ignite.network.annotations.Transferable;
  *
  */
 @Transferable(value = SqlQueryMessageGroup.ERROR_MESSAGE, autoSerializable = false)
-public interface ErrorMessage extends NetworkMessage {
+public interface ErrorMessage extends NetworkMessage, Serializable {
     /**
      * @return Query ID.
      */
