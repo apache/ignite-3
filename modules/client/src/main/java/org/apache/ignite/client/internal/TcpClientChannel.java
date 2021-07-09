@@ -100,7 +100,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         sock = connMgr.open(cfg.getAddress(), this, this);
 
-        handshake(DEFAULT_VERSION, cfg.getUserName(), cfg.getUserPassword(), cfg.getUserAttributes());
+        handshake(DEFAULT_VERSION);
     }
 
     /** {@inheritDoc} */
@@ -378,11 +378,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** {@inheritDoc} */
-    @Override public void addTopologyChangeListener(Consumer<ClientChannel> lsnr) {
-        topChangeLsnrs.add(lsnr);
-    }
-
-    /** {@inheritDoc} */
     @Override public boolean closed() {
         return closed.get();
     }
@@ -402,7 +397,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Client handshake. */
-    private void handshake(ProtocolVersion ver, String user, String pwd, Map<String, String> userAttrs)
+    private void handshake(ProtocolVersion ver)
             throws IgniteClientConnectionException {
         ClientRequestFuture fut = new ClientRequestFuture();
         pendingReqs.put(-1L, fut);
@@ -532,7 +527,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * @param ex IO exception (cause).
      */
-    private ClientException handleIOError(@Nullable IOException ex) {
+    private IgniteClientException handleIOError(@Nullable IOException ex) {
         return handleIOError("sock=" + sock, ex);
     }
 
@@ -540,7 +535,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param chInfo Additional channel info
      * @param ex IO exception (cause).
      */
-    private ClientException handleIOError(String chInfo, @Nullable IOException ex) {
+    private IgniteClientException handleIOError(String chInfo, @Nullable IOException ex) {
         return new IgniteClientConnectionException("Ignite cluster is unavailable [" + chInfo + ']', ex);
     }
 

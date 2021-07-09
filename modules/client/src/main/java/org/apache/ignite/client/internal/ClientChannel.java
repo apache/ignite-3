@@ -71,11 +71,6 @@ interface ClientChannel extends AutoCloseable {
     public UUID serverNodeId();
 
     /**
-     * Add topology change listener.
-     */
-    public void addTopologyChangeListener(Consumer<ClientChannel> lsnr);
-
-    /**
      * @return {@code True} channel is closed.
      */
     public boolean closed();
