@@ -69,4 +69,24 @@ public class IgniteClientException extends IgniteException {
 
         this.errorCode = errorCode;
     }
+
+    /**
+     * Constructs a new exception with the specified detail message and cause.
+     *
+     * @param msg the detail message.
+     * @param cause the cause.
+     */
+    public IgniteClientException(String msg, Throwable cause) {
+        super(msg, cause);
+
+        this.errorCode = ClientErrorCode.FAILED;
+    }
+
+    /**
+     * Gets the error code. See {@link ClientErrorCode}.
+     * @return Error code.
+     */
+    public int errorCode() {
+        return errorCode;
+    }
 }

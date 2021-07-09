@@ -21,7 +21,7 @@ import org.apache.ignite.app.Ignite;
 
 // TODO:
 // 1. Define client config
-// 2. Can we implement Ignition interface?
+// 2. "Ignition" interface in ignite-api should be removed
 public class ClientIgnition {
     public static Ignite startClient() {
         return null;
