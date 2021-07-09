@@ -358,7 +358,25 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void handshakeRes(ByteBuffer buf, ProtocolVersion proposedVer)
             throws IgniteClientConnectionException, IgniteClientAuthenticationException {
         try (var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf))) {
+            ProtocolVersion srvVr = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
+                    unpacker.unpackShort());
 
+            var errorCode = unpacker.unpackInt();
+
+            if (errorCode != ClientErrorCode.SUCCESS) {
+                // TODO: Retry if there is a protocol version issue.
+                var msg = unpacker.unpackString();
+
+                throw new IgniteClientConnectionException(msg);
+            }
+
+            var featuresLen = unpacker.unpackBinaryHeader();
+            unpacker.skipValue(featuresLen);
+
+            var extensionsLen = unpacker.unpackMapHeader();
+            unpacker.skipValue(extensionsLen);
+
+            protocolCtx = protocolContextFromVersion(srvVr);
         } catch (IOException e) {
             throw handleIOError(e);
         }
