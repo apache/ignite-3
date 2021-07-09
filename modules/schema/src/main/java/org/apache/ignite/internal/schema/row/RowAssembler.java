@@ -124,6 +124,76 @@ public class RowAssembler {
     }
 
     /**
+     * Helper method.
+     *
+     * @param rowAsm Writes column value to assembler.
+     * @param col Column.
+     * @param val Value.
+     */
+    public static void writeValue(RowAssembler rowAsm, Column col, Object val) {
+        if (val == null) {
+            rowAsm.appendNull();
+
+            return;
+        }
+
+        switch (col.type().spec()) {
+            case INT8: {
+                rowAsm.appendByte((byte)val);
+
+                break;
+            }
+            case INT16: {
+                rowAsm.appendShort((short)val);
+
+                break;
+            }
+            case INT32: {
+                rowAsm.appendInt((int)val);
+
+                break;
+            }
+            case INT64: {
+                rowAsm.appendLong((long)val);
+
+                break;
+            }
+            case FLOAT: {
+                rowAsm.appendFloat((float)val);
+
+                break;
+            }
+            case DOUBLE: {
+                rowAsm.appendDouble((double)val);
+
+                break;
+            }
+            case UUID: {
+                rowAsm.appendUuid((UUID)val);
+
+                break;
+            }
+            case STRING: {
+                rowAsm.appendString((String)val);
+
+                break;
+            }
+            case BYTES: {
+                rowAsm.appendBytes((byte[])val);
+
+                break;
+            }
+            case BITMASK: {
+                rowAsm.appendBitmask((BitSet)val);
+
+                break;
+            }
+            default:
+                throw new IllegalStateException("Unexpected value: " + col.type());
+        }
+    }
+
+    /**
      * Creates RowAssembler for chunks of unknown size.
      * <p>
      * RowAssembler will use adaptive buffer size and omit some optimizations for small key/value chunks.

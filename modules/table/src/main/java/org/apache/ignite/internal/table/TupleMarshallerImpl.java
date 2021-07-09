@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Objects;
-import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -130,66 +128,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private void writeColumn(RowAssembler rowAsm, Column col, Tuple tup) {
         Object val = tup.valueOrDefault(col.name(), col.defaultValue());
 
-        if (val == null) {
-            rowAsm.appendNull();
-
-            return;
-        }
-
-        switch (col.type().spec()) {
-            case INT8: {
-                rowAsm.appendByte((byte)val);
-
-                break;
-            }
-            case INT16: {
-                rowAsm.appendShort((short)val);
-
-                break;
-            }
-            case INT32: {
-                rowAsm.appendInt((int)val);
-
-                break;
-            }
-            case INT64: {
-                rowAsm.appendLong((long)val);
-
-                break;
-            }
-            case FLOAT: {
-                rowAsm.appendFloat((float)val);
-
-                break;
-            }
-            case DOUBLE: {
-                rowAsm.appendDouble((double)val);
-
-                break;
-            }
-            case UUID: {
-                rowAsm.appendUuid((UUID)val);
-
-                break;
-            }
-            case STRING: {
-                rowAsm.appendString((String)val);
-
-                break;
-            }
-            case BYTES: {
-                rowAsm.appendBytes((byte[])val);
-
-                break;
-            }
-            case BITMASK: {
-                rowAsm.appendBitmask((BitSet)val);
-
-                break;
-            }
-            default:
-                throw new IllegalStateException("Unexpected value: " + col.type());
-        }
+        RowAssembler.writeValue(rowAsm, col, val);
     }
 
     /**

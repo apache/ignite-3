@@ -20,7 +20,14 @@ package org.apache.ignite.internal.schema.row;
 import org.apache.ignite.internal.schema.BinaryRow;
 
 /**
- * Chunk format.
+ * Vartable format helper provides methods for reading/writing the chunk vartable content.
+ *
+ * Once total data size of the chunk is known then vartable could be (re)written in a compact way
+ * using proper format {{@link #compactVarTable(ExpandableByteBuf, int, int)}}.
+ * The vartable format is coded into chunk flags.
+ *
+ * @see #format(int)
+ * @see #fromFlags(int)
  */
 abstract class VarTableFormat {
     /** First two flag bits reserved for format code. */
@@ -42,10 +49,11 @@ abstract class VarTableFormat {
     static final VarTableFormat LARGE = new LargeFormat();
 
     /**
-     * Return chunk formatter.
+     * Return vartable format helper for data of given size
+     * to write vartable in a compact way.
      *
      * @param payloadLen Payload size in bytes.
-     * @return Chunk formatter.
+     * @return Vartable format helper.
      */
     static VarTableFormat format(int payloadLen) {
         if (payloadLen > 0) {
@@ -60,10 +68,10 @@ abstract class VarTableFormat {
     }
 
     /**
-     * Chunk format factory method.
+     * Returns vartable format helper depending on chunk flags.
      *
      * @param chunkFlags Chunk specific flags. Only first 4-bits are meaningful.
-     * @return Chunk formatter regarding the provided flags.
+     * @return Vartable format helper.
      */
     public static VarTableFormat fromFlags(int chunkFlags) {
         switch (chunkFlags & FORMAT_CODE_MASK) {
@@ -124,7 +132,7 @@ abstract class VarTableFormat {
     }
 
     /**
-     * Readss varlen offset from vartable.
+     * Reads varlen offset from vartable.
      *
      * @param row Row.
      * @param vartblOff Vartable offset.
@@ -153,7 +161,7 @@ abstract class VarTableFormat {
     public abstract int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entries);
 
     /**
-     * Chunk format for small rows.
+     * Chunk format for small rows (with payload size less 256 bytes).
      */
     private static class TinyFormat extends VarTableFormat {
         /**
@@ -192,7 +200,7 @@ abstract class VarTableFormat {
     }
 
     /**
-     * Chunk format for rows od medium size.
+     * Chunk format for rows of medium size (with payload size up to 64Kb).
      */
     private static class MediumFormat extends VarTableFormat {
         /**
@@ -229,7 +237,7 @@ abstract class VarTableFormat {
     }
 
     /**
-     * Chunk format for large rows.
+     * Chunk format for large rows (with payload size 64+Kb).
      */
     private static class LargeFormat extends VarTableFormat {
         /**

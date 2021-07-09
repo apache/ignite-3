@@ -40,6 +40,7 @@ public final class MarshallerUtil {
                 return ((byte[])val).length;
 
             case STRING:
+                // Overestimating size here prevents from later unwanted row buffer expanding.
                 return ((CharSequence)val).length() << 1;
 
             default:

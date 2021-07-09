@@ -280,7 +280,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Compact array.
+     * Compact array shifting the tail of the data.
      *
      * @param srcOff Source offset.
      * @param dstOff Destination offset.
