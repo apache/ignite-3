@@ -24,6 +24,7 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockException;
@@ -33,6 +34,10 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
+ *
+ * Lock waiters are placed in the queue, ordered from oldest to yongest (highest Timestamp).
+ * When a new waiter is placed in the queue, it's validated against current lock owner: if where is an owner with a
+ * higher timestamp lock request is denied.
  */
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();
@@ -90,6 +95,7 @@ public class HeapLockManager implements LockManager {
                 // Check lock compatibility.
                 NavigableMap<Timestamp, WaiterImpl> tailMap = waiters.tailMap(timestamp, false);
 
+                // If we have a younger waiter in locked state, refuse to wait for lock.
                 if (!tailMap.isEmpty() && tailMap.firstEntry().getValue().state() == Waiter.State.LOCKED) {
                     waiters.remove(timestamp);
 
@@ -209,6 +215,7 @@ public class HeapLockManager implements LockManager {
     }
 
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
+        @IgniteToStringExclude
         private final CompletableFuture<Void> fut;
         private final Timestamp timestamp;
         private boolean forRead; // TODO use flags
@@ -249,7 +256,7 @@ public class HeapLockManager implements LockManager {
         private void lock() {
             state(Waiter.State.LOCKED);
 
-            fut.complete(null);
+            fut.complete(null); // TODO !!!!! complete future outside synchronizer.
         }
 
         /** {@inheritDoc} */
@@ -266,7 +273,7 @@ public class HeapLockManager implements LockManager {
 
         /** {@inheritDoc} */
         @Override public String toString() {
-            return S.toString(WaiterImpl.class, this);
+            return S.toString(WaiterImpl.class, this, "isDone", fut.isDone());
         }
     }
 }

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.schema.registry;
 
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -60,13 +62,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         this.history = history;
     }
 
-    /**
-     * Gets schema descriptor for given version.
-     *
-     * @param ver Schema version to get descriptor for.
-     * @return Schema descriptor.
-     * @throws SchemaRegistryException If no schema found for given version.
-     */
+    /** {@inheritDoc} */
     @Override public SchemaDescriptor schema(int ver) {
         SchemaDescriptor desc = schemaCache.get(ver);
 
@@ -87,26 +83,32 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
     }
 
-    /**
-     * Gets schema descriptor for the latest version if initialized.
-     *
-     * @return Schema descriptor if initialized, {@code null} otherwise.
-     * @throws SchemaRegistryException If failed.
-     */
+    /** {@inheritDoc} */
     @Override public @Nullable SchemaDescriptor schema() {
         final int lastVer0 = lastVer;
 
         if (lastVer0 == INITIAL_SCHEMA_VERSION)
             return null;
 
-       return schema(lastVer0);
+        return schema(lastVer0);
     }
 
-    /**
-     * @return Last known schema version.
-     */
-    public int lastSchemaVersion() {
+    /** {@inheritDoc} */
+    @Override public int lastSchemaVersion() {
         return lastVer;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Row resolve(BinaryRow row) {
+        final SchemaDescriptor rowSchema = schema(row.schemaVersion());
+        final SchemaDescriptor curSchema = schema();
+
+        if (curSchema.version() == rowSchema.version())
+            return new Row(rowSchema, row);
+
+        assert rowSchema.version() == curSchema.version() + 1; // TODO: IGNITE-14864 implement merged mapper for arbitraty schema versions.
+
+        return new UpgradingRowAdapter(curSchema, row, rowSchema.columnMapping());
     }
 
     /**
