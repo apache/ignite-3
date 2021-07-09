@@ -17,26 +17,6 @@
 
 package org.apache.ignite.client.internal;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
 import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessagePacker;
 import org.apache.ignite.client.ClientMessageUnpacker;
@@ -52,6 +32,23 @@ import org.apache.ignite.client.internal.io.ClientMessageHandler;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.buffer.ByteBufferInput;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 
 /**
@@ -358,14 +355,28 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void handshakeRes(ByteBuffer buf, ProtocolVersion proposedVer)
             throws IgniteClientConnectionException, IgniteClientAuthenticationException {
         try (var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf))) {
-            ProtocolVersion srvVr = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
+            ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
                     unpacker.unpackShort());
 
-            var errorCode = unpacker.unpackInt();
+            var errCode = unpacker.unpackInt();
 
-            if (errorCode != ClientErrorCode.SUCCESS) {
-                // TODO: Retry if there is a protocol version issue.
+            if (errCode != ClientErrorCode.SUCCESS) {
                 var msg = unpacker.unpackString();
+
+                if (errCode == ClientErrorCode.AUTH_FAILED)
+                    throw new IgniteClientAuthenticationException(msg);
+                else if (proposedVer.equals(srvVer))
+                    throw new IgniteClientException("Client protocol error: unexpected server response.");
+                else if (!supportedVers.contains(srvVer))
+                    throw new IgniteClientException(String.format(
+                            "Protocol version mismatch: client %s / server %s. Server details: %s",
+                            proposedVer,
+                            srvVer,
+                            msg
+                    ));
+                else { // Retry with server version.
+                    handshake(srvVer);
+                }
 
                 throw new IgniteClientConnectionException(msg);
             }
@@ -376,59 +387,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValue(extensionsLen);
 
-            protocolCtx = protocolContextFromVersion(srvVr);
+            protocolCtx = protocolContextFromVersion(srvVer);
         } catch (IOException e) {
             throw handleIOError(e);
         }
-
-//        BinaryInputStream res = BinaryByteBufferInputStream.create(buf);
-//
-//        try (BinaryReaderExImpl reader = ClientUtils.createBinaryReader(null, res)) {
-//            boolean success = res.readBoolean();
-//
-//            if (success) {
-//                byte[] features = EMPTY_BYTES;
-//
-//                if (ProtocolContext.isFeatureSupported(proposedVer, BITMAP_FEATURES))
-//                    features = reader.readByteArray();
-//
-//                protocolCtx = new ProtocolContext(proposedVer, ProtocolBitmaskFeature.enumSet(features));
-//
-//                if (protocolCtx.isFeatureSupported(PARTITION_AWARENESS)) {
-//                    // Reading server UUID
-//                    srvNodeId = reader.readUuid();
-//                }
-//            } else {
-//                ProtocolVersion srvVer = new ProtocolVersion(res.readShort(), res.readShort(), res.readShort());
-//
-//                String err = reader.readString();
-//                int errCode = ClientErrorCode.FAILED;
-//
-//                if (res.remaining() > 0)
-//                    errCode = reader.readInt();
-//
-//                if (errCode == ClientStatus.AUTH_FAILED)
-//                    throw new IgniteClientAuthenticationException(err);
-//                else if (proposedVer.equals(srvVer))
-//                    throw new ClientProtocolError(err);
-//                else if (!supportedVers.contains(srvVer) ||
-//                        (!ProtocolContext.isFeatureSupported(srvVer, AUTHORIZATION) && !F.isEmpty(user)))
-//                    // Server version is not supported by this client OR server version is less than 1.1.0 supporting
-//                    // authentication and authentication is required.
-//                    throw new ClientProtocolError(String.format(
-//                            "Protocol version mismatch: client %s / server %s. Server details: %s",
-//                            proposedVer,
-//                            srvVer,
-//                            err
-//                    ));
-//                else { // Retry with server version.
-//                    handshake(srvVer, user, pwd, userAttrs);
-//                }
-//            }
-//        }
-//        catch (IOException e) {
-//            throw handleIOError(e);
-//        }
     }
 
     /** Write bytes to the output stream. */
