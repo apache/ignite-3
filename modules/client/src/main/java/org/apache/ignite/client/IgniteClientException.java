@@ -26,11 +26,13 @@ public class IgniteClientException extends IgniteException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
+    private final int errorCode;
+
     /**
      * Constructs a new exception with {@code null} as its detail message.
      */
     public IgniteClientException() {
-        // No-op.
+        errorCode = ClientErrorCode.FAILED;
     }
 
     /**
@@ -40,25 +42,31 @@ public class IgniteClientException extends IgniteException {
      */
     public IgniteClientException(String msg) {
         super(msg);
+
+        this.errorCode = ClientErrorCode.FAILED;
     }
 
     /**
-     * Constructs a new exception with the specified cause and a detail
-     * message of <tt>(cause==null ? null : cause.toString())</tt>.
+     * Constructs a new exception with the specified detail message.
      *
-     * @param cause the cause.
+     * @param msg the detail message.
      */
-    public IgniteClientException(Throwable cause) {
-        super(cause);
+    public IgniteClientException(String msg, int errorCode) {
+        super(msg);
+
+        this.errorCode = errorCode;
     }
 
     /**
      * Constructs a new exception with the specified detail message and cause.
      *
      * @param msg the detail message.
+     * @param errorCode the error code.
      * @param cause the cause.
      */
-    public IgniteClientException(String msg, Throwable cause) {
+    public IgniteClientException(String msg, int errorCode, Throwable cause) {
         super(msg, cause);
+
+        this.errorCode = errorCode;
     }
 }

@@ -272,7 +272,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Process next message from the input stream and complete corresponding future.
      */
-    private void processNextMessage(ByteBuffer buf) throws IgniteClientException {
+    private void processNextMessage(ByteBuffer buf) throws IgniteClientException, IOException {
         var dataInput = new ClientMessageUnpacker(new ByteBufferInput(buf));
 
         if (protocolCtx == null) {
@@ -281,95 +281,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return;
         }
 
-        Long resId = dataInput.readLong();
+        Long resId = dataInput.unpackLong();
 
-        int status = 0;
+        int status = dataInput.unpackInt();
 
-        ClientOp notificationOp = null;
+        ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
-        if (protocolCtx.isFeatureSupported(PARTITION_AWARENESS)) {
-            short flags = dataInput.readShort();
-
-            if ((flags & ClientFlag.AFFINITY_TOPOLOGY_CHANGED) != 0) {
-                long topVer = dataInput.readLong();
-                int minorTopVer = dataInput.readInt();
-
-                srvTopVer = new AffinityTopologyVersion(topVer, minorTopVer);
-
-                for (Consumer<ClientChannel> lsnr : topChangeLsnrs)
-                    lsnr.accept(this);
-            }
-
-            if ((flags & ClientFlag.NOTIFICATION) != 0) {
-                short notificationCode = dataInput.readShort();
-
-                notificationOp = ClientOperation.fromCode(notificationCode);
-
-                if (notificationOp == null || notificationOp.notificationType() == null)
-                    throw new ClientProtocolError(String.format("Unexpected notification code [%d]", notificationCode));
-            }
-
-            if ((flags & ClientFlag.ERROR) != 0)
-                status = dataInput.readInt();
-        }
-        else
-            status = dataInput.readInt();
-
-        int hdrSize = dataInput.position();
-        int msgSize = buf.limit();
-
-        ByteBuffer res;
-        Exception err;
+        if (pendingReq == null)
+            throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
 
         if (status == 0) {
-            err = null;
-            res = msgSize > hdrSize ? buf : null;
-        }
-        else if (status == ClientStatus.SECURITY_VIOLATION) {
-            err = new ClientAuthorizationException();
-            res = null;
-        }
-        else {
-            String errMsg = ClientUtils.createBinaryReader(null, dataInput).readString();
-
-            err = new ClientServerError(errMsg, status, resId);
-            res = null;
-        }
-
-        if (notificationOp == null) { // Respone received.
-            ClientRequestFuture pendingReq = pendingReqs.remove(resId);
-
-            if (pendingReq == null)
-                throw new ClientProtocolError(String.format("Unexpected response ID [%s]", resId));
-
-            pendingReq.onDone(res, err);
-        }
-        else { // Notification received.
-            ClientNotificationType notificationType = notificationOp.notificationType();
-
-            asyncContinuationExecutor.execute(() -> {
-                NotificationListener lsnr = null;
-
-                notificationLsnrsGuard.readLock().lock();
-
-                try {
-                    Map<Long, NotificationListener> lsrns = notificationLsnrs[notificationType.ordinal()];
-
-                    if (lsrns != null)
-                        lsnr = lsrns.get(resId);
-
-                    if (notificationType.keepNotificationsWithoutListener() && lsnr == null) {
-                        pendingNotifications[notificationType.ordinal()].computeIfAbsent(resId,
-                                k -> new ConcurrentLinkedQueue<>()).add(new T2<>(res, err));
-                    }
-                }
-                finally {
-                    notificationLsnrsGuard.readLock().unlock();
-                }
-
-                if (lsnr != null)
-                    lsnr.acceptNotification(res, err);
-            });
+            pendingReq.complete(buf);
+        } else {
+            var errMsg = dataInput.unpackString();
+            var err = new IgniteClientException(errMsg, status);
+            pendingReq.completeExceptionally(err);
         }
     }
 
