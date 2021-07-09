@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -234,6 +236,10 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         }
     }
 
+    private static ThreadPoolExecutor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
+        new SynchronousQueue<>(), new NamedThreadFactory("JRaft-ReadOnlyService-Disruptor-"
+        /*+ node.getOptions().getServerName() + "-" + node.getNodeId().toString()*/, true));
+
     @Override
     public boolean init(final ReadOnlyServiceOptions opts) {
         this.node = opts.getNode();
@@ -244,8 +250,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         this.readIndexDisruptor = DisruptorBuilder.<ReadIndexEvent>newInstance() //
             .setEventFactory(new ReadIndexEventFactory()) //
             .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
-            .setThreadFactory(new NamedThreadFactory("JRaft-ReadOnlyService-Disruptor-" +
-                node.getOptions().getServerName() + "-" + node.getNodeId().toString(), true)) //
+            .setExecutor(executor) //
             .setWaitStrategy(new BlockingWaitStrategy()) //
             .setProducerType(ProducerType.MULTI) //
             .build();

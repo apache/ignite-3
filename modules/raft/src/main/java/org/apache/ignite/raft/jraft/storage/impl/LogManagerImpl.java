@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -163,6 +165,10 @@ public class LogManagerImpl implements LogManager {
         this.lastLogIndexListeners.remove(listener);
     }
 
+    private static ThreadPoolExecutor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
+        new SynchronousQueue<>(), new NamedThreadFactory("JRaft-LogManager-Disruptor-"
+        /*+ opts.getNode().getOptions().getServerName() + "-" + opts.getNode().getNodeId()*/, true));
+
     @Override
     public boolean init(final LogManagerOptions opts) {
         this.writeLock.lock();
@@ -192,8 +198,7 @@ public class LogManagerImpl implements LogManager {
             this.disruptor = DisruptorBuilder.<StableClosureEvent>newInstance() //
                 .setEventFactory(new StableClosureEventFactory()) //
                 .setRingBufferSize(opts.getDisruptorBufferSize()) //
-                .setThreadFactory(new NamedThreadFactory("JRaft-LogManager-Disruptor-" +
-                    opts.getNode().getOptions().getServerName() + "-" + opts.getNode().getNodeId(), true)) //
+                .setExecutor(executor) //
                 .setProducerType(ProducerType.MULTI) //
                 /*
                  *  Use timeout strategy in log manager. If timeout happens, it will called reportError to halt the node.

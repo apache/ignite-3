@@ -27,6 +27,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -159,6 +162,10 @@ public class FSMCallerImpl implements FSMCaller {
         this.applyingIndex = new AtomicLong(0);
     }
 
+    private static ThreadPoolExecutor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
+        new SynchronousQueue<>(), new NamedThreadFactory("JRaft-FSMCaller-Disruptor-"
+        /* + node.getOptions().getServerName() + "-" + node.getNodeId().toString()*/, true));
+
     @Override
     public boolean init(final FSMCallerOptions opts) {
         this.logManager = opts.getLogManager();
@@ -173,8 +180,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.disruptor = DisruptorBuilder.<ApplyTask>newInstance() //
             .setEventFactory(new ApplyTaskFactory()) //
             .setRingBufferSize(opts.getDisruptorBufferSize()) //
-            .setThreadFactory(new NamedThreadFactory("JRaft-FSMCaller-Disruptor-" +
-                node.getOptions().getServerName() + "-" + node.getNodeId().toString(), true)) //
+            .setExecutor(executor) //
             .setProducerType(ProducerType.MULTI) //
             .setWaitStrategy(new BlockingWaitStrategy()) //
             .build();

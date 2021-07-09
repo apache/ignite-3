@@ -21,7 +21,7 @@ import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.WaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.Executor;
 
 /**
  * A builder to build a disruptor instance.
@@ -29,7 +29,8 @@ import java.util.concurrent.ThreadFactory;
 public class DisruptorBuilder<T> {
     private EventFactory<T> eventFactory;
     private Integer ringBufferSize;
-    private ThreadFactory threadFactory = new NamedThreadFactory("Disruptor-", true);
+//    private ThreadFactory threadFactory = new NamedThreadFactory("Disruptor-", true);
+    private Executor executor;
     private ProducerType producerType = ProducerType.MULTI;
     private WaitStrategy waitStrategy = new BlockingWaitStrategy();
 
@@ -58,12 +59,12 @@ public class DisruptorBuilder<T> {
         return this;
     }
 
-    public ThreadFactory getThreadFactory() {
-        return this.threadFactory;
+    public Executor getExecutor() {
+        return this.executor;
     }
 
-    public DisruptorBuilder<T> setThreadFactory(final ThreadFactory threadFactory) {
-        this.threadFactory = threadFactory;
+    public DisruptorBuilder<T> setExecutor(final Executor executor) {
+        this.executor = executor;
         return this;
     }
 
@@ -88,7 +89,7 @@ public class DisruptorBuilder<T> {
     public Disruptor<T> build() {
         Requires.requireNonNull(this.ringBufferSize, " Ring buffer size not set");
         Requires.requireNonNull(this.eventFactory, "Event factory not set");
-        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.threadFactory, this.producerType,
+        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.executor, this.producerType,
             this.waitStrategy);
     }
 
