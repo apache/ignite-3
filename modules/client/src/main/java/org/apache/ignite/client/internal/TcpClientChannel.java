@@ -261,29 +261,29 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Process next message from the input stream and complete corresponding future.
      */
     private void processNextMessage(ByteBuffer buf) throws IgniteClientException, IOException {
-        var dataInput = new ClientMessageUnpacker(new ByteBufferInput(buf));
+        try (var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf))) {
+            if (protocolCtx == null) {
+                // Process handshake.
+                pendingReqs.remove(-1L).complete(buf);
+                return;
+            }
 
-        if (protocolCtx == null) {
-            // Process handshake.
-            pendingReqs.remove(-1L).complete(buf);
-            return;
-        }
+            Long resId = unpacker.unpackLong();
 
-        Long resId = dataInput.unpackLong();
+            int status = unpacker.unpackInt();
 
-        int status = dataInput.unpackInt();
+            ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
-        ClientRequestFuture pendingReq = pendingReqs.remove(resId);
+            if (pendingReq == null)
+                throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
 
-        if (pendingReq == null)
-            throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
-
-        if (status == 0) {
-            pendingReq.complete(buf);
-        } else {
-            var errMsg = dataInput.unpackString();
-            var err = new IgniteClientException(errMsg, status);
-            pendingReq.completeExceptionally(err);
+            if (status == 0) {
+                pendingReq.complete(buf);
+            } else {
+                var errMsg = unpacker.unpackString();
+                var err = new IgniteClientException(errMsg, status);
+                pendingReq.completeExceptionally(err);
+            }
         }
     }
 
@@ -330,20 +330,20 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Send handshake request. */
     private void handshakeReq(ProtocolVersion proposedVer) throws IOException {
-        var packer = new ClientMessagePacker();
+        try (var packer = new ClientMessagePacker()) {
+            packer.packInt(proposedVer.major());
+            packer.packInt(proposedVer.minor());
+            packer.packInt(proposedVer.patch());
 
-        packer.packInt(3); // Major.
-        packer.packInt(0); // Minor.
-        packer.packInt(0); // Patch.
+            packer.packInt(2); // Client type: general purpose.
 
-        packer.packInt(2); // Client type: general purpose.
+            packer.packBinaryHeader(0); // Features.
+            packer.packMapHeader(0); // Extensions.
 
-        packer.packBinaryHeader(0); // Features.
-        packer.packMapHeader(0); // Extensions.
+            var bytes = packer.toByteArray();
 
-        var bytes = packer.toByteArray();
-
-        write(bytes, bytes.length);
+            write(bytes, bytes.length);
+        }
     }
 
     /**
@@ -356,55 +356,61 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Receive and handle handshake response. */
     private void handshakeRes(ByteBuffer buf, ProtocolVersion proposedVer)
-            throws IgniteClientConnectionException, IgniteClientAuthenticationException, ClientProtocolError {
-        BinaryInputStream res = BinaryByteBufferInputStream.create(buf);
+            throws IgniteClientConnectionException, IgniteClientAuthenticationException {
+        try (var unpacker = new ClientMessageUnpacker(new ByteBufferInput(buf))) {
 
-        try (BinaryReaderExImpl reader = ClientUtils.createBinaryReader(null, res)) {
-            boolean success = res.readBoolean();
-
-            if (success) {
-                byte[] features = EMPTY_BYTES;
-
-                if (ProtocolContext.isFeatureSupported(proposedVer, BITMAP_FEATURES))
-                    features = reader.readByteArray();
-
-                protocolCtx = new ProtocolContext(proposedVer, ProtocolBitmaskFeature.enumSet(features));
-
-                if (protocolCtx.isFeatureSupported(PARTITION_AWARENESS)) {
-                    // Reading server UUID
-                    srvNodeId = reader.readUuid();
-                }
-            } else {
-                ProtocolVersion srvVer = new ProtocolVersion(res.readShort(), res.readShort(), res.readShort());
-
-                String err = reader.readString();
-                int errCode = ClientErrorCode.FAILED;
-
-                if (res.remaining() > 0)
-                    errCode = reader.readInt();
-
-                if (errCode == ClientStatus.AUTH_FAILED)
-                    throw new IgniteClientAuthenticationException(err);
-                else if (proposedVer.equals(srvVer))
-                    throw new ClientProtocolError(err);
-                else if (!supportedVers.contains(srvVer) ||
-                        (!ProtocolContext.isFeatureSupported(srvVer, AUTHORIZATION) && !F.isEmpty(user)))
-                    // Server version is not supported by this client OR server version is less than 1.1.0 supporting
-                    // authentication and authentication is required.
-                    throw new ClientProtocolError(String.format(
-                            "Protocol version mismatch: client %s / server %s. Server details: %s",
-                            proposedVer,
-                            srvVer,
-                            err
-                    ));
-                else { // Retry with server version.
-                    handshake(srvVer, user, pwd, userAttrs);
-                }
-            }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw handleIOError(e);
         }
+
+//        BinaryInputStream res = BinaryByteBufferInputStream.create(buf);
+//
+//        try (BinaryReaderExImpl reader = ClientUtils.createBinaryReader(null, res)) {
+//            boolean success = res.readBoolean();
+//
+//            if (success) {
+//                byte[] features = EMPTY_BYTES;
+//
+//                if (ProtocolContext.isFeatureSupported(proposedVer, BITMAP_FEATURES))
+//                    features = reader.readByteArray();
+//
+//                protocolCtx = new ProtocolContext(proposedVer, ProtocolBitmaskFeature.enumSet(features));
+//
+//                if (protocolCtx.isFeatureSupported(PARTITION_AWARENESS)) {
+//                    // Reading server UUID
+//                    srvNodeId = reader.readUuid();
+//                }
+//            } else {
+//                ProtocolVersion srvVer = new ProtocolVersion(res.readShort(), res.readShort(), res.readShort());
+//
+//                String err = reader.readString();
+//                int errCode = ClientErrorCode.FAILED;
+//
+//                if (res.remaining() > 0)
+//                    errCode = reader.readInt();
+//
+//                if (errCode == ClientStatus.AUTH_FAILED)
+//                    throw new IgniteClientAuthenticationException(err);
+//                else if (proposedVer.equals(srvVer))
+//                    throw new ClientProtocolError(err);
+//                else if (!supportedVers.contains(srvVer) ||
+//                        (!ProtocolContext.isFeatureSupported(srvVer, AUTHORIZATION) && !F.isEmpty(user)))
+//                    // Server version is not supported by this client OR server version is less than 1.1.0 supporting
+//                    // authentication and authentication is required.
+//                    throw new ClientProtocolError(String.format(
+//                            "Protocol version mismatch: client %s / server %s. Server details: %s",
+//                            proposedVer,
+//                            srvVer,
+//                            err
+//                    ));
+//                else { // Retry with server version.
+//                    handshake(srvVer, user, pwd, userAttrs);
+//                }
+//            }
+//        }
+//        catch (IOException e) {
+//            throw handleIOError(e);
+//        }
     }
 
     /** Write bytes to the output stream. */
