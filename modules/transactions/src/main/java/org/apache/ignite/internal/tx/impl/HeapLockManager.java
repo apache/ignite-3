@@ -90,6 +90,7 @@ public class HeapLockManager implements LockManager {
                 // Check lock compatibility.
                 NavigableMap<Timestamp, WaiterImpl> tailMap = waiters.tailMap(timestamp, false);
 
+                // If we have a younger waiter in locked state, refuse to wait for lock.
                 if (!tailMap.isEmpty() && tailMap.firstEntry().getValue().state() == Waiter.State.LOCKED) {
                     waiters.remove(timestamp);
 
@@ -249,7 +250,7 @@ public class HeapLockManager implements LockManager {
         private void lock() {
             state(Waiter.State.LOCKED);
 
-            fut.complete(null);
+            fut.complete(null); // TODO !!!!! complete future outside synchronizer.
         }
 
         /** {@inheritDoc} */
