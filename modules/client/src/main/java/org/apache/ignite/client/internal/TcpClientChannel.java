@@ -27,9 +27,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -46,6 +48,7 @@ import org.apache.ignite.client.internal.io.ClientConnection;
 import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
 import org.apache.ignite.client.internal.io.ClientConnectionStateHandler;
 import org.apache.ignite.client.internal.io.ClientMessageHandler;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.buffer.ByteBufferInput;
 
@@ -126,7 +129,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             sock.close();
 
             for (ClientRequestFuture pendingReq : pendingReqs.values())
-                pendingReq.onDone(new IgniteClientConnectionException("Channel is closed", cause));
+                pendingReq.completeExceptionally(new IgniteClientConnectionException("Channel is closed", cause));
         }
     }
 
@@ -206,16 +209,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Received operation payload or {@code null} if response has no payload.
      */
     private <T> T receive(ClientRequestFuture pendingReq, Function<PayloadInputChannel, T> payloadReader)
-            throws ClientException {
+            throws IgniteClientException {
         try {
-            ByteBuffer payload = timeout > 0 ? pendingReq.get(timeout) : pendingReq.get();
+            ByteBuffer payload = timeout > 0 ? pendingReq.get(timeout, TimeUnit.MILLISECONDS) : pendingReq.get();
 
             if (payload == null || payloadReader == null)
                 return null;
 
             return payloadReader.apply(new PayloadInputChannel(this, payload));
         }
-        catch (IgniteCheckedException e) {
+        catch (Throwable e) {
             throw convertException(e);
         }
     }
@@ -255,8 +258,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Resulting exception.
      */
     private IgniteClientException convertException(Throwable e) {
-        // For every known class derived from ClientException, wrap cause in a new instance.
-        // We could rethrow e.getCause() when instanceof ClientException,
+        // For every known class derived from IgniteClientException, wrap cause in a new instance.
+        // We could rethrow e.getCause() when instanceof IgniteClientException,
         // but this results in an incomplete stack trace from the receiver thread.
         // This is similar to IgniteUtils.exceptionConverters.
         if (e.getCause() instanceof IgniteClientConnectionException)
