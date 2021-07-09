@@ -297,7 +297,74 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyMultithreadedRandomg() throws InterruptedException {
+    public void testSingleKeyMultithreadedRead() throws InterruptedException {
+        LongAdder rLocks = new LongAdder();
+        LongAdder wLocks = new LongAdder();
+        LongAdder fLocks = new LongAdder();
+
+        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 0);
+
+        assertTrue(wLocks.sum() == 0);
+        assertTrue(fLocks.sum() == 0);
+    }
+
+    @Test
+    public void testSingleKeyMultithreadedWrite() throws InterruptedException {
+        LongAdder rLocks = new LongAdder();
+        LongAdder wLocks = new LongAdder();
+        LongAdder fLocks = new LongAdder();
+
+        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 1);
+
+        assertTrue(rLocks.sum() == 0);
+    }
+
+    @Test
+    public void testSingleKeyMultithreadedRandom() throws InterruptedException {
+        LongAdder rLocks = new LongAdder();
+        LongAdder wLocks = new LongAdder();
+        LongAdder fLocks = new LongAdder();
+
+        doTestSingleKeyMultithreaded(5_000, rLocks, wLocks, fLocks, 2);
+    }
+
+    @Test
+    public void testDeadlock() {
+        Timestamp ts0 = Timestamp.nextVersion();
+        Timestamp ts1 = Timestamp.nextVersion();
+        Object key = new String("test");
+
+        CompletableFuture<Void> fut0 = lockManager.tryAcquireShared(key, ts0);
+        assertTrue(fut0.isDone());
+
+        CompletableFuture<Void> fut1 = lockManager.tryAcquireShared(key, ts1);
+        assertTrue(fut1.isDone());
+
+        try {
+            lockManager.tryAcquire(key, ts0);
+
+            fail();
+        }
+        catch (LockException e) {
+            // Expected.
+        }
+    }
+
+    /**
+     * @param duration The duration.
+     * @param rLocks Read lock accumulator.
+     * @param wLocks Write lock accumulator.
+     * @param fLocks Failed lock accumulator.
+     * @param mode Mode: 0 - read only, 1 - write only, 2 - mixed random.
+     * @throws InterruptedException If interrupted while waiting.
+     */
+    private void doTestSingleKeyMultithreaded(
+        long duration,
+        LongAdder rLocks,
+        LongAdder wLocks,
+        LongAdder fLocks,
+        int mode
+    ) throws InterruptedException {
         Object key = new String("test");
 
         Thread[] threads = new Thread[Runtime.getRuntime().availableProcessors() * 2];;
@@ -307,10 +374,6 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         AtomicBoolean stop = new AtomicBoolean();
 
         Random r = new Random();
-
-        LongAdder rLocks = new LongAdder();
-        LongAdder wLocks = new LongAdder();
-        LongAdder fLocks = new LongAdder();
 
         for (int i = 0; i < threads.length; i++) {
             threads[i] = new Thread(new Runnable() {
@@ -325,7 +388,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                     while(!stop.get()) {
                         Timestamp timestamp = Timestamp.nextVersion();
 
-                        if (r.nextBoolean()) {
+                        if (mode == 0 ? false : mode == 1 ? true : r.nextBoolean()) {
                             try {
                                 CompletableFuture<Void> fut = lockManager.tryAcquire(key, timestamp);
                                 try {
@@ -369,7 +432,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             threads[i].start();
         }
 
-        Thread.sleep(5_000);
+        Thread.sleep(duration);
 
         stop.set(true);
 
@@ -378,6 +441,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         }
 
         log.info("After test rLocks={} wLocks={} fLocks={}", rLocks.sum(), wLocks.sum(), fLocks.sum());
+
+        assertTrue(lockManager.queue(key).isEmpty());
     }
 
     @Test
