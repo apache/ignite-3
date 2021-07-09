@@ -18,22 +18,24 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
-import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.configuration.util.OrderedMap;
 
 /** */
-public final class NamedListNode<N extends InnerNode> implements NamedListView<N>, NamedListChange<N>, TraversableTreeNode, ConstructableTreeNode {
+public final class NamedListNode<N extends InnerNode> implements NamedListChange<N>, TraversableTreeNode, ConstructableTreeNode {
+    /** Name of synthetic configuration property that describes order of elements in named list. */
+    public static final String ORDER_IDX = "<idx>";
+
     /** */
     public final Supplier<N> valSupplier;
 
     /** */
-    private final Map<String, N> map;
+    private final OrderedMap<N> map;
 
     /**
      * Default constructor.
@@ -42,7 +44,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
      */
     public NamedListNode(Supplier<N> valSupplier) {
         this.valSupplier = valSupplier;
-        map = new HashMap<>();
+        map = new OrderedMap<>();
     }
 
     /**
@@ -52,7 +54,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
      */
     private NamedListNode(NamedListNode<N> node) {
         valSupplier = node.valSupplier;
-        map = new HashMap<>(node.map);
+        map = new OrderedMap<>(node.map);
     }
 
     /** {@inheritDoc} */
@@ -76,11 +78,69 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
     }
 
     /** {@inheritDoc} */
+    @Override public NamedListChange<N> create(String key, Consumer<N> valConsumer) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(valConsumer, "valConsumer");
+
+        if (map.containsKey(key))
+            throw new IllegalArgumentException("Element with name " + key + " already exists.");
+
+        N val = valSupplier.get();
+
+        map.put(key, val);
+
+        valConsumer.accept(val);
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public NamedListChange<N> create(int index, String key, Consumer<N> valConsumer) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(valConsumer, "valConsumer");
+
+        if (index < 0 || index > map.size())
+            throw new IndexOutOfBoundsException(index);
+
+        if (map.containsKey(key))
+            throw new IllegalArgumentException("Element with name " + key + " already exists.");
+
+        N val = valSupplier.get();
+
+        map.putByIndex(index, key, val);
+
+        valConsumer.accept(val);
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public NamedListChange<N> createAfter(String base, String key, Consumer<N> valConsumer) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(valConsumer, "valConsumer");
+
+        if (!map.containsKey(base))
+            throw new IllegalArgumentException("Element with name " + base + " doesn't exist.");
+
+        if (map.containsKey(key))
+            throw new IllegalArgumentException("Element with name " + key + " already exists.");
+
+        N val = valSupplier.get();
+
+        map.putAfter(base, key, val);
+
+        valConsumer.accept(val);
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
     @Override public final NamedListChange<N> update(String key, Consumer<N> valConsumer) {
+        Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
         if (map.containsKey(key) && map.get(key) == null)
-            throw new IllegalStateException("You can't create entity that has just been deleted [key=" + key + ']');
+            throw new IllegalArgumentException("You can't create entity that has just been deleted [key=" + key + ']');
 
         N val = map.get(key);
 
@@ -96,7 +156,10 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
 
     /** {@inheritDoc} */
     @Override public NamedListChange<N> delete(String key) {
-        map.put(key, null);
+        Objects.requireNonNull(key, "key");
+
+        if (map.containsKey(key))
+            map.put(key, null);
 
         return this;
     }
@@ -110,18 +173,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListView<N
         map.remove(key);
     }
 
-    /** {@inheritDoc} */
-    @Override public NamedListChange<N> create(String key, Consumer<N> valConsumer) {
-        Objects.requireNonNull(valConsumer, "valConsumer");
-
-        N val = map.get(key);
-
-        if (val == null)
-            map.put(key, val = valSupplier.get());
-
-        valConsumer.accept(val);
-
-        return this;
+    public void reorderKeys(List<String> orderedKeys) {
+        map.reorderKeys(orderedKeys);
     }
 
     /** {@inheritDoc} */

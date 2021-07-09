@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.configuration.util;
 
+import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -27,14 +30,18 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
+import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_IDX;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.createFlattenedUpdatesMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -58,7 +65,7 @@ public class ConfigurationUtilTest {
         cgen = null;
     }
 
-    public static <P extends InnerNode & ParentView & ParentChange> P newParentInstance() {
+    public static <P extends InnerNode & ParentChange> P newParentInstance() {
         return (P)cgen.instantiateNode(ParentConfigurationSchema.class);
     }
 
@@ -233,11 +240,13 @@ public class ConfigurationUtilTest {
 
         ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
             "elements", Map.of(
-                "name1", Map.of(
-                    "child", Map.of("str", "value1")
-                ),
                 "name2", Map.of(
-                    "child", Map.of("str", "value2")
+                    "child", Map.of("str", "value2"),
+                    ORDER_IDX, 1
+                ),
+                "name1", Map.of(
+                    "child", Map.of("str", "value1"),
+                    ORDER_IDX, 0
                 )
             )
         ));
@@ -266,59 +275,54 @@ public class ConfigurationUtilTest {
 
     /** */
     @Test
-    public void nodeToFlatMap() {
-        var parentNode = newParentInstance();
+    public void flattenedUpdatesMap() {
+        var superRoot = new SuperRoot(key -> null, Map.of(ParentConfiguration.KEY, newParentInstance()));
 
         assertEquals(
-            emptyMap(),
-            ConfigurationUtil.nodeToFlatMap(null, new SuperRoot(key -> null, Map.of(
-                ParentConfiguration.KEY,
-                parentNode
-            )))
+            Map.of(),
+            flattenedMap(superRoot, parent -> {})
         );
 
-        // No defaults in this test so everything must be initialized explicitly.
-        parentNode.changeElements(elements ->
-            elements.create("name", element ->
-                element.changeChild(child ->
-                    child.changeStr("foo")
+        assertEquals(
+            Map.of(
+                "root.elements.name.child.str", "foo",
+                "root.elements.name.<idx>", 0
+            ),
+            flattenedMap(superRoot, parent -> parent
+                .changeElements(elements -> elements
+                    .create("name", element -> element
+                        .changeChild(child -> child.changeStr("foo"))
+                    )
                 )
             )
         );
 
         assertEquals(
-            singletonMap("root.elements.name.child.str", "foo"),
-            ConfigurationUtil.nodeToFlatMap(null, new SuperRoot(key -> null, Map.of(
-                ParentConfiguration.KEY,
-                parentNode
-            )))
+            Map.of(),
+            flattenedMap(superRoot, parent -> parent
+                .changeElements(elements1 -> elements1.delete("void"))
+            )
         );
 
         assertEquals(
-            emptyMap(),
-            ConfigurationUtil.nodeToFlatMap(new SuperRoot(key -> null, Map.of(
-                ParentConfiguration.KEY,
-                parentNode
-            )), new SuperRoot(key -> null, singletonMap(
-                ParentConfiguration.KEY,
-                (InnerNode)newParentInstance().changeElements(elements ->
-                    elements.delete("void")
-                )
-            )))
+            new HashMap<>() {{
+                put("root.elements.name.child.str", null);
+                put("root.elements.name.<idx>", null);
+            }},
+            flattenedMap(superRoot, parent -> parent
+                .changeElements(elements -> elements.delete("name"))
+            )
         );
+    }
 
-        assertEquals(
-            singletonMap("root.elements.name.child.str", null),
-            ConfigurationUtil.nodeToFlatMap(new SuperRoot(key -> null, Map.of(
-                ParentConfiguration.KEY,
-                parentNode
-            )), new SuperRoot(key -> null, singletonMap(
-                ParentConfiguration.KEY,
-                (InnerNode)newParentInstance().changeElements(elements ->
-                    elements.delete("name")
-                )
-            )))
-        );
+    @NotNull private Map<String, Serializable> flattenedMap(SuperRoot superRoot, Consumer<ParentChange> patch) {
+        SuperRoot originalSuperRoot = superRoot.copy();
+
+        superRoot.construct(ParentConfiguration.KEY.key(), new ConfigurationSource() {});
+
+        patch.accept((ParentChange)superRoot.getRoot(ParentConfiguration.KEY));
+
+        return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
     }
 
     /** */
@@ -333,7 +337,7 @@ public class ConfigurationUtilTest {
         );
 
         // Updating config.
-        ParentView updatedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)newParentInstance().changeElements(elements ->
+        ParentView updatedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
             elements.update("name1", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
@@ -348,7 +352,7 @@ public class ConfigurationUtilTest {
         assertEquals("value2", updatedRoot.elements().get("name1").child().str());
 
         // Expanding config.
-        ParentView expandedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)newParentInstance().changeElements(elements ->
+        ParentView expandedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
             elements.update("name2", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
@@ -364,7 +368,7 @@ public class ConfigurationUtilTest {
         assertEquals("value2", expandedRoot.elements().get("name2").child().str());
 
         // Shrinking config.
-        ParentView shrinkedRoot = (ParentView)ConfigurationUtil.patch((InnerNode)expandedRoot, (TraversableTreeNode)newParentInstance().changeElements(elements ->
+        ParentView shrinkedRoot = (ParentView)ConfigurationUtil.patch((InnerNode)expandedRoot, (TraversableTreeNode)copy(expandedRoot).changeElements(elements ->
             elements.delete("name1")
         ));
 
@@ -376,33 +380,7 @@ public class ConfigurationUtilTest {
         assertNotNull(shrinkedRoot.elements().get("name2"));
     }
 
-    /** */
-    @Test
-    public void cleanupMatchingValues() {
-        var curParent = newParentInstance();
-
-        curParent.changeElements(elements -> elements
-            .create("missing", element -> {})
-            .create("match", element -> element.changeChild(child -> child.changeStr("match")))
-            .create("mismatch", element -> element.changeChild(child -> child.changeStr("foo")))
-        );
-
-        var newParent = newParentInstance();
-
-        newParent.changeElements(elements -> elements
-            .create("extra", element -> {})
-            .create("match", element -> element.changeChild(child -> child.changeStr("match")))
-            .create("mismatch", element -> element.changeChild(child -> child.changeStr("bar")))
-        );
-
-        ConfigurationUtil.cleanupMatchingValues(curParent, newParent);
-
-        // Old node stayed intact.
-        assertEquals("match", curParent.elements().get("match").child().str());
-        assertEquals("foo", curParent.elements().get("mismatch").child().str());
-
-        // New node was modified.
-        assertNull(newParent.elements().get("match").child().str());
-        assertEquals("bar", newParent.elements().get("mismatch").child().str());
+    private ParentChange copy(ParentView parent) {
+        return (ParentChange)((ConstructableTreeNode)parent).copy();
     }
 }

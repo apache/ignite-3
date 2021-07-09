@@ -20,29 +20,62 @@ package org.apache.ignite.configuration;
 import java.util.function.Consumer;
 
 /** */
-public interface NamedListChange<Change> {
+public interface NamedListChange<Change> extends NamedListView<Change> {
     /**
-     * Update the value in named list configuration.
+     * Create new value in named list configuration.
      *
      * @param key Key for the value to be created.
      * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
      *      passed to the closure, must not be reused anywhere else.
      * @return {@code this} for chaining.
+     *
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IllegalArgumentException If element with given name already exists.
      */
-    //TODO Replace with "createOrUpdate"
     NamedListChange<Change> create(String key, Consumer<Change> valConsumer);
 
     /**
-     * Update the value in named list configuration.
+     * Create new value in named list configuration.
+     *
+     * @param index Elements insertion index.
+     * @param key Key for the value to be created.
+     * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
+     *      passed to the closure, must not be reused anywhere else.
+     * @return {@code this} for chaining.
+     *
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IndexOutOfBoundsException If index cannot be used for new element insertion.
+     * @throws IllegalArgumentException If element with given name already exists.
+     */
+    NamedListChange<Change> create(int index, String key, Consumer<Change> valConsumer);
+
+    /**
+     * Create new value in named list configuration.
+     *
+     * @param base Name of th preceeding element.
+     * @param key Key for the value to be created.
+     * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
+     *      passed to the closure, must not be reused anywhere else.
+     * @return {@code this} for chaining.
+     *
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IllegalArgumentException If element with given name already exists
+     *      or if {@code base} element doesn't exist.
+     */
+    NamedListChange<Change> createAfter(String base, String key, Consumer<Change> valConsumer);
+
+    /**
+     * Update the value in named list configuration. Create if it doesn't exist yet.
      *
      * @param key Key for the value to be updated.
      * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
      *      passed to the closure, must not be reused anywhere else.
      * @return {@code this} for chaining.
      *
-     * @throws IllegalStateException If {@link #delete(String)} has been invoked with the same key previously.
+     * @throws NullPointerException If one of parameters is null.
+     * @throws IllegalArgumentException If {@link #delete(String)} has been invoked with the same key previously.
      */
-    NamedListChange<Change> update(String key, Consumer<Change> valConsumer) throws IllegalStateException;
+    NamedListChange<Change> update(String key, Consumer<Change> valConsumer);
 
     /**
      * Remove the value from named list configuration.
@@ -50,7 +83,8 @@ public interface NamedListChange<Change> {
      * @param key Key for the value to be removed.
      * @return {@code this} for chaining.
      *
-     * @throws IllegalStateException If {@link #update(String, Consumer)} has been invoked with the same key previously.
+     * @throws NullPointerException If key is null.
+     * @throws IllegalArgumentException If {@link #update(String, Consumer)} has been invoked with the same key previously.
      */
-    NamedListChange<Change> delete(String key) throws IllegalStateException;
+    NamedListChange<Change> delete(String key);
 }

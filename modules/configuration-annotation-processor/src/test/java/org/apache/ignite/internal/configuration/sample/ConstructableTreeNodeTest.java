@@ -49,11 +49,11 @@ public class ConstructableTreeNodeTest {
         cgen = null;
     }
 
-    public static <P extends InnerNode & ParentView & ParentChange> P newParentInstance() {
+    public static <P extends InnerNode & ParentChange> P newParentInstance() {
         return (P)cgen.instantiateNode(TraversableTreeNodeTest.ParentConfigurationSchema.class);
     }
 
-    public static <C extends InnerNode & ChildView & ChildChange> C newChildInstance() {
+    public static <C extends InnerNode & ChildChange> C newChildInstance() {
         return (C)cgen.instantiateNode(TraversableTreeNodeTest.ChildConfigurationSchema.class);
     }
 

@@ -64,11 +64,11 @@ public class TraversableTreeNodeTest {
         cgen = null;
     }
 
-    public static <P extends InnerNode & ParentView & ParentChange> P newParentInstance() {
+    public static <P extends InnerNode & ParentChange> P newParentInstance() {
         return (P)cgen.instantiateNode(ParentConfigurationSchema.class);
     }
 
-    public static <C extends InnerNode & ChildView & ChildChange> C newChildInstance() {
+    public static <C extends InnerNode & ChildChange> C newChildInstance() {
         return (C)cgen.instantiateNode(ChildConfigurationSchema.class);
     }
 
@@ -188,11 +188,13 @@ public class TraversableTreeNodeTest {
      */
     @Test
     public void putRemoveNamedConfiguration() {
-        var elementsNode = newParentInstance().elements();
+        var elementsNode = (NamedListChange<NamedElementChange>)newParentInstance().elements();
 
         assertEquals(emptySet(), elementsNode.namedListKeys());
 
-        ((NamedListChange<?>)elementsNode).update("keyPut", element -> {});
+        elementsNode.update("keyPut", element -> {});
+
+        assertThrows(IllegalArgumentException.class, () -> elementsNode.create("keyPut", element -> {}));
 
         assertThat(elementsNode.namedListKeys(), hasItem("keyPut"));
 
@@ -202,7 +204,7 @@ public class TraversableTreeNodeTest {
 
         assertNull(elementNode.strCfg());
 
-        ((NamedListChange<NamedElementChange>)elementsNode).update("keyPut", element -> element.changeStrCfg("val"));
+        elementsNode.update("keyPut", element -> element.changeStrCfg("val"));
 
         // Assert that consecutive put methods create new object every time.
         assertNotSame(elementNode, elementsNode.get("keyPut"));
@@ -211,21 +213,21 @@ public class TraversableTreeNodeTest {
 
         assertEquals("val", elementNode.strCfg());
 
-        ((NamedListChange<?>)elementsNode).delete("keyPut");
+        elementsNode.delete("keyPut");
 
         assertThat(elementsNode.namedListKeys(), CoreMatchers.hasItem("keyPut"));
 
         assertNull(elementsNode.get("keyPut"));
 
-        ((NamedListChange<?>)elementsNode).delete("keyRemove");
+        elementsNode.delete("keyPut");
 
         // Assert that "remove" method creates null element inside of the node.
-        assertThat(elementsNode.namedListKeys(), hasItem("keyRemove"));
+        assertThat(elementsNode.namedListKeys(), hasItem("keyPut"));
 
-        assertNull(elementsNode.get("keyRemove"));
+        assertNull(elementsNode.get("keyPut"));
 
         // Assert that once you remove something from list, you can't put it back again with different set of fields.
-        assertThrows(IllegalStateException.class, () -> ((NamedListChange<?>)elementsNode).update("keyRemove", element -> {}));
+        assertThrows(IllegalArgumentException.class, () -> elementsNode.update("keyPut", element -> {}));
     }
 
     /**
