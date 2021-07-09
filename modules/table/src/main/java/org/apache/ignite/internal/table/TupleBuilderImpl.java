@@ -50,15 +50,15 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
     }
 
     /** {@inheritDoc} */
-    @Override public TupleBuilder set(String colName, Object value) {
-        Column col = schemaDesc.column(colName);
+    @Override public TupleBuilder set(String colName, Object val) {
+        Column col = schema().column(colName);
 
         if (col == null)
             throw new ColumnNotFoundException("Column not found [col=" + colName + "schema=" + schemaDesc + ']');
 
-        col.validate(value);
+        col.validate(val);
 
-        map.put(colName, value);
+        map.put(colName, val);
 
         return this;
     }
