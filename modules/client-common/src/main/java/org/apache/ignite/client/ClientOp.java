@@ -17,6 +17,11 @@
 
 package org.apache.ignite.client;
 
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Client operation codes.
+ */
 public enum ClientOp {
     TABLE_CREATE(1),
     TABLE_DROP(2),
@@ -27,6 +32,9 @@ public enum ClientOp {
     TUPLE_UPSERT_SCHEMALESS(11),
     TUPLE_GET(12);
 
+    /** Enumerated values. */
+    private static final ClientOp[] VALS = values();
+
     /** Code. */
     private final int code;
 
@@ -36,5 +44,15 @@ public enum ClientOp {
 
     public short code() {
         return (short)code;
+    }
+
+    /**
+     * Efficiently gets enumerated value from its ordinal.
+     *
+     * @param ord Ordinal value.
+     * @return Enumerated value or {@code null} if ordinal out of range.
+     */
+    @Nullable public static ClientOp fromOrdinal(int ord) {
+        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
     }
 }

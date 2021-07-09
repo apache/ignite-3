@@ -23,6 +23,7 @@ import org.apache.ignite.app.Ignite;
 // 1. Define client config
 // 2. "Ignition" interface in ignite-api should be removed
 public class ClientIgnition {
+    // TODO: Async
     public static Ignite startClient() {
         return null;
     }
