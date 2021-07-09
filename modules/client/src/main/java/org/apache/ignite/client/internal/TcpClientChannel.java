@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,18 +32,18 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.apache.ignite.client.ClientErrorCode;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
+import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.internal.io.ClientConnection;
+import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
 import org.apache.ignite.client.internal.io.ClientConnectionStateHandler;
 import org.apache.ignite.client.internal.io.ClientMessageHandler;
 import org.jetbrains.annotations.Nullable;
@@ -56,18 +55,11 @@ import org.msgpack.core.buffer.ByteBufferInput;
  */
 class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientConnectionStateHandler {
     /** Protocol version used by default on first connection attempt. */
-    private static final ProtocolVersion DEFAULT_VERSION = LATEST_VER;
+    private static final ProtocolVersion DEFAULT_VERSION = ProtocolVersion.LATEST_VER;
 
     /** Supported protocol versions. */
     private static final Collection<ProtocolVersion> supportedVers = Arrays.asList(
-            V1_7_0,
-            V1_6_0,
-            V1_5_0,
-            V1_4_0,
-            V1_3_0,
-            V1_2_0,
-            V1_1_0,
-            V1_0_0
+            ProtocolVersion.V3_0_0
     );
 
     /** Preallocated empty bytes. */
@@ -88,12 +80,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Pending requests. */
     private final Map<Long, ClientRequestFuture> pendingReqs = new ConcurrentHashMap<>();
 
-    /** Topology change listeners. */
-    private final Collection<Consumer<ClientChannel>> topChangeLsnrs = new CopyOnWriteArrayList<>();
-
-    /** Guard for notification listeners. */
-    private final ReadWriteLock notificationLsnrsGuard = new ReentrantReadWriteLock();
-
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -105,16 +91,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Constructor. */
     TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr)
-            throws ClientConnectionException, ClientAuthenticationException, ClientProtocolError {
+            throws IgniteClientException {
         validateConfiguration(cfg);
 
-        for (ClientNotificationType type : ClientNotificationType.values()) {
-            if (type.keepNotificationsWithoutListener())
-                pendingNotifications[type.ordinal()] = new ConcurrentHashMap<>();
-        }
-
-        Executor cfgExec = cfg.getAsyncContinuationExecutor();
-        asyncContinuationExecutor = cfgExec != null ? cfgExec : ForkJoinPool.commonPool();
+        asyncContinuationExecutor = ForkJoinPool.commonPool();
 
         timeout = cfg.getTimeout();
 
@@ -143,22 +123,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(Exception cause) {
         if (closed.compareAndSet(false, true)) {
-            U.closeQuiet(sock);
+            sock.close();
 
             for (ClientRequestFuture pendingReq : pendingReqs.values())
-                pendingReq.onDone(new ClientConnectionException("Channel is closed", cause));
-
-            notificationLsnrsGuard.readLock().lock();
-
-            try {
-                for (Map<Long, NotificationListener> lsnrs : notificationLsnrs) {
-                    if (lsnrs != null)
-                        lsnrs.values().forEach(lsnr -> lsnr.onChannelClosed(cause));
-                }
-            }
-            finally {
-                notificationLsnrsGuard.readLock().unlock();
-            }
+                pendingReq.onDone(new IgniteClientConnectionException("Channel is closed", cause));
         }
     }
 
@@ -446,13 +414,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             handshakeRes(res, ver, user, pwd, userAttrs);
         }
         catch (IgniteCheckedException e) {
-            throw new ClientConnectionException(e.getMessage(), e);
+            throw new IgniteClientConnectionException(e.getMessage(), e);
         }
     }
 
     /** Send handshake request. */
     private void handshakeReq(ProtocolVersion proposedVer, String user, String pwd,
-                              Map<String, String> userAttrs) throws ClientConnectionException {
+                              Map<String, String> userAttrs) throws IgniteClientConnectionException {
         BinaryContext ctx = new BinaryContext(BinaryCachingMetadataHandler.create(), new IgniteConfiguration(), null);
 
         try (BinaryWriterExImpl writer = new BinaryWriterExImpl(ctx, new BinaryHeapOutputStream(32), null, null)) {
@@ -526,7 +494,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     errCode = reader.readInt();
 
                 if (errCode == ClientStatus.AUTH_FAILED)
-                    throw new ClientAuthenticationException(err);
+                    throw new IgniteClientAuthenticationException(err);
                 else if (proposedVer.equals(srvVer))
                     throw new ClientProtocolError(err);
                 else if (!supportedVers.contains(srvVer) ||
@@ -550,14 +518,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Write bytes to the output stream. */
-    private void write(byte[] bytes, int len) throws ClientConnectionException {
+    private void write(byte[] bytes, int len) throws IgniteClientConnectionException {
         ByteBuffer buf = ByteBuffer.wrap(bytes, 0, len);
 
         try {
             sock.send(buf);
         }
         catch (IgniteCheckedException e) {
-            throw new ClientConnectionException(e.getMessage(), e);
+            throw new IgniteClientConnectionException(e.getMessage(), e);
         }
     }
 
@@ -573,7 +541,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param ex IO exception (cause).
      */
     private ClientException handleIOError(String chInfo, @Nullable IOException ex) {
-        return new ClientConnectionException("Ignite cluster is unavailable [" + chInfo + ']', ex);
+        return new IgniteClientConnectionException("Ignite cluster is unavailable [" + chInfo + ']', ex);
     }
 
     /**
