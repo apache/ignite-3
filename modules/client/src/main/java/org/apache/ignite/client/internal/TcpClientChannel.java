@@ -38,6 +38,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.apache.ignite.client.ClientErrorCode;
+import org.apache.ignite.client.ClientMessagePacker;
 import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
@@ -316,9 +317,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture fut = new ClientRequestFuture();
         pendingReqs.put(-1L, fut);
 
-        handshakeReq(ver);
-
         try {
+            handshakeReq(ver);
+
             ByteBuffer res = timeout > 0 ? fut.get(timeout, TimeUnit.MILLISECONDS) : fut.get();
             handshakeRes(res, ver);
         }
@@ -328,40 +329,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Send handshake request. */
-    private void handshakeReq(ProtocolVersion proposedVer) throws IgniteClientConnectionException {
-        BinaryContext ctx = new BinaryContext(BinaryCachingMetadataHandler.create(), new IgniteConfiguration(), null);
+    private void handshakeReq(ProtocolVersion proposedVer) throws IOException {
+        var packer = new ClientMessagePacker();
 
-        try (BinaryWriterExImpl writer = new BinaryWriterExImpl(ctx, new BinaryHeapOutputStream(32), null, null)) {
-            ProtocolContext protocolCtx = protocolContextFromVersion(proposedVer);
+        packer.packInt(3); // Major.
+        packer.packInt(0); // Minor.
+        packer.packInt(0); // Patch.
 
-            writer.writeInt(0); // reserve an integer for the request size
-            writer.writeByte((byte) ClientListenerRequest.HANDSHAKE);
+        packer.packInt(2); // Client type: general purpose.
 
-            writer.writeShort(proposedVer.major());
-            writer.writeShort(proposedVer.minor());
-            writer.writeShort(proposedVer.patch());
+        packer.packBinaryHeader(0); // Features.
+        packer.packMapHeader(0); // Extensions.
 
-            writer.writeByte(ClientListenerNioListener.THIN_CLIENT);
+        var bytes = packer.toByteArray();
 
-            if (protocolCtx.isFeatureSupported(BITMAP_FEATURES)) {
-                byte[] features = ProtocolBitmaskFeature.featuresAsBytes(protocolCtx.features());
-                writer.writeByteArray(features);
-            }
-
-            if (protocolCtx.isFeatureSupported(USER_ATTRIBUTES))
-                writer.writeMap(userAttrs);
-
-            boolean authSupported = protocolCtx.isFeatureSupported(AUTHORIZATION);
-
-            if (authSupported && user != null && !user.isEmpty()) {
-                writer.writeString(user);
-                writer.writeString(pwd);
-            }
-
-            writer.out().writeInt(0, writer.out().position() - 4); // actual size
-
-            write(writer.out().arrayCopy(), writer.out().position());
-        }
+        write(bytes, bytes.length);
     }
 
     /**
@@ -432,7 +414,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         try {
             sock.send(buf);
         }
-        catch (IgniteCheckedException e) {
+        catch (IgniteException e) {
             throw new IgniteClientConnectionException(e.getMessage(), e);
         }
     }
