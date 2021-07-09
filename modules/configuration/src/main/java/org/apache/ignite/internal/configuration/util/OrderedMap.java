@@ -145,7 +145,6 @@ public class OrderedMap<V> {
 
                 String nextKey = entry.getKey();
 
-
                 if (delete) {
                     V nextValue = entry.getValue();
 

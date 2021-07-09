@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.configuration.sample;
 
-import java.util.Collections;
+import java.util.List;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -84,7 +84,7 @@ public class ConstructableTreeNodeTest {
 
         assertNotNull(parentNode.elements());
         assertNotSame(elements, parentNode.elements());
-        assertEquals(Collections.emptySet(), parentNode.elements().namedListKeys());
+        assertEquals(List.of(), parentNode.elements().namedListKeys());
 
         // Inner node.
         NamedElementView element = elements.get("name");

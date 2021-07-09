@@ -38,7 +38,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static java.util.Collections.emptySet;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -190,7 +189,7 @@ public class TraversableTreeNodeTest {
     public void putRemoveNamedConfiguration() {
         var elementsNode = (NamedListChange<NamedElementChange>)newParentInstance().elements();
 
-        assertEquals(emptySet(), elementsNode.namedListKeys());
+        assertEquals(List.of(), elementsNode.namedListKeys());
 
         elementsNode.update("keyPut", element -> {});
 
