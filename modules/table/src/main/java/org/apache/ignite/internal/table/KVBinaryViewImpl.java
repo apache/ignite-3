@@ -58,7 +58,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
         super(tbl, schemaReg);
 
         marsh = new TupleMarshallerImpl(schemaReg);
-        schemaType = SchemaType.DEFAULT_SCHEMA;
+        schemaType = SchemaType.STRICT_SCHEMA;
 
         tblMgr = null;
     }
@@ -315,7 +315,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
         switch (schemaType) {
-            case DEFAULT_SCHEMA:
+            case STRICT_SCHEMA:
                 return new TupleBuilderImpl(schemaReg.schema());
             case LIVE_SCHEMA:
                 return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);

@@ -53,7 +53,7 @@ public class TableImpl extends AbstractTableView implements Table {
     /** Table manager. */
     private final TableManager tblMgr;
 
-    /** Table schema type. May be DEFAULT or LIVE */
+    /** Table schema type. May be STRICT or LIVE */
     private SchemaType schemaType;
 
     /**
@@ -66,7 +66,7 @@ public class TableImpl extends AbstractTableView implements Table {
         super(tbl, schemaReg);
 
         marsh = new TupleMarshallerImpl(schemaReg);
-        schemaType = SchemaType.DEFAULT_SCHEMA;
+        schemaType = SchemaType.STRICT_SCHEMA;
 
         this.tblMgr = tblMgr;
     }
@@ -388,7 +388,7 @@ public class TableImpl extends AbstractTableView implements Table {
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
         switch (schemaType) {
-            case DEFAULT_SCHEMA:
+            case STRICT_SCHEMA:
                 return new TupleBuilderImpl(schemaReg.schema());
             case LIVE_SCHEMA:
                 return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);

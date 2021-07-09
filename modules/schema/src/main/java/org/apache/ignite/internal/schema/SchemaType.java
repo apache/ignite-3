@@ -22,7 +22,7 @@ package org.apache.ignite.internal.schema;
  */
 public enum SchemaType {
     /** Default schema allows to create columns only explicitly by calling the ALTER_TABLE command. */
-    DEFAULT_SCHEMA,
+    STRICT_SCHEMA,
 
     /** Live schema allows to create columns implicitly by adding previously nonexistent columns during insert. */
     LIVE_SCHEMA
