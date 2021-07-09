@@ -49,7 +49,7 @@ public final class JRaftUtils {
      * @return true if bootstrap success
      */
     public static boolean bootstrap(final BootstrapOptions opts) throws InterruptedException {
-        final NodeImpl node = new NodeImpl();
+        final NodeImpl node = new NodeImpl("unittest", new PeerId("127.0.0.1", 0));
         final boolean ret = node.bootstrap(opts);
         node.shutdown();
         node.join();

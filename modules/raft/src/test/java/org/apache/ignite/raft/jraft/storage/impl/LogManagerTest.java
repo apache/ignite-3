@@ -26,11 +26,10 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.NodeId;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.LogManagerOptions;
@@ -80,7 +79,6 @@ public class LogManagerTest extends BaseStorageTest {
         this.logManager = new LogManagerImpl();
         final LogManagerOptions opts = new LogManagerOptions();
 
-        Mockito.when(node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost", 8082)));
         NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
@@ -92,6 +90,11 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setNodeMetrics(new NodeMetrics(false));
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
+        opts.setGroupId("TestSrv");
+        opts.setLogManagerDisruptor(new StripedDisruptor<>("TestLogManagerDisruptor",
+            1024,
+            () -> new LogManagerImpl.StableClosureEvent(),
+            1));
         assertTrue(this.logManager.init(opts));
     }
 
