@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.processors.query.calcite.util;
 
 import java.io.StringReader;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -64,6 +67,8 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteException;
@@ -485,6 +490,48 @@ public final class Commons {
             catch (Exception ignored) {
                 // No-op.
             }
+        }
+    }
+
+    public static Class<?> nativeTypeToClass(NativeType type) {
+        assert type != null;
+
+        switch (type.spec()) {
+            case BYTE:
+                return Byte.class;
+
+            case SHORT:
+                return Short.class;
+
+            case INTEGER:
+                return Integer.class;
+
+            case LONG:
+                return Long.class;
+
+            case FLOAT:
+                return Float.class;
+
+            case DOUBLE:
+                return Double.class;
+
+            case DECIMAL:
+                return BigDecimal.class;
+
+            case UUID:
+                return UUID.class;
+
+            case STRING:
+                return String.class;
+
+            case BYTES:
+                return byte[].class;
+
+            case BITMASK:
+                return BitSet.class;
+
+            default:
+                throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
 }

@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.Convention;
@@ -36,6 +37,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningContext;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
@@ -43,6 +45,9 @@ import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLog
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.internal.processors.query.calcite.Stubs.resultSetGenerator;
 
 /**
  * Ignite table implementation.
@@ -55,7 +60,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     private final Statistic statistic;
 
     /** */
-    private final List<Object> tbl = new CopyOnWriteArrayList<>();
+    private volatile Collection<Object[]> rows;
 
     /** */
     private final Map<String, IgniteIndex> indexes = new ConcurrentHashMap<>();
@@ -102,19 +107,19 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
         return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTbl, idxName, null, null, null);
     }
 
-//    /** {@inheritDoc} */
-//    @Override public <Row> Iterable<Row> scan(
-//        ExecutionContext<Row> execCtx,
-//        ColocationGroup group,
-//        Predicate<Row> filter,
-//        Function<Row, Row> rowTransformer,
-//        @Nullable ImmutableBitSet usedColumns) {
-//        String localNodeId = execCtx.planningContext().localNodeId();
-//        if (group.nodeIds().contains(localNodeId))
-//            return new ScanNode<Row>(execCtx, desc, group.partitions(localNodeId), filter, rowTransformer, usedColumns);
-//
-//        return Collections.emptyList();
-//    }
+    /** {@inheritDoc} */
+    @Override public <Row> Iterable<Row> scan(
+        ExecutionContext<Row> execCtx,
+        ColocationGroup group,
+        Predicate<Row> filter,
+        Function<Row, Row> rowTransformer,
+        @Nullable ImmutableBitSet usedColumns) {
+        String locNodeId = execCtx.planningContext().localNodeId();
+        if (group.nodeIds().contains(locNodeId))
+            return (Iterable<Row>) rows(execCtx.getTypeFactory());
+
+        return Collections.emptyList();
+    }
 
     /** {@inheritDoc} */
     @Override public IgniteDistribution distribution() {
@@ -154,11 +159,22 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
         return super.unwrap(aCls);
     }
 
+    private Collection<Object[]> rows(IgniteTypeFactory typeFactory) {
+        if (rows == null) {
+            synchronized (this) {
+                if (rows == null)
+                    rows = resultSetGenerator(10, typeFactory, getRowType(typeFactory));
+            }
+        }
+
+        return rows;
+    }
+
     /** */
     private class StatisticsImpl implements Statistic {
         /** {@inheritDoc} */
         @Override public Double getRowCount() {
-            return (double)tbl.size();
+            return (double)rows(new IgniteTypeFactory()).size();
         }
 
         /** {@inheritDoc} */

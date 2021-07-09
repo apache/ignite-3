@@ -320,7 +320,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
-        Iterable<Row> rowsIter = (Iterable<Row>) List.of(new Object[]{0, 0}, new Object[]{1, 1});//tbl.scan(ctx, group, filters, prj, requiredColunms);
+        Iterable<Row> rowsIter = tbl.scan(ctx, group, filters, prj, requiredColunms);
 
         return new ScanNode<>(ctx, rowType, rowsIter);
     }

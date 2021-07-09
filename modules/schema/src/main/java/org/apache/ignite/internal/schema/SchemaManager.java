@@ -69,7 +69,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
 
-    /** Internal prefix for the metastorage. */
+    /** Internal prefix for the metasorage. */
     private static final String INTERNAL_PREFIX = "internal.tables.schema.";
 
     /** Schema history item key suffix. */
@@ -274,7 +274,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tableId Table id.
      * @return Schema registry for the table.
      */
-    public SchemaRegistryImpl schemaRegistryForTable(UUID tableId) {
+    private SchemaRegistryImpl schemaRegistryForTable(UUID tableId) {
         final SchemaRegistryImpl reg = schemaRegs.get(tableId);
 
         if (reg == null)

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -61,6 +62,7 @@ import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.externalize.RelJsonReader;
 import org.apache.ignite.internal.processors.query.calcite.metadata.ColocationGroup;
 import org.apache.ignite.internal.processors.query.calcite.prepare.Cloner;
@@ -88,6 +90,7 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeSystem
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
@@ -550,6 +553,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 .replaceIf(RelCollationTraitDef.INSTANCE, getIndex(idxName)::collation);
 
             return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTbl, idxName, null, null, null);
+        }
+
+        /** {@inheritDoc} */
+        @Override public <Row> Iterable<Row> scan(
+                ExecutionContext<Row> execCtx,
+                ColocationGroup group,
+                Predicate<Row> filter,
+                Function<Row, Row> rowTransformer,
+                @Nullable ImmutableBitSet usedColumns
+        ) {
+            throw new AssertionError();
         }
 
         /** {@inheritDoc} */

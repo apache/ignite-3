@@ -23,6 +23,8 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.network.TopologyService;
 
+import static org.apache.ignite.internal.processors.query.calcite.util.Commons.nativeTypeToClass;
+
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
