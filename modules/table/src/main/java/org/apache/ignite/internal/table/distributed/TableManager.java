@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +31,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -50,7 +48,6 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaModificationException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
@@ -66,7 +63,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -367,32 +363,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<?> fut;
 
-        // If schema changed.
-        if (newTblCfg.columns().namedListKeys().equals(oldTblCfg.columns().namedListKeys()) &&
-            newTblCfg.columns().namedListKeys().stream().noneMatch(k -> {
-                final ColumnView newCol = newTblCfg.columns().get(k);
-                final ColumnView oldCol = oldTblCfg.columns().get(k);
-
-                assert oldCol != null;
-
-                if (!Objects.equals(newCol.type(), oldCol.type()))
-                    throw new SchemaModificationException("Columns type change is not supported.");
-
-                if (!Objects.equals(newCol.nullable(), oldCol.nullable()))
-                    throw new SchemaModificationException("Column nullability change is not supported");
-
-                if (!Objects.equals(newCol.name(), oldCol.name()) &&
-                    oldTblCfg.indices().namedListKeys().stream()
-                        .map(n -> oldTblCfg.indices().get(n))
-                        .filter(idx -> PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(idx.name()))
-                        .anyMatch(idx -> idx.columns().namedListKeys().stream()
-                            .anyMatch(c -> idx.columns().get(c).name().equals(oldCol.name()))
-                        ))
-                    throw new SchemaModificationException("Key column rename is not supported");
-
-                return !Objects.equals(newCol.name(), oldCol.name()) ||
-                    !Objects.equals(newCol.defaultValue(), oldCol.defaultValue());
-            }))
+        if (!SchemaManager.schemaChanged(oldTblCfg, newTblCfg))
             return CompletableFuture.completedFuture((Void)null);
 
         String tblName = oldTblCfg.name();
@@ -404,7 +375,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         final int ver = tbl.schemaView().lastSchemaVersion() + 1;
 
         if (hasMetastorageLocally)
-            fut = schemaMgr.updateSchemaForTable(tblId, tblName, oldTblCfg, newTblCfg);
+            fut = schemaMgr.updateSchemaForTable(tblId, oldTblCfg, newTblCfg);
         else
             fut = CompletableFuture.completedFuture((Void)null);
 
