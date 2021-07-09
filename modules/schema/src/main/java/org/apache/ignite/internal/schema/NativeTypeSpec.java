@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.BitSet;
-
 import org.apache.ignite.internal.tostring.S;
 
 /**

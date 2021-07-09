@@ -25,7 +25,6 @@ import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.app.IgnitionManager;
 import org.apache.ignite.internal.app.IgnitionCleaner;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.table.SchemaMismatchException;
@@ -109,10 +108,9 @@ class DynamicTableCreationTest {
 
         // Create table on node 0.
         SchemaTable schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
-            SchemaBuilders.column("KEY", ColumnType.INT32).asNonNull().build(),
-            SchemaBuilders.column("val1", ColumnType.INT64).asNullable().build(),
-            SchemaBuilders.column("val3", ColumnType.string()).asNullable().build()
-        ).withPrimaryKey("KEY").build();
+            SchemaBuilders.column("key", ColumnType.INT64).asNonNull().build(),
+            SchemaBuilders.column("val", ColumnType.INT32).asNullable().build()
+        ).withPrimaryKey("key").build();
 
         clusterNodes.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
             SchemaConfigurationConverter.convert(schTbl1, tblCh)
@@ -120,49 +118,34 @@ class DynamicTableCreationTest {
                 .changePartitions(10)
         );
 
-//        // Put data on node 1.
-//        Table tbl1 = clusterNodes.get(1).tables().table(schTbl1.canonicalName());
-//        KeyValueBinaryView kvView1 = tbl1.kvView();
-//
-//        tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val", 111).build());
-//        kvView1.put(tbl1.tupleBuilder().set("key", 2L).build(), tbl1.tupleBuilder().set("val", 222).build());
-//
-//        // Get data on node 2.
-//        Table tbl2 = clusterNodes.get(2).tables().table(schTbl1.canonicalName());
-//        KeyValueBinaryView kvView2 = tbl2.kvView();
-//
-//        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
-//        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
-//
-//        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
-//        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
-//        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
-//        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
-//
-//        assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val"));
-//        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
-//        assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
-//        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
-//
-//        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("key"));
-//        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("key"));
-//        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("val"));
-//        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("val"));
+        // Put data on node 1.
+        Table tbl1 = clusterNodes.get(1).tables().table(schTbl1.canonicalName());
+        KeyValueBinaryView kvView1 = tbl1.kvView();
 
-        for (List<?> row : ((IgniteImpl)clusterNodes.get(0)).queryEngine().query("PUBLIC", "select * from \"tbl1\"").get(0))
-            System.out.println(row);
+        tbl1.insert(tbl1.tupleBuilder().set("key", 1L).set("val", 111).build());
+        kvView1.put(tbl1.tupleBuilder().set("key", 2L).build(), tbl1.tupleBuilder().set("val", 222).build());
 
-        System.out.println();
-        System.out.println();
+        // Get data on node 2.
+        Table tbl2 = clusterNodes.get(2).tables().table(schTbl1.canonicalName());
+        KeyValueBinaryView kvView2 = tbl2.kvView();
 
-        for (List<?> row : ((IgniteImpl)clusterNodes.get(0)).queryEngine().query("PUBLIC", "select 'ama', 2").get(0))
-            System.out.println(row);
+        final Tuple keyTuple1 = tbl2.tupleBuilder().set("key", 1L).build();
+        final Tuple keyTuple2 = kvView2.tupleBuilder().set("key", 2L).build();
 
-        System.out.println();
-        System.out.println();
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView2.get(keyTuple1).value("key"));
+        assertEquals(1, (Long)tbl2.get(keyTuple1).value("key"));
+        assertEquals(2, (Long)tbl2.get(keyTuple2).value("key"));
 
-        for (List<?> row : ((IgniteImpl)clusterNodes.get(0)).queryEngine().query("PUBLIC", "explain plan for select * from \"tbl1\" t1 join \"tbl1\" t2 ON t1.key = t2.key").get(0))
-            System.out.println(row);
+        assertEquals(111, (Integer)tbl2.get(keyTuple1).value("val"));
+        assertEquals(111, (Integer)kvView2.get(keyTuple1).value("val"));
+        assertEquals(222, (Integer)tbl2.get(keyTuple2).value("val"));
+        assertEquals(222, (Integer)kvView2.get(keyTuple2).value("val"));
+
+        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("key"));
+        assertThrows(SchemaMismatchException.class, () -> tbl1.get(keyTuple1).value("val"));
+        assertThrows(SchemaMismatchException.class, () -> kvView1.get(keyTuple1).value("val"));
     }
 
     /**
