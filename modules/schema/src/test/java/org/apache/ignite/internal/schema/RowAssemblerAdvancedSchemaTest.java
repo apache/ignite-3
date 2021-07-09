@@ -56,7 +56,7 @@ public class RowAssemblerAdvancedSchemaTest {
         // Last col null
         assertRowBytesEquals(
             new byte[] {42, 0, 0, -120, -11, 43, 0, 0, 8, 0, 0, 0, 4, 11, 22, 0, 8, 0, 0, 0, 4, -44, -66, -1},
-            new RowAssembler(schema, 128, 0, 128, 0)
+            new RowAssembler(schema,  0,  0)
                 .appendByte((byte)11)
                 .appendShort((short)22)
                 .appendNull()
@@ -68,7 +68,7 @@ public class RowAssemblerAdvancedSchemaTest {
         // First col null.
         assertRowBytesEquals(
             new byte[] {42, 0, 0, -120, -53, 2, 0, 0, 11, 0, 0, 0, 1, 22, 0, 33, 0, 0, 0, 11, 0, 0, 0, 1, -55, -1, -66, -1, -1, -1},
-            new RowAssembler(schema, 128, 0, 128, 0)
+            new RowAssembler(schema,  0,  0)
                 .appendNull()
                 .appendShort((byte)22)
                 .appendInt(33)
@@ -79,7 +79,7 @@ public class RowAssemblerAdvancedSchemaTest {
 
         // Middle col null.
         assertRowBytesEquals(new byte[] {42, 0, 0, -120, 108, 41, 0, 0, 10, 0, 0, 0, 2, 11, 33, 0, 0, 0, 10, 0, 0, 0, 2, -44, -66, -1, -1, -1},
-            new RowAssembler(schema, 128, 0, 128, 0)
+            new RowAssembler(schema,  0,  0)
                 .appendByte((byte)11)
                 .appendNull()
                 .appendInt(33)
@@ -90,7 +90,7 @@ public class RowAssemblerAdvancedSchemaTest {
 
         // Null both.
         assertRowBytesEquals(new byte[] {42, 0, 0, -120, 0, 0, 0, 0, 5, 0, 0, 0, 7, 5, 0, 0, 0, 7},
-            new RowAssembler(schema, 128, 0, 128, 0)
+            new RowAssembler(schema,  0,  0)
                 .appendNull()
                 .appendNull()
                 .appendNull()
@@ -101,7 +101,7 @@ public class RowAssemblerAdvancedSchemaTest {
 
         // No value.
         assertRowBytesEquals(new byte[] {42, 0, 1, 8, 22, 44, 0, 0, 12, 0, 0, 0, 0, 11, 22, 0, 33, 0, 0, 0},
-            new RowAssembler(schema, 128, 0, 128, 0)
+            new RowAssembler(schema,  0,  0)
                 .appendByte((byte)11)
                 .appendShort((short)22)
                 .appendInt(33)
@@ -131,7 +131,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 42, 0, 0, 17, -12, -36, 109, -81,
                 15, 0, 0, 0, 4, 1, 3, 33, -77, 120, 97, 115, 99, 105, 105,
                 19, 0, 0, 0, 4, 1, 2, 33, -77, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97},
-            new RowAssembler(schema, 128, 2, 128, 2)
+            new RowAssembler(schema,  2,  2)
                 .appendBytes(new byte[] {33, -77, 120})
                 .appendString("ascii")
                 .appendNull()
@@ -146,7 +146,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 42, 0, 0, 17, 59, -11, 127, 92,
                 22, 0, 0, 0, 1, 1, 5, 97, 115, 99, 105, 105, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
                 22, 0, 0, 0, 1, 1, 10, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
-            new RowAssembler(schema, 128, 2, 128, 2)
+            new RowAssembler(schema,  2,  2)
                 .appendNull()
                 .appendString("ascii")
                 .appendString("我愛Java")
@@ -161,7 +161,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 42, 0, 0, 17, -111, 92, -37, -77,
                 20, 0, 0, 0, 2, 1, 3, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
                 14, 0, 0, 0, 2, 1, 2, 33, -77, 97, 115, 99, 105, 105},
-            new RowAssembler(schema, 128, 2, 128, 2)
+            new RowAssembler(schema,  2,  2)
                 .appendBytes(new byte[] {33, -77, 120})
                 .appendNull()
                 .appendString("我愛Java")
@@ -173,7 +173,7 @@ public class RowAssemblerAdvancedSchemaTest {
         // Null both.
         assertRowBytesEquals(
             new byte[] {42, 0, 0, -120, 0, 0, 0, 0, 5, 0, 0, 0, 7, 5, 0, 0, 0, 7},
-            new RowAssembler(schema, 128, 0, 128, 0)
+            new RowAssembler(schema,  0,  0)
                 .appendNull()
                 .appendNull()
                 .appendNull()
@@ -187,7 +187,7 @@ public class RowAssemblerAdvancedSchemaTest {
             new byte[] {
                 42, 0, 1, 1, -118, -28, 81, 103,
                 26, 0, 0, 0, 0, 2, 3, 13, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
-            new RowAssembler(schema, 128, 3, 128, 0)
+            new RowAssembler(schema,  3,  0)
                 .appendBytes(new byte[] {33, -77, 120})
                 .appendString("我愛Java")
                 .appendString("ascii")
@@ -218,7 +218,7 @@ public class RowAssemblerAdvancedSchemaTest {
             new byte[] {
                 42, 0, 0, 24, -85, 82, 5, 0, 8, 0, 0, 0, 12, 11, 22, 0,
                 14, 0, 0, 0, 3, 1, 2, 77, -88, 97, 115, 99, 105, 105},
-            new RowAssembler(schema, 128, 0, 128, 2)
+            new RowAssembler(schema,  0,  2)
                 .appendByte((byte)11)
                 .appendShort((short)22)
                 .appendNull()
@@ -235,7 +235,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 42, 0, 0, 17, -18, -9, 119, -80,
                 21, 0, 0, 0, 1, 1, 4, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
                 15, 0, 0, 0, 2, 1, 3, 55, 77, -88, 97, 115, 99, 105, 105},
-            new RowAssembler(schema, 128, 2, 128, 2)
+            new RowAssembler(schema,  2,  2)
                 .appendNull()
                 .appendShort((short)22)
                 .appendBytes(new byte[] {33, -44})
@@ -286,7 +286,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 42, 0, 0, -127, 3, -8, 124, -80,
                 22, 0, 0, 0, 0, 1, 5, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
                 5, 0, 0, 0, 15},
-            new RowAssembler(schema, 128, 2, 128, 0)
+            new RowAssembler(schema,  2,  0)
                 .appendByte((byte)11)
                 .appendShort((short)22)
                 .appendBytes(new byte[] {33, -44})
