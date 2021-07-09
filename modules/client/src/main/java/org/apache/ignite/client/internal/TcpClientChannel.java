@@ -229,25 +229,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Future for the operation.
      */
     private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, Function<PayloadInputChannel, T> payloadReader) {
-        CompletableFuture<T> fut = new CompletableFuture<>();
+        return pendingReq.thenApply(payload -> {
+            if (payload == null || payloadReader == null)
+                return null;
 
-        pendingReq.listen(payloadFut -> asyncContinuationExecutor.execute(() -> {
-            try {
-                ByteBuffer payload = payloadFut.get();
-
-                if (payload == null || payloadReader == null)
-                    fut.complete(null);
-                else {
-                    T res = payloadReader.apply(new PayloadInputChannel(this, payload));
-                    fut.complete(res);
-                }
-            }
-            catch (Throwable t) {
-                fut.completeExceptionally(convertException(t));
-            }
-        }));
-
-        return fut;
+            return payloadReader.apply(new PayloadInputChannel(this, payload));
+        });
     }
 
     /**
