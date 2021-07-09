@@ -11,7 +11,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.QueryTaskExecuto
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageServiceImpl;
 import org.apache.ignite.internal.processors.query.calcite.prepare.DummyPlanCache;
-import org.apache.ignite.internal.processors.query.calcite.schema.EmptySchemaHolder;
+import org.apache.ignite.internal.processors.query.calcite.schema.SchemaHolderImpl;
 import org.apache.ignite.internal.processors.query.calcite.util.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -49,7 +49,7 @@ public class SqlQueryProcessor {
             taskExecutor
         );
 
-        EmptySchemaHolder schemaHolder = new EmptySchemaHolder(clusterSrvc.topologyService());
+        SchemaHolderImpl schemaHolder = new SchemaHolderImpl(clusterSrvc.topologyService());
 
         executionSrvc = new ExecutionServiceImpl<>(
             clusterSrvc.topologyService(),
@@ -70,10 +70,10 @@ public class SqlQueryProcessor {
     }
 
     private static abstract class AbstractTableEventListener implements EventListener<TableEventParameters> {
-        protected final EmptySchemaHolder schemaHolder;
+        protected final SchemaHolderImpl schemaHolder;
 
         public AbstractTableEventListener(
-            EmptySchemaHolder schemaHolder
+            SchemaHolderImpl schemaHolder
         ) {
             this.schemaHolder = schemaHolder;
         }
@@ -86,7 +86,7 @@ public class SqlQueryProcessor {
 
     private static class TableCreatedListener extends AbstractTableEventListener {
         public TableCreatedListener(
-            EmptySchemaHolder schemaHolder
+            SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
@@ -105,7 +105,7 @@ public class SqlQueryProcessor {
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
         public TableUpdatedListener(
-            EmptySchemaHolder schemaHolder
+            SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
@@ -124,7 +124,7 @@ public class SqlQueryProcessor {
 
     private static class TableDroppedListener extends AbstractTableEventListener {
         public TableDroppedListener(
-            EmptySchemaHolder schemaHolder
+            SchemaHolderImpl schemaHolder
         ) {
             super(schemaHolder);
         }
