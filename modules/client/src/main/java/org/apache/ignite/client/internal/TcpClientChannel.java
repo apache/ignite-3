@@ -182,24 +182,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             var req = payloadCh.out();
 
-            req.packInt(Integer.MAX_VALUE); // Reserve an integer for the request size.
             req.packInt(op.code());
             req.packLong(id);
 
             if (payloadWriter != null)
                 payloadWriter.accept(payloadCh);
 
-            req.writeInt(0, req.position() - 4); // Actual size.
-
-            // arrayCopy is required, because buffer is pooled, and write is async.
-            write(req.arrayCopy(), req.position());
+            // TODO: We don't deal with message lengths here, it is the responsibility of the encoder.
+            byte[] bytes = req.toByteArray();
+            write(bytes, bytes.length);
 
             return fut;
         }
         catch (Throwable t) {
             pendingReqs.remove(id);
 
-            throw t;
+            throw convertException(t);
         }
     }
 

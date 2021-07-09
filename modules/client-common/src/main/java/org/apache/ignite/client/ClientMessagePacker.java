@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import org.msgpack.core.MessageBufferPacker;
 import org.msgpack.core.MessagePack;
+import org.msgpack.core.buffer.ArrayBufferOutput;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -30,7 +31,7 @@ import java.util.UUID;
  */
 public class ClientMessagePacker extends MessageBufferPacker {
     public ClientMessagePacker() {
-        super(MessagePack.DEFAULT_PACKER_CONFIG);
+        super(new ArrayBufferOutput(), MessagePack.DEFAULT_PACKER_CONFIG);
     }
 
     public ClientMessagePacker packUuid(UUID v) throws IOException {
