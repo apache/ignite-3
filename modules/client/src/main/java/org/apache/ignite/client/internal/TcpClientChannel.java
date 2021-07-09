@@ -112,7 +112,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** {@inheritDoc} */
-    @Override public void onMessage(ByteBuffer buf) {
+    @Override public void onMessage(ByteBuffer buf) throws IOException {
         processNextMessage(buf);
     }
 
@@ -253,7 +253,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (e.getCause() instanceof IgniteClientAuthorizationException)
             return new IgniteClientAuthorizationException(e.getMessage(), e.getCause());
 
-        return new IgniteClientException(e.getMessage(), e);
+        return new IgniteClientException(e.getMessage(), ClientErrorCode.FAILED, e);
     }
 
     /**
@@ -316,20 +316,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture fut = new ClientRequestFuture();
         pendingReqs.put(-1L, fut);
 
-        handshakeReq(ver, user, pwd, userAttrs);
+        handshakeReq(ver);
 
         try {
-            ByteBuffer res = timeout > 0 ? fut.get(timeout) : fut.get();
-            handshakeRes(res, ver, user, pwd, userAttrs);
+            ByteBuffer res = timeout > 0 ? fut.get(timeout, TimeUnit.MILLISECONDS) : fut.get();
+            handshakeRes(res, ver);
         }
-        catch (IgniteCheckedException e) {
-            throw new IgniteClientConnectionException(e.getMessage(), e);
+        catch (Throwable e) {
+            throw convertException(e);
         }
     }
 
     /** Send handshake request. */
-    private void handshakeReq(ProtocolVersion proposedVer, String user, String pwd,
-                              Map<String, String> userAttrs) throws IgniteClientConnectionException {
+    private void handshakeReq(ProtocolVersion proposedVer) throws IgniteClientConnectionException {
         BinaryContext ctx = new BinaryContext(BinaryCachingMetadataHandler.create(), new IgniteConfiguration(), null);
 
         try (BinaryWriterExImpl writer = new BinaryWriterExImpl(ctx, new BinaryHeapOutputStream(32), null, null)) {
@@ -374,7 +373,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Receive and handle handshake response. */
-    private void handshakeRes(ByteBuffer buf, ProtocolVersion proposedVer, String user, String pwd, Map<String, String> userAttrs)
+    private void handshakeRes(ByteBuffer buf, ProtocolVersion proposedVer)
             throws IgniteClientConnectionException, IgniteClientAuthenticationException, ClientProtocolError {
         BinaryInputStream res = BinaryByteBufferInputStream.create(buf);
 
