@@ -33,7 +33,6 @@ public interface Waiter {
 
     enum State {
         PENDING,
-        LOCKED,
-        INVALID
+        LOCKED
     }
 }

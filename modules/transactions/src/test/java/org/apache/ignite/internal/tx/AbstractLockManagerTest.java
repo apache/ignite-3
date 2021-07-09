@@ -350,6 +350,26 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testDeadlock2() {
+        Timestamp ts0 = Timestamp.nextVersion();
+        Timestamp ts1 = Timestamp.nextVersion();
+        Object key1 = new String("test");
+        Object key2 = new String("test2");
+
+        CompletableFuture<Void> fut0 = lockManager.tryAcquire(key1, ts0);
+        assertTrue(fut0.isDone());
+
+        CompletableFuture<Void> fut1 = lockManager.tryAcquire(key2, ts1);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Void> fut2 = lockManager.tryAcquire(key2, ts0);
+        assertTrue(fut2.isDone());
+
+        CompletableFuture<Void> fut3 = lockManager.tryAcquire(key1, ts1);
+        assertTrue(fut3.isDone());
+    }
+
     /**
      * @param duration The duration.
      * @param rLocks Read lock accumulator.
@@ -443,20 +463,5 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         log.info("After test rLocks={} wLocks={} fLocks={}", rLocks.sum(), wLocks.sum(), fLocks.sum());
 
         assertTrue(lockManager.queue(key).isEmpty());
-    }
-
-    @Test
-    public void testValidUnlock() {
-
-    }
-
-    @Test
-    public void testUnlockInvalidatedLock() {
-
-    }
-
-    @Test
-    public void testOldestNeverInvalidated() {
-
     }
 }
