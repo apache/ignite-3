@@ -20,7 +20,6 @@ package org.apache.ignite.internal.configuration.tree;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListChange;
@@ -63,8 +62,8 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     }
 
     /** {@inheritDoc} */
-    @Override public final Set<String> namedListKeys() {
-        return Collections.unmodifiableSet(map.keySet());
+    @Override public final List<String> namedListKeys() {
+        return Collections.unmodifiableList(map.keys());
     }
 
     /** {@inheritDoc} */

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,21 +47,21 @@ public class OrderedMapTest {
         map.put("key2", "value2");
 
         assertEquals(2, map.size());
-        assertEquals(Set.of("key1", "key2"), map.keySet());
+        assertEquals(List.of("key1", "key2"), map.keys());
 
         map.clear();
 
         assertEquals(0, map.size());
-        assertEquals(Set.of(), map.keySet());
+        assertEquals(List.of(), map.keys());
 
         map.put("key2", "value2");
         map.put("key1", "value1");
 
         assertEquals(2, map.size());
-        assertEquals(Set.of("key2", "key1"), map.keySet());
+        assertEquals(List.of("key2", "key1"), map.keys());
 
         map.put("key2", "value3");
-        assertEquals(Set.of("key2", "key1"), map.keySet());
+        assertEquals(List.of("key2", "key1"), map.keys());
     }
 
     @Test
@@ -71,42 +70,42 @@ public class OrderedMapTest {
 
         map.putByIndex(0, "key2", "value2");
 
-        assertEquals(Set.of("key2", "key1"), map.keySet());
+        assertEquals(List.of("key2", "key1"), map.keys());
 
         map.putByIndex(1, "key3", "value3");
 
-        assertEquals(Set.of("key2", "key3", "key1"), map.keySet());
+        assertEquals(List.of("key2", "key3", "key1"), map.keys());
 
         map.putByIndex(3, "key4", "value4");
 
-        assertEquals(Set.of("key2", "key3", "key1", "key4"), map.keySet());
+        assertEquals(List.of("key2", "key3", "key1", "key4"), map.keys());
 
         map.putByIndex(5, "key5", "value5");
 
-        assertEquals(Set.of("key2", "key3", "key1", "key4", "key5"), map.keySet());
+        assertEquals(List.of("key2", "key3", "key1", "key4", "key5"), map.keys());
     }
 
     @Test
     public void putAfter() {
         map.putAfter("foo", "key1", "value1");
 
-        assertEquals(Set.of("key1"), map.keySet());
+        assertEquals(List.of("key1"), map.keys());
 
         map.putAfter("key1", "key2", "value2");
 
-        assertEquals(Set.of("key1", "key2"), map.keySet());
+        assertEquals(List.of("key1", "key2"), map.keys());
 
         map.putAfter("key1", "key3", "value3");
 
-        assertEquals(Set.of("key1", "key3", "key2"), map.keySet());
+        assertEquals(List.of("key1", "key3", "key2"), map.keys());
 
         map.putAfter("key2", "key4", "value4");
 
-        assertEquals(Set.of("key1", "key3", "key2", "key4"), map.keySet());
+        assertEquals(List.of("key1", "key3", "key2", "key4"), map.keys());
 
         map.putAfter("foo", "key5", "value5");
 
-        assertEquals(Set.of("key1", "key3", "key2", "key4", "key5"), map.keySet());
+        assertEquals(List.of("key1", "key3", "key2", "key4", "key5"), map.keys());
     }
 
     @Test
@@ -119,7 +118,7 @@ public class OrderedMapTest {
 
         assertEquals("value2", map.get("key4"));
 
-        assertEquals(Set.of("key1", "key4", "key3"), map.keySet());
+        assertEquals(List.of("key1", "key4", "key3"), map.keys());
     }
 
     @Test
@@ -128,18 +127,18 @@ public class OrderedMapTest {
         map.put("key2", "value2");
         map.put("key3", "value3");
 
-        assertEquals(Set.of("key1", "key2", "key3"), map.keySet());
+        assertEquals(List.of("key1", "key2", "key3"), map.keys());
 
         map.reorderKeys(List.of("key2", "key1", "key3"));
 
-        assertEquals(Set.of("key2", "key1", "key3"), map.keySet());
+        assertEquals(List.of("key2", "key1", "key3"), map.keys());
 
         map.reorderKeys(List.of("key2", "key3", "key1"));
 
-        assertEquals(Set.of("key2", "key3", "key1"), map.keySet());
+        assertEquals(List.of("key2", "key3", "key1"), map.keys());
 
         map.reorderKeys(List.of("key1", "key3", "key2"));
 
-        assertEquals(Set.of("key1", "key3", "key2"), map.keySet());
+        assertEquals(List.of("key1", "key3", "key2"), map.keys());
     }
 }

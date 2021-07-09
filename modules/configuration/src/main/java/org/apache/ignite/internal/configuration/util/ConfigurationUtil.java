@@ -475,10 +475,10 @@ public class ConfigurationUtil {
     }
 
     /**
-     * @param keys Ordered set of keys.
+     * @param keys List of keys.
      * @return Map that contains same keys and their positions as values.
      */
-    private static Map<String, Integer> keysToOrderIdx(Set<String> keys) {
+    private static Map<String, Integer> keysToOrderIdx(List<String> keys) {
         Map<String, Integer> res = new HashMap<>();
 
         int idx = 0;
