@@ -17,19 +17,23 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * This exception is thrown when lock cannot be acquired due to conflict.
  */
 public class LockException extends IgniteInternalException {
+    /**
+     * @param msg The message.
+     */
     public LockException(String msg) {
         super(msg);
     }
 
-    public LockException(Waiter value) {
-        super("Lock can't be taken because of the conflict with " + value);
+    /**
+     * @param waiter Conflicting waiter.
+     */
+    public LockException(Waiter waiter) {
+        super("Lock can't be taken because of the conflict with " + waiter);
     }
 }

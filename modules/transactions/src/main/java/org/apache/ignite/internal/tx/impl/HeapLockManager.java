@@ -133,7 +133,7 @@ public class HeapLockManager implements LockManager {
                 if (waiters.isEmpty())
                     return;
 
-                // Lock next waiters.
+                // Lock next waiter(s).
                 WaiterImpl waiter = waiters.firstEntry().getValue();
 
                 if (!waiter.isForRead()) {
