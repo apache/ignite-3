@@ -62,7 +62,10 @@ public class HeapLockManager implements LockManager {
         lockState(key).tryReleaseShared(timestamp);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param key The key.
+     * @return The lock state for the key.
+     */
     private @NotNull LockState lockState(Object key) {
         return locks.computeIfAbsent(key, k -> new LockState());
     }

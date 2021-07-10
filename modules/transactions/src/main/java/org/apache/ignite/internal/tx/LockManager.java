@@ -36,7 +36,6 @@ public interface LockManager {
     /**
      * @param key The key.
      * @param timestamp The timestamp.
-     * @return {@code True} if the lock was released.
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryRelease(Object key, Timestamp timestamp);
@@ -52,7 +51,6 @@ public interface LockManager {
     /**
      * @param key The key.
      * @param timestamp The timestamp.
-     * @return {@code True} if the lock was released.
      * @throws LockException If the unlock operation is invalid.
      */
     public void tryReleaseShared(Object key, Timestamp timestamp);

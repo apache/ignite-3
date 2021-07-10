@@ -63,7 +63,7 @@ public class Timestamp implements Comparable<Timestamp> {
     /**
      * @return Next timestamp (monotonically increasing).
      */
-    public synchronized static Timestamp nextVersion() {
+    public static synchronized Timestamp nextVersion() {
         long localTimeCpy = localTime;
 
         // Truncate nanotime to 48 bits.

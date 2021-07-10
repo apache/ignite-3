@@ -406,7 +406,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                         fail();
                     }
 
-                    while(!stop.get()) {
+                    while (!stop.get()) {
                         Timestamp timestamp = Timestamp.nextVersion();
 
                         if (mode == 0 ? false : mode == 1 ? true : r.nextBoolean()) {
@@ -472,7 +472,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
             tmp[i] = Timestamp.nextVersion();
 
         for (int i = 1; i < tmp.length; i++)
-            assertTrue(tmp[i-1].compareTo(tmp[i]) < 0);
+            assertTrue(tmp[i - 1].compareTo(tmp[i]) < 0);
 
         return tmp;
     }
