@@ -26,10 +26,8 @@ public interface Waiter {
      */
     Timestamp timestamp();
 
+    /**
+     * @return {@code True} if the waiter holds the lock.
+     */
     boolean locked();
-
-    enum State {
-        PENDING,
-        LOCKED
-    }
 }

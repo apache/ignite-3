@@ -61,11 +61,12 @@ public class Timestamp implements Comparable<Timestamp> {
     }
 
     /**
-     * @return Next timestamp (monotonically increasing)
+     * @return Next timestamp (monotonically increasing).
      */
     public synchronized static Timestamp nextVersion() {
         long localTimeCpy = localTime;
 
+        // Truncate nanotime to 48 bits.
         localTime = Math.max(localTimeCpy, System.nanoTime() >> 16 << 16);
 
         if (localTimeCpy == localTime)

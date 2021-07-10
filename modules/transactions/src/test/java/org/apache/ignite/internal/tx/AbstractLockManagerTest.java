@@ -457,9 +457,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         stop.set(true);
 
-        for (Thread thread : threads) {
+        for (Thread thread : threads)
             thread.join();
-        }
 
         log.info("After test rLocks={} wLocks={} fLocks={}", rLocks.sum(), wLocks.sum(), fLocks.sum());
 

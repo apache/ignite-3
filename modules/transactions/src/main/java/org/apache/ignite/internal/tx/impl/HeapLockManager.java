@@ -39,40 +39,35 @@ import org.jetbrains.annotations.NotNull;
  * higher timestamp lock request is denied.
  */
 public class HeapLockManager implements LockManager {
+    /** */
     private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) throws LockException {
         return lockState(key).tryAcquire(timestamp);
     }
 
+    /** {@inheritDoc} */
     @Override public void tryRelease(Object key, Timestamp timestamp) {
         lockState(key).tryRelease(timestamp);
     }
 
+    /** {@inheritDoc} */
     @Override public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) throws LockException {
         return lockState(key).tryAcquireShared(timestamp);
     }
 
+    /** {@inheritDoc} */
     @Override public void tryReleaseShared(Object key, Timestamp timestamp) {
         lockState(key).tryReleaseShared(timestamp);
     }
 
+    /** {@inheritDoc} */
     private @NotNull LockState lockState(Object key) {
         return locks.computeIfAbsent(key, k -> new LockState());
     }
 
-    @Override public long readHoldCount(Object key) {
-        return 0;
-    }
-
-    @Override public boolean isReadLocked(Object key) {
-        return false;
-    }
-
-    @Override public boolean isWriteLocked(Object key) {
-        return false;
-    }
-
+    /** {@inheritDoc} */
     @Override public Collection<Timestamp> queue(Object key) {
         return lockState(key).queue();
     }
@@ -83,8 +78,13 @@ public class HeapLockManager implements LockManager {
 
     /** A lock state. */
     private static class LockState {
+        /** Waiters. */
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
 
+        /**
+         * @param timestamp The timestamp.
+         * @return The future.
+         */
         public CompletableFuture<Void> tryAcquire(Timestamp timestamp) {
             WaiterImpl w = new WaiterImpl(timestamp, false);
 
@@ -161,6 +161,10 @@ public class HeapLockManager implements LockManager {
             }
         }
 
+        /**
+         * @param timestamp The timestamp.
+         * @return The future.
+         */
         public CompletableFuture<Void> tryAcquireShared(Timestamp timestamp) {
             WaiterImpl waiter = new WaiterImpl(timestamp, true);
 
@@ -245,16 +249,27 @@ public class HeapLockManager implements LockManager {
         }
     }
 
+    /**
+     * The waiter implementation.
+     */
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
+        /** Locked future. */
         @IgniteToStringExclude
         private final CompletableFuture<Void> fut;
 
+        /** Waiter timestamp. */
         private final Timestamp timestamp;
 
-        private boolean forRead; // TODO use flags
+        /** {@code True} if a read request. */
+        private boolean forRead;
 
-        private volatile State state = State.PENDING; // TODO need volatile ?
+        /** The state. */
+        private boolean locked = false;
 
+        /**
+         * @param timestamp The timestamp.
+         * @param forRead {@code True} to request a read lock.
+         */
         WaiterImpl(Timestamp timestamp, boolean forRead) {
             this.fut = new CompletableFuture<>();
             this.timestamp = timestamp;
@@ -266,20 +281,23 @@ public class HeapLockManager implements LockManager {
             return timestamp.compareTo(o.timestamp);
         }
 
-        public void notifyLocked() {
+        /**
+         * Notifies a future listeners.
+         */
+        private void notifyLocked() {
             fut.complete(null);
         }
 
-        private void state(State state) {
-            this.state = state;
-        }
-
+        /** {@inheritDoc} */
         @Override public boolean locked() {
-            return this.state == State.LOCKED;
+            return this.locked;
         }
 
+        /**
+         * Grant a lock.
+         */
         private void lock() {
-            state(Waiter.State.LOCKED);
+            locked = true;
         }
 
         /** {@inheritDoc} */

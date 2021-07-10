@@ -59,24 +59,6 @@ public interface LockManager {
 
     /**
      * @param key The key.
-     * @return The number of read locks.
-     */
-    public long readHoldCount(Object key);
-
-    /**
-     * @param key The key.
-     * @return {@code True} if a key is locked for read.
-     */
-    public boolean isReadLocked(Object key);
-
-    /**
-     * @param key The key.
-     * @return {@code True} if a key is locked for write.
-     */
-    public boolean isWriteLocked(Object key);
-
-    /**
-     * @param key The key.
      * @return The waiters queue.
      */
     public Collection<Timestamp> queue(Object key);
