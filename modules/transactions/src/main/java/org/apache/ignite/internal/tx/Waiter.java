@@ -26,10 +26,7 @@ public interface Waiter {
      */
     Timestamp timestamp();
 
-    /**
-     * @return Current state.
-     */
-    State state();
+    boolean locked();
 
     enum State {
         PENDING,

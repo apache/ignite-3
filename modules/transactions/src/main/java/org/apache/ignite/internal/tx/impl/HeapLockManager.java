@@ -124,7 +124,7 @@ public class HeapLockManager implements LockManager {
 
                 if (first == null ||
                     !first.getKey().equals(timestamp) ||
-                    first.getValue().state() != Waiter.State.LOCKED ||
+                    !first.getValue().locked() ||
                     first.getValue().isForRead())
                     throw new LockException("Not exclusively locked by " + timestamp);
 
@@ -266,27 +266,15 @@ public class HeapLockManager implements LockManager {
             return timestamp.compareTo(o.timestamp);
         }
 
-        /**
-         * @return A future to wait until lock is granted.
-         */
-        public CompletableFuture<Void> future() {
-            return fut;
-        }
-
         public void notifyLocked() {
             fut.complete(null);
         }
 
-        /** {@inheritDoc} */
-        @Override public State state() {
-            return state;
-        }
-
-        public void state(State state) {
+        private void state(State state) {
             this.state = state;
         }
 
-        public boolean locked() {
+        @Override public boolean locked() {
             return this.state == State.LOCKED;
         }
 

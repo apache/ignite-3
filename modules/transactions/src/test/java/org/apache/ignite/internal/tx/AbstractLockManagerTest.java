@@ -27,7 +27,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -62,7 +61,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         Waiter waiter = lockManager.waiter(key, ts1);
 
-        assertEquals(Waiter.State.LOCKED, waiter.state());
+        assertTrue(waiter.locked());
 
         lockManager.tryRelease(key, ts1);
     }
@@ -85,15 +84,15 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertFalse(fut1.isDone());
 
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts1).state());
-        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts2).state());
+        assertTrue(lockManager.waiter(key, ts1).locked());
+        assertFalse(lockManager.waiter(key, ts2).locked());
 
         lockManager.tryRelease(key, ts1);
 
         assertTrue(fut1.isDone());
 
         assertNull(lockManager.waiter(key, ts1));
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts2).state());
+        assertTrue(lockManager.waiter(key, ts2).locked());
 
         lockManager.tryRelease(key, ts2);
 
@@ -124,31 +123,31 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         CompletableFuture<Void> fut3 = lockManager.tryAcquire(key, ts3);
         assertFalse(fut3.isDone());
 
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts0).state());
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts1).state());
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts2).state());
-        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts3).state());
+        assertTrue(lockManager.waiter(key, ts0).locked());
+        assertTrue(lockManager.waiter(key, ts1).locked());
+        assertTrue(lockManager.waiter(key, ts2).locked());
+        assertFalse(lockManager.waiter(key, ts3).locked());
 
         lockManager.tryReleaseShared(key, ts2);
 
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts0).state());
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts1).state());
+        assertTrue(lockManager.waiter(key, ts0).locked());
+        assertTrue(lockManager.waiter(key, ts1).locked());
         assertNull(lockManager.waiter(key, ts2));
-        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts3).state());
+        assertFalse(lockManager.waiter(key, ts3).locked());
 
         lockManager.tryReleaseShared(key, ts0);
 
         assertNull(lockManager.waiter(key, ts0));
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts1).state());
+        assertTrue(lockManager.waiter(key, ts1).locked());
         assertNull(lockManager.waiter(key, ts2));
-        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts3).state());
+        assertFalse(lockManager.waiter(key, ts3).locked());
 
         lockManager.tryReleaseShared(key, ts1);
 
         assertNull(lockManager.waiter(key, ts0));
         assertNull(lockManager.waiter(key, ts1));
         assertNull(lockManager.waiter(key, ts2));
-        assertEquals(Waiter.State.LOCKED, lockManager.waiter(key, ts3).state());
+        assertTrue(lockManager.waiter(key, ts3).locked());
     }
 
     @Test
@@ -223,7 +222,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         CompletableFuture<Void> fut2 = lockManager.tryAcquireShared(key, ts1);
         assertTrue(fut2.isDone());
 
-        assertEquals(Waiter.State.PENDING, lockManager.waiter(key, ts2).state());
+        assertFalse(lockManager.waiter(key, ts2).locked());
 
         lockManager.tryReleaseShared(key, ts1);
         lockManager.tryReleaseShared(key, ts0);
