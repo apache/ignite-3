@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.impl;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -87,25 +86,29 @@ public class HeapLockManager implements LockManager {
         private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
 
         public CompletableFuture<Void> tryAcquire(Timestamp timestamp) {
-            WaiterImpl w = new WaiterImpl(new CompletableFuture<>(), timestamp, false);
+            WaiterImpl w = new WaiterImpl(timestamp, false);
 
             synchronized (waiters) {
                 waiters.put(timestamp, w);
 
                 // Check lock compatibility.
-                NavigableMap<Timestamp, WaiterImpl> tailMap = waiters.tailMap(timestamp, false);
+                Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
 
-                // If we have a younger waiter in locked state, refuse to wait for lock.
-                if (!tailMap.isEmpty() && tailMap.firstEntry().getValue().state() == Waiter.State.LOCKED) {
+                // If we have a younger waiter in a locked state, when refuse to wait for lock.
+                if (nextEntry != null && nextEntry.getValue().locked()) {
                     waiters.remove(timestamp);
 
-                    throw new LockException("Lock can't be taken because of the conflict " + tailMap.firstEntry().getValue());
+                    throw new LockException(nextEntry.getValue());
                 }
 
-                // Lock oldest.
+                // Lock if oldest.
                 if (waiters.firstKey() == timestamp)
                     w.lock();
             }
+
+            // Notify outside the monitor.
+            if (w.locked())
+                w.notifyLocked();
 
             return w.fut;
         }
@@ -114,6 +117,8 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          */
         public void tryRelease(Timestamp timestamp) {
+            Collection<WaiterImpl> locked = new ArrayList<>();
+
             synchronized (waiters) {
                 Map.Entry<Timestamp, WaiterImpl> first = waiters.firstEntry();
 
@@ -123,75 +128,101 @@ public class HeapLockManager implements LockManager {
                     first.getValue().isForRead())
                     throw new LockException("Not exclusively locked by " + timestamp);
 
-                waiters.pollFirstEntry(); // TODO try avoid double get
+                waiters.pollFirstEntry();
 
                 if (waiters.isEmpty())
                     return;
 
                 // Lock next waiters.
-                first = waiters.firstEntry();
+                WaiterImpl waiter = waiters.firstEntry().getValue();
 
-                if (!first.getValue().isForRead())
-                    first.getValue().lock();
+                if (!waiter.isForRead()) {
+                    waiter.lock();
+
+                    locked.add(waiter);
+                }
                 else {
+                    // Grant lock to all adjasent readers.
                     for (Map.Entry<Timestamp, WaiterImpl> entry : waiters.entrySet()) {
                         if (!entry.getValue().isForRead())
                             break;
-                        else
+                        else {
                             entry.getValue().lock();
+
+                            locked.add(entry.getValue());
+                        }
                     }
                 }
+            }
+
+            // Notify outside the monitor.
+            for (WaiterImpl waiter : locked) {
+                waiter.notifyLocked();
             }
         }
 
         public CompletableFuture<Void> tryAcquireShared(Timestamp timestamp) {
-            WaiterImpl w = new WaiterImpl(new CompletableFuture<>(), timestamp, true);
+            WaiterImpl waiter = new WaiterImpl(timestamp, true);
 
             // Grant a lock to the oldest waiter.
             synchronized (waiters) {
-                waiters.put(timestamp, w);
+                waiters.put(timestamp, waiter);
 
                 // Check lock compatibility.
-                NavigableMap<Timestamp, WaiterImpl> tailMap = waiters.tailMap(timestamp, false);
+                Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
 
-                if (!tailMap.isEmpty() && tailMap.firstEntry().getValue().state() == Waiter.State.LOCKED && !tailMap.firstEntry().getValue().isForRead()) {
-                    waiters.remove(timestamp);
+                if (nextEntry != null) {
+                    WaiterImpl nextWaiter = nextEntry.getValue();
 
-                    throw new LockException("Lock can't be taken because of the conflict " + tailMap.firstEntry().getValue()); // TODO add conflicting waiter to the exception.
+                    if (nextWaiter.locked() && !nextWaiter.isForRead()) {
+                        waiters.remove(timestamp);
+
+                        throw new LockException(nextWaiter);
+                    }
                 }
 
-                NavigableMap<Timestamp, WaiterImpl> headMap = waiters.headMap(timestamp, false);
+                Map.Entry<Timestamp, WaiterImpl> prevEntry = waiters.lowerEntry(timestamp);
 
-                if (headMap.isEmpty() || headMap.lastEntry().getValue().isForRead())
-                    w.lock();
+                if (prevEntry == null || prevEntry.getValue().isForRead())
+                    waiter.lock();
             }
 
-            return w.fut;
+            // Notify outside the monitor.
+            if (waiter.locked())
+                waiter.notifyLocked();
+
+            return waiter.fut;
         }
 
         public void tryReleaseShared(Timestamp timestamp) {
+            WaiterImpl locked = null;
+
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(timestamp);
 
-                if (waiter == null ||
-                    waiter.state() != Waiter.State.LOCKED ||
-                    !waiter.isForRead())
+                if (waiter == null || !waiter.locked() || !waiter.isForRead())
                     throw new LockException("Not shared locked by " + timestamp);
 
-                NavigableMap<Timestamp, WaiterImpl> tailMap = waiters.tailMap(timestamp, true);
+                Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
 
-                tailMap.remove(timestamp);
+                waiters.remove(timestamp);
 
                 // Queue is empty.
-                if (tailMap.isEmpty())
+                if (nextEntry == null)
                     return;
 
                 // Lock next exclusive waiter.
-                Map.Entry<Timestamp, WaiterImpl> first = tailMap.firstEntry();
+                WaiterImpl nextWaiter = nextEntry.getValue();
 
-                if (!first.getValue().isForRead() && first.getKey().equals(waiters.firstEntry().getKey()))
-                    first.getValue().lock();
+                if (!nextWaiter.isForRead() && nextWaiter.timestamp().equals(waiters.firstEntry().getKey())) {
+                    nextWaiter.lock();
+
+                    locked = nextWaiter;
+                }
             }
+
+            if (locked != null)
+                locked.notifyLocked();
         }
 
         /**
@@ -217,12 +248,15 @@ public class HeapLockManager implements LockManager {
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
         @IgniteToStringExclude
         private final CompletableFuture<Void> fut;
-        private final Timestamp timestamp;
-        private boolean forRead; // TODO use flags
-        private volatile State state = State.PENDING;
 
-        WaiterImpl(CompletableFuture<Void> fut, Timestamp timestamp, boolean forRead) {
-            this.fut = fut;
+        private final Timestamp timestamp;
+
+        private boolean forRead; // TODO use flags
+
+        private volatile State state = State.PENDING; // TODO need volatile ?
+
+        WaiterImpl(Timestamp timestamp, boolean forRead) {
+            this.fut = new CompletableFuture<>();
             this.timestamp = timestamp;
             this.forRead = forRead;
         }
@@ -232,6 +266,17 @@ public class HeapLockManager implements LockManager {
             return timestamp.compareTo(o.timestamp);
         }
 
+        /**
+         * @return A future to wait until lock is granted.
+         */
+        public CompletableFuture<Void> future() {
+            return fut;
+        }
+
+        public void notifyLocked() {
+            fut.complete(null);
+        }
+
         /** {@inheritDoc} */
         @Override public State state() {
             return state;
@@ -239,6 +284,14 @@ public class HeapLockManager implements LockManager {
 
         public void state(State state) {
             this.state = state;
+        }
+
+        public boolean locked() {
+            return this.state == State.LOCKED;
+        }
+
+        private void lock() {
+            state(Waiter.State.LOCKED);
         }
 
         /** {@inheritDoc} */
@@ -251,12 +304,6 @@ public class HeapLockManager implements LockManager {
          */
         public boolean isForRead() {
             return forRead;
-        }
-
-        private void lock() {
-            state(Waiter.State.LOCKED);
-
-            fut.complete(null); // TODO !!!!! complete future outside synchronizer.
         }
 
         /** {@inheritDoc} */
