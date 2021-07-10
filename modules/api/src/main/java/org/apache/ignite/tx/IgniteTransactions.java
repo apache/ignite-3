@@ -15,25 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.tx;
 
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Consumer;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * Ignite Transactions entry.
  */
-public interface Ignite extends AutoCloseable {
+public interface IgniteTransactions {
     /**
-     * Gets an object for manipulate Ignite tables.
-     *
-     * @return Ignite tables.
+     * @return The stage.
      */
-    IgniteTables tables();
+    CompletionStage<AsyncTransaction> beginAsync();
 
     /**
-     * Get a transaction manager.
-     * @return Ignite transactions.
+     * @param clo The closure.
      */
-    IgniteTransactions transactions();
+    void doInTransaction(Consumer<Transaction> clo);
 }

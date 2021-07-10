@@ -15,25 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.tx;
 
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
+public interface Transaction {
+    void commit();
 
-/**
- * Ignite node interface. Main entry-point for all Ignite APIs.
- */
-public interface Ignite extends AutoCloseable {
-    /**
-     * Gets an object for manipulate Ignite tables.
-     *
-     * @return Ignite tables.
-     */
-    IgniteTables tables();
-
-    /**
-     * Get a transaction manager.
-     * @return Ignite transactions.
-     */
-    IgniteTransactions transactions();
+    void rollback();
 }
