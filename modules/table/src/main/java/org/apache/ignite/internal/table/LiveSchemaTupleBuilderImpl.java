@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -137,5 +138,14 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
                 colIdx++;
             }
         }));
+    }
+
+    /**
+     * Validate all column values after updating schema.
+     */
+    private void rebuildTupleWithNewSchema() {
+        Collection<String> colNames = schema().columnNames();
+
+        colNames.stream().filter(map::containsKey).forEach(name -> set(name, map.get(name)));
     }
 }

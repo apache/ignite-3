@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table;
 
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -35,7 +34,7 @@ import org.apache.ignite.table.TupleBuilder;
  */
 public class TupleBuilderImpl implements TupleBuilder, Tuple {
     /** Columns values. */
-    private final Map<String, Object> map;
+    protected final Map<String, Object> map;
 
     /** Current schema descriptor. */
     private SchemaDescriptor schemaDesc;
@@ -144,14 +143,5 @@ public class TupleBuilderImpl implements TupleBuilder, Tuple {
      */
     protected void schema(SchemaDescriptor schemaDesc) {
         this.schemaDesc = schemaDesc;
-    }
-
-    /**
-     * Validate all column values after updating schema.
-     */
-    protected void rebuildTupleWithNewSchema() {
-        Collection<String> colNames = schema().columnNames();
-
-        colNames.stream().filter(map::containsKey).forEach(name -> set(name, map.get(name)));
     }
 }
