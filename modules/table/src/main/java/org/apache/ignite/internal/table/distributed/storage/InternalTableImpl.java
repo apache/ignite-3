@@ -64,7 +64,7 @@ public class InternalTableImpl implements InternalTable {
     private UUID tableId;
 
     /** Table schema mode. */
-    private SchemaMode schemaMode;
+    private volatile SchemaMode schemaMode;
 
     /**
      * @param tableName Table name.
