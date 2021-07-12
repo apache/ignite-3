@@ -29,4 +29,10 @@ public interface IgniteClientConfiguration {
 
     /** Default value for {@code TCP_NODELAY} socket option (value is <tt>true</tt>). */
     boolean DFLT_TCP_NO_DELAY = true;
+
+    IgniteClientAddressFinder getAddressesFinder();
+
+    String[] getAddresses();
+
+    int getRetryLimit();
 }

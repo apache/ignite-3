@@ -511,30 +511,6 @@ final class ReliableChannel implements AutoCloseable {
 
         // Apply no-op function. Establish default channel connection.
         applyOnDefaultChannel(channel -> null);
-
-        if (partitionAwarenessEnabled)
-            initAllChannelsAsync();
-    }
-
-    /**
-     * Apply specified {@code function} on a channel corresponding to specified {@code nodeId}.
-     */
-    private <T> T applyOnNodeChannel(UUID nodeId, Function<ClientChannel, T> function) {
-        ClientChannelHolder hld = null;
-        ClientChannel channel = null;
-
-        try {
-            hld = nodeChannels.get(nodeId);
-
-            channel = hld != null ? hld.getOrCreateChannel() : null;
-
-            if (channel != null)
-                return function.apply(channel);
-        } catch (IgniteClientConnectionException e) {
-            onChannelFailure(hld, channel);
-        }
-
-        return null;
     }
 
     /** */
