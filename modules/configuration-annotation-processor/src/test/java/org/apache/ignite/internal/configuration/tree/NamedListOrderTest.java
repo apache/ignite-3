@@ -57,6 +57,7 @@ public class NamedListOrderTest {
     private static ConfigurationAsmGenerator cgen;
 
     private TestConfigurationStorage storage;
+
     private ConfigurationChanger changer;
 
     @BeforeAll
