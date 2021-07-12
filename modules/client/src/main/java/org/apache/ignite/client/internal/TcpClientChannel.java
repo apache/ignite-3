@@ -36,8 +36,8 @@ import org.msgpack.core.buffer.ByteBufferInput;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -59,12 +59,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private static final ProtocolVersion DEFAULT_VERSION = ProtocolVersion.LATEST_VER;
 
     /** Supported protocol versions. */
-    private static final Collection<ProtocolVersion> supportedVers = Arrays.asList(
+    private static final Collection<ProtocolVersion> supportedVers = Collections.singletonList(
             ProtocolVersion.V3_0_0
     );
-
-    /** Preallocated empty bytes. */
-    public static final byte[] EMPTY_BYTES = new byte[0];
 
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;

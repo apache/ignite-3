@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.client.internal;
 
-public class ClientIgnitionTest {
-    // TODO
+import org.apache.ignite.app.Ignite;
+import org.apache.ignite.table.manager.IgniteTables;
+
+public class IgniteClientImpl implements Ignite {
+    @Override
+    public IgniteTables tables() {
+        return null;
+    }
+
+    @Override
+    public void close() throws Exception {
+        // TODO: Disconnect
+    }
 }

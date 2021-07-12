@@ -17,14 +17,17 @@
 
 package org.apache.ignite.client;
 
-import org.apache.ignite.app.Ignite;
+import org.junit.jupiter.api.Test;
 
-// TODO:
-// 1. Define client config
-// 2. "Ignition" interface in ignite-api should be removed
-public class ClientIgnition {
-    // TODO: Async
-    public static Ignite startClient() {
-        return null;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class ClientConnectionTest {
+    @Test
+    public void TestConnection() throws Exception {
+        try (var client = IgniteClient.builder().build()) {
+            var tables = client.tables().tables();
+
+            assertEquals(0, tables.size());
+        }
     }
 }

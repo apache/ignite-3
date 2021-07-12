@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.internal;
+package org.apache.ignite.client;
 
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.client.internal.IgniteClientImpl;
 
-public class IgniteClient implements Ignite {
-    @Override
-    public IgniteTables tables() {
-        return null;
+import java.util.concurrent.CompletableFuture;
+
+// TODO: Builder pattern for configuration - see examples of Lettuce, Mongo clients.
+// * "Ignition" interface in ignite-api should be removed
+public class IgniteClient {
+    public static Builder builder() {
+        return new Builder();
     }
 
-    @Override
-    public void close() throws Exception {
-        // TODO: Disconnect
+    public static class Builder {
+        public Ignite build() {
+            return new IgniteClientImpl();
+        }
+
+        public CompletableFuture<Ignite> buildAsync() {
+            // TODO: Async connect.
+            return CompletableFuture.completedFuture(new IgniteClientImpl());
+        }
     }
 }
