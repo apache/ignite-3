@@ -76,7 +76,11 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             if (val == null)
                 return this;
 
+            if (liveSchemaColMap == null)
+                liveSchemaColMap = new HashMap();
+                
             liveSchemaColMap.put(colName, val);
+            
             return this;
         }
         super.set(colName, val);
