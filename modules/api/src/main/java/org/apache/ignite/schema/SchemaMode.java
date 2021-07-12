@@ -24,6 +24,6 @@ public enum SchemaMode {
     /** Default schema allows to create columns only explicitly by calling the ALTER_TABLE command. */
     STRICT_SCHEMA,
 
-    /** Live schema allows to create columns implicitly by adding previously nonexistent columns during insert. */
+    /** Extended mode that allows the schema to be fit the inserting data automatically. Only safe implicit schema changes are allowed, e.g. adding extra columns and widening column type. Changes like column removal or narrowing column type won't be applied implicitly. */
     LIVE_SCHEMA
 }
