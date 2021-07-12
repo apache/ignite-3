@@ -87,7 +87,7 @@ public class SqlQueryProcessor {
         return executionSrvc.executeQuery(schemaName, qry, params);
     }
 
-    private static abstract class AbstractTableEventListener implements EventListener<TableEventParameters> {
+    private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SchemaHolderImpl schemaHolder;
 
         private AbstractTableEventListener(

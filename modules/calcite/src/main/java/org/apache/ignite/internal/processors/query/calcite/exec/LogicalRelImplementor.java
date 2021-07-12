@@ -88,7 +88,6 @@ import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteReduceS
 import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.processors.query.calcite.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.processors.query.calcite.rel.set.IgniteSetOp;
-import org.apache.ignite.internal.processors.query.calcite.schema.IgniteIndex;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.trait.Destination;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
