@@ -314,6 +314,7 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
             case LIVE_SCHEMA:
                 return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
         }
+        
         throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
     }
 
