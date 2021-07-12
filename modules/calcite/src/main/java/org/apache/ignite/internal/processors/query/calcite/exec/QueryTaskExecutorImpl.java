@@ -51,7 +51,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
 
     /** {@inheritDoc} */
     @Override public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
-        LOG.info("Going to execute task for qryID={}, fragmentId={}", qryId, fragmentId);
         stripedThreadPoolExecutor.execute(
             () -> {
                 try {

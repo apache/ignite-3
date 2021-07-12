@@ -497,16 +497,16 @@ public final class Commons {
         assert type != null;
 
         switch (type.spec()) {
-            case BYTE:
+            case INT8:
                 return Byte.class;
 
-            case SHORT:
+            case INT16:
                 return Short.class;
 
-            case INTEGER:
+            case INT32:
                 return Integer.class;
 
-            case LONG:
+            case INT64:
                 return Long.class;
 
             case FLOAT:

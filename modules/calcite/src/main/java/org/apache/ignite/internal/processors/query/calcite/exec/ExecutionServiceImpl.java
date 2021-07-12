@@ -649,7 +649,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
         QueryInfo info = running.get(msg.queryId());
 
         if (info != null)
-            info.onResponse(nodeId, msg.fragmentId(), null/*msg.error()*/);
+            info.onResponse(nodeId, msg.fragmentId(), msg.error());
     }
 
     /** */

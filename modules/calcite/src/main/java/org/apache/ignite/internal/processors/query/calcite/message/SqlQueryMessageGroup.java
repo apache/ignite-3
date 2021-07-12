@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.query.calcite.message;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * Message types for the raft-client module.
+ * Message types for the sql query processing module.
  */
 @MessageGroup(groupType = 3, groupName = "SqlQueryMessages")
 public final class SqlQueryMessageGroup {

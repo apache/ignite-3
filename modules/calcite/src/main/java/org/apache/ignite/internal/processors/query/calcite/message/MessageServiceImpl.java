@@ -127,7 +127,8 @@ public class MessageServiceImpl implements MessageService {
         ClusterNode node = topSrvc.getByAddress(addr);
 
         if (node == null) {
-            LOG.warn("Received message from a dead node: addr={}, msg={}", addr, msg);
+            LOG.warn("Received a message from a node that has not yet" +
+                    " joined the cluster: addr={}, msg={}", addr, msg);
 
             return;
         }
@@ -138,7 +139,10 @@ public class MessageServiceImpl implements MessageService {
 
     /** */
     private void onMessageInternal(String nodeId, NetworkMessage msg) {
-        MessageListener lsnr = Objects.requireNonNull(lsnrs.get(msg.messageType()), "there is no listener for msgType=" + msg.groupType());
+        MessageListener lsnr = Objects.requireNonNull(
+                lsnrs.get(msg.messageType()),
+                "there is no listener for msgType=" + msg.groupType()
+        );
 
         lsnr.onMessage(nodeId, msg);
     }
