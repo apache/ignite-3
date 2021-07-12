@@ -50,7 +50,21 @@ public class NettyClientConnection implements ClientConnection {
         channel.close();
     }
 
-    public void onMessage(ByteBuffer buf) throws IOException {
+    /**
+     * Handles incoming message.
+     *
+     * @param buf Message.
+     */
+    void onMessage(ByteBuffer buf) throws IOException {
         msgHnd.onMessage(buf);
+    }
+
+    /**
+     * Handles disconnect.
+     *
+     * @param e Exception that caused the disconnect.
+     */
+    void onDisconnected(Exception e) {
+        stateHnd.onDisconnected(e);
     }
 }

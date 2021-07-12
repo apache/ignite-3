@@ -89,7 +89,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Constructor. */
     TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr)
-            throws IgniteClientException {
+            throws IgniteClientException, InterruptedException {
         validateConfiguration(cfg);
 
         asyncContinuationExecutor = ForkJoinPool.commonPool();

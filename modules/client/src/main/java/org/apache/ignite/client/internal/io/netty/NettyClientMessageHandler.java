@@ -31,4 +31,8 @@ public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
 
         ctx.channel().attr(ATTR_CONN).get().onMessage(ByteBuffer.wrap(buf));
     }
+
+    @Override public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().attr(ATTR_CONN).get().onDisconnected(null);
+    }
 }
