@@ -47,7 +47,6 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
 import org.apache.ignite.client.internal.io.netty.NettyClientConnectionMultiplexer;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 
 /**
  * Communication channel with failover and partition awareness.

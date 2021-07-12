@@ -80,10 +80,10 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
     @Override public ClientConnection open(InetSocketAddress addr,
                                            ClientMessageHandler msgHnd,
                                            ClientConnectionStateHandler stateHnd)
-            throws IgniteClientConnectionException, InterruptedException {
+            throws IgniteClientConnectionException {
 
         // TODO: Make this method async.
-        ChannelFuture f = bootstrap.connect(addr).sync();
+        ChannelFuture f = bootstrap.connect(addr).syncUninterruptibly();
 
         return new NettyClientConnection(f.channel(), msgHnd, stateHnd);
     }

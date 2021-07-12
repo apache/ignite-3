@@ -48,5 +48,5 @@ import org.apache.ignite.client.IgniteClientConnectionException;
             InetSocketAddress addr,
             ClientMessageHandler msgHnd,
             ClientConnectionStateHandler stateHnd)
-            throws IgniteClientConnectionException, InterruptedException;
+            throws IgniteClientConnectionException;
 }
