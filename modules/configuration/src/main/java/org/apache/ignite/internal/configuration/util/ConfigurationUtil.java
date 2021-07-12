@@ -453,7 +453,7 @@ public class ConfigurationUtil {
 
             /**
              * Here we must list all joined keys belonging to deleted or created element. The only way to do it is to
-             * traverse whole configuration tree unconditionally.
+             * traverse the entire configuration tree unconditionally.
              */
             private void visitAsymmetricInnerNode(InnerNode node, boolean delete) {
                 assert !singleTreeTraversal;

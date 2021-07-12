@@ -23,10 +23,12 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+/** Test with basic {@link OrderedMap} invariants. */
 public class OrderedMapTest {
-
+    /** Map instance. */
     private OrderedMap<String> map = new OrderedMap<>();
 
+    /** Tests put/get/remove consistency on a single key. */
     @Test
     public void putGetRemove() {
         assertNull(map.get("key1"));
@@ -41,6 +43,7 @@ public class OrderedMapTest {
         assertNull(map.get("key1"));
     }
 
+    /** Tests that {@link OrderedMap#put(String, Object)} preserves order. */
     @Test
     public void keysOrder() {
         map.put("key1", "value1");
@@ -64,6 +67,7 @@ public class OrderedMapTest {
         assertEquals(List.of("key2", "key1"), map.keys());
     }
 
+    /** Tests that {@link OrderedMap#putByIndex(int, String, Object)} preserves order. */
     @Test
     public void putByIndex() {
         map.putByIndex(0, "key1", "value1");
@@ -85,6 +89,7 @@ public class OrderedMapTest {
         assertEquals(List.of("key2", "key3", "key1", "key4", "key5"), map.keys());
     }
 
+    /** Tests that {@link OrderedMap#putAfter(String, String, Object)} preserves order. */
     @Test
     public void putAfter() {
         map.putAfter("foo", "key1", "value1");
@@ -108,6 +113,7 @@ public class OrderedMapTest {
         assertEquals(List.of("key1", "key3", "key2", "key4", "key5"), map.keys());
     }
 
+    /** Tests basic invariants of {@link OrderedMap#rename(String, String)} method. */
     @Test
     public void rename() {
         map.put("key1", "value1");
@@ -121,6 +127,7 @@ public class OrderedMapTest {
         assertEquals(List.of("key1", "key4", "key3"), map.keys());
     }
 
+    /** Tests that {@link OrderedMap#reorderKeys(List)} reorders keys properly. */
     @Test
     public void reorderKeys() {
         map.put("key1", "value1");
