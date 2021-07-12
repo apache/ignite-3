@@ -25,11 +25,15 @@ import java.util.function.Consumer;
  */
 public interface IgniteTransactions {
     /**
+     * Begin the asynchronous transaction.
+     *
      * @return The stage.
      */
     CompletionStage<AsyncTransaction> beginAsync();
 
     /**
+     * Run the closure within a transaction.
+     *
      * @param clo The closure.
      */
     void doInTransaction(Consumer<Transaction> clo);
