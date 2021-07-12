@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.internal;
 
-import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;
@@ -57,7 +56,7 @@ public class IgniteClientTables implements IgniteTables {
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++)
-                res.add(new ClientTable(in.unpackUuid(), in.unpackString()));
+                res.add(new ClientTable(ch, in.unpackUuid(), in.unpackString()));
 
             return res;
         });
@@ -65,7 +64,7 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table table(String name) {
-        // TODO
-        return null;
+        return ch.service(ClientOp.TABLE_GET, w -> w.out().packString(name),
+                r -> new ClientTable(ch, r.in().unpackUuid(), name));
     }
 }

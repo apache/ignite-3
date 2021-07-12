@@ -43,10 +43,15 @@ public class ClientTable implements Table {
     /** */
     private final String name;
 
-    public ClientTable(UUID id, String name) {
+    /** */
+    private final ReliableChannel ch;
+
+    public ClientTable(ReliableChannel ch, UUID id, String name) {
+        assert ch != null;
         assert id != null;
         assert name != null && name.length() > 0;
 
+        this.ch = ch;
         this.id = id;
         this.name = name;
     }
