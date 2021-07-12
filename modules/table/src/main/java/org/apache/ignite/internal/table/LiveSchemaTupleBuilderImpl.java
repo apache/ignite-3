@@ -40,7 +40,7 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
  */
 public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
     /** Live schema column values. */
-    private final Map<String, Object> liveSchemaColMap;
+    private Map<String, Object> liveSchemaColMap;
 
     /** Schema registry. */
     private final SchemaRegistry schemaRegistry;
@@ -65,7 +65,7 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
         this.tblName = tblName;
         this.mgr = mgr;
 
-        liveSchemaColMap = new HashMap<>();
+        liveSchemaColMap = null;
     }
 
     /** {@inheritDoc} */
@@ -77,7 +77,7 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
                 return this;
 
             if (liveSchemaColMap == null)
-                liveSchemaColMap = new HashMap();
+                liveSchemaColMap = new HashMap<>();
                 
             liveSchemaColMap.put(colName, val);
             
@@ -90,6 +90,9 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
 
     /** {@inheritDoc} */
     @Override public Tuple build() {
+        if (liveSchemaColMap == null)
+            return this;
+
         Map<String, ColumnType> colTypeMap = new HashMap<>();
 
         for (Map.Entry<String, Object> entry : liveSchemaColMap.entrySet()) {
@@ -104,11 +107,12 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             colTypeMap.put(colName, type);
         }
 
-        if (!colTypeMap.isEmpty()) {
-            createColumns(colTypeMap);
-            this.schema(schemaRegistry.schema());
-            rebuildTupleWithNewSchema();
-        }
+        if (colTypeMap.isEmpty())
+            return this;
+
+        createColumns(colTypeMap);
+        this.schema(schemaRegistry.schema());
+        rebuildTupleWithNewSchema();
 
         liveSchemaColMap.forEach(super::set);
 
