@@ -18,4 +18,15 @@
 package org.apache.ignite.client;
 
 public interface IgniteClientConfiguration {
+    /** Default port. */
+    int DFLT_PORT = 10800;
+
+    /** Default port range. */
+    int DFLT_PORT_RANGE = 100;
+
+    /** Default socket send and receive buffer size. */
+    int DFLT_SOCK_BUF_SIZE = 0;
+
+    /** Default value for {@code TCP_NODELAY} socket option (value is <tt>true</tt>). */
+    boolean DFLT_TCP_NO_DELAY = true;
 }
