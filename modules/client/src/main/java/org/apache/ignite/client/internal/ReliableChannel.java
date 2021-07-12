@@ -139,7 +139,7 @@ final class ReliableChannel implements AutoCloseable {
      */
     public <T> T service(
             ClientOp op,
-            Consumer<PayloadOutputChannel> payloadWriter,
+            PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         return applyOnDefaultChannel(channel ->
@@ -152,7 +152,7 @@ final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(
             ClientOp op,
-            Consumer<PayloadOutputChannel> payloadWriter,
+            PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         CompletableFuture<T> fut = new CompletableFuture<>();
@@ -168,7 +168,7 @@ final class ReliableChannel implements AutoCloseable {
      */
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
                                         ClientOp op,
-                                        Consumer<PayloadOutputChannel> payloadWriter,
+                                        PayloadWriter payloadWriter,
                                         PayloadReader<T> payloadReader,
                                         int attemptsLimit,
                                         IgniteClientConnectionException failure) {
@@ -264,7 +264,7 @@ final class ReliableChannel implements AutoCloseable {
     /**
      * Send request and handle response without payload.
      */
-    public void request(ClientOp op, Consumer<PayloadOutputChannel> payloadWriter)
+    public void request(ClientOp op, PayloadWriter payloadWriter)
             throws IgniteClientException {
         service(op, payloadWriter, null);
     }
@@ -272,7 +272,7 @@ final class ReliableChannel implements AutoCloseable {
     /**
      * Send request and handle response without payload.
      */
-    public CompletableFuture<Void> requestAsync(ClientOp op, Consumer<PayloadOutputChannel> payloadWriter)
+    public CompletableFuture<Void> requestAsync(ClientOp op, PayloadWriter payloadWriter)
             throws IgniteClientException {
         return serviceAsync(op, payloadWriter, null);
     }

@@ -131,7 +131,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override public <T> T service(
             ClientOp op,
-            Consumer<PayloadOutputChannel> payloadWriter,
+            PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         ClientRequestFuture fut = send(op, payloadWriter);
@@ -142,7 +142,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override public <T> CompletableFuture<T> serviceAsync(
             ClientOp op,
-            Consumer<PayloadOutputChannel> payloadWriter,
+            PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) {
         try {
@@ -163,7 +163,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(ClientOp op, Consumer<PayloadOutputChannel> payloadWriter)
+    private ClientRequestFuture send(ClientOp op, PayloadWriter payloadWriter)
             throws IgniteClientException {
         long id = reqId.getAndIncrement();
 
@@ -228,7 +228,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (payload == null || payloadReader == null)
                 return null;
 
-            return payloadReader.apply(new PayloadInputChannel(this, payload));
+            try {
+                return payloadReader.apply(new PayloadInputChannel(this, payload));
+            } catch (Exception e) {
+                throw new IgniteException("Failed to serialize client request: " + e.getMessage(), e);
+            }
         });
     }
 

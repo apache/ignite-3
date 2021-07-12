@@ -46,7 +46,7 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public void dropTable(String name) {
-        // ch.request(ClientOp.TABLE_DROP, w -> w.out().packString(name));
+        ch.request(ClientOp.TABLE_DROP, w -> w.out().packString(name));
     }
 
     /** {@inheritDoc} */
