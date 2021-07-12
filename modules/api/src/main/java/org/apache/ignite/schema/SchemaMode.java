@@ -21,7 +21,7 @@ package org.apache.ignite.schema;
  * Schema types.
  */
 public enum SchemaMode {
-    /** Default schema allows to create columns only explicitly by calling the ALTER_TABLE command. */
+    /** Normal mode offers strong validation for the inserting data. Explicit schema changes only are allowed. */
     STRICT_SCHEMA,
 
     /** Extended mode that allows the schema to be fit the inserting data automatically. Only safe implicit schema changes are allowed, e.g. adding extra columns and widening column type. Changes like column removal or narrowing column type won't be applied implicitly. */
