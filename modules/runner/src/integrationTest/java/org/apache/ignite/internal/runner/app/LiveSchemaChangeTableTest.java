@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.schema.SchemaType;
+import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
@@ -44,6 +44,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     /**
+     * Check exception for unknown column when STRICT_SCHEMA is enabled.
+     */
+    @Test
+    public void testStrictSchemaInsertRowOfNewSchema() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        Table tbl = grid.get(1).tables().table(TABLE);
+
+        assertThrows(ColumnNotFoundException.class, () -> tbl.tupleBuilder().set("key", 1L).set("unknownColumn", 10).build());
+    }
+
+    /**
      * Check insert row of new schema.
      */
     @Test
@@ -54,11 +68,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        Tuple oldSchemaTuple = tbl.tupleBuilder().set("key", 32L).set("valInt", 111).set("valStr", "str").build();
-
-        tbl.insert(oldSchemaTuple);
-
-        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
         Tuple row = tbl.tupleBuilder().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333).build();
 
@@ -85,11 +95,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         tbl.insert(oldSchemaTuple);
 
-        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
-
-        Tuple row = tbl.tupleBuilder().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333).build();
-
-        tbl.insert(row);
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
         Tuple upsertOldSchemaTuple = tbl.tupleBuilder().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333).build();
 
@@ -114,7 +120,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Tuple oldSchemaTuple = tbl.tupleBuilder().set("key", 32L).set("valInt", 111).set("valStr", "str").build();
 
-        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
         Tuple row = tbl.tupleBuilder().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333).build();
 
@@ -135,7 +141,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     }
 
     /**
-     * Check live schema kvBinaryView add columns
+     * Check live schema kvBinaryView add columns.
      */
     @Test
     public void testLiveSchemaAddColumnsKVBinaryView() {
@@ -145,7 +151,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
         KeyValueBinaryView kvBinaryView = tbl.kvView();
 
@@ -171,7 +177,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     }
 
     /**
-     * Check live schema tuple can handle different value types
+     * Check live schema tuple can handle different value types.
      */
     @Test
     public void testLiveSchemaDifferentColumnTypes() {
@@ -181,7 +187,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
         UUID uuid = UUID.randomUUID();
 
@@ -229,7 +235,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     }
 
     /**
-     * Check live schema tuple update schema only once
+     * Check live schema tuple update schema only once.
      */
     @Test
     public void testLiveSchemaBuilderUpdateSchemaOnlyOnce() {
@@ -239,7 +245,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
         UUID uuid = UUID.randomUUID();
 
@@ -265,7 +271,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     }
 
     /**
-     * Check live schema tuple can handle unsupported values and null`s correctly
+     * Check live schema tuple can handle unsupported values and null`s correctly.
      */
     @Test
     public void testLiveSchemaNullAndUnsupportedTypes() {
@@ -275,7 +281,7 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         Table tbl = grid.get(1).tables().table(TABLE);
 
-        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
         assertDoesNotThrow(() -> tbl.tupleBuilder().set("newBrokenColumn", new Object()));
         assertThrows(UnsupportedOperationException.class, () -> tbl.tupleBuilder().set("newBrokenColumn", new Object()).build());

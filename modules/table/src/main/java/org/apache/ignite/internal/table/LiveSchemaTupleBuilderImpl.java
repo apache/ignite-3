@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -71,7 +70,7 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder set(String colName, Object val) {
-        Column col = schemaRegistry.schema().column(colName);
+        Column col = schema().column(colName);
 
         if (col == null) {
             if (val == null)
@@ -80,7 +79,6 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             liveSchemaColMap.put(colName, val);
             return this;
         }
-
         super.set(colName, val);
 
         return this;
@@ -102,8 +100,11 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             colTypeMap.put(colName, type);
         }
 
-        if (!colTypeMap.isEmpty())
+        if (!colTypeMap.isEmpty()) {
             createColumns(colTypeMap);
+            this.schema(schemaRegistry.schema());
+            rebuildTupleWithNewSchema();
+        }
 
         liveSchemaColMap.forEach(super::set);
 
@@ -128,14 +129,5 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
                 colIdx++;
             }
         }));
-    }
-
-    /**
-     * Get last schema descriptor.
-     *
-     * @return Schema descriptor.
-     */
-    public SchemaDescriptor schema() {
-        return schemaRegistry.schema();
     }
 }

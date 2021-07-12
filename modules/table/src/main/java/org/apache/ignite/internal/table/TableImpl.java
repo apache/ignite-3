@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.schema.SchemaType;
+import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.table.InvokeProcessor;
@@ -53,9 +53,6 @@ public class TableImpl extends AbstractTableView implements Table {
     /** Table manager. */
     private final TableManager tblMgr;
 
-    /** Table schema type. May be STRICT or LIVE */
-    private SchemaType schemaType;
-
     /**
      * Constructor.
      *
@@ -66,7 +63,6 @@ public class TableImpl extends AbstractTableView implements Table {
         super(tbl, schemaReg);
 
         marsh = new TupleMarshallerImpl(schemaReg);
-        schemaType = SchemaType.STRICT_SCHEMA;
 
         this.tblMgr = tblMgr;
     }
@@ -106,7 +102,7 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public KeyValueBinaryView kvView() {
-        return new KVBinaryViewImpl(tbl, schemaReg, tblMgr, schemaType);
+        return new KVBinaryViewImpl(tbl, schemaReg, tblMgr);
     }
 
     /** {@inheritDoc} */
@@ -387,13 +383,13 @@ public class TableImpl extends AbstractTableView implements Table {
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        switch (schemaType) {
+        switch (tbl.schemaMode()) {
             case STRICT_SCHEMA:
                 return new TupleBuilderImpl(schemaReg.schema());
             case LIVE_SCHEMA:
                 return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
         }
-        throw new IllegalArgumentException("Unknown schema type: " + schemaType);
+        throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
     }
 
     /**
@@ -428,9 +424,9 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /**
-     * @param schemaType New schema type.
+     * @param schemaMode New schema type.
      */
-    public void schemaType(SchemaType schemaType) {
-        this.schemaType = schemaType;
+    public void schemaType(SchemaMode schemaMode) {
+        this.tbl.schema(schemaMode);
     }
 }

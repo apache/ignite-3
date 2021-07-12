@@ -20,7 +20,7 @@ package org.apache.ignite.schema;
 /**
  * Schema types.
  */
-public enum SchemaType {
+public enum SchemaMode {
     /** Default schema allows to create columns only explicitly by calling the ALTER_TABLE command. */
     STRICT_SCHEMA,
 
