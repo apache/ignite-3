@@ -34,6 +34,9 @@ public class TcpIgniteClient implements Ignite {
     /** Channel. */
     private final ReliableChannel ch;
 
+    /** Tables. */
+    private final IgniteClientTables tables;
+
     /**
      * Private constructor.
      */
@@ -51,12 +54,15 @@ public class TcpIgniteClient implements Ignite {
         ch = new ReliableChannel(chFactory, cfg);
 
         try {
+            // TODO: Async init.
             ch.channelsInit();
         }
         catch (Exception e) {
             ch.close();
             throw e;
         }
+
+        tables = new IgniteClientTables(ch);
     }
 
     /**
