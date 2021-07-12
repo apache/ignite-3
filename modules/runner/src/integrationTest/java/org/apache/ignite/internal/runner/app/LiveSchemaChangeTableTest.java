@@ -25,7 +25,6 @@ import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TupleBuilderImpl;
-import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleBuilder;
@@ -141,10 +140,10 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     }
 
     /**
-     * Check live schema kvBinaryView add columns.
+     * Check strict schema works correctly after live schema
      */
     @Test
-    public void testLiveSchemaAddColumnsKVBinaryView() {
+    public void testLiveSchemaAddColumnsSwitchToStrict() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -153,27 +152,55 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
 
-        KeyValueBinaryView kvBinaryView = tbl.kvView();
+        Tuple val = tbl.tupleBuilder().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333).build();
 
-        Tuple key = kvBinaryView.tupleBuilder().set("key", 1L).build();
-        Tuple val = kvBinaryView.tupleBuilder().set("valStrNew", "111").set("valIntNew", 333).build();
+        tbl.insert(val);
 
-        kvBinaryView.put(key, val);
-
-        Tuple key2 = kvBinaryView.tupleBuilder().set("key", 2L).build();
-        Tuple val2 = kvBinaryView.tupleBuilder().set("valStrNew", "222").set("valIntNew", 42).build();
-
-        kvBinaryView.put(key2, val2);
-
-        Tuple res = kvBinaryView.get(key);
+        Tuple res = tbl.get(val);
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
 
 
-        Tuple res2 = kvBinaryView.get(key2);
+        ((TableImpl)tbl).schemaType(SchemaMode.STRICT_SCHEMA);
 
-        assertEquals("222", res2.value("valStrNew"));
-        assertEquals(Integer.valueOf(42), res2.value("valIntNew"));
+        Tuple anotherKey = tbl.tupleBuilder().set("key", 2L).set("valStrNew", "111").set("valIntNew", 333).build();
+
+        tbl.insert(anotherKey);
+
+        Tuple newRes = tbl.get(anotherKey);
+
+        assertEquals("111", newRes.value("valStrNew"));
+        assertEquals(Integer.valueOf(333), newRes.value("valIntNew"));
+
+        assertThrows(ColumnNotFoundException.class, () -> tbl.tupleBuilder().set("key", 1L).set("unknownColumn", 10).build());
+    }
+
+    /**
+     * Check upsert row of old schema with row of new schema.
+     */
+    @Test
+    public void testLiveSchemaUpsertSchemaTwice() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        Table tbl = grid.get(1).tables().table(TABLE);
+
+        ((TableImpl)tbl).schemaType(SchemaMode.LIVE_SCHEMA);
+
+        Tuple oldSchemaVal = tbl.tupleBuilder().set("key", 32L).set("valInt", 111).set("valStr", "str").build();
+        Tuple upsertOldSchemaVal = tbl.tupleBuilder().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333).build();
+        Tuple secondUpsertOldSchemaVal = tbl.tupleBuilder().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333).set("anotherNewVal", 48L).build();
+
+        tbl.insert(oldSchemaVal);
+        tbl.upsert(upsertOldSchemaVal);
+        tbl.upsert(secondUpsertOldSchemaVal);
+
+        Tuple oldSchemaRes = tbl.get(secondUpsertOldSchemaVal);
+
+        assertEquals("111", oldSchemaRes.value("valStrNew"));
+        assertEquals(Integer.valueOf(333), oldSchemaRes.value("valIntNew"));
+        assertEquals(Long.valueOf(48L), oldSchemaRes.value("anotherNewVal"));
     }
 
     /**
