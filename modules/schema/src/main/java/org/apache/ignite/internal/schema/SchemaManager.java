@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.schema.PrimaryIndex;
 import org.apache.ignite.schema.SchemaTable;
 import org.jetbrains.annotations.NotNull;
 
@@ -170,6 +172,39 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
+     * @param oldTblCfg Table old configuration.
+     * @param newTblCfg Table new configuration.
+     * @return {@code true} if schema was changed, {@code false} otherwise.
+     */
+    public static boolean schemaChanged(TableView oldTblCfg, TableView newTblCfg) {
+        return !newTblCfg.columns().namedListKeys().equals(oldTblCfg.columns().namedListKeys()) ||
+            newTblCfg.columns().namedListKeys().stream().anyMatch(k -> {
+                final ColumnView newCol = newTblCfg.columns().get(k);
+                final ColumnView oldCol = oldTblCfg.columns().get(k);
+
+                assert oldCol != null;
+
+                if (!Objects.equals(newCol.type(), oldCol.type()))
+                    throw new SchemaModificationException("Columns type change is not supported.");
+
+                if (!Objects.equals(newCol.nullable(), oldCol.nullable()))
+                    throw new SchemaModificationException("Column nullability change is not supported");
+
+                if (!Objects.equals(newCol.name(), oldCol.name()) &&
+                    oldTblCfg.indices().namedListKeys().stream()
+                        .map(n -> oldTblCfg.indices().get(n))
+                        .filter(idx -> PrimaryIndex.PRIMARY_KEY_INDEX_NAME.equals(idx.name()))
+                        .anyMatch(idx -> idx.columns().namedListKeys().stream()
+                            .anyMatch(c -> idx.columns().get(c).name().equals(oldCol.name()))
+                        ))
+                    throw new SchemaModificationException("Key column rename is not supported");
+
+                return !Objects.equals(newCol.name(), oldCol.name()) ||
+                    !Objects.equals(newCol.defaultValue(), oldCol.defaultValue());
+            });
+    }
+
+    /**
      * Creates schema registry for the table with existed schema or
      * registers initial schema from configuration.
      *
@@ -209,49 +244,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      *
      * @param tblId Table id.
      * @param tblName Table name.
-     * @return Operation future.
-     */
-    public CompletableFuture<Boolean> updateSchemaForTable(final UUID tblId, String tblName) {
-        return vaultMgr.get(ByteArray.fromString(INTERNAL_PREFIX + tblId)).
-            thenCompose(entry -> {
-                TableConfiguration tblConfig = configurationMgr.configurationRegistry().
-                    getConfiguration(TablesConfiguration.KEY).tables().get(tblName);
-
-                assert !entry.empty();
-
-                final int oldVer = (int)ByteUtils.bytesToLong(entry.value(), 0);
-                final int newVer = oldVer + 1;
-
-                final ByteArray lastVerKey = new ByteArray(INTERNAL_PREFIX + tblId);
-                final ByteArray schemaKey = new ByteArray(INTERNAL_PREFIX + tblId + INTERNAL_VER_SUFFIX + newVer);
-
-                SchemaTable schemaTable = SchemaConfigurationConverter.convert(tblConfig.value());
-                final SchemaDescriptor desc = SchemaDescriptorConverter.convert(tblId, newVer, schemaTable);
-
-                return metaStorageMgr.invoke(Conditions.notExists(schemaKey),
-                    Operations.put(schemaKey, ByteUtils.toBytes(desc)),
-                    Operations.noop())
-                    //TODO: IGNITE-14679 Serialize schema.
-                    .thenCompose(res -> metaStorageMgr.invoke(
-                        Conditions.value(lastVerKey).eq(ByteUtils.longToBytes(oldVer)),
-                        Operations.put(lastVerKey, ByteUtils.longToBytes(newVer)),
-                        Operations.noop()));
-            });
-    }
-
-    /**
-     * Creates schema registry for the table with existed schema or
-     * registers initial schema from configuration.
-     *
-     * @param tblId Table id.
-     * @param tblName Table name.
      * @param oldTbl Old table configuration.
      * @param newTbl New table configuraiton.
      * @return Operation future.
      */
     public CompletableFuture<Boolean> updateSchemaForTable(
         final UUID tblId,
-        String tblName,
         TableView oldTbl,
         TableView newTbl
     ) {
