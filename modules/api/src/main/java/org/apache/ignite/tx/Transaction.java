@@ -17,8 +17,29 @@
 
 package org.apache.ignite.tx;
 
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * The transaction.
+ */
 public interface Transaction {
+    /**
+     * Synchronously commit a transaction.
+     */
     void commit();
 
+    /**
+     * Asynchronously commit a transaction.
+     */
+    CompletableFuture<Void> commitAsync();
+
+    /**
+     * Synchronously rollback a transaction if it's not finished.
+     */
     void rollback();
+
+    /**
+     * Asynchronously rollback a transaction if it's not finished.
+     */
+    CompletableFuture<Void> rollbackAsync();
 }

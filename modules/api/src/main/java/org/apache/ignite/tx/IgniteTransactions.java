@@ -17,24 +17,25 @@
 
 package org.apache.ignite.tx;
 
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * Ignite Transactions entry.
+ * Ignite Transactions.
  */
 public interface IgniteTransactions {
     /**
-     * Begin the asynchronous transaction.
+     * Begin the transaction.
      *
-     * @return The stage.
+     * @return The completion stage.
      */
-    CompletionStage<AsyncTransaction> beginAsync();
+    CompletableFuture<Transaction> beginAsync();
 
     /**
-     * Run the closure within a transaction.
+     * Begin the transaction.
+     * @param The closure to run in a transaction.
      *
-     * @param clo The closure.
+     * @return The transaction.
      */
-    void doInTransaction(Consumer<Transaction> clo);
+    void runInTransaction(Consumer<Transaction> clo);
 }
