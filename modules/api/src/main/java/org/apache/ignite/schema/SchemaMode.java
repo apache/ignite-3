@@ -18,7 +18,9 @@
 package org.apache.ignite.schema;
 
 /**
- * Schema types.
+ * Schema mode.
+ *
+ * Defines the way inserting data will be validated against the schema and schema evolution capabilities.
  */
 public enum SchemaMode {
     /** Normal mode offers strong validation for the inserting data. Explicit schema changes only are allowed. */
