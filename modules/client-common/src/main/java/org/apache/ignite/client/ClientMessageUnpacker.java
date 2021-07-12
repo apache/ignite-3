@@ -26,6 +26,8 @@ import org.msgpack.core.buffer.MessageBufferInput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -59,5 +61,16 @@ public class ClientMessageUnpacker extends MessageUnpacker {
         bb.order(ByteOrder.BIG_ENDIAN);
 
         return new UUID(bb.getLong(), bb.getLong());
+    }
+
+    public List<String> unpackStringArrayAsList() throws IOException {
+        var cnt = unpackArrayHeader();
+
+        var res = new ArrayList<String>(cnt);
+
+        for (int i = 0; i < cnt; i++)
+            res.add(unpackString());
+
+        return res;
     }
 }

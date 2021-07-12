@@ -38,6 +38,7 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
+        // TODO
         return null;
     }
 
@@ -48,11 +49,12 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public List<Table> tables() {
-        return null;
+        return ch.service(ClientOp.TABLES_GET, r -> r.in().unpackStringArrayAsList());
     }
 
     /** {@inheritDoc} */
     @Override public Table table(String name) {
+        // TODO
         return null;
     }
 }
