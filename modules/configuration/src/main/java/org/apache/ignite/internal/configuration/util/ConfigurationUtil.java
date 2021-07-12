@@ -403,11 +403,11 @@ public class ConfigurationUtil {
 
                 // Old keys ordering can be ignored if we either create or delete everything.
                 Map<String, Integer> oldKeysToOrderIdxMap = singleTreeTraversal ? null
-                    : keysToOrderIdx(oldNode.namedListKeys());
+                    : keysToOrderIdx(oldNode);
 
                 // New keys ordering can be ignored if we delete everything.
                 Map<String, Integer> newKeysToOrderIdxMap = deletion ? null
-                    : keysToOrderIdx(newNode.namedListKeys());
+                    : keysToOrderIdx(newNode);
 
                 for (String namedListKey : newNode.namedListKeys()) {
                     withTracking(namedListKey, true, false, () -> {
@@ -475,16 +475,18 @@ public class ConfigurationUtil {
     }
 
     /**
-     * @param keys List of keys.
+     * @param node Named list node.
      * @return Map that contains same keys and their positions as values.
      */
-    private static Map<String, Integer> keysToOrderIdx(List<String> keys) {
+    private static Map<String, Integer> keysToOrderIdx(NamedListNode<?> node) {
         Map<String, Integer> res = new HashMap<>();
 
         int idx = 0;
 
-        for (String key : keys)
-            res.put(key, idx++);
+        for (String key : node.namedListKeys()) {
+            if (node.get(key) != null)
+                res.put(key, idx++);
+        }
 
         return res;
     }
