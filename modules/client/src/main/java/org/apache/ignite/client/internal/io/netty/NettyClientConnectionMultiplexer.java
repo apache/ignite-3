@@ -21,11 +21,11 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ignite.client.ClientMessageDecoder;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.internal.io.ClientConnection;
 import org.apache.ignite.client.internal.io.ClientConnectionMultiplexer;
@@ -36,21 +36,27 @@ import java.net.InetSocketAddress;
 
 public class NettyClientConnectionMultiplexer implements ClientConnectionMultiplexer {
     /** */
-    private NioEventLoopGroup workerGroup;
+    private final IgniteClientConfiguration clientCfg;
 
     /** */
-    private Bootstrap bootstrap;
+    private final NioEventLoopGroup workerGroup;
+
+    /** */
+    private final Bootstrap bootstrap;
+
+    public NettyClientConnectionMultiplexer(IgniteClientConfiguration clientCfg) {
+        this.clientCfg = clientCfg;
+        workerGroup = new NioEventLoopGroup();
+        bootstrap = new Bootstrap();
+    }
 
     @Override public void start() {
-        workerGroup = new NioEventLoopGroup();
-
+        // TODO: Is this method needed?
         try {
-            bootstrap = new Bootstrap();
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-
                 @Override
                 public void initChannel(SocketChannel ch)
                         throws Exception {
@@ -68,9 +74,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
     }
 
     @Override public void stop() {
-        if (workerGroup != null) {
-            workerGroup.shutdownGracefully();
-        }
+        workerGroup.shutdownGracefully();
     }
 
     @Override public ClientConnection open(InetSocketAddress addr,

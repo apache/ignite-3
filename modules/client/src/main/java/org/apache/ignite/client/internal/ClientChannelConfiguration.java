@@ -38,6 +38,12 @@ final class ClientChannelConfiguration {
     /** Receive buffer size. */
     private final int rcvBufSize;
 
+    /** Reconnect period (for throttling). */
+    private final long reconnectThrottlingPeriod;
+
+    /** Reconnect retries within period (for throttling). */
+    private final int reconnectThrottlingRetries;
+
     /**
      * Constructor.
      */
@@ -49,6 +55,8 @@ final class ClientChannelConfiguration {
         this.sndBufSize = 0;
         this.rcvBufSize = 0;
         this.addr = addr;
+        this.reconnectThrottlingPeriod = 0;
+        this.reconnectThrottlingRetries = 0;
     }
 
     /**
@@ -84,5 +92,19 @@ final class ClientChannelConfiguration {
      */
     public int getReceiveBufferSize() {
         return rcvBufSize;
+    }
+
+    /**
+     * @return Reconnect period (for throttling).
+     */
+    public long getReconnectThrottlingPeriod() {
+        return reconnectThrottlingPeriod;
+    }
+
+    /**
+     * @return Reconnect retries within period (for throttling).
+     */
+    public int getReconnectThrottlingRetries() {
+        return reconnectThrottlingRetries;
     }
 }
