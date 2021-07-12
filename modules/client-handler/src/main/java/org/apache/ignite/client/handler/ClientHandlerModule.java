@@ -37,10 +37,10 @@ import org.slf4j.Logger;
 import java.net.BindException;
 
 /**
- * Client connector module maintains TCP endpoint for thin client connections.
+ * Client handler module maintains TCP endpoint for thin client connections.
  *
  */
-public class ClientConnectorModule {
+public class ClientHandlerModule {
     /** */
     private ConfigurationRegistry sysConf;
 
@@ -53,7 +53,7 @@ public class ClientConnectorModule {
     /**
      * @param log Logger.
      */
-    public ClientConnectorModule(Ignite ignite, Logger log) {
+    public ClientHandlerModule(Ignite ignite, Logger log) {
         this.ignite = ignite;
         this.log = log;
     }

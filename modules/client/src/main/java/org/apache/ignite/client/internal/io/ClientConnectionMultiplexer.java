@@ -24,7 +24,7 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 /**
  * Client connection multiplexer: manages multiple connections with a shared resource pool (worker threads, etc).
  */
-public interface ClientConnectionMultiplexer {
+ public interface ClientConnectionMultiplexer { // TODO: Async methods where possible.
     /**
      * Initializes this instance.
      */
