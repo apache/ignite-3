@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.table;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -86,6 +88,8 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
 
     /** {@inheritDoc} */
     @Override public Tuple build() {
+        Map<String, ColumnType> colTypeMap = new HashMap<>();
+
         for (Map.Entry<String, Object> entry : liveSchemaColMap.entrySet()) {
             String colName = entry.getKey();
             Object val = entry.getValue();
@@ -95,24 +99,34 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             if (type == null)
                 throw new UnsupportedOperationException("Live schema update for type [" + val.getClass() + "] is not supported yet.");
 
-            createColumn(colName, type);
-
-            super.set(colName, val);
+            colTypeMap.put(colName, type);
         }
+
+        if (!colTypeMap.isEmpty())
+            createColumns(colTypeMap);
+
+        liveSchemaColMap.forEach(super::set);
+
         return this;
     }
 
     /**
-     * @param colName
-     * @param type
+     * Updates the schema, creates new columns.
+     * @param colTypeMap - map with column names and column types.
      */
-    private void createColumn(String colName, ColumnType type) {
-        org.apache.ignite.schema.Column schemaCol = SchemaBuilders.column(colName, type).asNullable().build();
+    private void createColumns(Map<String, ColumnType> colTypeMap) {
+        List<org.apache.ignite.schema.Column> newCols = colTypeMap.entrySet().stream()
+            .map(entry -> SchemaBuilders.column(entry.getKey(), entry.getValue()).asNullable().build())
+            .collect(Collectors.toList());
 
         mgr.alterTable(tblName, chng -> chng.changeColumns(cols -> {
-            final int colIdx = chng.columns().size();
+            int colIdx = chng.columns().size();
             //TODO: avoid 'colIdx' or replace with correct last colIdx.
-            cols.create(String.valueOf(colIdx), colChg -> convert(schemaCol, colChg));
+
+            for (org.apache.ignite.schema.Column column : newCols) {
+                cols.create(String.valueOf(colIdx), colChg -> convert(column, colChg));
+                colIdx++;
+            }
         }));
     }
 

@@ -20,18 +20,23 @@ package org.apache.ignite.internal.runner.app;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.internal.schema.SchemaType;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.schema.SchemaType;
 import org.apache.ignite.internal.table.ColumnNotFoundException;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TupleBuilderImpl;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleBuilder;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Live schema tests.
@@ -39,15 +44,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14581")
 class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
     /**
-     * Check live schema add columns
+     * Check insert row of new schema.
      */
     @Test
-    public void testLiveSchemaAddColumns() {
+    public void testLiveSchemaInsertRowOfNewSchema() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
 
         Table tbl = grid.get(1).tables().table(TABLE);
+
+        Tuple oldSchemaTuple = tbl.tupleBuilder().set("key", 32L).set("valInt", 111).set("valStr", "str").build();
+
+        tbl.insert(oldSchemaTuple);
 
         ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
 
@@ -59,15 +68,70 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         assertEquals("111", res.value("valStrNew"));
         assertEquals(Integer.valueOf(333), res.value("valIntNew"));
+    }
 
-        Tuple secondRow = tbl.tupleBuilder().set("key", 2L).set("valStrNew", "222").set("valIntNew", 42).build();
+    /**
+     * Check upsert row of old schema with row of new schema.
+     */
+    @Test
+    public void testLiveSchemaUpsertOldSchemaRow() {
+        List<Ignite> grid = startGrid();
 
-        tbl.insert(secondRow);
+        createTable(grid);
 
-        Tuple res2 = tbl.get(secondRow);
+        Table tbl = grid.get(1).tables().table(TABLE);
 
-        assertEquals("222", res2.value("valStrNew"));
-        assertEquals(Integer.valueOf(42), res2.value("valIntNew"));
+        Tuple oldSchemaTuple = tbl.tupleBuilder().set("key", 32L).set("valInt", 111).set("valStr", "str").build();
+
+        tbl.insert(oldSchemaTuple);
+
+        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+
+        Tuple row = tbl.tupleBuilder().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333).build();
+
+        tbl.insert(row);
+
+        Tuple upsertOldSchemaTuple = tbl.tupleBuilder().set("key", 32L).set("valStrNew", "111").set("valIntNew", 333).build();
+
+        tbl.upsert(upsertOldSchemaTuple);
+
+        Tuple oldSchemaRes = tbl.get(upsertOldSchemaTuple);
+
+        assertEquals("111", oldSchemaRes.value("valStrNew"));
+        assertEquals(Integer.valueOf(333), oldSchemaRes.value("valIntNew"));
+    }
+
+    /**
+     * Check inserting row of old schema will not lead to column removal.
+     */
+    @Test
+    public void testLiveSchemaInsertOldSchemaRow() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        Table tbl = grid.get(1).tables().table(TABLE);
+
+        Tuple oldSchemaTuple = tbl.tupleBuilder().set("key", 32L).set("valInt", 111).set("valStr", "str").build();
+
+        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+
+        Tuple row = tbl.tupleBuilder().set("key", 1L).set("valStrNew", "111").set("valIntNew", 333).build();
+
+        tbl.insert(row);
+        tbl.insert(oldSchemaTuple);
+
+        Tuple res = tbl.get(row);
+
+        assertEquals("111", res.value("valStrNew"));
+        assertEquals(Integer.valueOf(333), res.value("valIntNew"));
+
+        TupleBuilder newVerBuilder = tbl.tupleBuilder();
+
+        SchemaDescriptor schema = ((TupleBuilderImpl)newVerBuilder).schema();
+
+        assertTrue(schema.columnNames().contains("valStrNew"));
+        assertTrue(schema.columnNames().contains("valIntNew"));
     }
 
     /**
@@ -146,8 +210,59 @@ class LiveSchemaChangeTableTest extends AbstractSchemaChangeTest {
 
         assertEquals("111", res.value("valStrNew"));
         assertEquals(uuid, res.value("valUUIDNew"));
+
+        Tuple secondRow = tbl.tupleBuilder().set("key", 2L).build();
+
+        tbl.insert(secondRow);
+
+        Tuple nullRes = tbl.get(secondRow);
+
+        assertNull(nullRes.value("valByteNew"));
+        assertNull(nullRes.value("valShortNew"));
+        assertNull(nullRes.value("valIntNew"));
+        assertNull(nullRes.value("valLongNew"));
+        assertNull(nullRes.value("valFloatNew"));
+        assertNull(nullRes.value("valDoubleNew"));
+        assertNull(nullRes.value("valUUIDNew"));
+
+        assertEquals("", nullRes.value("valStrNew"));
     }
 
+    /**
+     * Check live schema tuple update schema only once
+     */
+    @Test
+    public void testLiveSchemaBuilderUpdateSchemaOnlyOnce() {
+        List<Ignite> grid = startGrid();
+
+        createTable(grid);
+
+        Table tbl = grid.get(1).tables().table(TABLE);
+
+        ((TableImpl)tbl).schemaType(SchemaType.LIVE_SCHEMA);
+
+        UUID uuid = UUID.randomUUID();
+
+        Tuple row = tbl.tupleBuilder()
+            .set("key", 1L)
+            .set("valByteNew", (byte)10)
+            .set("valShortNew", (short)48)
+            .set("valIntNew", 333)
+            .set("valLongNew", 55L)
+            .set("valFloatNew", 32.23f)
+            .set("valDoubleNew", 100.101d)
+            .set("valStrNew", "111")
+            .set("valUUIDNew", uuid)
+            .build();
+
+        tbl.insert(row);
+
+        TupleBuilder newVerBuilder = tbl.tupleBuilder();
+
+        SchemaDescriptor schema = ((TupleBuilderImpl)newVerBuilder).schema();
+
+        assertEquals(2, schema.version());
+    }
 
     /**
      * Check live schema tuple can handle unsupported values and null`s correctly
