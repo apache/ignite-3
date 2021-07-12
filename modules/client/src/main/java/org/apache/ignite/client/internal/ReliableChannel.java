@@ -140,7 +140,7 @@ final class ReliableChannel implements AutoCloseable {
     public <T> T service(
             ClientOp op,
             Consumer<PayloadOutputChannel> payloadWriter,
-            Function<PayloadInputChannel, T> payloadReader
+            PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         return applyOnDefaultChannel(channel ->
                 channel.service(op, payloadWriter, payloadReader)
@@ -153,7 +153,7 @@ final class ReliableChannel implements AutoCloseable {
     public <T> CompletableFuture<T> serviceAsync(
             ClientOp op,
             Consumer<PayloadOutputChannel> payloadWriter,
-            Function<PayloadInputChannel, T> payloadReader
+            PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
@@ -169,7 +169,7 @@ final class ReliableChannel implements AutoCloseable {
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
                                         ClientOp op,
                                         Consumer<PayloadOutputChannel> payloadWriter,
-                                        Function<PayloadInputChannel, T> payloadReader,
+                                        PayloadReader<T> payloadReader,
                                         int attemptsLimit,
                                         IgniteClientConnectionException failure) {
         ClientChannel ch;
@@ -248,7 +248,7 @@ final class ReliableChannel implements AutoCloseable {
     /**
      * Send request without payload and handle response.
      */
-    public <T> T service(ClientOp op, Function<PayloadInputChannel, T> payloadReader)
+    public <T> T service(ClientOp op, PayloadReader<T> payloadReader)
             throws IgniteClientException {
         return service(op, null, payloadReader);
     }
@@ -256,7 +256,7 @@ final class ReliableChannel implements AutoCloseable {
     /**
      * Send request without payload and handle response asynchronously.
      */
-    public <T> CompletableFuture<T> serviceAsync(ClientOp op, Function<PayloadInputChannel, T> payloadReader)
+    public <T> CompletableFuture<T> serviceAsync(ClientOp op, PayloadReader<T> payloadReader)
             throws IgniteClientException {
         return serviceAsync(op, null, payloadReader);
     }

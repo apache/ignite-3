@@ -62,15 +62,4 @@ public class ClientMessageUnpacker extends MessageUnpacker {
 
         return new UUID(bb.getLong(), bb.getLong());
     }
-
-    public List<String> unpackStringArrayAsList() throws IOException {
-        var cnt = unpackArrayHeader();
-
-        var res = new ArrayList<String>(cnt);
-
-        for (int i = 0; i < cnt; i++)
-            res.add(unpackString());
-
-        return res;
-    }
 }

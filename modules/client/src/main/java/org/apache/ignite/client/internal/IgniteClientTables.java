@@ -17,11 +17,13 @@
 
 package org.apache.ignite.client.internal;
 
+import org.apache.ignite.client.ClientMessageUnpacker;
 import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -44,12 +46,21 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public void dropTable(String name) {
-        ch.request(ClientOp.TABLE_DROP, w -> w.out().packString(name));
+        // ch.request(ClientOp.TABLE_DROP, w -> w.out().packString(name));
     }
 
     /** {@inheritDoc} */
     @Override public List<Table> tables() {
-        return ch.service(ClientOp.TABLES_GET, r -> r.in().unpackStringArrayAsList());
+        return ch.service(ClientOp.TABLES_GET, r -> {
+            var in = r.in();
+            var cnt = in.unpackMapHeader();
+            var res = new ArrayList<Table>(cnt);
+
+            for (int i = 0; i < cnt; i++)
+                res.add(new ClientTable(in.unpackUuid(), in.unpackString()));
+
+            return res;
+        });
     }
 
     /** {@inheritDoc} */

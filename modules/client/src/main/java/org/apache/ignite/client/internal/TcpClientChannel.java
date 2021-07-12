@@ -132,7 +132,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override public <T> T service(
             ClientOp op,
             Consumer<PayloadOutputChannel> payloadWriter,
-            Function<PayloadInputChannel, T> payloadReader
+            PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         ClientRequestFuture fut = send(op, payloadWriter);
 
@@ -143,7 +143,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override public <T> CompletableFuture<T> serviceAsync(
             ClientOp op,
             Consumer<PayloadOutputChannel> payloadWriter,
-            Function<PayloadInputChannel, T> payloadReader
+            PayloadReader<T> payloadReader
     ) {
         try {
             ClientRequestFuture fut = send(op, payloadWriter);
@@ -201,7 +201,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadReader Payload reader from stream.
      * @return Received operation payload or {@code null} if response has no payload.
      */
-    private <T> T receive(ClientRequestFuture pendingReq, Function<PayloadInputChannel, T> payloadReader)
+    private <T> T receive(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader)
             throws IgniteClientException {
         try {
             ByteBuffer payload = timeout > 0 ? pendingReq.get(timeout, TimeUnit.MILLISECONDS) : pendingReq.get();
@@ -223,7 +223,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadReader Payload reader from stream.
      * @return Future for the operation.
      */
-    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, Function<PayloadInputChannel, T> payloadReader) {
+    private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader) {
         return pendingReq.thenApply(payload -> {
             if (payload == null || payloadReader == null)
                 return null;
