@@ -42,6 +42,7 @@ public class MessageServiceImpl implements MessageService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(MessageServiceImpl.class);
 
     private final TopologyService topSrvc;
+
     private final MessagingService messagingSrvc;
 
     /** */

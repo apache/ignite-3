@@ -49,11 +49,7 @@ import org.apache.ignite.internal.processors.query.calcite.exec.rel.Node;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.Outbox;
 import org.apache.ignite.internal.processors.query.calcite.exec.rel.RootNode;
 import org.apache.ignite.internal.processors.query.calcite.message.ErrorMessage;
-import org.apache.ignite.internal.processors.query.calcite.message.InboxCloseMessage;
 import org.apache.ignite.internal.processors.query.calcite.message.MessageService;
-import org.apache.ignite.internal.processors.query.calcite.message.OutboxCloseMessage;
-import org.apache.ignite.internal.processors.query.calcite.message.QueryBatchAcknowledgeMessage;
-import org.apache.ignite.internal.processors.query.calcite.message.QueryBatchMessage;
 import org.apache.ignite.internal.processors.query.calcite.message.QueryStartRequest;
 import org.apache.ignite.internal.processors.query.calcite.message.QueryStartResponse;
 import org.apache.ignite.internal.processors.query.calcite.message.SqlQueryMessageGroup;
@@ -115,7 +111,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 /**
  *
  */
-@SuppressWarnings("TypeMayBeWeakened")
 public class ExecutionServiceImpl<Row> implements ExecutionService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
 
@@ -425,7 +420,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
             case QUERY:
                 return executeQuery(qryId, (MultiStepPlan) plan, pctx);
             case EXPLAIN:
-                return executeExplain((ExplainPlan)plan, pctx);
+                return executeExplain((ExplainPlan)plan);
             case DDL:
                 return executeDdl((DdlPlan)plan, pctx);
 
@@ -436,7 +431,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
 
     /** */
     private Cursor<List<?>> executeDdl(DdlPlan plan, PlanningContext pctx) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("plan=" + plan + ", ctx=" + pctx);
     }
 
     /** */
@@ -529,7 +524,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     }
 
     /** */
-    private Cursor<List<?>> executeExplain(ExplainPlan plan, PlanningContext pctx) {
+    private Cursor<List<?>> executeExplain(ExplainPlan plan) {
         Cursor<List<?>> cur = Commons.createCursor(singletonList(singletonList(plan.plan())));
         // TODO: fix this
 //        cur.fieldsMeta(plan.fieldsMeta().queryFieldsMetadata(pctx.typeFactory()));
@@ -716,7 +711,6 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
     }
 
     /** */
-    @SuppressWarnings("TypeMayBeWeakened")
     private final class QueryInfo implements Cancellable {
         /** */
         private final ExecutionContext<Row> ctx;

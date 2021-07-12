@@ -25,7 +25,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.apache.calcite.rel.type.RelDataType;

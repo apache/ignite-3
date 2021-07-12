@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.trait;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Determines where to send a row to.

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.processors.query.calcite.trait;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;

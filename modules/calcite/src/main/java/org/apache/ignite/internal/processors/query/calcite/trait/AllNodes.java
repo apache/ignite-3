@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.calcite.trait;
 
 import java.util.List;
-import java.util.UUID;
 
 /** */
 public final class AllNodes<Row> implements Destination<Row> {

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.processors.query.calcite.trait;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 
 /** */
 public final class RandomNode<Row> implements Destination<Row> {

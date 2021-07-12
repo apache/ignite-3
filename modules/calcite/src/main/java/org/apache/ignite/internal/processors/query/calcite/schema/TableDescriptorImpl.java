@@ -134,11 +134,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override public ColocationGroup colocationGroup(PlanningContext ctx) {
-        return partitionedGroup(ctx.topologyVersion());
+        return partitionedGroup();
     }
 
     /** */
-    private ColocationGroup partitionedGroup(long topVer) {
+    private ColocationGroup partitionedGroup() {
         List<List<String>> assignments = topSrvc.allMembers().stream()
             .map(ClusterNode::id)
             .map(Collections::singletonList)
