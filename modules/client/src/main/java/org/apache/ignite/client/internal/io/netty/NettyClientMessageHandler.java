@@ -19,15 +19,13 @@ package org.apache.ignite.client.internal.io.netty;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.util.AttributeKey;
-import org.apache.ignite.client.internal.io.ClientMessageHandler;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
-    public static final AttributeKey<ClientMessageHandler> ATTR_CONN = AttributeKey.newInstance("CONN");
+import static org.apache.ignite.client.internal.io.netty.NettyClientConnection.ATTR_CONN;
 
+public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         var buf = (byte[]) msg;
 

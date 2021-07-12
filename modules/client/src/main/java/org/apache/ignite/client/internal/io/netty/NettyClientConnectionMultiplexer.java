@@ -38,33 +38,32 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
     /** */
     private NioEventLoopGroup workerGroup;
 
+    /** */
+    private Bootstrap bootstrap;
+
     @Override public void start() {
-        String host = "localhost";
-        int port = 8080;
         workerGroup = new NioEventLoopGroup();
 
         try {
-            Bootstrap b = new Bootstrap();
-            b.group(workerGroup);
-            b.channel(NioSocketChannel.class);
-            b.option(ChannelOption.SO_KEEPALIVE, true);
-            b.handler(new ChannelInitializer<SocketChannel>() {
+            bootstrap = new Bootstrap();
+            bootstrap.group(workerGroup);
+            bootstrap.channel(NioSocketChannel.class);
+            bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+            bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
                 @Override
                 public void initChannel(SocketChannel ch)
                         throws Exception {
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
-                            new ResponseDataDecoder(),
-                            new ClientHandler());
+                            new NettyClientMessageHandler());
                 }
             });
 
-            ChannelFuture f = b.connect(host, port).sync();
-
-            f.channel().closeFuture().sync();
-        } finally {
+        } catch (Throwable t){
             workerGroup.shutdownGracefully();
+
+            throw t;
         }
     }
 
@@ -74,9 +73,14 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
     }
 
-    @Override public ClientConnection open(InetSocketAddress addr, ClientMessageHandler msgHnd,
+    @Override public ClientConnection open(InetSocketAddress addr,
+                                           ClientMessageHandler msgHnd,
                                            ClientConnectionStateHandler stateHnd)
-            throws IgniteClientConnectionException {
-        return null;
+            throws IgniteClientConnectionException, InterruptedException {
+
+        // TODO: Make this method async.
+        ChannelFuture f = bootstrap.connect(addr).sync();
+
+        return new NettyClientConnection(f.channel(), msgHnd, stateHnd);
     }
 }
