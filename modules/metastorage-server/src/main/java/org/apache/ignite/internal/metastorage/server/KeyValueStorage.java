@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines key/value storage interface.
@@ -179,7 +180,7 @@ public interface KeyValueStorage extends AutoCloseable {
      * @param rev Start revision number.
      * @return Cursor by update events.
      */
-    Cursor<WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev);
+    Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev);
 
     /**
      * Creates subscription on updates of entries corresponding to the given keys range (where upper bound is unlimited)
@@ -210,7 +211,7 @@ public interface KeyValueStorage extends AutoCloseable {
      * Creates a snapshot of the storage.
      *
      * @param snapshotPath Path to a snapshot.
-     * @return Future that represents the state of a operation.
+     * @return Future that represents the state of the operation.
      */
     CompletableFuture<Void> snapshot(Path snapshotPath);
 
