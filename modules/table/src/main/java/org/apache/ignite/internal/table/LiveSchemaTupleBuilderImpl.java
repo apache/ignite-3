@@ -113,7 +113,20 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
      * Updates the schema, creates new columns.
      * @param colTypeMap - map with column names and column types.
      */
-    private void createColumns(Map<String, ColumnType> colTypeMap) {
+    private void createColumns(Map<String, Object> extraCols) {
+        Map<String, ColumnType> colTypeMap = new HashMap<>();
+        
+        for (Map.Entry<String, Object> entry : liveSchemaColMap.entrySet()) {
+            String colName = entry.getKey();
+            Object val = entry.getValue();
+
+            ColumnType type = MarshallerUtil.columnType(val.getClass());
+
+            if (type == null)
+                throw new UnsupportedOperationException("Live schema update for type [" + val.getClass() + "] is not supported yet.");
+
+            colTypeMap.put(colName, type);
+        }
         List<org.apache.ignite.schema.Column> newCols = colTypeMap.entrySet().stream()
             .map(entry -> SchemaBuilders.column(entry.getKey(), entry.getValue()).asNullable().build())
             .collect(Collectors.toList());
