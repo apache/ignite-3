@@ -293,7 +293,7 @@ public class ConfigurationUtil {
                                 int idx = (Integer)idxObj;
 
                                 if (idx >= orderedKeys.size()) {
-                                    // Updates can come in arbitrary order. This means that arrays may be too small
+                                    // Updates can come in arbitrary order. This means that array may be too small
                                     // during batch creation. In this case we have to insert enough nulls before
                                     // invoking "add" method for actual key.
                                     ((ArrayList<?>)orderedKeys).ensureCapacity(idx + 1);
