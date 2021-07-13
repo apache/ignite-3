@@ -25,15 +25,15 @@ import java.util.function.Consumer;
  */
 public interface IgniteTransactions {
     /**
-     * Begins the transaction asynchronously.
+     * Begins the transaction.
      *
      * @return The future.
      */
     CompletableFuture<Transaction> beginAsync();
 
     /**
-     * Begins the transaction.
-     * @param clo The closure to run in a transaction.
+     * Synchronously executes a closure within a transaction.
+     * @param clo The closure.
      */
     void runInTransaction(Consumer<Transaction> clo);
 }
