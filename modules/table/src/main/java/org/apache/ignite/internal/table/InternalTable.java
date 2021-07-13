@@ -51,7 +51,7 @@ public interface InternalTable {
     @NotNull SchemaMode schemaMode();
 
     /**
-     * Sets schema mode for table. For test purposes only, should be removed in future.
+     * Sets schema mode for the table.
      */
     void schema(SchemaMode schemaMode);
 
