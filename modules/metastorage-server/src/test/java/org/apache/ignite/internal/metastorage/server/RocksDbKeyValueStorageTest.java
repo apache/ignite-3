@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
 
 /**
  * Tests for RocksDB key-value storage implementation.

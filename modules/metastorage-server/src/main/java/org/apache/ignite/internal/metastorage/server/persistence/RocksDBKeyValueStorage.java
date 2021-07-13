@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.server.persistence;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,12 +28,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
@@ -41,7 +38,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Predicate;
+import org.apache.ignite.internal.metastorage.server.Condition;
+import org.apache.ignite.internal.metastorage.server.Entry;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.Operation;
+import org.apache.ignite.internal.metastorage.server.Value;
+import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -113,7 +115,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     private static final long LATEST_REV = -1;
 
     /** Lexicographic order comparator. */
-    private final Comparator<byte[]> CMP = Arrays::compare;
+    static final Comparator<byte[]> CMP = Arrays::compare;
 
     /** Keys index. Value is the list of all revisions under which the corresponding entry has ever been modified. */
     private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
@@ -594,12 +596,12 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
     /** {@inheritDoc} */
     @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo) {
-        return new RocksDBKeyValueStorage.RangeCursor(keyFrom, keyTo, rev);
+        return new RangeCursor(this, keyFrom, keyTo, rev);
     }
 
     /** {@inheritDoc} */
     @Override public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
-        return new RocksDBKeyValueStorage.RangeCursor(keyFrom, keyTo, revUpperBound);
+        return new RangeCursor(this, keyFrom, keyTo, revUpperBound);
     }
 
     /** {@inheritDoc} */
@@ -607,7 +609,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         assert keyFrom != null : "keyFrom couldn't be null.";
         assert rev > 0 : "rev must be positive.";
 
-        return new RocksDBKeyValueStorage.WatchCursor(rev, k ->
+        return new WatchCursor(this, rev, k ->
             CMP.compare(keyFrom, k) <= 0 && (keyTo == null || CMP.compare(k, keyTo) < 0)
         );
     }
@@ -617,7 +619,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         assert key != null : "key couldn't be null.";
         assert rev > 0 : "rev must be positive.";
 
-        return new RocksDBKeyValueStorage.WatchCursor(rev, k -> CMP.compare(k, key) == 0);
+        return new WatchCursor(this, rev, k -> CMP.compare(k, key) == 0);
     }
 
     /** {@inheritDoc} */
@@ -629,7 +631,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
         keySet.addAll(keys);
 
-        return new RocksDBKeyValueStorage.WatchCursor(rev, keySet::contains);
+        return new WatchCursor(this, rev, keySet::contains);
     }
 
     /** {@inheritDoc} */
@@ -717,7 +719,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
     /** */
     @NotNull
-    private Entry doGet(byte[] key, long rev, boolean exactRev) {
+    Entry doGet(byte[] key, long rev, boolean exactRev) {
         assert rev == LATEST_REV && !exactRev || rev > LATEST_REV :
             "Invalid arguments: [rev=" + rev + ", exactRev=" + exactRev + ']';
 
@@ -748,7 +750,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      * @param upperBoundRev Revision upper bound.
      * @return Maximum revision or {@code -1} if there is no such revision.
      */
-    private static long maxRevision(List<Long> revs, long upperBoundRev) {
+    static long maxRevision(List<Long> revs, long upperBoundRev) {
         for (int i = revs.size() - 1; i >= 0; i--) {
             long rev = revs.get(i);
 
@@ -782,7 +784,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      * @param rocksKey Key with a revision.
      * @return Key without a revision.
      */
-    private static byte[] rocksKeyToBytes(byte[] rocksKey) {
+    static byte[] rocksKeyToBytes(byte[] rocksKey) {
         return Arrays.copyOfRange(rocksKey, Long.BYTES, rocksKey.length);
     }
 
@@ -792,7 +794,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      * @param valueBytes Value byte array.
      * @return Value.
      */
-    private static Value bytesToValue(byte[] valueBytes) {
+    static Value bytesToValue(byte[] valueBytes) {
         ByteBuffer buf = ByteBuffer.wrap(valueBytes);
 
         // Read an update counter (8-byte long) from the entry.
@@ -834,7 +836,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
     /** */
     @NotNull
-    private Entry doGetValue(byte[] key, long lastRev) {
+    Entry doGetValue(byte[] key, long lastRev) {
         if (lastRev == 0)
             return Entry.empty(key);
 
@@ -903,299 +905,20 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return revs.get(revs.size() - 1);
     }
 
-    /** */
-    private class RangeCursor implements Cursor<Entry> {
-        /** */
-        private final byte[] keyFrom;
-
-        /** */
-        private final byte[] keyTo;
-
-        /** */
-        private final long rev;
-
-        /** */
-        private final Iterator<Entry> it;
-
-        /** */
-        @Nullable
-        private Entry nextRetEntry;
-
-        /** */
-        private byte[] lastRetKey;
-
-        /** */
-        private boolean finished;
-
-        /** */
-        RangeCursor(byte[] keyFrom, byte[] keyTo, long rev) {
-            this.keyFrom = keyFrom;
-            this.keyTo = keyTo;
-            this.rev = rev;
-            this.it = createIterator();
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean hasNext() {
-            return it.hasNext();
-        }
-
-        /** {@inheritDoc} */
-        @Override public Entry next() {
-            return it.next();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void close() throws Exception {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
-        @NotNull
-        @Override public Iterator<Entry> iterator() {
-            return it;
-        }
-
-        /** */
-        @NotNull
-        private Iterator<Entry> createIterator() {
-            return new Iterator<>() {
-                /** {@inheritDoc} */
-                @Override public boolean hasNext() {
-                    rwLock.readLock().lock();
-
-                    try {
-                        while (true) {
-                            if (finished)
-                                return false;
-
-                            if (nextRetEntry != null)
-                                return true;
-
-                            byte[] key = lastRetKey;
-
-                            while (nextRetEntry == null) {
-                                Map.Entry<byte[], List<Long>> e =
-                                    key == null ? keysIdx.ceilingEntry(keyFrom) : keysIdx.higherEntry(key);
-
-                                if (e == null) {
-                                    finished = true;
-
-                                    break;
-                                }
-
-                                key = e.getKey();
-
-                                if (keyTo != null && CMP.compare(key, keyTo) >= 0) {
-                                    finished = true;
-
-                                    break;
-                                }
-
-                                List<Long> revs = e.getValue();
-
-                                assert revs != null && !revs.isEmpty() :
-                                    "Revisions should not be empty or null: [revs=" + revs + ']';
-
-                                long lastRev = maxRevision(revs, rev);
-
-                                if (lastRev == -1)
-                                    continue;
-
-                                Entry entry = doGetValue(key, lastRev);
-
-                                assert !entry.empty() : "Iterator should not return empty entry.";
-
-                                nextRetEntry = entry;
-                            }
-                        }
-                    }
-                    finally {
-                        rwLock.readLock().unlock();
-                    }
-                }
-
-                /** {@inheritDoc} */
-                @Override public Entry next() {
-                    rwLock.readLock().lock();
-
-                    try {
-                        if (!hasNext())
-                            throw new NoSuchElementException();
-
-                        Entry e = nextRetEntry;
-
-                        nextRetEntry = null;
-
-                        lastRetKey = e.key();
-
-                        return e;
-                    }
-                    finally {
-                        rwLock.readLock().unlock();
-                    }
-                }
-            };
-        }
+    ReadWriteLock lock() {
+        return rwLock;
     }
 
-    /** */
-    private class WatchCursor implements Cursor<WatchEvent> {
-        /** */
-        private final Predicate<byte[]> p;
+    RocksDB db() {
+        return db;
+    }
 
-        /** */
-        private final Iterator<WatchEvent> it;
+    Map.Entry<byte[], List<Long>> revisionCeilingEntry(byte[] keyFrom) {
+        return keysIdx.ceilingEntry(keyFrom);
+    }
 
-        /** Options for {@link #nativeIterator}. */
-        private final ReadOptions options = new ReadOptions().setPrefixSameAsStart(true);
-
-        /** RocksDB iterator. */
-        @Nullable
-        private RocksIterator nativeIterator = db.newIterator(options);
-
-        /** */
-        private long lastRetRev;
-
-        /** */
-        private long nextRetRev = -1;
-
-        /** */
-        WatchCursor(long rev, Predicate<byte[]> p) {
-            this.p = p;
-            this.lastRetRev = rev - 1;
-            this.it = createIterator();
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean hasNext() {
-            return it.hasNext();
-        }
-
-        /** {@inheritDoc} */
-        @Nullable
-        @Override public WatchEvent next() {
-            return it.next();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void close() throws Exception {
-            IgniteUtils.closeAll(Set.of(nativeIterator, options));
-        }
-
-        /** {@inheritDoc} */
-        @NotNull
-        @Override public Iterator<WatchEvent> iterator() {
-            return it;
-        }
-
-        @NotNull
-        Iterator<WatchEvent> createIterator() {
-            return new Iterator<>() {
-                /** {@inheritDoc} */
-                @Override public boolean hasNext() {
-                    rwLock.readLock().lock();
-
-                    try {
-                        if (nextRetRev != -1)
-                            return true;
-
-                        while (true) {
-                            long curRev = lastRetRev + 1;
-
-                            byte[] revisionPrefix = ByteUtils.longToBytes(curRev);
-
-                            boolean empty = true;
-
-                            if (!nativeIterator.isValid())
-                                try {
-                                    nativeIterator.refresh();
-                                }
-                                catch (RocksDBException e) {
-                                    throw new IgniteInternalException(e);
-                                }
-
-                            for (nativeIterator.seek(revisionPrefix); nativeIterator.isValid(); nativeIterator.next()) {
-                                empty = false;
-
-                                byte[] key = rocksKeyToBytes(nativeIterator.key());
-
-                                if (p.test(key)) {
-                                    nextRetRev = curRev;
-
-                                    return true;
-                                }
-                            }
-
-                            checkIterator(nativeIterator);
-
-                            if (empty)
-                                return false;
-
-                            lastRetRev++;
-                        }
-                    }
-                    finally {
-                        rwLock.readLock().unlock();
-                    }
-                }
-
-                /** {@inheritDoc} */
-                @Override public WatchEvent next() {
-                    rwLock.readLock().lock();
-
-                    try {
-                        while (true) {
-                            if (!hasNext())
-                                return null;
-                            else if (nextRetRev != -1) {
-                                boolean empty = true;
-
-                                List<EntryEvent> evts = new ArrayList<>();
-
-                                for (; nativeIterator.isValid(); nativeIterator.next()) {
-                                    empty = false;
-
-                                    byte[] key = rocksKeyToBytes(nativeIterator.key());
-
-                                    Value val = bytesToValue(nativeIterator.value());
-
-                                    if (p.test(key)) {
-                                        Entry newEntry;
-
-                                        if (val.tombstone())
-                                            newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
-                                        else
-                                            newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
-
-                                        Entry oldEntry = doGet(key, nextRetRev - 1, false);
-
-                                        evts.add(new EntryEvent(oldEntry, newEntry));
-                                    }
-                                }
-
-                                checkIterator(nativeIterator);
-
-                                if (empty)
-                                    return null;
-
-                                if (evts.isEmpty())
-                                    continue;
-
-                                lastRetRev = nextRetRev;
-
-                                nextRetRev = -1;
-
-                                return new WatchEvent(evts);
-                            }
-                        }
-                    }
-                    finally {
-                        rwLock.readLock().unlock();
-                    }
-                }
-            };
-        }
+    Map.Entry<byte[], List<Long>> revisionHigherEntry(byte[] key) {
+        return keysIdx.higherEntry(key);
     }
 
     /**
@@ -1204,7 +927,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      * @param it RocksDB iterator.
      * @throws IgniteInternalException if the iterator has an incorrect status.
      */
-    private static void checkIterator(RocksIterator it) {
+    static void checkIterator(RocksIterator it) {
         try {
             it.status();
         }
