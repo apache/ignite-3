@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.io.IOException;
-import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for RocksDB key-value storage implementation.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
+    /** */
+    @WorkDirectory
+    private Path workDir;
+
     /** {@inheritDoc} */
     @Override KeyValueStorage storage() {
-        try {
-            return new RocksDBKeyValueStorage(Files.createTempDirectory("test"));
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return new RocksDBKeyValueStorage(workDir);
     }
 }

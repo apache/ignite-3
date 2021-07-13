@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -38,6 +38,9 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl.DelegatingStateMachine;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -51,8 +54,8 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
-import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -64,7 +67,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Persistent (rocksdb-based) meta storage client tests.
  */
-@SuppressWarnings("WeakerAccess")
+@ExtendWith(WorkDirectoryExtension.class)
 public class ITMetaStorageServicePersistenceTest {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ITMetaStorageServicePersistenceTest.class);
@@ -74,6 +77,10 @@ public class ITMetaStorageServicePersistenceTest {
 
     /** Starting client port. */
     private static final int CLIENT_PORT = 6003;
+
+    /** */
+    @WorkDirectory
+    private Path workDir;
 
     /**
      * Peers list.
@@ -167,15 +174,8 @@ public class ITMetaStorageServicePersistenceTest {
         ByteArray firstKey = ByteArray.fromString("first");
         byte[] firstValue = "firstValue".getBytes();
 
-        RaftGroupService metaStorageSvc = prepareMetaStorage(
-            () -> {
-                try {
-                    return new RocksDBKeyValueStorage(Files.createTempDirectory("1"));
-                }
-                catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+        RaftGroupService metaStorageSvc = prepareMetaStorage(() ->
+            new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString()))
         );
 
         MetaStorageServiceImpl metaStorage = new MetaStorageServiceImpl(metaStorageSvc);
@@ -221,7 +221,7 @@ public class ITMetaStorageServicePersistenceTest {
         byte[] lastValue = firstValue;
 
         if (testData.deleteFolder)
-            Utils.delete(new File(serverDataPath));
+            IgniteUtils.deleteIfExists(Paths.get(serverDataPath));
 
         if (testData.writeAfterSnapshot) {
             ByteArray secondKey = ByteArray.fromString("second");
@@ -234,7 +234,7 @@ public class ITMetaStorageServicePersistenceTest {
         }
 
         JRaftServerImpl restarted = startServer(stopIdx, initializer(
-            new RocksDBKeyValueStorage(Files.createTempDirectory("2"))
+            new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString()))
         ));
 
         org.apache.ignite.raft.jraft.RaftGroupService svc = restarted.raftGroupService(METASTORAGE_RAFT_GROUP_NAME);
@@ -369,7 +369,7 @@ public class ITMetaStorageServicePersistenceTest {
 
         ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr));
 
-        Path jraft = Files.createTempDirectory("jraft");
+        Path jraft = workDir.resolve("jraft" + idx);
 
         JRaftServerImpl server = new JRaftServerImpl(service, jraft.toString(), FACTORY) {
             @Override public void shutdown() throws Exception {
