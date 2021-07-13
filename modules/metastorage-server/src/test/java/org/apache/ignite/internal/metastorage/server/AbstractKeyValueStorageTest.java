@@ -1680,7 +1680,7 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
-    public void watchCursorForRange() {
+    public void watchCursorForRange() throws Exception {
         byte[] key1 = k(1);
         byte[] val1_1 = kv(1, 11);
 
@@ -1802,6 +1802,8 @@ public abstract class AbstractKeyValueStorageTest {
         assertNull(newEntry1.value());
 
         assertFalse(it.hasNext());
+
+        cur.close();
     }
 
     @Test

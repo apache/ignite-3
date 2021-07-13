@@ -52,6 +52,7 @@ import org.apache.ignite.raft.client.message.RaftClientMessagesFactory;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.client.service.impl.RaftGroupServiceImpl;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -820,7 +821,7 @@ public class ITMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc = prepareMetaStorage(
                 new AbstractKeyValueStorage() {
-                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
+                    @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
                         return new Cursor<>() {
                             private final Iterator<org.apache.ignite.internal.metastorage.server.WatchEvent> it = new Iterator<>() {
                                 @Override public boolean hasNext() {
@@ -1147,7 +1148,7 @@ public class ITMetaStorageServiceTest {
         }
 
         /** {@inheritDoc} */
-        @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte[] keyTo, long rev) {
+        @Override public Cursor<org.apache.ignite.internal.metastorage.server.WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
             fail();
 
             return null;
