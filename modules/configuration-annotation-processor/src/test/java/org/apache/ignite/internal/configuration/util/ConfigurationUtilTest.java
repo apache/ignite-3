@@ -135,7 +135,7 @@ public class ConfigurationUtilTest {
         var parent = newParentInstance();
 
         parent.changeElements(elements ->
-            elements.update("name", element ->
+            elements.createOrUpdate("name", element ->
                 element.changeChild(child ->
                     child.changeStr("value")
                 )
@@ -175,7 +175,7 @@ public class ConfigurationUtilTest {
 
         assertNull(ConfigurationUtil.find(List.of("elements", "name"), parent));
 
-        parent.changeElements(elements -> elements.update("name", element -> {}));
+        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
 
         assertNull(ConfigurationUtil.find(List.of("elements", "name", "child"), parent));
 
@@ -194,7 +194,7 @@ public class ConfigurationUtilTest {
             () -> ConfigurationUtil.find(List.of("elements", "name", "child"), parent)
         );
 
-        parent.changeElements(elements -> elements.update("name", element -> {}));
+        parent.changeElements(elements -> elements.createOrUpdate("name", element -> {}));
 
         assertThrows(
             KeyNotFoundException.class,
@@ -261,7 +261,7 @@ public class ConfigurationUtilTest {
         var parentNode = newParentInstance();
 
         parentNode.changeElements(elements ->
-            elements.update("name", element ->
+            elements.createOrUpdate("name", element ->
                 element.changeChild(child -> {})
             )
         );
@@ -338,7 +338,7 @@ public class ConfigurationUtilTest {
 
         // Updating config.
         ParentView updatedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
-            elements.update("name1", element ->
+            elements.createOrUpdate("name1", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
         ));
@@ -353,7 +353,7 @@ public class ConfigurationUtilTest {
 
         // Expanding config.
         ParentView expandedRoot = ConfigurationUtil.patch(originalRoot, (TraversableTreeNode)copy(originalRoot).changeElements(elements ->
-            elements.update("name2", element ->
+            elements.createOrUpdate("name2", element ->
                 element.changeChild(child -> child.changeStr("value2"))
             )
         ));

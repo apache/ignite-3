@@ -166,7 +166,7 @@ abstract class AbstractSchemaChangeTest {
                     });
 
                 tblChanger.changeColumns(listChanger ->
-                    listChanger.update(colKey, colChanger -> colChanger.changeName(newName))
+                    listChanger.createOrUpdate(colKey, colChanger -> colChanger.changeName(newName))
                 );
             }));
     }

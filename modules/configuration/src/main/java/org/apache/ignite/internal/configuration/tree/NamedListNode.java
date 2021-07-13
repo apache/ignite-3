@@ -134,7 +134,7 @@ public final class NamedListNode<N extends InnerNode> implements NamedListChange
     }
 
     /** {@inheritDoc} */
-    @Override public final NamedListChange<N> update(String key, Consumer<N> valConsumer) {
+    @Override public final NamedListChange<N> createOrUpdate(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 

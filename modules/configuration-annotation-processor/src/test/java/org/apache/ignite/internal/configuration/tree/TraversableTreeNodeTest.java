@@ -173,7 +173,7 @@ public class TraversableTreeNodeTest {
         // Named list node must always be instantiated.
         assertNotNull(elementsNode);
 
-        parentNode.changeElements(elements -> elements.update("key", element -> {}));
+        parentNode.changeElements(elements -> elements.createOrUpdate("key", element -> {}));
 
         assertNotSame(elementsNode, parentNode.elements());
     }
@@ -187,7 +187,7 @@ public class TraversableTreeNodeTest {
 
         assertEquals(List.of(), elementsNode.namedListKeys());
 
-        elementsNode.update("keyPut", element -> {});
+        elementsNode.createOrUpdate("keyPut", element -> {});
 
         assertThrows(IllegalArgumentException.class, () -> elementsNode.create("keyPut", element -> {}));
 
@@ -199,7 +199,7 @@ public class TraversableTreeNodeTest {
 
         assertNull(elementNode.strCfg());
 
-        elementsNode.update("keyPut", element -> element.changeStrCfg("val"));
+        elementsNode.createOrUpdate("keyPut", element -> element.changeStrCfg("val"));
 
         // Assert that consecutive put methods create new object every time.
         assertNotSame(elementNode, elementsNode.get("keyPut"));
@@ -222,7 +222,7 @@ public class TraversableTreeNodeTest {
         assertNull(elementsNode.get("keyPut"));
 
         // Assert that once you remove something from list, you can't put it back again with different set of fields.
-        assertThrows(IllegalArgumentException.class, () -> elementsNode.update("keyPut", element -> {}));
+        assertThrows(IllegalArgumentException.class, () -> elementsNode.createOrUpdate("keyPut", element -> {}));
     }
 
     /**

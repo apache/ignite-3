@@ -75,7 +75,7 @@ public interface NamedListChange<Change> extends NamedListView<Change> {
      * @throws NullPointerException If one of parameters is null.
      * @throws IllegalArgumentException If {@link #delete(String)} has been invoked with the same key previously.
      */
-    NamedListChange<Change> update(String key, Consumer<Change> valConsumer);
+    NamedListChange<Change> createOrUpdate(String key, Consumer<Change> valConsumer);
 
     /**
      * Remove the value from named list configuration.
@@ -84,7 +84,7 @@ public interface NamedListChange<Change> extends NamedListView<Change> {
      * @return {@code this} for chaining.
      *
      * @throws NullPointerException If key is null.
-     * @throws IllegalArgumentException If {@link #update(String, Consumer)} has been invoked with the same key previously.
+     * @throws IllegalArgumentException If {@link #createOrUpdate(String, Consumer)} has been invoked with the same key previously.
      */
     NamedListChange<Change> delete(String key);
 }
