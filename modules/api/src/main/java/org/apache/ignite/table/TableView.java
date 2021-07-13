@@ -21,7 +21,9 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table view interface provides methods to access table records.
@@ -351,4 +353,9 @@ public interface TableView<R> {
      */
     @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(@NotNull Collection<R> keyRecs,
         InvokeProcessor<R, R, T> proc);
+
+    /**
+     * @return Current transaction or null if a table is not enlisted in any transaction.
+     */
+    @Nullable Transaction transaction();
 }
