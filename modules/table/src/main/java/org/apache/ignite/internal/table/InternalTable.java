@@ -66,7 +66,7 @@ public interface InternalTable {
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
      * @param row Row to insert into the table.
-     * @param tx
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> upsert(BinaryRow row, @Nullable Transaction tx);
@@ -75,7 +75,7 @@ public interface InternalTable {
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
      *
      * @param rows Rows to insert into the table.
-     * @param tx
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, @Nullable Transaction tx);
@@ -84,7 +84,7 @@ public interface InternalTable {
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
      *
      * @param row Row to insert into the table.
-     * @param tx
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, @Nullable Transaction tx);
@@ -140,7 +140,7 @@ public interface InternalTable {
      * Asynchronously deletes a row with the same key columns values as the given one from the table.
      *
      * @param keyRow Row with key columns set.
-     * @param tx
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Boolean> delete(BinaryRow keyRow, @Nullable Transaction tx);

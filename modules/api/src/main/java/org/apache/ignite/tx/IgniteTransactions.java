@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  */
 public interface IgniteTransactions {
     /**
-     * Begins the transaction.
+     * Begins a transaction.
      *
      * @return The future.
      */
@@ -33,6 +33,7 @@ public interface IgniteTransactions {
 
     /**
      * Synchronously executes a closure within a transaction.
+     *
      * @param clo The closure.
      */
     void runInTransaction(Consumer<Transaction> clo);
