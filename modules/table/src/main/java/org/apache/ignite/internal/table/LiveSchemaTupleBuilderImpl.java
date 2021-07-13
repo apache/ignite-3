@@ -93,19 +93,17 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
         if (liveSchemaColMap == null)
             return this;
 
-        while (!liveSchemaColMap.isEmpty()) {
-            createColumns(liveSchemaColMap);
+        createColumns(liveSchemaColMap);
 
-            this.schema(schemaRegistry.schema());
+        this.schema(schemaRegistry.schema());
 
-            Map<String, Object> colMap = map;
-            map = new HashMap<>();
+        Map<String, Object> colMap = map;
+        map = new HashMap<>();
 
-            colMap.forEach(super::set);
-            liveSchemaColMap.forEach(super::set);
+        colMap.forEach(super::set);
+        liveSchemaColMap.forEach(super::set);
 
-            liveSchemaColMap.clear();
-        }
+        liveSchemaColMap.clear();
 
         return this;
     }
