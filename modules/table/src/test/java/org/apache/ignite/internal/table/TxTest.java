@@ -146,7 +146,7 @@ public class TxTest {
     }
 
     /**
-     * Tests a asynchronous transaction.
+     * Tests an asynchronous transaction.
      */
     @Test
     public void testTxAsync() {
@@ -168,7 +168,7 @@ public class TxTest {
     }
 
     /**
-     * Tests a asynchronous transaction for key-value view.
+     * Tests an asynchronous transaction for key-value view.
      */
     @Test
     public void testTxAsyncKeyValue() {
