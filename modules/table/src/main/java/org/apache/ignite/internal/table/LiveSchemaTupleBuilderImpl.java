@@ -94,28 +94,17 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
         if (liveSchemaColMap == null)
             return this;
 
-        Map<String, ColumnType> colTypeMap = new HashMap<>();
+        while (!liveSchemaColMap.isEmpty()) {
+            createColumns(liveSchemaColMap);
+        
+            this.schema(schemaRegistry.schema());
+        
+            Map colMap = map;
+            map = new HashMap();
+            liveSchemaColMap.clear();
 
-        for (Map.Entry<String, Object> entry : liveSchemaColMap.entrySet()) {
-            String colName = entry.getKey();
-            Object val = entry.getValue();
-
-            ColumnType type = MarshallerUtil.columnType(val.getClass());
-
-            if (type == null)
-                throw new UnsupportedOperationException("Live schema update for type [" + val.getClass() + "] is not supported yet.");
-
-            colTypeMap.put(colName, type);
+            colMap.forEach(super::set);
         }
-
-        if (colTypeMap.isEmpty())
-            return this;
-
-        createColumns(colTypeMap);
-        this.schema(schemaRegistry.schema());
-        rebuildTupleWithNewSchema();
-
-        liveSchemaColMap.forEach(super::set);
 
         return this;
     }
