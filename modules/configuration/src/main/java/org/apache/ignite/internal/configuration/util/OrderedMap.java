@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,8 +29,11 @@ import java.util.Map;
  * @param <V> Type of the value.
  */
 public class OrderedMap<V> {
-    /** Underlying linked hash map. */
-    private final Map<String, V> map = new LinkedHashMap<>();
+    /** Underlying hash map. */
+    private final Map<String, V> map = new HashMap<>();
+
+    /** Ordered keys. */
+    private final List<String> orderedKeys = new ArrayList<>();
 
     /** Default constructor. */
     public OrderedMap() {
@@ -44,6 +46,7 @@ public class OrderedMap<V> {
      */
     public OrderedMap(OrderedMap<V> other) {
         map.putAll(other.map);
+        orderedKeys.addAll(other.orderedKeys);
     }
 
     /**
@@ -73,6 +76,9 @@ public class OrderedMap<V> {
      * @return Provious value assiciated with the key or {@code null} if map had no such key.
      */
     public V remove(String key) {
+        if (map.containsKey(key))
+            orderedKeys.remove(key);
+
         return map.remove(key);
     }
 
@@ -84,6 +90,9 @@ public class OrderedMap<V> {
      * @param value Value associated with the key.
      */
     public void put(String key, V value) {
+        if (!map.containsKey(key))
+            orderedKeys.add(key);
+
         map.put(key, value);
     }
 
@@ -100,27 +109,12 @@ public class OrderedMap<V> {
         if (map.containsKey(key))
             throw new IllegalArgumentException("Key " + key + " already exists.");
 
-        Map<String, V> copy = new LinkedHashMap<>();
-        int curIdx = 0;
-
-        for (Iterator<Map.Entry<String, V>> iterator = map.entrySet().iterator(); iterator.hasNext(); ) {
-            Map.Entry<String, V> entry = iterator.next();
-
-            String nextKey = entry.getKey();
-
-            if (++curIdx > idx) {
-                V nextValue = entry.getValue();
-
-                iterator.remove();
-
-                copy.put(nextKey, nextValue);
-            }
-        }
+        if (idx >= orderedKeys.size())
+            orderedKeys.add(key);
+        else
+            orderedKeys.add(idx, key);
 
         map.put(key, value);
-
-        for (Map.Entry<String, V> entry : copy.entrySet())
-            map.put(entry.getKey(), entry.getValue());
     }
 
     /**
@@ -136,34 +130,9 @@ public class OrderedMap<V> {
         if (map.containsKey(key))
             throw new IllegalArgumentException("Key " + key + " already exists.");
 
-        if (map.containsKey(base)) {
-            Map<String, V> copy = new LinkedHashMap<>();
-            boolean delete = false;
+        int idx = orderedKeys.indexOf(base);
 
-            for (Iterator<Map.Entry<String, V>> iterator = map.entrySet().iterator(); iterator.hasNext(); ) {
-                Map.Entry<String, V> entry = iterator.next();
-
-                String nextKey = entry.getKey();
-
-                if (delete) {
-                    V nextValue = entry.getValue();
-
-                    iterator.remove();
-
-                    copy.put(nextKey, nextValue);
-                }
-
-                if (nextKey.equals(base))
-                    delete = true;
-            }
-
-            map.put(key, value);
-
-            for (Map.Entry<String, V> entry : copy.entrySet())
-                map.put(entry.getKey(), entry.getValue());
-        }
-        else
-            put(key, value);
+        putByIndex(idx < 0 ? orderedKeys.size() : idx + 1, key, value);
     }
 
     /**
@@ -182,16 +151,20 @@ public class OrderedMap<V> {
         if (map.containsKey(newKey))
             throw new IllegalArgumentException();
 
-        putAfter(oldKey, newKey, map.get(oldKey));
+        int idx = orderedKeys.indexOf(oldKey);
 
-        map.remove(oldKey);
+        orderedKeys.set(idx, newKey);
+
+        V value = map.remove(oldKey);
+
+        map.put(newKey, value);
     }
 
     /**
      * @return List of keys.
      */
     public List<String> keys() {
-        return new ArrayList<>(map.keySet());
+        return new ArrayList<>(orderedKeys);
     }
 
     /**
@@ -202,11 +175,9 @@ public class OrderedMap<V> {
     public void reorderKeys(List<String> orderedKeys) {
         assert map.keySet().equals(new HashSet<>(orderedKeys)) : map.keySet() + " : " + orderedKeys;
 
-        for (String key : orderedKeys) {
-            V value = map.remove(key);
+        this.orderedKeys.clear();
 
-            map.put(key, value);
-        }
+        this.orderedKeys.addAll(orderedKeys);
     }
 
     /**
@@ -221,5 +192,7 @@ public class OrderedMap<V> {
      */
     public void clear() {
         map.clear();
+
+        orderedKeys.clear();
     }
 }
