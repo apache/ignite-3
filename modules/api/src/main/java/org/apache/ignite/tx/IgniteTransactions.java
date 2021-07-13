@@ -33,7 +33,7 @@ public interface IgniteTransactions {
 
     /**
      * Begins the transaction.
-     * @param The closure to run in a transaction.
+     * @param clo The closure to run in a transaction.
      */
     void runInTransaction(Consumer<Transaction> clo);
 }

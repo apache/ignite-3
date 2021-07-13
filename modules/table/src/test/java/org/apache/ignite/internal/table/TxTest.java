@@ -150,15 +150,15 @@ public class TxTest {
      */
     @Test
     public void testTxAsync() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx)). // Map to tx table.
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
-            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2)) // Read both keys.
+            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
             .thenCompose(pair -> allOf(
                 txAcc.upsertAsync(makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
                 txAcc.upsertAsync(makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
-                ) // Write in parallel.
+                )
             )
-            .thenApply(ignore -> txAcc.transaction()) // Map back to transaction.
+            .thenApply(ignore -> txAcc.transaction())
         ).thenCompose(Transaction::commitAsync);
 
         Mockito.verify(tx).commitAsync();
@@ -172,15 +172,15 @@ public class TxTest {
      */
     @Test
     public void testTxAsyncKeyValue() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx).kvView()). // Map to tx table.
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx).kvView()).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
-            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2)) // Read both keys.
+            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
             .thenCompose(pair -> allOf(
                 txAcc.putAsync(makeKey(1), makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
                 txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
-                ) // Write in parallel.
+                )
             )
-            .thenApply(ignore -> txAcc.transaction()) // Map back to transaction.
+            .thenApply(ignore -> txAcc.transaction())
         ).thenCompose(Transaction::commitAsync);
 
         Mockito.verify(tx).commitAsync();

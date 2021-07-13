@@ -30,6 +30,8 @@ public interface Transaction {
 
     /**
      * Asynchronously commit a transaction.
+     *
+     * @return The future.
      */
     CompletableFuture<Void> commitAsync();
 
@@ -40,6 +42,8 @@ public interface Transaction {
 
     /**
      * Asynchronously rollback a transaction if it's not finished.
+     *
+     * @return The future.
      */
     CompletableFuture<Void> rollbackAsync();
 }
