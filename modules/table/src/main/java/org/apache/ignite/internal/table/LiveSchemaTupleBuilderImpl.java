@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,14 +95,16 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
 
         while (!liveSchemaColMap.isEmpty()) {
             createColumns(liveSchemaColMap);
-        
+
             this.schema(schemaRegistry.schema());
-        
-            Map colMap = map;
-            map = new HashMap();
-            liveSchemaColMap.clear();
+
+            Map<String, Object> colMap = map;
+            map = new HashMap<>();
 
             colMap.forEach(super::set);
+            liveSchemaColMap.forEach(super::set);
+
+            liveSchemaColMap.clear();
         }
 
         return this;
@@ -111,12 +112,12 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
 
     /**
      * Updates the schema, creates new columns.
-     * @param colTypeMap - map with column names and column types.
+     * @param extraCols - map with column names and column values.
      */
     private void createColumns(Map<String, Object> extraCols) {
         Map<String, ColumnType> colTypeMap = new HashMap<>();
         
-        for (Map.Entry<String, Object> entry : liveSchemaColMap.entrySet()) {
+        for (Map.Entry<String, Object> entry : extraCols.entrySet()) {
             String colName = entry.getKey();
             Object val = entry.getValue();
 

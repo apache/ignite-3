@@ -34,7 +34,7 @@ import org.apache.ignite.table.TupleBuilder;
  */
 public class TupleBuilderImpl implements TupleBuilder, Tuple {
     /** Columns values. */
-    protected final Map<String, Object> map;
+    protected Map<String, Object> map;
 
     /** Current schema descriptor. */
     private SchemaDescriptor schemaDesc;
