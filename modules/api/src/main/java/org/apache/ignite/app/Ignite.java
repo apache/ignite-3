@@ -32,7 +32,8 @@ public interface Ignite extends AutoCloseable {
     IgniteTables tables();
 
     /**
-     * Get a transaction manager.
+     * Returns a transaction facade.
+     *
      * @return Ignite transactions.
      */
     IgniteTransactions transactions();
