@@ -128,13 +128,4 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             }
         }));
     }
-
-    /**
-     * Validate all column values after updating schema.
-     */
-    private void rebuildTupleWithNewSchema() {
-        Collection<String> colNames = schema().columnNames();
-
-        colNames.stream().filter(map::containsKey).forEach(name -> set(name, map.get(name)));
-    }
 }
