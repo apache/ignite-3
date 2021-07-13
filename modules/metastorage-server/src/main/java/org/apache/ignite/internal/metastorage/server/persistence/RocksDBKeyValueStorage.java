@@ -183,7 +183,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
         Path tempPath = Paths.get(snapshotPath.toString() + TMP_SUFFIX);
 
-        IgniteUtils.delete(tempPath);
+        IgniteUtils.deleteIfExists(tempPath);
 
         try {
             Files.createDirectories(tempPath);
@@ -195,7 +195,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         }
 
         return createSstFile(tempPath).thenAccept(aVoid -> {
-            IgniteUtils.delete(snapshotPath);
+            IgniteUtils.deleteIfExists(snapshotPath);
 
             try {
                 Files.move(tempPath, snapshotPath);

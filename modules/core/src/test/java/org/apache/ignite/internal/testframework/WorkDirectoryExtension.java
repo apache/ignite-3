@@ -110,7 +110,11 @@ public class WorkDirectoryExtension implements BeforeEachCallback, AfterEachCall
         if (shouldRemoveDir())
             IgniteUtils.deleteIfExists(BASE_PATH);
 
-        Path workDir = BASE_PATH.resolve(extensionContext.getRequiredTestMethod().getName());
+        String testClassDir = extensionContext.getRequiredTestClass().getSimpleName();
+
+        String testMethodDir = extensionContext.getRequiredTestMethod().getName() + System.currentTimeMillis();
+
+        Path workDir = BASE_PATH.resolve(testClassDir).resolve(testMethodDir);
 
         Files.createDirectories(workDir);
 
