@@ -44,7 +44,7 @@ public interface InternalTable {
     @NotNull String tableName();
 
     /**
-     * Gets a schema mode of the table. May be STRICT or LIVE.
+     * Gets a schema mode of the table.
      *
      * @return Schema mode.
      */
