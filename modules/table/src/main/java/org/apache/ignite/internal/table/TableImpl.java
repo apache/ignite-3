@@ -102,7 +102,7 @@ public class TableImpl extends AbstractTableView implements Table {
     }
 
     /** {@inheritDoc} */
-    @Override public TableImpl wrap(Transaction tx) {
+    @Override public TableImpl withTx(Transaction tx) {
         return new TableImpl(tbl, schemaReg, tx);
     }
 

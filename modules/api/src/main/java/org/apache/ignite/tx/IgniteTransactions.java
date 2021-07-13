@@ -21,21 +21,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * Ignite Transactions.
+ * Ignite Transactions facade.
  */
 public interface IgniteTransactions {
     /**
-     * Begin the transaction.
+     * Begins the transaction asynchronously.
      *
-     * @return The completion stage.
+     * @return The future.
      */
     CompletableFuture<Transaction> beginAsync();
 
     /**
-     * Begin the transaction.
+     * Begins the transaction.
      * @param The closure to run in a transaction.
-     *
-     * @return The transaction.
      */
     void runInTransaction(Consumer<Transaction> clo);
 }

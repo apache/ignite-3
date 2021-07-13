@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.table;
 
 import java.util.concurrent.CompletableFuture;
@@ -8,6 +25,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -21,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** */
@@ -86,7 +105,7 @@ public class TxTest {
     @Test
     public void testTxSync() {
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.wrap(tx);
+            Table txAcc = accounts.withTx(tx);
 
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
@@ -97,6 +116,31 @@ public class TxTest {
             tx.commit(); // Not necessary to wait for async ops expicitly before the commit.
         });
 
+        Mockito.verify(tx).commit();
+
+        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+    }
+
+    /**
+     * Tests a synchronous transaction for key-value view.
+     */
+    @Test
+    public void testTxSyncKeyValue() {
+        igniteTransactions.runInTransaction(tx -> {
+            KeyValueBinaryView txAcc = accounts.withTx(tx).kvView();
+
+            CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
+            CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
+
+            txAcc.putAsync(makeKey(1), makeValue(1, read1.join().doubleValue("balance") - DELTA));
+            txAcc.putAsync(makeKey(2), makeValue(2, read2.join().doubleValue("balance") + DELTA));
+
+            tx.commit(); // Not necessary to wait for async ops expicitly before the commit.
+        });
+
+        Mockito.verify(tx).commit();
+
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
     }
@@ -106,18 +150,40 @@ public class TxTest {
      */
     @Test
     public void testTxAsync() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.wrap(tx)).
-            thenCompose(
-                txAcc -> txAcc.getAsync(makeKey(1))
-                    .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
-                    .thenCompose(pair -> txAcc.upsertAsync(makeValue(1,
-                        pair.getFirst().doubleValue("balance") - DELTA))
-                        .thenCombine(txAcc.upsertAsync(makeValue(2,
-                            pair.getSecond().doubleValue("balance") + DELTA)), (v1, v2) -> null)
-                    )
-                    .thenApply(ignore -> txAcc.transaction())
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx)). // Map to tx table.
+            thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
+            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2)) // Read both keys.
+            .thenCompose(pair -> allOf(
+                txAcc.upsertAsync(makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
+                txAcc.upsertAsync(makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                ) // Write in parallel.
             )
-            .thenCompose(Transaction::commitAsync);
+            .thenApply(ignore -> txAcc.transaction()) // Map back to transaction.
+        ).thenCompose(Transaction::commitAsync);
+
+        Mockito.verify(tx).commitAsync();
+
+        assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
+        assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+    }
+
+    /**
+     * Tests a asynchronous transaction for key-value view.
+     */
+    @Test
+    public void testTxAsyncKeyValue() {
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx).kvView()). // Map to tx table.
+            thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
+            .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2)) // Read both keys.
+            .thenCompose(pair -> allOf(
+                txAcc.putAsync(makeKey(1), makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
+                txAcc.putAsync(makeKey(2), makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                ) // Write in parallel.
+            )
+            .thenApply(ignore -> txAcc.transaction()) // Map back to transaction.
+        ).thenCompose(Transaction::commitAsync);
+
+        Mockito.verify(tx).commitAsync();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));

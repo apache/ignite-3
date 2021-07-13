@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.table.mapper.Mappers;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Key-Value view of table provides methods to access table records.
@@ -380,4 +381,9 @@ public interface KeyValueView<K, V> {
         @NotNull Collection<K> keys,
         InvokeProcessor<K, V, R> proc,
         Serializable... args);
+
+    /**
+     * @return Current transaction.
+     */
+    @Nullable Transaction transaction();
 }

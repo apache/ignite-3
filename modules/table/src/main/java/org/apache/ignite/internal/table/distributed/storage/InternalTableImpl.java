@@ -164,8 +164,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows,
-        Transaction tx) {
+    @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, Transaction tx) {
         HashMap<Integer, HashSet<BinaryRow>> keyRowsByPartition = new HashMap<>();
 
         for (BinaryRow keyRow : rows) {

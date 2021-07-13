@@ -79,7 +79,7 @@ public interface Table extends TableView<Tuple> {
      * @param tx The transaction.
      * @return Table view.
      */
-    Table wrap(Transaction tx);
+    Table withTx(Transaction tx);
 
     /**
      * Creates record view of table for record class provided.
