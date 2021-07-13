@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * This exception is thrown when lock cannot be acquired due to conflict.
  */
-public class LockException extends IgniteInternalException {
+public class LockException extends IgniteInternalCheckedException {
     /**
      * @param msg The message.
      */

@@ -48,7 +48,7 @@ public class HeapLockManager implements LockManager {
     }
 
     /** {@inheritDoc} */
-    @Override public void tryRelease(Object key, Timestamp timestamp) {
+    @Override public void tryRelease(Object key, Timestamp timestamp) throws LockException {
         lockState(key).tryRelease(timestamp);
     }
 
@@ -58,7 +58,7 @@ public class HeapLockManager implements LockManager {
     }
 
     /** {@inheritDoc} */
-    @Override public void tryReleaseShared(Object key, Timestamp timestamp) {
+    @Override public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException {
         lockState(key).tryReleaseShared(timestamp);
     }
 
@@ -88,7 +88,7 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return The future.
          */
-        public CompletableFuture<Void> tryAcquire(Timestamp timestamp) {
+        public CompletableFuture<Void> tryAcquire(Timestamp timestamp) throws LockException {
             WaiterImpl w = new WaiterImpl(timestamp, false);
 
             synchronized (waiters) {
@@ -119,7 +119,7 @@ public class HeapLockManager implements LockManager {
         /**
          * @param timestamp The timestamp.
          */
-        public void tryRelease(Timestamp timestamp) {
+        public void tryRelease(Timestamp timestamp) throws LockException {
             Collection<WaiterImpl> locked = new ArrayList<>();
 
             synchronized (waiters) {
@@ -168,7 +168,7 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return The future.
          */
-        public CompletableFuture<Void> tryAcquireShared(Timestamp timestamp) {
+        public CompletableFuture<Void> tryAcquireShared(Timestamp timestamp) throws LockException {
             WaiterImpl waiter = new WaiterImpl(timestamp, true);
 
             // Grant a lock to the oldest waiter.
@@ -201,7 +201,7 @@ public class HeapLockManager implements LockManager {
             return waiter.fut;
         }
 
-        public void tryReleaseShared(Timestamp timestamp) {
+        public void tryReleaseShared(Timestamp timestamp) throws LockException {
             WaiterImpl locked = null;
 
             synchronized (waiters) {

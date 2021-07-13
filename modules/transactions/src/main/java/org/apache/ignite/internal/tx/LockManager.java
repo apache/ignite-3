@@ -38,7 +38,7 @@ public interface LockManager {
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryRelease(Object key, Timestamp timestamp);
+    public void tryRelease(Object key, Timestamp timestamp) throws LockException;
 
     /**
      * @param key The key.
@@ -53,7 +53,7 @@ public interface LockManager {
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryReleaseShared(Object key, Timestamp timestamp);
+    public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException;
 
     /**
      * @param key The key.

@@ -46,7 +46,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     protected abstract LockManager newInstance();
 
     @Test
-    public void testSingleKeyWrite() {
+    public void testSingleKeyWrite() throws LockException {
         Timestamp ts1 = Timestamp.nextVersion();
 
         Object key = new String("test");
@@ -67,7 +67,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyWriteLock() {
+    public void testSingleKeyWriteLock() throws LockException {
         Timestamp ts1 = Timestamp.nextVersion();
 
         Object key = new String("test");
@@ -101,7 +101,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteLock() {
+    public void testSingleKeyReadWriteLock() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Timestamp ts2 = Timestamp.nextVersion();
@@ -151,7 +151,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict() {
+    public void testSingleKeyReadWriteConflict() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Object key = new String("test");
@@ -185,7 +185,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict2() {
+    public void testSingleKeyReadWriteConflict2() throws LockException {
         Timestamp[] ts = generate(3);
         Object key = new String("test");
 
@@ -206,7 +206,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict3() {
+    public void testSingleKeyReadWriteConflict3() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Timestamp ts2 = Timestamp.nextVersion();
@@ -231,7 +231,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict4() {
+    public void testSingleKeyReadWriteConflict4() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Timestamp ts2 = Timestamp.nextVersion();
@@ -252,7 +252,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyWriteWriteConflict() {
+    public void testSingleKeyWriteWriteConflict() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Timestamp ts2 = Timestamp.nextVersion();
@@ -276,7 +276,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyWriteWriteConflict2() {
+    public void testSingleKeyWriteWriteConflict2() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Timestamp ts2 = Timestamp.nextVersion();
@@ -326,7 +326,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testDeadlock() {
+    public void testDeadlock() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Object key = new String("test");
@@ -348,7 +348,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testDeadlock2() {
+    public void testDeadlock2() throws LockException {
         Timestamp ts0 = Timestamp.nextVersion();
         Timestamp ts1 = Timestamp.nextVersion();
         Object key1 = new String("test");
@@ -425,7 +425,12 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                                 continue;
                             }
 
-                            lockManager.tryRelease(key, timestamp);
+                            try {
+                                lockManager.tryRelease(key, timestamp);
+                            }
+                            catch (LockException e) {
+                                fail(e.getMessage());
+                            }
                         }
                         else {
                             try {
@@ -443,7 +448,12 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                                 continue;
                             }
 
-                            lockManager.tryReleaseShared(key, timestamp);
+                            try {
+                                lockManager.tryReleaseShared(key, timestamp);
+                            }
+                            catch (LockException e) {
+                                fail(e.getMessage());
+                            }
                         }
                     }
                 }
