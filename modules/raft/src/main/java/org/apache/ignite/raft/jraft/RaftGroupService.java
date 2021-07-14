@@ -104,8 +104,6 @@ public class RaftGroupService {
 
         assert this.nodeOptions.getRpcClient() != null;
 
-        LOG.info("RPC server is shared by RaftGroupService.");
-
         this.node = new NodeImpl(groupId, serverId);
 
         if (!this.node.init(this.nodeOptions)) {
