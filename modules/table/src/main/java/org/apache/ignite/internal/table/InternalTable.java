@@ -21,6 +21,8 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -51,7 +53,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<BinaryRow> get(BinaryRow keyRow, @Nullable Transaction tx);
+    CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx);
 
     /**
      * Asynchronously get rows from the table.
@@ -60,7 +62,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, @Nullable Transaction tx);
+    CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx);
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
@@ -69,7 +71,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> upsert(BinaryRow row, @Nullable Transaction tx);
+    CompletableFuture<Void> upsert(BinaryRow row, InternalTransaction tx);
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
@@ -78,7 +80,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, @Nullable Transaction tx);
+    CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, InternalTransaction tx);
 
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
@@ -87,7 +89,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, @Nullable Transaction tx);
+    CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, InternalTransaction tx);
 
     /**
      * Asynchronously inserts a row into the table if not exists.
@@ -96,7 +98,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Boolean> insert(BinaryRow row, @Nullable Transaction tx);
+    CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx);
 
     /**
      * Asynchronously insert rows into the table which do not exist, skipping existed ones.
@@ -105,7 +107,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, @Nullable Transaction tx);
+    CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, InternalTransaction tx);
 
     /**
      * Asynchronously replaces an existed row associated with the same key columns values as the given one has.
@@ -114,7 +116,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Boolean> replace(BinaryRow row, @Nullable Transaction tx);
+    CompletableFuture<Boolean> replace(BinaryRow row, InternalTransaction tx);
 
     /**
      * Asynchronously replaces an expected row in the table with the given new one.
@@ -124,7 +126,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, @Nullable Transaction tx);
+    CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, InternalTransaction tx);
 
     /**
      * Asynchronously gets an existed row associated with the same key columns values as the given one has,
@@ -134,7 +136,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, @Nullable Transaction tx);
+    CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction tx);
 
     /**
      * Asynchronously deletes a row with the same key columns values as the given one from the table.
@@ -143,7 +145,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Boolean> delete(BinaryRow keyRow, @Nullable Transaction tx);
+    CompletableFuture<Boolean> delete(BinaryRow keyRow, InternalTransaction tx);
 
     /**
      * Asynchronously deletes given row from the table.
@@ -152,7 +154,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, @Nullable Transaction tx);
+    CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, InternalTransaction tx);
 
     /**
      * Asynchronously gets then deletes a row with the same key columns values from the table.
@@ -161,7 +163,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, @Nullable Transaction tx);
+    CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction tx);
 
     /**
      * Asynchronously remove rows with the same key columns values as the given one has from the table.
@@ -170,7 +172,7 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, @Nullable Transaction tx);
+    CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, InternalTransaction tx);
 
     /**
      * Asynchronously remove given rows from the table.
@@ -179,8 +181,12 @@ public interface InternalTable {
      * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows,
-        @Nullable Transaction tx);
+    CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows, InternalTransaction tx);
+
+    /**
+     * @param timestamp The timestamp.
+     */
+    void commit(Timestamp timestamp);
 
     //TODO: IGNTIE-14488. Add invoke() methods.
 }

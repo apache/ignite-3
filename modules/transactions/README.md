@@ -64,7 +64,7 @@ Deadlock detection is not an option due to huge computation resources requiremen
 # Tx map
 Each node maintains a persistent tx map:
 
-txid -> timestamp|txstate(PENDING|ABORTED|COMMITED)
+txid -> txstate(PENDING|ABORTED|COMMITED)
 
 This map is used for a failover. Oldest entries in txid map must be cleaned to avoid unlimited grow.
 

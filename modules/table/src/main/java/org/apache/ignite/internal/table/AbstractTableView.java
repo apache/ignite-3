@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -35,7 +36,7 @@ abstract class AbstractTableView {
     protected final SchemaRegistry schemaReg;
 
     /** The transaction */
-    protected final @Nullable Transaction tx;
+    protected final @Nullable InternalTransaction tx;
 
     /**
      * Constructor
@@ -46,7 +47,7 @@ abstract class AbstractTableView {
     protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg, @Nullable Transaction tx) {
         this.tbl = tbl;
         this.schemaReg = schemaReg;
-        this.tx = tx;
+        this.tx = (InternalTransaction) tx;
     }
 
     /**

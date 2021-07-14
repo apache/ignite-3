@@ -22,8 +22,10 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.table.impl.DummyInternalTableWithTxImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.impl.TransactionImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Table;
@@ -59,14 +61,13 @@ public class TxTest {
     public static final double BALANCE_2 = 500;
 
     /** */
-    public static final double DELTA = 500;
+    public static final double DELTA = 100;
 
     /** */
     @Mock
     private IgniteTransactions igniteTransactions;
 
     /** */
-    @Mock
     private Transaction tx;
 
     /**
@@ -81,17 +82,21 @@ public class TxTest {
             new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
         );
 
-        accounts = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+        accounts = new TableImpl(new DummyInternalTableWithTxImpl(), new DummySchemaManagerImpl(schema), null);
         Tuple r1 = accounts.tupleBuilder().set("accountNumber", 1L).set("balance", BALANCE_1).build();
         Tuple r2 = accounts.tupleBuilder().set("accountNumber", 2L).set("balance", BALANCE_2).build();
 
         accounts.insert(r1);
         accounts.insert(r2);
 
+        tx = new TransactionImpl(null, Timestamp.nextVersion());
+
         Mockito.doAnswer(invocation -> {
             Consumer<Transaction> argument = invocation.getArgument(0);
 
             argument.accept(tx);
+
+            tx.commit();
 
             return null;
         }).when(igniteTransactions).runInTransaction(Mockito.any());
@@ -112,11 +117,7 @@ public class TxTest {
 
             txAcc.upsertAsync(makeValue(1, read1.join().doubleValue("balance") - DELTA));
             txAcc.upsertAsync(makeValue(2, read2.join().doubleValue("balance") + DELTA));
-
-            tx.commit(); // Not necessary to wait for async ops expicitly before the commit.
         });
-
-        Mockito.verify(tx).commit();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
@@ -135,11 +136,7 @@ public class TxTest {
 
             txAcc.putAsync(makeKey(1), makeValue(1, read1.join().doubleValue("balance") - DELTA));
             txAcc.putAsync(makeKey(2), makeValue(2, read2.join().doubleValue("balance") + DELTA));
-
-            tx.commit(); // Not necessary to wait for async ops expicitly before the commit.
         });
-
-        Mockito.verify(tx).commit();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
@@ -159,9 +156,7 @@ public class TxTest {
                 )
             )
             .thenApply(ignore -> txAcc.transaction())
-        ).thenCompose(Transaction::commitAsync);
-
-        Mockito.verify(tx).commitAsync();
+        ).thenCompose(Transaction::commitAsync).join();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
@@ -181,12 +176,25 @@ public class TxTest {
                 )
             )
             .thenApply(ignore -> txAcc.transaction())
-        ).thenCompose(Transaction::commitAsync);
-
-        Mockito.verify(tx).commitAsync();
+        ).thenCompose(Transaction::commitAsync).join();
 
         assertEquals(BALANCE_1 - DELTA, accounts.get(makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.get(makeKey(2)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testSingleKeyCompositeTx() {
+        igniteTransactions.runInTransaction(tx -> {
+            Table txAcc = accounts.withTx(tx);
+
+            Tuple current = txAcc.get(makeKey(1));
+
+            txAcc.upsert(makeValue(1, current.doubleValue("balance") - DELTA));
+        });
+
+        // TODO tx is uncommited, read prev value.
+
+        assertEquals(BALANCE_1, accounts.get(makeKey(1)).doubleValue("balance"));
     }
 
     /**

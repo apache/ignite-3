@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,14 +30,37 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.TransactionImpl;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Dummy table storage implementation.
+ * Dummy table storage implementation with tx support.
+ * All methods are expected to be called under read/write locks.
  */
-public class DummyInternalTableImpl implements InternalTable {
+public class DummyInternalTableWithTxImpl implements InternalTable {
     /** In-memory dummy store. */
-    private final Map<KeyWrapper, BinaryRow> store = new ConcurrentHashMap<>();
+    private final Map<KeyWrapper, Value> store = new HashMap<>();
+
+    /** */
+    private final Map<Timestamp, TxState> states = new ConcurrentHashMap<>();
+
+    private static class Value {
+        BinaryRow newRow;
+
+        BinaryRow oldRow;
+
+        Timestamp timestamp;
+
+        Value(BinaryRow newRow, BinaryRow oldRow, Timestamp timestamp) {
+            this.newRow = newRow;
+            this.oldRow = oldRow;
+            this.timestamp = timestamp;
+        }
+    }
 
     /**
      * Wrapper provides correct byte[] comparison.
@@ -92,26 +116,31 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<BinaryRow> get(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return CompletableFuture.completedFuture(store.get(extractAndWrapKey(row)));
+        return CompletableFuture.completedFuture(resolve(store.get(extractAndWrapKey(row)), tx));
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> upsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        store.put(extractAndWrapKey(row), row);
+        store.compute(extractAndWrapKey(row), (key, value) ->
+            value == null ? new Value(row, null, tx.timestamp()) :
+                new Value(row, value.oldRow == null ? value.newRow : value.oldRow, tx.timestamp())); // Keep first old value.
 
         return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<BinaryRow> getAndUpsert(@NotNull BinaryRow row,
-        InternalTransaction tx) {
+    @Override public CompletableFuture<BinaryRow> getAndUpsert(@NotNull BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        final BinaryRow old = store.put(extractAndWrapKey(row), row);
+        KeyWrapper key = extractAndWrapKey(row);
 
-        return CompletableFuture.completedFuture(old);
+        final Value old = store.get(key);
+
+        store.put(key, new Value(row, old == null ? null : old.oldRow, tx.timestamp()));
+
+        return CompletableFuture.completedFuture(old.newRow);
     }
 
     /** {@inheritDoc} */
@@ -119,19 +148,22 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         final KeyWrapper key = extractAndWrapKey(row);
-        final BinaryRow oldVal = store.get(key);
 
-        return CompletableFuture.completedFuture(oldVal != null && oldVal.hasValue() && store.remove(key, oldVal));
+        final Value old = store.get(key);
+
+        store.put(key, new Value(null, old == null ? null : old.oldRow, tx.timestamp()));
+
+        return CompletableFuture.completedFuture(old != null);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows,
-        InternalTransaction tx) {
+    @Override public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx) {
         assert keyRows != null && !keyRows.isEmpty();
 
         final List<BinaryRow> res = keyRows.stream()
             .map(this::extractAndWrapKey)
             .map(store::get)
+            .map(value -> resolve(value, tx))
             .collect(Collectors.toList());
 
         return CompletableFuture.completedFuture(res);
@@ -141,8 +173,8 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        rows.stream()
-            .map(k -> store.put(extractAndWrapKey(k), k));
+        for (BinaryRow row : rows)
+            upsert(row, tx);
 
         return CompletableFuture.completedFuture(null);
     }
@@ -151,19 +183,32 @@ public class DummyInternalTableImpl implements InternalTable {
     @Override public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
         assert row != null;
 
-        return CompletableFuture.completedFuture(store.putIfAbsent(extractAndWrapKey(row), row) == null);
+        KeyWrapper key = extractAndWrapKey(row);
+
+        Value old = store.get(key);
+
+        if (old != null && old.newRow != null)
+            return CompletableFuture.completedFuture(false);
+
+        store.put(key, new Value(row, null, tx == null ? null : tx.timestamp()));
+
+        return CompletableFuture.completedFuture(true);
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
         assert rows != null && !rows.isEmpty();
 
-        final List<BinaryRow> res = rows.stream()
-            .map(k -> store.putIfAbsent(extractAndWrapKey(k), k) == null ? null : k)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+        Collection<BinaryRow> inserted = new ArrayList<>();
 
-        return CompletableFuture.completedFuture(res);
+        for (BinaryRow row : rows) {
+            CompletableFuture<Boolean> fut = insert(row, tx);
+
+            if (fut.isDone())
+                inserted.add(row);
+        }
+
+        return CompletableFuture.completedFuture(inserted);
     }
 
     /** {@inheritDoc} */
@@ -171,12 +216,14 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row != null;
 
         final KeyWrapper key = extractAndWrapKey(row);
-        final BinaryRow oldRow = store.get(key);
+        final Value oldRow = store.get(key);
 
-        if (oldRow == null || !oldRow.hasValue())
+        if (oldRow == null || oldRow.newRow == null)
             return CompletableFuture.completedFuture(false);
 
-        return CompletableFuture.completedFuture(store.put(key, row) == oldRow);
+        store.put(key, new Value(row, oldRow.oldRow, tx.timestamp()));
+
+        return CompletableFuture.completedFuture(true);
     }
 
     /** {@inheritDoc} */
@@ -185,12 +232,15 @@ public class DummyInternalTableImpl implements InternalTable {
         assert newRow != null;
 
         final KeyWrapper key = extractAndWrapKey(oldRow);
-        final BinaryRow row = store.get(key);
 
-        if (row == null)
-            return CompletableFuture.completedFuture(!oldRow.hasValue() && store.put(key, newRow) == null);
+        final Value old = store.get(key);
 
-        return CompletableFuture.completedFuture(equalValues(row, oldRow) && store.put(key, newRow) != null);
+        if (old == null || old.newRow == null)
+            return CompletableFuture.completedFuture(false);
+
+        store.put(key, new Value(newRow, old.oldRow, tx.timestamp()));
+
+        return CompletableFuture.completedFuture(true);
     }
 
     @Override public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction tx) {
@@ -203,12 +253,14 @@ public class DummyInternalTableImpl implements InternalTable {
         assert row.hasValue();
 
         final KeyWrapper key = extractAndWrapKey(row);
-        final BinaryRow old = store.get(key);
+        final Value old = store.get(key);
 
-        if (old == null || !old.hasValue())
+        if (old == null || old.newRow == null || !equalValues(row, old.newRow))
             return CompletableFuture.completedFuture(false);
 
-        return CompletableFuture.completedFuture(equalValues(row, old) && store.remove(key) != null);
+        store.put(key, new Value(row, old.oldRow, tx.timestamp()));
+
+        return CompletableFuture.completedFuture(true);
     }
 
     @Override public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction tx) {
@@ -228,7 +280,7 @@ public class DummyInternalTableImpl implements InternalTable {
      * @param row Row.
      * @return Extracted key.
      */
-    @NotNull private DummyInternalTableImpl.KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
+    @NotNull private DummyInternalTableWithTxImpl.KeyWrapper extractAndWrapKey(@NotNull BinaryRow row) {
         final byte[] bytes = new byte[row.keySlice().capacity()];
         row.keySlice().get(bytes);
 
@@ -244,5 +296,54 @@ public class DummyInternalTableImpl implements InternalTable {
             return false;
 
         return row.valueSlice().compareTo(row2.valueSlice()) == 0;
+    }
+
+    /**
+     * @param value
+     * @param tx
+     * @return
+     */
+    private BinaryRow resolve(@Nullable Value value, @Nullable Transaction tx) {
+        if (value == null)
+            return null;
+
+        if (tx != null) {
+            TransactionImpl tx0 = (TransactionImpl) tx;
+
+            if (!tx0.timestamp().equals(value.timestamp))
+                assert value.oldRow == null : value + " " + tx;
+
+            return value.newRow;
+        }
+        else {
+            if (value.timestamp != null) {
+                TxState state = states.get(value.timestamp);
+
+                if (state == TxState.COMMITED)
+                    return value.newRow;
+                else
+                    return value.oldRow;
+            }
+            else
+                return value.newRow;
+        }
+    }
+
+    @Override public void commit(Timestamp ts) {
+        states.put(ts, TxState.COMMITED);
+    }
+
+    public void cleanup(@NotNull BinaryRow row) {
+        // TODO
+    }
+
+    public void abort(@NotNull BinaryRow row) {
+        final KeyWrapper key = extractAndWrapKey(row);
+
+        Value val = store.get(key);
+
+        assert val != null;
+
+        store.put(key, new Value(val.oldRow, null, null));
     }
 }
