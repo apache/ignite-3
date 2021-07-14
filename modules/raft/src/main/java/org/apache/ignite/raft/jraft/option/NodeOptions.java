@@ -198,6 +198,23 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** Server name. */
     private String serverName;
 
+    /** Amount of Disruptors that will handle the RAFT server. */
+    private int stripes = Utils.cpus() * 2;
+
+    /**
+     * @return Stripe count.
+     */
+    public int getStripes() {
+        return stripes;
+    }
+
+    /**
+     * @param stripes Stripe count.
+     */
+    public void setStripes(int stripes) {
+        this.stripes = stripes;
+    }
+
     /**
      * The rpc client.
      */
@@ -502,6 +519,10 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setServerName(this.getServerName());
         nodeOptions.setScheduler(this.getScheduler());
         nodeOptions.setClientExecutor(this.getClientExecutor());
+        nodeOptions.setNodeApplyDisruptor(this.getNodeApplyDisruptor());
+        nodeOptions.setfSMCallerExecutorDisruptor(this.getfSMCallerExecutorDisruptor());
+        nodeOptions.setReadOnlyServiceDisruptor(this.getReadOnlyServiceDisruptor());
+        nodeOptions.setLogManagerDisruptor(this.getLogManagerDisruptor());
 
         return nodeOptions;
     }

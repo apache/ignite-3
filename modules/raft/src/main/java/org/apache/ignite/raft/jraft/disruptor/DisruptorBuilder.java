@@ -14,14 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.util;
+package org.apache.ignite.raft.jraft.disruptor;
 
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.WaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadFactory;
+import org.apache.ignite.raft.jraft.util.NamedThreadFactory;
+import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
  * A builder to build a disruptor instance.
@@ -29,8 +31,7 @@ import java.util.concurrent.Executor;
 public class DisruptorBuilder<T> {
     private EventFactory<T> eventFactory;
     private Integer ringBufferSize;
-//    private ThreadFactory threadFactory = new NamedThreadFactory("Disruptor-", true);
-    private Executor executor;
+    private ThreadFactory threadFactory = new NamedThreadFactory("Disruptor-", true);
     private ProducerType producerType = ProducerType.MULTI;
     private WaitStrategy waitStrategy = new BlockingWaitStrategy();
 
@@ -59,12 +60,12 @@ public class DisruptorBuilder<T> {
         return this;
     }
 
-    public Executor getExecutor() {
-        return this.executor;
+    public ThreadFactory getThreadFactory() {
+        return threadFactory;
     }
 
-    public DisruptorBuilder<T> setExecutor(final Executor executor) {
-        this.executor = executor;
+    public DisruptorBuilder<T> setThreadFactory(ThreadFactory threadFactory) {
+        this.threadFactory = threadFactory;
         return this;
     }
 
@@ -89,7 +90,8 @@ public class DisruptorBuilder<T> {
     public Disruptor<T> build() {
         Requires.requireNonNull(this.ringBufferSize, " Ring buffer size not set");
         Requires.requireNonNull(this.eventFactory, "Event factory not set");
-        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.executor, this.producerType,
+
+        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.threadFactory, this.producerType,
             this.waitStrategy);
     }
 
