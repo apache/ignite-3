@@ -62,7 +62,7 @@ public class ClientConnectionTest {
         var registry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
-                Collections.emptyList()
+                Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
         var module = new ClientHandlerModule(mock(Ignite.class), NOPLogger.NOP_LOGGER);
