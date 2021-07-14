@@ -141,7 +141,7 @@ public class JRaftServerImpl implements RaftServer {
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
             opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
-                "JRaft-NodeImpl-Disruptor",
+                "JRaft-ReadOnlyService-Disruptor",
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes()));
