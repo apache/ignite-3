@@ -479,7 +479,7 @@ public class IgniteUtils {
      * @param closeables Array of closeable objects to close.
      * @throws Exception If failed to close.
      *
-     * @see #closeAll(Collection).
+     * @see #closeAll(Collection)
      */
     public static void closeAll(AutoCloseable... closeables) throws Exception {
         closeAll(Arrays.asList(closeables));
