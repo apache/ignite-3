@@ -17,11 +17,36 @@
 
 package org.apache.ignite.client;
 
+import io.netty.channel.ChannelFuture;
+import org.apache.ignite.app.Ignite;
+import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.helpers.NOPLogger;
+
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
 public class ClientConnectionTest {
+    private ChannelFuture serverFuture;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        serverFuture = startServer();
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        serverFuture.cancel(true);
+        serverFuture.await();
+    }
+
     @Test
     public void TestConnection() throws Exception {
         var builder = IgniteClient.builder().addresses("127.0.0.1");
@@ -31,5 +56,19 @@ public class ClientConnectionTest {
 
             assertEquals(0, tables.size());
         }
+    }
+
+    private ChannelFuture startServer() throws InterruptedException {
+        var registry = new ConfigurationRegistry(
+                Collections.singletonList(ClientConnectorConfiguration.KEY),
+                Collections.emptyMap(),
+                Collections.emptyList()
+        );
+
+        var module = new ClientHandlerModule(mock(Ignite.class), NOPLogger.NOP_LOGGER);
+
+        module.prepareStart(registry);
+
+        return module.start();
     }
 }

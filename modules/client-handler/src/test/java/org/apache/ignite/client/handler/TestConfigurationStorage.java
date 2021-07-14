@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Test configurationstorage.
+ * Test configuration storage.
  */
 public class TestConfigurationStorage implements ConfigurationStorage {
     /** Listeners. */
