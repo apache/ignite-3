@@ -450,7 +450,8 @@ public class IgniteUtils {
      * thrown exception will be propagated to the caller, after all other objects are closed, similar to
      * the try-with-resources block.
      *
-     * @param closeables collection of objects to close
+     * @param closeables Collection of objects to close.
+     * @throws Exception If failed to close.
      */
     public static void closeAll(Collection<? extends AutoCloseable> closeables) throws Exception {
         Exception ex = null;
@@ -472,7 +473,14 @@ public class IgniteUtils {
             throw ex;
     }
 
-    /** @see #closeAll(Collection<? extends AutoCloseable>) */
+    /**
+     * Closes all provided objects.
+     *
+     * @param closeables Array of closeable objects to close.
+     * @throws Exception If failed to close.
+     *
+     * @see #closeAll(Collection).
+     */
     public static void closeAll(AutoCloseable... closeables) throws Exception {
         closeAll(Arrays.asList(closeables));
     }

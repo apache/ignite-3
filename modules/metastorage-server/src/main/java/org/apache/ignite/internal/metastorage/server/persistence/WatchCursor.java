@@ -57,12 +57,12 @@ class WatchCursor implements Cursor<WatchEvent> {
     private final RocksIterator nativeIterator;
 
     /**
-     * Last revision.
+     * Last matching revision.
      */
     private long lastRetRev;
 
     /**
-     * Next revision.
+     * Next matching revision. {@code -1} means it's not found yet or does not exist.
      */
     private long nextRetRev = -1;
 
@@ -125,6 +125,8 @@ class WatchCursor implements Cursor<WatchEvent> {
 
                 try {
                     if (nextRetRev != -1)
+                        // Next revision is already calculated and is not -1, meaning that there is set of keys
+                        // matching the revision and the predicate.
                         return true;
 
                     while (true) {
@@ -142,12 +144,14 @@ class WatchCursor implements Cursor<WatchEvent> {
                                 throw new IgniteInternalException(e);
                             }
 
+                        // Check all keys by the revision to see if any one of them match the predicate.
                         for (nativeIterator.seek(revisionPrefix); nativeIterator.isValid(); nativeIterator.next()) {
                             empty = false;
 
                             byte[] key = RocksDBKeyValueStorage.rocksKeyToBytes(nativeIterator.key());
 
                             if (p.test(key)) {
+                                // Current revision matches.
                                 nextRetRev = curRev;
 
                                 return true;
@@ -159,6 +163,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                         if (empty)
                             return false;
 
+                        // Go to the next revision.
                         lastRetRev++;
                     }
                 }
@@ -180,6 +185,7 @@ class WatchCursor implements Cursor<WatchEvent> {
 
                             List<EntryEvent> evts = new ArrayList<>();
 
+                            // Iterate over the keys of the current revision and get all matching entries.
                             for (; nativeIterator.isValid(); nativeIterator.next()) {
                                 empty = false;
 
@@ -209,8 +215,10 @@ class WatchCursor implements Cursor<WatchEvent> {
                             if (evts.isEmpty())
                                 continue;
 
+                            // Set the last returned revision to the current revision's value.
                             lastRetRev = nextRetRev;
 
+                            // Set current revision to -1, meaning that it is not found yet.
                             nextRetRev = -1;
 
                             return new WatchEvent(evts);
