@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
@@ -48,6 +50,9 @@ public class Loza {
     /** Raft server. */
     private final RaftServer raftServer;
 
+    /** Started groups. */
+    private ConcurrentMap<String, RaftGroupServiceImpl> groups = new ConcurrentHashMap<>();
+
     /**
      * Constructor.
      *
@@ -63,41 +68,44 @@ public class Loza {
      * Creates a RAFT group.
      *
      * @param groupId RAFT group id.
-     * @param peers Group peers.
+     * @param nodes Group nodes.
      * @param lsnr Group listener.
      * @return A RAFT group client.
      */
-    public RaftGroupService startRaftGroup(String groupId, List<ClusterNode> peers, RaftGroupListener lsnr) {
-        assert !peers.isEmpty();
+    public RaftGroupService startRaftGroup(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
+        assert !nodes.isEmpty();
 
-        //Now we are using only one node in a raft group.
-        //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
-        if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
-            raftServer.startRaftGroup(groupId, lsnr, List.of(new Peer(peers.get(0).address())));
+        if (groups.containsKey(groupId))
+            return groups.get(groupId);
 
-        return new RaftGroupServiceImpl(
+        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+        raftServer.startRaftGroup(groupId, lsnr, peers);
+
+        groups.put(groupId, new RaftGroupServiceImpl(
             groupId,
             clusterNetSvc,
             FACTORY,
             TIMEOUT,
-            peers.stream().map(i -> new Peer(i.address())).collect(Collectors.toList()),
+            peers,
             true,
             DELAY
-        );
+        ));
+
+        return groups.get(groupId);
     }
 
     /**
      * Stops a RAFT group.
      *
      * @param groupId RAFT group id.
-     * @param peers Group peers.
      */
-    public void stopRaftGroup(String groupId, List<ClusterNode> peers) {
-        assert !peers.isEmpty();
+    public void stopRaftGroup(String groupId) {
+        if (!groups.containsKey(groupId))
+            return;
 
-        //Now we are using only one node in a raft group.
-        //TODO: IGNITE-13885 Investigate jraft implementation for replication framework based on RAFT protocol.
-        if (peers.get(0).name().equals(clusterNetSvc.topologyService().localMember().name()))
-            raftServer.stopRaftGroup(groupId);
+        raftServer.stopRaftGroup(groupId);
+
+        groups.remove(groupId);
     }
 }
