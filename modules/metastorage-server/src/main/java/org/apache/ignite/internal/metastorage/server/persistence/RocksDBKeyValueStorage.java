@@ -300,7 +300,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             long cntr = updCntr + 1;
 
-            doPut(key, value, batch, curRev, cntr);
+            addToBatch(batch, key, value, curRev, cntr);
 
             fillAndWriteBatch(batch, curRev, cntr);
 
@@ -360,7 +360,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             long lastRev = revs.isEmpty() ? 0 : lastRevision(revs);
 
-            doPut(key, value, batch, curRev, cntr);
+            addToBatch(batch, key, value, curRev, cntr);
 
             fillAndWriteBatch(batch, curRev, cntr);
 
@@ -384,7 +384,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
-            long counter = doPutAll(curRev, keys, values, batch);
+            long counter = addAllToBatch(batch, keys, values, curRev);
 
             for (int i = 0; i < keys.size(); i++) {
                 byte[] key = keys.get(i);
@@ -414,7 +414,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             res = doGetAll(keys, curRev);
 
-            long counter = doPutAll(curRev, keys, values, batch);
+            long counter = addAllToBatch(batch, keys, values, curRev);
 
             fillAndWriteBatch(batch, curRev, counter);
 
@@ -477,7 +477,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
             long curRev = rev + 1;
             long counter = updCntr + 1;
 
-            if (doRemove(key, curRev, counter, batch)) {
+            if (addToBatchForRemoval(batch, key, curRev, counter)) {
                 fillAndWriteBatch(batch, curRev, counter);
 
                 updateKeysIndex(key, curRev);
@@ -531,7 +531,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 vals.add(TOMBSTONE);
             }
 
-            long counter = doPutAll(curRev, existingKeys, vals, batch);
+            long counter = addAllToBatch(batch, existingKeys, vals, curRev);
 
             fillAndWriteBatch(batch, curRev, counter);
 
@@ -573,7 +573,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 vals.add(TOMBSTONE);
             }
 
-            long counter = doPutAll(curRev, existingKeys, vals, batch);
+            long counter = addAllToBatch(batch, existingKeys, vals, curRev);
 
             fillAndWriteBatch(batch, curRev, counter);
 
@@ -616,7 +616,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                     case PUT:
                         counter++;
 
-                        doPut(key, op.value(), batch, curRev, counter);
+                        addToBatch(batch, key, op.value(), curRev, counter);
 
                         updatedKeys.add(key);
 
@@ -627,7 +627,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                     case REMOVE:
                         counter++;
 
-                        boolean removed = doRemove(key, curRev, counter, batch);
+                        boolean removed = addToBatchForRemoval(batch, key, curRev, counter);
 
                         if (!removed)
                             counter--;
@@ -726,19 +726,36 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** */
-    private boolean doRemove(byte[] key, long curRev, long counter, WriteBatch batch) throws RocksDBException {
+    /**
+     * Adds a key to a batch marking the value as a tombstone.
+     *
+     * @param batch Write batch.
+     * @param key Target key.
+     * @param curRev Revision.
+     * @param counter Update counter.
+     * @return {@code true} if an entry can be deleted.
+     * @throws RocksDBException If failed.
+     */
+    private boolean addToBatchForRemoval(WriteBatch batch, byte[] key, long curRev, long counter) throws RocksDBException {
         Entry e = doGet(key, LATEST_REV, false);
 
         if (e.empty() || e.tombstone())
             return false;
 
-        doPut(key, TOMBSTONE, batch, curRev, counter);
+        addToBatch(batch, key, TOMBSTONE, curRev, counter);
 
         return true;
     }
 
-    /** */
+    /**
+     * Compacts all entries by the given key, removing all previous revisions and deleting the last entry if it is
+     * a tombstone.
+     *
+     * @param key Target key.
+     * @param revs Revision.
+     * @param compactedKeysIdx Keys index.
+     * @throws RocksDBException If failed.
+     */
     private void compactForKey(
         byte[] key,
         List<Long> revs,
@@ -764,7 +781,13 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
             this.db.delete(rocksKey);
     }
 
-    /** */
+    /**
+     * Gets all entries with given keys and a revision.
+     *
+     * @param keys Target keys.
+     * @param rev Target revision.
+     * @return Collection of entries.
+     */
     @NotNull
     private Collection<Entry> doGetAll(Collection<byte[]> keys, long rev) {
         assert keys != null : "keys list can't be null.";
@@ -786,7 +809,14 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return res;
     }
 
-    /** */
+    /**
+     * Gets the value by key and revision.
+     *
+     * @param key Target key.
+     * @param rev Target revision.
+     * @param exactRev {@code true} if searching for exact revision, {@code false} if rev is an upper bound (inclusive).
+     * @return Value.
+     */
     @NotNull
     Entry doGet(byte[] key, long rev, boolean exactRev) {
         assert rev == LATEST_REV && !exactRev || rev > LATEST_REV :
@@ -831,7 +861,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Add a revision to a key.
+     * Adds a revision to a key.
      *
      * @param revision Revision.
      * @param key Key.
@@ -848,7 +878,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Get a key from a key with revision.
+     * Gets a key from a key with revision.
      *
      * @param rocksKey Key with a revision.
      * @return Key without a revision.
@@ -858,7 +888,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Build a value from a byte array.
+     * Builds a value from a byte array.
      *
      * @param valueBytes Value byte array.
      * @return Value.
@@ -886,7 +916,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Add an update counter and a tombstone flag to a value.
+     * Adds an update counter and a tombstone flag to a value.
      * @param value Value byte array.
      * @param updateCounter Update counter.
      * @return Value with an update counter and a tombstone.
@@ -903,16 +933,22 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return bytes;
     }
 
-    /** */
+    /**
+     * Gets the value by a key and a revision.
+     *
+     * @param key Target key.
+     * @param revision Target revision.
+     * @return Entry.
+     */
     @NotNull
-    Entry doGetValue(byte[] key, long lastRev) {
-        if (lastRev == 0)
+    Entry doGetValue(byte[] key, long revision) {
+        if (revision == 0)
             return Entry.empty(key);
 
         byte[] valueBytes;
 
         try {
-            valueBytes = db.get(keyToRocksKey(lastRev, key));
+            valueBytes = db.get(keyToRocksKey(revision, key));
         }
         catch (RocksDBException e) {
             throw new IgniteInternalException(e);
@@ -924,22 +960,40 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         Value lastVal = bytesToValue(valueBytes);
 
         if (lastVal.tombstone())
-            return Entry.tombstone(key, lastRev, lastVal.updateCounter());
+            return Entry.tombstone(key, revision, lastVal.updateCounter());
 
-        return new Entry(key, lastVal.bytes(), lastRev, lastVal.updateCounter());
+        return new Entry(key, lastVal.bytes(), revision, lastVal.updateCounter());
     }
 
-    /** */
-    private void doPut(byte[] key, byte[] bytes, WriteBatch batch, long curRev, long cntr) throws RocksDBException {
+    /**
+     * Adds an entry to the batch.
+     *
+     * @param batch Write batch.
+     * @param key Key.
+     * @param value Value.
+     * @param curRev Revision.
+     * @param cntr Update counter.
+     * @throws RocksDBException If failed.
+     */
+    private void addToBatch(WriteBatch batch, byte[] key, byte[] value, long curRev, long cntr) throws RocksDBException {
         byte[] rocksKey = keyToRocksKey(curRev, key);
 
-        byte[] rocksValue = valueToBytes(bytes, cntr);
+        byte[] rocksValue = valueToBytes(value, cntr);
 
         batch.put(rocksKey, rocksValue);
     }
 
-    /** */
-    private long doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, WriteBatch batch) throws RocksDBException {
+    /**
+     * Adds all entries to the batch.
+     *
+     * @param batch Write batch.
+     * @param keys Keys.
+     * @param values Values.
+     * @param curRev Revision.
+     * @return New update counter value.
+     * @throws RocksDBException If failed.
+     */
+    private long addAllToBatch(WriteBatch batch, List<byte[]> keys, List<byte[]> values, long curRev) throws RocksDBException {
         long counter = this.updCntr;
 
         for (int i = 0; i < keys.size(); i++) {
@@ -947,17 +1001,20 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             byte[] key = keys.get(i);
 
-            byte[] bytes = bytesList.get(i);
+            byte[] bytes = values.get(i);
 
-            doPut(key, bytes, batch, curRev, counter);
+            addToBatch(batch, key, bytes, curRev, counter);
         }
-
-        batch.put(UPDATE_COUNTER_KEY, ByteUtils.longToBytes(counter));
 
         return counter;
     }
 
-    /** */
+    /**
+     * Gets last revision from the list.
+     *
+     * @param revs Revisions.
+     * @return Last revision.
+     */
     private static long lastRevision(List<Long> revs) {
         return revs.get(revs.size() - 1);
     }
@@ -1003,7 +1060,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Check the status of the iterator and throw an exception if it is not correct.
+     * Checks the status of the iterator and throw an exception if it is not correct.
      *
      * @param it RocksDB iterator.
      * @throws IgniteInternalException if the iterator has an incorrect status.

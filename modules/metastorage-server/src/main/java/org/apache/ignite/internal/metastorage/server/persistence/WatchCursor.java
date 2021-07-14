@@ -57,12 +57,12 @@ class WatchCursor implements Cursor<WatchEvent> {
     private final RocksIterator nativeIterator;
 
     /**
-     *
+     * Last revision.
      */
     private long lastRetRev;
 
     /**
-     *
+     * Next revision.
      */
     private long nextRetRev = -1;
 
