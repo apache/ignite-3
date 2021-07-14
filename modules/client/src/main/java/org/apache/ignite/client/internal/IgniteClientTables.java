@@ -39,8 +39,17 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        // TODO
-        return null;
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
