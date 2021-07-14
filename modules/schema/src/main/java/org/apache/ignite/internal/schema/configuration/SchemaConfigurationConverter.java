@@ -514,7 +514,6 @@ public class SchemaConfigurationConverter {
         return tblChange.changeColumns(colChg -> colChg.delete(columnName));
     }
 
-
     /**
      * Gets ColumnType type for given class.
      *
