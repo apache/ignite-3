@@ -49,7 +49,7 @@ public class ClientConnectionTest {
 
     @Test
     public void TestConnection() throws Exception {
-        var builder = IgniteClient.builder().addresses("127.0.0.1");
+        var builder = IgniteClient.builder().addresses("127.0.0.2:10800");
 
         try (var client = builder.build()) {
             var tables = client.tables().tables();
