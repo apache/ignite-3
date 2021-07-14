@@ -24,7 +24,6 @@ import java.time.LocalTime;
 import java.time.Year;
 import java.util.BitSet;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Test utility class.

@@ -15,16 +15,22 @@ import java.time.LocalTime;
 public class TemporalTypesHelper {
     /** Year field length. */
     public static final int YEAR_FIELD_LENGTH = 14;
+
     /** Month field length. */
     public static final int MONTH_FIELD_LENGTH = 4;
+
     /** Day field length. */
     public static final int DAY_FIELD_LENGTH = 5;
+
     /** Hours field length. */
     public static final int HOUR_FIELD_LENGTH = 5;
+
     /** Minutes field length. */
     public static final int MINUTES_FIELD_LENGTH = 6;
+
     /** Seconds field length. */
     public static final int SECONDS_FIELD_LENGTH = 6;
+
     /** Milliseconds field length. */
     public static final int MILLIS_FIELD_LENGTH = 10;
 

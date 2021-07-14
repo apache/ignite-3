@@ -465,7 +465,6 @@ public class RowAssembler {
         return this;
     }
 
-
     /**
      * Appends LocalTime value for the current column to the chunk.
      *
