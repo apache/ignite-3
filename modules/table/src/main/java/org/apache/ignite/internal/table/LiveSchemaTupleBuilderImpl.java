@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.schema.ColumnType;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -40,7 +40,7 @@ import static org.apache.ignite.internal.schema.configuration.SchemaConfiguratio
  */
 public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
     /** Live schema column values. */
-    private Map<String, Object> liveSchemaColMap;
+    private Map<String, Object> extraColumnsMap;
 
     /** Schema registry. */
     private final SchemaRegistry schemaRegistry;
@@ -65,7 +65,7 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
         this.tblName = tblName;
         this.mgr = mgr;
 
-        liveSchemaColMap = null;
+        extraColumnsMap = null;
     }
 
     /** {@inheritDoc} */
@@ -76,10 +76,10 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             if (val == null)
                 return this;
 
-            if (liveSchemaColMap == null)
-                liveSchemaColMap = new HashMap<>();
+            if (extraColumnsMap == null)
+                extraColumnsMap = new HashMap<>();
                 
-            liveSchemaColMap.put(colName, val);
+            extraColumnsMap.put(colName, val);
             
             return this;
         }
@@ -90,20 +90,22 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
 
     /** {@inheritDoc} */
     @Override public Tuple build() {
-        if (liveSchemaColMap == null)
+        if (extraColumnsMap == null)
             return this;
 
-        createColumns(liveSchemaColMap);
+        while (!extraColumnsMap.isEmpty()) {
+            createColumns(extraColumnsMap);
 
-        this.schema(schemaRegistry.schema());
+            this.schema(schemaRegistry.schema());
 
-        Map<String, Object> colMap = map;
-        map = new HashMap<>();
+            Map<String, Object> colMap = map;
+            map = new HashMap<>();
 
-        colMap.forEach(super::set);
-        liveSchemaColMap.forEach(super::set);
+            extraColumnsMap.forEach(colMap::put);
+            extraColumnsMap.clear();
 
-        liveSchemaColMap.clear();
+            colMap.forEach(this::set);
+        }
 
         return this;
     }
@@ -119,7 +121,7 @@ public class LiveSchemaTupleBuilderImpl extends TupleBuilderImpl {
             String colName = entry.getKey();
             Object val = entry.getValue();
 
-            ColumnType type = MarshallerUtil.columnType(val.getClass());
+            ColumnType type = SchemaConfigurationConverter.columnType(val.getClass());
 
             if (type == null)
                 throw new UnsupportedOperationException("Live schema update for type [" + val.getClass() + "] is not supported yet.");

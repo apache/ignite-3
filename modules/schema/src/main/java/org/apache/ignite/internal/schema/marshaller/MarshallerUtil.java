@@ -23,7 +23,6 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.apache.ignite.schema.ColumnType;
 
 /**
  * Marshaller utility class.
@@ -95,52 +94,6 @@ public final class MarshallerUtil {
             return BinaryMode.UUID;
         else if (cls == BitSet.class)
             return BinaryMode.BITSET;
-
-        return null;
-    }
-
-    /**
-     * Gets ColumnType type for given class.
-     *
-     * @param cls Class.
-     * @return ColumnType type or null.
-     */
-    public static ColumnType columnType(Class<?> cls) {
-        assert cls != null;
-
-        // Primitives.
-        if (cls == byte.class)
-            return ColumnType.INT8;
-        else if (cls == short.class)
-            return ColumnType.INT16;
-        else if (cls == int.class)
-            return ColumnType.INT32;
-        else if (cls == long.class)
-            return ColumnType.INT64;
-        else if (cls == float.class)
-            return ColumnType.FLOAT;
-        else if (cls == double.class)
-            return ColumnType.DOUBLE;
-
-            // Boxed primitives.
-        else if (cls == Byte.class)
-            return ColumnType.INT8;
-        else if (cls == Short.class)
-            return ColumnType.INT16;
-        else if (cls == Integer.class)
-            return ColumnType.INT32;
-        else if (cls == Long.class)
-            return ColumnType.INT64;
-        else if (cls == Float.class)
-            return ColumnType.FLOAT;
-        else if (cls == Double.class)
-            return ColumnType.DOUBLE;
-
-        // Other types
-        else if (cls == String.class)
-            return ColumnType.string();
-        else if (cls == UUID.class)
-            return ColumnType.UUID;
 
         return null;
     }
