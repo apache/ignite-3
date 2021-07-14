@@ -32,6 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.affinity.event.AffinityEventParameters;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.manager.ListenerRemovedException;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
@@ -106,6 +109,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables. */
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
+    /** Tables. */
+    private final Map<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
+
     /**
      * Creates a new table manager.
      *
@@ -167,6 +173,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, schemaReg);
 
         tables.put(name, table);
+        tablesById.put(table.tableId(), table);
 
         onEvent(TableEvent.CREATE, new TableEventParameters(table), null);
     }
@@ -598,9 +605,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     return false;
 
                 if (e == null) {
-                    Table droppedTable = tables.remove(tableName);
+                    TableImpl droppedTable = tables.remove(tableName);
 
                     assert droppedTable != null;
+
+                    tablesById.remove(droppedTable.tableId());
 
                     dropTblFut.complete(null);
                 }
@@ -696,31 +705,52 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Gets a table if it exists or {@code null} if it was not created or was removed before.
      *
-     * @param name Table name.
+     * @param id Table ID.
+     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
+     * false otherwise.
+     * @return A table or {@code null} if table does not exist.
+     */
+    public TableImpl table(UUID id, boolean checkConfiguration) {
+        return table(() -> tablesById.get(id), p -> p.tableId().equals(id), checkConfiguration);
+    }
+
+    /**
+     * Gets a table if it exists or {@code null} if it was not created or was removed before.
+     *
      * @param checkConfiguration True when the method checks a configuration before tries to get a table,
      * false otherwise.
      * @return A table or {@code null} if table does not exist.
      */
     private Table table(String name, boolean checkConfiguration) {
-        if (checkConfiguration && !isTableConfigured(name))
-            return null;
+        return table(() -> tables.get(name), p -> p.tableName().equals(name), checkConfiguration);
+    }
 
-        Table tbl = tables.get(name);
+    /**
+     * Gets a table if it exists or {@code null} if it was not created or was removed before.
+     *
+     * @param checkConfiguration True when the method checks a configuration before tries to get a table,
+     * false otherwise.
+     * @return A table or {@code null} if table does not exist.
+     */
+    private TableImpl table(Supplier<TableImpl> supplier, Predicate<TableEventParameters> predicate, boolean checkConfiguration) {
+        var tbl = supplier.get();
 
-        if (tbl != null)
-            return tbl;
+        if (tbl != null) {
+            if (checkConfiguration && !isTableConfigured(tbl.tableName()))
+                return null;
+            else
+                return tbl;
+        }
 
-        CompletableFuture<Table> getTblFut = new CompletableFuture<>();
+        CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                String tableName = parameters.tableName();
-
-                if (!name.equals(tableName))
+                if (!predicate.test(parameters))
                     return false;
 
                 if (e == null)
-                    getTblFut.complete(parameters.table());
+                    getTblFut.complete((TableImpl) parameters.table());
                 else
                     getTblFut.completeExceptionally(e);
 
@@ -734,10 +764,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        tbl = tables.get(name);
+        tbl = supplier.get();
 
-        if (tbl != null && getTblFut.complete(tbl) ||
-            !isTableConfigured(name) && getTblFut.complete(null))
+        if (tbl != null && isTableConfigured(tbl.tableName()) && getTblFut.complete(tbl) ||
+                getTblFut.complete(null))
             removeListener(TableEvent.CREATE, clo, null);
 
         return getTblFut.join();
