@@ -518,20 +518,16 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             List<byte[]> existingKeys = new ArrayList<>(keys.size());
 
-            List<byte[]> vals = new ArrayList<>(keys.size());
+            long counter = updCntr;
 
             for (byte[] key : keys) {
-                Entry e = doGet(key, LATEST_REV, false);
+                counter++;
 
-                if (e.empty() || e.tombstone())
-                    continue;
-
-                existingKeys.add(key);
-
-                vals.add(TOMBSTONE);
+                if (addToBatchForRemoval(batch, key, curRev, counter))
+                    existingKeys.add(key);
+                else
+                    counter--;
             }
-
-            long counter = addAllToBatch(batch, existingKeys, vals, curRev);
 
             fillAndWriteBatch(batch, curRev, counter);
 
