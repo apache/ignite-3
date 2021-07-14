@@ -31,7 +31,7 @@ import java.time.LocalTime;
  */
 public class TemporalTypesHelper {
     /** Year field length. */
-    public static final int YEAR_FIELD_LENGTH = 14;
+    public static final int YEAR_FIELD_LENGTH = 15;
 
     /** Month field length. */
     public static final int MONTH_FIELD_LENGTH = 4;
@@ -66,9 +66,9 @@ public class TemporalTypesHelper {
      * @return Encoded time.
      */
     public static int compactTime(LocalTime time) {
-        int val = time.getHour() << HOUR_FIELD_LENGTH;
-        val = (val | time.getMinute()) << MINUTES_FIELD_LENGTH;
-        val = (val | time.getSecond()) << SECONDS_FIELD_LENGTH;
+        int val = time.getHour() << MINUTES_FIELD_LENGTH;
+        val = (val | time.getMinute()) << SECONDS_FIELD_LENGTH;
+        val = (val | time.getSecond()) << MILLIS_FIELD_LENGTH;
         val |= time.getNano() / 1_000_000; // Conver to millis.
 
         return val;
@@ -81,8 +81,8 @@ public class TemporalTypesHelper {
      * @return Encoded date.
      */
     public static int encodeDate(LocalDate date) {
-        int val = date.getYear() << YEAR_FIELD_LENGTH;
-        val = (val | date.getMonthValue()) << MONTH_FIELD_LENGTH;
+        int val = date.getYear() << MONTH_FIELD_LENGTH;
+        val = (val | date.getMonthValue()) << DAY_FIELD_LENGTH;
         val |= date.getDayOfMonth();
 
         return val;
