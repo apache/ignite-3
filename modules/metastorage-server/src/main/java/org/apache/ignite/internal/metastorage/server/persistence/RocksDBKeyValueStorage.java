@@ -1032,7 +1032,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     /**
      * Gets a ceiling (higher or equal) entry for a key in the keys index.
      *
-     * @param key Key.
+     * @param keyFrom Key.
      * @return Higher entry.
      */
     Map.Entry<byte[], List<Long>> revisionCeilingEntry(byte[] keyFrom) {
