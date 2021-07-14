@@ -18,14 +18,13 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Named thread factory with prefix.
  */
 public class NamedThreadFactory implements ThreadFactory {
-    private static final Logger LOG = LoggerFactory.getLogger(NamedThreadFactory.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(NamedThreadFactory.class);
 
     private static final LogUncaughtExceptionHandler UNCAUGHT_EX_HANDLER = new LogUncaughtExceptionHandler();
 

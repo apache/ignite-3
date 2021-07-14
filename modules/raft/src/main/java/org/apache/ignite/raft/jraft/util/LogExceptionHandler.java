@@ -17,15 +17,14 @@
 package org.apache.ignite.raft.jraft.util;
 
 import com.lmax.disruptor.ExceptionHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Disruptor exception handler.
  */
 public final class LogExceptionHandler<T> implements ExceptionHandler<T> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LogExceptionHandler.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(LogExceptionHandler.class);
 
     public interface OnEventException<T> {
 

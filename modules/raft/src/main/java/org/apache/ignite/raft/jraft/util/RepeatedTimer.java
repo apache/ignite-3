@@ -19,19 +19,18 @@ package org.apache.ignite.raft.jraft.util;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.util.timer.HashedWheelTimer;
 import org.apache.ignite.raft.jraft.util.timer.Timeout;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
 import org.apache.ignite.raft.jraft.util.timer.TimerTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Repeatable timer based on java.util.Timer.
  */
 public abstract class RepeatedTimer implements Describer {
 
-    public static final Logger LOG = LoggerFactory.getLogger(RepeatedTimer.class);
+    public static final IgniteLogger LOG = IgniteLogger.forClass(RepeatedTimer.class);
 
     private final Lock lock = new ReentrantLock();
     private final Timer timer;
