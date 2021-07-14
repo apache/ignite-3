@@ -72,7 +72,7 @@ public class MessageServiceImpl implements MessageService {
     /** {@inheritDoc} */
     @Override public void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException {
         if (locNodeId.equals(nodeId))
-            onMessage(nodeId, msg, true);
+            onMessage(nodeId, msg);
         else {
             ClusterNode node = topSrvc.allMembers().stream()
                 .filter(cn -> nodeId.equals(cn.id()))
@@ -108,19 +108,18 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /** */
-    protected void onMessage(String nodeId, NetworkMessage msg, boolean async) {
+    protected void onMessage(String nodeId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(nodeId, msg));
         }
-        else if (async)
+        else {
             taskExecutor.execute(
                 QUERY_ID_STUB,
                 ThreadLocalRandom.current().nextLong(1024),
                 () -> onMessageInternal(nodeId, msg)
             );
-        else
-            onMessageInternal(nodeId, msg);
+        }
     }
 
     /** */
@@ -135,7 +134,7 @@ public class MessageServiceImpl implements MessageService {
         }
 
         if (msg.groupType() == 3)
-            onMessage(node.id(), msg, false);
+            onMessage(node.id(), msg);
     }
 
     /** */

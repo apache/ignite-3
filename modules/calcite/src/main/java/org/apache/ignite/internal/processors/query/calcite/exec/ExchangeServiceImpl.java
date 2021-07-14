@@ -173,19 +173,11 @@ public class ExchangeServiceImpl implements ExchangeService {
         Collection<Outbox<?>> outboxes = mailboxRegistry.outboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
 
         if (!nullOrEmpty(outboxes)) {
-            List<CompletableFuture<?>> futs = new ArrayList<>(outboxes.size());
+            for (Outbox<?> outbox : outboxes)
+                outbox.context().execute(outbox::close, outbox::onError);
 
-            Set<ExecutionContext<?>> ctxs = new HashSet<>();
-
-            for (Outbox<?> outbox : outboxes) {
-                CompletableFuture<?> fut = outbox.context().submit(outbox::close, outbox::onError);
-
-                futs.add(fut);
-
-                ctxs.add(outbox.context());
-            }
-
-            CompletableFuture.allOf(futs.toArray(new CompletableFuture<?>[0])).thenRun(() -> ctxs.forEach(ExecutionContext::cancel));
+            for (Outbox<?> outbox : outboxes)
+                outbox.context().execute(outbox.context()::cancel, outbox::onError);
         }
         else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale oubox cancel message received: [" +

@@ -786,7 +786,6 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
                 // 2) unregister runing query
                 running.remove(ctx.queryId());
 
-                // 4) close remote fragments
                 IgniteInternalException wrpEx = null;
 
                 // 3) close remote fragments
@@ -803,7 +802,7 @@ public class ExecutionServiceImpl<Row> implements ExecutionService {
                 }
 
                 // 4) Cancel local fragment
-                ctx.cancel();
+                root.context().execute(ctx::cancel, root::onError);
 
                 if (wrpEx != null)
                     throw wrpEx;
