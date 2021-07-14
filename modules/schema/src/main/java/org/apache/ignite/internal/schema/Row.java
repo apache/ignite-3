@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.row.TemporalTypeFormat;
+import org.apache.ignite.internal.schema.row.TemporalTypesHelper;
 
 /**
  * Schema-aware row.
@@ -38,8 +38,9 @@ import org.apache.ignite.internal.schema.row.TemporalTypeFormat;
  * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
  * When a unknown column value requested, the a column default will be returned.
  * <p>
- * Temporal types are decoded regarding temporal format.
- * @see TemporalTypeFormat
+ * Natively supported temporal types are decoded automatically after read.
+ *
+ * @see TemporalTypesHelper
  */
 public class Row implements BinaryRow {
     /** Schema descriptor. */
@@ -442,7 +443,7 @@ public class Row implements BinaryRow {
     private LocalTime readTime(int off) {
         int time = readInteger(off);
 
-        return TemporalTypeFormat.decodeTime(time);
+        return TemporalTypesHelper.decodeTime(time);
     }
 
     /**
@@ -453,7 +454,7 @@ public class Row implements BinaryRow {
         int date = ((int)readShort(off)) << 8;
         date |= Byte.toUnsignedInt(readByte(off + 2));
 
-        return TemporalTypeFormat.decodeDate(date);
+        return TemporalTypesHelper.decodeDate(date);
     }
 
     /**

@@ -28,7 +28,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow.RowFlags;
-import org.apache.ignite.internal.schema.row.TemporalTypeFormat;
+import org.apache.ignite.internal.schema.row.TemporalTypesHelper;
 
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_KEY_VARTBL_FLAG;
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_VAL_VARTBL_FLAG;
@@ -48,7 +48,7 @@ import static org.apache.ignite.internal.schema.BinaryRow.VARLEN_TABLE_SIZE_FIEL
  * @see #rowSize(Columns, int, int, Columns, int, int)
  * @see #rowChunkSize(Columns, int, int)
  * @see #utf8EncodedLength(CharSequence)
- * @see TemporalTypeFormat
+ * @see TemporalTypesHelper
  */
 public class RowAssembler {
     /** Schema. */
@@ -452,7 +452,7 @@ public class RowAssembler {
     public RowAssembler appendDate(LocalDate val) {
         checkType(NativeTypes.DATE);
 
-        int date = TemporalTypeFormat.encodeDate(val);
+        int date = TemporalTypesHelper.encodeDate(val);
 
         buf.putShort(curOff, (short)(date >>> 8));
         buf.put(curOff + 2, (byte)(date & 0xFF));
@@ -475,7 +475,7 @@ public class RowAssembler {
     public RowAssembler appendTime(LocalTime val) {
         checkType(NativeTypes.TIME);
 
-        buf.putInt(curOff, TemporalTypeFormat.compactTime(val));
+        buf.putInt(curOff, TemporalTypesHelper.compactTime(val));
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + val.hashCode();
@@ -494,11 +494,11 @@ public class RowAssembler {
     public RowAssembler appendDateTime(LocalDateTime val) {
         checkType(NativeTypes.DATETIME);
 
-        int date = TemporalTypeFormat.encodeDate(val.toLocalDate());
+        int date = TemporalTypesHelper.encodeDate(val.toLocalDate());
 
         buf.putShort(curOff, (short)(date >>> 8));
         buf.put(curOff + 2, (byte)(date & 0xFF));
-        buf.putInt(curOff + 3, TemporalTypeFormat.compactTime(val.toLocalTime()));
+        buf.putInt(curOff + 3, TemporalTypesHelper.compactTime(val.toLocalTime()));
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + val.hashCode();
