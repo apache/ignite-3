@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Year;
 import java.util.BitSet;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test utility class.
@@ -65,6 +71,29 @@ public final class TestUtils {
 
                 return randomBitSet(rnd, maskType.bits());
             }
+
+            case DATE: {
+                Year year = Year.of((rnd.nextBoolean() ? 1 : -1) * rnd.nextInt(1 << 14));
+
+                return LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length() + 1));
+            }
+
+            case TIME:
+                return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
+                    rnd.nextInt(1000) * 1_000_000);
+
+            case DATETIME: {
+                Year year = Year.of((rnd.nextBoolean() ? 1 : -1) * rnd.nextInt(1 << 14));
+
+                LocalDate date = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length() + 1));
+                LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
+                    rnd.nextInt(1000) * 1_000_000);
+
+                return LocalDateTime.of(date, time);
+            }
+
+            case TIMESTAMP:
+                return Instant.ofEpochMilli(rnd.nextLong());
 
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);

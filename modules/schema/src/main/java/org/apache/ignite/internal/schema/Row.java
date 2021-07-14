@@ -21,15 +21,25 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.row.TemporalTypeFormat;
 
 /**
  * Schema-aware row.
  * <p>
  * The class contains non-generic methods to read boxed and unboxed primitives based on the schema column types.
  * Any type conversions and coercions should be implemented outside the row by the key-value or query runtime.
+ * <p>
  * When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
+ * When a unknown column value requested, the a column default will be returned.
+ * <p>
+ * Temporal types are decoded regarding temporal format.
+ * @see TemporalTypeFormat
  */
 public class Row implements BinaryRow {
     /** Schema descriptor. */
@@ -354,10 +364,96 @@ public class Row implements BinaryRow {
     }
 
     /**
-     * @return Row flags.
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
-    private boolean hasFlag(int flag) {
-        return ((readShort(FLAGS_FIELD_OFFSET) & flag)) != 0;
+    public LocalDate dateValue(int col) throws InvalidTypeException {
+        long offLen = findColumn(col, NativeTypeSpec.DATE);
+
+        if (offLen < 0)
+            return offLen == -1 ? null : (LocalDate)schema.column(col).defaultValue();
+
+        int off = offset(offLen);
+
+        return readDate(off);
+    }
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
+     */
+    public LocalTime timeValue(int col) throws InvalidTypeException {
+        long offLen = findColumn(col, NativeTypeSpec.TIME);
+
+        if (offLen < 0)
+            return offLen == -1 ? null : (LocalTime)schema.column(col).defaultValue();
+
+        int off = offset(offLen);
+
+        return readTime(off);
+    }
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
+     */
+    public LocalDateTime dateTimeValue(int col) throws InvalidTypeException {
+        long offLen = findColumn(col, NativeTypeSpec.DATETIME);
+
+        if (offLen < 0)
+            return offLen == -1 ? null : (LocalDateTime)schema.column(col).defaultValue();
+
+        int off = offset(offLen);
+
+        return LocalDateTime.of(readDate(off), readTime(off + 3));
+    }
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     * @throws InvalidTypeException If actual column type does not match the requested column type.
+     */
+    public Instant timestampValue(int col) throws InvalidTypeException {
+        long offLen = findColumn(col, NativeTypeSpec.TIMESTAMP);
+
+        if (offLen < 0)
+            return offLen == -1 ? null : (Instant)schema.column(col).defaultValue();
+
+        int off = offset(offLen);
+
+        return Instant.ofEpochMilli(readLong(off));
+    }
+
+    /**
+     * @param off Offset
+     * @return LocalTime value.
+     */
+    private LocalTime readTime(int off) {
+        int time = readInteger(off);
+
+        return TemporalTypeFormat.decodeTime(time);
+    }
+
+    /**
+     * @param off Offset
+     * @return LocalDate value.
+     */
+    private LocalDate readDate(int off) {
+        int date = ((int)readShort(off)) << 8;
+        date |= Byte.toUnsignedInt(readByte(off + 2));
+
+        return TemporalTypeFormat.decodeDate(date);
     }
 
     /**
@@ -370,10 +466,13 @@ public class Row implements BinaryRow {
      *
      * @param colIdx Column index.
      * @param type Expected column type.
-     * @return Encoded offset + length of the column.
+     * @return {@code -1} if value is {@code null} for a column,
+     * or {@link Long#MAX_VALUE} if column is unknown,
+     * otherwise encoded offset + length of the column.
      * @see #offset(long)
      * @see #length(long)
      * @see InvalidTypeException If actual column type does not match the requested column type.
+     * @see org.apache.ignite.internal.schema.registry.UpgradingRowAdapter
      */
     protected long findColumn(int colIdx, NativeTypeSpec type) throws InvalidTypeException {
         // Get base offset (key start or value start) for the given column.
@@ -474,8 +573,7 @@ public class Row implements BinaryRow {
      * @param hasNullMap Has null map flag.
      * @return Encoded offset (from the row start) and length of the column with the given index.
      */
-    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasVarTbl,
-        boolean hasNullMap) {
+    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasVarTbl, boolean hasNullMap) {
         int vartableOff = baseOff + CHUNK_LEN_FIELD_SIZE;
 
         int numNullsBefore = 0;

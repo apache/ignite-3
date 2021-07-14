@@ -57,6 +57,18 @@ public class ColumnType {
     /** 128-bit UUID. */
     public static final ColumnType UUID = new ColumnType(ColumnTypeSpec.UUID);
 
+    /** Timezone-free three-part value representing a year, month, and day. */
+    public static final ColumnType DATE = new ColumnType(ColumnTypeSpec.DATE);
+
+    /** Timezone-free three-part value representing a time of day in hours, minutes, and seconds. */
+    public static final ColumnType TIME = new ColumnType(ColumnTypeSpec.TIME);
+
+    /** Timezone-free datetime encoded as (date, time). */
+    public static final ColumnType DATETIME = new ColumnType(ColumnTypeSpec.DATETIME);
+
+    /** Number of milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone). */
+    public static final ColumnType TIMESTAMP = new ColumnType(ColumnTypeSpec.TIMESTAMP);
+
     /**
      * Bitmask type factory method.
      *
@@ -191,11 +203,15 @@ public class ColumnType {
         @Override public boolean equals(Object o) {
             if (this == o)
                 return true;
+
             if (o == null || getClass() != o.getClass())
                 return false;
+
             if (!super.equals(o))
                 return false;
+
             NumericColumnType type = (NumericColumnType)o;
+
             return precision == type.precision &&
                 scale == type.scale;
         }
@@ -210,25 +226,61 @@ public class ColumnType {
      * Column type spec.
      */
     public enum ColumnTypeSpec {
+        /** 8-bit signed integer. */
         INT8,
+
+        /** 16-bit signed integer. */
         INT16,
+
+        /** 32-bit signed integer. */
         INT32,
+
+        /** 64-bit signed integer. */
         INT64,
 
+        /** 8-bit unsigned integer. */
         UINT8,
+
+        /** 16-bit unsigned integer. */
         UINT16,
+
+        /** 32-bit unsigned integer. */
         UINT32,
+
+        /** 64-bit unsigned integer. */
         UINT64,
 
+        /** 32-bit single-precision floating-point number. */
         FLOAT,
+
+        /** 64-bit double-precision floating-point number. */
         DOUBLE,
 
+        /** A decimal floating-point number. */
         DECIMAL,
 
+        /** Timezone-free date. */
+        DATE,
+
+        /** Timezone-free time. */
+        TIME,
+
+        /** Timezone-free datetime. */
+        DATETIME,
+
+        /** Number of milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone). */
+        TIMESTAMP,
+
+        /** 128-bitUUID. */
         UUID,
 
+        /** Bit mask. */
         BITMASK,
+
+        /** String. */
         STRING,
+
+        /** Binary data. */
         BLOB,
     }
 

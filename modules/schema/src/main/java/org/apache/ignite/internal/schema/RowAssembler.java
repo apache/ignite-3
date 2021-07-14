@@ -20,10 +20,15 @@ package org.apache.ignite.internal.schema;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow.RowFlags;
+import org.apache.ignite.internal.schema.row.TemporalTypeFormat;
 
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_KEY_VARTBL_FLAG;
 import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.OMIT_VAL_VARTBL_FLAG;
@@ -33,13 +38,17 @@ import static org.apache.ignite.internal.schema.BinaryRow.VARLEN_TABLE_SIZE_FIEL
 /**
  * Utility class to build rows using column appending pattern. The external user of this class must consult
  * with the schema and provide the columns in strict internal column sort order during the row construction.
+ * <p>
  * Additionally, the user of this class should pre-calculate the resulting row size when possible to avoid
  * unnecessary data copies. The assembler provides some utility methods to calculate the resulting row size
  * based on the number of null columns and size calculation for strings.
+ * <p>
+ * Natively supported temporal types are encoded automatically with preserving sort order before writing.
  *
  * @see #rowSize(Columns, int, int, Columns, int, int)
  * @see #rowChunkSize(Columns, int, int)
  * @see #utf8EncodedLength(CharSequence)
+ * @see TemporalTypeFormat
  */
 public class RowAssembler {
     /** Schema. */
@@ -430,6 +439,90 @@ public class RowAssembler {
             keyHash += 31 * keyHash + Arrays.hashCode(arr);
 
         shiftColumn(maskType);
+
+        return this;
+    }
+
+    /**
+     * Appends LocalDate value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDate(LocalDate val) {
+        checkType(NativeTypes.DATE);
+
+        int date = TemporalTypeFormat.encodeDate(val);
+
+        buf.putShort(curOff, (short)(date >>> 8));
+        buf.put(curOff + 2, (byte)(date & 0xFF));
+
+        if (isKeyColumn())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.DATE);
+
+        return this;
+    }
+
+
+    /**
+     * Appends LocalTime value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendTime(LocalTime val) {
+        checkType(NativeTypes.TIME);
+
+        buf.putInt(curOff, TemporalTypeFormat.compactTime(val));
+
+        if (isKeyColumn())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.TIME);
+
+        return this;
+    }
+
+    /**
+     * Appends LocalDateTime value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDateTime(LocalDateTime val) {
+        checkType(NativeTypes.DATETIME);
+
+        int date = TemporalTypeFormat.encodeDate(val.toLocalDate());
+
+        buf.putShort(curOff, (short)(date >>> 8));
+        buf.put(curOff + 2, (byte)(date & 0xFF));
+        buf.putInt(curOff + 3, TemporalTypeFormat.compactTime(val.toLocalTime()));
+
+        if (isKeyColumn())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.DATETIME);
+
+        return this;
+    }
+
+    /**
+     * Appends Instant value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendTimestamp(Instant val) {
+        checkType(NativeTypes.TIMESTAMP);
+
+        buf.putLong(curOff, val.toEpochMilli());
+
+        if (isKeyColumn())
+            keyHash += 31 * keyHash + val.hashCode();
+
+        shiftColumn(NativeTypes.TIMESTAMP);
 
         return this;
     }
