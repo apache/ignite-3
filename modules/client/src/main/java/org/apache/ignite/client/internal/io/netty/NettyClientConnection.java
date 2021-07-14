@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.internal.io.netty;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 import org.apache.ignite.client.internal.io.ClientConnection;
@@ -43,7 +45,9 @@ public class NettyClientConnection implements ClientConnection {
     }
 
     @Override public void send(ByteBuffer msg) throws IgniteException {
-        channel.writeAndFlush(msg);
+        // TODO: Remove syncUninterruptibly, handle errors asynchronously.
+        var buf = Unpooled.wrappedBuffer(msg);
+        channel.writeAndFlush(buf).syncUninterruptibly();
     }
 
     @Override public void close() {
