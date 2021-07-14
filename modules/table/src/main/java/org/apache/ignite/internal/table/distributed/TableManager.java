@@ -182,7 +182,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         int partitions = assignment.size();
 
         for (int p = 0; p < partitions; p++)
-            raftMgr.stopRaftGroup(raftGroupName(tblId, p), assignment.get(p));
+            raftMgr.stopRaftGroup(raftGroupName(tblId, p));
 
         TableImpl table = tables.get(name);
 
