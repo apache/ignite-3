@@ -80,7 +80,7 @@ public class RaftGroupService {
      */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
         final RpcServer rpcServer, final NodeManager nodeManager) {
-        this(groupId, serverId, nodeOptions, rpcServer, nodeManager, false);
+        this(groupId, serverId, nodeOptions, rpcServer, nodeManager, true);
     }
 
     /**
