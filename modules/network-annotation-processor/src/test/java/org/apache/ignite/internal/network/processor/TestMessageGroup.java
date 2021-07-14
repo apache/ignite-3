@@ -26,4 +26,6 @@ import org.apache.ignite.network.annotations.MessageGroup;
 public class TestMessageGroup {
     /** Type of {@link SerializationOrderMessage} */
     public static final short SERIALIZATION_ORDER_MESSAGE = 1;
+
+    public static final short INHERITED_MESSAGE = 2;
 }

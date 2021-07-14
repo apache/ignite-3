@@ -290,19 +290,19 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
     private void readAndSetColumnValue(ClientMessageUnpacker unpacker, TupleBuilderImpl builder, Column col)
             throws IOException {
         switch (col.type().spec()) {
-            case BYTE:
+            case INT8:
                 builder.set(col, unpacker.unpackByte());
                 break;
 
-            case SHORT:
+            case INT16:
                 builder.set(col, unpacker.unpackShort());
                 break;
 
-            case INTEGER:
+            case INT32:
                 builder.set(col, unpacker.unpackInt());
                 break;
 
-            case LONG:
+            case INT64:
                 builder.set(col, unpacker.unpackLong());
                 break;
 

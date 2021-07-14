@@ -33,7 +33,7 @@ import java.util.UUID;
  */
 public class Row implements BinaryRow {
     /** Schema descriptor. */
-    private final SchemaDescriptor schema;
+    protected final SchemaDescriptor schema;
 
     /** Binary row. */
     private final BinaryRow row;
@@ -53,8 +53,6 @@ public class Row implements BinaryRow {
      * @param row Binary row representation.
      */
     public Row(SchemaDescriptor schema, BinaryRow row) {
-        assert row.schemaVersion() == schema.version();
-
         this.row = row;
         this.schema = schema;
     }
@@ -81,9 +79,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public byte byteValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.BYTE);
+        long off = findColumn(col, NativeTypeSpec.INT8);
 
-        return off < 0 ? 0 : readByte(offset(off));
+        if (off < 0)
+            return off == -1 ? 0 : (byte)schema.column(col).defaultValue();
+
+        return readByte(offset(off));
     }
 
     /**
@@ -94,9 +95,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Byte byteValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.BYTE);
+        long off = findColumn(col, NativeTypeSpec.INT8);
 
-        return off < 0 ? null : readByte(offset(off));
+        if (off < 0)
+            return off == -1 ? null : (Byte)schema.column(col).defaultValue();
+
+        return readByte(offset(off));
     }
 
     /**
@@ -107,9 +111,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public short shortValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.SHORT);
+        long off = findColumn(col, NativeTypeSpec.INT16);
 
-        return off < 0 ? 0 : readShort(offset(off));
+        if (off < 0)
+            return off == -1 ? 0 : (short)schema.column(col).defaultValue();
+
+        return readShort(offset(off));
     }
 
     /**
@@ -120,9 +127,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Short shortValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.SHORT);
+        long off = findColumn(col, NativeTypeSpec.INT16);
 
-        return off < 0 ? null : readShort(offset(off));
+        if (off < 0)
+            return off == -1 ? null : (Short)schema.column(col).defaultValue();
+
+        return readShort(offset(off));
     }
 
     /**
@@ -133,9 +143,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public int intValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INTEGER);
+        long off = findColumn(col, NativeTypeSpec.INT32);
 
-        return off < 0 ? 0 : readInteger(offset(off));
+        if (off < 0)
+            return off == -1 ? 0 : (int)schema.column(col).defaultValue();
+
+        return readInteger(offset(off));
     }
 
     /**
@@ -146,9 +159,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Integer intValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INTEGER);
+        long off = findColumn(col, NativeTypeSpec.INT32);
 
-        return off < 0 ? null : readInteger(offset(off));
+        if (off < 0)
+            return off == -1 ? null : (Integer)schema.column(col).defaultValue();
+
+        return readInteger(offset(off));
     }
 
     /**
@@ -159,9 +175,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public long longValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.LONG);
+        long off = findColumn(col, NativeTypeSpec.INT64);
 
-        return off < 0 ? 0 : readLong(offset(off));
+        if (off < 0)
+            return off == -1 ? 0L : (long)schema.column(col).defaultValue();
+
+        return readLong(offset(off));
     }
 
     /**
@@ -172,9 +191,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Long longValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.LONG);
+        long off = findColumn(col, NativeTypeSpec.INT64);
 
-        return off < 0 ? null : readLong(offset(off));
+        if (off < 0)
+            return off == -1 ? null : (Long)schema.column(col).defaultValue();
+
+        return readLong(offset(off));
     }
 
     /**
@@ -187,7 +209,10 @@ public class Row implements BinaryRow {
     public float floatValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.FLOAT);
 
-        return off < 0 ? 0.f : readFloat(offset(off));
+        if (off < 0)
+            return off == -1 ? 0.f : (float)schema.column(col).defaultValue();
+
+        return readFloat(offset(off));
     }
 
     /**
@@ -200,7 +225,10 @@ public class Row implements BinaryRow {
     public Float floatValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.FLOAT);
 
-        return off < 0 ? null : readFloat(offset(off));
+        if (off < 0)
+            return off == -1 ? null : (Float)schema.column(col).defaultValue();
+
+        return readFloat(offset(off));
     }
 
     /**
@@ -213,7 +241,10 @@ public class Row implements BinaryRow {
     public double doubleValue(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
 
-        return off < 0 ? 0.d : readDouble(offset(off));
+        if (off < 0)
+            return off == -1 ? 0.d : (double)schema.column(col).defaultValue();
+
+        return readDouble(offset(off));
     }
 
     /**
@@ -226,7 +257,10 @@ public class Row implements BinaryRow {
     public Double doubleValueBoxed(int col) throws InvalidTypeException {
         long off = findColumn(col, NativeTypeSpec.DOUBLE);
 
-        return off < 0 ? null : readDouble(offset(off));
+        if (off < 0)
+            return off == -1 ? null : (Double)schema.column(col).defaultValue();
+
+        return readDouble(offset(off));
     }
 
     /**
@@ -252,7 +286,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.STRING);
 
         if (offLen < 0)
-            return null;
+            return offLen == -1 ? null : (String)rowSchema().column(col).defaultValue();
 
         int off = offset(offLen);
         int len = length(offLen);
@@ -271,7 +305,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.BYTES);
 
         if (offLen < 0)
-            return null;
+            return offLen == -1 ? null : (byte[])schema.column(col).defaultValue();
 
         int off = offset(offLen);
         int len = length(offLen);
@@ -287,12 +321,12 @@ public class Row implements BinaryRow {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public UUID uuidValue(int col) throws InvalidTypeException {
-        long found = findColumn(col, NativeTypeSpec.UUID);
+        long offLen = findColumn(col, NativeTypeSpec.UUID);
 
-        if (found < 0)
-            return null;
+        if (offLen < 0)
+            return offLen == -1 ? null : (UUID)schema.column(col).defaultValue();
 
-        int off = offset(found);
+        int off = offset(offLen);
 
         long lsb = readLong(off);
         long msb = readLong(off + 8);
@@ -311,7 +345,7 @@ public class Row implements BinaryRow {
         long offLen = findColumn(col, NativeTypeSpec.BITMASK);
 
         if (offLen < 0)
-            return null;
+            return offLen == -1 ? null : (BitSet)schema.column(col).defaultValue();
 
         int off = offset(offLen);
         int len = columnLength(col);
@@ -440,7 +474,8 @@ public class Row implements BinaryRow {
      * @param hasNullMap Has null map flag.
      * @return Encoded offset (from the row start) and length of the column with the given index.
      */
-    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasVarTbl, boolean hasNullMap) {
+    private long varlenColumnOffsetAndLength(Columns cols, int baseOff, int idx, boolean hasVarTbl,
+        boolean hasNullMap) {
         int vartableOff = baseOff + CHUNK_LEN_FIELD_SIZE;
 
         int numNullsBefore = 0;
@@ -560,7 +595,7 @@ public class Row implements BinaryRow {
 
     /** {@inheritDoc} */
     @Override public int schemaVersion() {
-        return row.schemaVersion();
+        return schema.version();
     }
 
     /** {@inheritDoc} */
