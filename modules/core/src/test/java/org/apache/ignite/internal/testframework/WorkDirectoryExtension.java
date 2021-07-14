@@ -112,7 +112,7 @@ public class WorkDirectoryExtension implements BeforeEachCallback, AfterEachCall
 
         String testClassDir = extensionContext.getRequiredTestClass().getSimpleName();
 
-        String testMethodDir = extensionContext.getRequiredTestMethod().getName() + System.currentTimeMillis();
+        String testMethodDir = extensionContext.getRequiredTestMethod().getName() + "_" + System.currentTimeMillis();
 
         Path workDir = BASE_PATH.resolve(testClassDir).resolve(testMethodDir);
 

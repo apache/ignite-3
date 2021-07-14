@@ -328,6 +328,16 @@ public class MetaStorageListener implements RaftGroupListener {
         return true;
     }
 
+    /** {@inheritDoc} */
+    @Override public void onShutdown() {
+        try {
+            storage.close();
+        }
+        catch (Exception e) {
+            throw new IgniteInternalException("Failed to close storage:" + e.getMessage(), e);
+        }
+    }
+
     /**
      * @return {@link KeyValueStorage} that is backing this listener.
      */

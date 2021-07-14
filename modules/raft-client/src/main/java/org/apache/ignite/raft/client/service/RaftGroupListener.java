@@ -65,4 +65,9 @@ public interface RaftGroupListener {
      * @return {@code True} if the snapshot was loaded successfully.
      */
     boolean onSnapshotLoad(String path);
+
+    /**
+     * Invoked once when the raft node was shut down.
+     */
+    void onShutdown();
 }

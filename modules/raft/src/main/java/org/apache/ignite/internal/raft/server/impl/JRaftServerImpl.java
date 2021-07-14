@@ -304,5 +304,10 @@ public class JRaftServerImpl implements RaftServer {
         @Override public boolean onSnapshotLoad(SnapshotReader reader) {
             return listener.onSnapshotLoad(reader.getPath());
         }
+
+        /** {@inheritDoc} */
+        @Override public void onShutdown() {
+            listener.onShutdown();
+        }
     }
 }

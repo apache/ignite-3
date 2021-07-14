@@ -103,6 +103,11 @@ public class CounterListener implements RaftGroupListener {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override public void onShutdown() {
+        // No-op.
+    }
+
     /**
      * @return Current value.
      */

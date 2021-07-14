@@ -278,6 +278,11 @@ public class PartitionListener implements RaftGroupListener {
         return false;
     }
 
+    /** {@inheritDoc} */
+    @Override public void onShutdown() {
+        // No-op.
+    }
+
     /**
      * Wrapper provides correct byte[] comparison.
      */

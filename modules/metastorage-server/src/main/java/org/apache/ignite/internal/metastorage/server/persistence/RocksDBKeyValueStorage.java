@@ -50,6 +50,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.EnvOptions;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.Options;
@@ -58,6 +59,8 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.SstFileWriter;
+import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 
@@ -117,6 +120,9 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     /** Lexicographic order comparator. */
     static final Comparator<byte[]> CMP = Arrays::compare;
 
+    /** Path to the rocksdb database. */
+    private final Path dbPath;
+
     /** Keys index. Value is the list of all revisions under which the corresponding entry has ever been modified. */
     private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
 
@@ -138,6 +144,8 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 // The prefix is the revision of an entry, so prefix length is the size of a long
                 .useFixedLengthPrefixExtractor(Long.BYTES);
 
+            this.dbPath = dbPath;
+
             this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString());
         }
         catch (Exception e) {
@@ -154,29 +162,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        Exception error = null;
-
-        try {
-            if (options != null)
-                options.close();
-        }
-        catch (Exception e) {
-            error = e;
-        }
-
-        try {
-            if (db != null)
-                db.close();
-        }
-        catch (Exception e) {
-            if (error != null)
-                error.addSuppressed(e);
-            else
-                error = e;
-        }
-
-        if (error != null)
-            throw error;
+        IgniteUtils.closeAll(options, db);
     }
 
     /** {@inheritDoc} */
@@ -249,8 +235,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                     // It's a system entry like REVISION_KEY, ignore it whily building key index.
                     continue;
 
-                List<Long> revs = keysIdx.computeIfAbsent(key, k -> new ArrayList<>());
-                revs.add(revision);
+                updateKeysIndex(key, revision);
             }
 
             checkIterator(iterator);
@@ -306,62 +291,86 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return updCntr;
     }
 
-    /**
-     * Puts a value into {@link #db}.
-     *
-     * @param key Key.
-     * @param value Value.
-     */
-    private void putValue(byte[] key, byte[] value) {
-        try {
-            this.db.put(key, value);
-        }
-        catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
-        }
-    }
-
-    /**
-     * Updates the revision of this storage.
-     *
-     * @param newRevision New revision.
-     */
-    private void updateRevision(long newRevision) {
-        putValue(REVISION_KEY, ByteUtils.longToBytes(newRevision));
-
-        rev = newRevision;
-    }
-
     /** {@inheritDoc} */
     @Override public void put(byte[] key, byte[] value) {
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
-            doPut(key, value, curRev);
+            long cntr = updCntr + 1;
 
-            updateRevision(curRev);
+            doPut(key, value, batch, curRev, cntr);
+
+            fillAndWriteBatch(batch, curRev, cntr);
+
+            updateKeysIndex(key, curRev);
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
         }
     }
 
+    /**
+     * Adds a revision to the keys index.
+     *
+     * @param key Key.
+     * @param curRev New revision for key.
+     */
+    private void updateKeysIndex(byte[] key, long curRev) {
+        // Update keysIdx.
+        List<Long> revs = keysIdx.computeIfAbsent(key, k -> new ArrayList<>());
+
+        revs.add(curRev);
+    }
+
+    /**
+     * Fills the batch with system values (an update counter and a revision) and writes to the db.
+     *
+     * @param batch Write batch.
+     * @param newRev New revision.
+     * @param newCntr New update counter.
+     * @throws RocksDBException If failed.
+     */
+    private void fillAndWriteBatch(WriteBatch batch, long newRev, long newCntr) throws RocksDBException {
+        try (WriteOptions opts = new WriteOptions()) {
+            batch.put(UPDATE_COUNTER_KEY, ByteUtils.longToBytes(newCntr));
+            batch.put(REVISION_KEY, ByteUtils.longToBytes(newRev));
+
+            db.write(opts, batch);
+
+            rev = newRev;
+            updCntr = newCntr;
+        }
+    }
+
     /** {@inheritDoc} */
     @NotNull
-    @Override public Entry getAndPut(byte[] key, byte[] bytes) {
+    @Override public Entry getAndPut(byte[] key, byte[] value) {
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
+            long cntr = updCntr + 1;
 
-            long lastRev = doPut(key, bytes, curRev);
+            List<Long> revs = keysIdx.computeIfAbsent(key, k -> new ArrayList<>());
 
-            updateRevision(curRev);
+            long lastRev = revs.isEmpty() ? 0 : lastRevision(revs);
+
+            doPut(key, value, batch, curRev, cntr);
+
+            fillAndWriteBatch(batch, curRev, cntr);
+
+            updateKeysIndex(key, curRev);
 
             // Return previous value.
             return doGetValue(key, lastRev);
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -372,12 +381,21 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     @Override public void putAll(List<byte[]> keys, List<byte[]> values) {
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
-            doPutAll(curRev, keys, values);
+            long counter = doPutAll(curRev, keys, values, batch);
 
-            updateRevision(curRev);
+            for (int i = 0; i < keys.size(); i++) {
+                byte[] key = keys.get(i);
+
+                updateKeysIndex(key, curRev);
+            }
+
+            fillAndWriteBatch(batch, curRev, counter);
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -391,14 +409,20 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
             res = doGetAll(keys, curRev);
 
-            doPutAll(curRev, keys, values);
+            long counter = doPutAll(curRev, keys, values, batch);
 
-            updateRevision(curRev);
+            fillAndWriteBatch(batch, curRev, counter);
+
+            for (int i = 0; i < keys.size(); i++)
+                updateKeysIndex(keys.get(i), curRev);
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -449,11 +473,18 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     @Override public void remove(byte[] key) {
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
+            long counter = updCntr + 1;
 
-            if (doRemove(key, curRev))
-                updateRevision(curRev);
+            if (doRemove(key, curRev, counter, batch)) {
+                fillAndWriteBatch(batch, curRev, counter);
+
+                updateKeysIndex(key, curRev);
+            }
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -482,7 +513,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     @Override public void removeAll(List<byte[]> keys) {
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
             List<byte[]> existingKeys = new ArrayList<>(keys.size());
@@ -500,9 +531,15 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 vals.add(TOMBSTONE);
             }
 
-            doPutAll(curRev, existingKeys, vals);
+            long counter = doPutAll(curRev, existingKeys, vals, batch);
 
-            updateRevision(curRev);
+            fillAndWriteBatch(batch, curRev, counter);
+
+            for (byte[] key : existingKeys)
+                updateKeysIndex(key, curRev);
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -516,7 +553,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             long curRev = rev + 1;
 
             List<byte[]> existingKeys = new ArrayList<>(keys.size());
@@ -536,9 +573,15 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 vals.add(TOMBSTONE);
             }
 
-            doPutAll(curRev, existingKeys, vals);
+            long counter = doPutAll(curRev, existingKeys, vals, batch);
 
-            updateRevision(curRev);
+            fillAndWriteBatch(batch, curRev, counter);
+
+            for (byte[] key : existingKeys)
+                updateKeysIndex(key, curRev);
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -551,7 +594,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     @Override public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
         rwLock.writeLock().lock();
 
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             Entry e = get(condition.key());
 
             boolean branch = condition.test(e);
@@ -562,17 +605,36 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             boolean modified = false;
 
+            long counter = updCntr;
+
+            List<byte[]> updatedKeys = new ArrayList<>();
+
             for (Operation op : ops) {
+                byte[] key = op.key();
+
                 switch (op.type()) {
                     case PUT:
-                        doPut(op.key(), op.value(), curRev);
+                        counter++;
+
+                        doPut(key, op.value(), batch, curRev, counter);
+
+                        updatedKeys.add(key);
 
                         modified = true;
 
                         break;
 
                     case REMOVE:
-                        modified |= doRemove(op.key(), curRev);
+                        counter++;
+
+                        boolean removed = doRemove(key, curRev, counter, batch);
+
+                        if (!removed)
+                            counter--;
+                        else
+                            updatedKeys.add(key);
+
+                        modified |= removed;
 
                         break;
 
@@ -584,10 +646,17 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 }
             }
 
-            if (modified)
-                updateRevision(curRev);
+            if (modified) {
+                fillAndWriteBatch(batch, curRev, counter);
+
+                for (byte[] key : updatedKeys)
+                    updateKeysIndex(key, curRev);
+            }
 
             return branch;
+        }
+        catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
         }
         finally {
             rwLock.writeLock().unlock();
@@ -658,13 +727,13 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /** */
-    private boolean doRemove(byte[] key, long curRev) {
+    private boolean doRemove(byte[] key, long curRev, long counter, WriteBatch batch) throws RocksDBException {
         Entry e = doGet(key, LATEST_REV, false);
 
         if (e.empty() || e.tombstone())
             return false;
 
-        doPut(key, TOMBSTONE, curRev);
+        doPut(key, TOMBSTONE, batch, curRev, counter);
 
         return true;
     }
@@ -861,43 +930,31 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /** */
-    private long doPut(byte[] key, byte[] bytes, long curRev) {
-        long curUpdCntr = ++updCntr;
-
-        putValue(UPDATE_COUNTER_KEY, ByteUtils.longToBytes(curUpdCntr));
-
-        // Update keysIdx.
-        List<Long> revs = keysIdx.computeIfAbsent(key, k -> new ArrayList<>());
-
-        long lastRev = revs.isEmpty() ? 0 : lastRevision(revs);
-
-        revs.add(curRev);
-
+    private void doPut(byte[] key, byte[] bytes, WriteBatch batch, long curRev, long cntr) throws RocksDBException {
         byte[] rocksKey = keyToRocksKey(curRev, key);
 
-        byte[] rocksValue = valueToBytes(bytes, curUpdCntr);
+        byte[] rocksValue = valueToBytes(bytes, cntr);
 
-        putValue(rocksKey, rocksValue);
-
-        return lastRev;
+        batch.put(rocksKey, rocksValue);
     }
 
     /** */
-    private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList) {
-        rwLock.writeLock().lock();
+    private long doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, WriteBatch batch) throws RocksDBException {
+        long counter = this.updCntr;
 
-        try {
-            for (int i = 0; i < keys.size(); i++) {
-                byte[] key = keys.get(i);
+        for (int i = 0; i < keys.size(); i++) {
+            counter++;
 
-                byte[] bytes = bytesList.get(i);
+            byte[] key = keys.get(i);
 
-                doPut(key, bytes, curRev);
-            }
+            byte[] bytes = bytesList.get(i);
+
+            doPut(key, bytes, batch, curRev, counter);
         }
-        finally {
-            rwLock.writeLock().unlock();
-        }
+
+        batch.put(UPDATE_COUNTER_KEY, ByteUtils.longToBytes(counter));
+
+        return counter;
     }
 
     /** */
@@ -905,20 +962,44 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
         return revs.get(revs.size() - 1);
     }
 
+    /**
+     * @return Database lock
+     */
     ReadWriteLock lock() {
         return rwLock;
     }
 
+    /**
+     * @return Database.
+     */
     RocksDB db() {
         return db;
     }
 
+    /**
+     * Gets a ceiling (higher or equal) entry for a key in the keys index.
+     *
+     * @param key Key.
+     * @return Higher entry.
+     */
     Map.Entry<byte[], List<Long>> revisionCeilingEntry(byte[] keyFrom) {
         return keysIdx.ceilingEntry(keyFrom);
     }
 
+    /**
+     * Gets a higher entry for a key in the keys index.
+     *
+     * @param key Key.
+     * @return Higher entry.
+     */
     Map.Entry<byte[], List<Long>> revisionHigherEntry(byte[] key) {
         return keysIdx.higherEntry(key);
+    }
+
+    /** */
+    @TestOnly
+    public Path getDbPath() {
+        return dbPath;
     }
 
     /**

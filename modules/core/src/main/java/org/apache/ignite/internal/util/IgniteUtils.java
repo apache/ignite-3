@@ -24,6 +24,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -456,7 +457,8 @@ public class IgniteUtils {
 
         for (AutoCloseable closeable : closeables) {
             try {
-                closeable.close();
+                if (closeable != null)
+                    closeable.close();
             }
             catch (Exception e) {
                 if (ex == null)
@@ -468,5 +470,10 @@ public class IgniteUtils {
 
         if (ex != null)
             throw ex;
+    }
+
+    /** @see #closeAll(Collection<? extends AutoCloseable>) */
+    public static void closeAll(AutoCloseable... closeables) throws Exception {
+        closeAll(Arrays.asList(closeables));
     }
 }

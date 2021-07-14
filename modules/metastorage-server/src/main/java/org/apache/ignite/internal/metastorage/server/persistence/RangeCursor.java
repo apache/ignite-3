@@ -27,50 +27,45 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * Cursor by entries which correspond to the given keys range.
  */
 class RangeCursor implements Cursor<Entry> {
+    /** Storage. */
     private final RocksDBKeyValueStorage storage;
-    /**
-     *
-     */
+
+    /** Lower iteration bound (included). */
     private final byte[] keyFrom;
 
-    /**
-     *
-     */
-    private final byte[] keyTo;
+    /** Upper iteration bound (excluded). */
+    private final byte @Nullable [] keyTo;
 
-    /**
-     *
-     */
+    /** Revision upper bound (included). */
     private final long rev;
 
-    /**
-     *
-     */
+    /** Iterator. */
     private final Iterator<Entry> it;
 
-    /**
-     *
-     */
+    /** Next entry. */
     @Nullable
     private Entry nextRetEntry;
 
-    /**
-     *
-     */
+    /** Key of the last returned entry. */
     private byte[] lastRetKey;
 
     /**
-     *
+     * {@code true} if the iteration was finished.
      */
     private boolean finished;
 
     /**
+     * Constructor.
      *
+     * @param storage Storage.
+     * @param keyFrom {@link #keyFrom}.
+     * @param keyTo {@link #keyTo}.
+     * @param rev {@link #rev}.
      */
-    RangeCursor(RocksDBKeyValueStorage storage, byte[] keyFrom, byte[] keyTo, long rev) {
+    RangeCursor(RocksDBKeyValueStorage storage, byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
         this.storage = storage;
         this.keyFrom = keyFrom;
         this.keyTo = keyTo;
@@ -78,48 +73,37 @@ class RangeCursor implements Cursor<Entry> {
         this.it = createIterator();
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean hasNext() {
+    /** {@inheritDoc} */
+    @Override public boolean hasNext() {
         return it.hasNext();
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public Entry next() {
+    /** {@inheritDoc} */
+    @Override public Entry next() {
         return it.next();
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void close() throws Exception {
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
         // No-op.
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @NotNull
-    @Override
-    public Iterator<Entry> iterator() {
+    @Override public Iterator<Entry> iterator() {
         return it;
     }
 
     /**
+     * Creates an iterator for this cursor.
      *
+     * @return Iterator.
      */
     @NotNull
     private Iterator<Entry> createIterator() {
         return new Iterator<>() {
             /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
+            @Override public boolean hasNext() {
                 storage.lock().readLock().lock();
 
                 try {
@@ -174,8 +158,7 @@ class RangeCursor implements Cursor<Entry> {
             }
 
             /** {@inheritDoc} */
-            @Override
-            public Entry next() {
+            @Override public Entry next() {
                 storage.lock().readLock().lock();
 
                 try {
