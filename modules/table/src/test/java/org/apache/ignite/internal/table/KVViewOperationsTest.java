@@ -234,7 +234,7 @@ public class KVViewOperationsTest {
         assertNull(tbl.get(key));
 
         // Try to remove non-existed key.
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(key, null));
         assertNull(tbl.get(key));
 
         // Put KV pair.
@@ -242,14 +242,14 @@ public class KVViewOperationsTest {
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Check null value ignored.
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(key, null));
         assertEqualsValues(schema, val2, tbl.get(key));
 
         // Delete KV pair with expected value.
         assertTrue(tbl.remove(key, val2));
         assertNull(tbl.get(key));
 
-        assertThrows(IllegalArgumentException.class, () -> tbl.remove(key2, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(key2, null));
 
         assertFalse(tbl.remove(key2, val2));
         assertNull(tbl.get(key2));
