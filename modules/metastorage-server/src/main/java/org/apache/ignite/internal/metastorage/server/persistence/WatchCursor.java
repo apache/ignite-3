@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metastorage.server.persistence;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
@@ -37,28 +36,23 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
 /**
- *
+ * Subscription on updates of entries corresponding to the given keys range (where an upper bound is unlimited)
+ * and starting from the given revision number.
  */
 class WatchCursor implements Cursor<WatchEvent> {
+    /** Storage. */
     private final RocksDBKeyValueStorage storage;
-    /**
-     *
-     */
+
+    /** Key predicate. */
     private final Predicate<byte[]> p;
 
-    /**
-     *
-     */
+    /** Iterator for this cursor. */
     private final Iterator<WatchEvent> it;
 
-    /**
-     * Options for {@link #nativeIterator}.
-     */
+    /** Options for {@link #nativeIterator}. */
     private final ReadOptions options = new ReadOptions().setPrefixSameAsStart(true);
 
-    /**
-     * RocksDB iterator.
-     */
+    /** RocksDB iterator. */
     @Nullable
     private final RocksIterator nativeIterator;
 
@@ -73,7 +67,11 @@ class WatchCursor implements Cursor<WatchEvent> {
     private long nextRetRev = -1;
 
     /**
+     * Constructor.
      *
+     * @param storage Storage.
+     * @param rev Starting revision.
+     * @param p Key predicate.
      */
     WatchCursor(RocksDBKeyValueStorage storage, long rev, Predicate<byte[]> p) {
         this.storage = storage;
@@ -102,7 +100,7 @@ class WatchCursor implements Cursor<WatchEvent> {
      * {@inheritDoc}
      */
     @Override public void close() throws Exception {
-        IgniteUtils.closeAll(Set.of(nativeIterator, options));
+        IgniteUtils.closeAll(options, nativeIterator);
     }
 
     /**
@@ -113,8 +111,13 @@ class WatchCursor implements Cursor<WatchEvent> {
         return it;
     }
 
+    /**
+     * Creates an iterator for this cursor.
+     *
+     * @return Iterator.
+     */
     @NotNull
-    Iterator<WatchEvent> createIterator() {
+    private Iterator<WatchEvent> createIterator() {
         return new Iterator<>() {
             /** {@inheritDoc} */
             @Override public boolean hasNext() {

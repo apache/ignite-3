@@ -199,6 +199,8 @@ public class ITMetaStorageServicePersistenceTest {
 
         String serverDataPath = toStop.getServerDataPath(METASTORAGE_RAFT_GROUP_NAME);
 
+        Path dbPath = getStorage(toStop).getDbPath();
+
         int stopIdx = servers.indexOf(toStop);
 
         servers.remove(stopIdx);
@@ -220,8 +222,10 @@ public class ITMetaStorageServicePersistenceTest {
         byte[] lastKey = firstKey.bytes();
         byte[] lastValue = firstValue;
 
-        if (testData.deleteFolder)
+        if (testData.deleteFolder) {
+            IgniteUtils.deleteIfExists(dbPath);
             IgniteUtils.deleteIfExists(Paths.get(serverDataPath));
+        }
 
         if (testData.writeAfterSnapshot) {
             ByteArray secondKey = ByteArray.fromString("second");
@@ -234,20 +238,15 @@ public class ITMetaStorageServicePersistenceTest {
         }
 
         JRaftServerImpl restarted = startServer(stopIdx, initializer(
-            new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString()))
+            new RocksDBKeyValueStorage(dbPath)
         ));
 
-        org.apache.ignite.raft.jraft.RaftGroupService svc = restarted.raftGroupService(METASTORAGE_RAFT_GROUP_NAME);
-
-        DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
-
-        MetaStorageListener listener = (MetaStorageListener) fsm.getListener();
+        KeyValueStorage storage = getStorage(restarted);
 
         byte[] finalLastValue = lastValue;
         byte[] finalLastKey = lastKey;
 
         boolean success = waitForCondition(() -> {
-            KeyValueStorage storage = listener.getStorage();
             org.apache.ignite.internal.metastorage.server.Entry e = storage.get(finalLastKey);
             return !e.empty() && Arrays.equals(finalLastValue, e.value());
         }, 10_000);
@@ -260,6 +259,24 @@ public class ITMetaStorageServicePersistenceTest {
         int expectedUpdateCounter = testData.writeAfterSnapshot ? 4 : 3;
 
         check(metaStorage2, new ByteArray(lastKey), lastValue, false, false, expectedRevision, expectedUpdateCounter);
+    }
+
+    /**
+     * Get the meta store's key-value storage of the jraft server.
+     *
+     * @param server Server.
+     * @return Meta store's key value storage.
+     */
+    private static RocksDBKeyValueStorage getStorage(JRaftServerImpl server) {
+        org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(METASTORAGE_RAFT_GROUP_NAME);
+
+        DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+
+        MetaStorageListener listener = (MetaStorageListener) fsm.getListener();
+
+        KeyValueStorage storage = listener.getStorage();
+
+        return (RocksDBKeyValueStorage) storage;
     }
 
     /**
