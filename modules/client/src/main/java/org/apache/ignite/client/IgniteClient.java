@@ -18,7 +18,7 @@
 package org.apache.ignite.client;
 
 import org.apache.ignite.app.Ignite;
-import org.apache.ignite.client.internal.IgniteClientImpl;
+import org.apache.ignite.client.internal.TcpIgniteClient;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -30,13 +30,51 @@ public class IgniteClient {
     }
 
     public static class Builder {
+        private String[] addresses;
+
         public Ignite build() {
-            return new IgniteClientImpl();
+            // TODO: Validate values.
+            return buildAsync().join();
+        }
+
+        public Builder addresses(String... addrs) {
+            addresses = addrs;
+
+            return this;
         }
 
         public CompletableFuture<Ignite> buildAsync() {
             // TODO: Async connect.
-            return CompletableFuture.completedFuture(new IgniteClientImpl());
+            var cfg = new IgniteClientConfigurationImpl(null, addresses, 0);
+
+            return CompletableFuture.completedFuture(new TcpIgniteClient(cfg));
+        }
+    }
+
+    private static class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
+        private final IgniteClientAddressFinder addressFinder;
+
+        private final String[] addresses;
+
+        private final int retryLimit;
+
+        public IgniteClientConfigurationImpl(IgniteClientAddressFinder addressFinder, String[] addresses, int retryLimit) {
+            this.addressFinder = addressFinder;
+            this.addresses = addresses;
+            this.retryLimit = retryLimit;
+        }
+
+        @Override public IgniteClientAddressFinder getAddressesFinder() {
+            return addressFinder;
+        }
+
+        @Override public String[] getAddresses() {
+            // TODO: Defensive copy?
+            return addresses;
+        }
+
+        @Override public int getRetryLimit() {
+            return retryLimit;
         }
     }
 }

@@ -40,14 +40,14 @@ public class TcpIgniteClient implements Ignite {
     /**
      * Private constructor.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg) throws IgniteClientException {
+    public TcpIgniteClient(IgniteClientConfiguration cfg) throws IgniteClientException {
         this(TcpClientChannel::new, cfg);
     }
 
     /**
      * Constructor with custom channel factory.
      */
-    TcpIgniteClient(
+    public TcpIgniteClient(
             BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
             IgniteClientConfiguration cfg
     ) throws IgniteClientException {

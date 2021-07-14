@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class ClientConnectionTest {
     @Test
     public void TestConnection() throws Exception {
-        try (var client = IgniteClient.builder().build()) {
+        var builder = IgniteClient.builder().addresses("127.0.0.1");
+
+        try (var client = builder.build()) {
             var tables = client.tables().tables();
 
             assertEquals(0, tables.size());
