@@ -21,21 +21,20 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta;
 import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta.File;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.io.MessageFile;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Table to keep local snapshot metadata infos.
  */
 public class LocalSnapshotMetaTable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotMetaTable.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalSnapshotMetaTable.class);
 
     private final Map<String, LocalFileMeta> fileMap;
     private final RaftOptions raftOptions;

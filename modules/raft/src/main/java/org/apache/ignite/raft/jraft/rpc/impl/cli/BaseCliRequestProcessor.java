@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
@@ -28,8 +29,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestProcessor;
 import org.apache.ignite.raft.jraft.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Base template to handle cli requests.
@@ -40,7 +39,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequestProcessor<T> {
 
-    protected static final Logger LOG = LoggerFactory.getLogger(BaseCliRequestProcessor.class);
+    protected static final IgniteLogger LOG = IgniteLogger.forClass(BaseCliRequestProcessor.class);
 
     public BaseCliRequestProcessor(Executor executor, Message defaultResp) {
         super(executor, defaultResp);

@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 import com.codahale.metrics.ConsoleReporter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -92,8 +93,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -111,7 +110,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ITNodeTest {
-    private static final Logger LOG = LoggerFactory.getLogger(ITNodeTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ITNodeTest.class);
 
     private static DumpThread dumpThread;
 

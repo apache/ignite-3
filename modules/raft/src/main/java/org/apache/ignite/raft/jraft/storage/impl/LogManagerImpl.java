@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -63,8 +64,6 @@ import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.SegmentList;
 import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * LogManager implementation.
@@ -72,7 +71,7 @@ import org.slf4j.LoggerFactory;
 public class LogManagerImpl implements LogManager {
     private static final int APPEND_LOG_RETRY_TIMES = 50;
 
-    private static final Logger LOG = LoggerFactory.getLogger(LogManagerImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(LogManagerImpl.class);
 
     private LogStorage logStorage;
     private ConfigurationManager configManager;

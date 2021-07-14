@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
@@ -63,15 +64,13 @@ import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Replicator for replicating log entry from leader to followers.
  */
 public class Replicator implements ThreadId.OnError {
     /** The log. */
-    private static final Logger LOG = LoggerFactory.getLogger(Replicator.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(Replicator.class);
 
     private final RaftClientService rpcService;
     // Next sending log index

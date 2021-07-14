@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -57,15 +58,13 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.StringAppendOperator;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Log storage based on rocksdb.
  */
 public class RocksDBLogStorage implements LogStorage, Describer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RocksDBLogStorage.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RocksDBLogStorage.class);
 
     static {
         RocksDB.loadLibrary();

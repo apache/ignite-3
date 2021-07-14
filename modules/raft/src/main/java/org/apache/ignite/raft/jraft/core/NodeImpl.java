@@ -37,6 +37,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -118,14 +119,12 @@ import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLock;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The raft replica node implementation.
  */
 public class NodeImpl implements Node, RaftServerService {
-    private static final Logger LOG = LoggerFactory.getLogger(NodeImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(NodeImpl.class);
 
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
