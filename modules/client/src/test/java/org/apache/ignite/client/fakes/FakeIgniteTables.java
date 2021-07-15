@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
@@ -69,6 +70,6 @@ public class FakeIgniteTables implements IgniteTables {
     }
 
     @NotNull private Table getNewTable(String name) {
-        return new TableImpl(new FakeInternalTable(name, UUID.randomUUID()), null);
+        return new TableImpl(new FakeInternalTable(name, UUID.randomUUID()), new SchemaRegistryImpl(v -> null));
     }
 }

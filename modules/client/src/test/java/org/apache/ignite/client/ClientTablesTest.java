@@ -24,6 +24,7 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -34,6 +35,7 @@ import org.slf4j.helpers.NOPLogger;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -48,20 +50,26 @@ public class ClientTablesTest {
     private static Ignite client;
 
     @BeforeAll
-    public static void setUp() throws Exception {
+    public static void beforeAll() throws Exception {
         serverFuture = startServer();
         client = startClient();
     }
 
     @AfterAll
-    public static void tearDown() throws Exception {
+    public static void afterAll() throws Exception {
         client.close();
         serverFuture.cancel(true);
         serverFuture.await();
     }
 
+    @BeforeEach
+    public void beforeEach() {
+        for (var t : server.tables().tables())
+            server.tables().dropTable(t.tableName());
+    }
+
     @Test
-    public void testTablesReturnsCollectionWhenTablesExist() {
+    public void testTablesWhenTablesExist() {
         server.tables().createTable(DEFAULT_TABLE, null);
         server.tables().createTable("t", null);
 
@@ -74,10 +82,22 @@ public class ClientTablesTest {
     }
 
     @Test
-    public void testTablesReturnsEmptyCollectionWhenNoTablesExist() {
+    public void testTablesWhenNoTablesExist() {
         var tables = client.tables().tables();
 
         assertEquals(0, tables.size());
+    }
+
+    @Test public void testCreateTable() {
+        var clientTable = client.tables().createTable("t1", t -> t.changeReplicas(2));
+        assertEquals("t1", clientTable.tableName());
+
+        var serverTables = server.tables().tables();
+        assertEquals(1, serverTables.size());
+
+        var serverTable = serverTables.get(0);
+        assertEquals("t1", serverTable.tableName());
+        assertEquals(((TableImpl) serverTable).tableId(), ((TableImpl) clientTable).tableId());
     }
 
     private static Ignite startClient() {
