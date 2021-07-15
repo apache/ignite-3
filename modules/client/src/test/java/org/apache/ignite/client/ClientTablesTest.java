@@ -17,14 +17,18 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.internal.ClientTable;
+import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ClientTablesTest extends AbstractClientTest {
     @Test
@@ -58,6 +62,20 @@ public class ClientTablesTest extends AbstractClientTest {
         var serverTable = serverTables.get(0);
         assertEquals("t1", serverTable.tableName());
         assertEquals(((TableImpl) serverTable).tableId(), ((ClientTable) clientTable).tableId());
+    }
+
+    @Test
+    public void testCreateTableWhenExists() {
+        Consumer<TableChange> consumer = t -> t.changeReplicas(2);
+        client.tables().createTable(DEFAULT_TABLE, consumer);
+
+        var ex = assertThrows(IgniteClientException.class,
+                () -> client.tables().createTable(DEFAULT_TABLE, consumer));
+
+        assertEquals(FakeIgniteTables.TABLE_EXISTS, ex.getMessage());
+
+        var serverTables = server.tables().tables();
+        assertEquals(1, serverTables.size());
     }
 
     @Test

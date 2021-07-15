@@ -32,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public class FakeIgniteTables implements IgniteTables {
+    public static final String TABLE_EXISTS = "Table exists";
+
     private final ConcurrentHashMap<String, Table> tables = new ConcurrentHashMap<>();
 
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
@@ -40,7 +42,7 @@ public class FakeIgniteTables implements IgniteTables {
         var oldTable = tables.putIfAbsent(name, newTable);
 
         if (oldTable != null)
-            throw new IgniteException("Table exists");
+            throw new IgniteException(TABLE_EXISTS);
 
         return newTable;
     }
