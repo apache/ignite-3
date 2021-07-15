@@ -60,7 +60,7 @@ abstract class AbstractTableView {
      * @param tx The transaction.
      * @return Transactional view.
      */
-    public abstract AbstractTableView withTx(Transaction tx);
+    public abstract AbstractTableView withTransaction(Transaction tx);
 
     /**
      * Waits for operation completion.

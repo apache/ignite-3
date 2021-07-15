@@ -255,7 +255,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /** {@inheritDoc} */
-    @Override public RecordViewImpl<R> withTx(Transaction tx) {
+    @Override public RecordViewImpl<R> withTransaction(Transaction tx) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

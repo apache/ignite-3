@@ -393,5 +393,5 @@ public interface KeyValueView<K, V> {
      * @param tx The transaction.
      * @return Transactional view.
      */
-    KeyValueView<K, V> withTx(Transaction tx);
+    KeyValueView<K, V> withTransaction(Transaction tx);
 }

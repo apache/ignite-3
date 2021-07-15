@@ -55,5 +55,5 @@ public interface RecordView<R> extends TableView<R> {
     CompletableFuture<R> fillAsync(R recObjToFill);
 
     /** {@inheritDoc} */
-    @Override RecordView<R> withTx(Transaction tx);
+    @Override RecordView<R> withTransaction(Transaction tx);
 }

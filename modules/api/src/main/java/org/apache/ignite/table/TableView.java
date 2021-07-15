@@ -365,5 +365,5 @@ public interface TableView<R> {
      * @param tx The transaction.
      * @return Transactional view.
      */
-    TableView<R> withTx(Transaction tx);
+    TableView<R> withTransaction(Transaction tx);
 }

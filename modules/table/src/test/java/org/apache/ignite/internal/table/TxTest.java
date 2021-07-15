@@ -81,7 +81,7 @@ public class TxTest {
             new Column[]{new Column("balance", NativeTypes.DOUBLE, false)}
         );
 
-        accounts = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null);
+        accounts = new TableImpl(new DummyInternalTableImpl(), new DummySchemaManagerImpl(schema), null, null);
         Tuple r1 = accounts.tupleBuilder().set("accountNumber", 1L).set("balance", BALANCE_1).build();
         Tuple r2 = accounts.tupleBuilder().set("accountNumber", 2L).set("balance", BALANCE_2).build();
 
@@ -105,7 +105,7 @@ public class TxTest {
     @Test
     public void testTxSync() {
         igniteTransactions.runInTransaction(tx -> {
-            Table txAcc = accounts.withTx(tx);
+            Table txAcc = accounts.withTransaction(tx);
 
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
@@ -128,7 +128,7 @@ public class TxTest {
     @Test
     public void testTxSyncKeyValue() {
         igniteTransactions.runInTransaction(tx -> {
-            KeyValueBinaryView txAcc = accounts.kvView().withTx(tx);
+            KeyValueBinaryView txAcc = accounts.kvView().withTransaction(tx);
 
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
@@ -150,7 +150,7 @@ public class TxTest {
      */
     @Test
     public void testTxAsync() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx)).
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTransaction(tx)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
             .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
             .thenCompose(pair -> allOf(
@@ -172,7 +172,7 @@ public class TxTest {
      */
     @Test
     public void testTxAsyncKeyValue() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.kvView().withTx(tx)).
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.kvView().withTransaction(tx)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
             .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
             .thenCompose(pair -> allOf(

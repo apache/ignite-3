@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Row;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
 import org.apache.ignite.table.Tuple;
@@ -41,6 +42,9 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
     /** Marshaller. */
     private final TupleMarshallerImpl marsh;
 
+    /** Table manager. */
+    private final TableManager tblMgr;
+
     /**
      * Constructor.
      * @param tbl Table storage.
@@ -51,6 +55,22 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
         super(tbl, schemaReg, tx);
 
         marsh = new TupleMarshallerImpl(schemaReg);
+
+        tblMgr = null;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param tbl Table storage.
+     * @param schemaReg Schema registry.
+     */
+    public KVBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, TableManager tblMgr, Transaction tx) {
+        super(tbl, schemaReg, tx);
+
+        marsh = new TupleMarshallerImpl(schemaReg);
+
+        this.tblMgr = tblMgr;
     }
 
     /** {@inheritDoc} */
@@ -289,11 +309,18 @@ public class KVBinaryViewImpl extends AbstractTableView implements KeyValueBinar
 
     /** {@inheritDoc} */
     @Override public TupleBuilder tupleBuilder() {
-        return new TupleBuilderImpl(schemaReg.schema());
+        switch (tbl.schemaMode()) {
+            case STRICT_SCHEMA:
+                return new TupleBuilderImpl(schemaReg.schema());
+            case LIVE_SCHEMA:
+                return new LiveSchemaTupleBuilderImpl(schemaReg, tbl.tableName(), tblMgr);
+        }
+        
+        throw new IllegalArgumentException("Unknown schema type: " + tbl.schemaMode());
     }
 
     /** {@inheritDoc} */
-    @Override public KVBinaryViewImpl withTx(Transaction tx) {
+    @Override public KVBinaryViewImpl withTransaction(Transaction tx) {
         return new KVBinaryViewImpl(tbl, schemaReg, tx);
     }
 

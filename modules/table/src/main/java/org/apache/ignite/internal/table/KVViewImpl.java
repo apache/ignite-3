@@ -227,7 +227,7 @@ public class KVViewImpl<K, V> extends AbstractTableView implements KeyValueView<
     }
 
     /** {@inheritDoc} */
-    @Override public KVViewImpl<K, V> withTx(Transaction tx) {
+    @Override public KVViewImpl<K, V> withTransaction(Transaction tx) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

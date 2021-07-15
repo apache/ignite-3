@@ -44,6 +44,7 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.schema.SchemaMode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 
@@ -63,6 +64,9 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private UUID tableId;
 
+    /** Table schema mode. */
+    private volatile SchemaMode schemaMode;
+
     /**
      * @param tableName Table name.
      * @param tableId Table id.
@@ -79,6 +83,8 @@ public class InternalTableImpl implements InternalTable {
         this.tableId = tableId;
         this.partitionMap = partMap;
         this.partitions = partitions;
+
+        this.schemaMode = SchemaMode.STRICT_SCHEMA;
     }
 
     /** {@inheritDoc} */
@@ -89,6 +95,16 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override public String tableName() {
         return tableName;
+    }
+
+    /** {@inheritDoc} */
+    @Override public SchemaMode schemaMode() {
+        return schemaMode;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void schema(SchemaMode schemaMode) {
+        this.schemaMode = schemaMode;
     }
 
     /** {@inheritDoc} */

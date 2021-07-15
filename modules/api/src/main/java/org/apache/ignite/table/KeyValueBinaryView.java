@@ -32,5 +32,5 @@ public interface KeyValueBinaryView extends KeyValueView<Tuple, Tuple> {
     TupleBuilder tupleBuilder();
 
     /** {@inheritDoc} */
-    @Override KeyValueBinaryView withTx(Transaction tx);
+    @Override KeyValueBinaryView withTransaction(Transaction tx);
 }
