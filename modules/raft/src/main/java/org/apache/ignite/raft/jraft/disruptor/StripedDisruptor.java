@@ -114,7 +114,7 @@ public class StripedDisruptor<T extends GroupAware> {
     }
 
     private int getStripe(String group) {
-        return group.hashCode() % stripes;
+        return Math.abs(group.hashCode() % stripes);
     }
 
     public RingBuffer<T> queue(String groupId) {
