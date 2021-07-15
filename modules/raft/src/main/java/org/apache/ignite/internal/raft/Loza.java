@@ -65,24 +65,25 @@ public class Loza {
     }
 
     /**
-     * Creates a RAFT group.
+     * Creates a raft group service.
+     * If {@code nodes} contains the current node, then raft group starts on the current node.
      *
-     * @param groupId RAFT group id.
-     * @param nodes Group nodes.
-     * @param lsnr Group listener.
-     * @return A RAFT group client.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
+     * @param lsnr Raft group listener.
+     * @return A service providing operations on a raft group
      */
-    public RaftGroupService startRaftGroup(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
+    public RaftGroupService raftGroupService(String groupId, List<ClusterNode> nodes, RaftGroupListener lsnr) {
         assert !nodes.isEmpty();
-
-        if (groups.containsKey(groupId))
-            return groups.get(groupId);
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 
-        raftServer.startRaftGroup(groupId, lsnr, peers);
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
-        groups.put(groupId, new RaftGroupServiceImpl(
+        if (nodes.stream().map(ClusterNode::name).collect(Collectors.toSet()).contains(locNodeName))
+            raftServer.startRaftGroup(groupId, lsnr, peers);
+
+        return new RaftGroupServiceImpl(
             groupId,
             clusterNetSvc,
             FACTORY,
@@ -90,22 +91,21 @@ public class Loza {
             peers,
             true,
             DELAY
-        ));
-
-        return groups.get(groupId);
+        );
     }
 
     /**
-     * Stops a RAFT group.
+     * Stops a raft group on the current node if {@code nodes} contains the current node.
      *
-     * @param groupId RAFT group id.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
      */
-    public void stopRaftGroup(String groupId) {
-        if (!groups.containsKey(groupId))
-            return;
+    public void stopRaftGroup(String groupId, List<ClusterNode> nodes) {
+        assert !nodes.isEmpty();
 
-        raftServer.stopRaftGroup(groupId);
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
-        groups.remove(groupId);
+        if (nodes.stream().map(ClusterNode::name).collect(Collectors.toSet()).contains(locNodeName))
+            raftServer.stopRaftGroup(groupId);
     }
 }

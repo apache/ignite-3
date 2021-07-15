@@ -155,7 +155,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         HashMap<Integer, RaftGroupService> partitionMap = new HashMap<>(partitions);
 
         for (int p = 0; p < partitions; p++) {
-            partitionMap.put(p, raftMgr.startRaftGroup(
+            partitionMap.put(p, raftMgr.raftGroupService(
                 raftGroupName(tblId, p),
                 assignment.get(p),
                 new PartitionListener()
@@ -182,7 +182,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         int partitions = assignment.size();
 
         for (int p = 0; p < partitions; p++)
-            raftMgr.stopRaftGroup(raftGroupName(tblId, p));
+            raftMgr.stopRaftGroup(raftGroupName(tblId, p), assignment.get(p));
 
         TableImpl table = tables.get(name);
 
