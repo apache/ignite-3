@@ -46,8 +46,7 @@ public class NettyClientConnection implements ClientConnection {
 
     @Override public void send(ByteBuffer msg) throws IgniteException {
         // TODO: Remove syncUninterruptibly, handle errors asynchronously.
-        var buf = Unpooled.wrappedBuffer(msg);
-        channel.writeAndFlush(buf).syncUninterruptibly();
+        channel.writeAndFlush(msg).syncUninterruptibly();
     }
 
     @Override public void close() {

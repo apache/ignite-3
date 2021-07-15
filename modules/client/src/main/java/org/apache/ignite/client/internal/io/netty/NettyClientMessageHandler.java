@@ -27,9 +27,7 @@ import static org.apache.ignite.client.internal.io.netty.NettyClientConnection.A
 
 public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     @Override public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
-        var buf = (byte[]) msg;
-
-        ctx.channel().attr(ATTR_CONN).get().onMessage(ByteBuffer.wrap(buf));
+        ctx.channel().attr(ATTR_CONN).get().onMessage((ByteBuffer) msg);
     }
 
     @Override public void channelInactive(ChannelHandlerContext ctx) throws Exception {
