@@ -109,6 +109,9 @@ public class StripedDisruptor<T extends GroupAware> {
     }
 
     /**
+     * Subscribes an event handler to one stripe of the Striped disruptor.
+     * The stripe is determined by a group id.
+     *
      * @param group Group id.
      * @param handler Event handler for the group specified.
      * @return Disruptor queue appropriate to the group.
@@ -118,6 +121,9 @@ public class StripedDisruptor<T extends GroupAware> {
     }
 
     /**
+     * Subscribes an event handler and a exception handler to one stripe of the Striped disruptor.
+     * The stripe is determined by a group id.
+     *
      * @param group Group id.
      * @param handler Event handler for the group specified.
      * @param exceptionHandler Exception handler for the group specified.
@@ -135,6 +141,8 @@ public class StripedDisruptor<T extends GroupAware> {
     }
 
     /**
+     * Unsubscribes group for the Striped disruptor.
+     *
      * @param group Group id.
      */
     public void unsubscribe(String group) {
@@ -145,6 +153,8 @@ public class StripedDisruptor<T extends GroupAware> {
     }
 
     /**
+     * Determines a stripe by a group id and returns a stripe number.
+     *
      * @param group Group id.
      * @return Stripe of the Striped disruptor.
      */
@@ -153,6 +163,8 @@ public class StripedDisruptor<T extends GroupAware> {
     }
 
     /**
+     * Determines a Disruptor queue by a group id.
+     *
      * @param groupId Group id.
      * @return Disruptor queue appropriate to the group.
      */

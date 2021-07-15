@@ -35,6 +35,9 @@ import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
  * Node options.
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
+    /** This value is used by default to determine the count of stripes in the striped queue. */
+    public static final int DEFAULT_STRIPES = Utils.cpus() * 2;
+
     // A follower would become a candidate if it doesn't receive any message
     // from the leader in |election_timeout_ms| milliseconds
     // Default: 1000 (1s)
@@ -199,7 +202,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private String serverName;
 
     /** Amount of Disruptors that will handle the RAFT server. */
-    private int stripes = Utils.cpus() * 2;
+    private int stripes = DEFAULT_STRIPES;
 
     /**
      * @return Stripe count.
