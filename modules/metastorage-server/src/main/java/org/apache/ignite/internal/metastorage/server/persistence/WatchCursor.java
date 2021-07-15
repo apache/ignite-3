@@ -35,8 +35,12 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.bytesToValue;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.checkIterator;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.rocksKeyToBytes;
+
 /**
- * Subscription on updates of entries corresponding to the given keys range (where an upper bound is unlimited)
+ * Subscription on updates of entries corresponding to the given keys range (where the upper bound is unlimited)
  * and starting from the given revision number.
  */
 class WatchCursor implements Cursor<WatchEvent> {
@@ -53,7 +57,6 @@ class WatchCursor implements Cursor<WatchEvent> {
     private final ReadOptions options = new ReadOptions().setPrefixSameAsStart(true);
 
     /** RocksDB iterator. */
-    @Nullable
     private final RocksIterator nativeIterator;
 
     /**
@@ -62,7 +65,7 @@ class WatchCursor implements Cursor<WatchEvent> {
     private long lastRetRev;
 
     /**
-     * Next matching revision. {@code -1} means it's not found yet or does not exist.
+     * Next matching revision. {@code -1} means that it has not been found yet or does not exist.
      */
     private long nextRetRev = -1;
 
@@ -81,31 +84,23 @@ class WatchCursor implements Cursor<WatchEvent> {
         this.it = createIterator();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public boolean hasNext() {
         return it.hasNext();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Nullable
     @Override public WatchEvent next() {
         return it.next();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override public void close() throws Exception {
         IgniteUtils.closeAll(options, nativeIterator);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @NotNull
     @Override public Iterator<WatchEvent> iterator() {
         return it;
@@ -125,7 +120,7 @@ class WatchCursor implements Cursor<WatchEvent> {
 
                 try {
                     if (nextRetRev != -1)
-                        // Next revision is already calculated and is not -1, meaning that there is set of keys
+                        // Next revision is already calculated and is not -1, meaning that there is a set of keys
                         // matching the revision and the predicate.
                         return true;
 
@@ -148,7 +143,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                         for (nativeIterator.seek(revisionPrefix); nativeIterator.isValid(); nativeIterator.next()) {
                             empty = false;
 
-                            byte[] key = RocksDBKeyValueStorage.rocksKeyToBytes(nativeIterator.key());
+                            byte[] key = rocksKeyToBytes(nativeIterator.key());
 
                             if (p.test(key)) {
                                 // Current revision matches.
@@ -158,7 +153,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                             }
                         }
 
-                        RocksDBKeyValueStorage.checkIterator(nativeIterator);
+                        checkIterator(nativeIterator);
 
                         if (empty)
                             return false;
@@ -173,6 +168,7 @@ class WatchCursor implements Cursor<WatchEvent> {
             }
 
             /** {@inheritDoc} */
+            @Nullable
             @Override public WatchEvent next() {
                 storage.lock().readLock().lock();
 
@@ -180,50 +176,52 @@ class WatchCursor implements Cursor<WatchEvent> {
                     while (true) {
                         if (!hasNext())
                             return null;
-                        else if (nextRetRev != -1) {
-                            boolean empty = true;
 
-                            List<EntryEvent> evts = new ArrayList<>();
+                        var ref = new Object() {
+                            boolean noItemsInRevision = true;
+                        };
 
-                            // Iterate over the keys of the current revision and get all matching entries.
-                            for (; nativeIterator.isValid(); nativeIterator.next()) {
-                                empty = false;
+                        List<EntryEvent> evts = new ArrayList<>();
 
-                                byte[] key = RocksDBKeyValueStorage.rocksKeyToBytes(nativeIterator.key());
+                        // Iterate over the keys of the current revision and get all matching entries.
+                        RocksStorageByteUtils.forEach(nativeIterator, (k, v) -> {
+                            ref.noItemsInRevision = false;
 
-                                Value val = RocksDBKeyValueStorage.bytesToValue(nativeIterator.value());
+                            byte[] key = rocksKeyToBytes(k);
 
-                                if (p.test(key)) {
-                                    Entry newEntry;
+                            Value val = bytesToValue(v);
 
-                                    if (val.isTombstone())
-                                        newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
-                                    else
-                                        newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
+                            if (p.test(key)) {
+                                Entry newEntry;
 
-                                    Entry oldEntry = storage.doGet(key, nextRetRev - 1, false);
+                                if (val.isTombstone())
+                                    newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
+                                else
+                                    newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
 
-                                    evts.add(new EntryEvent(oldEntry, newEntry));
-                                }
+                                Entry oldEntry = storage.doGet(key, nextRetRev - 1, false);
+
+                                evts.add(new EntryEvent(oldEntry, newEntry));
                             }
+                        });
 
-                            RocksDBKeyValueStorage.checkIterator(nativeIterator);
+                        if (ref.noItemsInRevision)
+                            return null;
 
-                            if (empty)
-                                return null;
+                        if (evts.isEmpty())
+                            continue;
 
-                            if (evts.isEmpty())
-                                continue;
+                        // Set the last returned revision to the current revision's value.
+                        lastRetRev = nextRetRev;
 
-                            // Set the last returned revision to the current revision's value.
-                            lastRetRev = nextRetRev;
+                        // Set current revision to -1, meaning that it is not found yet.
+                        nextRetRev = -1;
 
-                            // Set current revision to -1, meaning that it is not found yet.
-                            nextRetRev = -1;
-
-                            return new WatchEvent(evts);
-                        }
+                        return new WatchEvent(evts);
                     }
+                }
+                catch (RocksDBException e) {
+                    throw new IgniteInternalException(e);
                 }
                 finally {
                     storage.lock().readLock().unlock();

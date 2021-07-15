@@ -1179,6 +1179,7 @@ public class ITMetaStorageServiceTest {
         }
 
         /** {@inheritDoc} */
+        @NotNull
         @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
             fail();
 

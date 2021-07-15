@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.server.persistence;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,11 +62,16 @@ import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.bytesToValue;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.forEach;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.keyToRocksKey;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.rocksKeyToBytes;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageByteUtils.valueToBytes;
 
 /**
  * Key-value storage based on RocksDB.
  * Keys are stored with revision.
- * Values are stored with update counter and a boolean flag which represents whether this record is a tombstone.
+ * Values are stored with an update counter and a boolean flag which represents whether this record is a tombstone.
  * <br>
  * Key: [8 bytes revision, N bytes key itself].
  * <br>
@@ -80,7 +84,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     /** Suffix for the temporary snapshot folder */
     private static final String TMP_SUFFIX = ".tmp";
 
-    // A revision to store with a system entries.
+    /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = -1;
 
     /** Revision key. */
@@ -166,30 +170,9 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
+    @NotNull
     @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
-        Path tempPath = Paths.get(snapshotPath.toString() + TMP_SUFFIX);
-
-        IgniteUtils.deleteIfExists(tempPath);
-
-        try {
-            Files.createDirectories(tempPath);
-        }
-        catch (IOException e) {
-            return CompletableFuture.failedFuture(
-                new IgniteInternalException("Failed to create directory: " + tempPath, e)
-            );
-        }
-
-        return createSstFile(tempPath).thenAccept(aVoid -> {
-            IgniteUtils.deleteIfExists(snapshotPath);
-
-            try {
-                Files.move(tempPath, snapshotPath);
-            }
-            catch (IOException e) {
-                throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
-            }
-        });
+        return createSstFile(snapshotPath);
     }
 
     /** {@inheritDoc} */
@@ -224,21 +207,19 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      */
     private void buildKeyIndex() throws RocksDBException {
         try (RocksIterator iterator = this.db.newIterator()) {
-            for (iterator.seekToFirst(); iterator.isValid(); iterator.next()) {
-                byte[] rocksKey = iterator.key();
+            iterator.seekToFirst();
 
+            forEach(iterator, (rocksKey, value) -> {
                 byte[] key = rocksKeyToBytes(rocksKey);
 
                 long revision = ByteUtils.bytesToLong(rocksKey);
 
                 if (revision == SYSTEM_REVISION_MARKER_VALUE)
-                    // It's a system entry like REVISION_KEY, ignore it whily building key index.
-                    continue;
+                    // It's a system entry like REVISION_KEY, ignore it while building the key index.
+                    return;
 
                 updateKeysIndex(key, revision);
-            }
-
-            checkIterator(iterator);
+            });
         }
     }
 
@@ -248,8 +229,19 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
      * @param path Path to store SST file at.
      * @return Future that represents a state of the operation.
      */
-    private CompletableFuture<Void> createSstFile(Path path) {
-        return CompletableFuture.supplyAsync(() -> {
+    private CompletableFuture<Void> createSstFile(Path snapshotPath) {
+        return CompletableFuture.runAsync(() -> {
+            Path tempPath = Paths.get(snapshotPath.toString() + TMP_SUFFIX);
+
+            IgniteUtils.deleteIfExists(tempPath);
+
+            try {
+                Files.createDirectories(tempPath);
+            }
+            catch (IOException e) {
+                throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
+            }
+
             rwLock.readLock().lock();
 
             try (
@@ -259,24 +251,30 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
                 RocksIterator it = this.db.newIterator(readOptions);
                 SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options)
             ) {
-                Path sstFile = path.resolve(SNAPSHOT_FILE_NAME);
+                Path sstFile = tempPath.resolve(SNAPSHOT_FILE_NAME);
 
                 sstFileWriter.open(sstFile.toString());
 
-                for (it.seekToFirst(); it.isValid(); it.next())
-                    sstFileWriter.put(it.key(), it.value());
+                it.seekToFirst();
 
-                checkIterator(it);
+                forEach(it, (key, value) -> sstFileWriter.put(key, value));
 
                 sstFileWriter.finish();
-
-                return null;
             }
             catch (Throwable t) {
                 throw new IgniteInternalException("Failed to write snapshot: " + t.getMessage(), t);
             }
             finally {
                 rwLock.readLock().unlock();
+            }
+
+            IgniteUtils.deleteIfExists(snapshotPath);
+
+            try {
+                Files.move(tempPath, snapshotPath);
+            }
+            catch (IOException e) {
+                throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
             }
         }, snapshotExecutor);
     }
@@ -328,7 +326,7 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Fills the batch with system values (an update counter and a revision) and writes to the db.
+     * Fills the batch with system values (the update counter and the revision) and writes it to the db.
      *
      * @param batch Write batch.
      * @param newRev New revision.
@@ -386,11 +384,8 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             long counter = addAllToBatch(batch, keys, values, curRev);
 
-            for (int i = 0; i < keys.size(); i++) {
-                byte[] key = keys.get(i);
-
+            for (byte[] key : keys)
                 updateKeysIndex(key, curRev);
-            }
 
             fillAndWriteBatch(batch, curRev, counter);
         }
@@ -418,8 +413,8 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
 
             fillAndWriteBatch(batch, curRev, counter);
 
-            for (int i = 0; i < keys.size(); i++)
-                updateKeysIndex(keys.get(i), curRev);
+            for (byte[] key : keys)
+                updateKeysIndex(key, curRev);
         }
         catch (RocksDBException e) {
             throw new IgniteInternalException(e);
@@ -521,12 +516,11 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
             long counter = updCntr;
 
             for (byte[] key : keys) {
-                counter++;
-
-                if (addToBatchForRemoval(batch, key, curRev, counter))
+                if (addToBatchForRemoval(batch, key, curRev, counter + 1)) {
                     existingKeys.add(key);
-                else
-                    counter--;
+
+                    counter++;
+                }
             }
 
             fillAndWriteBatch(batch, curRev, counter);
@@ -864,79 +858,6 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Adds a revision to a key.
-     *
-     * @param revision Revision.
-     * @param key Key.
-     * @return Key with a revision.
-     */
-    private static byte[] keyToRocksKey(long revision, byte[] key) {
-        byte[] buffer = new byte[Long.BYTES + key.length];
-
-        ByteUtils.toBytes(revision, buffer, 0, Long.BYTES);
-
-        System.arraycopy(key, 0, buffer, Long.BYTES, key.length);
-
-        return buffer;
-    }
-
-    /**
-     * Gets a key from a key with revision.
-     *
-     * @param rocksKey Key with a revision.
-     * @return Key without a revision.
-     */
-    static byte[] rocksKeyToBytes(byte[] rocksKey) {
-        return Arrays.copyOfRange(rocksKey, Long.BYTES, rocksKey.length);
-    }
-
-    /**
-     * Builds a value from a byte array.
-     *
-     * @param valueBytes Value byte array.
-     * @return Value.
-     */
-    static Value bytesToValue(byte[] valueBytes) {
-        ByteBuffer buf = ByteBuffer.wrap(valueBytes);
-
-        // Read an update counter (8-byte long) from the entry.
-        long updateCounter = buf.getLong();
-
-        // Read a has-value flag (1 byte) from the entry.
-        boolean hasValue = buf.get() != 0;
-
-        byte[] val;
-        if (hasValue) {
-            // Read the value.
-            val = new byte[buf.remaining()];
-            buf.get(val);
-        }
-        else
-            // There is no value, mark it as a tombstone.
-            val = TOMBSTONE;
-
-        return new Value(val, updateCounter);
-    }
-
-    /**
-     * Adds an update counter and a tombstone flag to a value.
-     * @param value Value byte array.
-     * @param updateCounter Update counter.
-     * @return Value with an update counter and a tombstone.
-     */
-    private static byte[] valueToBytes(byte[] value, long updateCounter) {
-        byte[] bytes = new byte[Long.BYTES + Byte.BYTES + value.length];
-
-        ByteUtils.toBytes(updateCounter, bytes, 0, Long.BYTES);
-
-        bytes[Long.BYTES] = (byte) (value == TOMBSTONE ? 0 : 1);
-
-        System.arraycopy(value, 0, bytes, Long.BYTES + Byte.BYTES, value.length);
-
-        return bytes;
-    }
-
-    /**
      * Gets the value by a key and a revision.
      *
      * @param key Target key.
@@ -1060,20 +981,5 @@ public class RocksDBKeyValueStorage implements KeyValueStorage {
     @TestOnly
     public Path getDbPath() {
         return dbPath;
-    }
-
-    /**
-     * Checks the status of the iterator and throw an exception if it is not correct.
-     *
-     * @param it RocksDB iterator.
-     * @throws IgniteInternalException if the iterator has an incorrect status.
-     */
-    static void checkIterator(RocksIterator it) {
-        try {
-            it.status();
-        }
-        catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
-        }
     }
 }

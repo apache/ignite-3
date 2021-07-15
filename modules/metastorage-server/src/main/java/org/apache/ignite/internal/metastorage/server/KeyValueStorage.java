@@ -208,17 +208,18 @@ public interface KeyValueStorage extends AutoCloseable {
     void compact();
 
     /**
-     * Creates a snapshot of the storage.
+     * Creates a snapshot of the storage's current state in the specified directory.
      *
-     * @param snapshotPath Path to a snapshot.
-     * @return Future that represents the state of the operation.
+     * @param snapshotPath Directory to store a snapshot.
+     * @return Future representing pending completion of the operation. Could not be {@code null}.
      */
+    @NotNull
     CompletableFuture<Void> snapshot(Path snapshotPath);
 
     /**
-     * Restores a snapshot.
+     * Restores a state of the storage which was previously captured with a {@link #snapshot(Path)}.
      *
-     * @param snapshotPath Path to a snapshot.
+     * @param snapshotPath Path to the snapshot's directory.
      */
     void restoreSnapshot(Path snapshotPath);
 }

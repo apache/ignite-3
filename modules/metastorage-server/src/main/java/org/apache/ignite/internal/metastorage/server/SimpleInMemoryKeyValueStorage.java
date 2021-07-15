@@ -337,6 +337,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
+    @NotNull
     @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
         throw new UnsupportedOperationException();
     }

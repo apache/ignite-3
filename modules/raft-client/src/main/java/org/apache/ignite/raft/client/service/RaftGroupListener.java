@@ -68,7 +68,7 @@ public interface RaftGroupListener {
     boolean onSnapshotLoad(Path path);
 
     /**
-     * Invoked once when the raft node was shut down.
+     * Invoked once after a raft node has been shut down.
      */
     void onShutdown();
 }
