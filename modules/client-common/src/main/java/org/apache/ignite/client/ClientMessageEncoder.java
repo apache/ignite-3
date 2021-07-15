@@ -33,18 +33,30 @@ public class ClientMessageEncoder extends MessageToByteEncoder<ByteBuffer> {
     /** */
     private boolean magicEncoded;
 
-    @Override protected void encode(ChannelHandlerContext ctx, ByteBuffer message, ByteBuf target)
-            throws Exception {
+    @Override protected void encode(ChannelHandlerContext ctx, ByteBuffer message, ByteBuf out) {
         if (!magicEncoded) {
-            target.writeBytes(ClientMessageDecoder.MAGIC_BYTES);
+            out.writeBytes(ClientMessageDecoder.MAGIC_BYTES);
 
             magicEncoded = true;
         }
 
-        var packer = new ClientMessagePacker(target);
+        // Encode size without using MessagePacker to reduce indirection and allocations.
+        int size = message.limit() - message.position();
 
-        packer.packInt(message.limit() - message.position());
+        if (size <= 0x7f)
+            out.writeByte(size);
+        else if (size < 0xff) {
+            out.writeByte(0xcc);
+            out.writeByte(size);
+        }
+        else if (size < 0xffff) {
+            out.writeByte(0xcd);
+            out.writeShort(size);
+        } else {
+            out.writeByte(0xce);
+            out.writeInt(size);
+        }
 
-        target.writeBytes(message);
+        out.writeBytes(message);
     }
 }
