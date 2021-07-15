@@ -603,7 +603,7 @@ public class RowAssembler {
                 assert varTblOff < dataOff : "Illegal writing of varlen when 'omit vartable' flag is set for a chunk.";
                 assert varTblOff + varTableChunkLength(curVartblEntry, Integer.BYTES) == dataOff : "Vartable overlow: size=" + curVartblEntry;
 
-                final VarTableFormat format = VarTableFormat.format( curOff - dataOff);
+                final VarTableFormat format = VarTableFormat.format(curOff - dataOff);
 
                 curOff -= format.compactVarTable(buf, varTblOff, curVartblEntry - 1);
 
