@@ -22,13 +22,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Year;
+import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Random;
+import org.apache.ignite.internal.schema.row.TemporalTypesHelper;
+
+import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MAX_YEAR;
+import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MIN_YEAR;
 
 /**
  * Test utility class.
  */
 public final class TestUtils {
+
     /**
      * Generates random value of given type.
      *
@@ -72,27 +78,28 @@ public final class TestUtils {
             }
 
             case DATE: {
-                Year year = Year.of((rnd.nextBoolean() ? 1 : -1) * rnd.nextInt(1 << 14));
+                Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
 
                 return LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length() + 1));
             }
 
             case TIME:
                 return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                    rnd.nextInt(1000) * 1_000_000);
+                    rnd.nextInt(1_000_000_000)).truncatedTo(TemporalTypesHelper.TIME_PRECISION);
 
             case DATETIME: {
-                Year year = Year.of((rnd.nextBoolean() ? 1 : -1) * rnd.nextInt(1 << 14));
+                Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
 
                 LocalDate date = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length() + 1));
                 LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                    rnd.nextInt(1000) * 1_000_000);
+                    rnd.nextInt(1_000_000_000)).truncatedTo(TemporalTypesHelper.TIME_PRECISION);
 
                 return LocalDateTime.of(date, time);
             }
 
             case TIMESTAMP:
-                return Instant.ofEpochMilli(rnd.nextLong());
+                return Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
+                    .plusNanos(rnd.nextLong()).truncatedTo(TemporalTypesHelper.TIME_PRECISION);
 
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);

@@ -463,6 +463,7 @@ public class RowAssembler {
 
         return this;
     }
+
     /**
      * Appends LocalTime value for the current column to the chunk.
      *
@@ -517,6 +518,7 @@ public class RowAssembler {
         checkType(NativeTypes.TIMESTAMP);
 
         buf.putLong(curOff, val.toEpochMilli());
+        buf.putShort(curOff + 8, (short)(val.getNano() / 1000 % 1000));
 
         if (isKeyColumn())
             keyHash += 31 * keyHash + val.hashCode();

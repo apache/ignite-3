@@ -433,7 +433,7 @@ public class Row implements BinaryRow {
 
         int off = offset(offLen);
 
-        return Instant.ofEpochMilli(readLong(off));
+        return Instant.ofEpochMilli(readLong(off)).plusNanos(((long)readShort(off + 8)) * 1000);
     }
 
     /**
@@ -452,7 +452,7 @@ public class Row implements BinaryRow {
      * @return LocalDate value.
      */
     private LocalDate readDate(int off) {
-        int date = ((int)readShort(off)) << 8;
+        int date =  Short.toUnsignedInt(readShort(off)) << 8;
         date |= Byte.toUnsignedInt(readByte(off + 2));
 
         return TemporalTypesHelper.decodeDate(date);

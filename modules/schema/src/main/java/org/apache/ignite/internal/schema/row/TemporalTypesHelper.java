@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.row;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 
 /**
  * Helper class for temporal type conversions.
@@ -47,6 +48,15 @@ public class TemporalTypesHelper {
 
     /** Milliseconds field length. */
     public static final int MIRCOS_FIELD_LENGTH = 20;
+
+    /** Max year boundary. */
+    public static final int MAX_YEAR = (1 << 14) - 1;
+
+    /** Min year boundary. */
+    public static final int MIN_YEAR = -(1 << 14);
+
+    /** Time precision unit. */
+    public static final ChronoUnit TIME_PRECISION = ChronoUnit.MICROS;
 
     /**
      * @param len Mask length in bits.
@@ -82,7 +92,7 @@ public class TemporalTypesHelper {
         val = (val | date.getMonthValue()) << DAY_FIELD_LENGTH;
         val |= date.getDayOfMonth();
 
-        return val;
+        return val & (0x00FFFFFF);
     }
 
     /**
@@ -97,7 +107,7 @@ public class TemporalTypesHelper {
         int min = (int)((time >>>= SECONDS_FIELD_LENGTH) & mask(MINUTES_FIELD_LENGTH));
         int hour = (int)((time >>> MINUTES_FIELD_LENGTH) & mask(HOUR_FIELD_LENGTH));
 
-        return LocalTime.of(hour, min, sec, millis * 1_000 /* to nanos */);
+        return LocalTime.of(hour, min, sec, Math.multiplyExact(millis, 1_000) /* to nanos */);
     }
 
     /**
@@ -107,6 +117,9 @@ public class TemporalTypesHelper {
      * @return LocalDate instance.
      */
     public static LocalDate decodeDate(int date) {
+        date <<= 8;
+        date >>= 8;
+
         int day = (date) & mask(DAY_FIELD_LENGTH);
         int mon = (date >>= DAY_FIELD_LENGTH) & mask(MONTH_FIELD_LENGTH); // Sign matters.
         int year = (date >> MONTH_FIELD_LENGTH); // Sign matters.
