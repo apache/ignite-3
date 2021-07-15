@@ -108,6 +108,8 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
 
         if (cnt < 0) {
             // Read varint message size.
+            // TODO: Use fixed int message size? This will simplify encoders/decoders a lot,
+            // likely increasing performance as well.
             if (sizeFormat == null) {
                 firstByte = buf.readByte();
                 sizeFormat = MessageFormat.valueOf(firstByte);
