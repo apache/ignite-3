@@ -18,12 +18,15 @@
 package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -31,7 +34,7 @@ public class FakeIgniteTables implements IgniteTables {
     private final ConcurrentHashMap<String, Table> tables = new ConcurrentHashMap<>();
 
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        var newTable = new FakeTable(name);
+        var newTable = getNewTable(name);
 
         var oldTable = tables.putIfAbsent(name, newTable);
 
@@ -46,7 +49,7 @@ public class FakeIgniteTables implements IgniteTables {
     }
 
     @Override public Table getOrCreateTable(String name, Consumer<TableChange> tableInitChange) {
-        var newTable = new FakeTable(name);
+        var newTable = getNewTable(name);
 
         var oldTable = tables.putIfAbsent(name, newTable);
 
@@ -63,5 +66,9 @@ public class FakeIgniteTables implements IgniteTables {
 
     @Override public Table table(String name) {
         return tables.get(name);
+    }
+
+    @NotNull private Table getNewTable(String name) {
+        return new TableImpl(new FakeInternalTable(name, UUID.randomUUID()), null);
     }
 }
