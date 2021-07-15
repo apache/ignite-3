@@ -18,7 +18,7 @@
 package org.apache.ignite.client;
 
 import io.netty.channel.ChannelFuture;
-import org.apache.ignite.app.Ignite;
+import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
@@ -34,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 public class ClientConnectionTest {
+    private static final String DEFAULT_TABLE = "default_test_table";
+
     private ChannelFuture serverFuture;
 
     @BeforeEach
@@ -54,7 +56,8 @@ public class ClientConnectionTest {
         try (var client = builder.build()) {
             var tables = client.tables().tables();
 
-            assertEquals(0, tables.size());
+            assertEquals(1, tables.size());
+            assertEquals(DEFAULT_TABLE, tables.get(0).tableName());
         }
     }
 
@@ -65,7 +68,10 @@ public class ClientConnectionTest {
                 Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
-        var module = new ClientHandlerModule(mock(Ignite.class), NOPLogger.NOP_LOGGER);
+        var ignite = new FakeIgnite();
+        ignite.tables().createTable(DEFAULT_TABLE, null);
+
+        var module = new ClientHandlerModule(ignite, NOPLogger.NOP_LOGGER);
 
         module.prepareStart(registry);
 
