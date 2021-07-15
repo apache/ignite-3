@@ -138,12 +138,12 @@ final class ReliableChannel implements AutoCloseable {
      * @throws IgniteClientAuthenticationException When user name or password is invalid.
      */
     public <T> T service(
-            ClientOp op,
+            int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         return applyOnDefaultChannel(channel ->
-                channel.service(op, payloadWriter, payloadReader)
+                channel.service(opCode, payloadWriter, payloadReader)
         );
     }
 
@@ -151,14 +151,14 @@ final class ReliableChannel implements AutoCloseable {
      * Send request and handle response asynchronously.
      */
     public <T> CompletableFuture<T> serviceAsync(
-            ClientOp op,
+            int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) throws IgniteClientException {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         // Use the only one attempt to avoid blocking async method.
-        handleServiceAsync(fut, op, payloadWriter, payloadReader, 1, null);
+        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, 1, null);
 
         return fut;
     }
@@ -167,7 +167,7 @@ final class ReliableChannel implements AutoCloseable {
      * Handles serviceAsync results and retries as needed.
      */
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
-                                        ClientOp op,
+                                        int opCode,
                                         PayloadWriter payloadWriter,
                                         PayloadReader<T> payloadReader,
                                         int attemptsLimit,
@@ -193,7 +193,7 @@ final class ReliableChannel implements AutoCloseable {
         }
 
         ch
-                .serviceAsync(op, payloadWriter, payloadReader)
+                .serviceAsync(opCode, payloadWriter, payloadReader)
                 .handle((res, err) -> {
                     if (err == null) {
                         fut.complete(res);
@@ -226,7 +226,7 @@ final class ReliableChannel implements AutoCloseable {
                             leftAttempts = getRetryLimit() - 1;
 
                         if (leftAttempts > 0) {
-                            handleServiceAsync(fut, op, payloadWriter, payloadReader, leftAttempts, failure0);
+                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, leftAttempts, failure0);
 
                             return null;
                         }
@@ -248,33 +248,33 @@ final class ReliableChannel implements AutoCloseable {
     /**
      * Send request without payload and handle response.
      */
-    public <T> T service(ClientOp op, PayloadReader<T> payloadReader)
+    public <T> T service(int opCode, PayloadReader<T> payloadReader)
             throws IgniteClientException {
-        return service(op, null, payloadReader);
+        return service(opCode, null, payloadReader);
     }
 
     /**
      * Send request without payload and handle response asynchronously.
      */
-    public <T> CompletableFuture<T> serviceAsync(ClientOp op, PayloadReader<T> payloadReader)
+    public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader)
             throws IgniteClientException {
-        return serviceAsync(op, null, payloadReader);
+        return serviceAsync(opCode, null, payloadReader);
     }
 
     /**
      * Send request and handle response without payload.
      */
-    public void request(ClientOp op, PayloadWriter payloadWriter)
+    public void request(int opCode, PayloadWriter payloadWriter)
             throws IgniteClientException {
-        service(op, payloadWriter, null);
+        service(opCode, payloadWriter, null);
     }
 
     /**
      * Send request and handle response without payload.
      */
-    public CompletableFuture<Void> requestAsync(ClientOp op, PayloadWriter payloadWriter)
+    public CompletableFuture<Void> requestAsync(int opCode, PayloadWriter payloadWriter)
             throws IgniteClientException {
-        return serviceAsync(op, payloadWriter, null);
+        return serviceAsync(opCode, payloadWriter, null);
     }
 
     /**

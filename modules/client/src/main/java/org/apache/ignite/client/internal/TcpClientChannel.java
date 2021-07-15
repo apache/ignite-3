@@ -131,23 +131,23 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override public <T> T service(
-            ClientOp op,
+            int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) throws IgniteClientException {
-        ClientRequestFuture fut = send(op, payloadWriter);
+        ClientRequestFuture fut = send(opCode, payloadWriter);
 
         return receive(fut, payloadReader);
     }
 
     /** {@inheritDoc} */
     @Override public <T> CompletableFuture<T> serviceAsync(
-            ClientOp op,
+            int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) {
         try {
-            ClientRequestFuture fut = send(op, payloadWriter);
+            ClientRequestFuture fut = send(opCode, payloadWriter);
 
             return receiveAsync(fut, payloadReader);
         }
@@ -164,7 +164,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(ClientOp op, PayloadWriter payloadWriter)
+    private ClientRequestFuture send(int opCode, PayloadWriter payloadWriter)
             throws IgniteClientException {
         long id = reqId.getAndIncrement();
 
@@ -178,7 +178,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             var req = payloadCh.out();
 
-            req.packInt(op.code());
+            req.packInt(opCode);
             req.packLong(id);
 
             if (payloadWriter != null)

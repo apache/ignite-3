@@ -22,37 +22,20 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client operation codes.
  */
-public enum ClientOp {
-    TABLE_CREATE(1),
-    TABLE_DROP(2),
-    TABLES_GET(3),
-    TABLE_GET(4),
-    SCHEMAS_GET(5),
-    TUPLE_UPSERT(10),
-    TUPLE_UPSERT_SCHEMALESS(11),
-    TUPLE_GET(12);
+public class ClientOp {
+    public static final int TABLE_CREATE = 1;
 
-    /** Enumerated values. */
-    private static final ClientOp[] VALS = values();
+    public static final int TABLE_DROP = 2;
 
-    /** Code. */
-    private final int code;
+    public static final int TABLES_GET = 3;
 
-    ClientOp(int code) {
-        this.code = code;
-    }
+    public static final int TABLE_GET = 4;
 
-    public short code() {
-        return (short)code;
-    }
+    public static final int SCHEMAS_GET = 5;
 
-    /**
-     * Efficiently gets enumerated value from its ordinal.
-     *
-     * @param ord Ordinal value.
-     * @return Enumerated value or {@code null} if ordinal out of range.
-     */
-    @Nullable public static ClientOp fromOrdinal(int ord) {
-        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
-    }
+    public static final int TUPLE_UPSERT = 10;
+
+    public static final int TUPLE_UPSERT_SCHEMALESS = 11;
+
+    public static final int TUPLE_GET = 12;
 }

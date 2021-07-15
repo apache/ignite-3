@@ -128,17 +128,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode) throws IOException {
         // TODO: Handle operations asynchronously.
-        var op = ClientOp.fromOrdinal(opCode);
-
-        if (op == null) {
-            packer.packInt(ClientErrorCode.FAILED);
-            packer.packString("Unexpected operation code: " + opCode);
-            return;
-        }
-
         try {
-            switch (op) {
-                case TABLE_CREATE: {
+            switch (opCode) {
+                case ClientOp.TABLE_CREATE: {
                     TableImpl table = createTable(unpacker);
 
                     packer.packUuid(table.tableId());
@@ -146,7 +138,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
-                case TABLE_DROP: {
+                case ClientOp.TABLE_DROP: {
                     var tableName = unpacker.unpackString();
 
                     ignite.tables().dropTable(tableName);
@@ -154,7 +146,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
-                case TABLES_GET: {
+                case ClientOp.TABLES_GET: {
                     List<Table> tables = ignite.tables().tables();
 
                     packer.packInt(tables.size());
@@ -169,7 +161,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
-                case TABLE_GET: {
+                case ClientOp.TABLE_GET: {
                     String tableName = unpacker.unpackString();
                     Table table = ignite.tables().table(tableName);
 
@@ -181,7 +173,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
-                case TUPLE_UPSERT: {
+                case ClientOp.TUPLE_UPSERT: {
                     // TODO: Benchmark schema approach vs map approach (devlist) - both get and put operations.
                     // TUPLE_UPSERT vs TUPLE_UPSERT_SCHEMALESS
                     var table = readTable(unpacker);
@@ -192,7 +184,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
-                case TUPLE_UPSERT_SCHEMALESS: {
+                case ClientOp.TUPLE_UPSERT_SCHEMALESS: {
                     var table = readTable(unpacker);
                     var tuple = readTupleSchemaless(unpacker, table);
 
@@ -201,7 +193,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     break;
                 }
 
-                case TUPLE_GET: {
+                case ClientOp.TUPLE_GET: {
                     var table = readTable(unpacker);
                     var keyTuple = readTuple(unpacker, table);
 

@@ -43,7 +43,7 @@ interface ClientChannel extends AutoCloseable {
      * @throws IgniteClientConnectionException In case of IO errors.
      */
     public <T> T service(
-            ClientOp op,
+            int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) throws IgniteClientException, IgniteClientAuthorizationException, IgniteClientConnectionException;
@@ -60,7 +60,7 @@ interface ClientChannel extends AutoCloseable {
      * @throws IgniteClientConnectionException In case of IO errors.
      */
     public <T> CompletableFuture<T> serviceAsync(
-            ClientOp op,
+            int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     );
