@@ -40,7 +40,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -78,9 +77,6 @@ final class ReliableChannel implements AutoCloseable {
 
     /** Timestamp of finish of channels reinitialization. */
     private volatile long finishChannelsReInit;
-
-    /** Affinity map update is in progress. */
-    private final AtomicBoolean affinityUpdateInProgress = new AtomicBoolean();
 
     /** Channel is closed. */
     private volatile boolean closed;
@@ -132,22 +128,6 @@ final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Send request and handle response.
-     *
-     * @throws IgniteClientException Thrown by {@code payloadWriter} or {@code payloadReader}.
-     * @throws IgniteClientAuthenticationException When user name or password is invalid.
-     */
-    public <T> T service(
-            int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
-    ) throws IgniteClientException {
-        return applyOnDefaultChannel(channel ->
-                channel.service(opCode, payloadWriter, payloadReader)
-        );
-    }
-
-    /**
      * Send request and handle response asynchronously.
      */
     public <T> CompletableFuture<T> serviceAsync(
@@ -174,7 +154,7 @@ final class ReliableChannel implements AutoCloseable {
                                         IgniteClientConnectionException failure) {
         ClientChannel ch;
         // Workaround to store used attempts value within lambda body.
-        int attemptsCnt[] = new int[1];
+        var attemptsCnt = new int[1];
 
         try {
             ch = applyOnDefaultChannel(channel -> channel, attemptsLimit, v -> attemptsCnt[0] = v );
@@ -246,27 +226,11 @@ final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Send request without payload and handle response.
-     */
-    public <T> T service(int opCode, PayloadReader<T> payloadReader)
-            throws IgniteClientException {
-        return service(opCode, null, payloadReader);
-    }
-
-    /**
      * Send request without payload and handle response asynchronously.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader)
             throws IgniteClientException {
         return serviceAsync(opCode, null, payloadReader);
-    }
-
-    /**
-     * Send request and handle response without payload.
-     */
-    public void request(int opCode, PayloadWriter payloadWriter)
-            throws IgniteClientException {
-        service(opCode, payloadWriter, null);
     }
 
     /**
@@ -682,24 +646,7 @@ final class ReliableChannel implements AutoCloseable {
                     if (!ignoreThrottling && applyReconnectionThrottling())
                         throw new IgniteClientConnectionException("Reconnect is not allowed due to applied throttling");
 
-                    ClientChannel channel = chFactory.apply(chCfg, connMgr);
-
-                    if (channel.serverNodeId() != null) {
-                        UUID prevId = serverNodeId;
-
-                        if (prevId != null && !prevId.equals(channel.serverNodeId()))
-                            nodeChannels.remove(prevId, this);
-
-                        if (!channel.serverNodeId().equals(prevId)) {
-                            serverNodeId = channel.serverNodeId();
-
-                            // There could be multiple holders map to the same serverNodeId if user provide the same
-                            // address multiple times in configuration.
-                            nodeChannels.putIfAbsent(channel.serverNodeId(), this);
-                        }
-                    }
-
-                    ch = channel;
+                    ch = chFactory.apply(chCfg, connMgr);
                 }
             }
 
