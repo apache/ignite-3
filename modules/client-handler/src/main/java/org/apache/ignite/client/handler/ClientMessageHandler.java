@@ -333,7 +333,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         var settings = new Object() {
             Integer replicas = null;
             Integer partitions = null;
-            Map<String, ImmutableMapValue> columns = null;
+            Map<String, Map<String, Object>> columns = null;
         };
 
         for (int i = 0; i < size; i++) {
@@ -355,9 +355,13 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                 case "columns":
                     var colCnt = unpacker.unpackMapHeader();
                     settings.columns = new HashMap<>(colCnt);
-                    for (int j = 0; j < colCnt; j++) {
+                    for (var j = 0; j < colCnt; j++) {
                         var colName = unpacker.unpackString();
-                        var colSettings = unpacker.unpackValue().asMapValue();
+                        var setCnt = unpacker.unpackMapHeader();
+                        var colSettings = new HashMap<String, Object>();
+
+                        for (var k = 0; k < setCnt; k++)
+                            colSettings.put(unpacker.unpackString(), unpacker.unpackValue());
 
                         settings.columns.put(colName, colSettings);
                     }
@@ -376,7 +380,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
                     tbl.changeColumns(c -> c.create(col.getKey(), cc ->
                             cc
                                     .changeName(col.getKey())
-                                    .changeType(t -> t.changeType(col.getValue().map().get("type").toString()))));
+                                    .changeType(t -> t.changeType(col.getValue().get("type").toString()))));
                 }
             }
         };

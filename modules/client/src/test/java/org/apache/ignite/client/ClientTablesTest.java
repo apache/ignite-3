@@ -18,12 +18,15 @@
 package org.apache.ignite.client;
 
 import io.netty.channel.ChannelFuture;
+import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
@@ -33,45 +36,53 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
-public class ClientConnectionTest {
+public class ClientTablesTest {
     private static final String DEFAULT_TABLE = "default_test_table";
 
-    private ChannelFuture serverFuture;
+    private static ChannelFuture serverFuture;
 
-    @BeforeEach
-    public void setUp() throws Exception {
+    private static Ignite server;
+
+    private static Ignite client;
+
+    @BeforeAll
+    public static void setUp() throws Exception {
         serverFuture = startServer();
+        client = startClient();
     }
 
-    @AfterEach
-    public void tearDown() throws Exception {
+    @AfterAll
+    public static void tearDown() throws Exception {
+        client.close();
         serverFuture.cancel(true);
         serverFuture.await();
     }
 
     @Test
-    public void testConnection() throws Exception {
-        var builder = IgniteClient.builder().addresses("127.0.0.2:10800");
+    public void testTablesReturnsDefaultTable() {
+        var tables = client.tables().tables();
 
-        try (var client = builder.build()) {
-            var tables = client.tables().tables();
-
-            assertEquals(1, tables.size());
-            assertEquals(DEFAULT_TABLE, tables.get(0).tableName());
-        }
+        assertEquals(1, tables.size());
+        assertEquals(DEFAULT_TABLE, tables.get(0).tableName());
     }
 
-    private ChannelFuture startServer() throws InterruptedException {
+    private static Ignite startClient() {
+        var builder = IgniteClient.builder().addresses("127.0.0.2:10800");
+
+        return builder.build();
+    }
+
+    private static ChannelFuture startServer() throws InterruptedException {
         var registry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
                 Collections.singletonList(new TestConfigurationStorage(ConfigurationType.LOCAL))
         );
 
-        var ignite = new FakeIgnite();
-        ignite.tables().createTable(DEFAULT_TABLE, null);
+        server = new FakeIgnite();
+        server.tables().createTable(DEFAULT_TABLE, null);
 
-        var module = new ClientHandlerModule(ignite, NOPLogger.NOP_LOGGER);
+        var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
 
         module.prepareStart(registry);
 
