@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Objects;
@@ -268,12 +269,12 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     /** {@inheritDoc} */
-    @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
+    @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         // Not implemented yet.
     }
 
     /** {@inheritDoc} */
-    @Override public boolean onSnapshotLoad(String path) {
+    @Override public boolean onSnapshotLoad(Path path) {
         // Not implemented yet.
         return false;
     }

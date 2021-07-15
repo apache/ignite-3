@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -316,15 +316,15 @@ public class MetaStorageListener implements RaftGroupListener {
     }
 
     /** {@inheritDoc} */
-    @Override public void onSnapshotSave(String path, Consumer<Throwable> doneClo) {
-        storage.snapshot(Paths.get(path)).whenComplete((unused, throwable) -> {
+    @Override public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+        storage.snapshot(path).whenComplete((unused, throwable) -> {
             doneClo.accept(throwable);
         });
     }
 
     /** {@inheritDoc} */
-    @Override public boolean onSnapshotLoad(String path) {
-        storage.restoreSnapshot(Paths.get(path));
+    @Override public boolean onSnapshotLoad(Path path) {
+        storage.restoreSnapshot(path);
         return true;
     }
 
@@ -334,7 +334,7 @@ public class MetaStorageListener implements RaftGroupListener {
             storage.close();
         }
         catch (Exception e) {
-            throw new IgniteInternalException("Failed to close storage:" + e.getMessage(), e);
+            throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
         }
     }
 

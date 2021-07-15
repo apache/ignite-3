@@ -196,7 +196,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                                 if (p.test(key)) {
                                     Entry newEntry;
 
-                                    if (val.tombstone())
+                                    if (val.isTombstone())
                                         newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
                                     else
                                         newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
