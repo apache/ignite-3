@@ -17,9 +17,11 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -35,7 +37,8 @@ public class ConnectionTest {
     /** */
     @Test
     public void testEmptyNodeAddress() throws Exception {
-        assertThrows(IgniteClientException.class, () -> testConnection(IPv4_HOST, ""));
+        var ex = assertThrows(IgniteException.class, () -> testConnection(IPv4_HOST, ""));
+        assertEquals("Failed to parse Ignite server address (Address is empty): ", ex.getMessage());
     }
 
     /** */
@@ -45,9 +48,10 @@ public class ConnectionTest {
     }
 
     /** */
-    @Test //(expected = org.apache.ignite.client.IgniteClientException.class)
+    @Test
     public void testNullNodeAddresses() throws Exception {
-        testConnection(IPv4_HOST, null, null);
+        var ex = assertThrows(IgniteException.class, () -> testConnection(IPv4_HOST, null, null));
+        assertEquals("Failed to parse Ignite server address (Address is empty): null", ex.getMessage());
     }
 
     /** */
@@ -57,9 +61,12 @@ public class ConnectionTest {
     }
 
     /** */
-    @Test //(expected = org.apache.ignite.client.ClientConnectionException.class)
+    @Test
     public void testInvalidNodeAddresses() throws Exception {
-        testConnection(IPv4_HOST, "127.0.0.1:47500", "127.0.0.1:10801");
+        var ex = assertThrows(RuntimeException.class,
+                () -> testConnection(IPv4_HOST, "127.0.0.1:47500", "127.0.0.1:10801"));
+
+        assertEquals("Connection refused: /127.0.0.1:47500", ex.getMessage());
     }
 
     /** */
