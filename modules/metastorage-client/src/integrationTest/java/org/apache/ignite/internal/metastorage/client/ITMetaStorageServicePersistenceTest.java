@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.client;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -28,21 +29,17 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDBKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
-import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl;
 import org.apache.ignite.internal.raft.server.impl.JRaftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.ClusterServiceFactory;
@@ -60,7 +57,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import static java.lang.Thread.sleep;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -69,18 +65,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ITMetaStorageServicePersistenceTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ITMetaStorageServicePersistenceTest.class);
-
     /** Starting server port. */
     private static final int PORT = 5003;
 
     /** Starting client port. */
     private static final int CLIENT_PORT = 6003;
-
-    /** */
-    @WorkDirectory
-    private Path workDir;
 
     /**
      * Peers list.
@@ -93,9 +82,6 @@ public class ITMetaStorageServicePersistenceTest {
     /** */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
 
-    /** */
-    public static final int LATEST_REVISION = -1;
-
     /** Factory. */
     private static final RaftClientMessagesFactory FACTORY = new RaftClientMessagesFactory();
 
@@ -105,14 +91,18 @@ public class ITMetaStorageServicePersistenceTest {
     /** */
     private static final MessageSerializationRegistry SERIALIZATION_REGISTRY = new MessageSerializationRegistryImpl();
 
+    /** */
+    @WorkDirectory
+    private Path workDir;
+
     /** Cluster. */
-    private ArrayList<ClusterService> cluster = new ArrayList<>();
+    private final List<ClusterService> cluster = new ArrayList<>();
 
     /** Servers. */
-    private List<JRaftServerImpl> servers = new ArrayList<>();
+    private final List<JRaftServerImpl> servers = new ArrayList<>();
 
     /** Clients. */
-    private List<RaftGroupService> clients = new ArrayList<>();
+    private final List<RaftGroupService> clients = new ArrayList<>();
 
     /**
      * Shutdown raft server and stop all cluster nodes.
@@ -163,7 +153,7 @@ public class ITMetaStorageServicePersistenceTest {
     }
 
     /**
-     * Tests that a joining raft node successfuly restores a snapshot.
+     * Tests that a joining raft node successfully restores a snapshot.
      *
      * @param testData Test parameters.
      * @throws Exception If failed.
@@ -172,11 +162,9 @@ public class ITMetaStorageServicePersistenceTest {
     @MethodSource("testSnapshotData")
     public void testSnapshot(TestData testData) throws Exception {
         ByteArray firstKey = ByteArray.fromString("first");
-        byte[] firstValue = "firstValue".getBytes();
+        byte[] firstValue = "firstValue".getBytes(StandardCharsets.UTF_8);
 
-        RaftGroupService metaStorageSvc = prepareMetaStorage(() ->
-            new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString()))
-        );
+        RaftGroupService metaStorageSvc = prepareMetaStorage();
 
         MetaStorageServiceImpl metaStorage = new MetaStorageServiceImpl(metaStorageSvc);
 
@@ -184,18 +172,12 @@ public class ITMetaStorageServicePersistenceTest {
 
         Peer leader = metaStorageSvc.leader();
 
-        check(metaStorage, firstKey, firstValue, false, false, 1, 1);
+        check(metaStorage, new EntryImpl(firstKey, firstValue, 1, 1));
 
-        JRaftServerImpl toStop = null;
-
-        for (JRaftServerImpl server : servers) {
-            Peer peer = server.localPeer(METASTORAGE_RAFT_GROUP_NAME);
-
-            if (!peer.equals(leader)) {
-                toStop = server;
-                break;
-            }
-        }
+        JRaftServerImpl toStop = servers.stream()
+            .filter(server -> !server.localPeer(METASTORAGE_RAFT_GROUP_NAME).equals(leader))
+            .findAny()
+            .orElseThrow();
 
         String serverDataPath = toStop.getServerDataPath(METASTORAGE_RAFT_GROUP_NAME);
 
@@ -211,11 +193,11 @@ public class ITMetaStorageServicePersistenceTest {
 
         metaStorage.remove(firstKey).get();
 
-        check(metaStorage, firstKey, null, true, false, 2, 2);
+        check(metaStorage, new EntryImpl(firstKey, null, 2, 2));
 
         metaStorage.put(firstKey, firstValue).get();
 
-        check(metaStorage, firstKey, firstValue, false, false, 3, 3);
+        check(metaStorage, new EntryImpl(firstKey, firstValue, 3, 3));
 
         metaStorageSvc.snapshot(metaStorageSvc.leader()).get();
 
@@ -229,7 +211,7 @@ public class ITMetaStorageServicePersistenceTest {
 
         if (testData.writeAfterSnapshot) {
             ByteArray secondKey = ByteArray.fromString("second");
-            byte[] secondValue = "secondValue".getBytes();
+            byte[] secondValue = "secondValue".getBytes(StandardCharsets.UTF_8);
 
             metaStorage.put(secondKey, secondValue).get();
 
@@ -237,9 +219,9 @@ public class ITMetaStorageServicePersistenceTest {
             lastValue = secondValue;
         }
 
-        JRaftServerImpl restarted = startServer(stopIdx, initializer(
-            new RocksDBKeyValueStorage(dbPath)
-        ));
+        JRaftServerImpl restarted = startServer(stopIdx, new RocksDBKeyValueStorage(dbPath));
+
+        assertTrue(waitForTopology(cluster.get(0), servers.size(), 3_000));
 
         KeyValueStorage storage = getStorage(restarted);
 
@@ -258,7 +240,7 @@ public class ITMetaStorageServicePersistenceTest {
         int expectedRevision = testData.writeAfterSnapshot ? 4 : 3;
         int expectedUpdateCounter = testData.writeAfterSnapshot ? 4 : 3;
 
-        check(metaStorage2, new ByteArray(lastKey), lastValue, false, false, expectedRevision, expectedUpdateCounter);
+        check(metaStorage2, new EntryImpl(new ByteArray(lastKey), lastValue, expectedRevision, expectedUpdateCounter));
     }
 
     /**
@@ -283,42 +265,19 @@ public class ITMetaStorageServicePersistenceTest {
      * Check meta storage entry.
      *
      * @param metaStorage Meta storage service.
-     * @param key Key.
-     * @param value Expected value.
-     * @param isTombstone Expected tombstone flag.
-     * @param isEmpty Expected empty flag.
-     * @param revision Expected revision.
-     * @param updateCounter Expected update counter.
+     * @param expected Expected entry.
      * @throws ExecutionException If failed.
      * @throws InterruptedException If failed.
      */
-    private void check(
-        MetaStorageServiceImpl metaStorage,
-        ByteArray key,
-        byte[] value,
-        boolean isTombstone,
-        boolean isEmpty,
-        int revision,
-        int updateCounter
-    ) throws ExecutionException, InterruptedException {
-        Entry entry = metaStorage.get(key).get();
+    private void check(MetaStorageServiceImpl metaStorage, EntryImpl expected)
+        throws ExecutionException, InterruptedException {
+        Entry entry = metaStorage.get(expected.key()).get();
 
-        assertEquals(isTombstone, entry.tombstone());
-
-        assertEquals(isEmpty, entry.empty());
-
-        assertArrayEquals(
-            value,
-            entry.value()
-        );
-
-        assertEquals(revision, entry.revision());
-
-        assertEquals(updateCounter, entry.updateCounter());
+        assertEquals(expected, entry);
     }
 
     /** */
-    @SuppressWarnings("BusyWait") public static boolean waitForCondition(BooleanSupplier cond, long timeout) {
+    @SuppressWarnings("BusyWait") private static boolean waitForCondition(BooleanSupplier cond, long timeout) {
         long stop = System.currentTimeMillis() + timeout;
 
         while (System.currentTimeMillis() < stop) {
@@ -349,7 +308,7 @@ public class ITMetaStorageServicePersistenceTest {
     /**
      * @return Local address.
      */
-    public static String getLocalAddress() {
+    private static String getLocalAddress() {
         try {
             return InetAddress.getLocalHost().getHostAddress();
         }
@@ -361,7 +320,7 @@ public class ITMetaStorageServicePersistenceTest {
     /**
      * Creates a cluster service.
      */
-    protected ClusterService clusterService(String name, int port, List<NetworkAddress> servers) {
+    private ClusterService clusterService(String name, int port, List<NetworkAddress> servers) {
         var context = new ClusterLocalConfiguration(name, port, servers, SERIALIZATION_REGISTRY);
 
         var network = NETWORK_FACTORY.createClusterService(context);
@@ -377,11 +336,10 @@ public class ITMetaStorageServicePersistenceTest {
      * Starts a raft server.
      *
      * @param idx Server index (affects port of the server).
-     * @param clo Server initializer closure.
+     * @param storage KeyValueStorage for the MetaStorage.
      * @return Server.
-     * @throws IOException If failed.
      */
-    private JRaftServerImpl startServer(int idx, Consumer<RaftServer> clo) throws IOException {
+    private JRaftServerImpl startServer(int idx, KeyValueStorage storage) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService("server" + idx, PORT + idx, List.of(addr));
@@ -396,11 +354,13 @@ public class ITMetaStorageServicePersistenceTest {
             }
         };
 
-        clo.accept(server);
+        server.startRaftGroup(
+            METASTORAGE_RAFT_GROUP_NAME,
+            new MetaStorageListener(storage),
+            INITIAL_CONF
+        );
 
         servers.add(server);
-
-        assertTrue(waitForTopology(service, servers.size(), 3_000));
 
         return server;
     }
@@ -409,37 +369,15 @@ public class ITMetaStorageServicePersistenceTest {
      * Prepares meta storage by instantiating corresponding raft server with {@link MetaStorageListener} and
      * a client.
      *
-     * @param keyValStorage Storage.
      * @return Meta storage raft group service instance.
      */
-    private RaftGroupService prepareMetaStorage(Supplier<KeyValueStorage> keyValStorage) throws IOException {
-        for (int i = 0; i < 3; i++) {
-            startServer(i, initializer(keyValStorage.get()));
-        }
+    private RaftGroupService prepareMetaStorage() throws IOException {
+        for (int i = 0; i < INITIAL_CONF.size(); i++)
+            startServer(i, new RocksDBKeyValueStorage(workDir.resolve(UUID.randomUUID().toString())));
 
-        return startClient(METASTORAGE_RAFT_GROUP_NAME);
-    }
+        assertTrue(waitForTopology(cluster.get(0), servers.size(), 3_000));
 
-    /**
-     * Creates a raft server initializer.
-     * @param keyValStorage Key-value storage.
-     * @return Initializer.
-     */
-    private Consumer<RaftServer> initializer(KeyValueStorage keyValStorage) {
-        return server -> {
-            server.startRaftGroup(
-                METASTORAGE_RAFT_GROUP_NAME,
-                new MetaStorageListener(keyValStorage),
-                INITIAL_CONF
-            );
-        };
-    }
-
-    /**
-     * Start a client with the default address.
-     */
-    private RaftGroupService startClient(String groupId) {
-        return startClient(groupId, new NetworkAddress(getLocalAddress(), PORT));
+        return startClient(METASTORAGE_RAFT_GROUP_NAME, new NetworkAddress(getLocalAddress(), PORT));
     }
 
     /**

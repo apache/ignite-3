@@ -53,7 +53,7 @@ class RangeCursor implements Cursor<Entry> {
     private byte[] lastRetKey;
 
     /**
-     * {@code true} if the iteration was finished.
+     * {@code true} if the iteration is finished.
      */
     private boolean finished;
 
