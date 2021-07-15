@@ -14,8 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.processors.query.calcite.util;
+package org.apache.ignite.internal.util;
 
+/**
+ * A {@code Cancellable} represents a process or an operation that can be
+ * canceled.
+ */
 public interface Cancellable {
+    /**
+     * Cancels the ongoing operation or process or do nothing if it has been
+     * already cancelled.
+     */
     void cancel();
 }

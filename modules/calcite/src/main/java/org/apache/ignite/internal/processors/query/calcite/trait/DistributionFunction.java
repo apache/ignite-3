@@ -160,7 +160,7 @@ public abstract class DistributionFunction {
         /** {@inheritDoc} */
         @Override public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affinityService,
             ColocationGroup m, ImmutableIntList k) {
-            throw new AssertionError();
+            throw new IllegalStateException();
         }
     }
 
@@ -216,7 +216,7 @@ public abstract class DistributionFunction {
         @Override public <Row> Destination<Row> destination(ExecutionContext<Row> ctx, AffinityService affinityService,
             ColocationGroup m, ImmutableIntList k) {
             if (m == null || m.nodeIds() == null || m.nodeIds().size() != 1)
-                throw new AssertionError();
+                throw new IllegalStateException();
 
             return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(m.nodeIds()))));
         }

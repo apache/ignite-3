@@ -67,7 +67,7 @@ public class ClosableIteratorsHolder {
 
     /** */
     public void init() {
-        cleanWorker = new Thread(() -> cleanUp(true));
+        cleanWorker = new Thread(null, () -> cleanUp(true), "calciteIteratorsCleanWorker");
         cleanWorker.setDaemon(true);
         cleanWorker.start();
     }

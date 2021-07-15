@@ -113,8 +113,10 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
         ColocationGroup group,
         Predicate<Row> filter,
         Function<Row, Row> rowTransformer,
-        @Nullable ImmutableBitSet usedColumns) {
+        @Nullable ImmutableBitSet usedColumns
+    ) {
         String locNodeId = execCtx.planningContext().localNodeId();
+
         if (group.nodeIds().contains(locNodeId))
             return (Iterable<Row>) rows(execCtx.getTypeFactory());
 

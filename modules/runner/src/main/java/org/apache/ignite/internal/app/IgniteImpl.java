@@ -32,17 +32,17 @@ public class IgniteImpl implements Ignite {
     /** Vault manager */
     private final VaultManager vaultManager;
 
-    private final SqlQueryProcessor qryProc;
+    private final SqlQueryProcessor qryEngine;
 
     /**
      * @param tableManager Table manager.
      * @param vaultManager Vault manager.
-     * @param qryProc Query processor.
+     * @param qryEngine Query processor.
      */
-    IgniteImpl(IgniteTables tableManager, VaultManager vaultManager, SqlQueryProcessor qryProc) {
+    IgniteImpl(IgniteTables tableManager, VaultManager vaultManager, SqlQueryProcessor qryEngine) {
         this.distributedTableManager = tableManager;
         this.vaultManager = vaultManager;
-        this.qryProc = qryProc;
+        this.qryEngine = qryEngine;
     }
 
     /** {@inheritDoc} */
@@ -51,7 +51,7 @@ public class IgniteImpl implements Ignite {
     }
 
     public SqlQueryProcessor queryEngine() {
-        return qryProc;
+        return qryEngine;
     }
 
     /** {@inheritDoc} */
