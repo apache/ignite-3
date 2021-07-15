@@ -36,15 +36,9 @@ public class ConnectionTest {
 
     /** */
     @Test
-    public void testEmptyNodeAddress() throws Exception {
+    public void testEmptyNodeAddress() {
         var ex = assertThrows(IgniteException.class, () -> testConnection(IPv4_HOST, ""));
         assertEquals("Failed to parse Ignite server address (Address is empty): ", ex.getMessage());
-    }
-
-    /** */
-    @Test // (expected = org.apache.ignite.client.IgniteClientException.class)
-    public void testNullNodeAddress() throws Exception {
-        testConnection(IPv4_HOST, null);
     }
 
     /** */
