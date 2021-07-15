@@ -26,6 +26,7 @@ import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessagePack;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -61,7 +62,7 @@ public class ClientMessageDecoder extends ByteToMessageDecoder {
             return;
 
         while (read(byteBuf))
-            list.add(data);
+            list.add(ByteBuffer.wrap(data));
     }
 
     private boolean readMagic(ByteBuf byteBuf) {

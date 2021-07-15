@@ -30,6 +30,7 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.ClientMessageDecoder;
+import org.apache.ignite.client.ClientMessageEncoder;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.slf4j.Logger;
@@ -95,7 +96,10 @@ public class ClientHandlerModule {
             .childHandler(new ChannelInitializer<>() {
                 @Override
                 protected void initChannel(Channel ch) {
-                    ch.pipeline().addLast(new ClientMessageDecoder(), new ClientMessageHandler(ignite, log));
+                    ch.pipeline().addLast(
+                            new ClientMessageDecoder(),
+                            new ClientMessageHandler(ignite, log),
+                            new ClientMessageEncoder());
                 }
             })
             .childOption(ChannelOption.SO_KEEPALIVE, true)

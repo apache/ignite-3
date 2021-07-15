@@ -40,10 +40,12 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.buffer.ArrayBufferInput;
+import org.msgpack.core.buffer.ByteBufferInput;
 import org.msgpack.value.ImmutableMapValue;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
@@ -70,7 +72,7 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
-        var buf = (byte[]) msg;
+        var buf = (ByteBuffer) msg;
 
         var unpacker = getUnpacker(buf);
         var packer = getPacker();
@@ -124,9 +126,9 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
         return new ClientMessagePacker();
     }
 
-    private ClientMessageUnpacker getUnpacker(byte[] buf) {
+    private ClientMessageUnpacker getUnpacker(ByteBuffer buf) {
         // TODO: Pooling
-        return new ClientMessageUnpacker(new ArrayBufferInput(buf));
+        return new ClientMessageUnpacker(new ByteBufferInput(buf));
     }
 
     private void processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode) throws IOException {
