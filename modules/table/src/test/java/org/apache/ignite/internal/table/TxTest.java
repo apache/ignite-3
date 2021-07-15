@@ -128,7 +128,7 @@ public class TxTest {
     @Test
     public void testTxSyncKeyValue() {
         igniteTransactions.runInTransaction(tx -> {
-            KeyValueBinaryView txAcc = accounts.withTx(tx).kvView();
+            KeyValueBinaryView txAcc = accounts.kvView().withTx(tx);
 
             CompletableFuture<Tuple> read1 = txAcc.getAsync(makeKey(1));
             CompletableFuture<Tuple> read2 = txAcc.getAsync(makeKey(2));
@@ -172,7 +172,7 @@ public class TxTest {
      */
     @Test
     public void testTxAsyncKeyValue() {
-        igniteTransactions.beginAsync().thenApply(tx -> accounts.withTx(tx).kvView()).
+        igniteTransactions.beginAsync().thenApply(tx -> accounts.kvView().withTx(tx)).
             thenCompose(txAcc -> txAcc.getAsync(makeKey(1))
             .thenCombine(txAcc.getAsync(makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
             .thenCompose(pair -> allOf(

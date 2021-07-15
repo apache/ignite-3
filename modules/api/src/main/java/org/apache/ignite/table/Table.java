@@ -83,7 +83,7 @@ public interface Table extends TableView<Tuple> {
      * @see Transaction
      * @see IgniteTransactions
      */
-    Table withTx(Transaction tx);
+    @Override Table withTx(Transaction tx);
 
     /**
      * Creates record view of table for record class provided.
