@@ -24,6 +24,7 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
 import java.util.Collections;
+import java.util.Comparator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -59,11 +61,23 @@ public class ClientTablesTest {
     }
 
     @Test
-    public void testTablesReturnsDefaultTable() {
+    public void testTablesReturnsCollectionWhenTablesExist() {
+        server.tables().createTable(DEFAULT_TABLE, null);
+        server.tables().createTable("t", null);
+
+        var tables = client.tables().tables();
+        assertEquals(2, tables.size());
+
+        tables.sort(Comparator.comparing(Table::tableName));
+        assertEquals(DEFAULT_TABLE, tables.get(0).tableName());
+        assertEquals("t", tables.get(1).tableName());
+    }
+
+    @Test
+    public void testTablesReturnsEmptyCollectionWhenNoTablesExist() {
         var tables = client.tables().tables();
 
-        assertEquals(1, tables.size());
-        assertEquals(DEFAULT_TABLE, tables.get(0).tableName());
+        assertEquals(0, tables.size());
     }
 
     private static Ignite startClient() {
@@ -80,7 +94,6 @@ public class ClientTablesTest {
         );
 
         server = new FakeIgnite();
-        server.tables().createTable(DEFAULT_TABLE, null);
 
         var module = new ClientHandlerModule(server, NOPLogger.NOP_LOGGER);
 
