@@ -17,14 +17,10 @@
 
 package org.apache.ignite.client.handler;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ignite.app.Ignite;
 import org.apache.ignite.client.ClientErrorCode;
-import org.apache.ignite.client.ClientMessageDecoder;
 import org.apache.ignite.client.ClientMessagePacker;
 import org.apache.ignite.client.ClientMessageType;
 import org.apache.ignite.client.ClientMessageUnpacker;
@@ -39,9 +35,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.msgpack.core.MessageFormat;
-import org.msgpack.core.buffer.ArrayBufferInput;
 import org.msgpack.core.buffer.ByteBufferInput;
-import org.msgpack.value.ImmutableMapValue;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -109,7 +103,16 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(requestId);
             packer.packInt(ClientErrorCode.SUCCESS);
 
-            processOperation(unpacker, packer, opCode);
+            try {
+                processOperation(unpacker, packer, opCode);
+            } catch (Throwable t) {
+                packer = getPacker();
+
+                packer.packInt(ClientMessageType.RESPONSE);
+                packer.packInt(requestId);
+                packer.packInt(ClientErrorCode.FAILED);
+                packer.packString(t.getMessage());
+            }
         }
 
         ByteBuffer response = packer.toMessageBuffer().sliceAsByteBuffer();
@@ -129,90 +132,83 @@ public class ClientMessageHandler extends ChannelInboundHandlerAdapter {
 
     private void processOperation(ClientMessageUnpacker unpacker, ClientMessagePacker packer, int opCode) throws IOException {
         // TODO: Handle operations asynchronously.
-        try {
-            switch (opCode) {
-                case ClientOp.TABLE_CREATE: {
-                    TableImpl table = createTable(unpacker);
+        switch (opCode) {
+            case ClientOp.TABLE_CREATE: {
+                TableImpl table = createTable(unpacker);
 
-                    packer.packUuid(table.tableId());
+                packer.packUuid(table.tableId());
 
-                    break;
-                }
-
-                case ClientOp.TABLE_DROP: {
-                    var tableName = unpacker.unpackString();
-
-                    ignite.tables().dropTable(tableName);
-
-                    break;
-                }
-
-                case ClientOp.TABLES_GET: {
-                    List<Table> tables = ignite.tables().tables();
-
-                    packer.packMapHeader(tables.size());
-
-                    for (var table : tables) {
-                        var tableImpl = (TableImpl) table;
-
-                        packer.packUuid(tableImpl.tableId());
-                        packer.packString(table.tableName());
-                    }
-
-                    break;
-                }
-
-                case ClientOp.TABLE_GET: {
-                    String tableName = unpacker.unpackString();
-                    Table table = ignite.tables().table(tableName);
-
-                    if (table == null)
-                        packer.packNil();
-                    else
-                        packer.packUuid(((TableImpl)table).tableId());
-
-                    break;
-                }
-
-                case ClientOp.TUPLE_UPSERT: {
-                    // TODO: Benchmark schema approach vs map approach (devlist) - both get and put operations.
-                    // TUPLE_UPSERT vs TUPLE_UPSERT_SCHEMALESS
-                    var table = readTable(unpacker);
-                    var tuple = readTuple(unpacker, table);
-
-                    table.upsert(tuple);
-
-                    break;
-                }
-
-                case ClientOp.TUPLE_UPSERT_SCHEMALESS: {
-                    var table = readTable(unpacker);
-                    var tuple = readTupleSchemaless(unpacker, table);
-
-                    table.upsert(tuple);
-
-                    break;
-                }
-
-                case ClientOp.TUPLE_GET: {
-                    var table = readTable(unpacker);
-                    var keyTuple = readTuple(unpacker, table);
-
-                    // TODO: getAsync
-                    Tuple tuple = table.get(keyTuple);
-                    writeTuple(packer, tuple);
-
-                    break;
-                }
-
-                default:
-                    packer.packInt(ClientErrorCode.FAILED);
-                    packer.packString("Unexpected operation code: " + opCode);
+                break;
             }
-        } catch (Throwable t) {
-            // TODO: Seek back to the start of the message.
-            packer.packInt(ClientErrorCode.FAILED);
-            packer.packString("Internal server error: " + t.getMessage());
+
+            case ClientOp.TABLE_DROP: {
+                var tableName = unpacker.unpackString();
+
+                ignite.tables().dropTable(tableName);
+
+                break;
+            }
+
+            case ClientOp.TABLES_GET: {
+                List<Table> tables = ignite.tables().tables();
+
+                packer.packMapHeader(tables.size());
+
+                for (var table : tables) {
+                    var tableImpl = (TableImpl) table;
+
+                    packer.packUuid(tableImpl.tableId());
+                    packer.packString(table.tableName());
+                }
+
+                break;
+            }
+
+            case ClientOp.TABLE_GET: {
+                String tableName = unpacker.unpackString();
+                Table table = ignite.tables().table(tableName);
+
+                if (table == null)
+                    packer.packNil();
+                else
+                    packer.packUuid(((TableImpl) table).tableId());
+
+                break;
+            }
+
+            case ClientOp.TUPLE_UPSERT: {
+                // TODO: Benchmark schema approach vs map approach (devlist) - both get and put operations.
+                // TUPLE_UPSERT vs TUPLE_UPSERT_SCHEMALESS
+                var table = readTable(unpacker);
+                var tuple = readTuple(unpacker, table);
+
+                table.upsert(tuple);
+
+                break;
+            }
+
+            case ClientOp.TUPLE_UPSERT_SCHEMALESS: {
+                var table = readTable(unpacker);
+                var tuple = readTupleSchemaless(unpacker, table);
+
+                table.upsert(tuple);
+
+                break;
+            }
+
+            case ClientOp.TUPLE_GET: {
+                var table = readTable(unpacker);
+                var keyTuple = readTuple(unpacker, table);
+
+                // TODO: getAsync
+                Tuple tuple = table.get(keyTuple);
+                writeTuple(packer, tuple);
+
+                break;
+            }
+
+            default:
+                throw new IgniteException("Unexpected operation code: " + opCode);
         }
     }
 
