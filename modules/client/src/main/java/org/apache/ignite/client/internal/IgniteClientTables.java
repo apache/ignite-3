@@ -39,7 +39,12 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        throw new UnsupportedOperationException();
+        return ch.service(ClientOp.TABLE_CREATE, w -> {
+            // TODO: other settings
+            w.out().packMapHeader(1);
+            w.out().packString("name");
+            w.out().packString(name);
+        }, r -> new ClientTable(ch, r.in().unpackUuid(), name));
     }
 
     /** {@inheritDoc} */
