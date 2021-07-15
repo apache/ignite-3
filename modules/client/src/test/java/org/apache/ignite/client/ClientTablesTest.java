@@ -29,6 +29,7 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ClientTablesTest extends AbstractClientTest {
     @Test
@@ -72,7 +73,7 @@ public class ClientTablesTest extends AbstractClientTest {
         var ex = assertThrows(IgniteClientException.class,
                 () -> client.tables().createTable(DEFAULT_TABLE, consumer));
 
-        assertEquals(FakeIgniteTables.TABLE_EXISTS, ex.getMessage());
+        assertTrue(ex.getMessage().endsWith(FakeIgniteTables.TABLE_EXISTS));
 
         var serverTables = server.tables().tables();
         assertEquals(1, serverTables.size());

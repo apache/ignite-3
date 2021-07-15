@@ -25,7 +25,7 @@ public abstract class AbstractClientTest {
 
     @BeforeAll
     public static void beforeAll() throws Exception {
-        serverFuture = startServer();
+        serverFuture = startServer(null);
         client = startClient();
     }
 
@@ -42,13 +42,16 @@ public abstract class AbstractClientTest {
             server.tables().dropTable(t.tableName());
     }
 
-    protected static Ignite startClient() {
-        var builder = IgniteClient.builder().addresses("127.0.0.2:10800");
+    public static Ignite startClient(String... addrs) {
+        if (addrs == null || addrs.length == 0)
+            addrs = new String[]{"127.0.0.2:10800"};
+
+        var builder = IgniteClient.builder().addresses(addrs);
 
         return builder.build();
     }
 
-    protected static ChannelFuture startServer() throws InterruptedException {
+    public static ChannelFuture startServer(String host) throws InterruptedException {
         var registry = new ConfigurationRegistry(
                 Collections.singletonList(ClientConnectorConfiguration.KEY),
                 Collections.emptyMap(),
