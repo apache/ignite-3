@@ -523,7 +523,7 @@ final class ReliableChannel implements AutoCloseable {
     private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function,
                                         int attemptsLimit,
                                         Consumer<Integer> attemptsCallback) {
-        IgniteClientConnectionException failure = null;
+        RuntimeException failure = null;
 
         for (int attempt = 0; attempt < attemptsLimit; attempt++) {
             ClientChannelHolder hld = null;
@@ -549,7 +549,7 @@ final class ReliableChannel implements AutoCloseable {
                     return function.apply(c);
                 }
             }
-            catch (IgniteClientConnectionException e) {
+            catch (RuntimeException e) {
                 if (failure == null)
                     failure = e;
                 else
@@ -559,7 +559,10 @@ final class ReliableChannel implements AutoCloseable {
             }
         }
 
-        throw failure;
+        if (failure != null)
+            throw failure;
+
+        throw new IgniteClientException("Failed to connect");
     }
 
     /**
