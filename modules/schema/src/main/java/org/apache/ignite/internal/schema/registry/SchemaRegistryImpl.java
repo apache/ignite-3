@@ -114,8 +114,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (curSchema.version() == rowSchema.version())
             return new Row(rowSchema, row);
 
-        assert curSchema.version() >= rowSchema.version();
-
         ColumnMapper mapping = resolveMapping(rowSchema, curSchema);
 
         return new UpgradingRowAdapter(curSchema, row, mapping);
@@ -126,7 +124,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param curSchema Target schema.
      * @return Column mapper for target schema.
      */
-    public ColumnMapper resolveMapping(SchemaDescriptor rowSchema, SchemaDescriptor curSchema) {
+    private ColumnMapper resolveMapping(SchemaDescriptor rowSchema, SchemaDescriptor curSchema) {
+        assert curSchema.version() > rowSchema.version();
+
         if (curSchema.version() == rowSchema.version() + 1)
             return curSchema.columnMapping();
 
@@ -181,6 +181,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         if (ver >= lastVer || ver <= 0 || schemaCache.keySet().first() < ver)
             throw new SchemaRegistryException("Incorrect schema version to clean up to: " + ver);
 
-        schemaCache.remove(ver);
+        if (schemaCache.remove(ver) != null)
+            mappingCache.keySet().stream().filter(k -> (k & 0xFFFFFFFF) == ver).forEach(mappingCache::remove);
     }
 }

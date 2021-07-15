@@ -53,6 +53,7 @@ public class ColumnMapping {
     public static ColumnMapper mergeMapping(ColumnMapper mapping, SchemaDescriptor schema) {
         if (mapping == identityMapping())
             return schema.columnMapping();
+
         else if (schema.columnMapping() == identityMapping())
             return mapping;
 
