@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * This exception is thrown when lock cannot be acquired due to conflict.
+ * This exception is thrown when a lock cannot be acquired due to conflict.
  */
 public class LockException extends IgniteInternalCheckedException {
     /**
@@ -34,6 +34,6 @@ public class LockException extends IgniteInternalCheckedException {
      * @param waiter Conflicting waiter.
      */
     public LockException(Waiter waiter) {
-        super("Lock can't be taken because of the conflict with " + waiter);
+        super("Failed to acquire a lock due to a conflict with: " + waiter);
     }
 }
