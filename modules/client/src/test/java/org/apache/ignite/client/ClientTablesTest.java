@@ -25,6 +25,7 @@ import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,10 +71,11 @@ public class ClientTablesTest extends AbstractClientTest {
         Consumer<TableChange> consumer = t -> t.changeReplicas(2);
         client.tables().createTable(DEFAULT_TABLE, consumer);
 
-        var ex = assertThrows(IgniteClientException.class,
+        var ex = assertThrows(CompletionException.class,
                 () -> client.tables().createTable(DEFAULT_TABLE, consumer));
 
         assertTrue(ex.getMessage().endsWith(FakeIgniteTables.TABLE_EXISTS));
+        assertEquals(IgniteClientException.class, ex.getCause().getClass());
 
         var serverTables = server.tables().tables();
         assertEquals(1, serverTables.size());
