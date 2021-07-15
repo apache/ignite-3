@@ -182,6 +182,7 @@ public class TestCluster {
             final NodeOptions nodeOptions = new NodeOptions();
 
             nodeOptions.setServerName(listenAddr.toString());
+            nodeOptions.setStripes(1);
 
             nodeOptions.setCommonExecutor(JRaftUtils.createCommonExecutor(nodeOptions));
             nodeOptions.setStripedExecutor(JRaftUtils.createAppendEntriesExecutor(nodeOptions));
