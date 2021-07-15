@@ -38,8 +38,9 @@ public class ClientMessagePackerUnpackerTest {
     private void testUUID(UUID u) throws IOException {
         var packer = new ClientMessagePacker();
         packer.packUuid(u);
+        byte[] data = packer.toByteArray();
 
-        var unpacker = new ClientMessageUnpacker(new ArrayBufferInput(packer.toByteArray()));
+        var unpacker = new ClientMessageUnpacker(new ArrayBufferInput(data));
         var res = unpacker.unpackUuid();
 
         assertEquals(u, res);
