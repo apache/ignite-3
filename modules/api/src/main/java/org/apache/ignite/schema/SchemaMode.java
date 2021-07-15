@@ -15,24 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+package org.apache.ignite.schema;
 
 /**
- * The exception notifies a listener when the listener was removed from queue and never receive a notification again.
+ * Schema mode.
+ *
+ * Defines the way inserting data will be validated against the schema and schema evolution capabilities.
  */
-public class ListenerRemovedException extends IgniteInternalCheckedException {
-    /**
-     * Default constructor.
-     */
-    public ListenerRemovedException() {
-    }
+public enum SchemaMode {
+    /** Normal mode offers strong validation for the inserting data. Explicit schema changes only are allowed. */
+    STRICT_SCHEMA,
 
-    /**
-     * @param cause The exception that was a cause which a listener is removed.
-     */
-    public ListenerRemovedException(IgniteInternalCheckedException cause) {
-        super(cause);
-    }
+    /** Extended mode that allows the schema to be fit the inserting data automatically. Only safe implicit schema changes are allowed, e.g. adding extra columns and widening column type. Changes like column removal or narrowing column type won't be applied implicitly. */
+    LIVE_SCHEMA
 }
