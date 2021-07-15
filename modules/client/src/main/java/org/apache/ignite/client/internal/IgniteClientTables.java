@@ -40,6 +40,7 @@ public class IgniteClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override public Table createTable(String name, Consumer<TableChange> tableInitChange) {
+        // TODO: Unwrap exceptions for sync methods?
         return createTableAsync(name, tableInitChange).join();
     }
 

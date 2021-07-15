@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.internal;
 
+import org.apache.ignite.client.ClientOp;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueBinaryView;
@@ -86,12 +87,17 @@ public class ClientTable implements Table {
 
     @Override
     public Tuple get(@NotNull Tuple keyRec) {
-        return null;
+        return getAsync(keyRec).join();
     }
 
     @Override
     public @NotNull CompletableFuture<Tuple> getAsync(@NotNull Tuple keyRec) {
-        return null;
+        // TODO: Implement shared logic for tuple serialization and schema handling.
+        return ch.serviceAsync(ClientOp.TUPLE_GET, w -> {
+
+        }, r -> {
+            return null;
+        });
     }
 
     @Override
