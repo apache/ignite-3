@@ -110,7 +110,7 @@ public class StripedDisruptor<T extends GroupAware> {
         eventHandlers.get(getStripe(group)).unsubscribe(group);
         exceptionHandlers.get(getStripe(group)).unsubscribe(group);
 
-        LOG.info("Consumer subscribed [poolName={}, group={}]", name, group);
+        LOG.info("Consumer unsubscribe [poolName={}, group={}]", name, group);
     }
 
     private int getStripe(String group) {

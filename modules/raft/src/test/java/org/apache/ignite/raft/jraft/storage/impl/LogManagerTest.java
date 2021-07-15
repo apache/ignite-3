@@ -92,7 +92,7 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setLogManagerDisruptor(new StripedDisruptor<>("TestLogManagerDisruptor",
             1024,
             () -> new LogManagerImpl.StableClosureEvent(),
-            Utils.cpus() * 2));
+            1));
         assertTrue(this.logManager.init(opts));
     }
 

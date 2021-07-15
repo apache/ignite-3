@@ -113,7 +113,7 @@ class ITJRaftCounterServerTest extends RaftServerAbstractTest {
     /**
      * Servers list.
      */
-    protected final List<JRaftServerImpl> servers = new ArrayList<>();
+    private final List<JRaftServerImpl> servers = new ArrayList<>();
 
     /**
      * Clients list.

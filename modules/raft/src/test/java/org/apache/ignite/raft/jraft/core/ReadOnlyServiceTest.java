@@ -77,7 +77,7 @@ public class ReadOnlyServiceTest {
         opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
             1024,
             () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-            Utils.cpus() * 2));
+            1));
         NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setCommonExecutor(JRaftUtils.createExecutor("test-executor", Utils.cpus()));
         nodeOptions.setClientExecutor(JRaftUtils.createClientExecutor(nodeOptions, "unittest"));
