@@ -56,7 +56,7 @@ public class ClientTable implements Table {
         this.name = name;
     }
 
-    public UUID id() {
+    public UUID tableId() {
         return id;
     }
 

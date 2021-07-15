@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.client.internal.ClientTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,7 @@ public class ClientTablesTest extends AbstractClientTest {
 
         var serverTable = serverTables.get(0);
         assertEquals("t1", serverTable.tableName());
-        assertEquals(((TableImpl) serverTable).tableId(), ((TableImpl) clientTable).tableId());
+        assertEquals(((TableImpl) serverTable).tableId(), ((ClientTable) clientTable).tableId());
     }
 
     @Test

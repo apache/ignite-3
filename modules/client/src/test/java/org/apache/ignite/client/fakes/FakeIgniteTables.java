@@ -42,7 +42,7 @@ public class FakeIgniteTables implements IgniteTables {
         if (oldTable != null)
             throw new IgniteException("Table exists");
 
-        return null;
+        return newTable;
     }
 
     @Override public void alterTable(String name, Consumer<TableChange> tableChange) {
