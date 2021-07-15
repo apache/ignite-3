@@ -63,7 +63,7 @@ public class OrderedMap<V> {
      * Same as {@link Map#get(Object)}.
      *
      * @param key Key to search.
-     * @return Value assiciated with the key or {@code null} is it's not found.
+     * @return Value associated with the key or {@code null} is it's not found.
      */
     public V get(String key) {
         return map.get(key);
@@ -73,7 +73,7 @@ public class OrderedMap<V> {
      * Same as {@link Map#remove(Object)}.
      *
      * @param key Key to remove.
-     * @return Provious value assiciated with the key or {@code null} if map had no such key.
+     * @return Previous value associated with the key or {@code null} if the map had no such key.
      */
     public V remove(String key) {
         if (map.containsKey(key))
@@ -83,7 +83,7 @@ public class OrderedMap<V> {
     }
 
     /**
-     * Put value to the map. Key will be the last if it didn't exist in map before. If key did exist then the same
+     * Inserts a value into the map under the specified key. If the key was not present in the map, it will be ordered last.
      * ordering index will be used.
      *
      * @param key Key to put.
@@ -97,13 +97,13 @@ public class OrderedMap<V> {
     }
 
     /**
-     * Put value to the map.
+     * Inserts a value into the map under the specified key. The key will be positioned at the given index, shifting any existing values at that position to the right. 
      *
      * @param idx Ordering index for the key. Treated as {@code 0} if negative. Treated as last index if out of bounds.
      * @param key Key to put.
      * @param value Value associated with the key.
      *
-     * @throws IllegalArgumentException If key already exists in the map.
+     * @throws IllegalArgumentException If the key is already present in the map.
      */
     public void putByIndex(int idx, String key, V value) {
         if (map.containsKey(key))
@@ -136,7 +136,8 @@ public class OrderedMap<V> {
     }
 
     /**
-     * Put value associated with key {@code oldKey} updaer a new key {@code newKey}. Do nothing if {@code oldKey}
+     * Re-associates the value under the {@code oldKey} to the {@code newKey}. Does nothing if the {@code oldKey}
+     * is not present in the map.
      * was missing from the map.
      *
      * @param oldKey Old key.

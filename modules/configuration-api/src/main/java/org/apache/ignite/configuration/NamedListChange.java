@@ -22,37 +22,37 @@ import java.util.function.Consumer;
 /** */
 public interface NamedListChange<Change> extends NamedListView<Change> {
     /**
-     * Create new value in named list configuration.
+     * Creates a new value in the named list configuration.
      *
      * @param key Key for the value to be created.
      * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
      *      passed to the closure, must not be reused anywhere else.
      * @return {@code this} for chaining.
      *
-     * @throws NullPointerException If one of parameters is null.
-     * @throws IllegalArgumentException If element with given name already exists.
+     * @throws NullPointerException If one of the parameters is null.
+     * @throws IllegalArgumentException If an element with the given name already exists.
      */
     NamedListChange<Change> create(String key, Consumer<Change> valConsumer);
 
     /**
-     * Create new value in named list configuration.
+     * Creates a new value in the named list configuration.
      *
-     * @param index Elements insertion index.
+     * @param index Index of the inserted element.
      * @param key Key for the value to be created.
-     * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
+     * @param valConsumer Closure to modify the value associated with the key. Closure parameter must not be leaked outside the scope of the closure.
      *      passed to the closure, must not be reused anywhere else.
      * @return {@code this} for chaining.
      *
-     * @throws NullPointerException If one of parameters is null.
+     * @throws NullPointerException If one of the parameters is null.
      * @throws IndexOutOfBoundsException If index cannot be used for new element insertion.
-     * @throws IllegalArgumentException If element with given name already exists.
+     * @throws IllegalArgumentException If an element with the given name already exists.
      */
     NamedListChange<Change> create(int index, String key, Consumer<Change> valConsumer);
 
     /**
      * Create new value in named list configuration.
      *
-     * @param base Name of th preceeding element.
+     * @param base Name of the preceding element.
      * @param key Key for the value to be created.
      * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},
      *      passed to the closure, must not be reused anywhere else.
@@ -65,7 +65,7 @@ public interface NamedListChange<Change> extends NamedListView<Change> {
     NamedListChange<Change> createAfter(String base, String key, Consumer<Change> valConsumer);
 
     /**
-     * Update the value in named list configuration. Create if it doesn't exist yet.
+     * Updates a value in the named list configuration. If the value cannot be found, creates a new one instead.
      *
      * @param key Key for the value to be updated.
      * @param valConsumer Closure to modify value associated with the key. Object of type {@code T},

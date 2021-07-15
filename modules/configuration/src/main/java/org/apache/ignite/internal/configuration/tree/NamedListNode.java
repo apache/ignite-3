@@ -27,7 +27,7 @@ import org.apache.ignite.internal.configuration.util.OrderedMap;
 
 /** */
 public final class NamedListNode<N extends InnerNode> implements NamedListChange<N>, TraversableTreeNode, ConstructableTreeNode {
-    /** Name of synthetic configuration property that describes order of elements in named list. */
+    /** Name of a synthetic configuration property that describes the order of elements in a named list. */
     public static final String ORDER_IDX = "<idx>";
 
     /** */
