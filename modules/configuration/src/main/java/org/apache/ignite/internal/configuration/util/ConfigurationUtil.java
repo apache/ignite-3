@@ -262,7 +262,7 @@ public class ConfigurationUtil {
 
                     assert val == null || val instanceof Map || val instanceof Serializable;
 
-                    // Ordering indexes must be skipped here bacause they make no sense in this context.
+                    // Ordering of indexes must be skipped here because they make no sense in this context.
                     if (key.equals(NamedListNode.ORDER_IDX))
                         continue;
 
