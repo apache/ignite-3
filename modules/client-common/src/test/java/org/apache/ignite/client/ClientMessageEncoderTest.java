@@ -38,6 +38,9 @@ public class ClientMessageEncoderTest {
 
         byte[] res2 = encode(new byte[]{7, 8, 9}, encoder);
         assertArrayEquals(new byte[]{3, 7, 8, 9}, res2);
+
+        byte[] res3 = encode(new byte[0], encoder);
+        assertArrayEquals(new byte[]{0}, res3);
     }
 
     private byte[] encode(byte[] array, ClientMessageEncoder encoder) {
